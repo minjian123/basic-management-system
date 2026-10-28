@@ -50,7 +50,7 @@
 | 项 | 口径 |
 | --- | --- |
 | 通用性 | 规则本体只认「配置给的标识清单」与「配置给的路径面」，不内置任何仓名 / 产品名 / 目录名 |
-| 插件形态 | 独立模块 `product_literals.py` + CLI 子命令 `product-literals`，与 `docs-scope` 平级 |
+| 插件形态 | 实现模块 `base/product_literals.py` + CLI 子命令 `engkit base product-literals`，与 `bare-collections` 等 `[rules.*]` 校验器同一挂载方式（复用 `require()` 缺段退 2 与 `--self-test` / `--update-baseline` 既有参数） |
 | 适用仓 | 任何“平台类”仓（声明 `[rules.product_literals]` 且 `enabled = true` 即启用）；**本期只服务平台仓**，产品仓不声明即不生效 |
 
 ### 3.2 配置字段 <a id="config"></a>
@@ -87,7 +87,7 @@ exclude_globs = [
   "frontend/apps/desktop/public/modules.json",
 ]
 # 标识清单（各仓自声明；不写进规则代码）
-literals = ["mdm", "biz", "cw"]
+literals = ["mdm"]
 # 注释与 docstring 是否计入（决策 1：计入）
 include_comments = true
 # 组合形态后缀：标识紧邻这些字符仍算违规（`mdm_` / `mdm.` / `mdm:` / `mdm-`）
@@ -128,7 +128,7 @@ exempt_marker = "product-literal:allow:"
 
 **匹配口径细化**：
 
-1. **词边界**：左边界必为“非标识符字符或行首”，右边界为“非标识符字符或行尾”**或 `combine_suffixes` 中的字符**；大小写不敏感（注释里常写 `Mdm` / `MDM`，同属该标识）。
+1. **词边界**：左边界必为“非标识符字符或行首”，右边界为“非标识符字符或行尾”**或 `combine_suffixes` 中的字符**；**区分大小写**（产品键在代码中恒小写；不区分大小写会把地图坐标串里的 `Cw` 判成产品标识，实测 `frontend/packages/ui_ep/src/assets/maps/china.ts`）。
 2. **为什么组合形态也算违规**：本次漂移正是“服务键变了、表前缀 / 事件域 / 权限码跟着变”，只拦裸标识会漏掉 `mdm_`、`mdm.`、`mdm:` 三种最常见的引用形态。
 3. **注释与 docstring 的实现口径**（决策 1）：Python 走 `tokenize` + `ast`——`COMMENT` token 与“模块 / 类 / 函数 docstring 区间的字符串 token”记为注表面，其余字符串字面量属代码面；TypeScript / Vue 走状态机剥离 `//` 行注释与 `/* … */` 块注释（字符串内的引号不当作注释起始）。**解析失败**（语法错误 / 模板片段）时退化为全文扫描，并在输出的该文件行尾标注 `（降级：全文扫描）`。
 4. **为什么允许面含文档**：登记清单与架构节点**必须**写产品名（否则无法表达），护栏只约束代码与种子；文档口径另有 `docs-scope`。
@@ -192,7 +192,7 @@ flowchart TD
 ### 3.5 CLI 与退出码 <a id="cli"></a>
 
 ```
-engkit product-literals [--self-test] [--update-baseline] [--baseline-ref REF] [--quiet]
+engkit base product-literals [--self-test] [--update-baseline] [--baseline-ref REF] [--json]
 ```
 
 | 参数 | 语义 |
@@ -200,7 +200,9 @@ engkit product-literals [--self-test] [--update-baseline] [--baseline-ref REF] [
 | `--self-test` | 跑内置夹具（临时目录，不依赖仓内文件） |
 | `--update-baseline` | 重算并写回基线（受控动作，输出新增 / 移除差异） |
 | `--baseline-ref` | 只减不增断言的比较基准；预检步骤传 `origin/main` |
-| `--quiet` | 仅输出汇总行（供预检步骤降噪） |
+| `--json` | 以 JSON 输出结果（沿用校验器既有参数，供 CI / 工具消费） |
+
+> 输出文案沿用校验器惯用前缀 `[check_product_literals]`，不另设 `--quiet`（预检侧只跑一条步骤，输出本就只有汇总行与命中行）。
 
 | 退出码 | 含义 |
 | --- | --- |
@@ -236,17 +238,18 @@ engkit product-literals [--self-test] [--update-baseline] [--baseline-ref REF] [
 
 | # | 仓 | 交付物 | 类型 |
 | --- | --- | --- | --- |
-| 1 | engkit | `src/engkit/product_literals.py`（规则 + 自测 + 基线读写） | 新增 |
+| 1 | engkit | `src/engkit/base/product_literals.py`（规则 + 自测 + 基线读写） | 新增 |
 | 2 | engkit | `src/engkit/config.py`：`[rules.product_literals]` 段解析 + 严格键校验 | 修改 |
-| 3 | engkit | `src/engkit/cli.py`：注册 `product-literals` 与三个参数 | 修改 |
+| 3 | engkit | `src/engkit/cli.py`：`base` 子命令表登记 `product-literals` 与 `--baseline-ref`，分派到规则模块 | 修改 |
 | 4 | engkit | `engkit文档/概述/工程化工具包说明.md`「配置字段全表」补节 + 文档首页导航 | 文档 |
 | 5 | engkit | `tests/` 侧补充（若既有测试组织需要独立用例文件，则复用自测夹具） | 测试 |
 | 6 | bms | `engkit.toml`：`[rules.product_literals]` 段 + `[[preflight.steps]]` + `[[preflight.self_tests]]` | 修改 |
+| 6b | bms | `scripts/tools/base_check/check_product_literals.py`（薄包装：参数转发 + 退出码透传） | 新增 |
 | 7 | bms | `deploy/boundaries/product_literals_baseline.json`（首版基线） | 新增 |
 | 8 | bms | `.gitlab-ci.yml`：`base-integrity` 作业增加规则与自测两行 | 修改 |
 | 9 | bms | 需求 `04-1` 第 2 条措辞回写（注释口径，见 §9） | 文档 |
 | 10 | bms | 本任务实施记录、测试记录、测试记录中的 Kiwi 编号 | 文档 |
-| 11 | bms | 计划表进度回写（状态 / 工时 / 完成日期） | 文档 |
+| 11 | bms | 计划表进度回写（状态 / 完成日期等，唯一落点见计划表） | 文档 |
 
 ## 5. 测试设计与验收映射 <a id="test"></a>
 
@@ -275,7 +278,7 @@ engkit product-literals [--self-test] [--update-baseline] [--baseline-ref REF] [
 | 19 | 降级路径 | Python 语法错误文件退化为全文扫描并在输出标注 |
 | 20 | 性能 | bms 全量扫描在预检秒级档内完成（预算内） |
 
-> 用例编号以 Kiwi 平台自增主键为准：**先登记取得编号**，再在测试记录回填（《AI开发规范》第 5 节「编号对齐」）。
+> 用例编号以 Kiwi 平台自增主键为准：**先登记取得编号**，再在测试记录回填（见《AI开发规范》「编号对齐」）。
 
 ### 5.2 验收映射 <a id="accept-map"></a>
 
@@ -303,14 +306,15 @@ engkit product-literals [--self-test] [--update-baseline] [--baseline-ref REF] [
 | # | 事项 | 结论 | 影响 |
 | --- | --- | --- | --- |
 | 1 | 注释 / docstring 是否计入 | **计入**，独立开关 `include_comments`（缺省 true） | 基线条目约 +80；注释口径漂移同时被拦 |
-| 2 | 标识清单来源 | **配置静态清单** `mdm` / `biz` / `cw`（一次配齐） | 新产品接入只需加一行；接入流程需回写 |
+| 2 | 标识清单来源 | **配置静态清单**；**本期只配 `mdm`**（`biz` / `cw` 与 `biz_type` / `biz_id` / `biz_error` 等通用命名撞车，实测 164 处泛化命中），随产品真正接入时再登记 | 新产品接入只需加一行；避免基线被噪音稀释 |
 | 3 | 能力名等契约级标识放行 | **路径白名单**（`allow_globs` 含 `capabilities.py`） | 与 `03_01` 决策一致；不在代码里散落豁免 |
 | 4 | 基线落点与形态 | **`deploy/boundaries/product_literals_baseline.json`**，路径 + 内容指纹 + 计数 | 与既有基线同口径；行漂移不失效 |
 | 5 | 接入档位 | **预检 `--fast` 档 + CI `base-integrity` 作业** | 本地即可拦截；每次预检约 +1s |
 | 6 | 基线递减约束 | **机器断言只减不增**（`--baseline-ref` 与 ref 条目比较） | 规则不能被悄悄放宽；新增需人工确认 |
 | 7 | 扫描面 | **前后端源码**，排除生成物（`exclude_globs`） | 覆盖真实人工维护面，噪音可控 |
-| 8 | 子命令与产品仓用法 | **`product-literals`**；本期只服务平台仓 | 与 `docs-scope` 风格一致；反向护栏留开放项 |
+| 8 | 子命令与产品仓用法 | **`engkit base product-literals`**（挂 `base` 下，与 `[rules.*]` 校验器同一约定）；本期只服务平台仓 | 与 `bare-collections` 等一致；反向护栏留开放项 |
 | 9 | 配置段位置（对齐既有约定，不单独拍板） | `[rules.product_literals]`（原稿为顶层 `[product_literals]`） | 校验器类规则统一落 `[rules.*]`，与 `[rules.bare_collections]` 等一致 |
+| 10 | 匹配大小写 | **区分大小写**（实施首轮按基线误报调整） | 产品键恒小写；避免数据串（地图坐标等）误报 |
 
 ## 8. 开放项 <a id="open"></a>
 
@@ -330,6 +334,11 @@ engkit product-literals [--self-test] [--update-baseline] [--baseline-ref REF] [
 | 4 | 原稿未区分「允许面」与「排除面」，生成物无处安放 | 新增 `exclude_globs`；`china.ts` 误报样本同时验证词边界口径 |
 | 5 | 计划表备注「能力名列为契约级允许位置（`03_01` 决策）」 | 落为 `allow_globs` 路径白名单（决策 3），不散落行内豁免 |
 | 6 | 与 `04_02` 的边界：注册表一致性 / 清单对账 | 本任务只做标识护栏；`04_02` 负责拉取产品仓清单并校验一致性（其详细设计另行落定） |
-| 7 | 估工 | 维持 8h：规则本体 + 配置 + 首版基线 + 预检 / CI 接入 + 文档与记录 |
+| 7 | 估工 | 与计划表登记值一致（规则本体 + 配置 + 首版基线 + 预检 / CI 接入 + 文档与记录） |
+| 8 | 命令挂载：设计初稿为顶层 `engkit product-literals`（与 `docs-scope` 平级） | 实施时确认改为 `engkit base product-literals`（决策 8 已同步回写）：配置落 `[rules.product_literals]`，与既有校验器复用同一套 `require()` / `--self-test` / `--update-baseline` 约定；§3.1 / §3.5 / §4 交付物已随之更新 |
+| 9 | 标识清单臂 `biz` / `cw` 与通用命名撞车（实测 164 处 `biz_type` / `biz_id` / `biz_error` 等） | 决策 2 改为**本期只配 `mdm`**；`biz` / `cw` 随产品接入登记（接入流程已要求登记 `literals`） |
+| 10 | 大小写不敏感导致数据串误报（`china.ts` 的 `Cw`） | 决策 10 改为**区分大小写**；产品键在代码中恒小写 |
+| 11 | 首版基线实测 | 149 条（110 个文件：`backend/libs` 68 / `frontend/apps` 33 / `backend/services` 22 / `frontend/packages` 21 / `backend/ops` 5）；生成物（`api_types` / `releases` / `modules.json`）零命中，排除面生效 |
+| 12 | bms 侧接入方式补全 | 按既有口径新增**薄包装** `scripts/tools/base_check/check_product_literals.py`（只转发参数与退出码），预检步骤与 CI 均调它，不在配置里直接写 `engkit` 命令 |
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》与《[任务文档规范](../../../../../../规范/任务文档规范.md)》编写
