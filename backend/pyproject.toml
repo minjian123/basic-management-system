@@ -40,7 +40,8 @@ default = true
 # 与 bms 平级并置的 engkit 克隆即唯一来源，改工具包代码即时生效，无需推送与改 rev。
 # 注意：包提供 ruff / pyright 版本与 engkit 命令；**规则基线另需平级克隆**（同一目录，
 # `extend = "../../engkit/toolchain/ruff-base.toml"` 读文件路径）。
-# CI：后端 job 先经 `scripts/tools/ci/engkit_setup.sh` 克隆到 `../engkit`（ref 由 `ENGKIT_REV` 锁定）。
+# CI：后端 job 先经 `scripts/tools/ci/engkit_setup.sh` 克隆到 `../engkit`（缺省跟随 engkit main 头，
+# 需要钉版本时给 `ENGKIT_REV` 分支 / tag / SHA）。
 # 镜像：运行镜像 `--no-dev` 不装本依赖（dev 组），故无需把 engkit 源码带入镜像。
 engkit = { path = "../../engkit", editable = true }
 

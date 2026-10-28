@@ -259,8 +259,8 @@ base-integrity:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
     # engkit 接入（13_05 / 13_07）：基础校验脚本是薄包装，且 ruff 规则基线已外置到 engkit 仓，
-    # 故需按锁定 SHA 克隆工具包。克隆步统一由片段脚本提供（`ENGKIT_REV` 缺省值、克隆地址口径、
-    # `ENGKIT_HOME` 导出都在该文件一处维护；升级只改那里 + 各仓 pyproject 的 rev）。
+    # 故需先克隆工具包（缺省跟随 engkit main 头，升级零维护；需要钉版本时给 `ENGKIT_REV` 分支 / tag / SHA）。
+    # 克隆步统一由片段脚本提供（克隆地址口径、`ENGKIT_HOME` 导出都在该文件一处维护）。
     - . scripts/tools/ci/engkit_setup.sh
     - python scripts/tools/base_check/check_base.py
     # 系统字段 form_key：构建期清单 ↔ 表文件双向一致 + 跨表全局唯一（02_11）
