@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _SCRIPT = _REPO_ROOT / "scripts" / "tools" / "deploy" / "release.py"
@@ -18,6 +18,23 @@ _spec = importlib.util.spec_from_file_location("release_cli", _SCRIPT)
 assert _spec is not None and _spec.loader is not None
 release = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(release)
+
+
+def _noop(*args: Any, **kwargs: Any) -> None:
+    """占位替换（吞掉参数）。"""
+    del args, kwargs
+
+
+def _fail_check(*args: Any, **kwargs: Any) -> int:
+    """对账恒失败（退出码 1）。"""
+    del args, kwargs
+    return 1
+
+
+def _ok_deploy(*args: Any, **kwargs: Any) -> bool:
+    """部署恒成功。"""
+    del args, kwargs
+    return True
 
 
 @pytest.mark.kiwi_id(2185)
@@ -102,3 +119,138 @@ def test_build_manifest_fields_and_placeholders() -> None:
     assert manifest["digest"] == "sha256:deadbeef"
     assert manifest["checklist"]["image_scan"] == "pass"
     assert "人工确认" in str(manifest["checklist"]["schema_drill"])
+
+
+@pytest.mark.kiwi_id(2185)
+def test_gateway_check_args_and_volumes(tmp_path: Path) -> None:
+    """注册表对账：容器内命令走 `--from-registry` + 只读根挂载（不向宿主传库凭据）。"""
+    assert list(release.gateway_check_args()) == [
+        "python",
+        "-m",
+        "ops.gateway_config",
+        "check",
+        "--from-registry",
+        "--root",
+        release.GATEWAY_CHECK_ROOT,
+    ]
+    assert list(release.gateway_check_volumes(tmp_path)) == [
+        f"{tmp_path.resolve()}:{release.GATEWAY_CHECK_ROOT}/deploy:ro"
+    ]
+
+
+@pytest.mark.kiwi_id(2185)
+def test_cmd_gateway_check_requires_platform_tag(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """对账缺 platform 标签：退出码 2 且提示补标签（不猜版本）。"""
+    assert release.cmd_gateway_check(tmp_path, ConcurrentStableDict({})) == 2
+    assert "需 platform 镜像标签" in capsys.readouterr().err
+
+
+@pytest.mark.kiwi_id(2185)
+def test_cmd_gateway_check_passes_and_reports_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """对账透出容器退出码：0 报通过；非 0 报漂移与重生成指引。"""
+    seen: ConcurrentStableList[Any] = ConcurrentStableList()
+
+    def _run(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, command: Any, **kwargs: Any) -> int:
+        seen.add((service, list(command), dict(kwargs)))
+        return 0
+
+    monkeypatch.setattr(release, "_compose_run", _run)
+    env: ConcurrentStableDict[str, str] = ConcurrentStableDict({"BMS_TAG_PLATFORM": "abc1234"})
+    assert release.cmd_gateway_check(tmp_path, env) == 0
+    assert "对账通过" in capsys.readouterr().out
+    assert seen[0][0] == release.GATEWAY_CHECK_IMAGE
+    assert seen[0][2]["raise_on_error"] is False
+
+    monkeypatch.setattr(release, "_compose_run", _fail_check)
+    assert release.cmd_gateway_check(tmp_path, env) == 1
+    assert "对账未通过" in capsys.readouterr().err
+
+
+@pytest.mark.kiwi_id(2185)
+def test_cmd_deploy_aborts_when_gateway_check_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """对账失败即中止部署：不起任何容器，发布日志记 failure。"""
+    monkeypatch.setattr(release, "_ensure_registry_login", _noop)
+    monkeypatch.setattr(release, "cmd_gateway_check", _fail_check)
+    deployed: ConcurrentStableList[Any] = ConcurrentStableList()
+
+    def _deploy(*args: Any, **kwargs: Any) -> bool:
+        """记录被调用的部署（不应发生）。"""
+        del kwargs
+        deployed.add(args)
+        return True
+
+    monkeypatch.setattr(release, "_deploy_one", _deploy)
+
+    code = release.cmd_deploy(
+        tmp_path,
+        ConcurrentStableDict({"BMS_TAG_PLATFORM": "abc1234"}),
+        services=ConcurrentStableList(["platform"]),
+        tag="v0.2.0",
+        actor="tester",
+    )
+    assert code == 1
+    assert list(deployed) == []
+    assert "中止部署" in capsys.readouterr().err
+    log = (tmp_path / "releases" / "release-log.jsonl").read_text(encoding="utf-8")
+    assert '"action": "gateway-check"' in log
+    assert '"result": "failure"' in log
+
+
+@pytest.mark.kiwi_id(2185)
+def test_cmd_deploy_skip_gateway_check_is_logged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--skip-gateway-check`：不调对账、照常部署，日志记 skipped（留痕不静默）。"""
+
+    def _no_check(*args: Any, **kwargs: Any) -> int:
+        raise AssertionError("跳过对账时不应调用 cmd_gateway_check")
+
+    monkeypatch.setattr(release, "_ensure_registry_login", _noop)
+    monkeypatch.setattr(release, "cmd_gateway_check", _no_check)
+    monkeypatch.setattr(release, "_deploy_one", _ok_deploy)
+
+    code = release.cmd_deploy(
+        tmp_path,
+        ConcurrentStableDict({"BMS_TAG_PLATFORM": "abc1234"}),
+        services=ConcurrentStableList(["platform"]),
+        tag="v0.2.0",
+        actor="tester",
+        skip_gateway_check=True,
+    )
+    assert code == 0
+    assert "跳过注册表对账" in capsys.readouterr().out
+    log = (tmp_path / "releases" / "release-log.jsonl").read_text(encoding="utf-8")
+    assert '"result": "skipped"' in log
+
+
+@pytest.mark.kiwi_id(2185)
+def test_cmd_seed_propagates_business_exit_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """种子编排退出码原样透出（冲突 1 / 执行失败 2 / 前置错误 3），不吞成 0 或异常。"""
+    seen: ConcurrentStableList[Any] = ConcurrentStableList()
+
+    def _run(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, command: Any, **kwargs: Any) -> int:
+        seen.add((service, list(command), dict(kwargs)))
+        return 2
+
+    def _image(module: str) -> str:
+        """种子编排镜像（platform）。"""
+        del module
+        return "platform"
+
+    monkeypatch.setattr(release, "_run_image_of", _image)
+    monkeypatch.setattr(release, "_compose_run", _run)
+
+    code = release.cmd_seed(
+        tmp_path, ConcurrentStableDict({"BMS_TAG_PLATFORM": "abc1234"}), tenant="demo", dry_run=False, actor="tester"
+    )
+    assert code == 2
+    assert "退出码 2" in capsys.readouterr().err
+    assert seen[0][0] == "platform"
+    assert seen[0][1] == ["python", "-m", "ops.seed_platform", "--tenant", "demo"]
+    assert seen[0][2]["raise_on_error"] is False

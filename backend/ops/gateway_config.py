@@ -7,6 +7,11 @@
     uv run python -m ops.gateway_config check           # 零漂移校验（CI / 预检用）
     uv run python -m ops.gateway_config check --root .  # 指定仓库根
 
+两档取数（07B `02_06`）：缺省 `--from-manifest`（清单装载，CI 零依赖）；
+`--from-registry`（读平台库注册表 → 投影 → 渲染，部署态权威）——此时 `--url` 可省略，
+按配置解析平台库（与 `ops.check_modules` 同口径：`resolve_url(service="platform")`）。
+部署编排 `release.py gateway check` 即在 platform 镜像内以注册表模式跑本命令。
+
 `check` 同时校验**请求体上限三方一致**（04-1-2）：边缘 nginx 模板（变量化声明）↔ 网关编排缺省值
 ↔ APISIX 启动配置，且该值 ≥ 文件上传整包上限（`file.upload.max_size` = 20MB，超限走分片）。
 
@@ -233,6 +238,24 @@ def load_registries(root: Path) -> None:
         load_product_manifests(paths)
 
 
+def default_platform_url() -> str:
+    """按配置解析平台库连接串（`--from-registry` 未显式给 `--url` 时）。
+
+    与 `ops.check_modules` 同口径（`resolve_url(service="platform")`）：参数 > `BMS_MIGRATION_URL`
+    > 配置库键 `platform_platform`。惰性导入——清单模式（CI 精简镜像）不拉 SQLAlchemy 依赖链。
+
+    Returns:
+        str: 平台库连接串（含密码）。
+
+    Raises:
+        Exception: 配置缺项 / 库键不合法（由 `_load` 统一转成可读错误）。
+    """
+    from bms_core.db.keys import PLATFORM_SERVICE_KEY
+    from bms_core.tenant.seed.tenant import resolve_url
+
+    return resolve_url("", service=PLATFORM_SERVICE_KEY)
+
+
 def load_registries_from_db(url: str) -> ConcurrentStableList[str]:
     """从**注册表**装载（`--from-registry`，07B `02_06`）：读平台库注册表 → 投影进视图族。
 
@@ -285,15 +308,26 @@ def _load(root: Path, *, source: str, url: str) -> ConcurrentStableList[str]:
     Args:
         root: 仓库根。
         source: `manifest`（清单，CI 零依赖）或 `registry`（平台库注册表，部署态权威）。
-        url: 平台库连接串（`registry` 模式必填）。
+        url: 平台库连接串（`registry` 模式可省，省略时按配置解析）。
 
     Returns:
         ConcurrentStableList[str]: 错误明细（空表示成功）。
     """
     if source == "registry":
-        if not url:
-            return ConcurrentStableList(["--from-registry 需要 --url（平台库连接串）"])
-        return load_registries_from_db(url)
+        target = url
+        if not target:
+            try:
+                target = default_platform_url()
+            except Exception as exc:
+                return ConcurrentStableList(
+                    [
+                        f"--from-registry 未给 --url 且按配置解析平台库失败（{type(exc).__name__}: {exc}）："
+                        "请显式 --url，或用 --from-manifest 走清单模式"
+                    ]
+                )
+            if not target:
+                return ConcurrentStableList(["--from-registry 需要 --url（按配置解析得到空连接串）"])
+        return load_registries_from_db(target)
     load_registries(root)
     return ConcurrentStableList()
 
@@ -305,7 +339,7 @@ def render(root: Path, *, to_stdout: bool = False, source: str = "manifest", url
         root: 仓库根。
         to_stdout: 是否同时打印生成内容。
         source: 取数口径（`manifest` 清单 / `registry` 注册表）。
-        url: 平台库连接串（`registry` 模式必填）。
+        url: 平台库连接串（`registry` 模式可省，省略时按配置解析平台库）。
 
     Returns:
         int: 退出码（0 成功；1 装载失败）。
@@ -332,7 +366,7 @@ def check(root: Path, *, source: str = "manifest", url: str = "") -> int:
     Args:
         root: 仓库根。
         source: 取数口径（`manifest` 清单 / `registry` 注册表）。
-        url: 平台库连接串（`registry` 模式必填）。
+        url: 平台库连接串（`registry` 模式可省，省略时按配置解析平台库）。
 
     Returns:
         int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP / 请求体上限口径不一致）。
@@ -406,7 +440,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         const="manifest",
         help="从清单取数（缺省；CI 零依赖）",
     )
-    parser.add_argument("--url", default="", help="平台库连接串（--from-registry 时必填）")
+    parser.add_argument("--url", default="", help="平台库连接串（--from-registry 时可省：按配置解析平台库）")
     args = parser.parse_args(argv)
     if args.command == "render":
         return render(args.root, to_stdout=args.to_stdout, source=args.source, url=args.url)

@@ -7,8 +7,10 @@
 用法::
 
     python3 scripts/tools/deploy/release.py bootstrap [--env-file deploy/.env]
+    python3 scripts/tools/deploy/release.py gateway
     python3 scripts/tools/deploy/release.py deploy --service platform --tag v0.2.0
     python3 scripts/tools/deploy/release.py deploy --all --tag <sha 或 vX.Y.Z>
+    python3 scripts/tools/deploy/release.py deploy --all --tag <tag> --skip-gateway-check
     python3 scripts/tools/deploy/release.py rollback --service platform [--to <tag>]
     python3 scripts/tools/deploy/release.py status [--service platform]
     python3 scripts/tools/deploy/release.py health-gate --service platform
@@ -18,6 +20,9 @@
 
 - **不可变标签**：commit short SHA 主标签 + Git tag `vX.Y.Z` 追加语义化标签；禁 `latest`；版本台账
   `deploy/releases/<service>.json`（当前 / 上一版本）+ `deploy/releases/release-log.jsonl`（运行时状态，不入库）。
+- **注册表对账先行**（07B `02_06`）：`deploy` 起容器前在 platform 镜像内跑 `gateway`（注册表重渲 ↔
+  `deploy/gateway/apisix.yaml` 逐字比对），不一致即中止（不落容器）；首部署 / 应急用
+  `--skip-gateway-check` 显式跳过并记入发布日志。
 - **建表先行**：`deploy` 先以目标镜像跑一次性建表容器（`ops.init_schema`，幂等），再起容器。
 - **健康门禁**：容器 `healthy`（`/healthz`）→ `/readyz` 200 → 经网关路由可达（非 502/503/504/000）；
   失败**自动回滚**上一版本并记录。
@@ -103,6 +108,22 @@ SERVICES: ConcurrentStableList[str] = ConcurrentStableList(
 COMPOSE_FILE = "compose/bms.yml"
 GATEWAY_SMOKE_PATH = "/api/{service}/v1/__gate__"
 """网关路由可达探测路径（命中网关服务路由即可；状态码 200/401/403/404 视为可达）。"""
+
+GATEWAY_CHECK_IMAGE = "platform"
+"""注册表对账所用镜像（07B `02_06`）。
+
+`ops.gateway_config` 声明 `RUN_IMAGE = "ci"`（无部署镜像对应的 CI 专用件），故不能走
+`_run_image_of()`；platform 镜像含 `bms_core` + `bms_platform` + `ops`，正是注册表取数所需，
+且部署态必然已存在（与 `ops.check_modules` 接库口径同源）。
+"""
+
+GATEWAY_CHECK_ROOT = "/opt/registry-check"
+"""对账容器内的仓库根挂载点（只读；`deploy/` 挂到 `<root>/deploy`）。
+
+镜像内 `WORKDIR=/opt/bms` 且**无 `deploy/` 目录**（部署镜像只装源码与 `ops`），故对账把宿主
+`deploy/` 以只读方式挂到独立根——避开 `services.yml` 已有的 `/opt/deploy/boundaries` 挂载点
+（不覆盖、不嵌套），并由 `--root` 显式指向。
+"""
 
 GATEWAY_SMOKE_PASS: ConcurrentStableSet[int] = ConcurrentStableSet({200, 201, 202, 204, 301, 302, 401, 403, 404})
 """网关冒烟通过状态码（路由 / 认证可达即过；502/503/504/000 判失败）。"""
@@ -275,6 +296,35 @@ def build_manifest(
 
 
 # ---------------------------------------------------------------------------
+# 注册表对账（07B `02_06`）
+# ---------------------------------------------------------------------------
+def gateway_check_args() -> ConcurrentStableList[str]:
+    """对账容器内的命令：按**注册表**重渲并与仓库生成件比对。
+
+    `--from-registry` 省略 `--url`：容器内按配置解析平台库（与 `ops.check_modules` 同口径），
+    不在宿主传凭据；`--root` 指向只读挂载点（见 `GATEWAY_CHECK_ROOT`）。
+
+    Returns:
+        ConcurrentStableList[str]: 容器内命令参数。
+    """
+    return ConcurrentStableList(
+        ["python", "-m", "ops.gateway_config", "check", "--from-registry", "--root", GATEWAY_CHECK_ROOT]
+    )
+
+
+def gateway_check_volumes(deploy_dir: Path) -> ConcurrentStableList[str]:
+    """对账容器的只读挂载（宿主 `deploy/` → `<GATEWAY_CHECK_ROOT>/deploy`）。
+
+    Args:
+        deploy_dir: deploy 目录。
+
+    Returns:
+        ConcurrentStableList[str]: `-v` 挂载声明。
+    """
+    return ConcurrentStableList([f"{Path(deploy_dir).resolve()}:{GATEWAY_CHECK_ROOT}/deploy:ro"])
+
+
+# ---------------------------------------------------------------------------
 # 运行时辅助
 # ---------------------------------------------------------------------------
 def _now() -> str:
@@ -335,23 +385,28 @@ def _ensure_registry_login(env: ConcurrentStableDict[str, str], *, stdout=print)
         stdout(f"[registry] 登录 {host} 失败（{proc.stderr.strip()}）；若镜像不可拉取请先手工 docker login")
 
 
-def _compose(
+def _compose_proc(
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     args: ConcurrentStableList[str],
     *,
     capture: bool = False,
-) -> str:
-    """执行 `docker compose`（cwd = deploy 目录）。
+    raise_on_error: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    """执行 `docker compose`（cwd = deploy 目录），返回进程结果。
 
     Args:
         deploy_dir: deploy 目录。
         env: 子进程环境（含 `.env` 与标签覆盖）。
         args: compose 子命令参数。
-        capture: 是否捕获 stdout。
+        capture: 是否捕获 stdout（False 时输出到终端）。
+        raise_on_error: 非零退出码是否抛 `RuntimeError`。
 
     Returns:
-        str: stdout（capture 时）。
+        subprocess.CompletedProcess[str]: 进程结果（退出码供需读取业务码的调用方使用）。
+
+    Raises:
+        RuntimeError: `raise_on_error` 且退出码非零。
     """
     cmd = ["docker", "compose", "-f", COMPOSE_FILE, "--env-file", ".env", *args]
     proc = subprocess.run(
@@ -362,10 +417,31 @@ def _compose(
         capture_output=not capture,
         text=True,
     )
-    if proc.returncode != 0:
+    if raise_on_error and proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()
         raise RuntimeError(f"docker compose {' '.join(args)} 失败（rc={proc.returncode}）：{detail}")
-    return proc.stdout if capture else ""
+    return proc
+
+
+def _compose(
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    args: ConcurrentStableList[str],
+    *,
+    capture: bool = False,
+) -> str:
+    """执行 `docker compose`（cwd = deploy 目录），失败即抛错。
+
+    Args:
+        deploy_dir: deploy 目录。
+        env: 子进程环境（含 `.env` 与标签覆盖）。
+        args: compose 子命令参数。
+        capture: 是否捕获 stdout。
+
+    Returns:
+        str: stdout（capture 时）。
+    """
+    return _compose_proc(deploy_dir, env, args, capture=capture).stdout or ""
 
 
 def _compose_run(
@@ -375,18 +451,34 @@ def _compose_run(
     command: ConcurrentStableList[str],
     *,
     extra_env: ConcurrentStableDict[str, str] | None = None,
-) -> None:
-    """以 `compose run --rm --no-deps` 在服务镜像内执行一次性命令（迁移 / 种子）。
+    volumes: ConcurrentStableList[str] | None = None,
+    raise_on_error: bool = True,
+) -> int:
+    """以 `compose run --rm --no-deps` 在服务镜像内执行一次性命令（迁移 / 种子 / 对账）。
 
     `extra_env` 经 `-e KEY=VAL` 注入**容器内**（compose 仅自动传入服务 `environment` 声明的变量，
-    子进程环境只用于 compose 插值）。
+    子进程环境只用于 compose 插值）；`volumes` 经 `-v host:container[:ro]` 追加挂载。
+
+    Args:
+        deploy_dir: deploy 目录。
+        env: 子进程环境。
+        service: 运行镜像对应的服务名。
+        command: 容器内命令。
+        extra_env: 追加注入的容器内环境变量。
+        volumes: 追加挂载（`host:container[:ro]`）。
+        raise_on_error: 非零退出码是否抛 `RuntimeError`（False 时由调用方读取业务退出码）。
+
+    Returns:
+        int: 容器内命令退出码。
     """
     run_env = ConcurrentStableDict(env)
     args = ConcurrentStableList(["run", "--rm", "--no-deps"])
     for key, value in (extra_env or {}).items():
         args.update(["-e", f"{key}={value}"])
+    for volume in volumes or ():
+        args.update(["-v", volume])
     args.update([service, *command])
-    _compose(deploy_dir, run_env, args)
+    return _compose_proc(deploy_dir, run_env, args, raise_on_error=raise_on_error).returncode
 
 
 def _ledger_path(deploy_dir: Path, service: str) -> Path:
@@ -791,11 +883,58 @@ def cmd_seed(
     args = ConcurrentStableList(["python", "-m", "ops.seed_platform", "--tenant", tenant])
     if dry_run:
         args.update(["--dry-run"])
-    code = _compose_run(deploy_dir, env, _run_image_of("ops.seed_platform"), args)
+    # 编排的业务退出码（0 成功 / 1 冲突 / 2 执行失败 / 3 前置错误）须原样透出，
+    # 故关闭「非零即抛」——否则调用方拿到的是异常而非可区分的退出码。
+    code = _compose_run(deploy_dir, env, _run_image_of("ops.seed_platform"), args, raise_on_error=False)
     if code != 0:
         print(f"[seed] 编排未通过（退出码 {code}）：整体已回滚，无脏数据", file=sys.stderr)
         return code
     print(f"[seed] 完成（操作者 {actor}；幂等，可重跑）")
+    return 0
+
+
+def cmd_gateway_check(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, stdout=print) -> int:
+    """注册表对账（07B `02_06`）：platform 镜像内按注册表重渲，与仓库生成件逐字比对。
+
+    部署流水线把「注册表是权威」落到实处：`deploy/gateway/apisix.yaml` 必须与**平台库注册表**
+    的渲染结果一致（`--from-manifest` 与 `--from-registry` 产物由用例守住逐字相等），
+    因此本步骤既校验声明漂移，也校验「仓库生成件忘了重生成」。
+
+    Args:
+        deploy_dir: deploy 目录。
+        env: 部署环境变量。
+        stdout: 输出函数。
+
+    Returns:
+        int: 退出码（0 一致；1 不一致 / 注册表不可读；2 缺 platform 镜像标签）。
+    """
+    tag = env.get("BMS_TAG_PLATFORM") or env.get("BMS_IMAGE_TAG", "")
+    if not tag:
+        print(
+            "错误：注册表对账需 platform 镜像标签（台账无 current 时请先设 BMS_TAG_PLATFORM / BMS_IMAGE_TAG）",
+            file=sys.stderr,
+        )
+        return 2
+    run_env = ConcurrentStableDict(env)
+    run_env.set("BMS_TAG_PLATFORM", tag)
+    stdout(f"[gateway] 注册表对账：platform:{tag}（--from-registry ↔ deploy/gateway/apisix.yaml）")
+    code = _compose_run(
+        deploy_dir,
+        run_env,
+        GATEWAY_CHECK_IMAGE,
+        gateway_check_args(),
+        volumes=gateway_check_volumes(deploy_dir),
+        raise_on_error=False,
+    )
+    if code != 0:
+        print(
+            "[gateway] 对账未通过：注册表渲染结果与仓库生成件不一致（或注册表不可读 / 未建表）——"
+            "先确认平台已启动完成注册，必要时按注册表重生成："
+            "`uv run python -m ops.gateway_config render --from-registry`",
+            file=sys.stderr,
+        )
+        return 1
+    stdout("[gateway] 对账通过：注册表渲染结果与仓库生成件逐字一致")
     return 0
 
 
@@ -806,12 +945,52 @@ def cmd_deploy(
     services: ConcurrentStableList[str],
     tag: str,
     actor: str,
+    skip_gateway_check: bool = False,
 ) -> int:
-    """部署（建表 → 起容器 → 门禁 → 台账；失败自动回滚）。"""
+    """部署（注册表对账 → 建表 → 起容器 → 门禁 → 台账；失败自动回滚）。
+
+    对账**前置**（fail-closed）：不一致即中止，不落任何容器；首部署（注册表尚未建立）与应急场景
+    用 `--skip-gateway-check` 显式跳过，跳过会写入发布日志留痕。
+    """
     if not tag:
         print("错误：deploy 必须显式 --tag（不可变标签，禁 latest）", file=sys.stderr)
         return 2
     _ensure_registry_login(env)
+    if skip_gateway_check:
+        print("[deploy] 跳过注册表对账（--skip-gateway-check）：仅限首部署 / 应急，部署后请跑 gateway 复核")
+        _append_log(
+            deploy_dir,
+            ConcurrentStableDict(
+                {
+                    "at": _now(),
+                    "by": actor,
+                    "action": "gateway-check",
+                    "service": GATEWAY_CHECK_IMAGE,
+                    "from": "",
+                    "to": tag,
+                    "result": "skipped",
+                }
+            ),
+        )
+    else:
+        gateway_code = cmd_gateway_check(deploy_dir, env)
+        _append_log(
+            deploy_dir,
+            ConcurrentStableDict(
+                {
+                    "at": _now(),
+                    "by": actor,
+                    "action": "gateway-check",
+                    "service": GATEWAY_CHECK_IMAGE,
+                    "from": "",
+                    "to": tag,
+                    "result": "success" if gateway_code == 0 else "failure",
+                }
+            ),
+        )
+        if gateway_code != 0:
+            print("[deploy] 注册表对账未通过 → 中止部署（未起任何容器）", file=sys.stderr)
+            return 1
     ok = True
     for service in services:
         ok = _deploy_one(deploy_dir, env, service, tag, actor) and ok
@@ -921,10 +1100,17 @@ def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
         "--service", action="append", choices=SERVICES, default=[], help="限定服务（可重复；缺省全部启用服务）"
     )
 
-    deploy = sub.add_parser("deploy", help="部署（建表 → 起容器 → 门禁 → 台账）")
+    deploy = sub.add_parser("deploy", help="部署（注册表对账 → 建表 → 起容器 → 门禁 → 台账）")
     deploy.add_argument("--service", choices=SERVICES, help="目标服务")
     deploy.add_argument("--all", action="store_true", help="全部已启用服务")
     deploy.add_argument("--tag", default="", help="目标镜像标签（必填；禁 latest）")
+    deploy.add_argument(
+        "--skip-gateway-check",
+        action="store_true",
+        help="跳过注册表对账（仅限首部署 / 应急；跳过记入发布日志）",
+    )
+
+    sub.add_parser("gateway", help="注册表对账（platform 镜像内 --from-registry ↔ 仓库生成件）")
 
     seed = sub.add_parser("seed", help="种子统一编排（须在 deploy 之后执行；一个 XA 全局事务）")
     seed.add_argument("--tenant", required=True, help="目标租户")
@@ -970,7 +1156,16 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
             if not services:
                 print("错误：deploy 需 --service 或 --all", file=sys.stderr)
                 return 2
-            return cmd_deploy(deploy_dir, env, services=services, tag=args.tag, actor=args.actor)
+            return cmd_deploy(
+                deploy_dir,
+                env,
+                services=services,
+                tag=args.tag,
+                actor=args.actor,
+                skip_gateway_check=args.skip_gateway_check,
+            )
+        if args.command == "gateway":
+            return cmd_gateway_check(deploy_dir, env)
         if args.command == "seed":
             return cmd_seed(deploy_dir, env, tenant=args.tenant, dry_run=args.dry_run, actor=args.actor)
         if args.command == "rollback":

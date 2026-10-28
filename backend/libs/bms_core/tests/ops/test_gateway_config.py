@@ -112,10 +112,61 @@ def test_registry_source_matches_manifest_source(tmp_path: Path) -> None:
 
 
 @pytest.mark.kiwi_id(2165)
-def test_registry_source_requires_url(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """`--from-registry` 未给 --url：退出码 1 且提示补参。"""
+def test_registry_source_requires_url(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--from-registry` 未给 --url 且按配置解析失败：退出码 1 且提示补参。"""
+
+    def _boom() -> str:
+        raise RuntimeError("配置缺 BMS_DATABASE__PLATFORM__URL_TEMPLATE")
+
+    monkeypatch.setattr(gateway_config, "default_platform_url", _boom)
     assert gateway_config.main(ConcurrentStableList(["render", "--from-registry", "--root", str(tmp_path)])) == 1
-    assert "--from-registry 需要 --url" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "--from-registry 未给 --url" in err
+    assert "BMS_DATABASE__PLATFORM__URL_TEMPLATE" in err
+
+
+@pytest.mark.kiwi_id(2165)
+def test_registry_source_default_url_from_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--from-registry` 省略 --url：按配置解析平台库并取数（产物与清单模式一致）。"""
+    gateway_config.load_registries(gateway_config.REPO_ROOT)
+    expected = render_apisix_yaml()
+
+    url = f"sqlite+aiosqlite:///{tmp_path / 'default-url.db'}"
+    _seed_registry(url)
+    monkeypatch.setattr(gateway_config, "default_platform_url", lambda: url)
+
+    assert gateway_config.render(tmp_path, source="registry") == 0
+    assert gateway_config.config_path(tmp_path).read_text(encoding="utf-8") == expected
+
+
+@pytest.mark.kiwi_id(2165)
+def test_registry_source_empty_default_url(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """按配置解析得到空连接串：退出码 1 且明示「解析为空」（不静默连库）。"""
+    monkeypatch.setattr(gateway_config, "default_platform_url", lambda: "")
+    assert gateway_config.render(tmp_path, source="registry") == 1
+    assert "按配置解析得到空连接串" in capsys.readouterr().err
+
+
+@pytest.mark.kiwi_id(2165)
+def test_default_platform_url_uses_platform_service_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """缺省 URL 解析与 `ops.check_modules` 同口径：按平台库键解析（含密码）。"""
+    calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+
+    def _fake_resolve(url: str, *, service: str) -> str:
+        calls.add((url, service))
+        return "mysql+aiomysql://u:p@h:3306/bms_platform"
+
+    import bms_core.db.keys as db_keys
+    import bms_core.tenant.seed.tenant as seed_tenant
+
+    monkeypatch.setattr(db_keys, "PLATFORM_SERVICE_KEY", "platform")
+    monkeypatch.setattr(seed_tenant, "resolve_url", _fake_resolve)
+    assert gateway_config.default_platform_url() == "mysql+aiomysql://u:p@h:3306/bms_platform"
+    assert list(calls) == [("", "platform")]
 
 
 @pytest.mark.kiwi_id(2165)
@@ -137,10 +188,17 @@ def test_check_registry_source_reports_unreadable_db(tmp_path: Path, capsys: pyt
 
 
 @pytest.mark.kiwi_id(2165)
-def test_check_registry_source_requires_url(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """check 走注册表模式但缺 --url：退出码 1 且提示补参。"""
+def test_check_registry_source_requires_url(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """check 走注册表模式且按配置解析失败：退出码 1 且提示补参。"""
+
+    def _boom() -> str:
+        raise RuntimeError("库键非法")
+
+    monkeypatch.setattr(gateway_config, "default_platform_url", _boom)
     assert gateway_config.main(ConcurrentStableList(["check", "--from-registry", "--root", str(tmp_path)])) == 1
-    assert "--from-registry 需要 --url" in capsys.readouterr().err
+    assert "--from-registry 未给 --url" in capsys.readouterr().err
 
 
 @pytest.mark.kiwi_id(2165)
