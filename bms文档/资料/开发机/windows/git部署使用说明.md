@@ -70,14 +70,20 @@ where.exe git    rem C:\Program Files\Git\cmd\git.exe
 | `credential.http://<GitLab 主机>:8080.provider` | `generic` | 把该主机的凭据提供者固定为 generic（普通账号认证口径） |
 
 - **凭据助手来自系统级配置**：`C:\Program Files\Git\etc\gitconfig` 内有 `credential.helper = manager`（Git for Windows 自带 Git Credential Manager，见[第 7 节](#credentials)）；Windows 侧不采用 Linux 侧的 `store` 明文凭据文件口径。
-- **行尾统一策略**：各仓库根已加 `.gitattributes`——文本文件 `* text=auto eol=lf` 按 LF 检出（Windows / Linux 双端一致），`*.bat` / `*.cmd` / `*.ps1` 按 CRLF 检出（cmd / PowerShell 兼容）。`core.autocrlf=false` 与 `.gitattributes` 两道合下，工作区不再出现 CRLF 与 LF 互染的全文件差异。
+- **行尾统一策略**：各仓库根已加 `.gitattributes`——文本文件 `* text=auto eol=lf` 按 LF 检出（Windows / Linux 双端一致），`*.bat` / `*.cmd` / `*.ps1` 按 CRLF 检出（cmd / PowerShell 兼容）。`.editorconfig` 与之同口径（`[*] end_of_line = lf` + `[*.{bat,cmd,ps1}] end_of_line = crlf`），保证编辑器新建文件就写对行尾。
+- **`.gitattributes` 优先于 `core.autocrlf`**（决定性事实）：只要路径被属性显式定了 `eol`，`core.autocrlf` 的取值对本项目仓库**已不影响检出结果**——属性随仓库分发，谁 clone 都按同一套规则还原，换机器 / 换人无需再纠结 autocrlf 该设什么。实测对照（git 2.56.0.windows.3，临时仓库）：同一文本文件在 `core.autocrlf=true` 且**无**属性时检出为 CRLF；加上 `* text=auto eol=lf` 后，即使 `core.autocrlf=true` 也照样检出 LF（CR 数 0）。
+- **仓库里存的一律是 LF**：各仓 `git ls-files --eol` 的索引侧全为 `i/lf`（无 `i/crlf`），工作区侧再按属性还原——因此 Windows / Linux 双端不会出现「整个文件都变了」的假 diff。
 
 核对命令：
 
 ```bash
 git config --global --list --show-origin   # 带来源文件，确认全局还是仓库级
 git config --show-origin core.autocrlf     # 用户级应为 false（系统级缺省为 true，被用户级覆盖）
+git ls-files --eol | grep -v 'i/lf'        # 索引侧应无输出（全部 LF）；有输出即异常
+git ls-files --eol | grep -E 'w/crlf.*eol=lf|w/lf.*eol=crlf'   # 工作区与属性不符的文件（应无输出）
 ```
+
+> **工作区侧与属性不符时怎么修**：`git status` 干净但 `ls-files --eol` 显示偏差（例如 `.bat` 被编辑器写成 LF），说明索引内容正确、只是磁盘上的检出形态不对。`git add --renormalize` 修不了这种情况（索引已是 LF，没有内容差异），正确做法是让 git 重新检出：删掉该文件后 `git checkout -- <文件>`。修完 `git status` 仍应干净，索引仍为 `i/lf`，工作区变为 `w/crlf`。
 
 提交信息遵循《[Git协作规范](../../../规范/Git协作规范.md)》「提交信息」节格式：`type(scope): 中文描述`，如 `docs(开发机): 新增 windows 侧部署文档`。
 
