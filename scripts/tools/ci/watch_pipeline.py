@@ -366,6 +366,25 @@ def _counts(jobs: ConcurrentStableList[ConcurrentStableDict[str, object]]) -> st
     return " / ".join(f"{name} {count}" for name, count in counts.items())
 
 
+def bridges_of(api: str, token: str, target: Target) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+    """取流水线的 bridge job（子流水线触发点）。
+
+    Args:
+        api: API 基址。
+        token: 访问令牌。
+        target: 目标流水线。
+
+    Returns:
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: bridge 列表（无 bridge 时为空）。
+    """
+    data = _get_json(
+        api, token, f"projects/{_quoted(target.path)}/pipelines/{target.pipeline_id}/bridges?per_page={PAGE_SIZE}"
+    )
+    if not isinstance(data, ConcurrentStableList):
+        return ConcurrentStableList()
+    return ConcurrentStableList(item for item in data if isinstance(item, ConcurrentStableDict))
+
+
 def report(
     api: str,
     token: str,
@@ -388,6 +407,21 @@ def report(
         bool: 是否 success。
     """
     print(f"[watch] {target.project}#{target.pipeline_id} 终态 {status}（job {len(jobs)} 个：{_counts(jobs)}）")
+    # `/jobs` 不含 bridge：流水线失败但 job 全绿时，问题在子流水线
+    bridges = bridges_of(api, token, target)
+    troubled: ConcurrentStableList[str] = ConcurrentStableList()
+    for bridge in bridges:
+        bridge_status = _job_field(bridge, "status", "")
+        if bridge_status in ("success", "skipped", "manual"):
+            continue
+        name = str(_job_field(bridge, "name", "?"))
+        downstream = _job_field(bridge, "downstream_pipeline", None)
+        child = downstream.get("id") if isinstance(downstream, ConcurrentStableDict) else "?"
+        troubled.append(f"{name} {bridge_status} → 子流水线 #{child}")
+    if troubled:
+        print(f"[watch]   子流水线（bridge，`/jobs` 不含）：{len(troubled)} 个未成功")
+        for line in troubled:
+            print(f"[watch]     {line}")
     for job in jobs:
         job_status = _job_field(job, "status", "")
         if job_status not in FAILED_JOB_STATUSES:

@@ -194,6 +194,40 @@ def clean_trace_lines(text: str) -> ConcurrentStableList[str]:
     return lines
 
 
+def get_bridges(api: Api, ref: PipelineRef) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+    """取流水线的 bridge job（子流水线触发点）。
+
+    `/pipelines/:id/jobs` **不含** bridge，流水线失败但 job 全绿时问题就在这里。
+
+    Args:
+        api: 访问上下文。
+        ref: 目标流水线。
+
+    Returns:
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: bridge 列表（无 bridge 时为空）。
+    """
+    data = get_json(api, f"projects/{quoted(ref.path)}/pipelines/{ref.pipeline_id}/bridges?per_page=100")
+    if not isinstance(data, ConcurrentStableList):
+        return ConcurrentStableList()
+    return ConcurrentStableList(item for item in data if isinstance(item, ConcurrentStableDict))
+
+
+def downstream_id(bridge: ConcurrentStableDict[str, object]) -> int:
+    """取 bridge 的下游子流水线 ID。
+
+    Args:
+        bridge: bridge job 对象。
+
+    Returns:
+        int: 下游流水线 ID（无下游时为 0）。
+    """
+    downstream = bridge.get("downstream_pipeline")
+    if not isinstance(downstream, ConcurrentStableDict):
+        return 0
+    raw = downstream.get("id")
+    return raw if isinstance(raw, int) else 0
+
+
 def tail(lines: ConcurrentStableList[str], count: int) -> ConcurrentStableList[str]:
     """取末尾若干行（count <= 0 返回空）。
 
@@ -262,6 +296,8 @@ __all__ = [
     "ConcurrentStableList",
     "PipelineRef",
     "clean_trace_lines",
+    "downstream_id",
+    "get_bridges",
     "get_json",
     "get_text",
     "load_api",

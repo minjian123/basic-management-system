@@ -34,6 +34,8 @@ from ci_common import (
     ConcurrentStableDict,
     ConcurrentStableList,
     PipelineRef,
+    downstream_id,
+    get_bridges,
     get_json,
     load_api,
     missing_credentials_hint,
@@ -155,6 +157,25 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         summary.append(ConcurrentStableDict({"pipeline": ref.path, "id": ref.pipeline_id, "jobs": rows}))
         if not args.json and not rows:
             print("  （无匹配 job）")
+
+        bridges = get_bridges(api, ref)
+        if bridges:
+            if not args.json:
+                print("  --- 子流水线（bridge，`/jobs` 不含）---")
+            bridge_rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+            for bridge in bridges:
+                status = str(bridge.get("status", ""))
+                if wanted and status != wanted:
+                    continue
+                name = str(bridge.get("name", ""))
+                bridge_id = bridge.get("id", 0)
+                child = downstream_id(bridge)
+                bridge_rows.append(
+                    ConcurrentStableDict({"name": name, "id": bridge_id, "status": status, "downstream_id": child}),
+                )
+                if not args.json:
+                    print(f"  {'bridge':<10} {status:<10} {name:<28} id={bridge_id:<8} → 子流水线 #{child}")
+            summary.append(ConcurrentStableDict({"pipeline": ref.path, "id": ref.pipeline_id, "bridges": bridge_rows}))
 
     if args.json:
         print(json.dumps(_jsonable(summary), ensure_ascii=False, indent=2))
