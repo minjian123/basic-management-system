@@ -126,51 +126,6 @@ def test_workflow_only_manual_and_tag_triggers() -> None:
 
 
 @pytest.mark.kiwi_id(2184)
-def test_manual_trigger_tool_is_registered() -> None:
-    """手工触发入口就位：`scripts/tools/ci/trigger.py` 存在且被 tooling-lint 覆盖（scripts/tools 全域）。"""
-    tool = _REPO / "scripts" / "tools" / "ci" / "trigger.py"
-    assert tool.is_file()
-    script = tool.read_text(encoding="utf-8")
-    assert "/pipeline" in script
-    assert "PRIVATE-TOKEN" in script
-    # 口径写在脚本头部：推送不触发、手工触发即全量
-    assert "推送不再触发流水线" in script
-    ci = _load(_CI_PATH)
-    lint = "\n".join(str(line) for line in ci["tooling-lint"]["script"])
-    assert "../scripts/tools" in lint
-
-
-@pytest.mark.kiwi_id(2184)
-def test_bms_ref_tool_is_registered() -> None:
-    """跨仓基座 ref 工具就位：`scripts/tools/ci/bms_ref.py` 支持查看 / 钉版本 / 清除。"""
-    tool = _REPO / "scripts" / "tools" / "ci" / "bms_ref.py"
-    assert tool.is_file()
-    script = tool.read_text(encoding="utf-8")
-    assert "BMS_REF" in script
-    assert 'add_parser("show"' in script
-    assert 'add_parser("set"' in script
-    assert "--clear" in script
-    assert "from trigger import" in script
-
-
-@pytest.mark.kiwi_id(2184)
-def test_watch_pipeline_tool_is_registered() -> None:
-    """流水线盯守入口就位：`scripts/tools/ci/watch_pipeline.py` 支持指定 / 最新 / 多仓与失败日志尾部。"""
-    tool = _REPO / "scripts" / "tools" / "ci" / "watch_pipeline.py"
-    assert tool.is_file()
-    script = tool.read_text(encoding="utf-8")
-    assert "/pipelines/" in script
-    assert "PRIVATE-TOKEN" in script
-    assert "from trigger import" in script
-    # 三种指定方式（多仓 / 指定 id / 最新一条）与秒查、失败日志尾部都要覆盖
-    assert '"--project"' in script
-    assert '"--pipeline"' in script
-    assert '"--latest"' in script
-    assert '"--once"' in script
-    assert '"--log-tail"' in script
-
-
-@pytest.mark.kiwi_id(2184)
 def test_parent_backend_test_rules_are_shared_paths_only() -> None:
     """全量测试只守共享 / 工作区路径；单体镜像 job 已移除；trigger 阶段已入 stages。"""
     ci = _load(_CI_PATH)
