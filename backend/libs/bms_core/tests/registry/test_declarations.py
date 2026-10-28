@@ -283,27 +283,29 @@ def test_validate_rejects_unknown_domain_and_missing_element() -> None:
     assert "提供方业务域未登记（nowhere）" in joined
 
 
-def test_validate_rejects_unregistered_consumer() -> None:
-    """默认消费方未登记：拒收（对着注册表现状判定）。"""
+def test_validate_warns_unregistered_consumer() -> None:
+    """默认消费方未登记：只告警不拒收（03_01 方案 A：平台先起、产品后起是常态）。"""
     payload = _payload(
         collaborations=ConcurrentStableFrozenList(
             (_capability(default_consumers=ConcurrentStableFrozenList(("nobody",))),)
         )
     )
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
 
     errors = validate_declarations(
         payload,
         _snapshot(),
         domain_services=ConcurrentStableDict({"org": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform",)),
-        warnings=ConcurrentStableList(),
+        warnings=warnings,
     )
 
-    assert any("默认消费方未登记（nobody）" in item for item in errors)
+    assert list(errors) == []
+    assert any("默认消费方尚未注册（nobody" in item for item in warnings)
 
 
 def test_validate_rejects_unregistered_usage_and_write_degrade() -> None:
-    """使用声明：指向未注册能力 / 对写能力声明降级 / 缺理由 三种都拒。"""
+    """使用声明：未注册能力只告警；对写能力声明降级 / 缺理由仍拒收。"""
     write_capability = _capability(
         name="demo.org.user-posts",
         kind="txn-branch",
@@ -321,16 +323,19 @@ def test_validate_rejects_unregistered_usage_and_write_degrade() -> None:
         ),
     )
 
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
     errors = validate_declarations(
         payload,
         _snapshot(),
         domain_services=ConcurrentStableDict({"org": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
-        warnings=ConcurrentStableList(),
+        warnings=warnings,
     )
 
     joined = "；".join(errors)
-    assert "被消费能力未注册" in joined
+    # 未注册能力只告警（方案 A）；写能力降级 / 缺理由仍拒收（契约硬约束）
+    assert "被消费能力未注册" not in joined
+    assert any("尚未注册" in item for item in warnings)
     assert "写 / 强一致能力不得声明降级" in joined
     assert "声明降级须给出理由" in joined
 

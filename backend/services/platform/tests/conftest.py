@@ -17,10 +17,15 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings, get_settings
 from bms_core.permission.sources import reset_permission_data_sources
 from bms_core.registry.products import load_product_manifests
+from bms_core.services.module_registry import (
+    CollaborationRecord,
+    register_collaboration_records,
+    register_domain_services,
+)
 from bms_core.testing.fixtures import (
     clear_tenant_cache,
     platform_db,
@@ -111,6 +116,90 @@ def isolate_catalog_records(
     get_settings.cache_clear()
     load_product_manifests(pinned_product_manifests)
     yield
+
+
+_MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(
+    (
+        CollaborationRecord(
+            name="mdm.org.user-roles",
+            domain="org",
+            kind="read",
+            contract_version="0.1.0",
+            path="/api/v1/mdm/user-roles",
+            product_key="mdm",
+            frontend_prefix="mdm",
+            default_consumers=ConcurrentStableFrozenList(("platform",)),
+        ),
+        CollaborationRecord(
+            name="mdm.org.user-posts.assign",
+            domain="org",
+            kind="txn-branch",
+            contract_version="0.1.0",
+            path="/api/v1/mdm/internal/user-posts/{user_id}",
+            product_key="mdm",
+            branch_id="m",
+            branch_op="mdm.user-posts.assign",
+            frontend_prefix="mdm",
+            default_consumers=ConcurrentStableFrozenList(("platform",)),
+        ),
+        CollaborationRecord(
+            name="mdm.org.user-depts.assign",
+            domain="org",
+            kind="txn-branch",
+            contract_version="0.1.0",
+            path="/api/v1/mdm/internal/user-depts/{user_id}",
+            product_key="mdm",
+            branch_id="m",
+            branch_op="mdm.user-depts.assign",
+            frontend_prefix="mdm",
+            default_consumers=ConcurrentStableFrozenList(("platform",)),
+        ),
+        CollaborationRecord(
+            name="mdm.org.role-posts.assign",
+            domain="org",
+            kind="txn-branch",
+            contract_version="0.1.0",
+            path="/api/v1/mdm/internal/role-posts/{role_id}",
+            product_key="mdm",
+            branch_id="m",
+            branch_op="mdm.role-posts.assign",
+            frontend_prefix="mdm",
+            default_consumers=ConcurrentStableFrozenList(("platform",)),
+        ),
+        CollaborationRecord(
+            name="mdm.org.role-depts.assign",
+            domain="org",
+            kind="txn-branch",
+            contract_version="0.1.0",
+            path="/api/v1/mdm/internal/role-depts/{role_id}",
+            product_key="mdm",
+            branch_id="m",
+            branch_op="mdm.role-depts.assign",
+            frontend_prefix="mdm",
+            default_consumers=ConcurrentStableFrozenList(("platform",)),
+        ),
+    )
+)
+"""对端（mdm）能力声明的**等价物**：平台用例以「对端声明已装载」为前提。
+
+CI 单仓没有产品仓清单（`product_manifests` 为空），而平台的跨产品取用（`resolve_capability`）
+依赖对端声明；此处给出与 mdm 仓 `deploy/registry/mdm.toml` 的 `[[collaborations]]` **逐字一致**的
+记录（工作区已装载时同值幂等；声明改动后异值会被 `register_collaboration_records` 拒，属预期提醒）。
+"""
+
+_MDM_PEER_DOMAINS: ConcurrentStableFrozenDict[str, str] = ConcurrentStableFrozenDict({"org": "mdm"})
+"""对端能力承载域（能力寻址第二段的域布局来源；工作区由 mdm 仓 `domain_layout.json` 提供）。"""
+
+
+@pytest.fixture(autouse=True)
+def install_peer_declarations(isolate_catalog_records: None) -> None:  # pyright: ignore[reportUnusedFunction]
+    """用例前提：装载对端能力声明与承载域（本仓清单装载之后执行，同值幂等）。
+
+    Args:
+        isolate_catalog_records: 本仓清单装载夹具（保证顺序：先装本仓、再补对端）。
+    """
+    register_collaboration_records(_MDM_PEER_CAPABILITIES)
+    register_domain_services(_MDM_PEER_DOMAINS)
 
 
 @pytest.fixture(autouse=True)

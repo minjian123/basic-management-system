@@ -29,6 +29,7 @@ def build_capability_request(
     method: str,
     params: ConcurrentStableFrozenDict[str, object] | None = None,
     query: ConcurrentStableFrozenDict[str, str] | None = None,
+    headers: ConcurrentStableFrozenDict[str, str] | None = None,
     json_body: ConcurrentStableFrozenDict[str, object] | None = None,
     tenant_id: str | None = None,
     policy: ServiceCallPolicy | None = None,
@@ -58,6 +59,7 @@ def build_capability_request(
         method=method,
         path=path,
         query=query,
+        headers=headers,
         json_body=json_body,
         tenant_id=tenant_id,
     )

@@ -1,9 +1,10 @@
 """平台服务内部端点：用户概要 / 重置目标 / 统一建号 + **用户只读查询出口**（服务间调用，不经网关）。
 
-- **鉴权**：两条路由各按调用方白名单分道——
-  - `router`（`/profile`、`/reset-target`、`/create`）：`require_service("identity")`；
-  - `query_router`（`/query`，**用户只读出口**）：`require_service("mdm")`——仅 mdm 产品服务可读。
-  两者均只接受对应签发方的有效服务 JWT（`aud=service`）；用户票据与网关服务票据（`sub=gateway`）一律拒
+- **鉴权**：两条路由各有口径——
+  - `router`（`/profile`、`/reset-target`、`/create`）：`require_service("identity")`（平台内部，白名单）；
+  - `query_router`（`/query`，**用户只读出口**）：`require_capability("platform.user.query")`——按**能力
+    分配记录**判定（07B `03_01` 收编；声明在 `deploy/registry/platform.toml`，默认消费方落库为分配）。
+  两者均只接受服务 JWT（`aud=service`）；用户票据与网关服务票据（`sub=gateway`）一律拒
   （避免经网关被误信）。
 - **租户**：由服务 JWT 的 `tenant` claim 经全局租户中间件解析租户库。
 - **契约**：计入 platform 公开契约（`deploy/contracts/platform.json`）；新增端点属非破坏性变更。
@@ -14,6 +15,7 @@ from typing import Annotated, cast
 from fastapi import Depends
 
 from bms_core.api.base import BaseRouter, require_service
+from bms_core.api.capability import require_capability
 from bms_core.api.deps import get_tenant, get_tenant_membership_store, get_uow
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
@@ -24,6 +26,7 @@ from bms_core.models.platform.user import SysUser
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageResponse
 from bms_core.tenant.membership import TenantMembershipStore
+from bms_platform.capabilities import CAPABILITY_PLATFORM_USER_QUERY
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.schemas.users import (
     InternalUserItem,
@@ -50,20 +53,13 @@ router = BaseRouter(
     dependencies=[Depends(require_service("identity"))],
 )
 
-MDM_SERVICE = "mdm"
-"""允许调用**用户只读查询出口**的调用方服务标识（mdm 产品服务键 `mdm`）。
-
-组织主数据（部门 / 岗位 / 人员）归 mdm、用户（账号）归 platform；mdm 组织域只读出口据此取用户明细，
-故白名单只登记 mdm 产品服务；后续接入方按需追加。服务标识于 2026-10-23 由 `org` 归并为 `mdm`
-（mdm 阶段一 `01_05`），白名单随之对齐。
-"""
-
 query_router = BaseRouter(
     key="platform_internal_users_query",
     prefix="/platform/internal/users",
     tags=["platform-internal"],
-    dependencies=[Depends(require_service(MDM_SERVICE))],
+    dependencies=[Depends(require_capability(CAPABILITY_PLATFORM_USER_QUERY))],
 )
+"""用户只读出口：调用方资格由**能力分配**派生（新增消费方只需授予分配，不改代码）。"""
 
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
@@ -173,7 +169,7 @@ async def query_users(req: InternalUserQueryRequest, uow: UowDep) -> ApiResponse
     """按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。
 
     供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
-    取用户明细——**不跨库读** `sys_user`。仅接受 `sub=mdm` 服务票据；只读、不写库、不产事件；
+    取用户明细——**不跨库读** `sys_user`。仅接受持有本能力有效分配的服务票据；只读、不写库、不产事件；
     联系方式**原样返回**（脱敏归消费方 mdm 出口）。
 
     Args:

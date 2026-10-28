@@ -148,9 +148,10 @@ def test_mdm_alignment_lockdown() -> None:
     platform_src = _ROOT / "backend" / "services" / "platform" / "src" / "bms_platform"
     guards = {
         platform_src / "domains" / "role" / "services" / "permission_subject.py": (
-            'MDM_SERVICE_KEY = "mdm"',
-            "/api/v1/mdm/user-roles",
+            "CAPABILITY_MDM_USER_ROLES",
+            "resolve_capability(",
         ),
+        # 两个写通道文件尚未收编（03_01 后续）：仍以 mdm 服务键 + 能力名为口径
         platform_src / "domains" / "user" / "services" / "user_assignments.py": (
             'MDM_SERVICE = "mdm"',
             "mdm.user-posts.assign",
@@ -159,10 +160,10 @@ def test_mdm_alignment_lockdown() -> None:
             'MDM_SERVICE = "mdm"',
             "mdm.role-depts.assign",
         ),
-        platform_src / "domains" / "user" / "api" / "internal_users.py": ('MDM_SERVICE = "mdm"',),
-        platform_src / "domains" / "permission_meta" / "api" / "permission.py": ('MDM_SERVICE = "mdm"',),
+        platform_src / "domains" / "user" / "api" / "internal_users.py": ("require_capability(",),
+        platform_src / "domains" / "permission_meta" / "api" / "permission.py": ("require_capability(",),
         platform_src / "domains" / "platform_config" / "api" / "internal_config.py": (
-            'require_service("identity", "mdm")',
+            "require_capability_or_service(",
         ),
     }
     for path, needles in guards.items():

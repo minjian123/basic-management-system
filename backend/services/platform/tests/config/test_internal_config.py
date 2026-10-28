@@ -76,7 +76,8 @@ async def test_resolve_requires_service_identity(client: AsyncClient) -> None:
     gateway = await client.post(
         API, json={"keys": ["captcha.channel.sms"]}, headers={"Authorization": "Bearer gateway"}
     )
-    assert gateway.status_code == 401
+    # 收编后（07B 03_01）：网关服务票据有效但无该能力分配 -> 403（已认证无授权）
+    assert gateway.status_code == 403
 
     anonymous = await client.post(API, json={"keys": ["captcha.channel.sms"]}, headers={"Authorization": ""})
     assert anonymous.status_code == 401

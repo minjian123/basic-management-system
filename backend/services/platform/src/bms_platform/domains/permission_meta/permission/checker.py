@@ -24,6 +24,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import default_plugin_registry
 from bms_core.db.registry import EngineRegistry
+from bms_core.metrics.base import BaseMetrics
 from bms_core.permission.field import register_field_permission_provider_factory
 from bms_core.permission.rbac import (
     RBAC_PROVIDER_NAME,
@@ -86,6 +87,7 @@ async def build_platform_source(request: Request) -> PlatformPermissionDataSourc
     registry = cast("EngineRegistry", request.app.state.engine_registry)
     cache = cast("CacheRegion", request.app.state.cache)
     service_client = cast("BaseServiceClient", request.app.state.service_client)
+    metrics = cast("BaseMetrics | None", getattr(request.app.state, "metrics", None))
     ttl = DEFAULT_METADATA_TTL
     require_org = False
     # `options` 是基座契约集合 `ConcurrentStableDict`（非内建 dict），按 Mapping 读取
@@ -101,7 +103,7 @@ async def build_platform_source(request: Request) -> PlatformPermissionDataSourc
         cache=cache,
         resolvers_factory=lambda session: (
             DirectRoleResolver(UserRoleRepository(session)),
-            OrgRoleResolver(service_client, require_roles=require_org),
+            OrgRoleResolver(service_client, require_roles=require_org, metrics=metrics),
         ),
         field_provider_factory=build_static_field_provider,
         ttl=ttl,

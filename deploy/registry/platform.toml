@@ -125,3 +125,56 @@ description = "三类内置管理员的授权（系统 / 安全 / 审计三权�
 
 [seeds.tables]
 grant = "role_id"
+
+# ---- 能力（第五类记录，07B `03_01`）----
+# 平台自身作为**提供方**的三条跨产品能力：入站判定改由能力分配派生（`require_capability`）。
+# - 能力名第二段是**业务域**（须在 deploy/boundaries/domain_layout.json 登记）；
+# - frontend_prefix 逐条显式声明：平台无 `[[product_routes]]`，推导路径不可用；
+# - default_consumers 即声明基线（`02_04` 落库为分配记录，运营期可调 / 撤销）。
+
+[[collaborations]]
+name = "platform.user.query"
+domain = "user"
+kind = "read"
+path = "/api/v1/platform/internal/users/query"
+frontend_prefix = "platform"
+contract_version = "0.3.0"
+default_consumers = ["mdm"]
+
+[[collaborations]]
+name = "platform.permission_meta.invalidate"
+domain = "permission_meta"
+kind = "write"
+path = "/api/v1/platform/internal/permissions/invalidate"
+frontend_prefix = "platform"
+contract_version = "0.3.0"
+default_consumers = ["mdm"]
+
+[[collaborations]]
+name = "platform.platform_config.snapshot"
+domain = "platform_config"
+kind = "read"
+path = "/api/v1/platform/internal/configs/resolve"
+frontend_prefix = "platform"
+contract_version = "0.3.0"
+default_consumers = ["mdm"]
+
+# ---- 消费方使用声明（第八类记录，07B `03_01`）----
+# 声明方即消费方（本清单归属 `platform`）；降级策略是消费方策略，写 / 强一致能力不得声明降级。
+
+[[usages]]
+name = "mdm.org.user-roles"
+degrade = "empty"
+reason = "组织域不可达时主体链只保留直接角色（与改造前降级语义一致）"
+
+[[usages]]
+name = "mdm.org.user-posts.assign"
+
+[[usages]]
+name = "mdm.org.user-depts.assign"
+
+[[usages]]
+name = "mdm.org.role-posts.assign"
+
+[[usages]]
+name = "mdm.org.role-depts.assign"

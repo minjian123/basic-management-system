@@ -184,9 +184,12 @@ async def test_internal_query_endpoint_requires_mdm_service(client: AsyncClient,
     assert "dept_id" not in item
     assert "password_hash" not in item and "locked_until" not in item
 
-    for token in ("identity", "gateway", "bogus"):
+    for token in ("identity", "gateway"):
         denied = await client.post(API, json={}, headers={"Authorization": f"Bearer {token}"})
-        assert denied.status_code == 401
+        assert denied.status_code == 403
+
+    bogus = await client.post(API, json={}, headers={"Authorization": "Bearer bogus"})
+    assert bogus.status_code == 401
 
     anonymous = await client.post(API, json={})
     assert anonymous.status_code == 401

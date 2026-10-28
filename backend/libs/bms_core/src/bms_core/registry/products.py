@@ -1219,7 +1219,10 @@ def _validate_manifest_entries(
             )
         for consumer in record.default_consumers:
             if consumer not in consumer_keys:
-                errors.add(f"{prefix}：默认消费方未登记（{consumer}）")
+                # 07B `03_01` 决策（§9 偏差 4）：消费方是否已登记**不在装载期判错**——
+                # 本地看不到别的产品是常态（平台 + 任一非 mdm 产品、单仓 CI 都属此类），
+                # 判错会误伤部署；权威校验归注册通道（对着平台权威视图判）与 `04_02` 跨仓对账。
+                warnings.add(f"{prefix}：默认消费方未随本次装载登记（{consumer}；由注册通道 / 跨仓对账兜底）")
     for record in manifest.seeds:
         errors.update(_check_seed_entry(record, label=label, warnings=warnings))
         errors.update(_check_seed_declaration(record, manifest=manifest, label=label))

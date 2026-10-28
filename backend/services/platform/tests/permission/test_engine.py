@@ -12,11 +12,19 @@ from collections.abc import Iterator
 
 import pytest
 
+from bms_core.collaboration.usage import (
+    DEGRADE_EMPTY,
+    CapabilityUsage,
+    register_capability_usages,
+    reset_capability_usages,
+)
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.exceptions import InternalError
 from bms_core.permission.snapshot import set_current_permission_snapshot
 from bms_core.permission.subject import PermissionSubjectService
+from bms_platform import SERVICE_NAME
+from bms_platform.capabilities import CAPABILITY_MDM_USER_ROLES
 from bms_platform.domains.role.services.permission_subject import DirectRoleResolver, OrgRoleResolver
 
 
@@ -71,6 +79,31 @@ class _Client:
         if self.error is not None:
             raise self.error
         return self.response
+
+
+@pytest.fixture(autouse=True)
+def declare_org_usage() -> Iterator[None]:
+    """声明本消费方对组织域只读能力的降级策略（与 `platform.toml` 的 `[[usages]]` 一致）。
+
+    降级是**消费方声明**（07B `02_02` / `03_01`）：未声明时断链失败上抛，声明 `empty` 才降级为空集。
+    应用内由注册表投影登记；本文件是纯单元用例，故在此登记后复位。
+
+    Yields:
+        None: 用例运行期。
+    """
+    reset_capability_usages()
+    register_capability_usages(
+        SERVICE_NAME,
+        (
+            CapabilityUsage(
+                name=CAPABILITY_MDM_USER_ROLES,
+                degrade=DEGRADE_EMPTY,
+                reason="组织域不可达时主体链只保留直接角色",
+            ),
+        ),
+    )
+    yield
+    reset_capability_usages()
 
 
 @pytest.fixture(autouse=True)

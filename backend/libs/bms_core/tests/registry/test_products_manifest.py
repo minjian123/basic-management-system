@@ -1126,12 +1126,15 @@ def test_inspect_default_consumers(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     _write_layout(tmp_path)
     _install_seed_package(monkeypatch)
 
+    # 03_01 方案 A：未登记的消费方**只告警不拒收**（本地看不到别的产品是常态，
+    # 权威校验归注册通道与 04_02 跨仓对账），因此这里断言告警而非错误。
     for index, consumer in enumerate(("nobody", "desktop")):
         text = _TOML.replace('default_consumers = ["platform"]', f'default_consumers = ["{consumer}"]')
-        errors = inspect_product_manifests(
+        report = inspect_product_manifests(
             ConcurrentStableList([_write(tmp_path, text, name=f"consumer-{index}.toml")])
-        ).errors
-        assert any(f"默认消费方未登记（{consumer}）" in error for error in errors)
+        )
+        assert not any("默认消费方未登记" in error for error in report.errors)
+        assert any(f"默认消费方未随本次装载登记（{consumer}" in item for item in report.warnings)
 
 
 def test_inspect_branch_id_cross_domain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

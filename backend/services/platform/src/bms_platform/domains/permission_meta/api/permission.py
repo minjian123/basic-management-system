@@ -1,8 +1,8 @@
 """平台服务内部端点：权限快照失效 + 数据来源只读出口（服务间调用，不经网关）。
 
-- **鉴权**：两条路由各按调用方白名单分道——
-  - `router`（`/invalidate`）：`require_service("mdm")`——仅 mdm 产品服务可调用（岗位 / 部门 / 角色分配
-    变更后触发）；
+- **鉴权**：两条路由各有口径——
+  - `router`（`/invalidate`）：`require_capability("platform.permission_meta.invalidate")`——按**能力分配
+    记录**判定（07B `03_01` 收编；岗位 / 部门 / 角色分配变更后触发）；
   - `read_router`（`/subject`、`/metadata`）：`require_service("identity")`——仅认证服务可读（`04_01`
     下沉后 identity 侧「经契约取数」的数据来源实现取用）。
   两者均只接受对应签发方的有效服务 JWT（`aud=service`）；用户票据与网关服务票据（`sub=gateway`）一律拒。
@@ -18,6 +18,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from bms_core.api.base import BaseRouter, require_service
+from bms_core.api.capability import require_capability
 from bms_core.api.deps import current_tenant_id_of, get_cache_region, get_tenant
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableList
@@ -26,6 +27,7 @@ from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.permission.engine import invalidate_permission_cache
 from bms_core.permission.sources import PermissionMetadata, PermissionSubjectData
 from bms_core.schemas.common import ApiResponse
+from bms_platform.capabilities import CAPABILITY_PLATFORM_PERMISSION_INVALIDATE
 from bms_platform.domains.permission_meta.permission.checker import build_platform_source
 from bms_platform.domains.permission_meta.schemas.permission import (
     PermissionDataScopeItem,
@@ -38,18 +40,16 @@ from bms_platform.domains.permission_meta.schemas.permission import (
     PermissionSubjectResult,
 )
 
-MDM_SERVICE = "mdm"
-"""允许调用失效端点的调用方服务标识（mdm 产品服务键 `mdm`；2026-10-23 由 `org` 归并）。"""
-
 IDENTITY_SERVICE = "identity"
-"""允许调用数据来源只读出口的调用方服务标识（认证服务键 `identity`）。"""
+"""允许调用数据来源只读出口的调用方服务标识（认证服务键 `identity`，平台内部白名单）。"""
 
 router = BaseRouter(
     key="platform_internal_permission",
     prefix="/platform/internal/permissions",
     tags=["platform-internal"],
-    dependencies=[Depends(require_service(MDM_SERVICE))],
+    dependencies=[Depends(require_capability(CAPABILITY_PLATFORM_PERMISSION_INVALIDATE))],
 )
+"""权限失效入口：调用方资格由**能力分配**派生（新增消费方只需授予分配，不改代码）。"""
 
 read_router = BaseRouter(
     key="platform_internal_permission_read",
@@ -124,7 +124,7 @@ async def read_permission_metadata(
     return ApiResponse(data=_to_metadata_result(metadata))
 
 
-def _to_subject_result(data: PermissionSubjectData) -> PermissionSubjectResult:
+def _to_subject_result(data: PermissionSubjectData | None) -> PermissionSubjectResult:
     """把基座中性数据转成内部契约响应。
 
     Args:
@@ -133,6 +133,10 @@ def _to_subject_result(data: PermissionSubjectData) -> PermissionSubjectResult:
     Returns:
         PermissionSubjectResult: 内部契约响应。
     """
+    if data is None:
+        # 未知用户 / 该用户无主体数据：返回**空聚合输入**（五个契约字段齐全），
+        # 不把 `null` 透给调用方（消费方按空主体继续算，无需为「查无此人」分支特判）
+        return PermissionSubjectResult()
     result = PermissionSubjectResult(role_ids=ConcurrentStableList(data.role_ids))
     for role_id in data.role_ids:
         role_type = data.role_types.get(role_id)

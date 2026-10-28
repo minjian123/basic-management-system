@@ -729,11 +729,16 @@ def validate_declarations(
             errors.add(f"{prefix}：{missing}")
         for consumer in record.default_consumers:
             if consumer not in consumer_keys:
-                errors.add(f"{prefix}：默认消费方未登记（{consumer}）")
+                # 07B `03_01` 决策（§9 偏差 4，方案 A）：注册期只告警，不因「对端尚未注册」拒收。
+                # 平台先起、产品后起是常态（平台自身清单就声明了 `mdm` 消费方），硬校验会让基座无法启动；
+                # 可兑现性由运行期判定（取不到即按能力调用语义失败 / 降级）与 `04_02` 跨仓对账兜底。
+                warnings.add(f"{prefix}：默认消费方尚未注册（{consumer}；注册期放行，运行期按授权记录判定）")
     for usage in payload.usages:
         prefix = f"{label}｜使用声明 {usage.name}"
         if usage.name not in registered_capabilities:
-            errors.add(f"{prefix}：被消费能力未注册（请先由提供方注册该能力）")
+            # 同上（方案 A）：提供方可能尚未启动，注册期只记警示；降级策略本身仍照常登记，
+            # 运行期取不到能力按该策略处理（未声明降级即失败上抛）。
+            warnings.add(f"{prefix}：被消费能力尚未注册（提供方未注册；运行期取不到按降级策略处理）")
             continue
         if usage.degrade == DEGRADE_STALE:
             errors.add(f"{prefix}：降级模式暂不支持（stale 需本地投影来源，当前未落地）")

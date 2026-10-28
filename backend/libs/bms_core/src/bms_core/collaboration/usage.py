@@ -235,9 +235,30 @@ async def call_capability[ResultT](
     """
     try:
         endpoint = resolve_capability(name)
-    except Exception:
+    except Exception as exc:
         await _count(metrics, METRIC_CAPABILITY_RESOLVE_ERROR, {"capability": name, "consumer": consumer})
-        raise
+        # 取用失败也要看消费方声明的降级策略（07B `03_01`）：注册表世界里「提供方尚未注册」
+        # 是启动期常态（平台先起、产品后起），硬抛会让所有依赖该能力的路径在启动窗口内全崩；
+        # 未声明降级才上抛（契约断链不可静默兜底）。
+        usage = find_capability_usage(consumer, name)
+        if usage is None or usage.degrade == DEGRADE_NONE:
+            raise
+        await _count(
+            metrics,
+            METRIC_CAPABILITY_DEGRADE,
+            {"capability": name, "consumer": consumer, "mode": usage.degrade},
+        )
+        get_logger(_LOGGER).warning(
+            "capability_degrade",
+            capability=name,
+            consumer=consumer,
+            degrade_mode=usage.degrade,
+            reason=usage.reason,
+            stage="resolve",
+            error_code=getattr(exc, "code", None),
+            error_type=type(exc).__name__,
+        )
+        return fallback()
     try:
         return await call(endpoint)
     except Exception as exc:

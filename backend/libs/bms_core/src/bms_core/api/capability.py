@@ -28,7 +28,7 @@ from bms_core.metrics.base import BaseMetrics, get_metrics
 from bms_core.oauth.token import TOKEN_AUDIENCE_SERVICE
 from bms_core.oauth.verify import BaseTokenVerifier, VerifiedToken, get_token_verifier
 
-__all__ = ["require_capability"]
+__all__ = ["require_capability", "require_capability_or_service"]
 
 
 def require_capability(capability: str) -> Callable[..., Awaitable[VerifiedToken]]:
@@ -71,6 +71,62 @@ def require_capability(capability: str) -> Callable[..., Awaitable[VerifiedToken
         if consumer == DEFAULT_GATEWAY_SERVICE_IDENTITY:
             # 网关代发的服务票据只代表「请求来自网关」，不是产品服务；前端应用不参与分配
             raise PermissionError(f"网关代发的服务票据不得作为能力消费方：{capability}")
+        await check_capability_access(capability, consumer, metrics=metrics)
+        return verified
+
+    return dependency
+
+
+def require_capability_or_service(
+    capability: str,
+    *services: str,
+) -> Callable[..., Awaitable[VerifiedToken]]:
+    """能力授权为主、指定**平台内部服务**按白名单放行的复合依赖。
+
+    用于「产品按能力授权、平台内部按白名单」并存的入站面（如系统参数内部读）：平台内部调用不参与
+    能力分配，纳入授权会扩大范围且无收益；产品调用则一律按分配判定。
+
+    判定顺序：网关代发票据一律拒 → 调用方在 `services` 内即放行 → 否则按能力分配判定。
+
+    Args:
+        capability: 端点对应的能力名（须与提供方清单 `[[collaborations]]` 一致）。
+        *services: 按白名单放行的平台内部服务标识。
+
+    Returns:
+        Callable[..., Awaitable[VerifiedToken]]: FastAPI 依赖（返回校验通过的服务身份声明）。
+    """
+
+    async def dependency(
+        verifier: Annotated[BaseTokenVerifier, Depends(get_token_verifier)],
+        metrics: Annotated[BaseMetrics, Depends(get_metrics)],
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> VerifiedToken:
+        """校验入站服务 JWT，并按「白名单 → 能力分配」两档判定。
+
+        Args:
+            verifier: 统一令牌校验器。
+            metrics: 指标器（能力判定按「调用方 × 能力」打点）。
+            authorization: `Authorization` 头。
+
+        Returns:
+            VerifiedToken: 校验通过的服务身份声明。
+
+        Raises:
+            AuthError: 缺少 / 无效服务身份凭证（20001 / 401）。
+            PermissionError: 既不在白名单、也无有效分配（30001 / 403）。
+            CatalogError: 能力未登记 / 授权视图来源未装配（配置漂移，拒启级）。
+        """
+        token = _bearer_token(authorization)
+        if token is None:
+            raise AuthError("缺少服务身份凭证")
+        verified = await verifier.verify(token, audience=TOKEN_AUDIENCE_SERVICE)
+        consumer = (verified.service or "").strip()
+        if not consumer:
+            raise AuthError("服务身份缺少签发方标识")
+        if consumer == DEFAULT_GATEWAY_SERVICE_IDENTITY:
+            raise PermissionError(f"网关代发的服务票据不得作为能力消费方：{capability}")
+        if consumer in services:
+            return verified
         await check_capability_access(capability, consumer, metrics=metrics)
         return verified
 
