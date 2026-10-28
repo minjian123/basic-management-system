@@ -83,6 +83,22 @@ def worker_sqlite_dir() -> str:
     return str(directory)
 
 
+def worker_id_for_snowflake() -> int:
+    """当前执行 worker 的雪花 WorkerId（串行 0，xdist `gw0`→1、`gw1`→2 …）。
+
+    为什么需要：雪花 ID 的 WorkerId 缺省 0，而 `-n auto` 下多个 worker 会在**同一毫秒**各自从
+    序列 0 开始生成 → 不同进程产出**相同 ID**。实测后果：跨库 2PC 用例的 XA `XID`
+    （`<全局事务 ID>|<分支>` 派生）撞上另一 worker 已开的同名分支，报 MySQL `XAER_DUPID`。
+    按 worker 编号错开工作节点位后，并行进程的 ID 空间互不相交。
+
+    Returns:
+        int: 0 ~ 1023 的 WorkerId。
+    """
+    name = os.environ.get("PYTEST_XDIST_WORKER", "")
+    index = int(name[2:]) + 1 if name.startswith("gw") and name[2:].isdigit() else 0
+    return index % 1024
+
+
 @pytest.fixture(name="bms_isolate_settings")
 def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """隔离配置：清 `BMS_` 环境变量与 `.env` 读取、关闭真实 provider、重置配置单例。
@@ -129,6 +145,9 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_DATA_SCOPE__PROVIDER", "")
     # 三层权限缓存是**进程级单份**（`04-2`）：跨套件 / 跨用例共用会串味（同租户同用户同版本命中别处数据）
     reset_permission_cache_store()
+    # 并行下 WorkerId 必须按 worker 错开（缺省 0 会让多进程同毫秒生成相同雪花 ID；见
+    # `worker_id_for_snowflake`）。经配置注入，lifespan 的 `validate_startup` 会据此重设生成器。
+    monkeypatch.setenv("BMS_APP__WORKER_ID", str(worker_id_for_snowflake()))
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

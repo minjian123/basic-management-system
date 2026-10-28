@@ -55,8 +55,13 @@ DEPLOY_DIR = "deploy"
 `deploy/registry/<service>.toml` 读取自身声明。故冒烟起容器时把该目录复制进容器（配置与镜像分离）。
 """
 
-CONTAINER_DEPLOY_PATH = "/opt/bms/deploy"
-"""容器内部署资产落点（与镜像 `WORKDIR /opt/bms` 对齐）。"""
+CONTAINER_DEPLOY_PATH = "/opt/deploy"
+"""容器内部署资产落点（= 容器内**仓库根**的 `deploy/`）。
+
+镜像 `WORKDIR /opt/bms` 是后端工程根（含 `alembic.ini`），而清单发现规则取
+`<后端工程根>/../deploy/registry`（本仓清单在**仓库根**下），故落点是 `/opt/deploy` 而非
+`/opt/bms/deploy`。镜像布局若调整，这里需同步。
+"""
 
 DEPLOY_EXCLUDES = (".env", "*.env", ".env.*")
 """复制部署资产时排除的模式：本地 `.env`（凭据，已 gitignore）不随复制进临时容器；CI 无这些文件。"""

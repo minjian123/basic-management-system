@@ -58,3 +58,33 @@ def test_isolate_settings_serial_keeps_sqlite_dir(monkeypatch: pytest.MonkeyPatc
         assert os.environ["BMS_DATABASE__PLATFORM__URL_TEMPLATE"] == ""
     finally:
         generator.close()
+
+
+def test_worker_id_for_snowflake_derives_from_xdist(monkeypatch: pytest.MonkeyPatch) -> None:
+    """雪花 WorkerId：串行 0、`gwN` 取 N+1（避开 0）、取值非法回落 0。"""
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
+    assert fixtures.worker_id_for_snowflake() == 0
+
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw0")
+    assert fixtures.worker_id_for_snowflake() == 1
+
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw9")
+    assert fixtures.worker_id_for_snowflake() == 10
+
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "master")
+    assert fixtures.worker_id_for_snowflake() == 0
+
+
+def test_isolate_settings_injects_worker_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """隔离夹具把派生出的 WorkerId 写进 `BMS_APP__WORKER_ID`（并行下雪花 ID 不撞）。"""
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw3")
+    direct = cast(
+        "Callable[[pytest.MonkeyPatch], Generator[None]]",
+        inspect.unwrap(fixtures.isolate_settings),
+    )
+    generator = direct(monkeypatch)
+    next(generator)
+    try:
+        assert os.environ["BMS_APP__WORKER_ID"] == "4"
+    finally:
+        generator.close()
