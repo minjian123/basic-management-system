@@ -154,6 +154,23 @@ def test_bms_ref_tool_is_registered() -> None:
 
 
 @pytest.mark.kiwi_id(2184)
+def test_watch_pipeline_tool_is_registered() -> None:
+    """流水线盯守入口就位：`scripts/tools/ci/watch_pipeline.py` 支持指定 / 最新 / 多仓与失败日志尾部。"""
+    tool = _REPO / "scripts" / "tools" / "ci" / "watch_pipeline.py"
+    assert tool.is_file()
+    script = tool.read_text(encoding="utf-8")
+    assert "/pipelines/" in script
+    assert "PRIVATE-TOKEN" in script
+    assert "from trigger import" in script
+    # 三种指定方式（多仓 / 指定 id / 最新一条）与秒查、失败日志尾部都要覆盖
+    assert '"--project"' in script
+    assert '"--pipeline"' in script
+    assert '"--latest"' in script
+    assert '"--once"' in script
+    assert '"--log-tail"' in script
+
+
+@pytest.mark.kiwi_id(2184)
 def test_parent_backend_test_rules_are_shared_paths_only() -> None:
     """全量测试只守共享 / 工作区路径；单体镜像 job 已移除；trigger 阶段已入 stages。"""
     ci = _load(_CI_PATH)
