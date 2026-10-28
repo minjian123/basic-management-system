@@ -156,6 +156,27 @@ async def test_snapshot_lists_collaborations_with_access_path(client: AsyncClien
     assert item["path"] == "/api/v1/demo/roles"
 
 
+async def test_snapshot_roundtrip_projects_and_resolves(client: AsyncClient) -> None:
+    """端到端：产品注册 → 拉快照 → 还原投影 → `resolve_capability` 取到该能力。
+
+    这条链路横跨两端：平台落库 `PUT`，产品侧 `GET` 后按快照整体重建视图，消费方取址无需再装载对端清单。
+    """
+    from bms_core.collaboration.resolver import resolve_capability
+    from bms_core.registry.projection import project_registry
+    from bms_core.registry.remote import snapshot_from_wire
+
+    await _submit(client)
+    snapshot = await client.get(SNAPSHOT_API, headers={"Authorization": "Bearer platform"})
+    assert snapshot.status_code == 200
+
+    view = await snapshot_from_wire(snapshot.json()["data"])
+    project_registry(view)
+
+    endpoint = resolve_capability("demo.demo_op.roles")
+    assert endpoint.path == "/api/v1/demo/roles"
+    assert endpoint.target.service_key == "demo"
+
+
 async def test_submit_rejects_service_key_mismatch(client: AsyncClient) -> None:
     """清单服务键与请求不一致：10001。"""
     response = await client.put(
