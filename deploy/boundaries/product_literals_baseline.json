@@ -1,0 +1,886 @@
+{
+  "version": 1,
+  "generated_at": "2026-10-28",
+  "entries": [
+    {
+      "path": "backend/libs/bms_core/src/bms_core/application.py",
+      "fingerprint": "f26b2fd2ec0a4703",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "fingerprint": "0850e29532b5eae3",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "fingerprint": "acd475fbac656cb3",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/core/config.py",
+      "fingerprint": "bf223aea95dceb20",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/core/exceptions.py",
+      "fingerprint": "0fdea7eb61e67535",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/datasource/registry.py",
+      "fingerprint": "41c4d70fe28d1bc2",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/datasource/registry.py",
+      "fingerprint": "7cc12f7acae80412",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/datasource/registry.py",
+      "fingerprint": "ccf66b4b2a55f15e",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/db/keys.py",
+      "fingerprint": "9310fedf76ea8c47",
+      "count": 4,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/db/keys.py",
+      "fingerprint": "ed96be58f3df368c",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/db/keys.py",
+      "fingerprint": "f1ebc890a0e5aeed",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/db/migration.py",
+      "fingerprint": "087ced66af4d4501",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/db/migration.py",
+      "fingerprint": "09084696e980672a",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/db/migration.py",
+      "fingerprint": "577602bb5c0d4b64",
+      "count": 3,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/db/migration.py",
+      "fingerprint": "e0a85b2fca6808b9",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/dict/table.py",
+      "fingerprint": "deab68ba034fb24a",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/events/platform_events.py",
+      "fingerprint": "fb2f2ca8838fd952",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/models/platform/catalog.py",
+      "fingerprint": "9913d8874bd567c1",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/models/platform/declaration.py",
+      "fingerprint": "718617fa5b40a6db",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/models/platform/declaration.py",
+      "fingerprint": "8269c86c618bc795",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/models/platform/user.py",
+      "fingerprint": "31b31fbd2f2c9d5c",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/oauth/scopes.py",
+      "fingerprint": "baef297fc6ff9600",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/oauth/scopes.py",
+      "fingerprint": "e42146d6e0582bb2",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/permission/engine.py",
+      "fingerprint": "b4c2005e1bdf94ca",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/permission/resolver.py",
+      "fingerprint": "4aadc998c2ce2d1f",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/permission/subject.py",
+      "fingerprint": "9181dfb00e716556",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/registry/declarations.py",
+      "fingerprint": "f770f9256bcdcc0b",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/registry/products.py",
+      "fingerprint": "758b6a05e3b2b42d",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/registry/products.py",
+      "fingerprint": "7cb1a3ef841d89c9",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/gateway_catalog.py",
+      "fingerprint": "4869b20a6a603dab",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "fingerprint": "1c2a4a407939fb7d",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "fingerprint": "2306f3806b02fd25",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "fingerprint": "2834e65b3242ecc7",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "fingerprint": "782ba5d5459e579a",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "fingerprint": "aeec17f963184075",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "fingerprint": "bb39f39271d7b058",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/module_registry.py",
+      "fingerprint": "d3ba619dfe92f3c8",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/services/service_contract.py",
+      "fingerprint": "487b0fd755dbfc31",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/cli.py",
+      "fingerprint": "ee782c4a70d0ddb0",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "34d2368b58dfe586",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "494abf25c1a33e8e",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "5c6741e844503ecb",
+      "count": 6,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "61edd94315b495f1",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "7b8f0d8a732323cd",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "821100b6c383a95c",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "880a539ef6f06abc",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "c4628fa8f9a02e30",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
+      "fingerprint": "db83acf9561f3997",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/probe.py",
+      "fingerprint": "50a1a1bd7650b9ad",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/ops/dev_run.py",
+      "fingerprint": "78abc31fa75ac401",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/ops/event_contracts.py",
+      "fingerprint": "01f875b82d54ff8a",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/ops/event_contracts.py",
+      "fingerprint": "28103047e6e68ff4",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/ops/provision_tenant.py",
+      "fingerprint": "63f98bf315eafa2a",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/permission_meta/permission/source.py",
+      "fingerprint": "b810fbb7c8b51ebc",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/role/schemas/role.py",
+      "fingerprint": "dee9f3035a06a788",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/role/services/permission_subject.py",
+      "fingerprint": "3f43f484776aaf65",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/role/services/permission_subject.py",
+      "fingerprint": "40ea28ea62c641d0",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/role/services/permission_subject.py",
+      "fingerprint": "ba27f067f3262238",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/role/services/role.py",
+      "fingerprint": "8fd23cd2e253639e",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/role/services/role.py",
+      "fingerprint": "a6ee586d71801ba5",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/role/services/role_assign.py",
+      "fingerprint": "8591bcd958823f87",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/api/internal_users.py",
+      "fingerprint": "0e813113bb409e72",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/api/internal_users.py",
+      "fingerprint": "942d98a62baac9ea",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/api/internal_users.py",
+      "fingerprint": "e3f4b79088c75f61",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/api/users.py",
+      "fingerprint": "6ae423eb3571c692",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/schemas/users.py",
+      "fingerprint": "1a617539467e568f",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/schemas/users.py",
+      "fingerprint": "714d8ab875bf4d45",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/schemas/users.py",
+      "fingerprint": "b4c58bfe531eb088",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/schemas/users.py",
+      "fingerprint": "c34a8b1b73562008",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/schemas/users.py",
+      "fingerprint": "dee9f3035a06a788",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/services/users.py",
+      "fingerprint": "543304cefe3f37a1",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/services/users.py",
+      "fingerprint": "e3f4b79088c75f61",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "backend/services/platform/src/bms_platform/domains/user/services/users_admin.py",
+      "fingerprint": "4ae0650b10ce1cd8",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/api/endpoints.ts",
+      "fingerprint": "618d74a3449bfade",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/api/endpoints.ts",
+      "fingerprint": "b70ec6de3f65d56c",
+      "count": 3,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/api/endpoints.ts",
+      "fingerprint": "b8d3399962355290",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/api/endpoints.ts",
+      "fingerprint": "e8a3abfdb464a878",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/api/endpoints.ts",
+      "fingerprint": "fe0777060f2dfb28",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/api/role.ts",
+      "fingerprint": "71e47fd9cf2a3eaa",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/dev/OrgCheck.vue",
+      "fingerprint": "32ec71d0068886c9",
+      "count": 4,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/dev/OrgCheck.vue",
+      "fingerprint": "3e951b26ab52d263",
+      "count": 3,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/dev/OrgCheck.vue",
+      "fingerprint": "e6bb78f5e4027bc0",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/dev/RoleCheck.vue",
+      "fingerprint": "cb01bd94f9e36372",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/module/registries.ts",
+      "fingerprint": "7578f1acda2dd593",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/module/registries.ts",
+      "fingerprint": "82ea5c367509b216",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/RoleRecordTab.vue",
+      "fingerprint": "8f56ee124a745e09",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/role/RoleAssignTab.vue",
+      "fingerprint": "1ef6f6b36e7804d3",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/role/RoleAssignTab.vue",
+      "fingerprint": "f70717cede9cb098",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/role/RolePermissionConfig.vue",
+      "fingerprint": "4260fb70f25a05f1",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/role/RolePermissionConfig.vue",
+      "fingerprint": "62ee9db7003ddbee",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/role/RolePermissionConfig.vue",
+      "fingerprint": "6a2853440f69df4c",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/role/RoleUsersPanel.vue",
+      "fingerprint": "f8f6cebfcd2f4b3b",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/user/RoleAssignPanel.vue",
+      "fingerprint": "45e268c6c56dbe4c",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/user/UserRecordTab.vue",
+      "fingerprint": "46690b8ce6963330",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/user/UserRecordTab.vue",
+      "fingerprint": "4f8b7c12634a392b",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/user/UserView.vue",
+      "fingerprint": "5df2473b35e04113",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/apps/desktop/src/views/system/user/UserView.vue",
+      "fingerprint": "763a06a3507bb23d",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/core/src/capabilities/org-source.ts",
+      "fingerprint": "156d2c91426d8761",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/core/src/capabilities/org-source.ts",
+      "fingerprint": "3ab829f320617b43",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/core/src/capabilities/org-source.ts",
+      "fingerprint": "51b4e646fd0f941f",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/core/src/capabilities/org-source.ts",
+      "fingerprint": "a0bea6a723788d3c",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/core/src/contracts/service-endpoint.ts",
+      "fingerprint": "80cca617786d002f",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/core/src/contracts/service-endpoint.ts",
+      "fingerprint": "ac10f3a416a9866e",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/ui_ep/src/utils/orgSource.ts",
+      "fingerprint": "0fa7697ad3c7c223",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/ui_ep/src/utils/orgSource.ts",
+      "fingerprint": "7f27463de1cf4538",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/ui_ep/src/utils/orgSource.ts",
+      "fingerprint": "87c65b1bc8ccab46",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/ui_ep/src/utils/orgSource.ts",
+      "fingerprint": "88e44883d49ae008",
+      "count": 1,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/ui_ep/src/utils/orgSource.ts",
+      "fingerprint": "994860f50db0b002",
+      "count": 5,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/ui_ep/src/utils/orgSource.ts",
+      "fingerprint": "a9525d9ee44280a6",
+      "count": 2,
+      "samples": [
+        "mdm"
+      ]
+    },
+    {
+      "path": "frontend/packages/ui_ep/src/utils/orgSource.ts",
+      "fingerprint": "da39e6982eafb943",
+      "count": 3,
+      "samples": [
+        "mdm"
+      ]
+    }
+  ]
+}

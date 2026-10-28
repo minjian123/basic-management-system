@@ -279,6 +279,9 @@ base-integrity:
     # 裸无序集合护栏：类字段与函数签名不得使用裸 dict / list / set / frozenset（存量以基线快照豁免并递减；《后端开发规范》§3.1「集合与排序」）
     - python scripts/tools/base_check/check_bare_collections.py
     - python scripts/tools/base_check/check_bare_collections.py --self-test
+    # 产品字面量护栏：平台禁入面（源码 / 种子 / 前端常量）不得出现产品标识；存量基线只减不增（07B 04_01）
+    - python scripts/tools/base_check/check_product_literals.py
+    - python scripts/tools/base_check/check_product_literals.py --self-test
     # 排期与工时落点护栏：只允许出现在《总体项目规划》与各阶段计划文档（《计划文档规范》「排期唯一落点与边界」）
     - python scripts/tools/base_check/check_docs_scope.py
     - python scripts/tools/base_check/check_docs_scope.py --self-test

@@ -174,6 +174,17 @@ cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "{roo
 label = "基座：check_bare_collections（裸无序集合护栏）"
 cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "{root}"]
 
+
+[[preflight.steps]]
+label = "产品字面量：check_product_literals（平台禁入面禁产品标识；基线只减不增）"
+cmd = [
+  "{python}",
+  "scripts/tools/base_check/check_product_literals.py",
+  "{root}",
+  "--baseline-ref",
+  "origin/main",
+]
+
 [[preflight.steps]]
 label = "文档：check_docs_scope（排期与工时落点护栏）"
 cmd = ["{python}", "scripts/tools/base_check/check_docs_scope.py", "{root}"]
@@ -244,6 +255,11 @@ deps = ["scripts/tools/base_check/check_service_boundaries.py", "backend/libs/bm
 label = "基座：check_bare_collections --self-test"
 cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "--self-test"]
 deps = ["scripts/tools/base_check/check_bare_collections.py", "backend/libs/bms_core/"]
+
+[[preflight.self_tests]]
+label = "产品字面量：check_product_literals --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_product_literals.py", "--self-test"]
+deps = ["scripts/tools/base_check/check_product_literals.py", "backend/libs/bms_core/"]
 
 [[preflight.self_tests]]
 label = "文档：check_docs_scope --self-test"
@@ -631,3 +647,40 @@ cross_access_key = "cross_service_access_violation"
 registered_exceptions_key = "registered_exceptions_total"
 metric_name = "bms_boundary_cross_access_total"
 checker = "service-boundaries"
+
+# ---- 产品字面量护栏（`engkit base product-literals`；规则数据在此，判定在包内）----
+# 平台类仓的禁入面（平台源码 / 种子 / 前端常量）不得出现产品标识；允许面 = 合规出现位置，
+# 排除面 = 生成物（不进扫描与统计）。存量以基线豁免、只减不增；收编完成后基线清空即硬门禁。
+
+[rules.product_literals]
+enabled = true
+deny_globs = [
+  "backend/libs/**/*.py",
+  "backend/services/**/*.py",
+  "backend/ops/**/*.py",
+  "frontend/packages/**/*.ts",
+  "frontend/packages/**/*.vue",
+  "frontend/apps/**/*.ts",
+  "frontend/apps/**/*.vue",
+  "frontend/modules/**/*.ts",
+  "frontend/modules/**/*.vue",
+]
+allow_globs = [
+  "**/tests/**",
+  "**/testing/**",
+  "**/*.spec.ts",
+  "deploy/registry/**",
+  "bms文档/**",
+  "backend/services/platform/src/bms_platform/capabilities.py",
+]
+exclude_globs = [
+  "frontend/packages/api_types/**",
+  "frontend/releases/**",
+  "frontend/apps/desktop/public/modules.json",
+]
+literals = ["mdm"]
+include_comments = true
+combine_suffixes = ["_", ".", ":", "-"]
+baseline = "deploy/boundaries/product_literals_baseline.json"
+baseline_ref = "origin/main"
+exempt_marker = "product-literal:allow:"
