@@ -36,6 +36,7 @@
 | `contract_version` | VARCHAR(16) | 否 | 默认 `0.1.0` | 公开契约（OpenAPI）版本（semver） |
 | `product_key` | VARCHAR(32) | 是 | — | 产品标识（`biz` / `cw`；空 = 平台） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` / `planned` · **系统字段**：状态 |
+| `tenant_base` | BOOLEAN | 否 | 默认 `false` | 租户恒开通标记（产品服务行在自持清单声明 `tenant_base = true`）：为真者不参与开通勾选与模块门禁；平台模块恒开通由基座常量承载，不依赖本列 |
 | `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
@@ -72,5 +73,6 @@
 | 2026-09-22 | v3 | 升格服务目录：增 `service_key` / `business_code` / `service_group` / `build_batch` / `service_version` / `contract_version` / `product_key`；`errcode_segment` 改可空并去 DB 复合唯一（随平台链 `0002_sys_module_catalog`） | minjian |
 | 2026-10-11 | v4 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `module_key` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `module_key`），唯一约束改 `uq_sys_module_code_deleted_at`；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
 | 2026-10-22 | v5 | ORM 模型落点迁基座共享 `bms_core/models/platform/catalog.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
+| 2026-10-28 | v6 | 增 `tenant_base`（租户恒开通声明，07B `03_01`）：产品服务行在自持清单声明、随注册落库并纳入接库对账；建表仍随 `platform:platform` 链，开发 / 演示库删库重建（无迁移链） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
