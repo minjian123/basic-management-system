@@ -150,6 +150,7 @@ flowchart LR
 - **门槛 = 100%，维度 = 行 + 分支**（后端 pytest-cov、前端 Vitest coverage 同口径）。
 - **本要求只在此定义一处**：其他规范、规划、设计、README 与 CI 注释一律引用本节（写「覆盖率口径见《AI开发规范》『覆盖率要求』节」），**不得再复述数字**。
 - **开发环 / 推送环分两段执行**：开发期间改完即测用**开发环**（`scripts/tools/preflight/测试改动内容.sh`，等价 `engkit run-changed`）——只跑 git 改动相关的直接依赖测试与前端受影响包，**不采集覆盖率**、只对改动文件跑 ruff；**推送前**仍须跑预检定向档（`check_preflight.py`）补齐覆盖率门禁与全仓静态。开发环跳过覆盖率**不算**破坏本节门禁，门禁以推送前预检为准（漏测由预检的传递闭包选测与 CI 全量兜底）。
+- **纯声明模块用「可导入 / 可解析」护栏用例覆盖，禁止 `pragma: no cover` 或 `omit` 绕过**：域公共出口（`domains/*/public.py` 的空占位）、模型模块清单（`models/__init__.py` 的 `MODEL_MODULES`）不承载运行期逻辑，业务用例天然不触达，单服务跑覆盖率时必然整模块缺失（2026-10-28 九个服务 `service-test` 实测）。做法是加护栏用例——基座侧 `bms_core/tests/crosscut/test_domain_public_exports.py` 与服务侧 `<服务>/tests/test_package_shape.py` **各一份**（服务子流水线只收集本服务 `tests`，基座侧用例覆盖不到），公共解析收在 `tests_support/package_shape.py`。`omit` 会把该文件将来放入的真实逻辑一并漏统计；`pragma: no cover` 容易在放入内容后忘记移除。模型清单用例走迁移链同一入口（`service_model_modules`），清单写错 / 模块缺失即刻失败，而不是等迁移期才发现。
 
 > 落地命令、门禁 job、校验脚本与推进节奏属工程实现，不在本规范展开。
 
