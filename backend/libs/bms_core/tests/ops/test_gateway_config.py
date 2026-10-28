@@ -1,5 +1,6 @@
 """网关声明式配置 CLI 测试（render / check 零漂移 + 请求体上限三方一致）。Kiwi 2165 / 2264。"""
 
+import asyncio
 import runpy
 import sys
 from pathlib import Path
@@ -58,6 +59,88 @@ def test_render_and_check_roundtrip(tmp_path: Path) -> None:
     assert gateway_config.main(ConcurrentStableList(["render", "--root", str(tmp_path)])) == 0
     assert gateway_config.config_path(tmp_path).read_text(encoding="utf-8") == render_apisix_yaml()
     assert gateway_config.main(ConcurrentStableList(["check", "--root", str(tmp_path)])) == 0
+
+
+def _seed_registry(url: str) -> None:
+    """把本仓平台清单写进临时库注册表（等价于「平台启动已完成注册」）。
+
+    Args:
+        url: 平台库连接串。
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession
+    from sqlalchemy.ext.asyncio import async_sessionmaker as _maker
+    from sqlalchemy.ext.asyncio import create_async_engine as _create
+
+    from bms_core.models.base import BaseModel
+    from bms_core.registry.declarations import RegistrySnapshot, from_manifest, plan_declarations
+    from bms_core.registry.products import load_product_manifest, local_manifest_paths
+    from bms_platform.domains.platform_registry.repositories.declaration_repository import (
+        DeclarationRepository,
+    )
+
+    async def _run() -> None:
+        """建表并把平台清单落库（在同步入口内跑一次事件循环）。"""
+        engine = _create(url)
+        try:
+            async with engine.begin() as connection:
+                await connection.run_sync(BaseModel.metadata.create_all)
+            factory: _maker[_AsyncSession] = _maker(engine, expire_on_commit=False)
+            manifest_path = next(item for item in local_manifest_paths() if item.name == "platform.toml")
+            payload = from_manifest(load_product_manifest(manifest_path))
+            async with factory() as session:
+                plan, conflicts = plan_declarations(payload, RegistrySnapshot())
+                assert list(conflicts) == []
+                await DeclarationRepository(session).apply(plan, product_key=payload.product_key)
+                await session.commit()
+        finally:
+            await engine.dispose()
+
+    asyncio.run(_run())
+
+
+@pytest.mark.kiwi_id(2165)
+def test_registry_source_matches_manifest_source(tmp_path: Path) -> None:
+    """两档取数产物一致：注册表模式与清单模式渲染出的网关配置逐字相同。"""
+    gateway_config.load_registries(gateway_config.REPO_ROOT)
+    expected = render_apisix_yaml()
+
+    url = f"sqlite+aiosqlite:///{tmp_path / 'gateway.db'}"
+    _seed_registry(url)
+
+    assert list(gateway_config.load_registries_from_db(url)) == []
+    assert render_apisix_yaml() == expected
+
+
+@pytest.mark.kiwi_id(2165)
+def test_registry_source_requires_url(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`--from-registry` 未给 --url：退出码 1 且提示补参。"""
+    assert gateway_config.main(ConcurrentStableList(["render", "--from-registry", "--root", str(tmp_path)])) == 1
+    assert "--from-registry 需要 --url" in capsys.readouterr().err
+
+
+@pytest.mark.kiwi_id(2165)
+def test_registry_source_reports_unreadable_db(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """注册表不可读：退出码 1 且提示改用清单模式（不静默降级）。"""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'missing-dir' / 'nope.db'}"
+
+    assert gateway_config.render(tmp_path, source="registry", url=url) == 1
+    assert "注册表不可读" in capsys.readouterr().err
+
+
+@pytest.mark.kiwi_id(2165)
+def test_check_registry_source_reports_unreadable_db(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """check 走注册表模式且库不可读：退出码 1 且给出明细。"""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'missing-dir' / 'check.db'}"
+
+    assert gateway_config.check(tmp_path, source="registry", url=url) == 1
+    assert "注册表不可读" in capsys.readouterr().err
+
+
+@pytest.mark.kiwi_id(2165)
+def test_check_registry_source_requires_url(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """check 走注册表模式但缺 --url：退出码 1 且提示补参。"""
+    assert gateway_config.main(ConcurrentStableList(["check", "--from-registry", "--root", str(tmp_path)])) == 1
+    assert "--from-registry 需要 --url" in capsys.readouterr().err
 
 
 @pytest.mark.kiwi_id(2165)

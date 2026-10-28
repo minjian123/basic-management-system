@@ -38,8 +38,9 @@ from bms_core.services.gateway_catalog import (  # noqa: E402
     validate_service_discovery,
 )
 
-RUN_IMAGE = "*"
-"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+RUN_IMAGE = "ci"
+"""缺省（`--from-manifest`）只依赖 `bms_core` 与 `ops`；`--from-registry` 要读平台库注册表，
+故导入 `bms_platform` 仓储——注册表模式在全量工作区 / CI 镜像运行（与 `ops.check_modules` 同口径）。"""
 REPO_ROOT = _BACKEND_ROOT.parent
 """仓库根（`backend/` 的父目录）。"""
 
@@ -232,17 +233,88 @@ def load_registries(root: Path) -> None:
         load_product_manifests(paths)
 
 
-def render(root: Path, *, to_stdout: bool = False) -> int:
+def load_registries_from_db(url: str) -> ConcurrentStableList[str]:
+    """从**注册表**装载（`--from-registry`，07B `02_06`）：读平台库注册表 → 投影进视图族。
+
+    与 `load_registries(root)`（清单装载）产出的视图**同源同形**：两者都是「八类声明 → 进程内视图」，
+    因此同一份声明无论走清单还是走注册表，渲染出的网关配置必须逐字一致（有用例守住）。
+
+    Args:
+        url: 平台库连接串。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细（空表示装载成功）。
+    """
+    import asyncio
+
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+    from bms_core.registry.projection import project_registry
+    from bms_platform.domains.platform_registry.repositories.declaration_repository import (
+        DeclarationRepository,
+    )
+
+    async def _load() -> object:
+        """读快照并投影。
+
+        Returns:
+            object: 注册表快照。
+        """
+        engine = create_async_engine(url)
+        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with factory() as session:
+                snapshot = await DeclarationRepository(session).load_snapshot()
+        finally:
+            await engine.dispose()
+        project_registry(snapshot)
+        return snapshot
+
+    try:
+        asyncio.run(_load())
+    except Exception as exc:
+        return ConcurrentStableList(
+            [f"注册表不可读（{type(exc).__name__}）：请先启动平台完成注册，或用 --from-manifest 走清单模式"]
+        )
+    return ConcurrentStableList()
+
+
+def _load(root: Path, *, source: str, url: str) -> ConcurrentStableList[str]:
+    """按取数口径装载声明视图。
+
+    Args:
+        root: 仓库根。
+        source: `manifest`（清单，CI 零依赖）或 `registry`（平台库注册表，部署态权威）。
+        url: 平台库连接串（`registry` 模式必填）。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细（空表示成功）。
+    """
+    if source == "registry":
+        if not url:
+            return ConcurrentStableList(["--from-registry 需要 --url（平台库连接串）"])
+        return load_registries_from_db(url)
+    load_registries(root)
+    return ConcurrentStableList()
+
+
+def render(root: Path, *, to_stdout: bool = False, source: str = "manifest", url: str = "") -> int:
     """生成并写入 `apisix.yaml`。
 
     Args:
         root: 仓库根。
         to_stdout: 是否同时打印生成内容。
+        source: 取数口径（`manifest` 清单 / `registry` 注册表）。
+        url: 平台库连接串（`registry` 模式必填）。
 
     Returns:
-        int: 退出码（0 成功）。
+        int: 退出码（0 成功；1 装载失败）。
     """
-    load_registries(root)
+    errors = _load(root, source=source, url=url)
+    if errors:
+        for error in errors:
+            print(f"[gateway_config] {error}", file=sys.stderr)
+        return 1
     text = render_apisix_yaml()
     target = config_path(root)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -254,16 +326,22 @@ def render(root: Path, *, to_stdout: bool = False) -> int:
     return 0
 
 
-def check(root: Path) -> int:
+def check(root: Path, *, source: str = "manifest", url: str = "") -> int:
     """校验仓库内生成件与服务目录零漂移、服务发现无硬编码 IP、请求体上限三方一致。
 
     Args:
         root: 仓库根。
+        source: 取数口径（`manifest` 清单 / `registry` 注册表）。
+        url: 平台库连接串（`registry` 模式必填）。
 
     Returns:
         int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP / 请求体上限口径不一致）。
     """
-    load_registries(root)
+    errors = _load(root, source=source, url=url)
+    if errors:
+        for error in errors:
+            print(f"[gateway_config] {error}", file=sys.stderr)
+        return 1
     target = config_path(root)
     if not target.is_file():
         print(f"[gateway_config] 缺失生成件：{target}（运行 render 生成）", file=sys.stderr)
@@ -272,7 +350,7 @@ def check(root: Path) -> int:
         print(
             f"[gateway_config] 网关配置与服务目录不一致：{target}\n"
             "  运行 `uv run python -m ops.gateway_config render` 重新生成"
-            "（来源：服务目录 SERVICE_CATALOG）",
+            f"（来源：{'平台库注册表' if source == 'registry' else '服务目录 SERVICE_CATALOG'}）",
             file=sys.stderr,
         )
         return 1
@@ -313,10 +391,26 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     parser.add_argument("command", choices=("render", "check"), help="render 生成；check 零漂移校验")
     parser.add_argument("--root", type=Path, default=REPO_ROOT, help="仓库根（缺省自动定位）")
     parser.add_argument("--print", dest="to_stdout", action="store_true", help="render 时打印生成内容")
+    parser.add_argument(
+        "--from-registry",
+        dest="source",
+        action="store_const",
+        const="registry",
+        default="manifest",
+        help="从平台库注册表取数（部署态权威来源；需配 --url）",
+    )
+    parser.add_argument(
+        "--from-manifest",
+        dest="source",
+        action="store_const",
+        const="manifest",
+        help="从清单取数（缺省；CI 零依赖）",
+    )
+    parser.add_argument("--url", default="", help="平台库连接串（--from-registry 时必填）")
     args = parser.parse_args(argv)
     if args.command == "render":
-        return render(args.root, to_stdout=args.to_stdout)
-    return check(args.root)
+        return render(args.root, to_stdout=args.to_stdout, source=args.source, url=args.url)
+    return check(args.root, source=args.source, url=args.url)
 
 
 if __name__ == "__main__":
