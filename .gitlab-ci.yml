@@ -144,8 +144,11 @@ ci-queue-acquire:
           AT="$(stamp)"
           case "$AT" in ''|*[!0-9]*) AT="$NOW" ;; esac
           AGE=$(( NOW - AT ))
-          owner_finished "$OWNER"
-          CASE=$?
+          # 函数返回 1/2（owner 属另一仓 / 不可判定）时不得让 `set -e` 直接判死——runner 默认
+          # `set -eo pipefail`，裸调用会在等待分支无输出退出（2026-10-28 手工并发触发 #1276 实测 exit 2）；
+          # 故用 `|| CASE=$?` 接住返回码（`||` 左侧失败不触发 set -e）。
+          CASE=0
+          owner_finished "$OWNER" || CASE=$?
           if [ "$CASE" -eq 0 ]; then
             echo "[ci-queue] owner 流水线已终态（owner=${OWNER}，持锁 ${AGE}s）⇒ 接管（auto_cancel 泄漏锁）"
             docker rm -f "$LOCK" >/dev/null 2>&1 || true
