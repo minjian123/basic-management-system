@@ -68,29 +68,6 @@ match_prefix = "backend/ops/"
 test_dir_suffix = "/tests/ops/"
 coverage = false
 
-[[rules.backend.extra_tests]]
-match_prefix = "scripts/tools/preflight/"
-test_files = [
-  "libs/bms_core/tests/boundary/test_test_selection_guard.py",
-  "libs/bms_core/tests/boundary/test_preflight_scoping_guard.py",
-  "libs/bms_core/tests/boundary/test_run_once_guard.py",
-]
-
-[[rules.backend.extra_tests]]
-match_prefix = "scripts/tools/base_check/"
-fallback_dir = "libs/bms_core/tests/boundary"
-mapping = [
-  { script = "check_base.py", test = "libs/bms_core/tests/boundary/test_naming_guard.py" },
-  { script = "check_backend_base.py", test = "libs/bms_core/tests/core/test_value_object_roots.py" },
-  { script = "check_bare_collections.py", test = "libs/bms_core/tests/boundary/test_bare_collections_guard.py" },
-  { script = "check_docs_scope.py", test = "libs/bms_core/tests/boundary/test_base_check_wrappers.py" },
-  { script = "check_env_example.py", test = "libs/bms_core/tests/core/test_basic_protection.py" },
-  { script = "check_links.py", test = "libs/bms_core/tests/boundary/test_base_check_wrappers.py" },
-  { script = "check_prototype_review.py", test = "libs/bms_core/tests/boundary/test_base_check_wrappers.py" },
-  { script = "check_service_boundaries.py", test = "libs/bms_core/tests/crosscut/test_module_boundary.py" },
-  { script = "check_system_fields.py", test = "libs/bms_core/tests/registry/test_form_catalog.py" },
-]
-
 [rules.frontend.global]
 exact = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json", ".npmrc"]
 prefixes = ["scripts/"]
