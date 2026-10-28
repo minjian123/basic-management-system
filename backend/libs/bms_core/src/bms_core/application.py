@@ -602,19 +602,22 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             session_factory=session_factory,
         )
         register_remote_tenant_membership_store()  # 登记 `remote` 关系数据源实现（配置可切 `local`）
+        # 服务间调用客户端在装配期解析**一次**并登记到 `app.state`：启动期引导（声明上报 / 授权视图
+        # 预热）取不到 FastAPI 请求作用域，只能从这里取（与 `get_service_client` 同源同实例）。
+        service_client = cast(
+            "BaseServiceClient",
+            resolve_plugin(
+                "service_client",
+                settings.service_client.provider,
+                expected_version=BaseServiceClient.contract_version,
+            ),
+        )
         tenant_membership = build_tenant_membership_store(
             settings.tenant_membership.source,
             settings=settings,
             registry=engine_registry,
             session_factory=session_factory,
-            service_client=cast(
-                "BaseServiceClient",
-                resolve_plugin(
-                    "service_client",
-                    settings.service_client.provider,
-                    expected_version=BaseServiceClient.contract_version,
-                ),
-            ),
+            service_client=service_client,
         )
         app.state.engine_factory = engine_factory
         app.state.engine_registry = engine_registry
@@ -622,6 +625,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.primary_health = primary_health
         app.state.tenant_source = tenant_source
         app.state.tenant_membership = tenant_membership
+        app.state.service_client = service_client
         app.state.metrics = metrics
         app.state.resources.register(engine_registry)
         app.state.resources.register(primary_health)

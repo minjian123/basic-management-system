@@ -363,6 +363,30 @@ async def test_bootstrap_skips_when_service_not_declared(tmp_path: Any, monkeypa
     assert app.state.service_client.requests == []
 
 
+async def test_bootstrap_requires_service_client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """装配缺服务间调用客户端：按配置漂移拒启（不静默跳过上报）。"""
+    manifest = tmp_path / "demo.toml"
+    manifest.write_text(
+        'product_key = "demo"\n\n[[services]]\nmodule_key = "demo"\nservice_key = "demo"\n'
+        'name = "演示服务"\ntable_prefix = "demo_"\nevent_domain = "demo"\n'
+        'service_group = "product"\nproduct_key = "demo"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(boot_module, "local_manifest_paths", lambda: ConcurrentStableList([manifest]))
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            settings=SimpleNamespace(
+                registry=SimpleNamespace(register_on_startup=True),
+                app=SimpleNamespace(service="demo"),
+            ),
+            service_identity=SimpleNamespace(name="demo"),
+        )
+    )
+
+    with pytest.raises(CatalogError, match="缺少服务间调用客户端"):
+        await boot_module.bootstrap_declarations(cast("Any", app))
+
+
 async def test_bootstrap_reports_and_projects(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """成功路径：上报本仓清单 → 拉取快照 → 投影。"""
     manifest = tmp_path / "demo.toml"

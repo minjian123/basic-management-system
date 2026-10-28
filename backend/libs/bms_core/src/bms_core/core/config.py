@@ -963,14 +963,6 @@ class RegistrySettings(BaseSettings):
     「声明即全量」口径退役（那是生产期望行为，但会让既有用例的行凭空消失）。
     """
 
-    register_on_startup: bool = True
-    """启动时是否把**平台自身声明**注册进注册表（07B `02_06`）。
-
-    生产 / 部署态为 `true`（注册表是权威来源，启动期即落库并重建视图，失败拒启）。
-    单测环境置 `false`：用例按需显式调用注册端点，避免启动钩子把夹具种下的目录行按
-    「声明即全量」口径退役（那是生产期望行为，但会让既有用例的行凭空消失）。
-    """
-
 
 class TransactionManagerSettings(PluginSelection):
     """跨服务事务管理器配置（`[transaction_manager]`；在能力选择之外追加协调参数）。

@@ -7,15 +7,18 @@
 """
 
 from pathlib import Path
+from typing import cast
 
 from fastapi import FastAPI
 
 from bms_core.core.config import Settings
+from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
 from bms_core.registry.declarations import from_manifest
 from bms_core.registry.products import local_manifest_paths, parse_manifest_text
 from bms_core.registry.projection import project_registry
 from bms_core.registry.remote import fetch_declarations, report_declarations
+from bms_core.servicecall.base import BaseServiceClient
 
 __all__ = ["bootstrap_declarations"]
 
@@ -51,7 +54,11 @@ async def bootstrap_declarations(app: FastAPI) -> None:
         return
     manifest_text = manifest_path.read_text(encoding="utf-8")
     payload = from_manifest(parse_manifest_text(manifest_text, source=str(manifest_path)))
-    client = app.state.service_client
+    client = cast("BaseServiceClient | None", getattr(app.state, "service_client", None))
+    if client is None:
+        # 装配期已登记（`BaseApplicationFactory` 统一注入）；缺失说明应用不是经基座工厂装配的，
+        # 按配置漂移 fail-closed，不给「静默跳过上报」的隐式降级
+        raise CatalogError("声明上报缺少服务间调用客户端（应用装配未登记 app.state.service_client）")
     report = await report_declarations(
         client,
         product_key=payload.product_key,

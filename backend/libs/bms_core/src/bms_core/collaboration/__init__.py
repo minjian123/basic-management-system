@@ -9,6 +9,8 @@
 
 能力分配（`02_04`）：`CapabilityGrant` / `plan_grant_sync()`（声明差异纯函数）、`granted_scopes()`（出站）、
 `check_capability_access()`（入站判定 + 打点）、授权视图来源登记与 TTL 刷新。
+进程引导（`03_01`）：`warm_capability_grant_views()`（承载域预热）、
+`bootstrap_remote_capability_grants()`（产品进程登记远端来源 + 预热，失败降级不拒启）。
 """
 
 from bms_core.collaboration.base import (
@@ -16,6 +18,11 @@ from bms_core.collaboration.base import (
     CapabilityEndpoint,
     CapabilityMode,
     CapabilityTarget,
+)
+from bms_core.collaboration.bootstrap import (
+    GRANT_VIEW_DEGRADED_FLAG,
+    bootstrap_remote_capability_grants,
+    warm_capability_grant_views,
 )
 from bms_core.collaboration.grant import (
     CALL_RESULT_ALLOWED,
@@ -82,6 +89,7 @@ __all__ = [
     "DEGRADE_MODES",
     "DEGRADE_NONE",
     "DEGRADE_STALE",
+    "GRANT_VIEW_DEGRADED_FLAG",
     "GRANT_VIEW_PATH",
     "GRANT_VIEW_TTL_SECONDS",
     "METRIC_CAPABILITY_CALL",
@@ -102,6 +110,7 @@ __all__ = [
     "GrantViewSnapshot",
     "RemoteCapabilityGrantSource",
     "TopologyResolver",
+    "bootstrap_remote_capability_grants",
     "build_capability_request",
     "call_capability",
     "capability_grant_pairs",
@@ -129,4 +138,5 @@ __all__ = [
     "resolve_topology",
     "scope_action_of",
     "validate_capability_usages",
+    "warm_capability_grant_views",
 ]
