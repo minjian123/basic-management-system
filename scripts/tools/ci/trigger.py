@@ -103,7 +103,12 @@ def resolve(key: str, env: ConcurrentStableDict[str, str]) -> str:
 
 
 def request(
-    api: str, token: str, path: str, payload: ConcurrentStableDict[str, object] | None = None
+    api: str,
+    token: str,
+    path: str,
+    payload: ConcurrentStableDict[str, object] | None = None,
+    *,
+    method: str | None = None,
 ) -> ConcurrentStableDict[str, object]:
     """调用 GitLab API（JSON 进出）。
 
@@ -111,21 +116,26 @@ def request(
         api: API 基址（如 `http://<host>:8080/api/v4`）。
         token: 访问令牌。
         path: 相对 API 基址的路径（如 `projects/2/pipeline`）。
-        payload: POST 载荷（None 表示 GET）。
+        payload: 请求载荷（None 表示无体）。
+        method: HTTP 方法；缺省按载荷推导（有体 POST、无体 GET）。变量读改删用 GET / PUT / POST / DELETE。
 
     Returns:
-        ConcurrentStableDict[str, object]: 解析后的响应体。
+        ConcurrentStableDict[str, object]: 解析后的响应体（204 无体返回空映射）。
     """
     url = f"{api.rstrip('/')}/{path.lstrip('/')}"
     body = None if payload is None else json.dumps(dict(payload)).encode()
+    verb = method or ("GET" if body is None else "POST")
     req = urllib.request.Request(
         url,
         data=body,
         headers={"PRIVATE-TOKEN": token, "Content-Type": "application/json"},
-        method="GET" if body is None else "POST",
+        method=verb,
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
-        parsed: object = json.load(resp)
+        raw = resp.read()
+    if not raw:
+        return ConcurrentStableDict()
+    parsed: object = json.loads(raw)
     if not isinstance(parsed, dict):
         raise ValueError(f"响应不是对象：{url}")
     return ConcurrentStableDict(cast("dict[str, object]", parsed))
