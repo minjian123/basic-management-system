@@ -1,11 +1,10 @@
 """平台服务内部端点：权限快照失效 + 数据来源只读出口（服务间调用，不经网关）。
 
-- **鉴权**：两条路由各有口径——
-  - `router`（`/invalidate`）：`require_capability("platform.permission_meta.invalidate")`——按**能力分配
-    记录**判定（07B `03_01` 收编；岗位 / 部门 / 角色分配变更后触发）；
-  - `read_router`（`/subject`、`/metadata`）：`require_service("identity")`——仅认证服务可读（`04_01`
-    下沉后 identity 侧「经契约取数」的数据来源实现取用）。
-  两者均只接受对应签发方的有效服务 JWT（`aud=service`）；用户票据与网关服务票据（`sub=gateway`）一律拒。
+- **鉴权**：三条路由一律按**能力分配记录**判定（07B `03_01` 收编）——
+  - `router`（`/invalidate`）：`platform.permission_meta.invalidate`（岗位 / 部门 / 角色分配变更后触发）；
+  - `read_router`（`/subject`、`/metadata`）：`platform.permission_meta.subject` /
+    `platform.permission_meta.metadata`（`04_01` 下沉后 identity 侧「经契约取数」的数据来源实现取用）。
+  均只接受服务 JWT（`aud=service`）；用户票据与网关服务票据（`sub=gateway`）一律拒；无有效分配即 403。
 - **失效语义**：租户权限版本 +1（`user_ids` 为空即全租户）；给定用户时顺带删除其旧版本缓存键，
   使授权 / 主体链变更**即时生效**（未走事件订阅前的先行通道，事件轨见《02_04 详细设计》§9）。
 - **只读语义**：返回聚合所需**原始数据**（角色 / 类型 / 授权 / 数据范围 / 字段收窄）与元数据索引——
@@ -17,7 +16,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from bms_core.api.base import BaseRouter, require_service
+from bms_core.api.base import BaseRouter
 from bms_core.api.capability import require_capability
 from bms_core.api.deps import current_tenant_id_of, get_cache_region, get_tenant
 from bms_core.cache.base import CacheRegion
@@ -27,7 +26,11 @@ from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.permission.engine import invalidate_permission_cache
 from bms_core.permission.sources import PermissionMetadata, PermissionSubjectData
 from bms_core.schemas.common import ApiResponse
-from bms_platform.capabilities import CAPABILITY_PLATFORM_PERMISSION_INVALIDATE
+from bms_platform.capabilities import (
+    CAPABILITY_PLATFORM_PERMISSION_INVALIDATE,
+    CAPABILITY_PLATFORM_PERMISSION_METADATA,
+    CAPABILITY_PLATFORM_PERMISSION_SUBJECT,
+)
 from bms_platform.domains.permission_meta.permission.checker import build_platform_source
 from bms_platform.domains.permission_meta.schemas.permission import (
     PermissionDataScopeItem,
@@ -39,9 +42,6 @@ from bms_platform.domains.permission_meta.schemas.permission import (
     PermissionSubjectRequest,
     PermissionSubjectResult,
 )
-
-IDENTITY_SERVICE = "identity"
-"""允许调用数据来源只读出口的调用方服务标识（认证服务键 `identity`，平台内部白名单）。"""
 
 router = BaseRouter(
     key="platform_internal_permission",
@@ -55,8 +55,8 @@ read_router = BaseRouter(
     key="platform_internal_permission_read",
     prefix="/platform/internal/permissions",
     tags=["platform-internal"],
-    dependencies=[Depends(require_service(IDENTITY_SERVICE))],
 )
+"""数据来源只读出口：**逐路由**声明各自能力（两项只读能力不同，不能挂在路由组上）。"""
 
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 CacheDep = Annotated[CacheRegion, Depends(get_cache_region)]
@@ -86,7 +86,12 @@ async def invalidate_permissions(
     return ApiResponse(data=PermissionInvalidateResult(version=version))
 
 
-@read_router.post("/subject", response_model=ApiResponse[PermissionSubjectResult], summary="按用户取权限数据")
+@read_router.post(
+    "/subject",
+    response_model=ApiResponse[PermissionSubjectResult],
+    summary="按用户取权限数据",
+    dependencies=[Depends(require_capability(CAPABILITY_PLATFORM_PERMISSION_SUBJECT))],
+)
 async def read_permission_subject(
     payload: PermissionSubjectRequest,
     request: Request,
@@ -105,7 +110,12 @@ async def read_permission_subject(
     return ApiResponse(data=_to_subject_result(data))
 
 
-@read_router.get("/metadata", response_model=ApiResponse[PermissionMetadataResult], summary="取权限元数据")
+@read_router.get(
+    "/metadata",
+    response_model=ApiResponse[PermissionMetadataResult],
+    summary="取权限元数据",
+    dependencies=[Depends(require_capability(CAPABILITY_PLATFORM_PERMISSION_METADATA))],
+)
 async def read_permission_metadata(
     request: Request,
     locale: str = DEFAULT_LOCALE,

@@ -1,13 +1,15 @@
-"""平台内部权限端点测试（`02_04` / `04_01`）：服务 JWT 白名单鉴权 + 版本递增 + 数据来源只读出口。
+"""平台内部权限端点测试（`02_04` / `04_01`）：能力分配鉴权 + 版本递增 + 数据来源只读出口。
 
-覆盖三条端点：
+覆盖三条端点（一律按**能力分配**判定，07B `03_01` 收编）：
 
-- `POST /api/v1/platform/internal/permissions/invalidate`（`require_service("mdm")`）：
-  仅放行 `sub=mdm` 服务票据；`user_ids` 非空 / 为空两条入参路径均返回递增后的版本号；
-- `POST /api/v1/platform/internal/permissions/subject`（`require_service("identity")`）：
+- `POST /api/v1/platform/internal/permissions/invalidate`（`platform.permission_meta.invalidate`）：
+  仅放行已分配消费方；`user_ids` 非空 / 为空两条入参路径均返回递增后的版本号；
+- `POST /api/v1/platform/internal/permissions/subject`（`platform.permission_meta.subject`）：
   按用户返回聚合所需原始数据（`04_01` 下沉后 identity 经契约取数）；
-- `GET /api/v1/platform/internal/permissions/metadata`（`require_service("identity")`）：
+- `GET /api/v1/platform/internal/permissions/metadata`（`platform.permission_meta.metadata`）：
   返回菜单 → 表单、权限码 id → 权限码两类索引。
+
+拒绝码口径：无票据 / 无效票据 → **401**；已认证但无有效分配（或网关代发） → **403**。
 """
 
 # pyright: reportPrivateUsage=false
@@ -85,33 +87,35 @@ async def test_invalidate_endpoint_scopes_users(client: AsyncClient, service_app
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_subject_endpoint_requires_identity_service(client: AsyncClient, service_app: FastAPI) -> None:
-    """`subject` 出口：仅放行 `sub=identity`；mdm / 网关 / 无票据一律拒（401）。"""
+async def test_subject_endpoint_requires_identity_capability(client: AsyncClient, service_app: FastAPI) -> None:
+    """`subject` 出口：仅放行持有该能力有效分配的 `identity`；mdm / 网关 / 无票据一律拒。"""
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
 
     ok = await client.post(SUBJECT_API, json={"user_id": 1001}, headers={"Authorization": "Bearer identity"})
     assert ok.status_code == 200, ok.text
     body = ok.json()["data"]
-    # 待办（03_01 后续）：`subject` 端点尚未收编，无主体数据时返回 `null`；收编时统一为
-    # 「五个契约字段齐全的空主体」。在此之前只校验有数据时的形态，避免把未收编行为当契约固化。
-    if body is not None:
-        assert set(body) == {"role_ids", "role_types", "grants", "data_scope_rules", "field_perms"}
+    # 「无主体数据」统一返回**五个契约字段齐全的空主体**（不透 `null`，消费方无需特判分支）
+    assert set(body) == {"role_ids", "role_types", "grants", "data_scope_rules", "field_perms"}
+    assert body["role_ids"] == [] and body["role_types"] == {}
+    assert body["grants"] == [] and body["data_scope_rules"] == [] and body["field_perms"] == []
 
-    # `subject` 出口**尚未收编**（仍按 `require_service("identity")` 白名单判定）：
-    # 非白名单服务 / 伪造票据一律 401；收编到 `require_capability` 后改判 403（03_01 后续）
-    for token in ("mdm", "gateway", "bogus"):
+    # 已认证但无有效分配（mdm 未获授权）/ 网关代发票据 → 403；伪造票据 → 401；无票据 → 401
+    for token in ("mdm", "gateway"):
         denied = await client.post(SUBJECT_API, json={"user_id": 1}, headers={"Authorization": f"Bearer {token}"})
-        assert denied.status_code == 401
+        assert denied.status_code == 403
+
+    bogus = await client.post(SUBJECT_API, json={"user_id": 1}, headers={"Authorization": "Bearer bogus"})
+    assert bogus.status_code == 401
 
     anonymous = await client.post(SUBJECT_API, json={"user_id": 1})
     assert anonymous.status_code == 401
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_metadata_endpoint_requires_identity_service(
+async def test_metadata_endpoint_requires_identity_capability(
     client: AsyncClient, service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`metadata` 出口：仅放行 `sub=identity`；返回元数据索引；`locale` 缺省可取。"""
+    """`metadata` 出口：仅放行持有该能力有效分配的 `identity`；返回元数据索引；`locale` 缺省可取。"""
     from bms_platform.domains.permission_meta.permission import source as source_module
 
     class _Builder:
@@ -157,10 +161,13 @@ async def test_metadata_endpoint_requires_identity_service(
     )
     assert with_locale.status_code == 200
 
-    # `metadata` 出口同样是未收编的白名单判定：401
-    for token in ("mdm", "gateway", "bogus"):
+    # 已认证但无有效分配 / 网关代发 → 403；伪造票据 → 401
+    for token in ("mdm", "gateway"):
         denied = await client.get(METADATA_API, headers={"Authorization": f"Bearer {token}"})
-        assert denied.status_code == 401
+        assert denied.status_code == 403
+
+    bogus = await client.get(METADATA_API, headers={"Authorization": "Bearer bogus"})
+    assert bogus.status_code == 401
 
 
 class _EmptySnapshot:

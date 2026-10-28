@@ -159,6 +159,27 @@ frontend_prefix = "platform"
 contract_version = "0.3.0"
 default_consumers = ["mdm"]
 
+# 权限数据只读出口（`04_01` 下沉后 identity 经契约取原始数据、在本地跑同一引擎）。
+# 消费方只有 identity（平台内部服务）：这里按能力分配登记，不再走平台内部白名单。
+
+[[collaborations]]
+name = "platform.permission_meta.subject"
+domain = "permission_meta"
+kind = "read"
+path = "/api/v1/platform/internal/permissions/subject"
+frontend_prefix = "platform"
+contract_version = "0.3.0"
+default_consumers = ["identity"]
+
+[[collaborations]]
+name = "platform.permission_meta.metadata"
+domain = "permission_meta"
+kind = "read"
+path = "/api/v1/platform/internal/permissions/metadata"
+frontend_prefix = "platform"
+contract_version = "0.3.0"
+default_consumers = ["identity"]
+
 # ---- 消费方使用声明（第八类记录，07B `03_01`）----
 # 声明方即消费方（本清单归属 `platform`）；降级策略是消费方策略，写 / 强一致能力不得声明降级。
 

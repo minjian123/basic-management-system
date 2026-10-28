@@ -23,6 +23,8 @@ __all__ = [
     "CAPABILITY_MDM_USER_ROLES",
     "CAPABILITY_PLATFORM_CONFIG_SNAPSHOT",
     "CAPABILITY_PLATFORM_PERMISSION_INVALIDATE",
+    "CAPABILITY_PLATFORM_PERMISSION_METADATA",
+    "CAPABILITY_PLATFORM_PERMISSION_SUBJECT",
     "CAPABILITY_PLATFORM_USER_QUERY",
 ]
 
@@ -36,6 +38,12 @@ CAPABILITY_PLATFORM_PERMISSION_INVALIDATE = "platform.permission_meta.invalidate
 
 CAPABILITY_PLATFORM_CONFIG_SNAPSHOT = "platform.platform_config.snapshot"
 """系统参数内部读（`kind=read`）：产品侧按能力授权，`identity` 仍走平台内部白名单。"""
+
+CAPABILITY_PLATFORM_PERMISSION_SUBJECT = "platform.permission_meta.subject"
+"""权限主体数据只读出口（`kind=read`）：按用户取聚合所需原始数据（`04_01` 下沉后 identity 经契约取数）。"""
+
+CAPABILITY_PLATFORM_PERMISSION_METADATA = "platform.permission_meta.metadata"
+"""权限元数据只读出口（`kind=read`）：菜单 → 表单、权限码 id → 权限码索引。"""
 
 # ---- 平台作为消费方的能力（取用与降级声明见 platform.toml 的 `[[usages]]` 段）----
 

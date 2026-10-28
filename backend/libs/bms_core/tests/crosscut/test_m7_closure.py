@@ -163,7 +163,12 @@ def test_mdm_alignment_lockdown() -> None:
             "branch_target(",
         ),
         platform_src / "domains" / "user" / "api" / "internal_users.py": ("require_capability(",),
-        platform_src / "domains" / "permission_meta" / "api" / "permission.py": ("require_capability(",),
+        # 权限三处出口（失效 + 两项只读）已全部按能力分配判定：不得再残留 identity 白名单
+        platform_src / "domains" / "permission_meta" / "api" / "permission.py": (
+            "require_capability(",
+            "CAPABILITY_PLATFORM_PERMISSION_SUBJECT",
+            "CAPABILITY_PLATFORM_PERMISSION_METADATA",
+        ),
         platform_src / "domains" / "platform_config" / "api" / "internal_config.py": (
             "require_capability_or_service(",
         ),
@@ -175,6 +180,15 @@ def test_mdm_alignment_lockdown() -> None:
         assert "/api/v1/org" not in text, f"{path.name} 不得残留旧路径 /api/v1/org"
         assert "/api/v1/mdm" not in text, f"{path.name} 不得残留对端路径字面量（应取自已解析的能力声明）"
         assert 'require_service("org")' not in text, f"{path.name} 不得残留旧白名单 org"
+
+    # 权限三处出口全部改能力分配后，该文件不得再出现 identity 白名单依赖
+    # （`internal_users` 的 profile / reset-target / create 仍属平台内部白名单，不在本断言范围）
+    permission_api = (platform_src / "domains" / "permission_meta" / "api" / "permission.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'require_service("identity")' not in permission_api, (
+        "权限出口不得残留平台内部白名单 identity（已改能力分配）"
+    )
 
     frontend = _ROOT / "frontend"
     org_source = (frontend / "packages" / "ui_ep" / "src" / "utils" / "orgSource.ts").read_text(encoding="utf-8")
