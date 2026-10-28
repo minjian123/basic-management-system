@@ -219,6 +219,36 @@ async def test_bootstrap_logs_report_warnings(
     assert app.state.declaration_register_degraded is False
 
 
+async def test_startup_hook_registers_platform_declarations(service_app: Any, client: Any) -> None:
+    """真启动链：钩子把本仓平台声明写进库，快照出口随即能看到平台服务行。
+
+    单测环境默认关掉该钩子（避免「声明即全量」退役夹具行），这里显式打开并**手动触发一次**，
+    验证「钩子 → 注册表 → 快照出口」这条生产路径真实可用。
+
+    Args:
+        service_app: 平台应用实例。
+        client: 带认证头的异步客户端。
+    """
+    service_app.state.settings.registry.register_on_startup = True
+
+    await module.bootstrap_platform_declarations(service_app)
+
+    assert getattr(service_app.state, "declaration_register_degraded", False) is False
+    from bms_core.db.keys import PLATFORM_DB_KEY
+    from bms_core.db.session import session_scope
+    from bms_platform.domains.platform_registry.repositories.declaration_repository import (
+        DeclarationRepository,
+    )
+
+    async with session_scope(
+        service_app.state.engine_registry,
+        db_key=PLATFORM_DB_KEY,
+        factory=service_app.state.session_factory,
+    ) as session:
+        view = await DeclarationRepository(session).load_snapshot()
+    assert "sys" in [record.module_key for record in view.of("services")]
+
+
 async def test_bootstrap_degrades_when_db_unavailable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """库不可用（SQLAlchemyError）：降级放行并打标记，不拒启。"""
     monkeypatch.setattr(module, "local_manifest_paths", lambda: ConcurrentStableList([_manifest_file(tmp_path)]))
