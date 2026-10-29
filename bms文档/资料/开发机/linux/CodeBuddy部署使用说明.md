@@ -265,7 +265,7 @@ CLI=/usr/share/buddycn/bin/buddycn
 - `ms-python.python` / `ms-python.debugpy` / `ms-python.vscode-python-envs`、`detachhead.basedpyright`（Python 与类型检查）
 - `cweijan.vscode-office`（Office 文件查看）、`donjayamanne.githistory`（Git 历史）、`sst-dev.opencode`、`fengze233.dsh-vscode-panel`
 - `ms-vscode.live-server` 0.4.16（Live Preview，HTML 预览用）
-- **2026-10-03 补装（对应工作区 `extensions.json` 推荐项）**：`dbaeumer.vscode-eslint` 3.0.34、`esbenp.prettier-vscode` 12.4.0、`bierner.markdown-mermaid` 1.32.1；`ms-python.debugpy` 与 `vue.volar` 本已安装
+- **2026-10-03 补装（对应工作区 `extensions.json` 推荐项）**：`dbaeumer.vscode-eslint` 3.0.34、`esbenp.prettier-vscode` 12.4.0；`ms-python.debugpy` 与 `vue.volar` 本已安装。**`bierner.markdown-mermaid` 已卸载**——VS Code 1.142 起 mermaid 预览由**内核内置扩展 `mermaid-markdown-features`** 提供，再装 bierner 会抢注同名 `markdown-mermaid.*` 配置键（日志持续刷「无法注册…此属性已注册」）。
 - **2026-10-03 卸载（同命令 ID 冲突，见 [8.4](#debug-trouble)）**：`wubzbz.debugpy`、`devshub-ai.devshub-python` —— 两者是官方扩展的「套壳发行版」，与 `ms-python.debugpy` / `ms-python.python` **注册同一批命令 ID**，导致官方扩展激活抛 `command 'python.configureTests' already exists`，`type: debugpy` 启动项卡在「正在加载 python 扩展」。卸载后只保留官方三件。
 
 ### 7.3 HTML 预览的三条路 <a id="html-preview"></a>
@@ -291,7 +291,7 @@ CLI=/usr/share/buddycn/bin/buddycn
 
 - `bms文档/**/*.html` 布局线框图 / 原型 / 组件原型资产（**200 个**，2026-10-04 复核；均在 `bms文档/设计/` 下——`原型设计/` 各域 + `布局设计/`）引用同目录的 `文档样式.css`、`mermaid.min.js`：用**内置预览**或 **Live Preview** 打开单个文件即可。
 - 若预览出现「样式/脚本没加载、mermaid 不渲染」，改用 http 方式（起静态服务后用 Simple Browser 或外部浏览器打开），避免 `file://` 限制。
-- md 正文里的 mermaid 需另装 **`bierner.markdown-mermaid`**（open-vsx 有收录，装法见 7.2）：`*.md` 已关联内置 Markdown 预览，装完扩展重载窗口后预览即渲染。
+- md 正文里的 mermaid 由**内核内置扩展 `mermaid-markdown-features`** 渲染（VS Code 1.142+ 起随内核发布），**无需另装**；**勿装 `bierner.markdown-mermaid`**（抢注同名 `markdown-mermaid.*` 配置键，日志持续刷「无法注册…此属性已注册」）。
 - 起静态文档服务（等价 Live Preview 的底座，可手动控制端口与生命周期）：
 
 ```bash
@@ -309,7 +309,7 @@ pkill -f "http.server 8765"                         # 用完关闭
 | 安装命令长时间无回显                  | 属正常（无进度输出）；查`~/.codebuddycn/extensions/` 是否出现新目录；长时间卡死则 `kill` 残留进程后重试                         |
 | 双击 html 打开了源码                  | `workbench.editorAssociations` 被改动；恢复 `*.html` / `*.htm` → `codebuddy.html.previewEditor`                            |
 | 预览页无样式、mermaid 不渲染          | 走 http：Live Preview 或 7.4 的静态服务，别用`file://`                                                                            |
-| md 里 mermaid 是代码块                | 未装`bierner.markdown-mermaid`（或装后未重载窗口）                                                                                |
+| md 里 mermaid 是代码块                | 未启用内核内置的 `mermaid-markdown-features`（或装了 `bierner.markdown-mermaid` 抢注配置键）；卸载 bierner 后重载窗口                              |
 
 ## 8. 运行与调试启动项 <a id="debug"></a>
 
@@ -592,7 +592,7 @@ cd frontend && pnpm --config.verify-deps-before-run=false --filter @bms/desktop 
 - □ 免确认取值明确：`autoRunMode=runEverything` + `autoRun/autoModifyFile=true`，回收站与批量删除阈值兜底保留
 - □ 首配项齐备：语言 `zh-cn`、崩溃上报关闭、插件与技能市场、MCP 登记位、补全模型与提交信息风格
 - □ 扩展管理口径明确：扩展目录 `~/.codebuddycn/extensions`、市场 open-vsx、安装用应用自带 CLI（全路径 `--install-extension`），与 `~/.vscode/extensions` 区分开
-- □ 文档预览口径明确：html 双击走内置 HTML 预览（`codebuddy.html.previewEditor`）、需要相对引用/实时刷新用 Live Preview、`file://` 不可用改走 http 静态服务；md mermaid 需 `bierner.markdown-mermaid`
+- □ 文档预览口径明确：html 双击走内置 HTML 预览（`codebuddy.html.previewEditor`）、需要相对引用/实时刷新用 Live Preview、`file://` 不可用改走 http 静态服务；md mermaid 由内核内置 `mermaid-markdown-features` 渲染（勿装 `bierner.markdown-mermaid`）
 - □ 运行与调试链路口径明确：dev 类后台任务经 `dependsOn` 前置自愈 5173 与确保 5002、后端 8000 经 `preLaunchTask` 自愈（脚本按 `cwd` 判定归属，非本项目占用则中止）；**准备动作不写进 background 任务的 command**；就绪正则容忍 ANSI（`Local.*https?://`）；Chrome 断点用绝对路径；「全套」用固定后端项 + 含模块的前端项
 - □ Python 侧口径明确：官方 Python 扩展三件（无同命令 ID 的套壳项）、`pet` 有执行位、解释器在**工作区根** `settings.json` 声明、alembic 已由 `[tool.pyright] ignore` 排除
 - □ 排障入口齐备：日志三处、崩溃转储、市场超时与渲染异常的处置办法

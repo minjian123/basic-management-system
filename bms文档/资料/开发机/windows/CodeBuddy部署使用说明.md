@@ -221,7 +221,7 @@ Select-String -Path $log -Pattern '\[SecurityCheck\] Loaded|Permission decision'
 | 已装扩展     | `ms-python.vscode-python-envs@1.20.1`（2026-10-16 快照，仅此一项）                                                                                                                                                                          |
 | AI 侧插件    | `~\.codebuddy\settings.json` → `enabledPlugins`（见[第 5 节](#setup)）                                                                                                                                                                   |
 
-> 工作区推荐扩展清单在 `bms/.vscode/extensions.json`（Volar、`ms-python.python` / `ms-python.debugpy` / `ms-python.vscode-pylance`、ESLint、Prettier、`bierner.markdown-mermaid`）——**Windows 侧目前基本未装**：后端断点依赖 `ms-python.debugpy`、md 文档 mermaid 预览依赖 `bierner.markdown-mermaid`，按需用 [7.2](#ext-install) 补装。
+> 工作区推荐扩展清单在 `bms/.vscode/extensions.json`（Volar、`ms-python.python` / `ms-python.debugpy` / `ms-python.vscode-pylance`、ESLint、Prettier）；**md 文档 mermaid 预览依赖内核内置的 `mermaid-markdown-features`，不要装 `bierner.markdown-mermaid`**（两者抢注同名 `markdown-mermaid.*` 配置键，日志持续刷「无法注册…此属性已注册」）。**Windows 侧目前基本未装**：后端断点依赖 `ms-python.debugpy`，按需用 [7.2](#ext-install) 补装。
 
 ### 7.2 安装与卸载扩展（`buddycn` CLI） <a id="ext-install"></a>
 
@@ -264,7 +264,7 @@ buddycn --update-extensions                             # 更新全部已装扩�
 
 - `bms文档/**/*.html` 布局线框图 / 原型 / 组件原型资产引用同目录（或 `资源/`）的 `文档样式.css`、`mermaid.min.js`：用**内置预览**或 **Live Preview** 打开单个文件即可；
 - 若预览出现「样式 / 脚本没加载、mermaid 不渲染」，改用 http 方式（起静态服务后用 Simple Browser 或外部浏览器打开），避免 `file://` 限制；
-- md 正文里的 mermaid 需另装 **`bierner.markdown-mermaid`**（open-vsx 有收录）：`*.md` 已关联内置 Markdown 预览，装完扩展重载窗口后预览即渲染（本机 Windows 侧尚未安装）；
+- md 正文里的 mermaid 由**内核内置扩展 `mermaid-markdown-features`** 渲染（VS Code 1.142+ 同口径），无需另装；**勿装 `bierner.markdown-mermaid`**（抢注同名 `markdown-mermaid.*` 配置键，日志持续刷错）；
 - 起静态文档服务（等价 Live Preview 的底座，可手动控制端口与生命周期）：
 
 ```powershell
@@ -282,7 +282,7 @@ python3 -m http.server 8765 --directory bms文档    # 访问 http://localhost:8
 | 安装命令长时间无回显                      | 属正常（无进度输出）；查 `~\.codebuddycn\extensions\` 是否出现新目录；长时间卡死则结束进程后重试                                                         |
 | 双击 html 打开了源码                      | `workbench.editorAssociations` 未设或被改动；按 [7.3](#html-preview) 恢复 `*.html` / `*.htm` → `codebuddy.html.previewEditor`                        |
 | 预览页无样式、mermaid 不渲染              | 走 http：Live Preview 或 [7.4](#bms-docs) 的静态服务，别用 `file://`                                                                                     |
-| md 里 mermaid 是代码块                    | 未装 `bierner.markdown-mermaid`（或装后未重载窗口）                                                                                                     |
+| md 里 mermaid 是代码块                    | 未启用内核内置的 `mermaid-markdown-features`（或装了 `bierner.markdown-mermaid` 抢注配置键）；卸载 bierner 后重载窗口                                     |
 
 ## 8. 运行与调试启动项 <a id="debug"></a>
 
@@ -535,7 +535,7 @@ pnpm --filter @bms/desktop dev                                                  
 | CLI          | `/usr/share/buddycn/bin/buddycn`（**未入 PATH**）                            | **`buddycn` / `buddycn.cmd`**（包装脚本，**已入用户 PATH**）                                   |
 | 用户数据目录 | `~/.config/CodeBuddy CN`、`~/.codebuddycn`、`~/.codebuddy`、`~/.local/share/CodeBuddyExtension` | `%APPDATA%\CodeBuddy CN`、`~\.codebuddycn`、`~\.codebuddy`、`%LOCALAPPDATA%\CodeBuddyExtension` |
 | 权限现状     | `autoRunMode=runEverything`，**全 13 类安全类别已放开**                       | 同上：`RunEverything` + **全 13 类已放开**（2026-10-21 对齐，权威存储 `state.vscdb`）            |
-| 扩展现状     | 官方 Python 三件 + ESLint / Prettier / Live Preview / markdown-mermaid 等       | 仅 `ms-python.vscode-python-envs`（后端断点、md mermaid 等待补装）                                 |
+| 扩展现状     | 官方 Python 三件 + ESLint / Prettier / Live Preview（mermaid 由内核内置扩展提供） | 仅 `ms-python.vscode-python-envs`（后端断点待补装）                                              |
 | 编辑器关联   | 已设（双击 html / md 即预览）                                                   | 未设（双击开源码，按 [7.3](#html-preview) 补）                                                  |
 | 浏览器       | 系统 Chrome（`/usr/bin/google-chrome`）                                        | 系统 Chrome（`C:\Program Files\Google\Chrome\Application\chrome.exe`，155.0.8059.85）              |
 | 扩展 / 脚本  | bash + `.sh`（`nohup` / `/tmp`）                                              | PowerShell 7 / Windows Terminal + `.bat` 薄包装（`chcp 65001`）；任务与终端统一 `python3 xxx.py`    |
@@ -552,7 +552,7 @@ pnpm --filter @bms/desktop dev                                                  
 - □ 权限设置口径明确：IDE 设置 `%APPDATA%\CodeBuddy CN\User\settings.json`（`codingcopilot.*`），安全类别权威存储在 `state.vscdb`；本机「自动审批开、13 类安全类别全部放开」（2026-10-21，冷启动取证见 [6.3](#permission-verify)）
 - □ 首配项齐备：语言 `zh-cn`、崩溃上报关闭、插件与技能市场、MCP 登记位、补全模型与提交信息风格
 - □ 扩展管理口径明确：扩展目录 `~\.codebuddycn\extensions`、市场 open-vsx、安装用 `buddycn --install-extension`（与 `~\.vscode\extensions` 区分开）
-- □ 文档预览口径明确：html 走内置 HTML 预览（`codebuddy.html.previewEditor`，双击需先设编辑器关联）、`file://` 受限改走 http 静态服务；md mermaid 需 `bierner.markdown-mermaid`
+- □ 文档预览口径明确：html 走内置 HTML 预览（`codebuddy.html.previewEditor`，双击需先设编辑器关联）、`file://` 受限改走 http 静态服务；md mermaid 由内核内置 `mermaid-markdown-features` 渲染（勿装 `bierner.markdown-mermaid`）
 - □ 运行与调试链路口径明确：两处 `.vscode/` 落点同步维护、`windows` 平台覆盖（`pnpm.cmd` / Program Files 下 Chrome / `Scripts\python.exe`）；dev 类后台任务经 `dependsOn` 前置自愈 5173 与确保 5002；准备动作不写进 background 任务的 `command`；就绪正则容忍 ANSI（`Local.*https?://`）
 - □ 本地全套口径明确：`本地全套.py`（按各仓声明装载 + loopback 别名 + 开发密钥），寻址靠端点覆盖（不依赖管理员写 hosts）、`seed` 必跑（否则恒 401）
 - □ 浏览器真机验证口径明确：Playwright MCP 登记于 `~\.codebuddy\mcp.json`（系统 Chrome + `--isolated`）、生效需重启 IDE；结构读 `browser_snapshot` / `browser_find`（`.playwright-mcp\*.yml` 不可依赖）、截图落工作区 `tmp\`、控制台只认预期错误；长会话首选 MCP

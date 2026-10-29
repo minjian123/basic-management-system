@@ -72,11 +72,12 @@ code --install-extension <发布者.扩展名>    # 从市场安装
 code --uninstall-extension <发布者.扩展名>  # 卸载
 ```
 
-工作区推荐扩展见 `bms/.vscode/extensions.json`（Volar、Python 三件、ESLint、Prettier、markdown-mermaid）；本机未装的可按需补：
+工作区推荐扩展见 `bms/.vscode/extensions.json`（Volar、Python 三件、ESLint、Prettier）；本机未装的可按需补：
 
 ```powershell
-# md 文档里的 mermaid 图形预览（linux 侧已装，口径一致；见《文档生成规范》「图形与示意图」节）
-code --install-extension bierner.markdown-mermaid
+# md 文档里的 mermaid 图形预览：VS Code 1.142 起由**内置扩展** `mermaid-markdown-features` 提供，无需另装
+# （**勿装** `bierner.markdown-mermaid`：两者会抢注同名 `markdown-mermaid.*` 配置键，日志持续刷「无法注册…此属性已注册」；
+#   详见 `bms/.vscode/extensions.json` 注释与《文档生成规范》「图形与示意图」节）
 # 前端 lint / 格式化（按需）
 code --install-extension dbaeumer.vscode-eslint
 code --install-extension esbenp.prettier-vscode
