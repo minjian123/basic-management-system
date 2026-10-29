@@ -98,7 +98,8 @@
         "backend/libs/bms_core/src/bms_core/models/ownership.py",
         "backend/libs/bms_core/src/bms_core/models/platform/capability_grant.py",
         "backend/libs/bms_core/src/bms_core/models/platform/catalog.py",
-        "backend/libs/bms_core/src/bms_core/models/platform/declaration.py"
+        "backend/libs/bms_core/src/bms_core/models/platform/declaration.py",
+        "backend/libs/bms_core/src/bms_core/models/platform/tenant_topology.py"
       ],
       "public_api": [
         "bms_platform.domains.platform_registry.public"

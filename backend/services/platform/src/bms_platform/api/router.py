@@ -23,6 +23,7 @@ from bms_platform.domains.platform_registry.api import (
     internal_seeds,
     modules,
     products,
+    tenant_topologies,
 )
 from bms_platform.domains.platform_registry.api import dict as dict_api
 from bms_platform.domains.role.api import role
@@ -76,6 +77,8 @@ api_router = mount_service_routers(
             internal_declarations.router,
             # 种子统一编排（07B `02_03`）：部署初始化时由 CLI 触发，平台进程内执行
             internal_seeds.router,
+            # 租户部署拓扑（07C `02_01`）：管理面分页 / 导出 / 整批写入（运维与部署编排面）
+            tenant_topologies.router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
         ]

@@ -121,6 +121,8 @@ def test_owned_tables_and_chain_derivation() -> None:
             "sys_product_route",
             # 第九类声明（07B `04_02` 重开）：业务域声明
             "sys_domain",
+            # 租户部署拓扑（07C `02_01`）：租户 × 业务域 → 部署单元
+            "sys_tenant_topology",
         }
     )
     assert "sys_tenant" not in registry_platform

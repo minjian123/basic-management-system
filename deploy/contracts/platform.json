@@ -6617,6 +6617,100 @@
         "title": "SqlValidateRequest",
         "type": "object"
       },
+      "TenantTopologyRowRequest": {
+        "additionalProperties": false,
+        "description": "整批写入的单行（部署单元由调用方指定，库名不落库）。",
+        "properties": {
+          "domain_key": {
+            "description": "业务域标识（须已登记）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Domain Key",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "description": "说明（可选）",
+            "maxLength": 255,
+            "title": "Note",
+            "type": "string"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled / disabled，缺省 enabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "unit_key": {
+            "description": "部署单元标识（小写字母开头）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Unit Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_key",
+          "unit_key"
+        ],
+        "title": "TenantTopologyRowRequest",
+        "type": "object"
+      },
+      "TenantTopologyWriteRequest": {
+        "additionalProperties": false,
+        "description": "整批写入请求：`rows` 与 `template` **二选一**（模板先展开，再按需人工调整）。\n\n`version` 留空表示「当前版本 + 1」；显式给值时必须大于当前版本（拒绝回退）。",
+        "properties": {
+          "note": {
+            "default": "",
+            "description": "本批次说明（可选）",
+            "maxLength": 255,
+            "title": "Note",
+            "type": "string"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TenantTopologyRowRequest"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "整批行（与 template 二选一）",
+            "title": "Rows"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "参照模板名（single / grouped / isolated；与 rows 二选一）",
+            "title": "Template"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "拓扑版本（空=当前版本+1；须递增）",
+            "title": "Version"
+          }
+        },
+        "title": "TenantTopologyWriteRequest",
+        "type": "object"
+      },
       "UpdatePasswordRequest": {
         "additionalProperties": false,
         "description": "密码更新请求（改密 / 找回密码 / 重哈希回写）。",
@@ -19199,6 +19293,408 @@
         "summary": "Unassign User",
         "tags": [
           "roles"
+        ]
+      }
+    },
+    "/api/v1/tenant-topologies": {
+      "get": {
+        "description": "拓扑记录清单（只读，分页 + 筛选）。\n\n需要 `tenant-topology:query` 权限；只读会话取平台库（拓扑跨租户共享）。\n\nArgs:\n    session: 平台库只读会话。\n    query: 分页与排序请求（排序白名单校验、非法忽略）。\n    tenant_id: 租户筛选。\n    domain_key: 业务域筛选。\n    unit_key: 部署单元筛选。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。",
+        "operationId": "list_topologies_api_v1_tenant_topologies_get",
+        "parameters": [
+          {
+            "description": "租户筛选；缺省全部",
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户筛选；缺省全部",
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "description": "业务域筛选；缺省全部",
+            "in": "query",
+            "name": "domain_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "业务域筛选；缺省全部",
+              "title": "Domain Key"
+            }
+          },
+          {
+            "description": "部署单元筛选；缺省全部",
+            "in": "query",
+            "name": "unit_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "部署单元筛选；缺省全部",
+              "title": "Unit Key"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Topologies",
+        "tags": [
+          "tenant-topology"
+        ]
+      }
+    },
+    "/api/v1/tenant-topologies/{tenant_id}": {
+      "get": {
+        "description": "按租户导出当前版本（部署编排 / 迁移输入）。\n\n需要 `tenant-topology:query` 权限；该租户无记录时回退默认拓扑（`tenant_id=0`）。\n\nArgs:\n    tenant_id: 租户主键（0 = 默认拓扑）。\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `{tenant_id, version, rows}`。\n\nRaises:\n    NotFoundError: 该租户与默认拓扑都没有记录（10002）。",
+        "operationId": "export_topology_api_v1_tenant_topologies__tenant_id__get",
+        "parameters": [
+          {
+            "description": "租户主键（0 = 平台级默认拓扑）",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键（0 = 平台级默认拓扑）",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Export Topology",
+        "tags": [
+          "tenant-topology"
+        ]
+      },
+      "put": {
+        "description": "整批替换某租户的拓扑（`rows` 或 `template` 二选一；写入即生效）。\n\n需要 `tenant-topology:manage` 权限。整批替换语义：旧行软删除、新行同版本写入、版本递增；\n失败即整体回滚（不会出现半新半旧的中间态）。\n\nArgs:\n    tenant_id: 租户主键（0 = 默认拓扑）。\n    req: 写入请求。\n    uow: 平台库工作单元（写事务边界）。\n    audit: 审计捕获器。\n\nReturns:\n    ApiResponse: 统一响应，data 为生效后的 `{tenant_id, version, rows}`。\n\nRaises:\n    ParamError: 参数非法 / 域未登记 / 单元命名非法 / 未知模板 / 默认拓扑缺域（10001）。\n    ConflictError: 同域重复或版本回退（10003）。",
+        "operationId": "replace_topology_api_v1_tenant_topologies__tenant_id__put",
+        "parameters": [
+          {
+            "description": "租户主键（0 = 平台级默认拓扑）",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键（0 = 平台级默认拓扑）",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantTopologyWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Replace Topology",
+        "tags": [
+          "tenant-topology"
         ]
       }
     },

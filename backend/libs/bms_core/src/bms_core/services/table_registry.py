@@ -263,6 +263,13 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             note="业务域声明（第九类记录；域布局权威落点，07B 04_02 重开）",
         ),
         TableRecord(
+            table_name="sys_tenant_topology",
+            owner="platform",
+            domain="platform_registry",
+            datasource=Datasource.PLATFORM,
+            note="租户部署拓扑（租户 × 业务域 → 部署单元；解析取最大版本，07C 02_01）",
+        ),
+        TableRecord(
             table_name="sys_tenant_quota",
             owner="tenant",
             domain="tenant",

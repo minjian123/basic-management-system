@@ -20,6 +20,7 @@ MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.models.platform.permission_meta",
         "bms_core.models.platform.role",
         "bms_core.models.platform.task",
+        "bms_core.models.platform.tenant_topology",
         "bms_core.models.platform.user",
     )
 )
