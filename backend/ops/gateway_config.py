@@ -23,13 +23,10 @@
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import re
 import sys
-import tomllib
+from collections.abc import Iterable
 from pathlib import Path
-from typing import cast
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _BACKEND_ROOT / "libs" / "bms_core" / "src"
@@ -66,9 +63,6 @@ ENV_EXAMPLE_RELATIVE = Path("deploy/.env.example")
 
 BODY_SIZE_VARIABLE = "GATEWAY_MAX_BODY_SIZE"
 """请求体上限环境变量名（缺省 32m）。"""
-
-MANIFESTS_ENV = "BMS_REGISTRY__PRODUCT_MANIFESTS"
-"""产品登记清单环境变量（JSON 数组或 `os.pathsep` 分隔；优先于配置文件）。"""
 
 UPLOAD_MAX_SIZE_BYTES = 20 * 1024 * 1024
 """文件上传整包上限（`file.upload.max_size` = 20MB = 20971520）；网关请求体上限须 ≥ 此值。"""
@@ -190,52 +184,35 @@ def config_path(root: Path) -> Path:
     return root / CONFIG_RELATIVE
 
 
-def configured_manifests(root: Path) -> ConcurrentStableList[str]:
-    """取产品登记清单路径（环境变量 > `config.{env}.toml` > `config.toml`，相对 backend 解析）。
+def resolve_manifests(root: Path, raw_paths: Iterable[str]) -> ConcurrentStableList[str]:
+    """把 `--manifest` 给的清单路径规整为绝对路径（相对路径按 backend 解析）。
+
+    07B `04_02`：`[registry].product_manifests` 配置键已退役——清单模式的取源固定为
+    「本仓 `deploy/registry/*.toml` 自动发现（`load_product_manifests` 内部完成） + 本次显式给的路径」。
 
     Args:
         root: 仓库根（`backend/` 的父目录）。
+        raw_paths: 命令行给的清单路径（可为空）。
 
     Returns:
-        ConcurrentStableList[str]: 清单文件绝对路径（按登记顺序；缺省空）。
+        ConcurrentStableList[str]: 清单文件绝对路径（保持给出顺序）。
     """
-    raw_env = os.environ.get(MANIFESTS_ENV, "").strip()
-    if raw_env:
-        if raw_env.startswith("["):
-            parsed: object = json.loads(raw_env)
-            items = cast("list[object]", parsed) if isinstance(parsed, list) else list[object]()
-            return ConcurrentStableList(str(Path(str(item))) for item in items)
-        return ConcurrentStableList(item.strip() for item in raw_env.split(os.pathsep) if item.strip())
-    env = os.environ.get("BMS_ENV", "dev")
-    merged: ConcurrentStableList[str] = ConcurrentStableList()
-    for name in ("config.toml", f"config.{env}.toml"):
-        path = root / "backend" / name
-        if not path.is_file():
-            continue
-        data = cast("dict[str, object]", tomllib.loads(path.read_text(encoding="utf-8")))
-        section = data.get("registry")
-        if not isinstance(section, dict):
-            continue
-        values = cast("dict[str, object]", section).get("product_manifests")
-        if isinstance(values, list):
-            merged = ConcurrentStableList(str(item) for item in cast("list[object]", values))
     base = root / "backend"
     resolved: ConcurrentStableList[str] = ConcurrentStableList()
-    for item in merged:
+    for item in raw_paths:
         candidate = Path(item)
         resolved.add(str(candidate if candidate.is_absolute() else (base / candidate)))
     return resolved
 
 
-def load_registries(root: Path) -> None:
-    """装载产品登记清单（缺失路径跳过；不阻断平台路由生成）。
+def load_registries(root: Path, manifests: Iterable[str] = ()) -> None:
+    """装载登记清单（本仓自动发现 + 显式清单；缺失路径跳过，不阻断平台路由生成）。
 
     Args:
         root: 仓库根。
+        manifests: 额外清单路径（`--manifest`；绝对路径已规整）。
     """
-    paths = configured_manifests(root)
-    if paths:
-        load_product_manifests(paths)
+    load_product_manifests(resolve_manifests(root, manifests))
 
 
 def default_platform_url() -> str:
@@ -302,13 +279,14 @@ def load_registries_from_db(url: str) -> ConcurrentStableList[str]:
     return ConcurrentStableList()
 
 
-def _load(root: Path, *, source: str, url: str) -> ConcurrentStableList[str]:
+def _load(root: Path, *, source: str, url: str, manifests: Iterable[str] = ()) -> ConcurrentStableList[str]:
     """按取数口径装载声明视图。
 
     Args:
         root: 仓库根。
         source: `manifest`（清单，CI 零依赖）或 `registry`（平台库注册表，部署态权威）。
         url: 平台库连接串（`registry` 模式可省，省略时按配置解析）。
+        manifests: 额外清单路径（`--manifest`；清单模式生效）。
 
     Returns:
         ConcurrentStableList[str]: 错误明细（空表示成功）。
@@ -328,11 +306,18 @@ def _load(root: Path, *, source: str, url: str) -> ConcurrentStableList[str]:
             if not target:
                 return ConcurrentStableList(["--from-registry 需要 --url（按配置解析得到空连接串）"])
         return load_registries_from_db(target)
-    load_registries(root)
+    load_registries(root, manifests)
     return ConcurrentStableList()
 
 
-def render(root: Path, *, to_stdout: bool = False, source: str = "manifest", url: str = "") -> int:
+def render(
+    root: Path,
+    *,
+    to_stdout: bool = False,
+    source: str = "manifest",
+    url: str = "",
+    manifests: Iterable[str] = (),
+) -> int:
     """生成并写入 `apisix.yaml`。
 
     Args:
@@ -340,11 +325,12 @@ def render(root: Path, *, to_stdout: bool = False, source: str = "manifest", url
         to_stdout: 是否同时打印生成内容。
         source: 取数口径（`manifest` 清单 / `registry` 注册表）。
         url: 平台库连接串（`registry` 模式可省，省略时按配置解析平台库）。
+        manifests: 额外清单路径（`--manifest`）。
 
     Returns:
         int: 退出码（0 成功；1 装载失败）。
     """
-    errors = _load(root, source=source, url=url)
+    errors = _load(root, source=source, url=url, manifests=manifests)
     if errors:
         for error in errors:
             print(f"[gateway_config] {error}", file=sys.stderr)
@@ -360,18 +346,25 @@ def render(root: Path, *, to_stdout: bool = False, source: str = "manifest", url
     return 0
 
 
-def check(root: Path, *, source: str = "manifest", url: str = "") -> int:
+def check(
+    root: Path,
+    *,
+    source: str = "manifest",
+    url: str = "",
+    manifests: Iterable[str] = (),
+) -> int:
     """校验仓库内生成件与服务目录零漂移、服务发现无硬编码 IP、请求体上限三方一致。
 
     Args:
         root: 仓库根。
         source: 取数口径（`manifest` 清单 / `registry` 注册表）。
         url: 平台库连接串（`registry` 模式可省，省略时按配置解析平台库）。
+        manifests: 额外清单路径（`--manifest`）。
 
     Returns:
         int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP / 请求体上限口径不一致）。
     """
-    errors = _load(root, source=source, url=url)
+    errors = _load(root, source=source, url=url, manifests=manifests)
     if errors:
         for error in errors:
             print(f"[gateway_config] {error}", file=sys.stderr)
@@ -441,10 +434,17 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         help="从清单取数（缺省；CI 零依赖）",
     )
     parser.add_argument("--url", default="", help="平台库连接串（--from-registry 时可省：按配置解析平台库）")
+    parser.add_argument(
+        "--manifest",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="额外清单路径（可重复；清单模式生效，相对路径锚 backend/；本仓 deploy/registry/ 恒自动发现）",
+    )
     args = parser.parse_args(argv)
     if args.command == "render":
-        return render(args.root, to_stdout=args.to_stdout, source=args.source, url=args.url)
-    return check(args.root, source=args.source, url=args.url)
+        return render(args.root, to_stdout=args.to_stdout, source=args.source, url=args.url, manifests=args.manifest)
+    return check(args.root, source=args.source, url=args.url, manifests=args.manifest)
 
 
 if __name__ == "__main__":

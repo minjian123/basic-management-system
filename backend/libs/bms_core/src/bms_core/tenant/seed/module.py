@@ -12,7 +12,8 @@ uv run python -m ops.seed_module --dry-run
   按库键 `platform_platform` 解析：`sys_module` / `sys_product` 归平台服务，06_01 起平台服务库按服务拆分）；
 - 单一来源：服务目录取**合并视图** `service_catalog_view()`（平台常量 + 已装载产品清单）、
   产品档案取 `product_catalog_view()`——与启动接库校验同源，避免「库中缺产品登记行」；
-  产品清单按 `[registry].product_manifests` 装载（未配置 = 只播种平台清单，行为与旧版一致）；
+  产品清单只装载**本仓** `deploy/registry/*.toml`（07B `04_02`：`product_manifests` 已退役，
+  跨仓声明由注册通道写入，不由种子旁路装载）；
 - 幂等：按 `module_key` / `product_key` + 未软删除判存——不存在插入、存在则更新本清单字段
   （服务维度 / 分组 / 批次 / 版本 / 产品状态等）；
 - 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform:platform upgrade head` 建表；
@@ -33,7 +34,6 @@ from bms_core.core.concurrent import (
     ConcurrentStableFrozenDict,
     ConcurrentStableList,
 )
-from bms_core.core.config import get_settings
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.models.platform.catalog import SysModule, SysProduct
 from bms_core.registry.products import load_product_manifests
@@ -161,7 +161,7 @@ async def seed_modules(url: str) -> tuple[int, int]:
     Returns:
         tuple[int, int]: (新增行数, 更新行数) 合计（服务目录 + 产品档案）；重复执行为 (0, 0)。
     """
-    load_product_manifests(get_settings().registry.product_manifests)
+    load_product_manifests(ConcurrentStableList())
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     created = 0
@@ -192,7 +192,7 @@ async def seed_modules_entry(session: AsyncSession, args: ConcurrentStableDict[s
         args: 分支参数（本种子不消费）。
     """
     del args
-    load_product_manifests(get_settings().registry.product_manifests)
+    load_product_manifests(ConcurrentStableList())
     await _upsert_modules(session)
     await _upsert_products(session)
 
@@ -269,7 +269,7 @@ async def check_modules(url: str) -> ConcurrentStableList[str]:
     Returns:
         ConcurrentStableList[str]: 差异明细（空表示一致；空库亦为明细，提示先启动平台）。
     """
-    load_product_manifests(get_settings().registry.product_manifests)
+    load_product_manifests(ConcurrentStableList())
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     errors: ConcurrentStableList[str] = ConcurrentStableList()
@@ -324,7 +324,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     if args.dry_run:
         target = make_url(url).render_as_string(hide_password=True)
         print(f"[seed_module] 目标库：{target}")
-        load_product_manifests(get_settings().registry.product_manifests)
+        load_product_manifests(ConcurrentStableList())
         for seed in service_catalog_view():
             print(f"[seed_module] 种子：{seed.module_key}（{seed.name} / {seed.table_prefix}）（dry-run）")
         for product in product_catalog_view():

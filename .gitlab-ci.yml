@@ -302,6 +302,35 @@ base-integrity:
     - cd backend && uv sync --frozen --reinstall
     - cd "$CI_PROJECT_DIR/backend" && uv run python -m ops.gateway_config check --root "$CI_PROJECT_DIR"
 
+# ---- 跨仓契约校验（07B 04_02）：L1 产品声明 ↔ 产品契约；L2 声明 ↔ 注册表（一次性临时库）----
+# 独立作业而非并入 base-integrity：失败原因不同（外部仓可达性 / 跨仓一致性 vs 本仓静态问题），
+# 便于定位、重试与单独放行；并行执行不延长流水线总时长。
+# 产品仓地址 / 分支一律由 CI 变量声明（`PRODUCT_REPOS` / `PRODUCT_REV` / `PRODUCT_REPO_BASE_URL`），
+# **仓库文件不写产品仓地址**；未配置 `PRODUCT_REPOS` 即失败（一次性运维配置，见《部署发布规范》）。
+# 取不到产品仓 / 清单 / 契约即失败（不静默跳过）；仅 `CROSS_REPO_ALLOW_MISSING=1` 时跳过并警示。
+cross-repo-check:
+  stage: lint
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  script:
+    - |
+      if ! sh scripts/tools/ci/product_repos_setup.sh; then
+        if [ "${CROSS_REPO_ALLOW_MISSING}" = "1" ]; then
+          echo "[product] 产品仓准备失败，但 CROSS_REPO_ALLOW_MISSING=1：以 --allow-missing 继续（job log 留痕）"
+        else
+          echo "[product] 产品仓准备失败：本次跨仓校验无法进行（如需临时放行，置 CROSS_REPO_ALLOW_MISSING=1）"
+          exit 1
+        fi
+      fi
+    # `--reinstall` 同 base-integrity：镜像预置 venv + 持久 uv 缓存下工作区包会被判「已满足」而沿用旧产物
+    - cd backend && uv sync --frozen --reinstall
+    - |
+      cd "$CI_PROJECT_DIR/backend"
+      if [ "${CROSS_REPO_ALLOW_MISSING}" = "1" ]; then
+        uv run python -m ops.check_modules --cross-repo --product-root "$CI_PROJECT_DIR/../product" --allow-missing
+      else
+        uv run python -m ops.check_modules --cross-repo --product-root "$CI_PROJECT_DIR/../product"
+      fi
+
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
   stage: lint

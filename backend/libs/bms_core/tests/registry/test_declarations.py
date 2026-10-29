@@ -989,3 +989,205 @@ def test_declaration_payload_of_and_snapshot_accessors() -> None:
     wire = declaration_wire("collaborations", _capability())
     assert wire.get("name") == "demo.org.user-roles"
     assert wire.get("path") == "/api/v1/demo/roles"
+
+
+def _module(*, module_key: str = "demo", **kwargs: object) -> ModuleRecord:
+    """构造服务行记录（缺省合法）。
+
+    Args:
+        module_key: 模块键。
+        **kwargs: 覆盖字段。
+
+    Returns:
+        ModuleRecord: 服务行记录。
+    """
+    base: Any = {
+        "module_key": module_key,
+        "service_key": module_key,
+        "name": "演示服务",
+        "table_prefix": f"{module_key}_",
+        "event_domain": module_key,
+        "service_group": "product",
+        "product_key": "demo",
+    }
+    base.update(kwargs)
+    return ModuleRecord(**base)  # type: ignore[arg-type]
+
+
+@pytest.mark.kiwi_id(2365)
+def test_validate_service_row_shape_rejected_at_registration() -> None:
+    """注册期服务行形态校验（07B `04_02`）：表前缀首段 / 模块键 / 段位非法即拒收。"""
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
+    bad_prefix = _payload(services=ConcurrentStableList((_module(table_prefix="other_"),)))
+    errors = validate_declarations(
+        bad_prefix,
+        _snapshot(),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+    assert any("table_prefix 首段与 module_key 不一致" in error for error in errors)
+
+    bad_key = _payload(services=ConcurrentStableList((_module(module_key="Demo-Bad"),)))
+    errors = validate_declarations(
+        bad_key,
+        _snapshot(),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+    assert any("module_key 非法" in error for error in errors)
+
+    bad_segment = _payload(services=ConcurrentStableList((_module(errcode_segment="0"),)))
+    errors = validate_declarations(
+        bad_segment,
+        _snapshot(),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+    assert any("errcode_segment 非法" in error for error in errors)
+
+
+@pytest.mark.kiwi_id(2365)
+def test_validate_service_row_cross_product_uniqueness() -> None:
+    """注册期跨产品唯一性：与**别的产品**行同 `service_key` / `table_prefix` 即拒；同产品旧行不参与。"""
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
+    other_row = _module(module_key="othersvc", product_key="other")
+    payload = _payload(services=ConcurrentStableList((_module(service_key="othersvc"),)))
+    snapshot = _snapshot(services=ConcurrentStableList((other_row,)))
+
+    errors = validate_declarations(
+        payload,
+        snapshot,
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+    assert any("service_key 与产品 other 的 othersvc 重复" in error for error in errors)
+
+    # 同一产品自己的旧行不参与判重（改声明后重注册不该自撞）
+    own_row = _module(module_key="othersvc", product_key="demo")
+    errors = validate_declarations(
+        payload,
+        _snapshot(services=ConcurrentStableList((own_row,))),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+    assert not any("重复" in error for error in errors)
+
+
+@pytest.mark.kiwi_id(2365)
+def test_validate_seed_tables_only_platform() -> None:
+    """`[seeds.tables]` 表名存在性（07B `04_02`）：平台自身判错，产品种子不判（归产品仓自测）。"""
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
+    seed_ok = SeedRecord(
+        name="seed-a",
+        module="ops.seed_module",
+        entry="seed_modules_entry",
+        tables=ConcurrentStableFrozenDict({"sys_module": "module_key"}),
+    )
+    seed_bad = SeedRecord(
+        name="seed-b",
+        module="ops.seed_module",
+        entry="seed_modules_entry",
+        tables=ConcurrentStableFrozenDict({"not_a_table": "key"}),
+    )
+    platform_payload = _payload(
+        product_key="platform",
+        service_key="platform",
+        seeds=ConcurrentStableList((seed_ok,)),
+    )
+    errors = validate_declarations(
+        platform_payload,
+        _snapshot(owner="platform"),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+    assert not any("目标表未登记模型元数据" in error for error in errors)
+
+    platform_bad = _payload(
+        product_key="platform",
+        service_key="platform",
+        seeds=ConcurrentStableList((seed_bad,)),
+    )
+    errors = validate_declarations(
+        platform_bad,
+        _snapshot(owner="platform"),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+    assert any("目标表未登记模型元数据（not_a_table" in error for error in errors)
+
+    product_bad = _payload(seeds=ConcurrentStableList((seed_bad,)))
+    errors = validate_declarations(
+        product_bad,
+        _snapshot(),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+    assert not any("目标表未登记模型元数据" in error for error in errors)
+
+
+@pytest.mark.kiwi_id(2365)
+def test_validate_service_row_product_basis_from_payload() -> None:
+    """服务行产品归属基准：本仓声明的产品档案也计入（不必等注册表已登记）。"""
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
+    payload = _payload(
+        products=ConcurrentStableFrozenList(
+            (ProductRecord(product_key="demo", name="演示产品", frontend_package_source="demo#frontend"),)
+        ),
+        services=ConcurrentStableList((_module(product_key="demo"),)),
+    )
+
+    errors = validate_declarations(
+        payload,
+        _snapshot(),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+
+    assert not any("product_key 未登记" in error for error in errors)
+
+    # 注册表已登记的其他产品档案同样计入基准（声明的服务行可归属别的产品，如平台代声明的产品行）
+    registered = _snapshot(
+        products=ConcurrentStableList((ProductRecord(product_key="other", name="其他产品"),)),
+    )
+    cross_payload = _payload(services=ConcurrentStableList((_module(module_key="othersvc", product_key="other"),)))
+    errors = validate_declarations(
+        cross_payload,
+        registered,
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo", "other")),
+        warnings=warnings,
+    )
+    assert not any("product_key 未登记" in error for error in errors)
+
+
+@pytest.mark.kiwi_id(2365)
+def test_validate_seed_tables_tolerates_illegal_db_key() -> None:
+    """种子库键非法（形态不合法）：回退平台库维度判定表名，不因键错抛栈。"""
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
+    seed = SeedRecord(
+        name="seed-bad-key",
+        module="ops.seed_module",
+        entry="seed_modules_entry",
+        db_key="not-a-valid-key",
+        tables=ConcurrentStableFrozenDict({"sys_module": "module_key"}),
+    )
+    payload = _payload(product_key="platform", service_key="platform", seeds=ConcurrentStableList((seed,)))
+
+    errors = validate_declarations(
+        payload,
+        _snapshot(owner="platform"),
+        domain_services=ConcurrentStableDict({"org": "demo"}),
+        consumer_keys=ConcurrentStableSet(("platform", "demo")),
+        warnings=warnings,
+    )
+
+    assert not any("目标表未登记模型元数据" in error for error in errors)

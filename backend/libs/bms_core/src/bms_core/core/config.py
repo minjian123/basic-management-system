@@ -945,15 +945,12 @@ class EventSettings(PluginSelection):
 
 
 class RegistrySettings(BaseSettings):
-    """登记清单配置（`[registry]`）：产品仓自持清单（服务行 / 产品路由 / 数据源条目）。
+    """登记清单配置（`[registry]`）。
 
-    产品登记不再写进基座常量；装配期与离线网关生成按本清单装载（缺省空 = 不装载产品登记）。
+    07B `04_02`：`product_manifests` 已退役——清单来源固定为**本仓** `deploy/registry/*.toml`
+    自动发现（平台自身声明 + 同仓产品声明）；跨仓声明的取数改走注册表（`02_06`），
+    离线排障需要追加外部清单时用命令行 `--manifest`（`ops.check_modules` / `ops.gateway_config`）。
     """
-
-    product_manifests: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
-        default_factory=CONTRACT_STABLE_LIST
-    )
-    """产品登记清单文件路径（相对路径按**后端工程根** `backend/` 解析；缺省空列表）。"""
 
     register_on_startup: bool = True
     """启动时是否把**平台自身声明**注册进注册表（07B `02_06`）。

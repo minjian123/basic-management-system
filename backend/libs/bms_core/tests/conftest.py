@@ -43,27 +43,42 @@ def _plugin_fixtures(  # pyright: ignore[reportUnusedFunction]
 
 @pytest.fixture(autouse=True)
 def _reset_product_registries() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
-    """产品登记装载复位：装配期装载的服务行 / 产品档案 / 产品路由 / 数据源条目不跨用例残留。
+    """产品登记装载复位：装配期 / 注册投影写入的八类视图与域布局不跨用例残留。
+
+    07B `04_02`：`check_modules` 跨仓档会在一次性库上跑注册（`project_registry` 投影八类视图）
+    并登记域布局，同进程后续用例（尤其平台服务的 `org → mdm`）会与之冲突，故复位面扩到全部视图。
 
     Yields:
         None: 用例运行期。
     """
+    from bms_core.collaboration.usage import reset_capability_usages
     from bms_core.datasource.registry import reset_data_source_records
     from bms_core.services.module_registry import (
+        reset_collaboration_records,
+        reset_domain_services,
+        reset_error_code_records,
         reset_product_records,
         reset_product_routes,
+        reset_seed_records,
         reset_service_records,
     )
 
-    reset_service_records()
-    reset_product_records()
-    reset_product_routes()
-    reset_data_source_records()
+    resets = (
+        reset_service_records,
+        reset_product_records,
+        reset_product_routes,
+        reset_data_source_records,
+        reset_collaboration_records,
+        reset_seed_records,
+        reset_error_code_records,
+        reset_capability_usages,
+        reset_domain_services,
+    )
+    for reset in resets:
+        reset()
     yield
-    reset_service_records()
-    reset_product_records()
-    reset_product_routes()
-    reset_data_source_records()
+    for reset in resets:
+        reset()
 
 
 @pytest.fixture(autouse=True)
@@ -81,8 +96,8 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
 
     install_process_fake_redis_client()
     configure_token_env(monkeypatch)
-    # 产品登记清单在单测内隔离：缺省不装载（产品行由各用例显式注册，避免跨仓路径依赖）
-    monkeypatch.setenv("BMS_REGISTRY__PRODUCT_MANIFESTS", "[]")
+    # 产品登记清单（07B `04_02`）：`[registry].product_manifests` 已退役，清单取源固定为
+    # 本仓 `deploy/registry/*.toml`；单测内产品行由各用例显式注册（不依赖跨仓路径）
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

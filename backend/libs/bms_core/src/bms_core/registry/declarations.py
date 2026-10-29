@@ -35,6 +35,7 @@ from bms_core.core.concurrent import (
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.objects import BaseValueObject
 from bms_core.datasource.registry import DataSourceRecord
+from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.services.module_registry import (
     CollaborationRecord,
     ErrorCodeRecord,
@@ -42,6 +43,7 @@ from bms_core.services.module_registry import (
     ProductRecord,
     ProductRouteRecord,
     SeedRecord,
+    validate_module_record,
 )
 
 __all__ = [
@@ -56,6 +58,8 @@ __all__ = [
     "plan_declarations",
     "record_from_wire",
     "validate_declarations",
+    "validate_declared_services",
+    "validate_seed_tables",
 ]
 
 DECLARATION_KINDS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
@@ -85,6 +89,11 @@ _KIND_KEYS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
     }
 )
 """各类声明的业务键字段名（跨产品唯一性判定用）。"""
+
+_SERVICE_UNIQUE_FIELDS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
+    ("module_key", "table_prefix", "event_domain", "service_key", "errcode_segment")
+)
+"""服务行跨产品唯一性判定字段（`service_key` / `errcode_segment` 仅非空参与）。"""
 
 _STATUS_RETIRED = "retired"
 """退役状态值（本次全量未声明）。"""
@@ -689,6 +698,117 @@ def plan_declarations(
     )
 
 
+def validate_declared_services(payload: DeclarationPayload, current: RegistrySnapshot) -> ConcurrentStableList[str]:
+    """注册期服务行前置校验（07B `04_02`）：形态复用离线规则 + 跨产品唯一性。
+
+    背景：服务行形态（模块键 / 表前缀与键一致 / 段位 / 事件域 / 分组 / semver）此前只由各服务
+    启动时的离线校验兜底，非法行一旦投影会污染**同进程后续**的启动校验。这里把判定前移到注册期。
+
+    口径：
+
+    - 形态 / 分组 / 版本 / 产品归属 → `validate_module_record()`（与 `ModuleRegistry.validate()`
+      同一实现，不复制规则）；
+    - 产品归属基准 = 本次声明的产品 + 注册表已登记产品（产品自己声明自己，不依赖平台常量）；
+    - 唯一性只与**别的产品**的行比（同产品旧行不参与，避免「本产品改前改后自撞」）。
+
+    Args:
+        payload: 本次全量声明。
+        current: 注册表现状。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细（非空即拒绝本次注册）。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    label = f"产品 {payload.product_key}"
+    product_keys: ConcurrentStableSet[str] = ConcurrentStableSet()
+    # 声明方自身即一个已登记产品（它的服务行归属自己），再并本仓声明的产品档案与注册表已登记产品
+    product_keys.add(payload.product_key)
+    product_keys.update(record.product_key for record in payload.products)
+    for record in current.of("products"):
+        product_keys.add(record.product_key)
+    for record in payload.services:
+        errors.update(validate_module_record(record, product_keys))
+    others: ConcurrentStableList[tuple[ModuleRecord, str]] = ConcurrentStableList()
+    for record in current.of("services"):
+        owner = current.owner_of("services", record.module_key)
+        if owner is None or owner == payload.product_key or current.is_retired("services", record.module_key):
+            continue
+        others.add((record, owner))
+    for unique_field in _SERVICE_UNIQUE_FIELDS:
+        occupancy: ConcurrentStableDict[str, tuple[str, str]] = ConcurrentStableDict()
+        for record, owner in others:
+            value = getattr(record, unique_field)
+            if value is None or value == "":
+                continue
+            occupancy.set(str(value), (record.module_key, owner))
+        for record in payload.services:
+            value = getattr(record, unique_field)
+            if value is None or value == "":
+                continue
+            holder = occupancy.get(str(value))
+            if holder is None:
+                continue
+            holder_key, holder_owner = holder
+            errors.add(
+                f"{label}｜服务行 {record.module_key}：{unique_field} 与产品 {holder_owner} 的 {holder_key} 重复"
+                f"（{unique_field} 跨产品唯一）"
+            )
+    return errors
+
+
+def validate_seed_tables(payload: DeclarationPayload) -> ConcurrentStableList[str]:
+    """平台自身种子的 `[seeds.tables]` 表名存在性（07B `04_02`）。
+
+    范围口径（`03_03` 遗留评估结论）：**只判平台自身**——只有平台的模型元数据在本进程内；
+    产品种子（如其它产品的权限码种子）的表在其自身库与工程，bms 侧判不了，归产品仓自测（当前仍有告警）。
+
+    表集来源与建表 / 迁移同源：`unit_metadata(unit, datasource)`（平台单元 × 平台库 + 租户库），
+    不直接读 `Base.metadata`——后者在未导入模型模块时为空集（实测），会把合法表名全判成缺失。
+
+    Args:
+        payload: 本次全量声明。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细（表名未登记即报，非空拒绝注册）。
+    """
+    if payload.product_key != PLATFORM_SERVICE_KEY:
+        return ConcurrentStableList()
+    # 惰性导入：本模块是纯逻辑（无 IO / 无进程状态），模型元数据只在需要时取（与 seed 编排同一做法）
+    from bms_core.core.exceptions import ConfigError
+    from bms_core.db.bootstrap import unit_metadata
+    from bms_core.db.keys import parse_db_key
+    from bms_core.db.migration import DATASOURCE_PLATFORM, DATASOURCE_TENANT
+
+    caches: ConcurrentStableDict[tuple[str, str], ConcurrentStableSet[str]] = ConcurrentStableDict()
+
+    def known_tables(db_key: str) -> ConcurrentStableSet[str]:
+        """解析库键 → (单元, 库类别)，取该库类别的表集（缓存）。"""
+        try:
+            key = parse_db_key(db_key) if db_key else parse_db_key(PLATFORM_SERVICE_KEY)
+        except ConfigError:
+            key = parse_db_key(PLATFORM_SERVICE_KEY)
+        unit = key.service or payload.product_key
+        datasource = DATASOURCE_TENANT if key.kind == "tenant" else DATASOURCE_PLATFORM
+        cache_key = (unit, datasource)
+        cached = caches.get(cache_key)
+        if cached is None:
+            cached = ConcurrentStableSet(unit_metadata(unit, datasource).tables.keys())
+            caches.set(cache_key, cached)
+        return cached
+
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    label = f"产品 {payload.product_key}"
+    for record in payload.seeds:
+        tables = known_tables(record.db_key)
+        for table in record.tables:
+            if table not in tables:
+                errors.add(
+                    f"{label}｜种子 {record.name}：目标表未登记模型元数据"
+                    f"（{table}；库键 {record.db_key or PLATFORM_SERVICE_KEY}）"
+                )
+    return errors
+
+
 def validate_declarations(
     payload: DeclarationPayload,
     current: RegistrySnapshot,
@@ -720,6 +840,9 @@ def validate_declarations(
         and not any(record.service_key == payload.service_key for record in current.of("services"))
     ):
         errors.add(f"{label}｜注册方服务 {payload.service_key} 未在服务行声明（注册方与服务行须一致）")
+    # 服务行前置校验（07B `04_02`）：形态复用离线规则，跨产品唯一性对着注册表现状判
+    errors.update(validate_declared_services(payload, current))
+    errors.update(validate_seed_tables(payload))
     for record in payload.collaborations:
         prefix = f"{label}｜能力 {record.name}"
         owner_domain = domain_services.get(record.domain)

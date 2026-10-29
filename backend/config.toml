@@ -18,11 +18,10 @@ service = ""
 docs_enabled = true
 
 [registry]
-# 产品登记清单（产品仓自持）：服务行 / 产品路由 / 数据源 / 能力 / 种子，装配期与网关生成按此装载。
-# 清单格式为 **toml**（`deploy/registry/<产品>.toml`，07B `02_01`；不再支持 json 兼容分支）；
-# 本地工作区经 `backend/.env` 的 `BMS_REGISTRY__PRODUCT_MANIFESTS` 注入（相对路径按 backend/ 解析），
-# 部署态同经该变量（JSON 数组或 os.pathsep 分隔）注入；缺省空 = 不装载产品登记。
-product_manifests = []
+# 登记清单（07B `02_06` / `04_02`）：清单来源固定为**本仓** `deploy/registry/*.toml` 自动发现
+# （平台自身 `platform.toml` + 同仓产品声明）；跨仓声明由注册通道（产品启动上报 / 平台权威视图）承载，
+# 不再由配置注入别家清单路径——`product_manifests` 键已于 `04_02` 退役（配了会因未知键报错）。
+# 离线排障需要追加外部清单时用命令行 `--manifest`（`ops.check_modules` / `ops.gateway_config`）。
 
 [server]
 # 监听地址

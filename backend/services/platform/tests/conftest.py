@@ -9,8 +9,6 @@
 """
 
 import asyncio
-import json
-import os
 from collections.abc import AsyncIterator, Iterator
 
 import pytest
@@ -19,7 +17,7 @@ from httpx import ASGITransport, AsyncClient
 
 from bms_core.collaboration.usage import reset_capability_usages
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
-from bms_core.core.config import Settings, get_settings
+from bms_core.core.config import get_settings
 from bms_core.datasource.registry import reset_data_source_records
 from bms_core.permission.sources import reset_permission_data_sources
 from bms_core.registry.products import load_product_manifests
@@ -49,9 +47,6 @@ from ops.seed_module import seed_modules
 from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
 from tests_support.tenant_source import install_fake_tenant_source
-
-MANIFESTS_ENV = "BMS_REGISTRY__PRODUCT_MANIFESTS"
-"""产品登记清单环境变量名（与配置键位一致；播种与用例期共用同一份会话级清单）。"""
 
 __all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
 
@@ -91,13 +86,14 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
 def pinned_product_manifests() -> ConcurrentStableList[str]:
     """会话级固定的产品登记清单集合（启动播种与用例断言同源，避免并行 / 顺序相关）。
 
-    取会话启动时的配置原值（本地工作区指向产品仓清单；CI 无产品仓即空清单），
-    相对路径由 `load_product_manifests` 按后端工程根解析，与被测进程工作目录无关。
+    07B `04_02`：`[registry].product_manifests` 已退役，清单取源固定为**本仓**
+    `deploy/registry/*.toml` 自动发现（相对路径按后端工程根解析，与工作目录无关），
+    故这里固定为空（由 `load_product_manifests` 内部补本仓清单）。
 
     Returns:
-        ConcurrentStableList[str]: 清单路径（配置原值，保序）。
+        ConcurrentStableList[str]: 额外清单路径（恒空）。
     """
-    return ConcurrentStableList(Settings().registry.product_manifests)
+    return ConcurrentStableList()
 
 
 @pytest.fixture(autouse=True)
@@ -125,7 +121,6 @@ def isolate_catalog_records(
     Yields:
         None: 用例运行期。
     """
-    monkeypatch.setenv(MANIFESTS_ENV, json.dumps(list(pinned_product_manifests)))
     get_settings.cache_clear()
     reset_product_records()
     reset_service_records()
@@ -263,18 +258,8 @@ def platform_db_url(
         str: 会话级平台库连接串。
     """
     platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
-    previous = os.environ.get(MANIFESTS_ENV)
-    os.environ[MANIFESTS_ENV] = json.dumps(list(pinned_product_manifests))
-    get_settings.cache_clear()
-    try:
-        asyncio.run(seed_tenants(platform_url))
-        asyncio.run(seed_modules(platform_url))
-    finally:
-        if previous is None:
-            os.environ.pop(MANIFESTS_ENV, None)
-        else:
-            os.environ[MANIFESTS_ENV] = previous
-        get_settings.cache_clear()
+    asyncio.run(seed_tenants(platform_url))
+    asyncio.run(seed_modules(platform_url))
     return platform_url
 
 

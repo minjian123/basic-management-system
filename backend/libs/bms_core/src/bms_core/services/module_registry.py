@@ -1259,6 +1259,55 @@ def _duplicates(values: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     return result
 
 
+def validate_module_record(module: ModuleRecord, product_keys: ConcurrentStableSet[str]) -> ConcurrentStableList[str]:
+    """校验单条服务行的形态 / 分组 / 版本 / 产品归属（**单一实现**）。
+
+    离线校验（`ModuleRegistry.validate()`）与注册期前置校验（07B `04_02`，
+    `bms_core.registry.declarations.validate_declarations()`）共用本函数——注册期不再由
+    「各服务启动时的离线校验」独担，非法行挡在写库之前（避免污染同进程后续启动校验）。
+
+    Args:
+        module: 服务行记录。
+        product_keys: 已登记产品键集合（产品分组的归属基准）。
+
+    Returns:
+        ConcurrentStableList[str]: 非法明细（空表示通过）。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    key = module.module_key
+    if not _KEY_RE.match(key):
+        errors.add(f"{key}：module_key 非法")
+    if module.service_key is not None and not _SERVICE_KEY_RE.match(module.service_key):
+        errors.add(f"{key}：service_key 非法（{module.service_key}）")
+    if not _PREFIX_RE.match(module.table_prefix):
+        errors.add(f"{key}：table_prefix 非法（{module.table_prefix}）")
+    elif not module.table_prefix.startswith(f"{key}_"):
+        errors.add(f"{key}：table_prefix 首段与 module_key 不一致（{module.table_prefix}）")
+    if module.errcode_segment is not None and (
+        not _SEGMENT_RE.match(module.errcode_segment) or int(module.errcode_segment) < 1
+    ):
+        errors.add(f"{key}：errcode_segment 非法（{module.errcode_segment}）")
+    if not _DOMAIN_RE.match(module.event_domain):
+        errors.add(f"{key}：event_domain 非法（{module.event_domain}）")
+    if module.service_group not in tuple(ServiceGroup):
+        errors.add(f"{key}：service_group 非法（{module.service_group}）")
+    if not 0 <= module.build_batch <= 3:
+        errors.add(f"{key}：build_batch 越界（{module.build_batch}）")
+    for field, value in (
+        ("service_version", module.service_version),
+        ("contract_version", module.contract_version),
+    ):
+        if not CONTRACT_VERSION_RE.fullmatch(value):
+            errors.add(f"{key}：{field} 非 semver（{value}）")
+    if module.service_group == ServiceGroup.PRODUCT and not module.product_key:
+        errors.add(f"{key}：产品分组缺 product_key")
+    elif module.service_group == ServiceGroup.PRODUCT and module.product_key not in product_keys:
+        errors.add(f"{key}：product_key 未登记（{module.product_key}）")
+    elif module.service_group != ServiceGroup.PRODUCT and module.product_key:
+        errors.add(f"{key}：非产品分组不应有 product_key（{module.product_key}）")
+    return errors
+
+
 class ModuleRegistry(BaseFrameworkObject):
     """服务目录与注册要素校验 / 清单查询（离线）。"""
 
@@ -1342,45 +1391,15 @@ class ModuleRegistry(BaseFrameworkObject):
     def _validate_record(self, module: ModuleRecord) -> ConcurrentStableList[str]:
         """校验单条记录（格式 / 分组 / 版本 / 产品维度）。
 
+        规则本体在模块级 `validate_module_record()`——注册期（07B `04_02`）与离线校验共用同一实现。
+
         Args:
             module: 注册记录。
 
         Returns:
             ConcurrentStableList[str]: 非法明细。
         """
-        errors: ConcurrentStableList[str] = ConcurrentStableList()
-        key = module.module_key
-        if not _KEY_RE.match(key):
-            errors.add(f"{key}：module_key 非法")
-        if module.service_key is not None and not _SERVICE_KEY_RE.match(module.service_key):
-            errors.add(f"{key}：service_key 非法（{module.service_key}）")
-        if not _PREFIX_RE.match(module.table_prefix):
-            errors.add(f"{key}：table_prefix 非法（{module.table_prefix}）")
-        elif not module.table_prefix.startswith(f"{key}_"):
-            errors.add(f"{key}：table_prefix 首段与 module_key 不一致（{module.table_prefix}）")
-        if module.errcode_segment is not None and (
-            not _SEGMENT_RE.match(module.errcode_segment) or int(module.errcode_segment) < 1
-        ):
-            errors.add(f"{key}：errcode_segment 非法（{module.errcode_segment}）")
-        if not _DOMAIN_RE.match(module.event_domain):
-            errors.add(f"{key}：event_domain 非法（{module.event_domain}）")
-        if module.service_group not in tuple(ServiceGroup):
-            errors.add(f"{key}：service_group 非法（{module.service_group}）")
-        if not 0 <= module.build_batch <= 3:
-            errors.add(f"{key}：build_batch 越界（{module.build_batch}）")
-        for field, value in (
-            ("service_version", module.service_version),
-            ("contract_version", module.contract_version),
-        ):
-            if not CONTRACT_VERSION_RE.fullmatch(value):
-                errors.add(f"{key}：{field} 非 semver（{value}）")
-        if module.service_group == ServiceGroup.PRODUCT and not module.product_key:
-            errors.add(f"{key}：产品分组缺 product_key")
-        elif module.service_group == ServiceGroup.PRODUCT and module.product_key not in self._product_keys:
-            errors.add(f"{key}：product_key 未登记（{module.product_key}）")
-        elif module.service_group != ServiceGroup.PRODUCT and module.product_key:
-            errors.add(f"{key}：非产品分组不应有 product_key（{module.product_key}）")
-        return errors
+        return validate_module_record(module, self._product_keys)
 
     def _validate_duplicates(self) -> ConcurrentStableList[str]:
         """校验注册要素唯一性（服务键 / 段位仅非空去重）。
@@ -1542,6 +1561,8 @@ def validate_catalog(
     *,
     service_key: str | None = None,
     contract_version: str | None = None,
+    products: ConcurrentStableList[ProductRecord] | None = None,
+    routes: ConcurrentStableList[ProductRouteRecord] | None = None,
 ) -> ConcurrentStableList[str]:
     """接库服务目录校验（启动 / CI 共用）：库内查重与格式 + 与清单双向对账 + 运行服务契约版本。
 
@@ -1550,11 +1571,14 @@ def validate_catalog(
         records: 库中未软删行转换结果（`ModuleRecord.from_row`）。
         service_key: 运行服务标识（启动校验传入；CI 传 None 跳过运行服务项）。
         contract_version: 运行服务自报契约版本（`ServiceIdentity.contract_version`）。
+        products: 产品档案基准（缺省取 `product_catalog_view()` 合并视图）。
+        routes: 产品级路由基准（缺省取 `product_routes_view()`；传空清单即跳过路由映射校验——
+            路由属声明方所有，`04_02` 的跨仓对账已按声明逐方比对，常量维度的目录对账不重复判）。
 
     Returns:
         ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
     """
-    errors = ModuleRegistry(records).validate()
+    errors = ModuleRegistry(records, products, routes).validate()
     errors.update(_diff_catalog(catalog, records))
     if service_key is not None:
         errors.update(_check_running_service(records, service_key=service_key, contract_version=contract_version or ""))

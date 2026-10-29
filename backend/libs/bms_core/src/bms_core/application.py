@@ -521,8 +521,9 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         # 服务目录为**应用级视图**：平台清单 + 本服务注入记录（产品服务经 `service_records()` 提供）；
         # 合并按「同 module_key 同值去重、异值即拒」（平台侧已登记 + 产品侧自报同值时并存不冲突；12_03 扩展）
         # 产品登记清单（产品仓自持）：服务行 / 产品路由 / 数据源条目在装配期装载进合并视图；
-        # 缺省空配置 = 不装载（平台服务与未挂载产品的环境行为不变）
-        loads = load_product_manifests(settings.registry.product_manifests)
+        # 07B `04_02`：只装载**本仓** `deploy/registry/*.toml`（`product_manifests` 配置键已退役）——
+        # 跨仓声明由注册通道（`02_06`）在下游启动钩子里上报 / 拉取，装配期不再挂别家清单路径。
+        loads = load_product_manifests(ConcurrentStableList())
         if loads:
             get_logger("bms").info("product_manifests_loaded", count=len(loads))
         # 能力使用登记（07B `02_02`）：消费方声明须在装配期登记，生命周期内由校验步骤 fail-closed；

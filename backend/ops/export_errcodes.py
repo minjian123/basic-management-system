@@ -7,8 +7,9 @@
     uv run python -m ops.export_errcodes export --out tmp/errcodes.md
     uv run python -m ops.export_errcodes check tmp/errcodes.md     # 比对导出文件与当前视图
 
-- **数据来源**：与装配期同源——按 `[registry].product_manifests` 装载产品清单后取
-  `error_code_view()`（平台 `ErrorCode` 枚举 + 产品 `[[errcodes]]` 声明）；未配置清单时只含平台码并提示。
+- **数据来源**：与装配期同源——装载**本仓** `deploy/registry/*.toml` 后取 `error_code_view()`
+  （平台 `ErrorCode` 枚举 + 同仓 `[[errcodes]]` 声明）；本仓无清单时只含平台码并提示（`04_02` 起
+  `[registry].product_manifests` 已退役，产品码随产品进程注册，不在此导出）。
 - **确定性**：按 `code` 升序、固定列序；同视图同文本（供 Git 比对与 `check` 零漂移校验）。
 - **产物去向**：缺省打印 stdout；`--out` 落文件（建议工作区 `tmp/`，不写仓库树）。
 """
@@ -22,7 +23,6 @@ from pathlib import Path
 from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.registry.products import load_product_manifests
 from bms_core.services.module_registry import ErrorCodeRecord, error_code_view
 
@@ -44,16 +44,17 @@ STATUS_TEXT: ConcurrentStableDict[str, str] = ConcurrentStableDict(
 
 
 def build_records() -> ConcurrentStableList[ErrorCodeRecord]:
-    """装载清单并取合并视图记录（按 `code` 升序）。
+    """装载本仓清单并取合并视图记录（按 `code` 升序）。
+
+    07B `04_02`：`[registry].product_manifests` 已退役——清单来源固定为**本仓** `deploy/registry/*.toml`
+    自动发现（平台 `platform.toml` + 同仓产品声明）；产品码随产品进程注册，不在此导出。
 
     Returns:
         ConcurrentStableList[ErrorCodeRecord]: 错误码记录。
     """
-    paths = ConcurrentStableList(get_settings().registry.product_manifests)
-    if paths:
-        load_product_manifests(paths)
-    else:
-        print("[export_errcodes] 未配置 [registry].product_manifests：仅导出平台码", file=sys.stderr)
+    loads = load_product_manifests(ConcurrentStableList())
+    if not loads:
+        print("[export_errcodes] 本仓无 deploy/registry/*.toml：仅导出平台码", file=sys.stderr)
     return ConcurrentStableList(sorted(error_code_view().values(), key=lambda record: record.code))
 
 

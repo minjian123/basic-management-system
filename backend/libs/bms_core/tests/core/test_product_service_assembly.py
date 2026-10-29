@@ -522,7 +522,8 @@ def test_assembly_loads_product_manifests_and_logs_count(
         tmp_path: 临时目录（造清单文件）。
     """
     backend = tmp_path / "backend"
-    registry = backend / "deploy" / "registry"
+    backend.mkdir()
+    registry = tmp_path / "deploy" / "registry"
     registry.mkdir(parents=True)
     (registry / "demo.toml").write_text(
         'product_key = "demo"\n\n[[products]]\nproduct_key = "demo"\nname = "演示产品"\n'
@@ -547,12 +548,9 @@ def test_assembly_loads_product_manifests_and_logs_count(
             counts.add(cast(int, fields.get("count")))
 
     monkeypatch.setattr(application, "get_logger", lambda _name="bms": _Recorder())
+    # 07B `04_02`：清单取源固定为「本仓 `deploy/registry/*.toml` 自动发现」（`product_manifests` 已退役），
+    # 故只把工程根指到临时目录即可装载 `demo.toml`
     monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
-
-    # `create()` 内部经 `get_settings()` 取配置（忽略入参），故在此桩替换
-    settings = Settings()
-    settings.registry.product_manifests = ConcurrentStableList(["deploy/registry/demo.toml"])
-    monkeypatch.setattr(application, "get_settings", lambda: settings)
 
     app = _PlatformishFactory().create(None)
 

@@ -1,10 +1,10 @@
-"""CI 服务目录与产品档案校验脚本测试（Kiwi 28 / 2163 / 2249）：离线清单 + 服务包声明 + 接库查重与对账 / 退出码。"""
+"""CI 服务目录与声明校验脚本测试（Kiwi 28 / 2163 / 2249 / 2365）：离线 + 接库 + 跨仓三档 / 退出码 / 取源退役。"""
 
 import asyncio
+import json
 import runpy
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -14,9 +14,77 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 import bms_core.registry.products as products
 import ops.check_modules as check_modules
 import ops.seed_module as seed_module
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.models.platform.catalog import SysModule, SysProduct
-from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
+from bms_core.models.platform.catalog import SysModule
+from bms_core.registry.declarations import DeclarationPayload
+from bms_core.services.module_registry import PRODUCT_CATALOG, SERVICE_CATALOG, ModuleRecord, ProductRecord
+
+_PLATFORM_MANIFEST = """product_key = "platform"
+"""
+
+_DEMO_MANIFEST = """product_key = "demo"
+
+[[products]]
+product_key = "demo"
+name = "演示产品"
+
+[[services]]
+module_key = "demo"
+service_key = "demo"
+name = "演示服务"
+table_prefix = "demo_"
+event_domain = "demo"
+service_group = "product"
+product_key = "demo"
+contract_version = "0.1.0"
+
+[[collaborations]]
+name = "demo.org.user-roles"
+domain = "org"
+kind = "read"
+path = "/api/v1/demo/roles"
+contract_version = "0.1.0"
+product_key = "demo"
+frontend_prefix = "demo"
+"""
+
+
+def _workspace(root: Path, *, include_capability_path: bool = True) -> tuple[Path, Path]:
+    """造一个最小工作区：本仓（平台清单）+ 一个产品仓（声明 / 契约 / 域布局）。
+
+    Args:
+        root: 临时工作区根。
+        include_capability_path: 产品契约是否包含能力访问面（False 用于构造「访问面不在契约」）。
+
+    Returns:
+        tuple[Path, Path]: （后端工程根, 产品克隆容器目录）。
+    """
+    backend = root / "backend"
+    backend.mkdir()
+    registry = root / "deploy" / "registry"
+    registry.mkdir(parents=True)
+    (registry / "platform.toml").write_text(_PLATFORM_MANIFEST, encoding="utf-8")
+
+    product_root = root / "product" / "demo"
+    (product_root / "deploy" / "registry").mkdir(parents=True)
+    (product_root / "deploy" / "contracts").mkdir(parents=True)
+    (product_root / "deploy" / "boundaries").mkdir(parents=True)
+    (product_root / "deploy" / "registry" / "demo.toml").write_text(_DEMO_MANIFEST, encoding="utf-8")
+    contract_text = '{"paths": {"/api/v1/demo/roles": {}}}' if include_capability_path else '{"paths": {}}'
+    (product_root / "deploy" / "contracts" / "demo.json").write_text(contract_text, encoding="utf-8")
+    (product_root / "deploy" / "boundaries" / "domain_layout.json").write_text(
+        json.dumps({"version": 1, "domains": [{"domain_key": "org", "service_key": "demo"}]}), encoding="utf-8"
+    )
+    return backend, root / "product"
+
+
+def _platform_payloads() -> ConcurrentStableList[DeclarationPayload]:
+    """取本仓（平台）声明载荷（测试环境用真实 `deploy/registry/platform.toml`）。"""
+    return check_modules.payloads_of(check_modules.manifest_paths())
 
 
 @pytest.mark.kiwi_id(28)
@@ -67,31 +135,10 @@ def test_check_modules_fails_on_conflict(monkeypatch: pytest.MonkeyPatch) -> Non
     assert check_modules.main(ConcurrentStableList([])) == 1
 
 
-def _manifest_settings(paths: ConcurrentStableList[str]) -> SimpleNamespace:
-    """构造只含 `[registry].product_manifests` 的配置替身。
-
-    Args:
-        paths: 清单路径序列。
-
-    Returns:
-        SimpleNamespace: 配置替身（`registry.product_manifests`）。
-    """
-    return SimpleNamespace(registry=SimpleNamespace(product_manifests=paths))
-
-
-def test_check_manifests_not_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    """未配置 `product_manifests` 且本仓无声明：仍成功，并给出「无清单可校验」提示。
-
-    07B `02_03` 起本仓 `deploy/registry/*.toml`（含平台 `platform.toml`）由装载器自动发现，
-    故「未配置 product_manifests」不再等于「无清单」——提示文案相应改为「无任何清单可校验」，
-    且仅在本仓声明目录也为空时出现。
-
-    Args:
-        monkeypatch: pytest monkeypatch 夹具。
-    """
-    monkeypatch.setattr(check_modules, "get_settings", lambda: _manifest_settings(ConcurrentStableList()))
-    # 把本仓声明目录指向空目录，模拟「完全没有清单」的极简环境
-    monkeypatch.setattr(products, "_local_manifest_paths", lambda: ConcurrentStableList())
+@pytest.mark.kiwi_id(2365)
+def test_check_manifests_empty_warns(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """本仓无声明且无 `--manifest`：不报错，但给出「无任何清单可校验」提示（不静默）。"""
+    monkeypatch.setattr(products, "_MANIFEST_BASE", tmp_path / "backend")
 
     errors, warnings = check_modules.check_manifests()
 
@@ -99,35 +146,25 @@ def test_check_manifests_not_configured(monkeypatch: pytest.MonkeyPatch) -> None
     assert any("无任何清单可校验" in warning for warning in warnings)
 
 
-def test_check_manifests_reports_errors(
+@pytest.mark.kiwi_id(2365)
+def test_check_manifests_covers_platform_and_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """配置了非法清单：能力 / 种子段错误进入明细，CLI 退出码 1 且逐条打印。
-
-    Args:
-        tmp_path: 临时目录。
-        monkeypatch: pytest monkeypatch 夹具。
-        capsys: pytest 输出捕获夹具。
-    """
-    backend = tmp_path / "backend"
-    registry = backend / "deploy" / "registry"
-    registry.mkdir(parents=True)
-    manifest = registry / "demo.toml"
-    manifest.write_text(
-        'product_key = "demo"\n\n[[collaborations]]\nname = "demo.org.x"\nkind = "read"\n', encoding="utf-8"
-    )
+    """取源＝本仓自动发现（平台 `platform.toml` 进校验）；非法清单逐条报错、CLI 退出码 1。"""
+    backend, _ = _workspace(tmp_path)
     monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
-    monkeypatch.setattr(
-        check_modules, "get_settings", lambda: _manifest_settings(ConcurrentStableList([str(manifest)]))
-    )
 
     errors, warnings = check_modules.check_manifests()
 
-    assert any("缺少必填字段" in error for error in errors)
+    assert errors == []
     assert warnings == []
-    assert check_modules.main(ConcurrentStableList(["--offline"])) == 1
-    printed = capsys.readouterr().out
-    assert "缺少必填字段" in printed
+
+    bad = tmp_path / "bad.toml"
+    bad.write_text('product_key = "bad"\n\n[[collaborations]]\nname = "bad.org.x"\nkind = "read"\n', encoding="utf-8")
+    errors, _ = check_modules.check_manifests([str(bad)])
+    assert any("缺少必填字段" in error for error in errors)
+    assert check_modules.main(ConcurrentStableList(["--offline", "--manifest", str(bad)])) == 1
+    assert "缺少必填字段" in capsys.readouterr().out
 
 
 def _write_service(root: Path, name: str, body: str) -> None:
@@ -261,19 +298,71 @@ async def _set_contract_version(url: str, module_key: str, version: str) -> None
 def test_check_catalog_db_modes(tmp_path: Path) -> None:
     """接库模式：表缺失 / 空库 / 种子后通过 / 冲突失败；CLI 退出码随结果。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'ci_catalog.db'}"
-    assert any("服务目录库不可读" in error for error in check_modules.check_catalog_db(url))
+    warnings = ConcurrentStableList[str]()
+    payloads = _platform_payloads()
+    assert any("服务目录库不可读" in error for error in check_modules.check_catalog_db(url, payloads, warnings))
 
     asyncio.run(_create_table(url))
-    assert check_modules.check_catalog_db(url) == ["库中无登记行（种子未执行？）"]
+    empty_errors = check_modules.check_catalog_db(url, payloads, ConcurrentStableList())
+    assert any("库中无平台自身服务行（注册未执行？）" in error for error in empty_errors)
 
     asyncio.run(seed_module.seed_modules(url))
-    assert check_modules.check_catalog_db(url) == []
+    assert check_modules.check_catalog_db(url, payloads, ConcurrentStableList()) == []
     assert check_modules.main(ConcurrentStableList(["--url", url])) == 0
 
     asyncio.run(_set_contract_version(url, "identity", "1.0.0"))
-    errors = check_modules.check_catalog_db(url)
+    errors = check_modules.check_catalog_db(url, payloads, ConcurrentStableList())
     assert any("契约版本主版本不兼容" in error for error in errors)
     assert check_modules.main(ConcurrentStableList(["--url", url])) == 1
+
+
+@pytest.mark.kiwi_id(2365)
+def test_platform_payload_excludes_product_rows() -> None:
+    """平台载荷只并 `product_key` 为空的平台自身服务行（与 `declaration_bootstrap` 同口径）。"""
+    payload = check_modules.platform_payload()
+
+    assert payload.product_key == "platform"
+    assert [record.module_key for record in payload.services if record.product_key] == []
+    planned = {record.module_key for record in SERVICE_CATALOG if record.product_key}
+    assert planned, "常量里应有计划产品行，否则本用例失去意义"
+    assert planned - {record.module_key for record in payload.services} == planned
+
+
+@pytest.mark.kiwi_id(2249)
+def test_check_catalog_db_products_follow_declaration(tmp_path: Path) -> None:
+    """产品档案以**声明**为基准：声明齐备即通过；未声明只警示；状态漂移 / 缺行 / 表缺失照常检出。"""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'ci_products.db'}"
+    asyncio.run(seed_module.seed_modules(url))
+    declared = DeclarationPayload(
+        product_key="platform",
+        service_key="platform",
+        products=ConcurrentStableFrozenList(PRODUCT_CATALOG),
+    )
+    warnings = ConcurrentStableList[str]()
+    assert check_modules.check_catalog_db(url, ConcurrentStableList((declared,)), warnings) == []
+    assert not [warning for warning in warnings if "无任何清单声明" in warning]
+
+    undeclared = DeclarationPayload(product_key="demo", service_key="demo")
+    warnings = ConcurrentStableList[str]()
+    assert check_modules.check_catalog_db(url, ConcurrentStableList((undeclared,)), warnings) == []
+    assert any("常量登记的产品 biz 无任何清单声明" in warning for warning in warnings)
+    assert any("本次无任何产品声明" in warning for warning in warnings)
+
+    drifted = DeclarationPayload(
+        product_key="platform",
+        service_key="platform",
+        products=ConcurrentStableFrozenList((ProductRecord(product_key="biz", name="企业运营", status="planned"),)),
+    )
+    errors = check_modules.check_catalog_db(url, ConcurrentStableList((drifted,)), ConcurrentStableList())
+    assert any("产品档案 biz：status 与清单不一致" in error for error in errors)
+
+    asyncio.run(_exec_sql(url, "DELETE FROM sys_product"))
+    errors = check_modules.check_catalog_db(url, ConcurrentStableList((declared,)), ConcurrentStableList())
+    assert any("产品档案库中缺登记行" in error for error in errors)
+
+    asyncio.run(_exec_sql(url, "DROP TABLE sys_product"))
+    errors = check_modules.check_catalog_db(url, ConcurrentStableList((declared,)), ConcurrentStableList())
+    assert any("产品档案库不可读" in error for error in errors)
 
 
 async def _exec_sql(url: str, statement: str) -> None:
@@ -291,44 +380,94 @@ async def _exec_sql(url: str, statement: str) -> None:
         await engine.dispose()
 
 
-async def _set_product_status(url: str, product_key: str, status: str) -> None:
-    """改写指定产品档案行的状态（构造库侧漂移）。
+@pytest.mark.kiwi_id(2365)
+def test_cross_repo_requires_product_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """取不到产品仓：缺省失败（退出码 1）；`--allow-missing` 显式跳过并警示（退出码 0）。"""
+    backend, _ = _workspace(tmp_path)
+    monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
 
-    Args:
-        url: 平台库连接串。
-        product_key: 产品标识。
-        status: 状态。
-    """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            statement = select(SysProduct).where(SysProduct.product_key == product_key)
-            row = (await session.execute(statement)).scalar_one()
-            row.status = status
-            await session.commit()
-    finally:
-        await engine.dispose()
+    empty = tmp_path / "no-products"
+    empty.mkdir()
+    errors, warnings, _ = check_modules.run_cross_repo(
+        product_roots=[str(empty)], manifests=(), allow_missing=False, keep_tmp=False
+    )
+    assert any("未取到任何产品仓声明" in error for error in errors)
+    assert check_modules.main(ConcurrentStableList(["--cross-repo", "--product-root", str(empty)])) == 1
+
+    errors, warnings, _ = check_modules.run_cross_repo(
+        product_roots=[str(empty)], manifests=(), allow_missing=True, keep_tmp=False
+    )
+    assert errors == []
+    assert any("已显式跳过" in warning for warning in warnings)
+    missing_ok = ["--cross-repo", "--product-root", str(empty), "--allow-missing"]
+    assert check_modules.main(ConcurrentStableList(missing_ok)) == 0
+    assert "已显式跳过" in capsys.readouterr().out
 
 
-@pytest.mark.kiwi_id(2249)
-def test_check_catalog_db_products(tmp_path: Path) -> None:
-    """接库产品档案对账：种子后通过；状态漂移 / 缺行 / 空表 / 表缺失逐项检出且退出码 1。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'ci_products.db'}"
-    asyncio.run(seed_module.seed_modules(url))
-    assert check_modules.check_catalog_db(url) == []
-    assert check_modules.main(ConcurrentStableList(["--url", url])) == 0
+@pytest.mark.kiwi_id(2365)
+def test_cross_repo_e2e_registers_and_reconciles(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """跨仓档端到端：L1（契约定位通过）+ L2（平台 → 产品注册、声明↔注册表 0 差异）→ 退出码 0。"""
+    backend, product_base = _workspace(tmp_path)
+    monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
 
-    asyncio.run(_set_product_status(url, "biz", "planned"))
-    errors = check_modules.check_catalog_db(url)
-    assert any("产品档案 biz：status 与清单不一致" in error for error in errors)
-    assert check_modules.main(ConcurrentStableList(["--url", url])) == 1
+    errors, warnings, lines = check_modules.run_cross_repo(
+        product_roots=[str(product_base)], manifests=(), allow_missing=False, keep_tmp=False
+    )
 
-    asyncio.run(_exec_sql(url, "DELETE FROM sys_product WHERE code = 'cw'"))
-    assert any("产品档案库中缺登记行：cw" in error for error in check_modules.check_catalog_db(url))
+    assert errors == []
+    assert any("L1 装载校验：2 份清单" in line for line in lines)
+    assert any("L2 注册表：2 个声明方 → 0 差异" in line for line in lines)
+    assert any("常量登记的产品 cw 无任何清单声明" in warning for warning in warnings) or warnings == []
+    assert check_modules.main(ConcurrentStableList(["--cross-repo", "--product-root", str(product_base)])) == 0
 
-    asyncio.run(_exec_sql(url, "DELETE FROM sys_product"))
-    assert any("产品档案库中无登记行" in error for error in check_modules.check_catalog_db(url))
 
-    asyncio.run(_exec_sql(url, "DROP TABLE sys_product"))
-    assert any("产品档案库不可读" in error for error in check_modules.check_catalog_db(url))
+@pytest.mark.kiwi_id(2365)
+def test_cross_repo_l1_contract_missing_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """L1：能力访问面不在产品契约 → 失败并定位能力名与路径（L2 不再执行）。"""
+    backend, product_base = _workspace(tmp_path, include_capability_path=False)
+    monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
+
+    errors, _, lines = check_modules.run_cross_repo(
+        product_roots=[str(product_base)], manifests=(), allow_missing=False, keep_tmp=False
+    )
+
+    assert any("访问面不在对端契约" in error and "demo.org.user-roles" in error for error in errors)
+    assert not any("L2 注册表" in line for line in lines)
+
+
+@pytest.mark.kiwi_id(2365)
+def test_cross_repo_conflicting_arguments(tmp_path: Path) -> None:
+    """参数冲突：`--ephemeral` 与 `--url` 互斥；跨仓档拒绝 `--url` / `--offline`（退出码 2）。"""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'x.db'}"
+    assert check_modules.main(ConcurrentStableList(["--ephemeral", "--url", url])) == 2
+    assert check_modules.main(ConcurrentStableList(["--cross-repo", "--url", url])) == 2
+    assert check_modules.main(ConcurrentStableList(["--cross-repo", "--offline"])) == 2
+
+
+@pytest.mark.kiwi_id(2365)
+def test_ephemeral_runs_local_manifests(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """一次性库档（无产品仓）：本仓平台声明 → 注册 → 对账，退出码 0。"""
+    backend, _ = _workspace(tmp_path)
+    monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
+
+    assert check_modules.main(ConcurrentStableList(["--ephemeral"])) == 0
+
+
+@pytest.mark.kiwi_id(2365)
+def test_product_roots_expand_shapes(tmp_path: Path) -> None:
+    """产品仓根三种形态：仓根 / 声明目录 / 克隆容器目录；空目录返回空清单。"""
+    _, product_base = _workspace(tmp_path)
+    repo = product_base / "demo"
+    registry = repo / "deploy" / "registry"
+    empty = tmp_path / "empty"
+    empty.mkdir()
+
+    for raw in (str(repo), str(registry), str(product_base)):
+        roots = check_modules.resolve_product_roots([raw])
+        assert [root.name for root in roots] == ["demo"]
+        assert [path.name for path in check_modules.product_manifest_paths(roots)] == ["demo.toml"]
+
+    assert check_modules.resolve_product_roots([str(empty)]) == []
+    assert check_modules.product_manifest_paths([empty]) == []

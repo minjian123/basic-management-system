@@ -10,13 +10,13 @@
 import json
 import runpy
 import sys
-import types
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.registry.products import load_product_manifest, register_manifest
 from bms_core.services.module_registry import (
     PLATFORM_ERROR_CODE_RECORDS,
     ErrorCodeRecord,
@@ -47,18 +47,6 @@ def _record(code: int = 390001) -> ErrorCodeRecord:
     )
 
 
-def _settings(paths: ConcurrentStableList[str]) -> object:
-    """构造配置替身（只含 `[registry].product_manifests`）。
-
-    Args:
-        paths: 清单路径。
-
-    Returns:
-        object: 配置替身。
-    """
-    return types.SimpleNamespace(registry=types.SimpleNamespace(product_manifests=paths))
-
-
 @pytest.fixture(autouse=True)
 def _isolate_records(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """每例：清空注入记录 + 缺省视为「未配置清单」。
@@ -70,7 +58,20 @@ def _isolate_records(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         None: 用例运行期。
     """
     reset_error_code_records()
-    monkeypatch.setattr(export_errcodes, "get_settings", lambda: _settings(ConcurrentStableList(())))
+    # 07B `04_02`：清单取源已改为「本仓自动发现」，用例按「本仓无清单」打桩
+
+    def _empty_load(_paths: ConcurrentStableList[str]) -> ConcurrentStableList[object]:
+        """测试替身：本仓无清单（返回空）。
+
+        Args:
+            _paths: 忽略。
+
+        Returns:
+            ConcurrentStableList[object]: 空清单。
+        """
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(export_errcodes, "load_product_manifests", _empty_load)
     yield
     reset_error_code_records()
 
@@ -116,7 +117,7 @@ def test_build_records_without_manifests_warns(capsys: pytest.CaptureFixture[str
     """未配置清单：只含平台码，并向 stderr 提示（不静默）。"""
     records = export_errcodes.build_records()
     assert len(records) == len(PLATFORM_ERROR_CODE_RECORDS)
-    assert "未配置" in capsys.readouterr().err
+    assert "本仓无 deploy/registry" in capsys.readouterr().err
 
 
 def test_build_records_loads_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -154,7 +155,21 @@ description = "部门不存在"
     contract = tmp_path / "deploy" / "contracts" / "demo.json"
     contract.parent.mkdir(parents=True, exist_ok=True)
     contract.write_text(json.dumps({"paths": {"/api/v1/demo/depts": {}}}), encoding="utf-8")
-    monkeypatch.setattr(export_errcodes, "get_settings", lambda: _settings(ConcurrentStableList((str(path),))))
+
+    def _fake_load(_paths: ConcurrentStableList[str]) -> ConcurrentStableList[object]:
+        """测试替身：装载给定清单并注册（与真实 `load_product_manifests` 同效）。
+
+        Args:
+            _paths: 忽略（用例只挂一份清单）。
+
+        Returns:
+            ConcurrentStableList[object]: 已装载清单。
+        """
+        manifest = load_product_manifest(path)
+        register_manifest(manifest)
+        return ConcurrentStableList((manifest,))
+
+    monkeypatch.setattr(export_errcodes, "load_product_manifests", _fake_load)
     records = export_errcodes.build_records()
     assert any(record.code == 390001 for record in records)
 

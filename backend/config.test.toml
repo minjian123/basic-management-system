@@ -14,8 +14,7 @@ slow_request_ms = 1000
 allow_origins = []
 
 [registry]
-# 单测 / CI 不装载产品登记清单（不依赖产品仓在场；需要时由用例显式注册记录）
-product_manifests = []
+# 清单来源＝本仓 `deploy/registry/*.toml`；单测不依赖产品仓在场（需要时由用例显式注册记录）。
 # 启动期不自动注册平台自身声明（07B `02_06`）：用例显式调注册端点，
 # 避免「声明即全量」的退役口径把夹具种下的目录行清掉；生产 / 部署态缺省开启
 register_on_startup = false

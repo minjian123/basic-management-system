@@ -134,12 +134,12 @@ class SeedOrchestrationService(BaseFrameworkObject):
         self._logger = get_logger("bms")
 
     def _load_records(self) -> ConcurrentStableList[SeedRecord]:
-        """装载全部种子声明（本仓 `deploy/registry/*.toml` + 配置注入的产品清单）。
+        """装载全部种子声明（本仓 `deploy/registry/*.toml` 自动发现；07B `04_02` 起无配置注入）。
 
         Returns:
             ConcurrentStableList[SeedRecord]: 种子记录合并视图。
         """
-        load_product_manifests(get_settings().registry.product_manifests)
+        load_product_manifests(ConcurrentStableList())
         return ConcurrentStableList(seed_catalog_view())
 
     async def orchestrate(self, request: SeedOrchestrationRequest) -> SeedOrchestrationResult:

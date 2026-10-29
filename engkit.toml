@@ -206,6 +206,14 @@ label = "网关：gateway_config check（服务目录零漂移）"
 cmd = ["uv", "run", "python", "-m", "ops.gateway_config", "check", "--root", "{root}"]
 cwd = "backend"
 
+# 跨仓：L1 产品声明 ↔ 产品契约 + L2 声明 ↔ 注册表（一次性临时库）。
+# 本地缺同级产品仓克隆属正常（提示跳过，不阻断）；`--allow-missing` 只影响「一个仓都没有」，
+# 有克隆则照常校验（CI 侧不传该参数，取不到即红）。
+[[preflight.steps]]
+label = "跨仓：check_modules 跨仓档（L1 契约定位 + L2 注册表对账）"
+cmd = ["uv", "run", "python", "-m", "ops.check_modules", "--cross-repo", "--allow-missing"]
+cwd = "backend"
+
 [[preflight.steps]]
 label = "契约：contract_snapshot check（公开契约零漂移）"
 cmd = ["uv", "run", "python", "-m", "ops.contract_snapshot", "check", "--root", "{root}"]

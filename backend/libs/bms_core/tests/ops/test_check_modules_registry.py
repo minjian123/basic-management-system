@@ -136,29 +136,35 @@ def test_check_registry_db_skips_without_tables(tmp_path: object) -> None:
     from ops.check_modules import check_registry_db
 
     url = f"sqlite+aiosqlite:///{_Path(str(tmp_path)) / 'empty.db'}"
+    warnings = ConcurrentStableList[str]()
 
-    assert list(check_registry_db(url)) == []
+    assert list(check_registry_db(url, ConcurrentStableList([_payload()]), warnings)) == []
+    assert any("未建表" in warning for warning in warnings)
 
 
 def test_check_registry_db_reports_unreadable_db(tmp_path: object) -> None:
     """库不可读（非「未建表」）：报错而不是静默跳过。"""
     from ops.check_modules import check_registry_db
 
-    errors = check_registry_db(f"sqlite+aiosqlite:///{tmp_path}/missing-dir/x.db")
+    errors = check_registry_db(
+        f"sqlite+aiosqlite:///{tmp_path}/missing-dir/x.db",
+        ConcurrentStableList([_payload()]),
+        ConcurrentStableList(),
+    )
 
     assert any("注册表库不可读" in item for item in errors)
 
 
-def test_check_registry_db_reports_unreadable_db_with_manifest(tmp_path: object, monkeypatch: object) -> None:
-    """本仓清单可读但库打不开（非「未建表」）：仍报「库不可读」。"""
-    from bms_core.registry.declarations import DeclarationPayload
+def test_check_registry_db_reports_unreadable_db_with_manifest(tmp_path: object) -> None:
+    """多声明方（平台 + 产品）时库打不开（非「未建表」）：仍报「库不可读」。"""
     from ops import check_modules
 
-    monkeypatch.setattr(  # type: ignore[attr-defined]
-        check_modules, "platform_payload", lambda: DeclarationPayload(product_key="platform", service_key="platform")
+    product = DeclarationPayload(product_key="demo", service_key="demo")
+    errors = check_modules.check_registry_db(
+        f"sqlite+aiosqlite:///{tmp_path}/missing-dir/y.db",
+        ConcurrentStableList([_payload(), product]),
+        ConcurrentStableList(),
     )
-
-    errors = check_modules.check_registry_db(f"sqlite+aiosqlite:///{tmp_path}/missing-dir/y.db")
 
     assert any("注册表库不可读" in item for item in errors)
 
@@ -176,15 +182,15 @@ def testplatform_payload_requires_manifest(monkeypatch: object) -> None:
         check_modules.platform_payload()
 
 
-def test_check_registry_db_reports_missing_manifest(monkeypatch: object) -> None:
-    """本仓平台清单缺失：先于接库判定为「本仓声明不可读」。"""
+def test_check_modules_reports_missing_platform_manifest(monkeypatch: object, capsys: object) -> None:
+    """本仓平台清单缺失：接库档先判「本仓声明不可读」（不静默放行）。"""
     from ops import check_modules
 
     monkeypatch.setattr(check_modules, "local_manifest_paths", lambda: ConcurrentStableList())  # type: ignore[attr-defined]
+    monkeypatch.setattr(check_modules, "resolve_url", lambda *_a, **_k: "sqlite+aiosqlite:///:memory:")  # type: ignore[attr-defined]
 
-    errors = check_modules.check_registry_db("sqlite+aiosqlite:///:memory:")
-
-    assert any("本仓声明不可读" in item for item in errors)
+    assert check_modules.main(ConcurrentStableList([])) == 1
+    assert "本仓声明不可读" in capsys.readouterr().out  # type: ignore[attr-defined]
 
 
 def testplatform_payload_merges_manifest_services(monkeypatch: object) -> None:
@@ -251,7 +257,7 @@ def test_check_registry_db_diffs_when_tables_exist(tmp_path: object) -> None:
 
     asyncio.run(_create())
 
-    errors = check_registry_db(url)
+    errors = check_registry_db(url, ConcurrentStableList([_payload(_capability())]), ConcurrentStableList())
 
     assert any("注册表缺该声明" in item for item in errors)
 
