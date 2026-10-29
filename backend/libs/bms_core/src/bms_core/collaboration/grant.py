@@ -82,8 +82,14 @@ SCOPE_PREFIX = "svc"
 GRANT_VIEW_TTL_SECONDS = 60.0
 """授权视图快照有效期（秒）：撤销 / 授予在 TTL 内有界生效，不承诺跨实例强一致。"""
 
-GRANT_VIEW_PATH = "/api/v1/internal/capability-grants"
-"""授权视图内部出口路径（平台管理面 / 服务身份共用的服务间读取面）。"""
+GRANT_VIEW_PATH = "/api/v1/platform/internal/capability-grants"
+"""授权视图内部出口路径（平台内部面，`require_auth_or_service` 双模鉴权）。
+
+**必须与平台真实路由一致**（`services/platform/.../api/internal_capability_grants.py` 的
+`prefix="/platform/internal/capability-grants"` + 统一挂载前缀 `/api/v1`）：路径写错时拉取只会
+404 → 产品进程长期停留在「降级 + 首次访问 fail-closed」，很难在运行期发现。防漂断言见
+`services/platform/tests/api/test_capability_grants.py`。
+"""
 
 CALL_RESULT_ALLOWED = "allowed"
 """调用结果：有有效分配（放行）。"""

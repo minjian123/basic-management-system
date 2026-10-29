@@ -19,6 +19,7 @@ from bms_core.collaboration import (
     warm_capability_grant_views,
 )
 from bms_core.collaboration.bootstrap import GRANT_VIEW_DEGRADED_FLAG
+from bms_core.collaboration.grant import GRANT_VIEW_PATH
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CatalogError
@@ -31,9 +32,6 @@ from bms_core.services.module_registry import (
 
 SERVICE_KEY = "demo"
 """本服务标识（承载 `org` 域）。"""
-
-GRANT_VIEW_PATH = "/api/v1/internal/capability-grants"
-"""授权视图内部出口路径。"""
 
 
 class _ClientStub(BaseServiceClient):

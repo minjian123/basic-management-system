@@ -620,3 +620,26 @@ async def _raise_catalog_error(_settings: object) -> None:
         RuntimeError: 恒抛。
     """
     raise RuntimeError("warm boom")
+
+
+def _has_route(app: FastAPI, path: str) -> bool:
+    """判断应用路由表里是否存在该路径（防「常量与真实路由漂移」）。
+
+    Args:
+        app: 应用实例。
+        path: 待查路径。
+
+    Returns:
+        bool: 存在为 True。
+    """
+    paths = app.openapi()["paths"]
+    return path in paths
+
+
+@pytest.mark.kiwi_id(2368)
+def test_internal_path_constant_matches_route(service_app: FastAPI) -> None:
+    """基座内部出口常量必须与平台真实路由一致（路径写错只会 404，运行期难发现）。"""
+    from bms_core.collaboration.grant import GRANT_VIEW_PATH
+
+    assert GRANT_VIEW_PATH == INTERNAL_API
+    assert _has_route(service_app, GRANT_VIEW_PATH)
