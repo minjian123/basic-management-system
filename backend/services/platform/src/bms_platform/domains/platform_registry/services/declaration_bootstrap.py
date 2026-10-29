@@ -76,6 +76,9 @@ async def bootstrap_platform_declarations(app: FastAPI) -> None:
             factory=app.state.session_factory,
         ) as session:
             report = await DeclarationRegistryService(session).register(payload)
+            # 事务边界归调用方（`session_scope` 只建会话）：不 commit 则本次注册随会话释放回滚，
+            # 表现为「日志显示注册成功、库里查不到行」，并让后续产品进程经 HTTP 拉取时对账全红。
+            await session.commit()
     except SQLAlchemyError as exc:
         # 库未初始化：与「授权声明同步」同口径降级放行（记 WARNING + 打标记），取用仍 fail-closed
         _LOGGER.warning("declaration_register_unavailable", error=type(exc).__name__, detail=str(exc))
@@ -128,4 +131,5 @@ def with_platform_services(payload: DeclarationPayload) -> DeclarationPayload:
         seeds=payload.seeds,
         errcodes=payload.errcodes,
         usages=payload.usages,
+        domains=payload.domains,
     )

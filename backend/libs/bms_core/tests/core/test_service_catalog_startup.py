@@ -53,6 +53,7 @@ _FIELDS = (
     "contract_version",
     "product_key",
     "status",
+    "tenant_base",
 )
 
 

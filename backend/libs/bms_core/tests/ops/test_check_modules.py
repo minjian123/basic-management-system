@@ -1,7 +1,6 @@
 """CI 服务目录与声明校验脚本测试（Kiwi 28 / 2163 / 2249 / 2365）：离线 + 接库 + 跨仓三档 / 退出码 / 取源退役。"""
 
 import asyncio
-import json
 import runpy
 import sys
 from pathlib import Path
@@ -50,6 +49,12 @@ path = "/api/v1/demo/roles"
 contract_version = "0.1.0"
 product_key = "demo"
 frontend_prefix = "demo"
+
+# 第九类：业务域声明（07B `04_02` 重开——域布局由清单声明，不再读 domain_layout.json）
+[[domains]]
+domain_key = "org"
+service_key = "demo"
+status = "planned"
 """
 
 
@@ -76,9 +81,6 @@ def _workspace(root: Path, *, include_capability_path: bool = True) -> tuple[Pat
     (product_root / "deploy" / "registry" / "demo.toml").write_text(_DEMO_MANIFEST, encoding="utf-8")
     contract_text = '{"paths": {"/api/v1/demo/roles": {}}}' if include_capability_path else '{"paths": {}}'
     (product_root / "deploy" / "contracts" / "demo.json").write_text(contract_text, encoding="utf-8")
-    (product_root / "deploy" / "boundaries" / "domain_layout.json").write_text(
-        json.dumps({"version": 1, "domains": [{"domain_key": "org", "service_key": "demo"}]}), encoding="utf-8"
-    )
     return backend, root / "product"
 
 

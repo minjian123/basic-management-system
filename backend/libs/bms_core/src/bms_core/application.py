@@ -39,7 +39,7 @@ from bms_core.api.middleware import (
     TraceIdMiddleware,
 )
 from bms_core.cache.base import CacheRegion
-from bms_core.catalog.loader import load_catalog_snapshot
+from bms_core.catalog.loader import is_catalog_authority, load_catalog_snapshot
 from bms_core.collaboration.usage import (
     CapabilityUsage,
     register_capability_usages,
@@ -49,7 +49,7 @@ from bms_core.collaboration.usage import (
     capability_usages as registered_capability_usages,
 )
 from bms_core.core.assembly import assemble_base_plugins, assemble_plugins, register_platform_plugins
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings, get_settings, validate_startup
 from bms_core.core.exceptions import CatalogError, EventContractError
 from bms_core.core.factory import BaseApplicationFactory, register_factory, resolve_factory
@@ -80,6 +80,7 @@ from bms_core.services.module_registry import (
     ModuleRecord,
     ModuleRegistry,
     enabled_service_keys,
+    injected_service_records,
     register_service_records,
     service_catalog_view,
     validate_catalog,
@@ -134,11 +135,17 @@ async def _validate_service_catalog(app: FastAPI) -> None:
     if not records:
         logger.warning("service_catalog_empty", hint="服务目录无登记行，跳过接库校验")
         return
+    own_keys: ConcurrentStableSet[str] | None = None
+    if not is_catalog_authority(identity.name):
+        # 产品进程：对账基准只含「平台自身行 + 本产品行」。常量里其他产品的行归各自进程注册，
+        # 计入会让每个产品进程启动即报「库中缺登记行」（07B `04_02` 重开补正）。
+        own_keys = ConcurrentStableSet(record.module_key for record in injected_service_records())
     errors = validate_catalog(
         cast("ModuleRegistry", app.state.module_registry).catalog_records(),
         records,
         service_key=identity.name,
         contract_version=identity.contract_version,
+        own_keys=own_keys,
     )
     if errors:
         logger.critical("service_catalog_invalid", scope="database", errors=errors)
@@ -321,11 +328,12 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         )
         if created:
             get_logger(_LOGGER).info("schema_auto_create_done", targets=",".join(created))
-        await _validate_service_catalog(app)
         # 注册表启动装配（07B `02_06`）：产品进程上报自身声明并拉取权威快照投影；
-        # 平台进程跳过（本库即权威，由平台自身启动钩子注册）。必须早于能力使用声明校验——
-        # 后者要对着「注册表派生的视图」判定，否则单仓 / 部署态都会误判。
+        # 平台进程跳过（本库即权威，由平台自身启动钩子注册）。
+        # **顺序**：必须先于接库服务目录校验——平台自注册写入 `sys_module` 是目录校验的基准，
+        # 放到 `startup_hooks`（更晚）会让重启后的校验对着空库跑，误报「库中缺登记行」全表。
         await bootstrap_declarations(app)
+        await _validate_service_catalog(app)
         await _validate_capability_usages(app)
         await _validate_table_ownership(app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))

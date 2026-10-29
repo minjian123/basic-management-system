@@ -11,11 +11,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from bms_core.core.concurrent import ConcurrentStableFrozenDict
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import AuthError
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
-from bms_core.services.module_registry import register_domain_services
 
 API = "/api/v1/platform/internal/declarations"
 SNAPSHOT_API = f"{API}/snapshot"
@@ -40,17 +38,6 @@ def _isolated_platform_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platf
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
-
-
-@pytest.fixture(autouse=True)
-def _declare_demo_domain() -> Iterator[None]:
-    """登记用例专用的业务域（与域布局解耦，避免与其他用例共享状态冲突）。
-
-    Yields:
-        None: 用例运行期。
-    """
-    register_domain_services(ConcurrentStableFrozenDict({"demo_op": "demo"}))
-    yield
 
 
 _MANIFEST = """
@@ -83,6 +70,12 @@ contract_version = "0.1.0"
 name = "demo.demo_op.roles"
 degrade = "empty"
 reason = "断链按无角色"
+
+# 第九类：业务域声明（07B `04_02` 重开——域随声明到达，不再靠内存登记）
+[[domains]]
+domain_key = "demo_op"
+service_key = "demo"
+status = "planned"
 """
 
 _MANIFEST_V2 = _MANIFEST.replace('path = "/api/v1/demo/roles"', 'path = "/api/v1/demo/roles-v2"')

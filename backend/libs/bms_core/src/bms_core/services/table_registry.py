@@ -256,6 +256,13 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             note="产品错误码声明（第七类记录；渲染与手册导出来源，07B 02_06）",
         ),
         TableRecord(
+            table_name="sys_domain",
+            owner="platform",
+            domain="platform_registry",
+            datasource=Datasource.PLATFORM,
+            note="业务域声明（第九类记录；域布局权威落点，07B 04_02 重开）",
+        ),
+        TableRecord(
             table_name="sys_tenant_quota",
             owner="tenant",
             domain="tenant",

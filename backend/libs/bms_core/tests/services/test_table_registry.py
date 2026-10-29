@@ -119,6 +119,8 @@ def test_owned_tables_and_chain_derivation() -> None:
             "sys_errcode",
             "sys_data_source",
             "sys_product_route",
+            # 第九类声明（07B `04_02` 重开）：业务域声明
+            "sys_domain",
         }
     )
     assert "sys_tenant" not in registry_platform

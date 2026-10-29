@@ -11,6 +11,7 @@ from typing import Any, cast
 
 import pytest
 
+from bms_core.boundary.domains import DomainEntry
 from bms_core.collaboration.usage import CapabilityUsage, capability_usage_view
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -38,6 +39,7 @@ from bms_core.services.module_registry import (
     ProductRecord,
     ProductRouteRecord,
     SeedRecord,
+    ServiceGroup,
 )
 
 
@@ -281,6 +283,102 @@ def test_validate_rejects_unknown_domain_and_missing_element() -> None:
     joined = "；".join(errors)
     assert "txn-branch 类须声明 branch_id 与 branch_op" in joined
     assert "提供方业务域未登记（nowhere）" in joined
+
+
+def test_validate_rejects_duplicate_domain_within_payload() -> None:
+    """同一份声明内业务域重复：拒收（第九类）。"""
+    payload = _payload(
+        domains=ConcurrentStableFrozenList(
+            (
+                DomainEntry(domain_key="org", service_key="demo", status="planned"),
+                DomainEntry(domain_key="org", service_key="demo", status="planned"),
+            )
+        ),
+    )
+
+    errors = validate_declarations(
+        payload,
+        _snapshot(),
+        domain_services=ConcurrentStableDict(),
+        consumer_keys=ConcurrentStableSet(("demo",)),
+        warnings=ConcurrentStableList(),
+    )
+
+    assert any("同一份声明内业务域重复" in error for error in errors)
+
+
+def test_validate_rejects_domain_with_unknown_service() -> None:
+    """域声明的承载服务未在服务行中登记：拒收（防笔误）。"""
+    payload = _payload(
+        services=ConcurrentStableFrozenList(
+            (
+                ModuleRecord(
+                    module_key="demo",
+                    name="演示服务",
+                    table_prefix="demo_",
+                    event_domain="demo",
+                    service_key="demo",
+                    service_group=ServiceGroup.PRODUCT,
+                    product_key="demo",
+                ),
+            )
+        ),
+        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="org", service_key="ghost", status="planned"),)),
+    )
+
+    errors = validate_declarations(
+        payload,
+        _snapshot(),
+        domain_services=ConcurrentStableDict(),
+        consumer_keys=ConcurrentStableSet(("demo",)),
+        warnings=ConcurrentStableList(),
+    )
+
+    assert any("承载服务未登记（ghost" in error for error in errors)
+
+
+def test_validate_rejects_domain_cross_product_collision() -> None:
+    """同一业务域被另一产品声明为**不同**承载服务：拒收（跨产品撞键）。"""
+    payload = _payload(
+        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="org", service_key="demo", status="planned"),)),
+    )
+    current = _snapshot(
+        domains=[DomainEntry(domain_key="org", service_key="mdm", status="planned")],
+        owner="mdm",
+    )
+
+    errors = validate_declarations(
+        payload,
+        current,
+        domain_services=ConcurrentStableDict(),
+        consumer_keys=ConcurrentStableSet(("demo",)),
+        warnings=ConcurrentStableList(),
+    )
+
+    assert any("业务域跨产品撞键" in error for error in errors)
+
+
+def test_validate_warns_domain_shared_same_service() -> None:
+    """同一业务域被另一产品声明为**同一**承载服务：放行并记警示（多产品共用）。"""
+    payload = _payload(
+        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="org", service_key="mdm", status="planned"),)),
+    )
+    current = _snapshot(
+        domains=[DomainEntry(domain_key="org", service_key="mdm", status="planned")],
+        owner="mdm",
+    )
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
+
+    errors = validate_declarations(
+        payload,
+        current,
+        domain_services=ConcurrentStableDict(),
+        consumer_keys=ConcurrentStableSet(("demo",)),
+        warnings=warnings,
+    )
+
+    assert list(errors) == []
+    assert any("同一承载服务（多产品共用，放行）" in warning for warning in warnings)
 
 
 def test_validate_warns_unregistered_consumer() -> None:

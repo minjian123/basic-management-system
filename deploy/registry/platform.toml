@@ -13,6 +13,137 @@
 
 product_key = "platform"
 
+domain_shared_paths = [
+  "backend/libs/bms_core/src/bms_core/models/__init__.py",
+  "backend/libs/bms_core/src/bms_core/models/base.py",
+  "backend/libs/bms_core/src/bms_core/models/identity/__init__.py",
+  "backend/libs/bms_core/src/bms_core/models/outbox.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/__init__.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/demo.py",
+  "backend/libs/bms_core/src/bms_core/models/tenant/__init__.py",
+  "backend/services/ai/src/bms_ai/__init__.py",
+  "backend/services/ai/src/bms_ai/__main__.py",
+  "backend/services/ai/src/bms_ai/api/__init__.py",
+  "backend/services/ai/src/bms_ai/api/router.py",
+  "backend/services/ai/src/bms_ai/asgi.py",
+  "backend/services/ai/src/bms_ai/domains/__init__.py",
+  "backend/services/ai/src/bms_ai/main.py",
+  "backend/services/ai/src/bms_ai/models/__init__.py",
+  "backend/services/ai/src/bms_ai/repositories/__init__.py",
+  "backend/services/ai/src/bms_ai/schemas/__init__.py",
+  "backend/services/ai/src/bms_ai/services/__init__.py",
+  "backend/services/file/src/bms_file/__init__.py",
+  "backend/services/file/src/bms_file/__main__.py",
+  "backend/services/file/src/bms_file/api/__init__.py",
+  "backend/services/file/src/bms_file/api/router.py",
+  "backend/services/file/src/bms_file/asgi.py",
+  "backend/services/file/src/bms_file/domains/__init__.py",
+  "backend/services/file/src/bms_file/main.py",
+  "backend/services/file/src/bms_file/models/__init__.py",
+  "backend/services/file/src/bms_file/repositories/__init__.py",
+  "backend/services/file/src/bms_file/schemas/__init__.py",
+  "backend/services/file/src/bms_file/services/__init__.py",
+  "backend/services/identity/src/bms_identity/__init__.py",
+  "backend/services/identity/src/bms_identity/__main__.py",
+  "backend/services/identity/src/bms_identity/api/__init__.py",
+  "backend/services/identity/src/bms_identity/api/router.py",
+  "backend/services/identity/src/bms_identity/api/tenancy.py",
+  "backend/services/identity/src/bms_identity/asgi.py",
+  "backend/services/identity/src/bms_identity/domains/__init__.py",
+  "backend/services/identity/src/bms_identity/main.py",
+  "backend/services/identity/src/bms_identity/permission/__init__.py",
+  "backend/services/identity/src/bms_identity/permission/source.py",
+  "backend/services/identity/src/bms_identity/repositories/__init__.py",
+  "backend/services/identity/src/bms_identity/schemas/__init__.py",
+  "backend/services/identity/src/bms_identity/schemas/permission.py",
+  "backend/services/identity/src/bms_identity/services/__init__.py",
+  "backend/services/identity/src/bms_identity/services/platform_client.py",
+  "backend/services/notification/src/bms_notification/__init__.py",
+  "backend/services/notification/src/bms_notification/__main__.py",
+  "backend/services/notification/src/bms_notification/api/__init__.py",
+  "backend/services/notification/src/bms_notification/api/router.py",
+  "backend/services/notification/src/bms_notification/asgi.py",
+  "backend/services/notification/src/bms_notification/domains/__init__.py",
+  "backend/services/notification/src/bms_notification/main.py",
+  "backend/services/notification/src/bms_notification/models/__init__.py",
+  "backend/services/notification/src/bms_notification/repositories/__init__.py",
+  "backend/services/notification/src/bms_notification/schemas/__init__.py",
+  "backend/services/notification/src/bms_notification/services/__init__.py",
+  "backend/services/platform/src/bms_platform/__init__.py",
+  "backend/services/platform/src/bms_platform/__main__.py",
+  "backend/services/platform/src/bms_platform/api/__init__.py",
+  "backend/services/platform/src/bms_platform/api/codecheck.py",
+  "backend/services/platform/src/bms_platform/api/demo.py",
+  "backend/services/platform/src/bms_platform/api/locale.py",
+  "backend/services/platform/src/bms_platform/api/outbox.py",
+  "backend/services/platform/src/bms_platform/api/plugins.py",
+  "backend/services/platform/src/bms_platform/api/router.py",
+  "backend/services/platform/src/bms_platform/asgi.py",
+  "backend/services/platform/src/bms_platform/capabilities.py",
+  "backend/services/platform/src/bms_platform/domains/__init__.py",
+  "backend/services/platform/src/bms_platform/main.py",
+  "backend/services/platform/src/bms_platform/repositories/__init__.py",
+  "backend/services/platform/src/bms_platform/repositories/demo_repository.py",
+  "backend/services/platform/src/bms_platform/schemas/__init__.py",
+  "backend/services/platform/src/bms_platform/schemas/demo.py",
+  "backend/services/platform/src/bms_platform/schemas/outbox.py",
+  "backend/services/platform/src/bms_platform/scope/__init__.py",
+  "backend/services/platform/src/bms_platform/services/__init__.py",
+  "backend/services/platform/src/bms_platform/services/branch_handlers.py",
+  "backend/services/platform/src/bms_platform/services/org_branch.py",
+  "backend/services/platform/src/bms_platform/services/seed_branch_handlers.py",
+  "backend/services/platform/src/bms_platform/services/demo_service.py",
+  "backend/services/platform/src/bms_platform/services/i18n_text.py",
+  "backend/services/platform/src/bms_platform/services/metadata_cache.py",
+  "backend/services/platform/src/bms_platform/sources/__init__.py",
+  "backend/services/platform/src/bms_platform/wiring.py",
+  "backend/services/report/src/bms_report/__init__.py",
+  "backend/services/report/src/bms_report/__main__.py",
+  "backend/services/report/src/bms_report/api/__init__.py",
+  "backend/services/report/src/bms_report/api/router.py",
+  "backend/services/report/src/bms_report/asgi.py",
+  "backend/services/report/src/bms_report/domains/__init__.py",
+  "backend/services/report/src/bms_report/main.py",
+  "backend/services/report/src/bms_report/models/__init__.py",
+  "backend/services/report/src/bms_report/repositories/__init__.py",
+  "backend/services/report/src/bms_report/schemas/__init__.py",
+  "backend/services/report/src/bms_report/services/__init__.py",
+  "backend/services/search/src/bms_search/__init__.py",
+  "backend/services/search/src/bms_search/__main__.py",
+  "backend/services/search/src/bms_search/api/__init__.py",
+  "backend/services/search/src/bms_search/api/router.py",
+  "backend/services/search/src/bms_search/asgi.py",
+  "backend/services/search/src/bms_search/domains/__init__.py",
+  "backend/services/search/src/bms_search/main.py",
+  "backend/services/search/src/bms_search/models/__init__.py",
+  "backend/services/search/src/bms_search/repositories/__init__.py",
+  "backend/services/search/src/bms_search/schemas/__init__.py",
+  "backend/services/search/src/bms_search/services/__init__.py",
+  "backend/services/tenant/src/bms_tenant/__init__.py",
+  "backend/services/tenant/src/bms_tenant/__main__.py",
+  "backend/services/tenant/src/bms_tenant/api/__init__.py",
+  "backend/services/tenant/src/bms_tenant/api/router.py",
+  "backend/services/tenant/src/bms_tenant/asgi.py",
+  "backend/services/tenant/src/bms_tenant/domains/__init__.py",
+  "backend/services/tenant/src/bms_tenant/main.py",
+  "backend/services/tenant/src/bms_tenant/repositories/__init__.py",
+  "backend/services/tenant/src/bms_tenant/schemas/__init__.py",
+  "backend/services/tenant/src/bms_tenant/services/__init__.py",
+  "backend/services/tenant/src/bms_tenant/sources/__init__.py",
+  "backend/services/txn/src/bms_txn/__init__.py",
+  "backend/services/txn/src/bms_txn/__main__.py",
+  "backend/services/txn/src/bms_txn/api/__init__.py",
+  "backend/services/txn/src/bms_txn/api/router.py",
+  "backend/services/txn/src/bms_txn/asgi.py",
+  "backend/services/txn/src/bms_txn/domains/__init__.py",
+  "backend/services/txn/src/bms_txn/main.py",
+  "backend/services/txn/src/bms_txn/models/__init__.py",
+  "backend/services/txn/src/bms_txn/repositories/__init__.py",
+  "backend/services/txn/src/bms_txn/schemas/__init__.py",
+  "backend/services/txn/src/bms_txn/services/__init__.py",
+]
+
+
 # ---- 平台库：服务目录 / 表归属 / 菜单与权限元数据 ----
 
 [[seeds]]
@@ -202,3 +333,215 @@ name = "mdm.org.role-posts.assign"
 
 [[usages]]
 name = "mdm.org.role-depts.assign"
+
+# ---- 业务域布局（第九类记录；07B `04_02` 重开）----
+#
+# 域布局的唯一信息源。`deploy/boundaries/domain_layout.json` 由本段渲染（生成物，勿手改）：
+#   python -m ops.check_modules --render-domain-layout
+#
+# 字段口径见 07C《03_01 业务域级边界护栏》详细设计 §3.1.1：
+#   domain_key   业务域标识（与《业务域清单》一致）
+#   service_key  当前承载服务标识（恒不变；表归属双字段一致性与部署单元反推以它为准）
+#   status       placement（域子包 domains/<域>/）/ legacy（扁平目录逐文件）/ planned（未落地）
+#   paths        该域代码路径（相对仓库根，允许 glob；placement 为域子包 glob + 模型单文件）
+#   public_api   域内公共出口模块名（<=1；D2 允许的唯一跨域引用面）
+
+[[domains]]
+domain_key = "auth"
+service_key = "identity"
+status = "placement"
+paths = [
+  "backend/services/identity/src/bms_identity/domains/auth/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/identity/session.py",
+]
+public_api = [
+  "bms_identity.domains.auth.public",
+]
+
+[[domains]]
+domain_key = "identity_federation"
+service_key = "identity"
+status = "placement"
+paths = [
+  "backend/services/identity/src/bms_identity/domains/identity_federation/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/identity/client.py",
+  "backend/libs/bms_core/src/bms_core/models/identity/identity_provider.py",
+  "backend/libs/bms_core/src/bms_core/models/identity/user_identity.py",
+]
+public_api = [
+  "bms_identity.domains.identity_federation.public",
+]
+
+[[domains]]
+domain_key = "user"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/user/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/user.py",
+]
+public_api = [
+  "bms_platform.domains.user.public",
+]
+
+[[domains]]
+domain_key = "role"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/role/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/role.py",
+]
+public_api = [
+  "bms_platform.domains.role.public",
+]
+
+[[domains]]
+domain_key = "permission_meta"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/permission_meta/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/permission_meta.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/icon.py",
+]
+public_api = [
+  "bms_platform.domains.permission_meta.public",
+]
+
+[[domains]]
+domain_key = "menu_form"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/menu_form/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/menu_form.py",
+]
+public_api = [
+  "bms_platform.domains.menu_form.public",
+]
+
+[[domains]]
+domain_key = "platform_config"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/platform_config/**/*.py",
+  "backend/libs/bms_core/src/bms_core/config/models.py",
+  "backend/libs/bms_core/src/bms_core/listing/models.py",
+]
+public_api = [
+  "bms_platform.domains.platform_config.public",
+]
+
+[[domains]]
+domain_key = "platform_registry"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/platform_registry/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/ownership.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/capability_grant.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/catalog.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/declaration.py",
+]
+public_api = [
+  "bms_platform.domains.platform_registry.public",
+]
+
+[[domains]]
+domain_key = "task"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/task/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/task.py",
+]
+public_api = [
+  "bms_platform.domains.task.public",
+]
+
+[[domains]]
+domain_key = "tenant"
+service_key = "tenant"
+status = "placement"
+paths = [
+  "backend/services/tenant/src/bms_tenant/domains/tenant/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/tenant/tenant.py",
+  "backend/libs/bms_core/src/bms_core/models/tenant/tenant_database.py",
+  "backend/libs/bms_core/src/bms_core/models/tenant/tenant_module.py",
+  "backend/libs/bms_core/src/bms_core/models/tenant/tenant_quota.py",
+  "backend/libs/bms_core/src/bms_core/models/tenant/user_tenant.py",
+]
+public_api = [
+  "bms_tenant.domains.tenant.public",
+]
+
+[[domains]]
+domain_key = "txn"
+service_key = "txn"
+status = "placement"
+paths = [
+  "backend/services/txn/src/bms_txn/domains/txn/**/*.py",
+]
+public_api = [
+  "bms_txn.domains.txn.public",
+]
+
+[[domains]]
+domain_key = "ai"
+service_key = "ai"
+status = "placement"
+paths = [
+  "backend/services/ai/src/bms_ai/domains/ai/**/*.py",
+]
+public_api = [
+  "bms_ai.domains.ai.public",
+]
+
+[[domains]]
+domain_key = "notification"
+service_key = "notification"
+status = "placement"
+paths = [
+  "backend/services/notification/src/bms_notification/domains/notification/**/*.py",
+]
+public_api = [
+  "bms_notification.domains.notification.public",
+]
+
+[[domains]]
+domain_key = "file"
+service_key = "file"
+status = "placement"
+paths = [
+  "backend/services/file/src/bms_file/domains/file/**/*.py",
+]
+public_api = [
+  "bms_file.domains.file.public",
+]
+
+[[domains]]
+domain_key = "search"
+service_key = "search"
+status = "placement"
+paths = [
+  "backend/services/search/src/bms_search/domains/search/**/*.py",
+]
+public_api = [
+  "bms_search.domains.search.public",
+]
+
+[[domains]]
+domain_key = "report"
+service_key = "report"
+status = "placement"
+paths = [
+  "backend/services/report/src/bms_report/domains/report/**/*.py",
+]
+public_api = [
+  "bms_report.domains.report.public",
+]
+
+
+# 域外路径（装配面 / 基座横切面 / 基础设施与不归域文件；随生成物一并渲染）

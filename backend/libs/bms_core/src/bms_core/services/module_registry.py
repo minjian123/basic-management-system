@@ -503,6 +503,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             service_group=ServiceGroup.FOUNDATION,
             build_batch=0,
             contract_version="0.3.0",
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
         ModuleRecord(
@@ -514,6 +515,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="identity",
             service_group=ServiceGroup.FOUNDATION,
             build_batch=0,
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
         ModuleRecord(
@@ -525,6 +527,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="tenant",
             service_group=ServiceGroup.FOUNDATION,
             build_batch=0,
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
         # 产品服务行（如 mdm）**不写死在本常量**：由产品仓自持清单（`deploy/registry/<产品>.toml`）
@@ -538,6 +541,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="file",
             service_group=ServiceGroup.CAPABILITY,
             build_batch=1,
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
         ModuleRecord(
@@ -549,6 +553,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="notification",
             service_group=ServiceGroup.CAPABILITY,
             build_batch=1,
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
         ModuleRecord(
@@ -560,6 +565,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="search",
             service_group=ServiceGroup.CAPABILITY,
             build_batch=1,
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
         ModuleRecord(
@@ -571,6 +577,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="ai",
             service_group=ServiceGroup.CAPABILITY,
             build_batch=1,
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
         ModuleRecord(
@@ -582,6 +589,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="rpt",
             service_group=ServiceGroup.CAPABILITY,
             build_batch=1,
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
         ModuleRecord(
@@ -593,6 +601,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="wf",
             service_group=ServiceGroup.CAPABILITY,
             build_batch=2,
+            tenant_base=True,
             status=ModuleStatus.PLANNED,
         ),
         ModuleRecord(
@@ -677,6 +686,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             service_group=ServiceGroup.FOUNDATION,
             build_batch=0,
             contract_version="0.1.0",
+            tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
     )
@@ -720,6 +730,18 @@ def reset_service_records() -> None:
     clear_known_service_keys()
 
 
+def injected_service_records() -> ConcurrentStableList[ModuleRecord]:
+    """已装载（应用装配期注入）的**产品**服务行（不含平台常量）。
+
+    产品进程的接库对账基准只该是「平台自身行 + 本产品行」：常量里其他产品的规划行没有进程会注册，
+    计入基准会让每个产品进程启动即报缺（07B `04_02` 重开补正）。
+
+    Returns:
+        ConcurrentStableList[ModuleRecord]: 注入记录（插入序）。
+    """
+    return ConcurrentStableList(_INJECTED_SERVICE_RECORDS.values())
+
+
 def service_catalog_view() -> ConcurrentStableList[ModuleRecord]:
     """服务目录**合并视图**（平台常量 + 已装载产品行，插入序）。
 
@@ -746,21 +768,14 @@ PRODUCT_CATALOG: ConcurrentStableList[ProductRecord] = ConcurrentStableList(
 
 
 TENANT_BASE_MODULE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(
-    (
-        "sys",
-        "identity",
-        "tenant",
-        "txn",
-        "file",
-        "notification",
-        "search",
-        "ai",
-        "rpt",
-        "wf",
-    )
+    record.module_key for record in SERVICE_CATALOG if record.tenant_base
 )
 """租户「恒开通」的**平台**模块（foundation / capability 分组）：不参与开通勾选、不参与门禁拦截。
 
+- **由 `SERVICE_CATALOG` 的服务行 `tenant_base` 派生**（2026-10-29 口径收口）：原先本清单是独立的
+  键名清单，与 `SERVICE_CATALOG` 的 `tenant_base` 字段各写一份——平台模块在常量里写 `False`、
+  在恒开通清单里又列出，导致「目录快照按恒开通清单派生 True、库列存 False」跨进程对账不一致。
+  现改为单一来源：平台模块在 `SERVICE_CATALOG` 声明 `tenant_base = True`，本清单只做派生。
 - 本清单只含平台自身模块，**不写产品模块标识**；产品模块是否恒开通由产品自持清单的服务行
   `tenant_base = true` 声明，装载后经 `tenant_base_module_keys()` 并入（见该函数）。
 - 租户服务不装载产品清单，按目录快照的行标记判定（`bms_tenant` 的 `is_tenant_base_module()`）。
@@ -1563,6 +1578,7 @@ def validate_catalog(
     contract_version: str | None = None,
     products: ConcurrentStableList[ProductRecord] | None = None,
     routes: ConcurrentStableList[ProductRouteRecord] | None = None,
+    own_keys: ConcurrentStableSet[str] | None = None,
 ) -> ConcurrentStableList[str]:
     """接库服务目录校验（启动 / CI 共用）：库内查重与格式 + 与清单双向对账 + 运行服务契约版本。
 
@@ -1574,25 +1590,38 @@ def validate_catalog(
         products: 产品档案基准（缺省取 `product_catalog_view()` 合并视图）。
         routes: 产品级路由基准（缺省取 `product_routes_view()`；传空清单即跳过路由映射校验——
             路由属声明方所有，`04_02` 的跨仓对账已按声明逐方比对，常量维度的目录对账不重复判）。
+        own_keys: 本进程自有服务键（产品进程传注入记录键；见 `_diff_catalog`）。
 
     Returns:
         ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
     """
     errors = ModuleRegistry(records, products, routes).validate()
-    errors.update(_diff_catalog(catalog, records))
+    errors.update(_diff_catalog(catalog, records, own_keys=own_keys))
     if service_key is not None:
         errors.update(_check_running_service(records, service_key=service_key, contract_version=contract_version or ""))
     return errors
 
 
 def _diff_catalog(
-    catalog: ConcurrentStableList[ModuleRecord], records: ConcurrentStableList[ModuleRecord]
+    catalog: ConcurrentStableList[ModuleRecord],
+    records: ConcurrentStableList[ModuleRecord],
+    *,
+    own_keys: ConcurrentStableSet[str] | None = None,
 ) -> ConcurrentStableList[str]:
     """清单与库记录双向对账（缺行 / 清单外行 / 字段不符 / 契约主版本不兼容）。
+
+    **对账基准口径**（07B `04_02`，2026-10-29 重开补正）：**平台侧计划态行**（`status=planned`
+    且 `product_key` 为空，如 `wf`）**不参与「库中缺登记行」判定**——`planned` 语义就是「尚未建设」，
+    没有进程会注册它；计入基准会让每个产品进程启动时的接库校验永久报缺（平台自身进程因先注册后校验
+    而侥幸不报）。**产品行不适用本放宽**：产品自己声明的行必须由该产品进程注册（先注册后建表守门）。
+    计划行**已登记时**仍参与字段比对（有行就要与清单一致），只是不再要求「必须有行」。
 
     Args:
         catalog: 服务目录清单（插入序）。
         records: 库中未软删行转换结果（插入序）。
+        own_keys: 本进程自有服务键（产品进程传注入记录键）：传了就只对该键与平台自身行做
+            「缺行」判定——常量里**其他产品**的行（如 `biz` 的 `pur` / `pay`）归各自的进程，
+            本进程不该因它们未注册而拒启。None 表示按全量基准（平台自身即权威）。
 
     Returns:
         ConcurrentStableList[str]: 对账明细。
@@ -1603,6 +1632,13 @@ def _diff_catalog(
     for key in sorted(actual_by_key.keys() - expected_by_key.keys()):
         errors.add(f"库中登记行不在清单：{key}")
     for key in sorted(expected_by_key.keys() - actual_by_key.keys()):
+        expected = expected_by_key[key]
+        if expected.status == ModuleStatus.PLANNED and not expected.product_key:
+            # 平台侧计划行（`planned` = 尚未建设，如 `wf`）：没有进程会注册它，不判缺行。
+            continue
+        if own_keys is not None and expected.product_key and key not in own_keys:
+            # 别的产品声明的行：归该产品进程注册，本进程不判缺（先注册后建表守门只对本产品成立）
+            continue
         errors.add(f"库中缺登记行：{key}")
     for key in sorted(expected_by_key.keys() & actual_by_key.keys()):
         expected = expected_by_key[key]

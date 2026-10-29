@@ -10,6 +10,7 @@ from typing import Any, cast
 
 from sqlalchemy import select
 
+from bms_core.boundary.domains import DomainEntry
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import CatalogError
 from bms_core.datasource.registry import DataSourceRecord
@@ -18,6 +19,7 @@ from bms_core.models.platform.declaration import (
     SysCollaboration,
     SysCollaborationUsage,
     SysDataSource,
+    SysDomain,
     SysErrcode,
     SysProductRoute,
     SysSeed,
@@ -53,9 +55,13 @@ _NEW_MODELS: ConcurrentStableDict[str, type[Any]] = ConcurrentStableDict(
         "usages": SysCollaborationUsage,
         "seeds": SysSeed,
         "errcodes": SysErrcode,
+        "domains": SysDomain,
     }
 )
-"""六张声明表对应的 ORM 模型（服务行 / 产品档案走既有 `sys_module` / `sys_product`）。"""
+"""七张声明表对应的 ORM 模型（服务行 / 产品档案走既有 `sys_module` / `sys_product`）。
+
+07B `04_02` 重开新增 `domains`（第九类：业务域声明）。
+"""
 
 
 class DeclarationRepository(BaseDbRepository[Any]):
@@ -197,6 +203,7 @@ class DeclarationRepository(BaseDbRepository[Any]):
             "seeds": "name",
             "errcodes": "code",
             "usages": "capability_name",
+            "domains": "domain_key",
         }[kind]
 
     @staticmethod
@@ -324,6 +331,12 @@ class DeclarationRepository(BaseDbRepository[Any]):
             row.severity = data.severity
             row.description = data.description
             row.status = "enabled"
+        elif kind == "domains":
+            row.domain_key = data.domain_key
+            row.service_key = data.service_key
+            row.status = data.status
+            row.paths = _json_list(data.paths)
+            row.public_api = _json_list(data.public_api)
         row.content_hash = content_hash_of(kind, record)
 
     def _to_record(self, kind: str, row: object) -> object:
@@ -405,6 +418,14 @@ class DeclarationRepository(BaseDbRepository[Any]):
                 description=str(data.description or ""),
                 status=_status_of(data.status),
                 source=str(data.product_key or ""),
+            )
+        if kind == "domains":
+            return DomainEntry(
+                domain_key=str(data.domain_key),
+                service_key=str(data.service_key),
+                status=_status_of(data.status),
+                paths=_frozen_list(data.paths),
+                public_api=_frozen_list(data.public_api),
             )
         return ErrorCodeRecord(
             code=int(data.code),

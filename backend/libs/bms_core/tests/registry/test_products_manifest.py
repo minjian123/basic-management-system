@@ -105,8 +105,19 @@ module = "demo.seeds.permissions"
 entry = "seed_admin_codes"
 after = []
 description = "管理面业务码与权限码"
+
+# 第九类：业务域声明（07B `04_02` 重开——域布局的唯一信息源，不再读 domain_layout.json）
+[[domains]]
+domain_key = "org"
+service_key = "demo"
+status = "planned"
+
+[[domains]]
+domain_key = "demo"
+service_key = "demo"
+status = "planned"
 """
-"""完整清单（六段齐备；能力 1 条 dataset、种子 1 条）。"""
+"""完整清单（九段齐备；能力 1 条 dataset、种子 1 条、域 2 条）。"""
 
 _CONTRACT_PATHS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("/api/v1/demo/data-source/dept-tree",))
 """默认对端契约中的访问面路径。"""
@@ -163,7 +174,11 @@ def _write_contract(
 def _write_layout(
     tmp_path: Path, domains: ConcurrentStableFrozenList[str] = _DOMAINS, *, base: str = "backend"
 ) -> Path:
-    """写域布局文件（`<base>/deploy/boundaries/domain_layout.json`）。
+    """写域布局生成物文件（`<base>/deploy/boundaries/domain_layout.json`）。
+
+    07B `04_02` 重开：域布局改为「清单第九类声明 + 生成物」，装载校验**不再读本文件**。
+    本函数保留为「生成物形态」夹具（渲染 / 比对用例用），域声明的真实来源是清单 `[[domains]]`
+    （见 `_domains_block()`）。
 
     Args:
         tmp_path: 临时目录。
@@ -177,6 +192,20 @@ def _write_layout(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"version": 1, "domains": [{"domain_key": item} for item in domains]}), encoding="utf-8")
     return path
+
+
+def _domains_block(domains: ConcurrentStableFrozenList[str] = _DOMAINS) -> str:
+    """生成清单的第九类 `[[domains]]` 段（域布局的真实来源）。
+
+    Args:
+        domains: 域标识集合。
+
+    Returns:
+        str: TOML 片段（每个域一条，承载服务取域标识本身）。
+    """
+    return "".join(
+        f'[[domains]]\ndomain_key = "{item}"\nservice_key = "{item}"\nstatus = "planned"\n' for item in domains
+    )
 
 
 def _default_entry(ctx: object) -> None:
@@ -624,16 +653,19 @@ def test_inspect_collaboration_same_name_same_value(tmp_path: Path, monkeypatch:
 
 
 def test_inspect_domain_not_registered(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """提供方业务域未登记：域布局存在但无该域即拒。
+    """提供方业务域未声明：清单里无该域即拒（域布局由清单第九类声明）。
+
+    07B `04_02` 重开：域布局从「独立 json 文件」改为「清单 `[[domains]]` 声明」，
+    本用例守「声明里没有该域 → 能力被拒」这一核心语义。
 
     Args:
         tmp_path: 临时目录。
         monkeypatch: pytest monkeypatch 夹具。
     """
     _point_base(monkeypatch, tmp_path)
-    path = _write(tmp_path, _TOML)
+    text = _TOML.replace('[[domains]]\ndomain_key = "org"\nservice_key = "demo"\nstatus = "planned"\n', "")
+    path = _write(tmp_path, text)
     _write_contract(tmp_path)
-    _write_layout(tmp_path, ConcurrentStableFrozenList(("demo",)))
     _install_seed_package(monkeypatch)
 
     errors = inspect_product_manifests(ConcurrentStableList([path])).errors
@@ -642,45 +674,35 @@ def test_inspect_domain_not_registered(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_inspect_domain_without_service_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """提供方业务域未登记承载服务：域布局声明了该域但缺 `service_key` → 拒（能力寻址第二段无解）。
+    """域声明的承载服务未在本清单 `[[services]]` 中 → 拒（防笔误）。
+
+    07B `04_02` 重开新增校验：`service_key` 须为本清单已声明的服务键。
 
     Args:
         tmp_path: 临时目录。
         monkeypatch: pytest monkeypatch 夹具。
     """
     _point_base(monkeypatch, tmp_path)
-    path = _write(tmp_path, _TOML)
+    text = _TOML.replace('domain_key = "org"\nservice_key = "demo"', 'domain_key = "org"\nservice_key = "ghost"')
+    path = _write(tmp_path, text)
     _write_contract(tmp_path)
-    layout = tmp_path / "backend" / "deploy" / "boundaries" / "domain_layout.json"
-    layout.parent.mkdir(parents=True, exist_ok=True)
-    layout.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "domains": [
-                    {"domain_key": "org"},
-                    {"domain_key": "demo", "service_key": "demo"},
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
     _install_seed_package(monkeypatch)
 
     errors = inspect_product_manifests(ConcurrentStableList([path])).errors
 
-    assert any("提供方业务域未登记承载服务（org；" in error for error in errors)
+    assert any("承载服务未在本清单" in error and "ghost" in error for error in errors)
 
 
 def test_inspect_domain_layout_missing_warns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """域布局两处都缺：只做形态校验并输出警示（不静默、不因此拒启）。
+    """清单未声明任何业务域：只做形态校验并输出警示（不静默、不因此拒启）。
 
     Args:
         tmp_path: 临时目录。
         monkeypatch: pytest monkeypatch 夹具。
     """
     _point_base(monkeypatch, tmp_path)
-    path = _write(tmp_path, _TOML)
+    text = _TOML.split("# 第九类")[0]
+    path = _write(tmp_path, text)
     _write_contract(tmp_path)
     _install_seed_package(monkeypatch)
 
@@ -690,74 +712,118 @@ def test_inspect_domain_layout_missing_warns(tmp_path: Path, monkeypatch: pytest
     assert any("域布局不可用" in warning for warning in inspection.warnings)
 
 
-def test_inspect_domain_layout_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """域布局非法（根为数组 / JSON 破损）：警示并降级为形态校验。
+def test_inspect_domain_status_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """域状态非法（不在 placement / legacy / planned 内）：解析期即拒。
 
     Args:
         tmp_path: 临时目录。
         monkeypatch: pytest monkeypatch 夹具。
     """
     _point_base(monkeypatch, tmp_path)
-    path = _write(tmp_path, _TOML)
+    text = _TOML.replace(
+        'domain_key = "org"\nservice_key = "demo"\nstatus = "planned"',
+        'domain_key = "org"\nservice_key = "demo"\nstatus = "bogus"',
+    )
+    path = _write(tmp_path, text)
     _write_contract(tmp_path)
-    layout = _write_layout(tmp_path)
     _install_seed_package(monkeypatch)
 
-    layout.write_text("[]", encoding="utf-8")
-    warnings = inspect_product_manifests(ConcurrentStableList([path])).warnings
-    assert any("域布局结构非法" in warning for warning in warnings)
+    errors = inspect_product_manifests(ConcurrentStableList([path])).errors
 
-    layout.write_text("{", encoding="utf-8")
-    warnings = inspect_product_manifests(ConcurrentStableList([path])).warnings
-    assert any("域布局 JSON 非法" in warning for warning in warnings)
+    assert any("状态非法" in error and "bogus" in error for error in errors)
 
 
-def test_layout_domains_read_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """域布局读取异常（`OSError`）：警示并降级（不阻断装载）。
+def test_inspect_domain_paths_required_for_placement(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`placement` / `legacy` 域必须声明代码路径（`planned` 可空）。
 
     Args:
         tmp_path: 临时目录。
         monkeypatch: pytest monkeypatch 夹具。
     """
-    layout = _write_layout(tmp_path)
+    _point_base(monkeypatch, tmp_path)
+    text = _TOML.replace('status = "planned"', 'status = "placement"')
+    path = _write(tmp_path, text)
+    _write_contract(tmp_path)
+    _install_seed_package(monkeypatch)
 
-    def _boom(self: Path, encoding: str | None = None) -> str:
-        """测试替身：读取即抛 OSError。"""
-        raise OSError("denied")
+    errors = inspect_product_manifests(ConcurrentStableList([path])).errors
 
-    monkeypatch.setattr(Path, "read_text", _boom)
-    warnings: ConcurrentStableList[str] = ConcurrentStableList()
-    assert products._layout_registry(layout, warnings) == {}  # pyright: ignore[reportPrivateUsage]
-    assert any("域布局不可读" in warning for warning in warnings)
+    assert any("须声明代码路径" in error for error in errors)
 
 
-def test_layout_registry_map_keeps_first_non_empty_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """域布局合并：同域多处登记时取先出现的非空承载服务键（后续同域不再覆盖）。
+def test_layout_registry_map_derived_from_manifests(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """域映射由**清单第九类**派生（不再读任何文件）；同域取先出现的承载服务。
 
-    覆盖 `_layout_registry_map` 的「已合并同域跳过」分支（07B `02_02` 域 → 服务键派生的去重口径）。
+    07B `04_02` 重开：`_layout_registry_map` 入参从「清单路径」改为「已解析清单」，
+    因为域信息随声明到达，平台侧拿不到产品仓的 `domain_layout.json`。
 
     Args:
         tmp_path: 临时目录。
         monkeypatch: pytest monkeypatch 夹具。
     """
-    backend = tmp_path / "backend"
-    backend.mkdir()
-    monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
-    sources: ConcurrentStableList[Path] = ConcurrentStableList()
-    for index, (repo, service) in enumerate((("a", "mdm"), ("b", "other"))):
-        layout = tmp_path / repo / "deploy" / "boundaries" / "domain_layout.json"
-        layout.parent.mkdir(parents=True, exist_ok=True)
-        layout.write_text(
-            json.dumps({"version": 1, "domains": [{"domain_key": "org", "service_key": service}]}),
-            encoding="utf-8",
+    _point_base(monkeypatch, tmp_path)
+    first = _write(tmp_path, _TOML, name="a.toml")
+    second_text = _TOML.replace('domain_key = "org"\nservice_key = "demo"', 'domain_key = "org"\nservice_key = "other"')
+    second = _write(tmp_path, second_text, name="b.toml")
+
+    inspection = inspect_product_manifests(ConcurrentStableList([first, second]))
+
+    # 跨清单同域不同承载服务：警示（不静默），且取先出现的
+    assert any("业务域跨清单承载服务冲突" in warning for warning in inspection.warnings)
+    assert inspection.domain_services["org"] == "demo"
+
+
+def test_domain_record_rejects_non_string_list(tmp_path: Path) -> None:
+    """域字段非字符串数组：解析期拒（`_str_list` 两个分支）。"""
+    with pytest.raises(CatalogError, match="须为字符串数组"):
+        load_product_manifest(
+            _write(tmp_path, _TOML.replace('status = "planned"', 'status = "planned"\npaths = "a"'), name="s1.toml")
         )
-        sources.add(tmp_path / repo / "deploy" / "registry" / f"{index}.toml")
+    with pytest.raises(CatalogError, match="元素须为字符串"):
+        load_product_manifest(
+            _write(
+                tmp_path,
+                _TOML.replace('status = "planned"', 'status = "planned"\npublic_api = [1]'),
+                name="s2.toml",
+            )
+        )
 
-    warnings: ConcurrentStableList[str] = ConcurrentStableList()
-    merged = products._layout_registry_map(sources, warnings)  # pyright: ignore[reportPrivateUsage]
 
-    assert merged == {"org": "mdm"}
-    assert warnings == []
+def test_domain_record_rejects_multi_public_api(tmp_path: Path) -> None:
+    """`public_api` 超过 1 个：解析期拒（D2 唯一跨域引用面）。"""
+    text = _TOML.replace(
+        'status = "planned"',
+        'status = "planned"\npublic_api = ["a", "b"]',
+    )
+    with pytest.raises(CatalogError, match="public_api 至多 1 个"):
+        load_product_manifest(_write(tmp_path, text, name="pa.toml"))
+
+
+def test_domain_key_format_rejected(tmp_path: Path) -> None:
+    """域标识格式非法：解析期拒（`DomainEntry` 是纯数据类，格式在清单解析处把关）。"""
+    text = _TOML.replace('domain_key = "org"', 'domain_key = "Bad-Domain"')
+    with pytest.raises(CatalogError, match="标识须匹配"):
+        load_product_manifest(_write(tmp_path, text, name="badkey.toml"))
+
+
+def test_domain_duplicate_within_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """同一清单内业务域重复声明：装载校验拒收。"""
+    _point_base(monkeypatch, tmp_path)
+    text = _TOML + '\n[[domains]]\ndomain_key = "org"\nservice_key = "demo"\nstatus = "planned"\n'
+    path = _write(tmp_path, text)
+    _write_contract(tmp_path)
+    _install_seed_package(monkeypatch)
+
+    errors = inspect_product_manifests(ConcurrentStableList([path])).errors
+
+    assert any("同一清单内业务域重复声明" in error for error in errors)
+
+
+def test_domain_without_service_key_errors(tmp_path: Path) -> None:
+    """域声明缺承载服务：解析期即拒（`service_key` 是必填，能力寻址第二段无解）。"""
+    text = _TOML.replace('domain_key = "org"\nservice_key = "demo"', 'domain_key = "org"')
+    with pytest.raises(CatalogError, match="service_key"):
+        load_product_manifest(_write(tmp_path, text, name="nosvc.toml"))
 
 
 def test_inspect_contract_path_normalized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -879,10 +945,10 @@ def test_inspect_codes_kind_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         '[[collaborations]]\nname = "demo.org.admin-codes"\ndomain = "org"\nkind = "codes"\n'
         'contract_version = "0.2.0"\npermission_codes = ["demo:query", "demo:create"]\n'
         'default_consumers = ["platform"]\n'
+        '\n[[domains]]\ndomain_key = "org"\nservice_key = "demo"\nstatus = "planned"\n'
     )
     path = _write(tmp_path, text)
     _write_contract(tmp_path, ConcurrentStableFrozenList())
-    _write_layout(tmp_path)
 
     inspection = inspect_product_manifests(ConcurrentStableList([path]))
 
@@ -890,26 +956,25 @@ def test_inspect_codes_kind_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert inspection.warnings == []
 
 
-def test_inspect_layout_without_domain_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """域布局降级：`domains` 非数组即警示；条目缺 `domain_key` 跳过（不计数）。
+def test_inspect_domain_without_domain_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """域声明缺必填 `domain_key`：解析期即拒（结构级校验，不进装载校验）。
+
+    07B `04_02` 重开：域声明的必填字段由 `_domain_record` 在解析期把关，
+    原「文件里条目缺 `domain_key` 则跳过」的宽松口径随文件来源一并退役。
 
     Args:
         tmp_path: 临时目录。
         monkeypatch: pytest monkeypatch 夹具。
     """
     _point_base(monkeypatch, tmp_path)
-    path = _write(tmp_path, _TOML)
+    text = _TOML.replace('[[domains]]\ndomain_key = "org"\n', "[[domains]]\n")
+    path = _write(tmp_path, text)
     _write_contract(tmp_path)
-    layout = _write_layout(tmp_path)
     _install_seed_package(monkeypatch)
 
-    layout.write_text('{"version": 1, "domains": "org"}', encoding="utf-8")
-    warnings = inspect_product_manifests(ConcurrentStableList([path])).warnings
-    assert any("域布局结构非法（缺 domains 数组）" in warning for warning in warnings)
-
-    layout.write_text('{"version": 1, "domains": [{"name": "无名"}, {"domain_key": ""}]}', encoding="utf-8")
     errors = inspect_product_manifests(ConcurrentStableList([path])).errors
-    assert errors == []
+
+    assert any("domain_key" in error for error in errors)
 
 
 def test_inspect_service_without_service_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

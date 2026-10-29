@@ -78,6 +78,37 @@ def project_registry(view: RegistrySnapshot) -> None:
     register_seed_records(cast("Iterable[SeedRecord]", _without_constants(view, "seeds", _constant_seed_names())))
     register_error_code_records(cast("Iterable[ErrorCodeRecord]", _enabled(view, "errcodes")))
     _project_usages(view)
+    _project_domains(view)
+
+
+def _project_domains(view: RegistrySnapshot) -> None:
+    """按注册表快照重建「业务域 → 承载服务」视图（第九类，07B `04_02` 重开）。
+
+    域视图原由各仓 `deploy/boundaries/domain_layout.json` 文件派生；改为声明后**只从注册表重建**，
+    平台不再读取任何产品仓文件（这也是跨仓装载与 CI 单仓环境能成立的前提）。
+
+    整表重建语义与其它类一致：先复位、再按未退役记录登记。
+
+    Args:
+        view: 注册表快照。
+    """
+    from bms_core.boundary.domains import DomainEntry
+    from bms_core.services.module_registry import register_domain_services, reset_domain_services
+
+    reset_domain_services()
+    mapping: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    # 直接遍历、不走 `_enabled`：后者按 `declaration_key` 取退役标记，而脏数据（非域对象）没有
+    # `domain_key`，会在取键处抛 AttributeError——防御性跳过必须发生在取键之前。
+    for record in view.of("domains"):
+        if not isinstance(record, DomainEntry):
+            continue
+        if view.is_retired("domains", record.domain_key):
+            continue
+        mapping.set(record.domain_key, record.service_key)
+    if mapping:
+        from bms_core.core.concurrent import ConcurrentStableFrozenDict
+
+        register_domain_services(ConcurrentStableFrozenDict(mapping))
 
 
 def _constant_product_keys() -> ConcurrentStableSet[str]:

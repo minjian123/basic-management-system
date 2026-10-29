@@ -7,7 +7,7 @@
 - 平台自注册载荷合并（纯函数分支）。
 """
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from dataclasses import replace
 from pathlib import Path
 
@@ -16,7 +16,7 @@ from sqlalchemy import delete, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.collaboration.usage import CapabilityUsage
-from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import CatalogError
 from bms_core.models.base import BaseModel
 from bms_core.models.platform.declaration import SysCollaboration
@@ -31,8 +31,6 @@ from bms_core.registry.products import parse_manifest_text
 from bms_core.services.module_registry import (
     CollaborationRecord,
     ModuleRecord,
-    register_domain_services,
-    reset_domain_services,
 )
 from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.services.declaration_bootstrap import with_platform_services
@@ -105,6 +103,12 @@ description = "说明"
 name = "demo.demo_op.roles"
 degrade = "empty"
 reason = "断链按无角色"
+
+# 第九类：业务域声明（07B `04_02` 重开——域随声明到达，不再靠内存登记）
+[[domains]]
+domain_key = "demo_op"
+service_key = "demo"
+status = "planned"
 """
 
 
@@ -125,18 +129,6 @@ async def session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
     async with factory() as db:
         yield db
     await engine.dispose()
-
-
-@pytest.fixture(autouse=True)
-def _demo_domain() -> Iterator[None]:
-    """登记用例专用业务域（能力名第二段须是已登记域）。
-
-    Yields:
-        None: 用例运行期。
-    """
-    register_domain_services(ConcurrentStableFrozenDict({"demo_op": "demo"}))
-    yield
-    reset_domain_services()
 
 
 def _payload(path: str = "/api/v1/demo/roles") -> DeclarationPayload:

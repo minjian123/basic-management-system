@@ -10,6 +10,7 @@
 | `sys_collaboration_usage` | 消费方使用声明（第八类记录） |
 | `sys_seed` | 数据种子声明（第六类记录） |
 | `sys_errcode` | 错误码声明（第七类记录） |
+| `sys_domain` | 业务域声明（第九类记录；07B `04_02` 重开） |
 
 口径：
 
@@ -30,6 +31,7 @@ __all__ = [
     "SysCollaboration",
     "SysCollaborationUsage",
     "SysDataSource",
+    "SysDomain",
     "SysErrcode",
     "SysProductRoute",
     "SysSeed",
@@ -96,6 +98,30 @@ class SysCollaboration(BaseModel):
     status: Mapped[str] = mapped_column(
         String(16), default="enabled", comment="状态（enabled/disabled/deprecated/retired）"
     )
+    content_hash: Mapped[str] = mapped_column(CHAR(64), comment="声明要素稳定哈希（未变不写）")
+
+
+class SysDomain(BaseModel):
+    """业务域声明（`sys_domain`）：第九类记录，域布局的权威落点（07B `04_02` 重开）。
+
+    域布局从「独立 `deploy/boundaries/domain_layout.json` 文件」改为「产品自持声明」后，
+    域信息随注册通道到达平台；`domain_layout.json` 降为**本仓清单渲染的生成物**。
+    """
+
+    __tablename__ = "sys_domain"
+    __table_args__ = (
+        UniqueConstraint("product_key", "domain_key", "deleted_at", name="uq_sys_domain_owner_key_deleted_at"),
+        UniqueConstraint("domain_key", "deleted_at", name="uq_sys_domain_key_deleted_at"),
+    )
+
+    product_key: Mapped[str] = mapped_column(String(32), comment="声明方产品键")
+    domain_key: Mapped[str] = mapped_column(String(64), comment="业务域标识（全局唯一）")
+    service_key: Mapped[str] = mapped_column(String(64), comment="承载服务键（恒不变）")
+    status: Mapped[str] = mapped_column(
+        String(16), default="placement", comment="布局状态（placement/legacy/planned/retired）"
+    )
+    paths: Mapped[str | None] = mapped_column(Text, nullable=True, comment="域代码路径（JSON 数组，相对仓库根）")
+    public_api: Mapped[str | None] = mapped_column(Text, nullable=True, comment="域公共出口模块名（JSON 数组，≤1）")
     content_hash: Mapped[str] = mapped_column(CHAR(64), comment="声明要素稳定哈希（未变不写）")
 
 

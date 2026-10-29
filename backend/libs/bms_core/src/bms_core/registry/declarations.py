@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, cast
 
+from bms_core.boundary.domains import DomainEntry
 from bms_core.collaboration.base import WRITE_KINDS
 from bms_core.collaboration.usage import DEGRADE_NONE, DEGRADE_STALE, CapabilityUsage
 from bms_core.core.concurrent import (
@@ -72,9 +73,10 @@ DECLARATION_KINDS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
         "seeds",
         "errcodes",
         "usages",
+        "domains",
     )
 )
-"""八类声明（顺序即注册协议与视图投影口径）。"""
+"""九类声明（顺序即注册协议与视图投影口径；第九类 `domains` 为 07B `04_02` 重开新增）。"""
 
 _KIND_KEYS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
     {
@@ -86,6 +88,7 @@ _KIND_KEYS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
         "seeds": "name",
         "errcodes": "code",
         "usages": "name",
+        "domains": "domain_key",
     }
 )
 """各类声明的业务键字段名（跨产品唯一性判定用）。"""
@@ -213,6 +216,7 @@ class DeclarationPayload(BaseValueObject):
     seeds: ConcurrentStableFrozenList[SeedRecord] = field(default_factory=lambda: ConcurrentStableFrozenList())
     errcodes: ConcurrentStableFrozenList[ErrorCodeRecord] = field(default_factory=lambda: ConcurrentStableFrozenList())
     usages: ConcurrentStableFrozenList[CapabilityUsage] = field(default_factory=lambda: ConcurrentStableFrozenList())
+    domains: ConcurrentStableFrozenList[DomainEntry] = field(default_factory=lambda: ConcurrentStableFrozenList())
 
     def of(self, kind: str) -> ConcurrentStableList[Any]:
         """取某类声明。
@@ -331,6 +335,7 @@ def from_manifest(manifest: object) -> DeclarationPayload:
         seeds=ConcurrentStableFrozenList(data.seeds),
         errcodes=ConcurrentStableFrozenList(data.error_codes),
         usages=ConcurrentStableFrozenList(data.usages),
+        domains=ConcurrentStableFrozenList(getattr(data, "domains", ()) or ()),
     )
 
 
@@ -444,6 +449,14 @@ def record_from_wire(kind: str, data: ConcurrentStableDict[str, object]) -> obje
             name=str(data.get("name") or ""),
             degrade=str(data.get("degrade") or DEGRADE_NONE),
             reason=str(data.get("reason") or ""),
+        )
+    if kind == "domains":
+        return DomainEntry(
+            domain_key=str(data.get("domain_key") or ""),
+            service_key=str(data.get("service_key") or ""),
+            status=str(data.get("status") or "placement"),
+            paths=ConcurrentStableFrozenList(str(item) for item in cast("Any", data.get("paths") or ())),
+            public_api=ConcurrentStableFrozenList(str(item) for item in cast("Any", data.get("public_api") or ())),
         )
     raise CatalogError(f"未知的声明类别：{kind}（取值 {'/'.join(DECLARATION_KINDS)}）")
 
@@ -595,6 +608,7 @@ _ELEMENT_FIELDS: ConcurrentStableDict[str, ConcurrentStableFrozenList[str]] = Co
             )
         ),
         "usages": ConcurrentStableFrozenList(("name", "degrade", "reason")),
+        "domains": ConcurrentStableFrozenList(("domain_key", "service_key", "status", "paths", "public_api")),
     }
 )
 """各类声明的**指纹要素**（顺序稳定；只含声明要素，不含运行期派生字段）。"""
@@ -831,6 +845,14 @@ def validate_declarations(
     """
     errors: ConcurrentStableList[str] = ConcurrentStableList()
     label = f"产品 {payload.product_key}"
+    # 域基准 = 注册表现状 ∪ **本次声明的域**（第九类，07B `04_02` 重开）。
+    # 必须并入本次声明：产品在同一份清单里同时声明「域」与「用该域的能力」，
+    # 若只取注册表现状，首次注册时域尚未投影，能力会被误判「提供方业务域未登记」。
+    domain_services = ConcurrentStableDict(domain_services)
+    for entry in payload.domains:
+        existing = domain_services.get(entry.domain_key)
+        if not existing:
+            domain_services.set(entry.domain_key, entry.service_key)
     registered_capabilities = _capability_kinds(payload, current)
     if (
         payload.service_key
@@ -843,6 +865,8 @@ def validate_declarations(
     # 服务行前置校验（07B `04_02`）：形态复用离线规则，跨产品唯一性对着注册表现状判
     errors.update(validate_declared_services(payload, current))
     errors.update(validate_seed_tables(payload))
+    # 业务域声明（第九类，07B `04_02` 重开）：承载服务须在本次声明或注册表中；跨产品不得撞键
+    errors.update(_validate_declared_domains(payload, current, label=label, warnings=warnings))
     for record in payload.collaborations:
         prefix = f"{label}｜能力 {record.name}"
         owner_domain = domain_services.get(record.domain)
@@ -871,6 +895,62 @@ def validate_declarations(
         if usage.degrade != "none" and registered_capabilities.get(usage.name) in WRITE_KINDS:
             errors.add(f"{prefix}：写 / 强一致能力不得声明降级（kind={registered_capabilities.get(usage.name)}）")
     _validate_errcodes(payload, current, warnings=warnings, errors=errors, label=label)
+    return errors
+
+
+def _validate_declared_domains(
+    payload: DeclarationPayload,
+    current: RegistrySnapshot,
+    *,
+    label: str,
+    warnings: ConcurrentStableList[str],
+) -> ConcurrentStableList[str]:
+    """注册期业务域声明校验（第九类记录，07B `04_02` 重开）。
+
+    校验项：
+    1. 承载服务键须在**本次声明的服务行**或**注册表已登记服务行**中存在（防笔误）；
+    2. 跨产品不得撞键：同 `domain_key` 且承载服务不同即拒；同键同服务（多产品共用承载服务）放行并记警示。
+
+    口径与能力重名一致（`_validate_collaboration_names` 的跨清单版）：声明方只对自己名下的行负责，
+    但域标识是**全局唯一**的资源（能力寻址第二段据此解析），故跨产品冲突必须在注册期拦下。
+
+    Args:
+        payload: 本次全量声明。
+        current: 注册表现状。
+        label: 错误信息前缀。
+        warnings: 警示收集器。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    known_services: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for record in payload.services:
+        if record.service_key:
+            known_services.add(record.service_key)
+    for record in current.of("services"):
+        if record.service_key:
+            known_services.add(record.service_key)
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for entry in payload.domains:
+        prefix = f"{label}｜域 {entry.domain_key}"
+        if entry.domain_key in seen:
+            errors.add(f"{prefix}：同一份声明内业务域重复")
+            continue
+        seen.add(entry.domain_key)
+        if known_services and entry.service_key not in known_services:
+            errors.add(f"{prefix}：承载服务未登记（{entry.service_key}；须在服务行中声明）")
+        owner = current.owner_of("domains", entry.domain_key)
+        existing = next((record for record in current.of("domains") if record.domain_key == entry.domain_key), None)
+        if existing is None or owner is None or owner == payload.product_key:
+            continue
+        if existing.service_key != entry.service_key:
+            errors.add(
+                f"{prefix}：业务域跨产品撞键（已被产品 {owner} 声明为承载服务 "
+                f"{existing.service_key!r}，本次声明 {entry.service_key!r}）"
+            )
+        else:
+            warnings.add(f"{prefix}：业务域已由产品 {owner} 声明为同一承载服务（多产品共用，放行）")
     return errors
 
 

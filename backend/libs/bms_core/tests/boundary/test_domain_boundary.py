@@ -132,6 +132,10 @@ def test_domain_entry_from_row_and_to_dict() -> None:
     assert tuple(entry.paths) == ("backend/a.py",), "路径规范化去 `./`"
     assert tuple(entry.public_api) == ("m.api",)
     assert dict(entry.to_dict())["domain_key"] == "user"
+    # 显示名可选：空值不进字典（避免生成物里出现空字段），有值才落
+    assert "name" not in entry.to_dict()
+    named = DomainEntry.from_row({"domain_key": "user", "service_key": "platform", "paths": ["a.py"], "name": "用户域"})
+    assert dict(named.to_dict())["name"] == "用户域"
 
 
 @pytest.mark.kiwi_id(2350)

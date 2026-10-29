@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import Engine, Table, UniqueConstraint, create_engine, select
 from sqlalchemy.orm import Session
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import CatalogError
 from bms_core.models.base import Base
 from bms_core.models.platform.catalog import SysModule, SysModuleI18n, SysProduct
@@ -244,6 +244,7 @@ def test_module_record_from_row_matches_catalog() -> None:
         service_version="0.1.0",
         contract_version="0.1.0",
         status="enabled",
+        tenant_base=True,
     )
     assert ModuleRecord.from_row(row) == SERVICE_CATALOG[1]
 
@@ -306,6 +307,50 @@ def test_validate_catalog_roundtrip_and_conflicts() -> None:
 
     records = _replaced(catalog, 1, name="改过的名字")
     assert any("name 与清单不一致" in error for error in validate_catalog(catalog, records))
+
+
+@pytest.mark.kiwi_id(2163)
+def test_validate_catalog_skips_platform_planned_rows() -> None:
+    """平台侧计划行（`planned` 且无 `product_key`，如 `wf`）不判缺行；产品行仍判。
+
+    07B `04_02` 重开补正：`planned` 语义就是「尚未建设」，没有进程会注册它；计入基准会让
+    每个产品进程启动时的接库校验永久报缺。**产品行不适用**该放宽（先注册后建表守门）。
+    """
+    catalog = _catalog_records()
+    records = _catalog_records()
+    # `wf` 是平台侧计划行（product_key 为空）：删掉也不报缺
+    records = ConcurrentStableList(record for record in records if record.module_key != "wf")
+    assert validate_catalog(catalog, records) == []
+
+    # 产品侧计划行（`pur`，product_key=biz）：删掉仍报缺
+    records = ConcurrentStableList(record for record in records if record.module_key != "pur")
+    assert any("库中缺登记行：pur" in error for error in validate_catalog(catalog, records))
+
+
+@pytest.mark.kiwi_id(2163)
+def test_validate_catalog_own_keys_scope() -> None:
+    """产品进程传 `own_keys` 时：只判「平台自身行 + 本产品行」缺行。
+
+    常量里其他产品的规划行（`biz` 的 `pay` 等）归各自进程注册，本进程不该因它们未注册而拒启；
+    但**本产品自己的行**仍必须存在（先注册后建表守门）。
+    """
+    catalog = _catalog_records()
+    records = _catalog_records()
+    # 模拟「库里只有平台自身行 + 本产品行」：删掉其他产品的行
+    records = ConcurrentStableList(record for record in records if not record.product_key or record.module_key == "pur")
+
+    # 不传 own_keys：全量基准，其他产品行缺失即报
+    assert any("库中缺登记行：pay" in error for error in validate_catalog(catalog, records))
+
+    # 传 own_keys（本产品只拥有 pur）：其他产品行不再判缺
+    assert validate_catalog(catalog, records, own_keys=ConcurrentStableSet(("pur",))) == []
+
+    # 本产品自己的行缺失仍报
+    records = ConcurrentStableList(record for record in records if record.module_key != "pur")
+    assert any(
+        "库中缺登记行：pur" in error
+        for error in validate_catalog(catalog, records, own_keys=ConcurrentStableSet(("pur",)))
+    )
 
 
 @pytest.mark.kiwi_id(2163)

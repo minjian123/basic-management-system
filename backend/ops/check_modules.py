@@ -34,11 +34,13 @@ uv run python -m ops.check_modules --cross-repo    # 跨仓档：L1 契约定位
 import argparse
 import ast
 import asyncio
+import json
 import shutil
 import sys
 import tempfile
 from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -62,8 +64,10 @@ from bms_core.registry.declarations import (
     validate_seed_tables,
 )
 from bms_core.registry.products import (
+    ProductManifest,
     inspect_product_manifests,
     load_product_manifest,
+    load_product_manifests,
     local_manifest_paths,
     register_domain_services,
 )
@@ -128,6 +132,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ephemeral", action="store_true", help="用一次性临时库跑注册与对账（与 --url 互斥）")
     parser.add_argument("--keep-tmp", action="store_true", help="保留一次性临时库目录并打印路径（复现用）")
     parser.add_argument("--allow-missing", action="store_true", help="取不到产品仓时跳过并警示（缺省取不到即失败）")
+    parser.add_argument(
+        "--render-domain-layout",
+        action="store_true",
+        help="由本仓清单第九类 [[domains]] 渲染 deploy/boundaries/domain_layout.json（生成物）",
+    )
+    parser.add_argument(
+        "--check-domain-layout",
+        action="store_true",
+        help="比对 deploy/boundaries/domain_layout.json 与清单渲染结果（不一致即失败；不写文件）",
+    )
     return parser
 
 
@@ -897,6 +911,180 @@ def run_ephemeral(
     return errors, warnings, lines
 
 
+DOMAIN_LAYOUT_PATH = Path("deploy/boundaries/domain_layout.json")
+"""域布局生成物路径（相对仓根；07B `04_02` 重开：由清单第九类渲染，勿手改）。"""
+
+
+def render_domain_layout(
+    manifests: Iterable[ProductManifest] | None = None,
+) -> dict[str, object]:  # bare-collections:allow（JSON 文档形态：生成物按 json.dumps 序列化，须内置 dict）
+    """由本仓清单第九类 `[[domains]]` 渲染域布局文档（生成物内容）。
+
+    07B `04_02` 重开：域布局从「独立文件」改为「产品自持声明 + 生成物」。本函数只做**确定性渲染**，
+    判定逻辑仍在 `bms_core.registry.products`（装载校验）与 `bms_core.boundary.domains`（语义校验）。
+
+    Args:
+        manifests: 已解析清单（缺省取本仓 `deploy/registry/*.toml`）。
+
+    Returns:
+        dict[str, object]: 与既有 `domain_layout.json` 逐字段同构的文档（JSON 边界，内置 dict）。
+    """
+    loaded = list(manifests) if manifests is not None else list(load_product_manifests(ConcurrentStableList()))
+    domains: ConcurrentStableList[dict[str, object]] = ConcurrentStableList()  # bare-collections:allow（JSON 条目）
+    shared: ConcurrentStableList[str] = ConcurrentStableList()
+    seen_shared: ConcurrentStableSet[str] = ConcurrentStableSet()
+    seen_domain: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for manifest in loaded:
+        for entry in manifest.domains:
+            if entry.domain_key in seen_domain:
+                continue
+            seen_domain.add(entry.domain_key)
+            item: dict[str, object] = {"domain_key": entry.domain_key}  # bare-collections:allow（JSON 条目）
+            if entry.name:
+                item["name"] = entry.name
+            item.update(
+                {
+                    "service_key": entry.service_key,
+                    "status": entry.status,
+                    "paths": list(entry.paths),
+                    "public_api": list(entry.public_api),
+                }
+            )
+            domains.add(item)
+        for path in manifest.domain_shared_paths:
+            if path in seen_shared:
+                continue
+            seen_shared.add(path)
+            shared.add(path)
+    return {"version": 1, "domains": [dict(item) for item in domains], "shared_paths": list(shared)}
+
+
+def dump_domain_layout(
+    document: dict[str, object],  # bare-collections:allow（JSON 文档形态）
+    path: Path,
+) -> None:
+    """把渲染结果写为生成物文件（缩进 2、键序固定、行尾 LF）。
+
+    Args:
+        document: `render_domain_layout()` 的返回值。
+        path: 目标路径。
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(document, ensure_ascii=False, indent=2)
+    path.write_text(payload + "\n", encoding="utf-8", newline="\n")
+
+
+def check_domain_layout(
+    document: dict[str, object],  # bare-collections:allow（JSON 文档形态）
+    path: Path,
+) -> ConcurrentStableList[str]:
+    """比对生成物与清单渲染结果（不一致返回差异明细）。
+
+    Args:
+        document: 清单渲染结果。
+        path: 生成物路径。
+
+    Returns:
+        ConcurrentStableList[str]: 差异明细（空表示一致）。
+    """
+    problems: ConcurrentStableList[str] = ConcurrentStableList()
+    if not path.is_file():
+        problems.add(f"域布局生成物缺失：{path}（跑 --render-domain-layout 生成）")
+        return problems
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        problems.add(f"域布局生成物 JSON 非法：{path}（{exc}）")
+        return problems
+    current: dict[str, object] = _as_json_object(raw)  # bare-collections:allow（JSON 文档形态）
+    expected: dict[str, object] = _as_json_object(
+        json.loads(json.dumps(document, ensure_ascii=False))
+    )  # bare-collections:allow（JSON 文档形态）
+    if current != expected:
+        problems.add(f"域布局生成物与清单不一致：{path}（手改过或清单已变更；跑 --render-domain-layout 重新生成）")
+        current_domains = _domain_map(current)
+        expected_domains = _domain_map(expected)
+        for key in sorted(set(current_domains) | set(expected_domains)):
+            if key not in expected_domains:
+                problems.add(f"  多出域：{key}（清单未声明）")
+            elif key not in current_domains:
+                problems.add(f"  缺少域：{key}（清单已声明）")
+            elif current_domains[key] != expected_domains[key]:
+                problems.add(f"  域内容漂移：{key}")
+        if current.get("shared_paths") != expected.get("shared_paths"):
+            problems.add("  shared_paths 漂移")
+    return problems
+
+
+def _as_json_object(raw: object) -> dict[str, object]:  # bare-collections:allow（JSON 文档形态）
+    """把 JSON 解析结果规整为 `dict[str, object]`（非对象返回空映射）。
+
+    Args:
+        raw: `json.loads` 的结果。
+
+    Returns:
+        dict[str, object]: 键值映射（非对象为空）。
+    """
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, object] = {}  # bare-collections:allow（JSON 文档形态）
+    for key, value in cast("dict[object, object]", raw).items():
+        result[str(key)] = value
+    return result
+
+
+def _domain_map(
+    document: dict[str, object],  # bare-collections:allow（JSON 文档形态）
+) -> dict[str, dict[str, object]]:  # bare-collections:allow（JSON 文档形态）
+    """取域布局文档的 `{domain_key: 域条目}` 映射（条目非对象即跳过）。
+
+    Args:
+        document: 域布局文档。
+
+    Returns:
+        dict[str, dict[str, object]]: 域名 → 条目。
+    """
+    raw = document.get("domains")
+    if not isinstance(raw, list):
+        return {}
+    mapping: dict[str, dict[str, object]] = {}  # bare-collections:allow（JSON 文档形态）
+    for item in cast("list[object]", raw):
+        entry = _as_json_object(item)
+        key = entry.get("domain_key")
+        if isinstance(key, str):
+            mapping[key] = entry
+    return mapping
+
+
+def _run_domain_layout(args: argparse.Namespace) -> int:
+    """域布局生成物：渲染（`--render-domain-layout`）或比对（`--check-domain-layout`）。
+
+    Args:
+        args: 命令行参数。
+
+    Returns:
+        int: 退出码（0 通过 / 1 不一致）。
+    """
+    from bms_core.core.paths import resolve_backend_root
+
+    repo_root = resolve_backend_root("alembic.ini", anchor=Path(__file__)).parent
+    document = render_domain_layout()
+    target = repo_root / DOMAIN_LAYOUT_PATH
+    if args.render_domain_layout:
+        dump_domain_layout(document, target)
+        domains_count = len(_domain_map(document))
+        shared_count = len(cast("list[object]", document.get("shared_paths") or []))
+        print(f"[域布局] 已渲染：{target}（{domains_count} 域 / {shared_count} 域外路径）")
+        return 0
+    problems = check_domain_layout(document, target)
+    if problems:
+        for problem in problems:
+            print(f"[域布局] {problem}")
+        return 1
+    print(f"[域布局] 生成物与清单一致：{target}")
+    return 0
+
+
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：离线校验（默认）+ 可选接库 / 跨仓校验。
 
@@ -907,6 +1095,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         int: 退出码（0 通过 / 1 失败 / 2 参数或环境错误）。
     """
     args = build_parser().parse_args(argv)
+    if args.render_domain_layout or args.check_domain_layout:
+        return _run_domain_layout(args)
     if args.ephemeral and args.url:
         print("[服务目录] --ephemeral 与 --url 互斥（一次性库不连既有库）", file=sys.stderr)
         return 2

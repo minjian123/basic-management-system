@@ -60,8 +60,11 @@ STATUS_PLANNED = "planned"
 
 _LAYOUT_VERSION = 1
 _BASELINE_VERSION = 1
-_DOMAIN_KEY_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-"""业务域标识形态（小写字母开头，仅小写字母、数字与下划线；登记型标识一律 snake_case）。"""
+DOMAIN_KEY_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+"""业务域标识形态（小写字母开头，仅小写字母、数字与下划线；登记型标识一律 snake_case）。
+
+公开常量：清单解析（`bms_core.registry.products`）与域级护栏共用同一形态判定，避免各写一份。
+"""
 
 
 @dataclass(frozen=True)
@@ -83,6 +86,9 @@ class DomainEntry(BaseRegistryRecordContract):
 
     public_api: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """域内公共出口模块名（D2 允许的跨域引用面；分包前为空）。"""
+
+    name: str = ""
+    """业务域显示名（可选；人读用，不参与指纹与判定）。"""
 
     @classmethod
     def from_row(cls, row: object) -> DomainEntry:
@@ -109,6 +115,7 @@ class DomainEntry(BaseRegistryRecordContract):
             status=status,
             paths=_text_list(data, "paths"),
             public_api=_text_list(data, "public_api", required=False),
+            name=str(data.get("name") or ""),
         )
 
     def to_dict(self) -> ConcurrentStableDict[str, object]:
@@ -117,7 +124,7 @@ class DomainEntry(BaseRegistryRecordContract):
         Returns:
             ConcurrentStableDict[str, object]: 声明条目字典。
         """
-        return ConcurrentStableDict(
+        payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
             {
                 "domain_key": self.domain_key,
                 "service_key": self.service_key,
@@ -126,6 +133,9 @@ class DomainEntry(BaseRegistryRecordContract):
                 "public_api": list(self.public_api),
             }
         )
+        if self.name:
+            payload.set("name", self.name)
+        return payload
 
 
 @dataclass(frozen=True)
@@ -388,7 +398,7 @@ def load_layout(path: Path) -> DomainLayout:
             entry = DomainEntry.from_row(item)
         except ValueError as exc:
             raise ValueError(f"域布局第 {index} 条非法：{exc}") from exc
-        if not _DOMAIN_KEY_RE.match(entry.domain_key):
+        if not DOMAIN_KEY_RE.match(entry.domain_key):
             raise ValueError(f"域布局第 {index} 条 domain_key 非法：{entry.domain_key}")
         if entry.domain_key in seen:
             raise ValueError(f"域布局 domain_key 重复：{entry.domain_key}")

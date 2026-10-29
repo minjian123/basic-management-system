@@ -12,8 +12,14 @@ from typing import Any, cast
 
 import pytest
 
+from bms_core.boundary.domains import DomainEntry
 from bms_core.collaboration.usage import CapabilityUsage, capability_usage_view, reset_capability_usages
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.exceptions import CatalogError
 from bms_core.registry import boot as boot_module
 from bms_core.registry.declarations import RegistrySnapshot, content_hash_of, declaration_key, declaration_wire
@@ -36,9 +42,11 @@ from bms_core.services.module_registry import (
     ProductRouteRecord,
     SeedRecord,
     collaboration_catalog_view,
+    domain_service_view,
     error_code_view,
     product_catalog_view,
     product_routes_view,
+    reset_domain_services,
     seed_catalog_view,
     service_catalog_view,
 )
@@ -226,6 +234,61 @@ def test_project_registry_skips_non_usage_items() -> None:
     project_registry(snapshot)
 
     assert capability_usage_view() == {}
+
+
+def test_project_registry_skips_non_domain_items() -> None:
+    """`domains` 段里混入非域对象：跳过（防御脏数据；07B `04_02` 第九类投影）。"""
+    # 手工构造快照：非域对象没有 `domain_key`，走不了 `declaration_key` 的自动推导
+    records: ConcurrentStableDict[str, ConcurrentStableList[object]] = ConcurrentStableDict()
+    records.set("domains", ConcurrentStableList([ProductRecord(product_key="demo", name="演示")]))
+    snapshot = RegistrySnapshot(
+        records=records,
+        hashes=ConcurrentStableDict(),
+        owners=ConcurrentStableDict(),
+    )
+
+    project_registry(snapshot)
+
+    assert domain_service_view() == {}
+
+
+def test_project_registry_skips_retired_domain() -> None:
+    """退役域不投影（整表重建：视图恒等于注册表里未退役的行）。"""
+    snapshot = _snapshot(
+        domains=[
+            DomainEntry(
+                domain_key="org", service_key="mdm", status="placement", paths=ConcurrentStableFrozenList(("a",))
+            ),
+            DomainEntry(
+                domain_key="old", service_key="mdm", status="placement", paths=ConcurrentStableFrozenList(("b",))
+            ),
+        ]
+    )
+    snapshot.retired.set("domains", ConcurrentStableSet(("old",)))
+
+    project_registry(snapshot)
+
+    assert domain_service_view() == {"org": "mdm"}
+    reset_domain_services()
+
+
+def test_project_registry_projects_domains() -> None:
+    """`domains` 段按注册表快照重建域 → 承载服务视图（第九类）。"""
+    snapshot = _snapshot(
+        domains=[
+            DomainEntry(
+                domain_key="org", service_key="mdm", status="placement", paths=ConcurrentStableFrozenList(("a",))
+            ),
+            DomainEntry(
+                domain_key="user", service_key="platform", status="placement", paths=ConcurrentStableFrozenList(("b",))
+            ),
+        ]
+    )
+
+    project_registry(snapshot)
+
+    assert domain_service_view() == {"org": "mdm", "user": "platform"}
+    reset_domain_services()
 
 
 async def test_report_declarations_posts_manifest_text() -> None:
