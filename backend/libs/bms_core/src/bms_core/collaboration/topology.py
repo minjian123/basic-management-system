@@ -245,10 +245,10 @@ def topology_snapshot(tenant_id: int) -> TopologySnapshot | None:
     return _SNAPSHOTS.get((DEFAULT_TOPOLOGY_TENANT, default_version))
 
 
-_INSTANCE_SERVICE = ""
+_instance_service = ""
 """本实例的服务标识（`register_instance_context()` 登记；空串表示未登记 → 不产生 `local`）。"""
 
-_INSTANCE_UNITS: ConcurrentStableFrozenList[str] | None = None
+_instance_units: ConcurrentStableFrozenList[str] | None = None
 """本实例承载的部署单元集合（`None` 表示未声明 → 取默认拓扑全部单元）。"""
 
 
@@ -270,7 +270,7 @@ def register_instance_context(
     Raises:
         CatalogError: 集合内单元未在默认拓扑登记（配置漂移，启动期拒启）。
     """
-    global _INSTANCE_SERVICE, _INSTANCE_UNITS
+    global _instance_service, _instance_units
     declared = ConcurrentStableFrozenList(units) if units is not None else None
     default_units = _default_units()
     if declared is not None and default_units:
@@ -280,16 +280,16 @@ def register_instance_context(
                 f"本实例承载的部署单元未在默认拓扑登记：{'、'.join(unknown)}（请检查 [topology].units 与拓扑记录）",
                 data={"reason": "unit_not_registered", "units": unknown.to_list()},
             )
-    _INSTANCE_SERVICE = service_key
-    _INSTANCE_UNITS = declared
+    _instance_service = service_key
+    _instance_units = declared
     return declared if declared is not None else default_units
 
 
 def reset_instance_context() -> None:
     """复位本实例解析身份（测试隔离 / 应用关闭；生产路径不单独调用）。"""
-    global _INSTANCE_SERVICE, _INSTANCE_UNITS
-    _INSTANCE_SERVICE = ""
-    _INSTANCE_UNITS = None
+    global _instance_service, _instance_units
+    _instance_service = ""
+    _instance_units = None
 
 
 def _default_units() -> ConcurrentStableFrozenList[str]:
@@ -314,8 +314,8 @@ def instance_units() -> ConcurrentStableFrozenList[str]:
         ConcurrentStableFrozenList[str]: 单元集合；默认拓扑未装载且未声明时为空集
         （此时不做 `colocated` 判定，全部按 `remote` 处理——与 07B 过渡实现行为一致）。
     """
-    if _INSTANCE_UNITS is not None:
-        return _INSTANCE_UNITS
+    if _instance_units is not None:
+        return _instance_units
     return _default_units()
 
 
@@ -330,7 +330,7 @@ def _mode_for(domain: str, unit_key: str) -> CapabilityMode:
         CapabilityMode: 判定结果（承载服务为本实例 → `local`；单元 ∈ 本实例集合 → `colocated`）。
     """
     carrier = service_key_for_domain(domain)
-    if _INSTANCE_SERVICE and carrier == _INSTANCE_SERVICE:
+    if _instance_service and carrier == _instance_service:
         return CapabilityMode.LOCAL
     if unit_key in instance_units():
         return CapabilityMode.COLOCATED

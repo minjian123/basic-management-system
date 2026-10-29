@@ -235,7 +235,10 @@ async def test_bootstrap_degrades_on_non_200() -> None:
 
 async def test_bootstrap_degrades_on_empty_snapshot() -> None:
     """平台尚未自举（空快照）→ 降级而非装载一个恒报错的解析器。"""
-    empty: dict[str, object] = {"code": 0, "data": {"default_version": 0, "snapshots": []}}  # bare-collections:allow（出口响应夹具须原生 dict 供 json.dumps）
+    empty: dict[str, object] = {  # bare-collections:allow（出口响应夹具须原生 dict）
+        "code": 0,
+        "data": {"default_version": 0, "snapshots": []},
+    }
     app = _app(_ClientStub(content=json.dumps(empty).encode()))
 
     await bootstrap_remote_topologies(app)
@@ -296,10 +299,10 @@ def test_snapshot_payload_rejected(payload: object) -> None:
 
 def test_snapshot_payload_tolerates_illegal_numbers() -> None:
     """租户 / 版本非数字时取缺省（不因单个脏字段丢掉整份快照）。"""
-    payload: dict[str, object] = {
+    payload: dict[str, object] = {  # bare-collections:allow（出口响应夹具须原生 dict）
         "code": 0,
         "data": {"snapshots": [{"tenant_id": "oops", "version": "", "rows": []}]},
-    }  # bare-collections:allow（出口响应夹具须原生 dict）
+    }
 
     snapshots = snapshots_from_payload(payload)
 
