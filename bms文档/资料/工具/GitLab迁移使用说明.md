@@ -81,7 +81,7 @@ GET /api/v4/projects/2/protected_branches   # main: push=Maintainers merge=Maint
 
 ## 2.6 GitHub 归档同步的相关设置 <a id="mirror-setup"></a>
 
-> 本节为通用操作说明（bms / biz / bizs / mdm / test 五个仓库一致）：GitLab push mirror 单向同步 main 至 GitHub 归档仓库。机制与验证同第 2.4、3 节。
+> 本节为通用操作说明（bms / biz / bizs / mdm / test / engkit 一致）：GitLab push mirror 单向同步 main 至 GitHub 归档仓库。机制与验证同第 2.4、3 节。
 
 ### 2.6.1 操作流程（全流程） <a id="mirror-steps"></a>
 
@@ -135,6 +135,16 @@ curl -s -H "Authorization: token <GitHub PAT>" \
 
 > 本次 mirror 经 GitLab API `POST /projects/15/remote_mirrors` 创建（HTTP 201，GitLab 18 该端点可用），再以 rails runner `Project.find(15).remote_mirrors.find(6).sync` 触发首次同步；验证 GitHub main sha 与 GitLab main 一致（`507a450`）。mdm 随推文件经红线检查，无服务器名/内网 IP/凭据等本地资源信息。
 
+### 2.6.4 engkit 新增实录（2026-10-29） <a id="mirror-log-engkit"></a>
+
+跨仓工程化工具包 engkit（与 bms 同属 GitLab `bms` 组，项目 id=16）按 2.6.1 流程接入 GitHub 归档（描述沿用「engkit 跨仓工程化工具包（GitLab push mirror 只读归档）」；仓库名取 `engkit`，与 GitLab 路径、Python 包名一致，便于跨仓文档与依赖声明共用同一写法）：
+
+| 仓库 | GitLab 项目 id | GitLab 路径 | GitHub 归档仓库 | mirror id | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| engkit 工具包 | 16 | bms/engkit | `engkit` | 7 | enabled，已验证同步 |
+
+> 本次 mirror 经 GitLab API `POST /projects/16/remote_mirrors` 创建（HTTP 201，附 `only_protected_branches=true`，只归档 main，与其余归档仓实际口径一致），再以 rails runner `Project.find(16).remote_mirrors.find(7).sync` 触发首次同步（手动同步端点 `/projects/16/remote_mirrors/7/update` 仍返回 404，同第 2.4 节备注）；验证 GitHub main sha 与 GitLab main 一致（`68e0bf5`）。engkit 随推文件经红线检查：无服务器名 / 内网 IP / 凭据，仅 `tests/` 内含 `10.0.0.1` 一类合成占位地址。
+
 ## 3. 验证结果 <a id="verify"></a>
 
 | 项目 | 结果 |
@@ -143,7 +153,7 @@ curl -s -H "Authorization: token <GitHub PAT>" \
 | GitHub 同步 | 最新提交 `1d4681a` 已镜像（GitHub API 确认） |
 | main 保护 | push=Maintainers、merge=Maintainers |
 | 本地 remote | gitlab=GitLab（唯一远端），origin（GitHub）已删除 |
-| 延伸归档（biz / bizs / mdm） | 见第 2.6.2、2.6.3 节实录，mirror enabled 且已验证同步 |
+| 延伸归档（biz / bizs / mdm / engkit） | 见第 2.6.2 ~ 2.6.4 节实录，mirror enabled 且已验证同步 |
 
 ## 4. 日常使用流程 <a id="workflow"></a>
 
