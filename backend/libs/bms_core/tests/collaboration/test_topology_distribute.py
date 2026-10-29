@@ -16,6 +16,7 @@ from bms_core.collaboration import (
     DEFAULT_TOPOLOGY_TENANT,
     DomainLayoutTopologyResolver,
     TenantTopologyResolver,
+    TopologyResolverResource,
     bootstrap_remote_topologies,
     instance_units,
     reset_instance_context,
@@ -100,9 +101,9 @@ class _ResourceStub:
 
     def __init__(self) -> None:
         """初始化空资源清单。"""
-        self.registered: ConcurrentStableList[object] = ConcurrentStableList()
+        self.registered: ConcurrentStableList[TopologyResolverResource] = ConcurrentStableList()
 
-    def register(self, resource: object) -> None:
+    def register(self, resource: TopologyResolverResource) -> None:
         """登记资源（与 `ResourceManager.register` 同签名）。
 
         Args:
@@ -234,7 +235,7 @@ async def test_bootstrap_degrades_on_non_200() -> None:
 
 async def test_bootstrap_degrades_on_empty_snapshot() -> None:
     """平台尚未自举（空快照）→ 降级而非装载一个恒报错的解析器。"""
-    empty = {"code": 0, "data": {"default_version": 0, "snapshots": []}}
+    empty: dict[str, object] = {"code": 0, "data": {"default_version": 0, "snapshots": []}}  # bare-collections:allow（出口响应夹具须原生 dict 供 json.dumps）
     app = _app(_ClientStub(content=json.dumps(empty).encode()))
 
     await bootstrap_remote_topologies(app)
@@ -258,9 +259,7 @@ async def test_resource_release_resets_process_state() -> None:
     app = _app(client)
     await bootstrap_remote_topologies(app)
     resource_stub = cast("_ResourceStub", app.state.resources)
-    resource = resource_stub.registered[0]
-
-    await cast("object", resource).aclose()  # pyright: ignore[reportAttributeAccessIssue]
+    await resource_stub.registered[0].aclose()
 
     assert isinstance(resolve_topology(), DomainLayoutTopologyResolver)
     assert topology_snapshot(7) is None
@@ -297,10 +296,10 @@ def test_snapshot_payload_rejected(payload: object) -> None:
 
 def test_snapshot_payload_tolerates_illegal_numbers() -> None:
     """租户 / 版本非数字时取缺省（不因单个脏字段丢掉整份快照）。"""
-    payload = {
+    payload: dict[str, object] = {
         "code": 0,
         "data": {"snapshots": [{"tenant_id": "oops", "version": "", "rows": []}]},
-    }
+    }  # bare-collections:allow（出口响应夹具须原生 dict）
 
     snapshots = snapshots_from_payload(payload)
 

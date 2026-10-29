@@ -4,7 +4,7 @@
 平台未自举时返回空快照（不 500）。
 """
 
-from collections.abc import Iterator
+from collections.abc import Awaitable, Callable, Iterator
 
 import pytest
 from fastapi import FastAPI
@@ -104,7 +104,19 @@ async def test_login_state_without_permission_is_denied(
         del request
         raise PermissionError("缺少权限码：tenant-topology:query")
 
-    monkeypatch.setattr(f"{module}.require_permission", lambda code: _deny)
+    def _deny_factory(code: str) -> Callable[[object], Awaitable[None]]:
+        """权限依赖工厂替身：任意权限码都返回拒绝依赖。
+
+        Args:
+            code: 权限码（未使用）。
+
+        Returns:
+            Callable[[object], Awaitable[None]]: 拒绝依赖。
+        """
+        del code
+        return _deny
+
+    monkeypatch.setattr(f"{module}.require_permission", _deny_factory)
 
     resp = await client.get(INTERNAL_API)
 
