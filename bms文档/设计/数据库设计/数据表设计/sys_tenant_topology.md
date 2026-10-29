@@ -12,8 +12,8 @@
 | 业务域 | 平台注册与目录（`platform_registry`；与能力登记、能力授权同域） |
 | 覆盖模块 | 07C-产品与服务划分（租户拓扑） |
 | 上游依据 | 《[架构设计 · 产品与服务划分](../../../设计/架构设计/39_架构设计_子系统_产品与服务划分.md)》「部署拓扑」「标识与库派生」节、[需求 02-1](../../../项目/07C_产品与服务划分/需求/02_需求_拓扑机制.md#r02-1) |
-| ORM 模型 | `bms_core/models/platform/tenant_topology.py::SysTenantTopology`（继承 `BaseModel`；随 `02_01` 落地） |
-| 状态 | 待落库（设计已定；建表随 `platform:platform` 链） |
+| ORM 模型 | `bms_core/models/platform/tenant_topology.py::SysTenantTopology`（继承 `BaseModel`；07C `02_01` 落地） |
+| 状态 | 已落库（随启动期自动建表 / `ops.init_schema`；07C `02_01`） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_tenant](sys_tenant.md)、[sys_capability_grant](sys_capability_grant.md) |
 
 - **语义**：一条记录 = 「某租户的某业务域由哪个部署单元承载」；库由部署单元派生，不在本表重复存库名。
