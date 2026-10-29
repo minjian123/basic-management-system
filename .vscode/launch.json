@@ -165,27 +165,27 @@
     },
     {
       // 「全套」的后端成员（本地开发主形态）：由 `python3 scripts/tools/dev/本地全套.py up` 起**三个**服务
-      // （tenant/platform/identity；同一 8000 + loopback 别名，与服务基址模板 http://{service}:8000 同形，
+      // （按各仓 deploy/local_stack.toml 装载：缺省 tenant/platform/identity/mdm；同一 8000 + loopback 别名，与服务基址模板 http://{service}:8000 同形，
       // 并加载 `deploy/.dev-keys.local` 的开发密钥；`org` 已归 mdm 产品服务）。服务是后台进程——本终端
-      // 只承载会话，关掉不影响服务；停服务请用任务 `dev:后端本地全套·停（三服务）`。
-      // **日常不必启动本项**：复合项「全套（本地三服务 + 宿主 + Chromium）」已改为经前置任务链静默拉起三服务；
+      // 只承载会话，关掉不影响服务；停服务请用任务 `dev:后端本地全套·停`。
+      // **日常不必启动本项**：复合项「全套（本机全套 + 宿主 + Chromium）」已改为经前置任务链静默拉起全套服务；
       // 本项仅在「只想单独起后端、且接受一个终端面板」时使用（node-terminal 会话必然占终端）。
-      "name": "后端：本地全套（三服务 · 脚本）",
+      "name": "后端：本地全套（脚本）",
       "type": "node-terminal",
       "request": "launch",
       "command": "python3 \"${workspaceFolder}/scripts/tools/dev/本地全套.py\" up",
       "cwd": "${workspaceFolder}"
     },
     {
-      // **后端断点**用本项（「后端：本地全套（三服务 · 脚本）」是脚本起的后台进程，不带调试器）。
+      // **后端断点**用本项（「后端：本地全套（脚本）」是脚本起的后台进程，不带调试器）。
       // 步骤：① 脚本起的三个服务里先腾出要调试的那个：
-      //   `python3 scripts/tools/dev/本地全套.py stop identity`（或任务「dev:后端本地全套·停（三服务）」后
+      //   `python3 scripts/tools/dev/本地全套.py stop identity`（或任务「dev:后端本地全套·停」后
       //   用任务 up 只起其余——`本地全套.py up --services "tenant platform"`）；
       // ② 启动本项（选服务）→ 由 `ops/dev_run.py` 注入 loopback 别名（127.0.0.2/4/5）+ 同一 8000 端口
       //   + `deploy/.dev-keys.local` 开发密钥 + Redis，再 runpy 进服务入口 ⇒ 断点 / 变量 / 调用栈与
       //   `python -m bms_<服务>` 一致（`justMyCode: false`：可步入框架与基座代码）；
       // ③ 调试会话停止即服务结束，之后 `本地全套.py up` 一键补回。
-      "name": "后端：单服务（debugpy · 本机三服务）",
+      "name": "后端：单服务（debugpy · 平台三服务）",
       "type": "debugpy",
       "request": "launch",
       "module": "ops.dev_run",
@@ -201,7 +201,7 @@
   "compounds": [
     {
       // 旧口径（单后端服务）：后端**只起 identity 一个**，且不加载 `.dev-keys.local`、不绑 loopback 别名
-      // → 本机三服务形态下不足以登录（服务间 http://platform:8000 亦不通）。本地开发请用下面的「本地三服务」项；
+      // → 平台三服务形态下不足以登录（服务间 http://platform:8000 亦不通）。本地开发请用下面的「本机全套」项；
       // 本项保留用于「只调 identity 单服务」的场景。
       "name": "全套：后端单服务 + 宿主 + Chromium",
       "configurations": ["后端：单服务（debugpy · bms_identity）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
@@ -209,8 +209,8 @@
     {
       // 一键：三服务由**前置任务链静默拉起**（`dev:宿主 + 模块产物` 的 dependsOn 首环，已完成健康等待），
       // 本复合项只含前端调试会话 ⇒ F5 不再弹后端终端、也不会在 identity 就绪前发请求。
-      // **后端断点**请改用「后端：单服务（debugpy · 本机三服务）」单项（先 `本地全套.py stop <服务>` 腾位）。
-      "name": "全套（本地三服务 + 宿主 + Chromium）",
+      // **后端断点**请改用「后端：单服务（debugpy · 平台三服务）」单项（先 `本地全套.py stop <服务>` 腾位）。
+      "name": "全套（本机全套 + 宿主 + Chromium）",
       "configurations": ["前端：宿主 + 模块 + Chromium（浏览器断点）"]
     }
   ],

@@ -316,10 +316,10 @@ Windows 侧关键点：同一份 `launch.json` 用 **`windows` 平台覆盖**表
 | 后端：单服务（debugpy · 选服务）                  | 后端单服务断点（下拉选服务；读 `backend/config.toml` 的 `[server] host/port`）           | 解释器 `backend\.venv\Scripts\python.exe`（`windows` 覆盖）                                               | `dev:清理后端端口（8000）`              |
 | 后端：单服务（debugpy · bms_identity）            | 固定默认服务的等价项（免每次手选）                                                      | 同上                                                                                                      | `dev:清理后端端口（8000）`              |
 | 后端：当前文件单测（debugpy · pytest）            | 打开 `backend/**/tests/test_*.py` 后 F5                                                 | 同上                                                                                                      | —                                       |
-| **后端：本地全套（三服务 · 脚本）**         | 脚本起 tenant / platform / identity 三服务（**后台进程，不带调试器**）            | `python3 scripts\tools\dev\本地全套.py up`                                                                | —                                       |
-| **后端：单服务（debugpy · 本机三服务）**    | **后端断点**（下拉选服务）：经 `backend\ops\dev_run.py` 注入别名 / 8000 / 开发密钥 / Redis 后进服务入口 | 解释器同上；先 `本地全套.py stop <服务>` 腾位，调试完 `up` 补回（见 [8.4](#local-stack)）           | —                                       |
-| 全套：后端单服务 + 宿主 + Chromium                | 旧口径组合项（后端固定 `bms_identity`）；**本机三服务形态下别用**                  | —                                                                                                        | —                                       |
-| **全套（本地三服务 + 宿主 + Chromium）**    | **一键全套（推荐）**：脚本起三服务 + 宿主 + 模块产物 + Chrome（**前端断点即用**） | —                                                                                                        | —                                       |
+| **后端：本地全套（脚本）**         | 按各仓声明起全套服务（**后台进程，不带调试器**）            | `python3 scripts\tools\dev\本地全套.py up`                                                                | —                                       |
+| **后端：单服务（debugpy · 平台三服务）**    | **后端断点**（下拉选服务）：经 `backend\ops\dev_run.py` 注入别名 / 8000 / 开发密钥 / Redis 后进服务入口 | 解释器同上；先 `本地全套.py stop <服务>` 腾位，调试完 `up` 补回（见 [8.4](#local-stack)）           | —                                       |
+| 全套：后端单服务 + 宿主 + Chromium                | 旧口径组合项（后端固定 `bms_identity`）；**平台三服务形态下别用**                  | —                                                                                                        | —                                       |
+| **全套（本机全套 + 宿主 + Chromium）**    | **一键全套（推荐）**：脚本起全套服务 + 宿主 + 模块产物 + Chrome（**前端断点即用**） | —                                                                                                        | —                                       |
 
 > 浏览器断点项的 `runtimeExecutable` 必须写**可执行文件绝对路径**：Windows 侧为 `C:\Program Files\Google\Chrome\Application\chrome.exe`（本机 155.0.8059.85，已实测支持 `--user-data-dir` 与远程调试端口）；Chrome 换路径 / 换版本后请同步该值。选择项下拉：核对页 19 个页面（默认 `login-check.html`）、后端服务 8 个（默认 `bms_identity`）。
 
@@ -330,9 +330,9 @@ Windows 侧关键点：同一份 `launch.json` 用 **`windows` 平台覆盖**表
 | `dev:清理宿主端口（5173）`                                  | 普通任务：跑 `清理宿主端口.py` 清理占用 5173 的**本项目**旧宿主 dev（Windows 走 `netstat -ano` + 进程 PEB 判定 `cwd` 归属），供 dev 类后台任务作 `dependsOn` 前置                          |
 | `dev:确保模块产物服务（5002）`                              | 普通任务：幂等确保 5002 发布存储服务在跑（缺则后台拉起），供「宿主 + 模块」作 `dependsOn` 前置                                                                                                                          |
 | `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：命令只有 `pnpm dev`，准备动作全交 `dependsOn` 前置任务（`dependsOrder: sequence`）；以 Vite 的 `Local:` 行为就绪信号                                                                                     |
-| `dev:清理后端端口（8000）`                                  | 普通任务：清理占用 8000 的本项目旧后端调试进程，供后端启动项作 `preLaunchTask`；**注意它按端口清理，会把本地全套的三服务一起清掉**——起三服务请用下面两条任务   |
-| `dev:后端本地全套（三服务）`                                | 普通任务：调 `python3 scripts\tools\dev\本地全套.py up`——幂等起 tenant / platform / identity + 自愈 hosts 别名与开发密钥 + 等健康                                                                                         |
-| `dev:后端本地全套·停（三服务）`                             | 普通任务：`本地全套.py down`——TERM → 5s → KILL，仍不死**报错交人工**；单个服务用 `本地全套.py stop <服务>`                                                                                                     |
+| `dev:清理后端端口（8000）`                                  | 普通任务：清理占用 8000 的本项目旧后端调试进程，供后端启动项作 `preLaunchTask`；**注意它按端口清理，会把本地全套的服务一起清掉**——起全套服务请用下面两条任务   |
+| `dev:后端本地全套`                                | 普通任务：调 `python3 scripts\tools\dev\本地全套.py up`——幂等起 tenant / platform / identity + 自愈 hosts 别名与开发密钥 + 等健康                                                                                         |
+| `dev:后端本地全套·停`                             | 普通任务：`本地全套.py down`——TERM → 5s → KILL，仍不死**报错交人工**；单个服务用 `本地全套.py stop <服务>`                                                                                                     |
 | `服务:模块产物（5002 · CORS 静态）`                        | `serve-module-releases.mjs` 托管 `frontend/releases/**`（带 CORS，宿主加载运行时模块的前置）                                                                                                                       |
 | `发布:模块产物（demo + sample · 构建 + 发布）`              | 构建并发布两个运行时模块到 `frontend/releases/`（归档不入库）                                                                                                                                                        |
 | `dev:模块 demo / sample 独立开发`                           | 模块自身 dev（demo 5002 / sample 5003，与「服务:模块产物」的 5002 互斥）                                                                                                                                                 |
@@ -342,24 +342,24 @@ Windows 侧关键点：同一份 `launch.json` 用 **`windows` 平台覆盖**表
 
 ### 8.4 本机裸跑后端「全套」（本地开发主形态） <a id="local-stack"></a>
 
-**口径**：开发态**一律本机裸跑**——`backend/config.dev.toml` 本就是 SQLite 本地库 + 内存缓存 + 字典 / 参数走 SQL，**不需要 Docker，也不需要在开发服务器上部署**；容器 / 开发服务器**只在发布时**用于发布验证。三个服务各绑一个 loopback 别名并**共用 8000 端口**，与服务间基址模板 `http://{service}:8000` 同形（故服务间调用、网关内路径与容器形态一致；`org` 已随组织主数据归 mdm 产品服务，不再纳管）。
+**口径**：开发态**一律本机裸跑**——`backend/config.dev.toml` 本就是 SQLite 本地库 + 内存缓存 + 字典 / 参数走 SQL，**不需要 Docker，也不需要在开发服务器上部署**；容器 / 开发服务器**只在发布时**用于发布验证。每个服务各绑一个 loopback 别名并**共用 8000 端口**，与服务间基址模板 `http://{service}:8000` 同形（故服务间调用、网关内路径与容器形态一致）。**服务清单来自各仓自持声明**（固定路径 `deploy/local_stack.toml`，脚本扫「本仓 + 工作区平级仓」装载）：缺省起 `tenant` / `platform` / `identity` + 产品服务（当前 `mdm` 组织主数据）；寻址经 `[service_client].endpoints` 注入，**不需要写系统 hosts**。
 
 | 项       | 取值 / 做法                                                                                                                        |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | 脚本     | `bms\scripts\tools\dev\本地全套.py`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs` / `unlock [账号]`） |
-| 别名     | `127.0.0.2 tenant`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 hosts；**Windows 写 hosts 需管理员权限**，失败时脚本提示手工追加） |
+| 别名     | 各仓声明里登记（缺省 `127.0.0.2 tenant` / `127.0.0.4 platform` / `127.0.0.5 identity` / `127.0.0.6 mdm`）；`up` 按声明把「服务键 → 基址」注入 `[service_client].endpoints`，**不需要写系统 hosts**（缺别名只提示、不阻断） |
 | 开发密钥 | `bms\deploy\.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌；不入库）                        |
 | Redis    | 缺省指开发服务器上的隔离库（DB5；地址以脚本缺省与《[本地资源](../../../用户文档/本地资源.md)》为准，`--redis` 或 `BMS_LOCAL_REDIS` 覆盖） |
 | 状态目录 | `%TEMP%\bms-local-stack`（pid 与日志；linux 侧为 `/tmp/bms-local-stack`）。日志**追加**写：每次启动写一行 `===== <服务> 启动 @ 时间 =====` 分隔，单文件超 5MB 归档为 `.log.1`（保留一份）——**不再覆盖历史**，便于事后判断「进程是被强杀还是正常退出」 |
 | 前端映射 | `bms\frontend\apps\desktop\.env.local` 的 `VITE_LOCAL_API`（**`up` 收尾自动写入**，`env` 子命令可单独补；未列出的服务仍走远端网关） |
 | 账号     | `seed` 建号（缺省账号 `admin`，口令随机生成并仅打印一次）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401；账号 / 口令**只登记在《本地资源》** |
-| 库重建   | `本地全套.py up --reset-db`（先把 `database\bms\bms_*.db` 备份移走，服务按当前表结构重建；**重建后须重新 `seed`**）      |
+| 库重建   | `本地全套.py up --reset-db`（按各仓声明的库目录把 `*.db` 备份移走：`database\bms`、`database\mdm`…；服务按当前表结构重建；**重建后须重新 `seed`**）      |
 
 常用流程（PowerShell）：
 
 ```powershell
 cd D:\Develop\bizs\bms
-python3 scripts\tools\dev\本地全套.py up              # 起三服务（幂等：已在跑则跳过；等健康；收尾自动补 .env.local 的 VITE_LOCAL_API）
+python3 scripts\tools\dev\本地全套.py up              # 起全套服务（幂等：已在跑则跳过；等健康；收尾自动补 .env.local 的 VITE_LOCAL_API）
 python3 scripts\tools\dev\本地全套.py seed            # 租户注册库 + 菜单元数据 + 建号 admin（幂等）
 python3 scripts\tools\dev\本地全套.py status          # 进程与 /healthz、/readyz 一览
 python3 scripts\tools\dev\本地全套.py stop identity   # 只停一个（供后端断点腾位）
@@ -367,19 +367,19 @@ python3 scripts\tools\dev\本地全套.py unlock          # 解锁账号（清�
 python3 scripts\tools\dev\本地全套.py down            # 停全部：TERM → 5s → KILL；仍不死则报错交人工
 ```
 
-> 也可在资源管理器 / 任务计划里直接跑等价 `.bat` 入口（`scripts\tools\dev\本地全套.bat` 等）。**本机 Windows 侧已实跑**（2026-10-21：`tenant` / `platform` / `identity` 三个 `127.0.0.x:8000` 的 `/healthz`、`/readyz` 全 200）；首次运行仍需以管理员身份开终端（供 hosts 写入），其余流程与 linux 侧一致。
+> 也可在资源管理器 / 任务计划里直接跑等价 `.bat` 入口（`scripts\tools\dev\本地全套.bat` 等）。**本机 Windows 侧已实跑**（2026-10-29：按声明起 `tenant` / `platform` / `identity` / `mdm` 四个 `127.0.0.x:8000`，`/healthz`、`/readyz` 全 200，**全程无需管理员权限**——hosts 只作可选便利）；其余流程与 linux 侧一致。
 
-**不弹窗、关终端也不停服务（2026-10-21 起）**：`up` 在 Windows 起服务时用 `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB` 三个创建标志——既**不新开控制台窗口**，又让服务**脱离 IDE 任务所在的 Job Object**，任务本身跑完即退出、终端随手关掉都不影响服务（`tasks.json` 的 `dev:后端本地全套（三服务）` 另设 `presentation.reveal = silent`）。受控实验（`tmp/job_test.py`，2026-10-21）实测：带 BREAKAWAY 的子进程**能被再分配进新 Job**（说明已脱离父 Job），不带的返回 `ERROR_ACCESS_DENIED`（仍在父 Job 里）；随后销毁新 Job，前者随之结束、后者存活。若运行环境不允许 breakaway，脚本会打印「无法脱离 IDE 任务容器……退化为普通后台进程」，此时关 IDE 仍可能连带停服务。
+**不弹窗、关终端也不停服务（2026-10-21 起）**：`up` 在 Windows 起服务时用 `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB` 三个创建标志——既**不新开控制台窗口**，又让服务**脱离 IDE 任务所在的 Job Object**，任务本身跑完即退出、终端随手关掉都不影响服务（`tasks.json` 的 `dev:后端本地全套` 另设 `presentation.reveal = silent`）。受控实验（`tmp/job_test.py`，2026-10-21）实测：带 BREAKAWAY 的子进程**能被再分配进新 Job**（说明已脱离父 Job），不带的返回 `ERROR_ACCESS_DENIED`（仍在父 Job 里）；随后销毁新 Job，前者随之结束、后者存活。若运行环境不允许 breakaway，脚本会打印「无法脱离 IDE 任务容器……退化为普通后台进程」，此时关 IDE 仍可能连带停服务。
 
-**F5「全套（本地三服务 + 宿主 + Chromium）」的启动顺序（2026-10-21 起）**：复合项**不再包含**后端 `node-terminal` 成员（它必然占一个终端面板），三服务改由前端调试项的前置任务链静默拉起——`dev:宿主 + 模块产物（5002 + 5173）` 的 `dependsOn` 首环即 `dev:后端本地全套（三服务）`（`dependsOrder: sequence`，等三服务 `/healthz` 200 才继续），随后才清 5173、确保 5002、起 vite。因此：① 启动后**不再自动弹出任何终端面板**（vite / 5002 / 清理类任务均已 `reveal: silent`，要看日志从终端列表手动切）；② **不再出现启动瞬间的 `ECONNREFUSED 127.0.0.5:8000`**（前端严格晚于后端就绪）。只想单独起后端时仍可用「后端：本地全套（三服务 · 脚本）」单项，但该项是调试会话、会占终端。
+**F5「全套（本机全套 + 宿主 + Chromium）」的启动顺序（2026-10-21 起）**：复合项**不再包含**后端 `node-terminal` 成员（它必然占一个终端面板），全套服务改由前端调试项的前置任务链静默拉起——`dev:宿主 + 模块产物（5002 + 5173）` 的 `dependsOn` 首环即 `dev:后端本地全套`（`dependsOrder: sequence`，等三服务 `/healthz` 200 才继续），随后才清 5173、确保 5002、起 vite。因此：① 启动后**不再自动弹出任何终端面板**（vite / 5002 / 清理类任务均已 `reveal: silent`，要看日志从终端列表手动切）；② **不再出现启动瞬间的 `ECONNREFUSED 127.0.0.5:8000`**（前端严格晚于后端就绪）。只想单独起后端时仍可用「后端：本地全套（脚本）」单项，但该项是调试会话、会占终端。
 
 **断点口径**（脚本起的服务是分离后台进程，**不带调试器**）：
 
 | 目标               | 做法                                                                                                                                                                                                                                                                                                                                |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 前端（Vue / TS）   | 用「全套（本地三服务 + 宿主 + Chromium）」里的 Chrome 调试会话，或单项「前端：宿主 + 模块 + Chromium（浏览器断点）」——**断点直接可用**                                                                                                                                                                                       |
-| 后端（Python）     | ① `本地全套.py stop <服务>` 腾出该服务；② 启动「后端：单服务（debugpy · 本机三服务）」——`backend\ops\dev_run.py` 在**导入服务前**注入 `BMS_SERVER__HOST=<别名>` / `PORT=8000` / `BMS_REDIS__URL` 与开发密钥，再 `runpy` 进服务入口 ⇒ 断点 / 变量 / 调用栈与 `python -m bms_<服务>` 一致（`justMyCode: false` 可步入框架与基座）；③ 调试完 `本地全套.py up` 补回 |
-| 旧「全套：后端单服务 + 宿主 + Chromium」 | **本机三服务形态下别用**：它只起 `bms_identity` 一个、不加载密钥与别名，且前置任务 `清理后端端口（8000）` 会把三服务**全部清掉**                                                                                                                                                                                       |
+| 前端（Vue / TS）   | 用「全套（本机全套 + 宿主 + Chromium）」里的 Chrome 调试会话，或单项「前端：宿主 + 模块 + Chromium（浏览器断点）」——**断点直接可用**                                                                                                                                                                                       |
+| 后端（Python）     | ① `本地全套.py stop <服务>` 腾出该服务；② 启动「后端：单服务（debugpy · 平台三服务）」——`backend\ops\dev_run.py` 在**导入服务前**注入 `BMS_SERVER__HOST=<别名>` / `PORT=8000` / `BMS_REDIS__URL` 与开发密钥，再 `runpy` 进服务入口 ⇒ 断点 / 变量 / 调用栈与 `python -m bms_<服务>` 一致（`justMyCode: false` 可步入框架与基座）；③ 调试完 `本地全套.py up` 补回 |
+| 旧「全套：后端单服务 + 宿主 + Chromium」 | **平台三服务形态下别用**：它只起 `bms_identity` 一个、不加载密钥与别名，且前置任务 `清理后端端口（8000）` 会把三服务**全部清掉**                                                                                                                                                                                       |
 
 ### 8.5 调试排障 <a id="debug-trouble"></a>
 
@@ -394,10 +394,10 @@ python3 scripts\tools\dev\本地全套.py down            # 停全部：TERM →
 | 点「全套」弹「正在等待 preLaunchTask」，但服务其实已经起来      | background 就绪正则没匹配上：vite 在终端里输出的是带 ANSI 颜色码的 `Local` + `ESC[22m` + `:`，字面 `Local:` 并不存在 → `endsPattern` 必须写成 `Local.*https?://`（两处 `tasks.json` 的 vite 任务已如此）                                                                         |
 | 启动即报端口被占（5173 / 8000）                                 | 上一次遗留的 dev / 调试进程未退出：5173 由前置任务 `dev:清理宿主端口（5173）` 自愈、8000 由 `dev:清理后端端口（8000）` 自愈；**占用者为非本项目进程时任务会中止并提示**（不误杀）                                                                                                  |
 | 点「全套」弹「任务尚未退出，并且未定义 problemMatcher」         | 该 background 任务的 `command` 里混了准备动作，耗时超出就绪等待窗口：点「仍要调试」可继续；根治是把准备动作拆成 `dependsOn` 前置任务（本机两处 `tasks.json` 已如此）                                                                                                              |
-| 本地全套写 hosts 失败                                           | Windows 写 `C:\Windows\System32\drivers\etc\hosts` **需管理员权限**：以管理员身份重跑，或按脚本提示手工追加三个别名行                                                                                                                                                                  |
+| 本地全套提示「hosts 别名未写入」                                | **不影响使用**（2026-10-29 起）：服务间寻址改由声明注入的 `[service_client].endpoints` 覆盖，hosts 只是「与容器同形按服务名解析」的可选便利；要写就用管理员终端追加脚本打印的行                                                                                                     |
 | 前端 vite 报 `http proxy error: /api/v1/auth/refresh` + `ECONNREFUSED 127.0.0.5:8000`（验证码 / SSO 同样被拒） | **identity 没在监听**（tenant / platform 正常时尤其典型）。① `本地全套.py status` 看 identity 行：PID 为 `-`、healthz `000` ⇒ 未起；② 跑 `up` 幂等补起（只补缺的服务）。根因两类：**(a) 服务被 IDE 任务连带强杀**——日志（`%TEMP%\bms-local-stack\identity.log`）里**没有** `Shutting down` 记录即属此列（强杀不走优雅关闭），2026-10-21 已用 `CREATE_BREAKAWAY_FROM_JOB` 根治；**(b) 旧 pid 文件里的 PID 已被别的程序复用**——旧版脚本只看「PID 存活」就判「已在跑」而跳过启动，`status` 还会显示假的 PID；2026-10-21 起改为校验命令行含 `-m bms_<服务>`，复用 PID 在 `status` 里显示 `-` 并提示「无有效 pid」，`down` / `stop` 也只清 pid 文件、**不误杀**被复用的进程 |
-| 本地登录**恒 401**，但三服务 `/healthz`、`/readyz` 都 200  | 本地库里**没有可用账号**（多为 `--reset-db` 重建后未建号）：跑 `python3 scripts\tools\dev\本地全套.py seed`（租户 + 菜单 + 建号 `admin`），或 `seed` 加 `--username/--password`                                                                                                     |
-| 登录报 **502**（`Request failed with status code 502`）          | 前端 `/api` 未就近代理，回落到了 `VITE_API_PROXY`（缺省 `http://localhost:8088`，本机通常无此网关）：确认 `frontend\apps\desktop\.env.local` 有 `VITE_LOCAL_API=tenant=127.0.0.2,platform=127.0.0.4,identity=127.0.0.5`——跑一次 `本地全套.py up`（收尾自动补）或 `本地全套.py env`；**`.env.local` 新增后须让 vite 重载配置**（重启「前端：宿主 dev」任务，或改动任意 config 触发 vite 重启） |
+| 本地登录**恒 401**，但全套服务 `/healthz`、`/readyz` 都 200  | 本地库里**没有可用账号**（多为 `--reset-db` 重建后未建号）：跑 `python3 scripts\tools\dev\本地全套.py seed`（租户 + 菜单 + 建号 `admin`），或 `seed` 加 `--username/--password`                                                                                                     |
+| 登录报 **502**（`Request failed with status code 502`）          | 前端 `/api` 未就近代理，回落到了 `VITE_API_PROXY`（缺省 `http://localhost:8088`，本机通常无此网关）：确认 `frontend\apps\desktop\.env.local` 有 `VITE_LOCAL_API=tenant=127.0.0.2:8000,platform=127.0.0.4:8000,identity=127.0.0.5:8000,mdm=127.0.0.6:8000`——跑一次 `本地全套.py up`（收尾自动补 / 按声明更新）或 `本地全套.py env`；**`.env.local` 新增后须让 vite 重载配置**（重启「前端：宿主 dev」任务，或改动任意 config 触发 vite 重启） |
 | 登录后**刷新 / 深链直开**动态菜单页落 404（如 `/sys/users`、`/sys/roles`） | 路由守卫的动态路由重解析判定曾用 `router.hasRoute(path)`（该 API 参数是路由 **name**，通用页面路由 `name: 'SystemUser'` ≠ `path: '/sys/users'` 时恒假）→ 刷新不重解析、落兜底 404。**2026-10-18 已修**（改按 `router.resolve(path)` 命中的路由记录标识前后对比）；若仍复现，确认宿主代码已更新且 vite 已热更（必要时重启 dev 任务） |
 | 登录报 `20002`「账号或密码错误」 / `20003`「账号已锁定」        | 口令以《[本地资源](../../../用户文档/本地资源.md)》「BMS 应用账号」节的当前登记为准（历史对话 / 旧文档里的口令一律失效；注意浏览器自动填充旧口令）；连续 5 次失败锁 15 分钟，解锁跑 `本地全套.py unlock`，**验验证码请用不存在的账号试错口令**                                 |
 
@@ -431,7 +431,7 @@ python3 scripts\tools\dev\本地全套.py down            # 停全部：TERM →
 
 ```powershell
 cd D:\Develop\bizs\bms
-python3 scripts\tools\dev\本地全套.py up                                            # 起本地三服务（见 8.4）
+python3 scripts\tools\dev\本地全套.py up                                            # 起本机全套（见 8.4）
 python3 scripts\tools\dev\本地全套.py seed --username admin --password '<口令>' --reset-password
 cd frontend
 pnpm --filter @bms/desktop dev                                                      # 起宿主 dev（:5173）
@@ -539,7 +539,7 @@ pnpm --filter @bms/desktop dev                                                  
 | 扩展 / 脚本  | bash + `.sh`（`nohup` / `/tmp`）                                              | PowerShell 7 / Windows Terminal + `.bat` 薄包装（`chcp 65001`）；任务与终端统一 `python3 xxx.py`    |
 | 任务与调试   | `launch.json` 顶层 Linux 默认值（`pnpm`、`bin/python`、Linux Chrome 路径）     | 同一份文件按 **`windows` 平台覆盖**取值（`pnpm.cmd`、`Scripts\python.exe`、Program Files 下 Chrome） |
 | uv 工具链    | 已就绪（`uv run …` 门禁可用）                                                  | **0.12.7**（`Python314\Scripts\uv.exe`，已入用户 PATH；索引 TUNA）                                |
-| 本地全套     | 四服务口径为历史值，现行为三服务（tenant / platform / identity）                | 三服务；hosts 写入需管理员权限，状态目录 `%TEMP%\bms-local-stack`                                  |
+| 本地全套     | 服务清单来自各仓 `deploy/local_stack.toml`（缺省 tenant / platform / identity + mdm） | 按声明装载；寻址经端点覆盖注入、**无需管理员写 hosts**；状态目录 `%TEMP%\bms-local-stack` |
 | 工作区级 `.codebuddy/` | 已生成（工作记忆三件套）                                                | 尚未生成（工作记忆 / 一条龙 / AI 交叉评审口径见 linux 版同名文档对应章节）                         |
 
 ## 12. 检查清单 <a id="checklist"></a>
@@ -552,7 +552,7 @@ pnpm --filter @bms/desktop dev                                                  
 - □ 扩展管理口径明确：扩展目录 `~\.codebuddycn\extensions`、市场 open-vsx、安装用 `buddycn --install-extension`（与 `~\.vscode\extensions` 区分开）
 - □ 文档预览口径明确：html 走内置 HTML 预览（`codebuddy.html.previewEditor`，双击需先设编辑器关联）、`file://` 受限改走 http 静态服务；md mermaid 需 `bierner.markdown-mermaid`
 - □ 运行与调试链路口径明确：两处 `.vscode/` 落点同步维护、`windows` 平台覆盖（`pnpm.cmd` / Program Files 下 Chrome / `Scripts\python.exe`）；dev 类后台任务经 `dependsOn` 前置自愈 5173 与确保 5002；准备动作不写进 background 任务的 `command`；就绪正则容忍 ANSI（`Local.*https?://`）
-- □ 本地全套口径明确：`本地全套.py`（三服务 + loopback 别名 + 开发密钥），hosts 需管理员权限、`seed` 必跑（否则恒 401）
+- □ 本地全套口径明确：`本地全套.py`（按各仓声明装载 + loopback 别名 + 开发密钥），寻址靠端点覆盖（不依赖管理员写 hosts）、`seed` 必跑（否则恒 401）
 - □ 浏览器真机验证口径明确：Playwright MCP 登记于 `~\.codebuddy\mcp.json`（系统 Chrome + `--isolated`）、生效需重启 IDE；结构读 `browser_snapshot` / `browser_find`（`.playwright-mcp\*.yml` 不可依赖）、截图落工作区 `tmp\`、控制台只认预期错误；长会话首选 MCP
 - □ 排障入口齐备：日志三处（扩展 / IDE / 崩溃转储）、`python3` 商店别名、中文编码（GBK）、CLI 未入旧终端 PATH、多开窗口
 - □ 源代码管理面板口径明确：仓库可见性看工作区库 `scm:view:visibleRepositories` 的 `visible` 是否覆盖 `all`，视图显隐看全局库 `workbench.scm.views.state.hidden`（`scm.alwaysShowRepositories` 只降低复发）；看不到仓库按 [10.3](#scm) 处理

@@ -1,0 +1,41 @@
+# 本机裸跑规格（`scripts/tools/dev/本地全套.py` 装载；**不参与**容器部署）
+#
+# 为什么有这个文件：本机裸跑要回答「起哪些进程、各自在哪个回环别名上、用哪个 venv、库落哪」——
+# 这些是**本机开发事实**，不是部署契约（部署口径在 `deploy/compose/` 与 `Dockerfile`）。
+# 原先写死在开发脚本里，接产品仓时脚本就得知道别的仓的路径；改为**各仓自持一份固定路径声明**
+# （仓根 `deploy/local_stack.toml`），脚本扫「本仓 + 工作区平级仓」装载，
+# 平台仓不出现任何产品仓字面，接新产品 = 产品仓加一份声明，脚本零改动。
+#
+# 字段（缺省值见脚本 `_build_spec`）：
+#   key              必填，服务键（= 网关 upstream / 注册清单 module_key 同名，装载期内唯一）
+#   module           必填，启动模块（`python -m <module>`；PID 复用校验按它匹配命令行）
+#   backend          必填，相对仓根的后端工程根（venv 与运行工作目录的基准）
+#   host             必填，回环别名（127.0.0.0/8；服务间寻址由脚本按本表注入
+#                    `[service_client].endpoints`，**不再需要写系统 hosts**）
+#   port             可选，缺省 8000（与容器同形，全栈统一端口 + 别名区分）
+#   db_dir           可选，相对仓根；`--reset-db` 的备份移走范围
+#   frontend_prefix  可选，缺省 = key；写进前端 `VITE_LOCAL_API`（`/api/<前缀>` 就近代理）
+#   env              可选，额外环境变量表
+#   after            可选，启动前置服务键列表（脚本按它分批起：前一批**健康后**再起后一批；
+#                    如产品进程启动期要向平台上报声明，就写 `after = ["platform"]`）
+
+[[services]]
+key = "tenant"
+module = "bms_tenant"
+backend = "backend"
+host = "127.0.0.2"
+db_dir = "../database/bms"
+
+[[services]]
+key = "platform"
+module = "bms_platform"
+backend = "backend"
+host = "127.0.0.4"
+db_dir = "../database/bms"
+
+[[services]]
+key = "identity"
+module = "bms_identity"
+backend = "backend"
+host = "127.0.0.5"
+db_dir = "../database/bms"

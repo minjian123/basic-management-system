@@ -19,6 +19,7 @@ from bms_core.collaboration import (
 )
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList
 from bms_core.core.exceptions import CatalogError, ParamError
+from bms_core.core.service_endpoints import register_service_endpoints, reset_service_endpoints
 from bms_core.services.module_registry import (
     CollaborationRecord,
     CollaborationStatus,
@@ -254,3 +255,15 @@ def test_default_resolver_accepts_custom_template() -> None:
 
     assert target.base_url == "https://mdm.internal:8443"
     assert target.mode == CapabilityMode.REMOTE
+
+
+def test_default_resolver_honors_registered_endpoints() -> None:
+    """默认实现按已登记端点覆盖取基址（本机裸跑：回环别名替代 hosts 服务名）。"""
+    register_service_endpoints(ConcurrentStableFrozenDict({"mdm": "http://127.0.0.6:8000"}))
+    try:
+        target = DomainLayoutTopologyResolver().resolve("org")
+
+        assert target.base_url == "http://127.0.0.6:8000"
+        assert target.service_key == "mdm"
+    finally:
+        reset_service_endpoints()

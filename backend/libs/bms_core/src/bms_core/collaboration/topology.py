@@ -5,8 +5,9 @@
   替换即可，**消费方代码不改**。
 - **过渡默认实现**（`DomainLayoutTopologyResolver`）：业务域 → **该域的承载服务键**，取值来自
   「域 → 服务键」登记视图（装载期由各仓 `deploy/boundaries/domain_layout.json` 派生，
-  见 `bms_core.services.module_registry.service_key_for_domain`）；基址按既有模板
-  （`DEFAULT_BASE_URL_TEMPLATE`），`mode` 恒 `remote`，`db_keys` 为空集（租户上下文归 07C）。
+  见 `bms_core.services.module_registry.service_key_for_domain`）；基址取「已登记端点覆盖 →
+  基址模板派生」两段（与服务间调用同口径，见 `bms_core.core.service_endpoints`），
+  `mode` 恒 `remote`，`db_keys` 为空集（租户上下文归 07C）。
 - **失败语义**：域未登记 → 抛 `CatalogError`（装载期已校验，运行期属配置漂移，同属拒启级）。
 """
 
@@ -15,7 +16,7 @@ from typing import Protocol
 from bms_core.collaboration.base import CapabilityMode, CapabilityTarget
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.objects import BaseFrameworkObject
-from bms_core.servicecall.base import DEFAULT_BASE_URL_TEMPLATE
+from bms_core.servicecall.base import DEFAULT_BASE_URL_TEMPLATE, service_base_url
 from bms_core.services.module_registry import service_key_for_domain
 
 __all__ = [
@@ -52,7 +53,8 @@ class DomainLayoutTopologyResolver(BaseFrameworkObject):
         """初始化解析器。
 
         Args:
-            base_url_template: 基址模板（占位 `{service}`；缺省沿用既有服务间调用模板）。
+            base_url_template: 基址模板（占位 `{service}`；缺省沿用既有服务间调用模板；
+                该服务已登记端点覆盖时优先取覆盖）。
         """
         self._base_url_template = base_url_template
 
@@ -78,7 +80,7 @@ class DomainLayoutTopologyResolver(BaseFrameworkObject):
             mode=CapabilityMode.REMOTE,
             unit_key=domain,
             service_key=service_key,
-            base_url=self._base_url_template.format(service=service_key).rstrip("/"),
+            base_url=service_base_url(service_key, self._base_url_template),
         )
 
 

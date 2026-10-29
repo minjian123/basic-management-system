@@ -20,15 +20,15 @@
   //    而 dev server 其实已经跑起来了；
   //  - **后端 8000 自愈**：`dev:清理后端端口（8000）`（普通任务，非 background）供 `后端：单服务（debugpy ·
   //    选服务）` 的 `preLaunchTask` 复用——重开「全套」不必先手动停上一次调试会话（否则 Address already in use）；
-  //  - **本地裸跑后端＝本机开发主形态**：`dev:后端本地全套（三服务）` 调 `python3 scripts/tools/dev/本地全套.py up`，
-  //    起 tenant / platform / identity 三服务（**同一 8000 端口 + loopback 别名**，与服务基址模板
+  //  - **本地裸跑后端＝本机开发主形态**：`dev:后端本地全套` 调 `python3 scripts/tools/dev/本地全套.py up`，
+  //    按各仓声明起全套服务（**同一 8000 端口 + loopback 别名**，与服务基址模板
   //    `http://{service}:8000` 同形；SQLite 本地库 + 内存缓存，自愈 hosts 别名与 `deploy/.dev-keys.local`；
-  //    `org` 已随组织主数据归 mdm 产品服务，不再纳管）。**容器 / mjbk 只在发布验证时用**（开发机部署说明）；
-  //    停服务用 `dev:后端本地全套·停（三服务）`（TERM → 5s → KILL，仍不死则报错交人工）。
-  //    注意：`清理宿主端口.py 8000 backend` 会连**三服务**一并清掉，故起本地全套请用上述任务，
+  //    `org` 服务已退役、组织主数据由 mdm 产品服务承载，本机全套按声明纳管产品服务）。**容器 / mjbk 只在发布验证时用**（开发机部署说明）；
+  //    停服务用 `dev:后端本地全套·停`（TERM → 5s → KILL，仍不死则报错交人工）。
+  //    注意：`清理宿主端口.py 8000 backend` 会连**全套服务**一并清掉，故起本地全套请用上述任务，
   //    别再用旧的 `后端：单服务` 项（它只起 1 个服务、且不加载密钥与别名）；
   //  - **后端断点**：上述任务起的是**后台进程（不带调试器）**——要断点用 launch 的
-  //    「后端：单服务（debugpy · 本机三服务）」（经 `ops/dev_run.py` 注入别名 / 密钥 / Redis）；
+  //    「后端：单服务（debugpy · 平台三服务）」（经 `ops/dev_run.py` 注入别名 / 密钥 / Redis）；
   //    先 `python3 scripts/tools/dev/本地全套.py stop <服务>` 腾出该服务，调试完 `up` 一键补回
   //    （**前端断点**用新 compound 即可）；
   //  - 运行时模块本地联调口径（阶段五 `03_02` §3.7）：宿主按 `public/modules.json` 加载**发布归档**，
@@ -81,11 +81,11 @@
     },
     {
       "label": "dev:宿主 + 模块产物（5002 + 5173）",
-      "detail": "宿主加载运行时模块的前置组合：先起三服务（静默，缺则拉起并等健康）→ 清理 5173 → 确保 5002 在跑 → 起宿主 dev；前端不再早于后端就绪而报 ECONNREFUSED",
+      "detail": "宿主加载运行时模块的前置组合：先起全套服务（静默，缺则拉起并等健康）→ 清理 5173 → 确保 5002 在跑 → 起宿主 dev；前端不再早于后端就绪而报 ECONNREFUSED",
       "type": "shell",
       "command": "pnpm dev",
       "options": { "cwd": "${workspaceFolder}/frontend/apps/desktop" },
-      "dependsOn": ["dev:后端本地全套（三服务）", "dev:清理宿主端口（5173）", "dev:确保模块产物服务（5002）"],
+      "dependsOn": ["dev:后端本地全套", "dev:清理宿主端口（5173）", "dev:确保模块产物服务（5002）"],
       "dependsOrder": "sequence",
       "isBackground": true,
       "presentation": { "reveal": "silent", "panel": "dedicated" },
@@ -173,11 +173,11 @@
       "problemMatcher": []
     },
     {
-      // 本机开发主形态：本地裸跑三服务（无需 Docker / mjbk）。脚本幂等（已在监听则跳过），并自愈
+      // 本机开发主形态：本地裸跑全套服务（无需 Docker / mjbk）。脚本幂等（已在监听则跳过），并自愈
       // hosts 别名与开发密钥；Redis 缺省指远端开发机 DB5，可用 `BMS_LOCAL_REDIS=...` 覆盖，
       // 库结构变更后用 `本地全套.py up --reset-db`（会先备份移走 database/bms/bms_*.db）。
-      "label": "dev:后端本地全套（三服务）",
-      "detail": "python3 scripts/tools/dev/本地全套.py up —— tenant/platform/identity（127.0.0.2/4/5:8000，同一端口 + 别名）；服务已脱离 IDE 任务容器（Windows BREAKAWAY），关掉本终端不停止服务",
+      "label": "dev:后端本地全套",
+      "detail": "python3 scripts/tools/dev/本地全套.py up —— 按各仓 deploy/local_stack.toml 装载（缺省 tenant/platform/identity/mdm，127.0.0.2/4/5/6:8000，同一端口 + 别名）；服务已脱离 IDE 任务容器（Windows BREAKAWAY），关掉本终端不停止服务",
       "type": "shell",
       "command": "python3 \"${workspaceFolder}/scripts/tools/dev/本地全套.py\" up",
       "options": { "cwd": "${workspaceFolder}" },
@@ -185,7 +185,7 @@
       "problemMatcher": []
     },
     {
-      "label": "dev:后端本地全套·停（三服务）",
+      "label": "dev:后端本地全套·停",
       "detail": "python3 scripts/tools/dev/本地全套.py down（TERM → 5s → KILL；仍不死则报错交人工，绝不无限等）",
       "type": "shell",
       "command": "python3 \"${workspaceFolder}/scripts/tools/dev/本地全套.py\" down",

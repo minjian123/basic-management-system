@@ -3,18 +3,23 @@
 
 为什么这样起（口径）：
 - 开发态配置（`backend/config.dev.toml`）本就是 SQLite + 内存缓存 + 字典/参数走 SQL，**不依赖容器**；
-- 服务间调用基址模板是 `http://{service}:8000`（`[service_client].options.base_url_template`），
-  故本机给每个服务一个 loopback 别名（`127.0.0.2 tenant` …）+ **统一 8000 端口**，与容器形态同形；
+- 服务间调用基址模板是 `http://{service}:8000`，故本机给每个服务一个 loopback 别名
+  （`127.0.0.2 tenant` …）+ **统一 8000 端口**，与容器形态同形；别名到地址的映射由本脚本按声明
+  注入 `[service_client].endpoints`（**不再需要写系统 hosts**，也就不再需要管理员权限）；
 - `require_auth` 支持「本地 Bearer 用户令牌」路径、`[edge].require_gateway_identity = false`
   ⇒ 不经网关直连服务可行；前端由 `VITE_LOCAL_API`（见 `env` 子命令）按服务就近代理。
 
+**服务清单来自各仓自持声明**（固定路径 `deploy/local_stack.toml`）：脚本扫「本仓 + 工作区平级仓」
+装载——平台仓不出现产品仓字面，接新产品 = 产品仓加一份声明、脚本零改动。缺省起**全部已声明服务**，
+`--services` 只作过滤（调试单服务 / 腾位用）。
+
 用法: python3 本地全套.py <up|down|stop|status|seed|env|logs|unlock> [选项]
 （Linux 同名 .sh / Windows 同名 .bat 均为转调本文件的薄包装；逻辑只维护在这里。）
-  up                起服务（幂等；已在跑则跳过）+ 自愈 hosts 别名 / 开发密钥，并等待健康；
-                    收尾自动确保 `.env.local` 的 `VITE_LOCAL_API`（同 env 子命令，缺则补、有则只提示）
+  up                起服务（幂等；已在跑则跳过）+ 自愈开发密钥，并等待健康；
+                    收尾自动确保 `.env.local` 的 `VITE_LOCAL_API`（同 env 子命令，缺则补、旧则按声明更新）
   down              停本脚本起的服务（仅按 pid 文件；`--force` 才连带清理 IDE 起的同名进程）
   stop <服务名...>  只停指定服务（其余保持纳管）——供「用 debugpy 调试某服务」时腾出该服务
-  status            进程与 /healthz、/readyz 一览
+  status            进程与 /healthz、/readyz 一览（含服务所属仓）
   seed              幂等种子：租户注册库 + 菜单元数据 + 建号（缺省账号 admin；口令随机生成并打印一次）
   env               确保 `frontend/apps/desktop/.env.local` 含 `VITE_LOCAL_API` 本地服务映射（up 已自动调用）
   logs [服务名]     打印日志尾部（缺省全部服务；追看用 tail -f）
@@ -23,38 +28,42 @@
                      别拿真账号连试错密码，否则真账号被锁 20003「账号已锁定」）
 
 选项:
-  --services "a b c"   要起的服务（缺省 tenant platform identity）
+  --services "a b c"   只起 / 只操作这些服务（缺省 = 全部已声明服务；键见 status）
   --redis URL          Redis 连接串（缺省远端开发机 DB5 的 redis://<开发机>:6379/5）
-  --reset-db           起服务前把 `database/bms/bms_*.db` 备份移走（库结构/表归属变更后必须，否则 catalog 校验失败）
+  --reset-db           起服务前把各服务声明的库目录（`database/<仓>`）里的 `*.db` 备份移走
+                       （库结构 / 表归属变更后必须，否则 catalog 校验失败）
   --username NAME      建号账号（缺省 admin）
   --password PASS      建号口令（缺省**随机生成并仅打印一次**）
   --reset-password     建号时重置既有账号口令
-  --force              down 时连带清理本机全部 `python -m bms_*` 进程
+  --force              down 时连带清理本机全部本栈 python 进程
 
 账号: `seed` 缺省建 `admin`，口令缺省随机生成并**仅打印一次**——**凭据只登记在
       《bms文档/用户文档/本地资源.md》「BMS 应用账号」节（凭据不入库、不写入其他文档，见《AI开发规范》）**；
       起栈后若登录 401，先看是否漏跑 seed。
 
 状态目录: ${BMS_LOCAL_STATE_DIR:-/tmp/bms-local-stack}（pid 与日志；Windows 缺省为 %TEMP%\\bms-local-stack）
-退出码: 0 = 成功；1 = 失败（含健康等待超时）；2 = 参数错误
+退出码: 0 = 成功；1 = 失败（含健康等待超时）；2 = 参数 / 声明错误
 
 平台口径（Linux / Windows 双平台）：
-- 解释器：Linux 用 `backend/.venv/bin/python`，Windows 用 `backend\\.venv\\Scripts\\python.exe`；
-- loopback 别名：两平台对 127.0.0.0/8 整段可绑定，无需额外加地址；仅需 hosts 别名
-  （Linux 经 sudo tee 写 /etc/hosts；Windows 写 hosts 文件需管理员权限，失败时提示手工追加）；
+- 解释器：各服务取自己声明的后端工程根下 `.venv`（Linux `bin/python`、Windows `Scripts/python.exe`）；
+- loopback 别名：两平台对 127.0.0.0/8 整段可绑定，无需额外加地址；**无需 hosts 别名**
+  （寻址覆盖经 `[service_client].endpoints` 注入；`up` 只在缺别名时提示，不阻断）；
 - 后台进程：Linux 用新会话（等价 nohup），Windows 用分离进程；停止口径同为 TERM → 5s → 强杀 → 2s；
 - 子进程枚举：Linux 用 /proc；Windows 服务本体为单进程，不枚举子进程。
 """
 
 import contextlib
+import ipaddress
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 import urllib.error
 import urllib.request
 
@@ -63,31 +72,32 @@ PREFIX = "[本地全套]"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
+WORKSPACE_ROOT = os.path.dirname(ROOT)
 BACKEND = os.path.join(ROOT, "backend")
-DB_DIR = os.path.normpath(os.path.join(ROOT, "..", "database", "bms"))
+DECLARATION_REL = os.path.join("deploy", "local_stack.toml")
+"""各仓自持的本机运行声明（固定路径；脚本扫本仓 + 工作区平级仓装载）。"""
 FRONTEND_ENV = os.path.join(ROOT, "frontend", "apps", "desktop", ".env.local")
 STATE_DIR = os.environ.get("BMS_LOCAL_STATE_DIR") or (
     os.path.join(tempfile.gettempdir(), "bms-local-stack") if IS_WINDOWS else "/tmp/bms-local-stack"
 )
 KEYS_FILE = os.path.join(ROOT, "deploy", ".dev-keys.local")
-"""开发密钥文件（`${ROOT}/deploy/.dev-keys.local`）。
+"""开发密钥文件（${ROOT}/deploy/.dev-keys.local）。
 
-落仓级 `deploy/`、不落 `backend/` 根：后端根只放受跟踪的工程文件，本地产物 / 凭据一律进
-`deploy/`、`.cache/` 或工作区 `tmp/`（2026-10-26 拍板）。
+落仓级 deploy/、不落 backend/ 根：后端根只放受跟踪的工程文件，本地产物 / 凭据一律进
+deploy/、.cache/ 或工作区 tmp/（2026-10-26 拍板）。本机全套生成一次，各服务子进程继承。
 """
 PY = (
     os.path.join(BACKEND, ".venv", "Scripts", "python.exe")
     if IS_WINDOWS
     else os.path.join(BACKEND, ".venv", "bin", "python")
 )
+"""平台后端解释器（种子 / 解锁等运维步骤走它；服务进程各用自己的声明解释器）。"""
 PORT = os.environ.get("BMS_LOCAL_PORT") or "8000"
 # Windows 进程创建标志：脱离 IDE 任务所在的 Job Object（否则关任务终端 / 重启 IDE 会连带强杀服务）
 CREATE_BREAKAWAY_FROM_JOB = 0x01000000
 
-SERVICES_DEFAULT = "tenant platform identity"
-# 说明：`org` 已随组织主数据归 mdm 产品服务（2026-10-07，bms 11_01）退出平台服务清单，
-# 本机全套不再纳管（mdm 组织域服务在本机跑法随 mdm 仓工程骨架另定）。
-SERVICES = SERVICES_DEFAULT
+SERVICES = ""
+"""`--services` 过滤（空串 = 全部已声明服务）。"""
 REDIS_URL = os.environ.get("BMS_LOCAL_REDIS") or "redis://192.168.0.107:6379/5"
 RESET_DB = 0
 USERNAME = "admin"
@@ -95,11 +105,14 @@ PASSWORD = ""
 RESET_PASSWORD = 0
 FORCE = 0
 try:
-    HEALTH_TIMEOUT = int(os.environ.get("BMS_LOCAL_HEALTH_TIMEOUT") or "45")
+    HEALTH_TIMEOUT = int(os.environ.get("BMS_LOCAL_HEALTH_TIMEOUT") or "60")
 except ValueError:
-    HEALTH_TIMEOUT = 45
+    HEALTH_TIMEOUT = 60
 
-_IP_MAP = {"tenant": "127.0.0.2", "platform": "127.0.0.4", "identity": "127.0.0.5"}
+_KEY_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
+"""服务键形态（小写字母开头，允许数字 / 下划线 / 连字符；与网关 upstream / 清单 module_key 同名）。"""
+_MODULE_TOKEN_RE = re.compile(r"(?:^|\s)-m\s+(\S+)")
+"""命令行里 `-m <模块>` 的模块名（PID 复用校验与残留进程识别用）。"""
 
 
 def configure_stdio():
@@ -125,19 +138,199 @@ def usage_stderr():
     print(__doc__.strip(), file=sys.stderr)
 
 
-def services_list():
-    return SERVICES.split()
+# ---- 声明装载 ----
 
 
-def ip_of(svc):
-    """服务 → loopback 别名（与服务基址模板 http://{service}:8000 同形）。"""
-    return _IP_MAP.get(svc, "")
+class SpecError(Exception):
+    """声明装载失败（声明缺失 / 字段非法 / 服务键冲突）。"""
 
 
-def py_ok():
-    if not os.path.isfile(PY):
-        return False
-    return True if IS_WINDOWS else os.access(PY, os.X_OK)
+class ServiceSpec:
+    """一个服务的本机运行规格（由各仓 `deploy/local_stack.toml` 装载）。
+
+    只承载「本机怎么跑」的开发事实（模块 / venv 基准 / 回环别名 / 库目录 / 前端前缀），
+    不含部署契约；缺省值在 `_build_spec` 收口，声明里写最小必要项即可。
+    """
+
+    def __init__(
+        self,
+        repo_root,
+        declaration,
+        key,
+        module,
+        backend,
+        host,
+        port,
+        db_dir,
+        frontend_prefix,
+        extra_env,
+        after,
+    ):
+        self.repo_root = repo_root
+        self.declaration = declaration
+        self.key = key
+        self.module = module
+        self.backend = backend
+        self.host = host
+        self.port = port
+        self.db_dir = db_dir
+        self.frontend_prefix = frontend_prefix
+        self.extra_env = extra_env
+        self.after = after
+        # 启动前置服务键（须先健康、本服务才能起：如产品进程启动期要向平台上报声明）
+
+    @property
+    def repo_name(self):
+        """所属仓目录名（status 展示 / 排障定位用）。"""
+        return os.path.basename(self.repo_root)
+
+    @property
+    def python(self):
+        """服务解释器（各仓自己的后端 venv）。"""
+        if IS_WINDOWS:
+            return os.path.join(self.backend, ".venv", "Scripts", "python.exe")
+        return os.path.join(self.backend, ".venv", "bin", "python")
+
+    @property
+    def address(self):
+        """监听地址（`别名:端口`）。"""
+        return f"{self.host}:{self.port}"
+
+    def problems(self):
+        """启动前置检查（依赖是否就位）；返回问题清单（空 = 可起）。"""
+        found = []
+        if not os.path.isdir(self.backend):
+            found.append(f"后端工程根不存在：{self.backend}")
+        if not os.path.isfile(self.python):
+            found.append(f"缺后端虚拟环境：{self.python}（先在该仓跑 uv sync）")
+        return found
+
+
+def _text(raw, field, declaration):
+    """取声明里的必填非空字符串字段。"""
+    value = raw.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise SpecError(f"缺字段 / 值非法：{field}（{declaration}）")
+    return value.strip()
+
+
+def _build_spec(repo_root, declaration, raw):
+    """把一条 `[[services]]` 归一为 `ServiceSpec`（缺省值在此收口，非法即抛 `SpecError`）。"""
+    if not isinstance(raw, dict):
+        raise SpecError(f"[[services]] 条目必须是表（{declaration}）")
+    key = _text(raw, "key", declaration)
+    if not _KEY_RE.match(key):
+        raise SpecError(f"服务键形态非法：{key!r}（小写字母开头，允许数字 / 下划线 / 连字符）")
+    module = _text(raw, "module", declaration)
+    backend = os.path.normpath(os.path.join(repo_root, _text(raw, "backend", declaration)))
+    host = _text(raw, "host", declaration)
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError as exc:
+        raise SpecError(f"host 不是合法 IP：{host!r}（{exc}）") from exc
+    if not address.is_loopback:
+        raise SpecError(f"host 须为回环地址（127.0.0.0/8）：{host!r}")
+    port = str(raw.get("port", PORT)).strip()
+    if not port.isdigit():
+        raise SpecError(f"port 须为数字：{raw.get('port')!r}")
+    db_dir = raw.get("db_dir")
+    if db_dir is not None and (not isinstance(db_dir, str) or not db_dir.strip()):
+        raise SpecError(f"db_dir 须为非空相对路径：{db_dir!r}")
+    resolved_db = os.path.normpath(os.path.join(repo_root, db_dir.strip())) if db_dir else ""
+    prefix = raw.get("frontend_prefix") or key
+    if not isinstance(prefix, str) or not prefix.strip():
+        raise SpecError(f"frontend_prefix 须为非空字符串：{prefix!r}")
+    extra_env = raw.get("env") or {}
+    if not isinstance(extra_env, dict):
+        raise SpecError("env 须为表（键 = 环境变量名，值 = 字符串）")
+    env_pairs = {}
+    for env_key, env_value in extra_env.items():
+        if not isinstance(env_key, str) or not env_key.strip() or not isinstance(env_value, str):
+            raise SpecError(f"env 条目须为「字符串键 → 字符串值」：{env_key!r}")
+        env_pairs[env_key.strip()] = env_value
+    after = raw.get("after") or []
+    if not isinstance(after, list) or not all(isinstance(item, str) and item.strip() for item in after):
+        raise SpecError(f"after 须为服务键字符串列表：{after!r}")
+    return ServiceSpec(
+        repo_root=repo_root,
+        declaration=declaration,
+        key=key,
+        module=module,
+        backend=backend,
+        host=host,
+        port=port,
+        db_dir=resolved_db,
+        frontend_prefix=prefix.strip(),
+        extra_env=env_pairs,
+        after=[item.strip() for item in after],
+    )
+
+
+def declaration_paths():
+    """待装载的声明路径：本仓固定路径 + 工作区平级仓的同名固定路径（去重、保序）。"""
+    paths = []
+    own = os.path.join(ROOT, DECLARATION_REL)
+    if os.path.isfile(own):
+        paths.append(own)
+    try:
+        entries = sorted(os.listdir(WORKSPACE_ROOT))
+    except OSError:
+        entries = []
+    for entry in entries:
+        candidate = os.path.join(WORKSPACE_ROOT, entry, DECLARATION_REL)
+        if os.path.isfile(candidate) and candidate not in paths:
+            paths.append(candidate)
+    return paths
+
+
+def load_specs():
+    """装载全部声明（本仓优先，平级仓按目录名序）；任何非法项汇总后一次性报错。"""
+    paths = declaration_paths()
+    if not paths:
+        raise SpecError(f"未找到本机运行声明（各仓固定路径 {DECLARATION_REL}）")
+    specs = {}
+    problems = []
+    for path in paths:
+        repo_root = os.path.dirname(os.path.dirname(path))
+        try:
+            with open(path, "rb") as fh:
+                data = tomllib.load(fh)
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            problems.append(f"{path}：读取失败（{exc}）")
+            continue
+        entries = data.get("services")
+        if not isinstance(entries, list) or not entries:
+            problems.append(f"{path}：缺少 [[services]] 段")
+            continue
+        for raw in entries:
+            try:
+                spec = _build_spec(repo_root, path, raw)
+            except SpecError as exc:
+                problems.append(f"{path}：{exc}")
+                continue
+            if spec.key in specs:
+                problems.append(f"{path}：服务键重复 {spec.key}（已被 {specs[spec.key].declaration} 声明）")
+                continue
+            specs[spec.key] = spec
+    for spec in specs.values():
+        unknown = [dep for dep in spec.after if dep not in specs]
+        if unknown:
+            problems.append(f"{spec.declaration}：{spec.key} 的 after 指向未声明的服务：{' '.join(unknown)}")
+    if problems:
+        raise SpecError("；".join(problems))
+    return specs
+
+
+def select_specs():
+    """按 `--services` 过滤装载结果（空 = 全部；含未声明键即报错）。"""
+    specs = load_specs()
+    wanted = SERVICES.split()
+    if not wanted:
+        return list(specs.values())
+    unknown = [name for name in wanted if name not in specs]
+    if unknown:
+        raise SpecError(f"--services 里有未声明的服务：{' '.join(unknown)}（已声明：{' '.join(specs)}）")
+    return [specs[name] for name in wanted]
 
 
 # ---- 进程工具 ----
@@ -216,12 +409,18 @@ def proc_cmdline_map():
     return procs
 
 
-def is_service_pid(svc, pid, procs=None):
-    """pid 存活**且**确实是本服务进程（命令行含 `-m bms_<svc>`）。
+def module_of(cmdline):
+    """取命令行里的 `-m <模块>`（无则空串；路径分隔符统一后再匹配）。"""
+    match = _MODULE_TOKEN_RE.search(cmdline.replace("\\", "/"))
+    return match.group(1) if match else ""
+
+
+def is_service_pid(module, pid, procs=None):
+    """pid 存活**且**确实是本服务进程（命令行 `-m <模块>` 命中）。
 
     PID 会被系统复用：服务退出后同号被别的程序（如 IDE）拿走，旧逻辑只看 `pid_alive`
     就当成「在跑」⇒ up 跳过、status 假在跑、down 误杀无关进程。命令行取不到时降级为
-    「存活即算」（保持旧行为，避免权限/CIM 异常导致全部判死）。
+    「存活即算」（保持旧行为，避免权限 / CIM 异常导致全部判死）。
     """
     if not pid or not pid_alive(pid):
         return False
@@ -232,7 +431,7 @@ def is_service_pid(svc, pid, procs=None):
     cmdline = procs.get(pid)
     if cmdline is None:
         return False
-    return f"-m bms_{svc}" in cmdline.replace("\\", "/")
+    return module_of(cmdline) == module
 
 
 def children_of(pid):
@@ -328,43 +527,31 @@ def _resolves(svc):
         return False
 
 
-def ensure_hosts():
-    missing = []
-    for svc in services_list():
-        ip = ip_of(svc)
-        if not ip:
-            err(f"未知服务：{svc}（可选 tenant / platform / identity）")
-            return 2
-        if not _resolves(svc):
-            missing.append((svc, ip))
+def ensure_hosts(specs):
+    """尽力补 hosts 别名（**不再必需**：寻址覆盖已由 endpoints 注入）；失败只提示不阻断。"""
+    missing = [(spec.key, spec.host) for spec in specs if not _resolves(spec.key)]
     if not missing:
-        return 0
-    log("补 hosts 别名（服务间基址模板 http://{service}:8000 需要）")
-    lines = ["# BMS 本地多服务寻址（本地全套.py；与服务基址模板 http://{service}:8000 同形）"]
-    lines += [f"{ip} {svc}" for svc, ip in missing]
-    block = "\n".join(lines)
-
+        return
+    block = "\n".join([f"{host} {key}" for key, host in missing])
     if IS_WINDOWS:
         path = _hosts_path()
         try:
             with open(path, "a", encoding="utf-8") as fh:
-                fh.write("\n" + block + "\n")
+                fh.write("\n# BMS 本地多服务寻址（本地全套.py；与服务基址模板 http://{service}:8000 同形）\n")
+                fh.write(block + "\n")
+            log(f"已写入 hosts 别名（{path}）：{' '.join(key for key, _ in missing)}")
         except OSError:
-            err(f"写入 hosts 失败（需管理员权限）：{path}——请以管理员身份重跑，或手工追加：")
+            log("提示：hosts 别名未写入（需管理员权限）——本机全套已按声明注入端点覆盖，不影响联调；")
             print(block, file=sys.stderr)
-            return 1
-        log(f"已写入 {path}")
-        return 0
-
+        return
     result = subprocess.run(
         ["sudo", "-n", "tee", "-a", "/etc/hosts"], input=block + "\n", text=True, capture_output=True
     )
     if result.returncode == 0:
-        log("已写入 /etc/hosts")
-        return 0
-    err("写入 /etc/hosts 失败（需 sudo）——请手工追加：")
-    print(block, file=sys.stderr)
-    return 1
+        log(f"已写入 /etc/hosts：{' '.join(key for key, _ in missing)}")
+    else:
+        log("提示：hosts 别名未写入（需 sudo）——本机全套已按声明注入端点覆盖，不影响联调；")
+        print(block, file=sys.stderr)
 
 
 _KEYS_CODE = """import json
@@ -389,6 +576,13 @@ Path(r"__KEYS_FILE__").write_text("\\n".join([
 ]) + "\\n", encoding="utf-8")
 print("已生成")
 """
+
+
+def py_ok():
+    """平台后端解释器是否就位（种子 / 解锁步骤用）。"""
+    if not os.path.isfile(PY):
+        return False
+    return True if IS_WINDOWS else os.access(PY, os.X_OK)
 
 
 def ensure_keys():
@@ -425,16 +619,26 @@ def load_keys_env():
     return 0
 
 
-def reset_db():
+def reset_db(specs):
+    """按声明的库目录把本地 `*.db` 备份移走（同目录下 `.db-backup-<时间戳>`）。"""
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    backup = os.path.join(DB_DIR, f".db-backup-{stamp}")
-    os.makedirs(backup, exist_ok=True)
-    moved = 0
-    for name in sorted(os.listdir(DB_DIR)):
-        if name.startswith("bms_") and name.endswith(".db"):
-            shutil.move(os.path.join(DB_DIR, name), os.path.join(backup, name))
-            moved += 1
-    log(f"--reset-db：移走 {moved} 个本地库文件 → {backup}（服务启动会按当前表结构重建）")
+    dirs = []
+    for spec in specs:
+        if spec.db_dir and spec.db_dir not in dirs:
+            dirs.append(spec.db_dir)
+    for db_dir in dirs:
+        if not os.path.isdir(db_dir):
+            log(f"--reset-db：库目录不存在，跳过 {db_dir}")
+            continue
+        backup = os.path.join(db_dir, f".db-backup-{stamp}")
+        os.makedirs(backup, exist_ok=True)
+        moved = 0
+        for name in sorted(os.listdir(db_dir)):
+            candidate = os.path.join(db_dir, name)
+            if os.path.isfile(candidate) and name.endswith(".db"):
+                shutil.move(candidate, os.path.join(backup, name))
+                moved += 1
+        log(f"--reset-db：{db_dir} 移走 {moved} 个本地库文件 → {backup}（服务启动会按当前表结构重建）")
 
 
 # ---- 起停 ----
@@ -456,31 +660,42 @@ def open_log_append(log_path, svc):
     return logf
 
 
-def start_one(svc, ip, procs=None):
-    pid_file = os.path.join(STATE_DIR, f"{svc}.pid")
+def endpoints_payload(specs):
+    """按声明生成 `[service_client].endpoints`（服务键 → 基址；注入每个服务子进程）。
+
+    这就是「不必写系统 hosts」的落地：服务间调用与能力寻址都经基座端点覆盖取基址；
+    容器部署不注入（按 Compose DNS 模板派生），两形态行为同构。
+    """
+    return json.dumps({spec.key: f"http://{spec.address}" for spec in specs})
+
+
+def start_one(spec, endpoints, procs=None):
+    pid_file = os.path.join(STATE_DIR, f"{spec.key}.pid")
     pid = read_pid(pid_file) if os.path.isfile(pid_file) else 0
-    if pid and is_service_pid(svc, pid, procs):
-        log(f"{svc} 已在跑（pid {pid}），跳过")
+    if pid and is_service_pid(spec.module, pid, procs):
+        log(f"{spec.key} 已在跑（pid {pid}），跳过")
         return
     if pid and pid_alive(pid):
         # PID 复用：旧服务退出后同号被别的程序（如 IDE）拿走，绝不能当「在跑」跳过
-        log(f"{svc} 旧 pid {pid} 已被其他进程复用（不是本服务）——清残留 pid 文件后重新拉起")
+        log(f"{spec.key} 旧 pid {pid} 已被其他进程复用（不是本服务）——清残留 pid 文件后重新拉起")
     if pid:
         with contextlib.suppress(OSError):
             os.remove(pid_file)
     # 已在监听（例如 IDE 调试起的）→ 接管跳过，避免二次绑定端口失败
-    if http_code(f"http://{ip}:{PORT}/healthz") == "200":
-        log(f"{svc} 已在监听 {ip}:{PORT}（非本脚本启动；未纳管 pid），跳过")
+    if http_code(f"http://{spec.address}/healthz") == "200":
+        log(f"{spec.key} 已在监听 {spec.address}（非本脚本启动；未纳管 pid），跳过")
         return
     # 后台起 python（**不套中间进程**）——否则记到的 pid 是包装进程而非服务本体，
-    # 停服务会打空、留下孤儿进程。cwd 与密钥由 cmd_up 在主进程内设定，子进程自然继承。
-    log_path = os.path.join(STATE_DIR, f"{svc}.log")
+    # 停服务会打空、留下孤儿进程。cwd / 解释器 / 密钥 / 寻址覆盖一律按该服务自己的声明给。
+    log_path = os.path.join(STATE_DIR, f"{spec.key}.log")
     env = dict(os.environ)
+    env.update(spec.extra_env)
     env.update(
         {
-            "BMS_SERVER__HOST": ip,
-            "BMS_SERVER__PORT": PORT,
+            "BMS_SERVER__HOST": spec.host,
+            "BMS_SERVER__PORT": spec.port,
             "BMS_REDIS__URL": REDIS_URL,
+            "BMS_SERVICE_CLIENT__ENDPOINTS": endpoints,
             "PYTHONUNBUFFERED": "1",
         }
     )
@@ -493,13 +708,13 @@ def start_one(svc, ip, procs=None):
     else:
         kwargs["start_new_session"] = True  # nohup 等价（天然脱离父会话）
         candidates = [0]
-    with open_log_append(log_path, svc) as logf:
+    with open_log_append(log_path, spec.key) as logf:
         proc = None
         for flags in candidates:
             try:
                 proc = subprocess.Popen(
-                    [PY, "-m", f"bms_{svc}"],
-                    cwd=BACKEND,
+                    [spec.python, "-m", spec.module],
+                    cwd=spec.backend,
                     env=env,
                     stdin=subprocess.DEVNULL,
                     stdout=logf,
@@ -510,12 +725,12 @@ def start_one(svc, ip, procs=None):
                 break
             except OSError as exc:
                 if flags is candidates[0] and IS_WINDOWS:
-                    log(f"{svc} 无法脱离 IDE 任务容器（{exc}）——退化为普通后台进程：关 IDE 可能被连带停止")
+                    log(f"{spec.key} 无法脱离 IDE 任务容器（{exc}）——退化为普通后台进程：关 IDE 可能被连带停止")
                     continue
                 raise
     with open(pid_file, "w", encoding="utf-8") as fh:
         fh.write(str(proc.pid) + "\n")
-    log(f"{svc} 启动中：{ip}:{PORT}（pid {proc.pid}，日志 {log_path}）")
+    log(f"{spec.key} 启动中：{spec.address}（pid {proc.pid}，仓 {spec.repo_name}，日志 {log_path}）")
 
 
 def stop_pid(svc, pid):
@@ -547,37 +762,29 @@ def stop_pid(svc, pid):
     return 0
 
 
-def wait_all_health():
-    """等待全部健康：单一总超时（不逐服务串行耗满），且**进程已退出 / pid 被复用即立刻报错 + 打印日志尾部**。"""
+def wait_health(specs):
+    """等待这批服务健康：单一总超时（不逐服务串行耗满），且**进程已退出 / pid 被复用即立刻报错 + 打印日志尾部**。"""
     deadline = time.time() + HEALTH_TIMEOUT
     procs = proc_cmdline_map()
     while True:
         pending = []
-        for svc in services_list():
-            ip = ip_of(svc)
-            if http_code(f"http://{ip}:{PORT}/healthz") == "200":
+        for spec in specs:
+            if http_code(f"http://{spec.address}/healthz") == "200":
                 continue
-            pid_file = os.path.join(STATE_DIR, f"{svc}.pid")
+            pid_file = os.path.join(STATE_DIR, f"{spec.key}.pid")
             pid = read_pid(pid_file) if os.path.isfile(pid_file) else 0
             if pid and not pid_alive(pid):
-                err(f"{svc} 进程已退出（pid {pid}）——日志尾部：")
-                tail_log(os.path.join(STATE_DIR, f"{svc}.log"), 20, to_stderr=True)
+                err(f"{spec.key} 进程已退出（pid {pid}）——日志尾部：")
+                tail_log(os.path.join(STATE_DIR, f"{spec.key}.log"), 20, to_stderr=True)
                 return 1
             # 命令行明确采集到但与本服务不符 → PID 已被复用（别傻等满超时）
-            if pid and procs and pid in procs and f"-m bms_{svc}" not in procs[pid].replace("\\", "/"):
-                err(f"{svc} 的 pid {pid} 已被其他进程复用（不是本服务，端口无响应）——日志尾部：")
-                tail_log(os.path.join(STATE_DIR, f"{svc}.log"), 20, to_stderr=True)
+            if pid and procs and pid in procs and module_of(procs[pid]) != spec.module:
+                err(f"{spec.key} 的 pid {pid} 已被其他进程复用（不是本服务，端口无响应）——日志尾部：")
+                tail_log(os.path.join(STATE_DIR, f"{spec.key}.log"), 20, to_stderr=True)
                 return 1
-            pending.append(svc)
+            pending.append(spec.key)
         if not pending:
-            log(f"全部健康（healthz 200）：{SERVICES}")
-            return 0
-        if time.time() >= deadline:
-            err(f"健康等待超时（{HEALTH_TIMEOUT}s），未就绪：{' '.join(pending)} —— 看 {STATE_DIR}/<服务>.log")
-            return 1
-        time.sleep(1)
-        if not pending:
-            log(f"全部健康（healthz 200）：{SERVICES}")
+            log(f"健康就绪（healthz 200）：{' '.join(spec.key for spec in specs)}")
             return 0
         if time.time() >= deadline:
             err(f"健康等待超时（{HEALTH_TIMEOUT}s），未就绪：{' '.join(pending)} —— 看 {STATE_DIR}/<服务>.log")
@@ -588,63 +795,125 @@ def wait_all_health():
 # ---- 子命令 ----
 
 
+def _load_or_report():
+    """装载声明并按 `--services` 过滤；失败时打印原因并返回 (None, 退出码)。"""
+    try:
+        return select_specs(), 0
+    except SpecError as exc:
+        err(f"装载本机运行声明失败：{exc}")
+        return None, 2
+
+
+def _start_in_order(specs, endpoints, procs):
+    """按声明的前置关系分批起：前一批**健康后**再起后一批。
+
+    为什么需要：产品进程启动期要向平台上报声明并拉快照（`bootstrap_declarations`），
+    平台没起来就报「服务不可用：platform（transport）」拒启——并发起全部服务必然踩这个竞态。
+    前置关系由各仓**自己**在声明里写（`after = [...]`），脚本不猜。
+    """
+    selected = {spec.key for spec in specs}
+    for spec in specs:
+        missing = [dep for dep in spec.after if dep not in selected]
+        if missing:
+            log(f"提示：{spec.key} 的前置服务 {' '.join(missing)} 未在本次选择内，跳过等待")
+    pending = list(specs)
+    started = []
+    while pending:
+        ready = [spec for spec in pending if all(dep in started for dep in spec.after if dep in selected)]
+        if not ready:
+            err(f"启动顺序无法推进（循环依赖）：{' '.join(spec.key for spec in pending)}")
+            return 1
+        for spec in ready:
+            start_one(spec, endpoints, procs)
+        if wait_health(ready):
+            return 1
+        started.extend(spec.key for spec in ready)
+        pending = [spec for spec in pending if spec not in ready]
+    return 0
+
+
 def cmd_up():
     ensure_dirs()
-    if not py_ok():
-        err(f"缺后端虚拟环境：{PY}（先跑 uv sync）")
+    specs, rc = _load_or_report()
+    if specs is None:
+        return rc
+    problems = [f"{spec.key}：{msg}" for spec in specs for msg in spec.problems()]
+    if problems:
+        err("启动前置检查未通过：")
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
         return 1
     if ensure_keys():
         return 1
-    rc = ensure_hosts()
-    if rc:
-        return rc
+    ensure_hosts(specs)
     if RESET_DB:
-        reset_db()
-    # 切到 backend 并加载开发密钥（服务子进程继承 cwd 与已导出的环境变量；脚本其余路径全用绝对路径）
-    os.chdir(BACKEND)
+        reset_db(specs)
     if load_keys_env():
         return 1
+    endpoints = endpoints_payload(specs)
     procs = proc_cmdline_map()
-    for svc in services_list():
-        start_one(svc, ip_of(svc), procs)
-    if wait_all_health():
+    if _start_in_order(specs, endpoints, procs):
         return 1
     # 收尾自动补齐前端 `.env.local`：缺 `VITE_LOCAL_API` 时前端 `/api` 会回落 VITE_API_PROXY 网关
-    # （本机通常无该网关）⇒ 登录 502；此处幂等（已存在则只提示，不覆盖）。
+    # （本机通常无该网关）⇒ 登录 502；此处按声明幂等维护（缺则补、旧则更新）。
     if cmd_env():
         return 1
     log("全套已就绪；前端请在 IDE 跑「前端：宿主 dev」")
     return 0
 
 
-def find_unmanaged_backend_pids():
-    """等价 pgrep -f '\\.venv/bin/python -m bms_'（Windows 走 CIM 命令行匹配）。"""
+def find_unmanaged_backend_pids(specs):
+    """本栈但未被纳管的后端进程（IDE 调试起的同款服务）。"""
+    modules = {spec.module for spec in specs.values()}
     procs = proc_cmdline_map()
-    return sorted(pid for pid, cmdline in procs.items() if "-m bms_" in cmdline.replace("\\", "/"))
+    found = []
+    for pid, cmdline in procs.items():
+        module = module_of(cmdline)
+        if not module:
+            continue
+        if module.startswith("bms_") or module in modules:
+            found.append(pid)
+    return sorted(found)
 
 
 def cmd_down():
     ensure_dirs()
+    try:
+        specs = load_specs()
+    except SpecError as exc:
+        err(f"装载本机运行声明失败（改为只按残留 pid 文件清理）：{exc}")
+        specs = {}
     rc = 0
-    seen = set()
-    for svc in (SERVICES_DEFAULT + " " + SERVICES).split():
-        if svc in seen:
-            continue
-        seen.add(svc)
-        pid_file = os.path.join(STATE_DIR, f"{svc}.pid")
+    for spec in specs.values():
+        pid_file = os.path.join(STATE_DIR, f"{spec.key}.pid")
         if not os.path.isfile(pid_file):
             continue
         pid = read_pid(pid_file)
-        if pid and is_service_pid(svc, pid):
-            if stop_pid(svc, pid):
+        if pid and is_service_pid(spec.module, pid):
+            if stop_pid(spec.key, pid):
                 rc = 1
         elif pid and pid_alive(pid):
-            err(f"{svc} 的 pid {pid} 已被其他进程复用——只清残留 pid 文件，不动该进程（避免误杀）")
+            err(f"{spec.key} 的 pid {pid} 已被其他进程复用——只清残留 pid 文件，不动该进程（避免误杀）")
         else:
-            log(f"{svc} 已不在跑（残留 pid 文件，清理）")
+            log(f"{spec.key} 已不在跑（残留 pid 文件，清理）")
         with contextlib.suppress(OSError):
             os.remove(pid_file)
-    rest = find_unmanaged_backend_pids()
+    # 声明里已不存在的服务（如产品仓移出工作区）留下的 pid 文件：死进程清文件、活进程交人工
+    for name in sorted(os.listdir(STATE_DIR)):
+        if not name.endswith(".pid"):
+            continue
+        svc = name[: -len(".pid")]
+        if svc in specs:
+            continue
+        pid_file = os.path.join(STATE_DIR, name)
+        pid = read_pid(pid_file)
+        if pid and pid_alive(pid):
+            err(f"{svc} 无声明但仍有进程（pid {pid}）——请人工确认后处理；本次不动它")
+            continue
+        log(f"{svc} 无声明且已不在跑（清理残留 pid 文件）")
+        with contextlib.suppress(OSError):
+            os.remove(pid_file)
+    rest = find_unmanaged_backend_pids(specs)
     if rest:
         if FORCE:
             log(f"--force：逐个停剩余进程：{' '.join(str(p) for p in rest)}")
@@ -661,30 +930,34 @@ def cmd_down():
 def cmd_stop(names):
     ensure_dirs()
     if not names:
-        err("用法：本地全套.py stop <服务名...>（如 stop identity）")
+        err("用法：本地全套.py stop <服务名...>（如 stop identity / stop mdm）")
         return 2
-    rc = 0
+    specs, rc = _load_or_report()
+    if specs is None:
+        return rc
+    by_key = {spec.key: spec for spec in specs}
     stopped = 0
     for svc in names:
         if svc.startswith("bms_"):
             svc = svc[len("bms_") :]
-        if not ip_of(svc):
-            err(f"未知服务：{svc}（可选 tenant / platform / identity）")
+        spec = by_key.get(svc)
+        if spec is None:
+            err(f"未知服务：{svc}（已声明：{' '.join(by_key)}）")
             rc = 2
             continue
-        pid_file = os.path.join(STATE_DIR, f"{svc}.pid")
+        pid_file = os.path.join(STATE_DIR, f"{spec.key}.pid")
         if not os.path.isfile(pid_file):
-            err(f"{svc} 未被本脚本纳管（无 pid 文件）——若它由 IDE 调试启动，请在 IDE 里停止")
+            err(f"{spec.key} 未被本脚本纳管（无 pid 文件）——若它由 IDE 调试启动，请在 IDE 里停止")
             rc = 1
             continue
         pid = read_pid(pid_file)
-        if pid and is_service_pid(svc, pid):
-            if stop_pid(svc, pid):
+        if pid and is_service_pid(spec.module, pid):
+            if stop_pid(spec.key, pid):
                 rc = 1
         elif pid and pid_alive(pid):
-            err(f"{svc} 的 pid {pid} 已被其他进程复用——只清残留 pid 文件，不动该进程（避免误杀）")
+            err(f"{spec.key} 的 pid {pid} 已被其他进程复用——只清残留 pid 文件，不动该进程（避免误杀）")
         else:
-            log(f"{svc} 已不在跑（清理残留 pid 文件）")
+            log(f"{spec.key} 已不在跑（清理残留 pid 文件）")
         with contextlib.suppress(OSError):
             os.remove(pid_file)
         stopped += 1
@@ -695,21 +968,23 @@ def cmd_stop(names):
 
 def cmd_status():
     ensure_dirs()
+    specs, rc = _load_or_report()
+    if specs is None:
+        return rc
     procs = proc_cmdline_map()
-    print(f"{'服务':<10} {'地址':<12} {'PID':<8} {'healthz':<9} readyz")
+    print(f"{'服务':<10} {'仓':<8} {'地址':<16} {'PID':<8} {'healthz':<9} readyz")
     stale = []
-    for svc in services_list():
-        ip = ip_of(svc)
-        pid_file = os.path.join(STATE_DIR, f"{svc}.pid")
+    for spec in specs:
+        pid_file = os.path.join(STATE_DIR, f"{spec.key}.pid")
         pid = read_pid(pid_file) if os.path.isfile(pid_file) else 0
-        if pid and is_service_pid(svc, pid, procs):
+        if pid and is_service_pid(spec.module, pid, procs):
             shown = str(pid)
         else:
             shown = "-"
-            stale.append(svc)
-        health = http_code(f"http://{ip}:{PORT}/healthz") or "000"
-        ready = http_code(f"http://{ip}:{PORT}/readyz") or "000"
-        print(f"{svc:<10} {ip + ':' + PORT:<12} {shown:<8} {health:<9} {ready}")
+            stale.append(spec.key)
+        health = http_code(f"http://{spec.address}/healthz") or "000"
+        ready = http_code(f"http://{spec.address}/readyz") or "000"
+        print(f"{spec.key:<10} {spec.repo_name:<8} {spec.address:<16} {shown:<8} {health:<9} {ready}")
     if stale:
         print(f"\n提示：{' '.join(stale)} 无有效 pid（进程已退出 / pid 被复用）——需要时跑 up 补起")
     return 0
@@ -742,6 +1017,7 @@ def cmd_seed():
         rc = 1
     # 内置角色与授权 + bootstrap 绑定（依赖上一步的动作码与已建账号）：把建出的账号绑到内置系统管理员，
     # 命中权限引擎豁免层级，使本地开发对全部 `require_permission` 端点开箱可用。
+    # 产品（如组织主数据）的种子按清单 `[[seeds]]` 声明由平台种子编排装载，无需在此另跑。
     log(f"种子：内置角色与授权（角色域 platform 租户库）+ 绑定 {USERNAME} → 内置系统管理员")
     if _run_py(["-m", "ops.seed_rbac", "--assign-user", USERNAME]):
         rc = 1
@@ -797,35 +1073,60 @@ def cmd_unlock():
 
 
 def cmd_env():
-    mapping = ",".join(f"{svc}={ip_of(svc)}" for svc in ("tenant", "platform", "identity"))
+    specs, rc = _load_or_report()
+    if specs is None:
+        return rc
+    mapping = ",".join(f"{spec.frontend_prefix}={spec.address}" for spec in specs)
+    line = f"VITE_LOCAL_API={mapping}"
     if os.path.isfile(FRONTEND_ENV):
         with open(FRONTEND_ENV, encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if line.startswith("VITE_LOCAL_API="):
-                    log(f"已存在 VITE_LOCAL_API：{line.rstrip()}")
-                    return 0
+            lines = fh.readlines()
+        for index, existing in enumerate(lines):
+            if not existing.startswith("VITE_LOCAL_API="):
+                continue
+            if existing.strip() == line:
+                log(f"已存在 VITE_LOCAL_API：{line}")
+                return 0
+            lines[index] = line + "\n"
+            with open(FRONTEND_ENV, "w", encoding="utf-8") as fh:
+                fh.writelines(lines)
+            log(f"已更新 {FRONTEND_ENV}：{line}（服务清单来自各仓声明；重启「前端：宿主 dev」生效）")
+            return 0
     os.makedirs(os.path.dirname(FRONTEND_ENV), exist_ok=True)
     with open(FRONTEND_ENV, "a", encoding="utf-8") as fh:
         fh.write("\n")
         fh.write(
-            "# 本机裸跑后端时的服务直连映射（由 scripts/tools/dev/本地全套.py env 维护；"
-            "未列出的服务走 VITE_API_PROXY）\n"
+            "# 本机裸跑后端时的服务直连映射（由 scripts/tools/dev/本地全套.py env 按各仓 "
+            "deploy/local_stack.toml 维护；未列出的服务走 VITE_API_PROXY）\n"
         )
-        fh.write(f"VITE_LOCAL_API={mapping}\n")
-    log(f"已写入 {FRONTEND_ENV}：VITE_LOCAL_API={mapping}")
+        fh.write(line + "\n")
+    log(f"已写入 {FRONTEND_ENV}：{line}")
     return 0
 
 
 def cmd_logs(names):
     ensure_dirs()
-    targets = names[0].split() if names and names[0] else services_list()
+    try:
+        specs = load_specs()
+    except SpecError as exc:
+        err(f"装载本机运行声明失败：{exc}")
+        return 2
+    if names and names[0]:
+        wanted = names[0].split()
+        unknown = [name for name in wanted if name not in specs]
+        if unknown:
+            err(f"未知服务：{' '.join(unknown)}（已声明：{' '.join(specs)}）")
+            return 2
+        targets = wanted
+    else:
+        targets = list(specs)
     for svc in targets:
         print(f"===== {svc} =====")
-        path = os.path.join(STATE_DIR, f"{svc}.log")
-        if os.path.isfile(path):
-            tail_log(path, 40)
+        log_path = os.path.join(STATE_DIR, f"{svc}.log")
+        if os.path.isfile(log_path):
+            tail_log(log_path, 40)
         else:
-            print(f"（无日志 {path}）")
+            print(f"（无日志 {log_path}）")
     return 0
 
 

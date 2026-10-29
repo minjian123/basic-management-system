@@ -19,7 +19,10 @@ from bms_core.servicecall.base import (
     ServiceResponse,
     build_service_url,
     get_service_client,
+    register_service_endpoints,
+    reset_service_endpoints,
     resolve_rate_limit_key,
+    service_base_url,
     service_dependency,
     validate_service_request,
 )
@@ -42,7 +45,10 @@ __all__ = [
     "ServiceResponse",
     "build_service_url",
     "get_service_client",
+    "register_service_endpoints",
+    "reset_service_endpoints",
     "resolve_rate_limit_key",
+    "service_base_url",
     "service_dependency",
     "validate_service_request",
 ]

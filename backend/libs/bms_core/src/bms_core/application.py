@@ -58,6 +58,7 @@ from bms_core.core.logging import configure_logging, get_logger
 from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.resources import ResourceManager
 from bms_core.core.service import ServiceIdentity, attach_service
+from bms_core.core.service_endpoints import register_service_endpoints, reset_service_endpoints
 from bms_core.db.bootstrap import ensure_unit_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
@@ -135,13 +136,17 @@ async def _validate_service_catalog(app: FastAPI) -> None:
     if not records:
         logger.warning("service_catalog_empty", hint="服务目录无登记行，跳过接库校验")
         return
+    # 常量维度对账的取数面：**平台行 + 本产品行**（其余产品行归各自进程 / 注册通道）
+    product_key = cast("str | None", app.state.service_product_key)
+    catalog = _scope_catalog(cast("ModuleRegistry", app.state.module_registry).catalog_records(), product_key)
+    records = _scope_catalog(records, product_key)
     own_keys: ConcurrentStableSet[str] | None = None
     if not is_catalog_authority(identity.name):
         # 产品进程：对账基准只含「平台自身行 + 本产品行」。常量里其他产品的行归各自进程注册，
         # 计入会让每个产品进程启动即报「库中缺登记行」（07B `04_02` 重开补正）。
         own_keys = ConcurrentStableSet(record.module_key for record in injected_service_records())
     errors = validate_catalog(
-        cast("ModuleRegistry", app.state.module_registry).catalog_records(),
+        catalog,
         records,
         service_key=identity.name,
         contract_version=identity.contract_version,
@@ -150,6 +155,27 @@ async def _validate_service_catalog(app: FastAPI) -> None:
     if errors:
         logger.critical("service_catalog_invalid", scope="database", errors=errors)
         raise CatalogError("服务目录校验失败：" + "；".join(errors))
+
+
+def _scope_catalog(
+    records: ConcurrentStableList[ModuleRecord], product_key: str | None
+) -> ConcurrentStableList[ModuleRecord]:
+    """取常量维度对账的取数面：平台自身行 + 本产品行（其余产品行不在本进程责任内）。
+
+    口径（07B `04_02` 重开补正）：平台常量只承载**平台自身行**，产品行经注册通道按**声明方作用域**
+    对账（`02_06`）。不划这一刀的话，任一产品注册后**平台重启**即报「库中登记行不在清单：<产品>」，
+    产品进程也会因别的产品的行不在本进程视图里而误报——两者都属「拿别人的责任范围判自己」。
+
+    Args:
+        records: 目录行（库快照或应用级视图）。
+        product_key: 本进程产品标识（平台进程为 None，只保留平台行）。
+
+    Returns:
+        ConcurrentStableList[ModuleRecord]: 取数面内的行（插入序）。
+    """
+    return ConcurrentStableList(
+        record for record in records if not record.product_key or record.product_key == product_key
+    )
 
 
 async def _validate_capability_usages(app: FastAPI) -> None:
@@ -300,6 +326,9 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """
     settings = get_settings()
     validate_startup(settings)
+    # 服务端点覆盖（本机裸跑寻址补充）：装配前登记，服务间调用与能力寻址同口径取用
+    # （容器部署 endpoints 为空表，行为与未引入覆盖时一致）；收尾复位，避免同进程多次装配互相污染。
+    register_service_endpoints(settings.service_client.endpoints)
     for message in pool_budget_warnings(settings):
         get_logger("bms_core.db").warning("pool_budget_exceeded", detail=message)
     for message in tenant_pool_budget_warnings(settings, settings.tenant.engine_max_active):
@@ -343,6 +372,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     except Exception:
         # 启动失败前释放已装配资源（含引擎连接池），避免失败路径残留资源
         await cast("ResourceManager", app.state.resources).aclose()
+        reset_service_endpoints()
         raise
     app.state.startup_complete = True
     try:
@@ -350,6 +380,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     finally:
         app.state.startup_complete = False
         await cast("ResourceManager", app.state.resources).aclose()
+        reset_service_endpoints()
 
 
 StartupHook = Callable[[FastAPI], Awaitable[None]]

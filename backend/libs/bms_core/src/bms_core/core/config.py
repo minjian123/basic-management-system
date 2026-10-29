@@ -31,6 +31,7 @@ from sqlalchemy.engine import make_url
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.paths import resolve_backend_root
+from bms_core.core.service_endpoints import normalize_service_endpoints
 from bms_core.permission.profile import DEFAULT_PROFILE, ensure_profile_supported, normalize_profile
 from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
@@ -727,6 +728,34 @@ class IdentityProviderSettings(PluginSelection):
     """钉钉授权确认方式。"""
 
 
+class ServiceClientSettings(PluginSelection):
+    """服务间同步调用配置（`[service_client]`；在能力选择之外追加**端点覆盖**）。
+
+    `endpoints` 是寻址补充，不是实现参数：容器部署按 `base_url_template` 派生（`http://{service}:8000`，
+    Compose / K8s 服务名即 DNS）无需覆盖；**本机裸跑**各服务在回环别名上、`{service}` 名字要靠系统 hosts
+    解析（写 hosts 需管理员权限），此时给「服务键 → 基址」覆盖即可，跨平台一致且不动系统文件。
+    空表（缺省）表示完全按模板派生，行为与引入本字段前一致。
+    """
+
+    endpoints: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT
+    )
+    """服务端点覆盖（服务键 → 基址；空表 = 按 `base_url_template` 派生）。"""
+
+    @model_validator(mode="after")
+    def _validate_endpoints(self) -> ServiceClientSettings:
+        """校验端点覆盖合法（非法即拒启，不静默回落模板）。
+
+        Returns:
+            ServiceClientSettings: 自身。
+
+        Raises:
+            ConfigError: 服务键为空，或基址不是 `http(s)://` 绝对地址。
+        """
+        normalize_service_endpoints(self.endpoints)
+        return self
+
+
 class ServiceTokenSettings(PluginSelection):
     """服务 JWT 自签配置（`[service_token]`；私钥只走环境变量 / Secret，不写入配置文件）。"""
 
@@ -1168,7 +1197,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
     search_index: PluginSelection = Field(default_factory=PluginSelection)
-    service_client: PluginSelection = Field(default_factory=PluginSelection)
+    service_client: ServiceClientSettings = Field(default_factory=ServiceClientSettings)
     service_token: ServiceTokenSettings = Field(default_factory=ServiceTokenSettings)
     session: SessionSettings = Field(default_factory=SessionSettings)
     session_security: PluginSelection = Field(default_factory=PluginSelection)

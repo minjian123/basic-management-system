@@ -257,6 +257,52 @@ async def test_lifespan_rejects_catalog_conflicts(
     assert any("service_catalog_invalid" in message for message in logs.messages)
 
 
+def _product_row(module_key: str = "mdmdemo", product_key: str = "mdm") -> ModuleRecord:
+    """产品行（由产品进程经注册通道登记；不在平台常量的责任范围内）。
+
+    Args:
+        module_key: 服务键。
+        product_key: 所属产品标识。
+
+    Returns:
+        ModuleRecord: 产品行。
+    """
+    return ModuleRecord(
+        module_key=module_key,
+        name="产品服务",
+        table_prefix=f"{module_key}_",
+        event_domain=module_key,
+        service_group=ServiceGroup.PRODUCT,
+        product_key=product_key,
+    )
+
+
+@pytest.mark.kiwi_id(2163)
+async def test_lifespan_ignores_registered_product_rows(catalog_db_url: str) -> None:
+    """平台进程：库中产品行（产品自己注册的）不参与常量维度对账，平台重启不因它拒启。
+
+    回归点（07B `04_02` 重开补正）：产品注册后平台重启曾报「库中登记行不在清单：<产品>」。
+    """
+    await _write_records(catalog_db_url, ConcurrentStableList([*SERVICE_CATALOG, _product_row()]))
+    app = _create_app()
+
+    async with service_lifespan(app):
+        pass
+
+
+@pytest.mark.kiwi_id(2163)
+async def test_lifespan_product_process_ignores_other_products(
+    catalog_db_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """产品进程：别的产品的行不在本进程视图里也不算漂移（对账只对平台行 + 本产品行）。"""
+    records = ConcurrentStableList([*SERVICE_CATALOG, _product_row()])
+    _stub_snapshot(monkeypatch, records)
+    app = _create_app(service="identity")
+
+    async with service_lifespan(app):
+        pass
+
+
 def _stub_snapshot(monkeypatch: pytest.MonkeyPatch, records: ConcurrentStableList[ModuleRecord]) -> None:
     """以桩替换快照取数（模拟非目录权威服务经契约取到的清单）。
 

@@ -32,6 +32,11 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseHttpResponseContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
+from bms_core.core.service_endpoints import (
+    register_service_endpoints,
+    reset_service_endpoints,
+    service_base_url,
+)
 from bms_core.ratelimit.base import RateLimitRule, build_rate_limit_key
 from bms_core.services.service_contract import service_enabled
 
@@ -49,7 +54,10 @@ __all__ = [
     "ServiceResponse",
     "build_service_url",
     "get_service_client",
+    "register_service_endpoints",
+    "reset_service_endpoints",
     "resolve_rate_limit_key",
+    "service_base_url",
     "service_dependency",
     "validate_service_request",
 ]
@@ -204,16 +212,19 @@ def validate_service_request(request: ServiceRequest) -> None:
 
 
 def build_service_url(request: ServiceRequest, base_url_template: str = DEFAULT_BASE_URL_TEMPLATE) -> str:
-    """按基址模板拼装目标地址（含查询串）。
+    """按基址拼装目标地址（含查询串）。
+
+    基址取「已登记端点覆盖 → 基址模板派生」两段（覆盖见 `bms_core.core.service_endpoints`；
+    容器部署无覆盖、按模板走 Compose DNS，本机裸跑由开发脚本注入覆盖）。
 
     Args:
         request: 调用请求。
-        base_url_template: 基址模板（占位 `{service}`）。
+        base_url_template: 基址模板（占位 `{service}`；未登记覆盖时生效）。
 
     Returns:
         str: 目标地址（`{基址}{path}`，附查询串）。
     """
-    base = base_url_template.format(service=request.service).rstrip("/")
+    base = service_base_url(request.service, base_url_template)
     url = f"{base}{request.path}"
     if request.query:
         url = f"{url}?{urlencode(request.query)}"
