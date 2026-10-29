@@ -3,14 +3,22 @@
 
 用法::
 
-    python3 scripts/tools/preflight/check_preflight.py [bms 仓库根] [--fast|--full]
+    python3 scripts/tools/preflight/check_preflight.py [bms 仓库根] [--fast|--push|--full]
+                                                    [--allow-dirty]
                                                     [--no-scope] [--no-cov]
                                                     [--jobs auto|N|off]
                                                     [--budget-seconds N] [--step-seconds N]
                                                     [--self-test]
 
+档位：无参即 `--fast`（只静态 + 护栏）；`--push` 为推送前定向档（静态 + 定向用例 + 覆盖率门禁）；
+`--full` 为全量档（隐含 `--push`）。
+
+闸门：预检是**推送前门禁**，工作树有未提交改动（含未跟踪文件）即拒绝执行、零步骤执行——开发中改完即测
+请用 `测试改动内容.py`（开发环）；确需在脏树上验证护栏本身，显式加 `--allow-dirty`（**只对快速档开放**；
+定向 / 全量档必须干净树），并记入 `.cache/preflight/audit.jsonl` 审计。
+
 步骤清单在仓根 `engkit.toml` 的 `[[preflight.steps]]` 声明；口径见 engkit 文档
-《工程化工具包说明》与《AI开发规范》「重命令不重跑」「覆盖率要求」节。
+《工程化工具包说明》与《AI开发规范》「重命令不重跑」「开发环 / 推送环」节。
 """
 
 from __future__ import annotations

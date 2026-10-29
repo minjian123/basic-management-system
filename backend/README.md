@@ -62,8 +62,9 @@ uv run python -m ops.check_modules                            # 模块注册清�
 cd .. && python3 scripts/tools/base_check/check_base.py        # 基座自检（须在仓库根）
 python3 scripts/tools/base_check/check_service_boundaries.py  # 服务边界护栏（共享库 / 服务依赖、分层单向、表 / 表前缀跨服务唯一）
 python3 scripts/tools/check_docs/check_status.py              # 需求 / 任务 / 计划状态一致性
-python3 scripts/tools/preflight/check_preflight.py            # 一键本地预检：缺省定向档（静态 + 基座/边界 + 受影响工程用例 + 变更源文件覆盖率门禁）
-                                                              #   --fast 秒级只静态 / 基座；--full 才跑全量（本地不缺省跑全量，全量交 CI）
+python3 scripts/tools/preflight/check_preflight.py --push     # 推送前预检（静态 + 基座/边界 + 受影响工程用例 + 变更源文件覆盖率门禁）
+                                                              #   无参 = 快速档（只静态 + 护栏）；--full 才跑全量（全量交 CI）
+                                                              #   场景闸门：工作树脏即拒（开发中用 scripts/tools/preflight/测试改动内容.py）
 ```
 
 ## 依赖与版本

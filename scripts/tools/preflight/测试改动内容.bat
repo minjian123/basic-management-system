@@ -1,7 +1,7 @@
 @echo off
 rem Dev loop entry (Windows): run only git-changed related tests
 rem backend direct-dependency tests + affected frontend packages + changed-file ruff
-rem coverage and full static checks stay in pre-push preflight: scripts\tools\preflight\check_preflight.py
+rem coverage and full static checks stay in pre-push preflight: scripts\tools\preflight\check_preflight.py --push
 setlocal
 set "SCRIPT_DIR=%~dp0"
 

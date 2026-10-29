@@ -21,12 +21,18 @@
 #
 # 用法（在 bms 仓库根）
 #   python3 scripts/tools/preflight/测试改动内容.py           # 开发环：只跑 git 改动相关（推荐改 bug 即测）
-#   python3 scripts/tools/preflight/check_preflight.py            # 推送前定向档（静态 + 护栏 + 定向用例 + 覆盖率）
-#   python3 scripts/tools/preflight/check_preflight.py --fast     # 秒级自检（跳过测试段，自测全跑）
-#   python3 scripts/tools/preflight/check_preflight.py --full     # 全量档（显式申请）
+#   python3 scripts/tools/preflight/check_preflight.py            # 无参 = 快速档（只静态 + 护栏 + 自测，分钟级）
+#   python3 scripts/tools/preflight/check_preflight.py --push     # 推送前定向档（静态 + 护栏 + 定向用例 + 覆盖率）
+#   python3 scripts/tools/preflight/check_preflight.py --full     # 全量档（显式申请，隐含 --push）
 #   python3 scripts/tools/preflight/check_preflight.py --no-cov   # 跳过覆盖率门禁
 #   python3 scripts/tools/preflight/check_preflight.py --jobs 4   # 并行档位（auto 缺省 / 正整数 / off）
 #   python3 scripts/tools/preflight/check_preflight.py --self-test
+#   python3 scripts/tools/preflight/check_preflight.py --allow-dirty --fast   # 脏树上验证护栏本身（仅快速档）
+#
+# 场景闸门（2026-10-29 起）：预检是**推送前门禁**，不是开发中的反馈环。工作树有未提交改动（含未跟踪文件）
+# 即拒绝执行、零步骤执行，提示改用开发环；确需在脏树上验证护栏本身，加 `--allow-dirty`（**只对快速档
+# 开放**，定向 / 全量档必须干净树），并记入 `.cache/preflight/audit.jsonl` 审计：真跑 / 被拒 / 绕过三类
+# 事件，写盘失败 fail-open。
 #
 # 开发环口径（`测试改动内容.py`，等价 `engkit run-changed`）：依赖深度 direct（不做传递闭包、
 # 不退化工程级全量）、不采集覆盖率、只对改动文件跑 ruff、前端只跑直接命中包；间接依赖与覆盖率
