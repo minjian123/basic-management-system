@@ -40,6 +40,7 @@ from bms_core.models.platform.user import SysUser
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.base import BRANCH_PREPARED, BRANCH_REJECTED, BranchRef, GlobalTransaction
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.role.services.role_assignment import dedupe as _dedupe
 from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.schemas.users import (
@@ -56,9 +57,9 @@ from bms_platform.domains.user.services.user_assignments import (
     UserAssignmentWriter,
     _branch_state,  # pyright: ignore[reportPrivateUsage]
     _clean_optional,  # pyright: ignore[reportPrivateUsage]
-    _dedupe,  # pyright: ignore[reportPrivateUsage]
     resolve_org_endpoints,
 )
+from bms_platform.wiring import role_assignment, role_query
 
 pytestmark = [pytest.mark.kiwi_id(2278)]
 
@@ -141,8 +142,8 @@ def _writer(session: AsyncSession, outbox: _OutboxSpy, *, guard: SeparationGuard
         cast("Any", session),
         DbUnitOfWork(cast("Any", session)),
         UserRepository(cast("Any", session)),
-        UserRoleRepository(cast("Any", session)),
-        RoleRepository(cast("Any", session)),
+        role_assignment(cast("Any", session), guard=guard),
+        role_query(cast("Any", session)),
         cast("Any", outbox),
         guard,
     )
@@ -583,7 +584,7 @@ class _RolesSpy:
 class _UserRolesSpy:
     """角色分配仓储替身（XA 路径不落库，仅回读）。"""
 
-    async def list_role_ids_by_user(self, user_id: int) -> ConcurrentStableList[int]:
+    async def list_role_ids_of_user(self, user_id: int) -> ConcurrentStableList[int]:
         """取用户直接角色。
 
         Args:

@@ -18,6 +18,7 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.models.platform.role import SysRole
 from bms_platform.domains.platform_registry.sources.dict_source import PlatformDictDataSource
+from bms_platform.wiring import role_reference
 
 
 @pytest_asyncio.fixture
@@ -58,7 +59,7 @@ async def dict_source(
 
     registry = EngineRegistry(EngineFactory(get_settings()))
     try:
-        yield PlatformDictDataSource(engines=registry)
+        yield PlatformDictDataSource(engines=registry, role_options=role_reference)
     finally:
         await registry.aclose()
         get_settings.cache_clear()

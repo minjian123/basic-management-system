@@ -125,11 +125,11 @@ def _write_call_lines(function: ast.FunctionDef | ast.AsyncFunctionDef) -> Concu
     [
         ("role_assign.py", "assign_users"),
         ("role_assignments.py", "_apply_users"),
-        ("user_assignments.py", "_apply_roles"),
+        ("role_assignment.py", "set_user_roles"),
     ],
 )
 def test_assignment_entrypoints_call_guard_before_write(module_name: str, function_name: str) -> None:
-    """三处分配写入口：均调用三权校验，且调用行号早于任何分配写入调用。"""
+    """三处分配写入口：均调用三权校验，且调用行号早于任何分配写入调用（用户侧写入口已收回角色域）。"""
     module = _parse(_find_source(module_name))
     function = _find_function(module, function_name)
 

@@ -174,7 +174,7 @@ class _UserRolesSpy:
         """
         self.role_ids = role_ids
 
-    async def list_role_ids_by_user(self, user_id: int) -> ConcurrentStableList[int]:
+    async def list_role_ids_of_user(self, user_id: int) -> ConcurrentStableList[int]:
         """取用户直接角色主键。
 
         Args:

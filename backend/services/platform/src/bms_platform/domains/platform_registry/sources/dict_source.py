@@ -7,17 +7,19 @@
 - 通用字典表取数可用可直用 / 可继承实现类 `bms_core/dict/table.py::DictTableDataSource`。
 """
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
-
-from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.datasource.base import BaseDictDataSource, DataSourceItem
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
+from bms_platform.domains.role.public import RoleReferencePort
 
-__all__ = ["PlatformDictDataSource"]
+__all__ = ["PlatformDictDataSource", "RoleOptionsFactory"]
+
+RoleOptionsFactory = Callable[[DbSession], RoleReferencePort]
+"""角色引用面工厂（装配处传入，域实现不依赖装配层）。"""
 
 _DATA_SOURCE_KEY_ROLE = "role"
 """本期平台内建示例数据源标识（角色）。"""
@@ -26,13 +28,15 @@ _DATA_SOURCE_KEY_ROLE = "role"
 class PlatformDictDataSource(BaseDictDataSource):
     """平台内建数据源提供者（示例：角色 `sys_role`）。"""
 
-    def __init__(self, *, engines: EngineRegistry) -> None:
+    def __init__(self, *, engines: EngineRegistry, role_options: RoleOptionsFactory) -> None:
         """初始化。
 
         Args:
             engines: 多租户引擎注册表。
+            role_options: 角色引用面工厂（装配处传入）。
         """
         self._engines = engines
+        self._role_options = role_options
 
     @property
     def data_source(self) -> str:
@@ -58,18 +62,13 @@ class PlatformDictDataSource(BaseDictDataSource):
         return ConcurrentStableList(())
 
     async def _load_roles(self) -> ConcurrentStableList[DataSourceItem]:
-        """加载启用角色（`sys_role`）。
+        """加载启用角色（经角色域 `RoleReferencePort`，只取 DTO）。
 
         Returns:
             tuple[DataSourceItem, ...]: 角色条目（value=角色码 / label=名称）。
         """
-        from bms_platform.domains.role.public import SysRole
-
         async with self._session() as session:
-            statement = (
-                select(SysRole).where(SysRole.status == "enabled", SysRole.deleted_at.is_(None)).order_by(SysRole.id)
-            )
-            rows = (await session.execute(statement)).scalars().all()
+            rows = await self._role_options(session).list_options()
         return ConcurrentStableList(
             DataSourceItem(
                 id=row.id,

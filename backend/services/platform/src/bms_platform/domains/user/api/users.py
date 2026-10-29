@@ -49,7 +49,7 @@ from bms_core.transaction.base import (
     get_transaction_manager,
     get_transaction_participant,
 )
-from bms_platform.domains.role.public import RoleRepository, SeparationGuard, SysRole, UserRoleRepository
+from bms_platform.domains.role.public import RoleSummary
 from bms_platform.domains.user.repositories.account_lock import AccountLockRepository
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.schemas.users import (
@@ -73,6 +73,7 @@ from bms_platform.domains.user.services.user_assignments import UserAssignmentsS
 from bms_platform.domains.user.services.user_sessions import UserSessionClient
 from bms_platform.domains.user.services.users import USER_STATUSES, UserQueryService
 from bms_platform.domains.user.services.users_admin import UserAdminService
+from bms_platform.wiring import role_assignment, role_query, separation_guard
 
 router = BaseRouter(
     key="platform_users",
@@ -131,8 +132,8 @@ def _build_service(
         session,
         uow,
         UserRepository(session),
-        UserRoleRepository(session),
-        RoleRepository(session),
+        role_assignment(session),
+        role_query(session),
         AccountLockRepository(session),
         hasher,
         policy,
@@ -195,11 +196,11 @@ def _to_detail(row: SysUser) -> UserDetail:
     )
 
 
-def _to_role_item(role: SysRole) -> UserRoleItem:
+def _to_role_item(role: RoleSummary) -> UserRoleItem:
     """角色记录 → 用户直接角色行。
 
     Args:
-        role: 角色记录。
+        role: 角色摘要（DTO）。
 
     Returns:
         UserRoleItem: 角色行。
@@ -544,22 +545,19 @@ async def apply_user_assignments(
     if req.profile is not None:
         checker.require("user:update")
     session = cast("DbSession", uow.session)
+    guard = separation_guard(session, audit=audit)
     service = UserAssignmentsService(
         writer=UserAssignmentWriter(
             session,
             uow,
             UserRepository(session),
-            UserRoleRepository(session),
-            RoleRepository(session),
+            role_assignment(session, guard=guard),
+            role_query(session),
             outbox,
-            SeparationGuard(
-                roles=RoleRepository(session),
-                user_roles=UserRoleRepository(session),
-                audit=audit,
-            ),
+            guard,
         ),
-        user_roles=UserRoleRepository(session),
-        roles=RoleRepository(session),
+        user_roles=role_assignment(session, guard=guard),
+        roles=role_query(session),
         users=UserRepository(session),
         sessions=UserSessionClient(client),
         cache=cache,

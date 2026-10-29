@@ -22,7 +22,7 @@ import secrets
 import string
 from datetime import UTC, datetime
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import get_current_user_id
 from bms_core.core.exceptions import (
     ConcurrentConflictError,
@@ -43,7 +43,7 @@ from bms_core.models.platform.user import UNLOCK_MODE_AUTO, SysUser
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.security.base import BasePasswordHasher
-from bms_platform.domains.role.public import ROLE_TYPE_CUSTOM, RoleRepository, SysRole, UserRoleRepository
+from bms_platform.domains.role.public import ROLE_TYPE_CUSTOM, RoleAssignmentPort, RoleQueryPort, RoleSummary
 from bms_platform.domains.user.repositories.account_lock import AccountLockRepository
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.services.credentials import parse_password_history
@@ -142,8 +142,8 @@ class UserAdminService(BaseFrameworkObject):
         session: DbSession,
         uow: UnitOfWork,
         users: UserRepository,
-        user_roles: UserRoleRepository,
-        roles: RoleRepository,
+        user_roles: RoleAssignmentPort,
+        roles: RoleQueryPort,
         account_locks: AccountLockRepository,
         hasher: BasePasswordHasher,
         policy: BasePasswordPolicy,
@@ -156,8 +156,8 @@ class UserAdminService(BaseFrameworkObject):
             session: 请求级会话（发件箱与业务数据同事务）。
             uow: 请求级工作单元。
             users: 用户仓储。
-            user_roles: 角色 × 用户分配仓储。
-            roles: 角色仓储（内置判定与角色查看）。
+            user_roles: 角色分配接口（跨域只持协议）。
+            roles: 角色读面接口（内置判定与角色查看）。
             account_locks: 账号锁定记录仓储（删除时闭锁）。
             hasher: 口令哈希器（PBKDF2）。
             policy: 密码策略（复杂度 / 历史）。
@@ -191,23 +191,23 @@ class UserAdminService(BaseFrameworkObject):
         """
         return await self._require(user_id)
 
-    async def list_user_roles(self, user_id: int) -> ConcurrentStableList[SysRole]:
+    async def list_user_roles(self, user_id: int) -> ConcurrentStableList[RoleSummary]:
         """取该用户直接绑定的角色（只读；维护归角色管理）。
 
         Args:
             user_id: 用户主键。
 
         Returns:
-            ConcurrentStableList[SysRole]: 角色列表（按主键升序）。
+            ConcurrentStableList[RoleSummary]: 角色摘要列表（按主键升序）。
 
         Raises:
             UserNotFoundError: 用户不存在或已软删除（30002）。
         """
         await self._require(user_id)
-        role_ids = await self._user_roles.list_role_ids_by_user(user_id)
+        role_ids = await self._user_roles.list_role_ids_of_user(user_id)
         if not role_ids:
             return ConcurrentStableList()
-        return await self._roles.list_by_ids(ConcurrentStableSet(role_ids))
+        return await self._roles.list_by_ids(role_ids)
 
     # ------------------------------------------------------------------ 写操作
 
@@ -450,10 +450,10 @@ class UserAdminService(BaseFrameworkObject):
         actor = get_current_user_id()
         if actor is not None and actor == user.id:
             raise UserProtectedError(f"不得{action}当前操作人自身")
-        role_ids = await self._user_roles.list_role_ids_by_user(user.id)
+        role_ids = await self._user_roles.list_role_ids_of_user(user.id)
         if not role_ids:
             return
-        roles = await self._roles.list_by_ids(ConcurrentStableSet(role_ids))
+        roles = await self._roles.list_by_ids(role_ids)
         for role in roles:
             if role.role_type != ROLE_TYPE_CUSTOM:
                 raise UserProtectedError("内置管理员不可停用 / 删除")

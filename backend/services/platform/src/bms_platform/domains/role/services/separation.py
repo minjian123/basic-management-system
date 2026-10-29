@@ -32,6 +32,7 @@ from bms_core.models.platform.role import (
     SysRole,
 )
 from bms_platform.domains.permission_meta.public import BusinessRepository, PermissionRepository
+from bms_platform.domains.role.dto import RoleSummary
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
 
 ROLE_BUSINESS_CODE = "role"
@@ -156,7 +157,7 @@ class SeparationGuard(BaseFrameworkObject):
             raise UserSeparationConflictError(f"用户已兼任内置管理员，不得再授予：{user_id}")
 
     async def ensure_user_roles_exclusive(
-        self, *, user_ids: ConcurrentStableList[int], roles: ConcurrentStableList[SysRole]
+        self, *, user_ids: ConcurrentStableList[int], roles: ConcurrentStableList[RoleSummary]
     ) -> None:
         """分配路径（全量替换）：目标角色集合自身不得含两类内置管理员（`30010`）。
 

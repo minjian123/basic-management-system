@@ -54,8 +54,10 @@ from bms_platform.domains.permission_meta.permission.source import (
     PlatformPermissionDataSource,
 )
 from bms_platform.domains.role.permission.field_provider import build_static_field_provider
+from bms_platform.domains.role.public import RoleDataScopeEntry, RolePermissionEntry
 from bms_platform.domains.role.repositories.role import UserRoleRepository
 from bms_platform.domains.role.services.permission_subject import DirectRoleResolver
+from bms_platform.wiring import role_grant, role_resolvers
 
 _USER_ID = 1001
 _MENU_ID = 900
@@ -267,7 +269,9 @@ async def _seed(session: AsyncSession) -> None:
     await session.commit()
 
 
-def _source(engine: AsyncEngine, *, with_field_provider: bool = True) -> PlatformPermissionDataSource:
+def _source(
+    engine: AsyncEngine, *, with_field_provider: bool = True, grants_factory: Any = role_grant
+) -> PlatformPermissionDataSource:
     """构造平台侧数据来源（替身注册表 + 真实字段权限 provider）。
 
     Args:
@@ -280,7 +284,10 @@ def _source(engine: AsyncEngine, *, with_field_provider: bool = True) -> Platfor
     return PlatformPermissionDataSource(
         registry=cast("EngineRegistry", _Registry(engine)),
         cache=MemoryCacheRegion(),
-        resolvers_factory=lambda tenant_session: (DirectRoleResolver(UserRoleRepository(tenant_session)),),
+        resolvers_factory=lambda tenant_session: ConcurrentStableList(
+            [DirectRoleResolver(UserRoleRepository(tenant_session))]
+        ),
+        grants_factory=grants_factory,
         field_provider_factory=build_static_field_provider if with_field_provider else None,
         ttl=DEFAULT_METADATA_TTL,
     )
@@ -328,49 +335,67 @@ async def test_load_subject_short_circuits_without_roles(engine: AsyncEngine) ->
 @pytest.mark.kiwi_id(2320)
 async def test_load_subject_skips_unknown_perm_type(engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
     """取数：未登记授权类型的行跳过（不污染授权集合）。"""
-    from bms_core.core.concurrent import ConcurrentStableList as StableList
     from bms_platform.domains.permission_meta.permission import source as source_module
 
     monkeypatch.setattr(source_module, "_PERM_TYPES", (PERM_TYPE_MENU,))
 
-    class _Row:
-        """授权行替身（含未登记类型）。"""
+    class _Grants:
+        """授权读面替身：返回一条已登记类型 + 一条未登记类型。"""
 
-        def __init__(self, perm_type: str, target_id: int) -> None:
-            """初始化。
-
-            Args:
-                perm_type: 授权类型。
-                target_id: 目标主键。
-            """
-            self.perm_type = perm_type
-            self.target_id = target_id
-
-    class _PermRepo:
-        """角色授权仓储替身。"""
-
-        def __init__(self, session: object) -> None:
-            """初始化。
-
-            Args:
-                session: 会话（忽略）。
-            """
-            del session
-
-        async def list_by_roles(self, role_ids: object) -> StableList[object]:
-            """返回含未登记类型的行。
+        async def list_role_types(self, role_ids: object) -> ConcurrentStableDict[int, str]:
+            """角色类型映射（空）。
 
             Args:
                 role_ids: 角色集合（忽略）。
 
             Returns:
-                StableList[object]: 授权行。
+                ConcurrentStableDict[int, str]: 空映射。
             """
             del role_ids
-            return StableList([_Row(PERM_TYPE_MENU, 900), _Row("ghost", 5)])
+            return ConcurrentStableDict()
 
-    monkeypatch.setattr(source_module, "RolePermissionRepository", _PermRepo)
-    data = await _source(engine).load_subject(user_id=_USER_ID)
+        async def list_permission_grants(self, role_ids: object) -> ConcurrentStableList[RolePermissionEntry]:
+            """返回含未登记类型的授权条目。
+
+            Args:
+                role_ids: 角色集合（忽略）。
+
+            Returns:
+                ConcurrentStableList[RolePermissionEntry]: 授权条目。
+            """
+            del role_ids
+            return ConcurrentStableList(
+                [
+                    RolePermissionEntry(id=1, perm_type=PERM_TYPE_MENU, target_id=900, source_menu_id=0),
+                    RolePermissionEntry(id=2, perm_type="ghost", target_id=5, source_menu_id=0),
+                ]
+            )
+
+        async def list_data_scopes(self, role_ids: object) -> ConcurrentStableList[RoleDataScopeEntry]:
+            """数据范围（空）。
+
+            Args:
+                role_ids: 角色集合（忽略）。
+
+            Returns:
+                ConcurrentStableList[RoleDataScopeEntry]: 空清单。
+            """
+            del role_ids
+            return ConcurrentStableList()
+
+    def _grants_factory(session: Any) -> Any:
+        """授权读面工厂替身。
+
+        Args:
+            session: 租户库会话（忽略）。
+
+        Returns:
+            object: 替身读面。
+        """
+        del session
+        return _Grants()
+
+    data = await _source(engine, grants_factory=_grants_factory).load_subject(user_id=_USER_ID)
     assert [(item.perm_type, item.target_id) for item in data.grants] == [(PERM_TYPE_MENU, 900)]
 
 
@@ -414,6 +439,8 @@ async def test_build_platform_source_reads_options() -> None:
     app.state.engine_registry = cast("EngineRegistry", object())
     app.state.cache = MemoryCacheRegion()
     app.state.service_client = cast("BaseServiceClient", object())
+    app.state.role_resolvers_factory = role_resolvers
+    app.state.role_grant_factory = role_grant
     request = Request(scope={"type": "http", "method": "GET", "path": "/x", "headers": [], "app": app})
     source = await build_platform_source(request)
     assert isinstance(source, PlatformPermissionDataSource)
@@ -442,6 +469,8 @@ async def test_build_platform_source_falls_back_on_bad_option_types() -> None:
     app.state.engine_registry = cast("EngineRegistry", object())
     app.state.cache = MemoryCacheRegion()
     app.state.service_client = cast("BaseServiceClient", object())
+    app.state.role_resolvers_factory = role_resolvers
+    app.state.role_grant_factory = role_grant
     request = Request(scope={"type": "http", "method": "GET", "path": "/x", "headers": [], "app": app})
     source = await build_platform_source(request)
     assert source._ttl == DEFAULT_METADATA_TTL  # pyright: ignore[reportPrivateUsage]
@@ -457,6 +486,8 @@ async def test_build_platform_source_tolerates_non_mapping_options() -> None:
     app.state.engine_registry = cast("EngineRegistry", object())
     app.state.cache = MemoryCacheRegion()
     app.state.service_client = cast("BaseServiceClient", object())
+    app.state.role_resolvers_factory = role_resolvers
+    app.state.role_grant_factory = role_grant
     request = Request(scope={"type": "http", "method": "GET", "path": "/x", "headers": [], "app": app})
     source = await build_platform_source(request)
     assert source._ttl == DEFAULT_METADATA_TTL  # pyright: ignore[reportPrivateUsage]

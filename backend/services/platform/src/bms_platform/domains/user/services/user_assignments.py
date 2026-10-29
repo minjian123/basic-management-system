@@ -27,13 +27,11 @@ from bms_core.core.concurrent import (
     ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
-    ConcurrentStableSet,
 )
 from bms_core.core.context import get_current_user_id
 from bms_core.core.exceptions import (
     ConcurrentConflictError,
     ParamError,
-    RoleNotFoundError,
     RoleSubjectInvalidError,
     ServiceUnavailableError,
     TransactionUnavailableError,
@@ -60,10 +58,10 @@ from bms_platform import SERVICE_NAME
 from bms_platform.capabilities import CAPABILITY_MDM_USER_DEPTS, CAPABILITY_MDM_USER_POSTS
 from bms_platform.domains.role.public import (
     ROLE_TYPE_CUSTOM,
-    RoleRepository,
-    SeparationGuard,
-    SysRole,
-    UserRoleRepository,
+    RoleAssignmentPort,
+    RoleQueryPort,
+    RoleSummary,
+    SeparationPort,
 )
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.schemas.users import (
@@ -143,25 +141,6 @@ def _require_pattern(value: str | None, pattern: str, label: str) -> None:
         raise ParamError(f"{label}格式非法")
 
 
-def _dedupe(values: ConcurrentStableList[int]) -> ConcurrentStableList[int]:
-    """入参去重（保持首次出现序）。
-
-    Args:
-        values: 原始主键清单。
-
-    Returns:
-        ConcurrentStableList[int]: 去重后的清单。
-    """
-    seen: ConcurrentStableSet[int] = ConcurrentStableSet()
-    result: ConcurrentStableList[int] = ConcurrentStableList()
-    for item in values:
-        if item in seen:
-            continue
-        seen.add(item)
-        result.add(item)
-    return result
-
-
 def _user_payload(user: SysUser) -> ConcurrentStableDict[str, object]:
     """构造用户事件载荷（`sys.user.*`；不含组织字段）。
 
@@ -190,10 +169,10 @@ class UserAssignmentWriter(BaseFrameworkObject):
         session: DbSession,
         uow: UnitOfWork,
         users: UserRepository,
-        user_roles: UserRoleRepository,
-        roles: RoleRepository,
+        user_roles: RoleAssignmentPort,
+        roles: RoleQueryPort,
         outbox: BaseOutboxStore,
-        guard: SeparationGuard | None = None,
+        guard: SeparationPort | None = None,
     ) -> None:
         """初始化。
 
@@ -201,8 +180,8 @@ class UserAssignmentWriter(BaseFrameworkObject):
             session: 会话（分支同步会话或请求会话；发件箱与业务数据同事务）。
             uow: 工作单元（分支上下文内收敛为 SAVEPOINT）。
             users: 用户仓储。
-            user_roles: 角色 × 用户分配仓储。
-            roles: 角色仓储。
+            user_roles: 角色分配接口（跨域只持协议）。
+            roles: 角色读面接口（跨域只持协议）。
             outbox: 事务性发件箱存储。
             guard: 三权分立校验器（`03_02`；None 时不做互斥校验）。
         """
@@ -300,6 +279,9 @@ class UserAssignmentWriter(BaseFrameworkObject):
     async def _apply_roles(self, user: SysUser, role_ids: ConcurrentStableList[int]) -> None:
         """应用角色分段（全量覆盖：软删集合外 + 恢复 / 新建集合内）。
 
+        写路径已收回角色域（`RoleAssignmentPort.set_user_roles`）：角色存在性校验、职责分离互斥与
+        「软删 → 恢复 → 新建」三段都在角色域内完成，本域只做用户状态前置判定并编排调用。
+
         Args:
             user: 用户记录（生效后状态用于「仅启用用户可分配」判定）。
             role_ids: 角色主键集合（全量）。
@@ -311,24 +293,7 @@ class UserAssignmentWriter(BaseFrameworkObject):
         """
         if user.status != ENABLED_USER_STATUS:
             raise RoleSubjectInvalidError("停用账号不可分配角色 / 岗位 / 部门，请先启用")
-        normalized = _dedupe(role_ids)
-        selected: ConcurrentStableList[SysRole] = ConcurrentStableList()
-        for role_id in normalized:
-            role = await self._roles.get(role_id)
-            if role is None:
-                raise RoleNotFoundError(f"角色不存在：{role_id}")
-            selected.add(role)
-        if self._guard is not None:
-            await self._guard.ensure_user_roles_exclusive(user_ids=ConcurrentStableList([user.id]), roles=selected)
-        await self._user_roles.soft_delete_by_user_except(user.id, ConcurrentStableSet(normalized))
-        for role_id in normalized:
-            if await self._user_roles.get_by_role_user(role_id, user.id) is not None:
-                continue
-            deleted = await self._user_roles.get_deleted_by_role_user(role_id, user.id)
-            if deleted is not None:
-                await self._user_roles.restore(deleted.id)
-            else:
-                await self._user_roles.create(role_id=role_id, user_id=user.id)
+        await self._user_roles.set_user_roles(user.id, role_ids)
 
     async def _assert_not_protected(self, user: SysUser, *, action: str) -> None:
         """校验内置管理员保护与「不得操作自身」。
@@ -343,10 +308,10 @@ class UserAssignmentWriter(BaseFrameworkObject):
         actor = get_current_user_id()
         if actor is not None and actor == user.id:
             raise UserProtectedError(f"不得{action}当前操作人自身")
-        role_ids = await self._user_roles.list_role_ids_by_user(user.id)
+        role_ids = await self._user_roles.list_role_ids_of_user(user.id)
         if not role_ids:
             return
-        roles = await self._roles.list_by_ids(ConcurrentStableSet(role_ids))
+        roles = await self._roles.list_by_ids(role_ids)
         for role in roles:
             if role.role_type != ROLE_TYPE_CUSTOM:
                 raise UserProtectedError("内置管理员不可停用 / 删除")
@@ -371,8 +336,8 @@ class UserAssignmentsService(BaseFrameworkObject):
         self,
         *,
         writer: UserAssignmentWriter,
-        user_roles: UserRoleRepository,
-        roles: RoleRepository,
+        user_roles: RoleAssignmentPort,
+        roles: RoleQueryPort,
         users: UserRepository,
         sessions: UserSessionClient,
         cache: CacheRegion,
@@ -385,8 +350,8 @@ class UserAssignmentsService(BaseFrameworkObject):
 
         Args:
             writer: platform 侧写入器（顺序提交路径使用）。
-            user_roles: 角色 × 用户分配仓储（回读生效后角色）。
-            roles: 角色仓储（回读生效后角色）。
+            user_roles: 角色分配接口（回读生效后角色）。
+            roles: 角色读面接口（回读生效后角色）。
             users: 用户仓储（回读生效后用户）。
             sessions: 用户会话失效客户端（提交后尽力而为）。
             cache: 缓存能力域（角色分配变更后权限版本递增）。
@@ -412,7 +377,7 @@ class UserAssignmentsService(BaseFrameworkObject):
         user_id: int,
         req: UserAssignmentsRequest,
         idempotency_key: str | None = None,
-    ) -> tuple[SysUser, ConcurrentStableList[SysRole], ConcurrentStableList[str]]:
+    ) -> tuple[SysUser, ConcurrentStableList[RoleSummary], ConcurrentStableList[str]]:
         """执行一次用户保存编排。
 
         Args:
@@ -421,7 +386,7 @@ class UserAssignmentsService(BaseFrameworkObject):
             idempotency_key: 业务幂等键（透传给组织域内部写通道 / 分支载荷）。
 
         Returns:
-            tuple[SysUser, ConcurrentStableList[SysRole], ConcurrentStableList[str]]:
+            tuple[SysUser, ConcurrentStableList[RoleSummary], ConcurrentStableList[str]]:
                 生效后用户、生效后直接角色清单、本次参与的分段名。
 
         Raises:
@@ -695,19 +660,19 @@ class UserAssignmentsService(BaseFrameworkObject):
             raise UserNotFoundError("用户不存在")
         return user
 
-    async def _read_roles(self, user_id: int) -> ConcurrentStableList[SysRole]:
+    async def _read_roles(self, user_id: int) -> ConcurrentStableList[RoleSummary]:
         """回读生效后直接角色清单。
 
         Args:
             user_id: 用户主键。
 
         Returns:
-            ConcurrentStableList[SysRole]: 角色清单（按主键升序）。
+            ConcurrentStableList[RoleSummary]: 角色清单（按主键升序）。
         """
-        role_ids = await self._user_roles.list_role_ids_by_user(user_id)
+        role_ids = await self._user_roles.list_role_ids_of_user(user_id)
         if not role_ids:
             return ConcurrentStableList()
-        return await self._roles.list_by_ids(ConcurrentStableSet(role_ids))
+        return await self._roles.list_by_ids(role_ids)
 
 
 def _posts_args(

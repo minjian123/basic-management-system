@@ -61,6 +61,15 @@ class RoleRepository(BaseDbRepository[SysRole]):
         statement = self._select().where(self._column("code") == code)
         return (await self._session.execute(statement)).scalar_one_or_none()
 
+    async def list_enabled(self) -> ConcurrentStableList[SysRole]:
+        """取启用状态的角色（按主键升序；字典数据源用）。
+
+        Returns:
+            ConcurrentStableList[SysRole]: 启用角色清单。
+        """
+        statement = self._select().where(self._column("status") == "enabled").order_by(self._column("id"))
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def list_filtered(
         self,
         query: BasePageQuery,

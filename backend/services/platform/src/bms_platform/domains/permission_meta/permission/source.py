@@ -41,9 +41,7 @@ from bms_platform.domains.role.public import (
     PERM_TYPE_FORM,
     PERM_TYPE_MENU,
     PERM_TYPE_PERMISSION,
-    DataScopeRepository,
-    RolePermissionRepository,
-    RoleRepository,
+    RoleGrantPort,
 )
 
 DEFAULT_METADATA_TTL = 300
@@ -52,10 +50,13 @@ DEFAULT_METADATA_TTL = 300
 _PERM_TYPES: ConcurrentStableList[str] = ConcurrentStableList((PERM_TYPE_MENU, PERM_TYPE_FORM, PERM_TYPE_PERMISSION))
 """授权类型取值（与 `sys_role_permission.perm_type` 一致）。"""
 
-ResolversFactory = Callable[[DbSession], tuple[BaseRoleResolver, ...]]
+ResolversFactory = Callable[[DbSession], ConcurrentStableList[BaseRoleResolver]]
 """解析器工厂：`租户库会话 → 解析器元组`（解析器需要会话，故按会话构造）。"""
 
 FieldProviderFactory = Callable[[DbSession, DbSession], BaseFieldPermissionProvider]
+
+GrantsFactory = Callable[[DbSession], RoleGrantPort]
+"""角色授权读面工厂：`租户库会话 → 授权读面`（实现由装配面注入，域内不依赖装配层）。"""
 """字段权限 provider 工厂：`(租户库会话, 平台库会话) → provider`。"""
 
 
@@ -70,6 +71,7 @@ class PlatformPermissionDataSource(BasePermissionDataSource):
         registry: EngineRegistry,
         cache: CacheRegion,
         resolvers_factory: ResolversFactory,
+        grants_factory: GrantsFactory,
         field_provider_factory: FieldProviderFactory | None = None,
         ttl: int = DEFAULT_METADATA_TTL,
     ) -> None:
@@ -79,6 +81,7 @@ class PlatformPermissionDataSource(BasePermissionDataSource):
             registry: 数据库引擎注册表（按当前租户上下文开库）。
             cache: 缓存能力域（菜单元数据快照缓存）。
             resolvers_factory: 解析器工厂（`租户库会话 → 解析器元组`）。
+            grants_factory: 角色授权读面工厂（`租户库会话 → 授权读面`）。
             field_provider_factory: 字段权限 provider 工厂 `(租户库会话, 平台库会话) → provider`；
                 None 表示字段全开。
             ttl: 元数据快照缓存有效期（秒）。
@@ -86,6 +89,7 @@ class PlatformPermissionDataSource(BasePermissionDataSource):
         self._registry = registry
         self._cache = cache
         self._resolvers_factory = resolvers_factory
+        self._grants_factory = grants_factory
         self._field_provider_factory = field_provider_factory
         self._ttl = ttl
 
@@ -106,17 +110,19 @@ class PlatformPermissionDataSource(BasePermissionDataSource):
             data = PermissionSubjectData(role_ids=role_ids)
             if not role_ids:
                 return data
-            for role in await RoleRepository(tenant_session).list_by_ids(role_ids):
-                data.role_types.set(role.id, role.role_type)
-            for row in await RolePermissionRepository(tenant_session).list_by_roles(role_ids):
-                if row.perm_type in _PERM_TYPES:
-                    data.grants.add(PermissionGrant(perm_type=row.perm_type, target_id=row.target_id))
-            for row in await DataScopeRepository(tenant_session).list_by_roles(role_ids):
+            grants = self._grants_factory(tenant_session)
+            role_id_list = ConcurrentStableList(role_ids)
+            for role_id, role_type in (await grants.list_role_types(role_id_list)).items():
+                data.role_types.set(role_id, role_type)
+            for entry in await grants.list_permission_grants(role_id_list):
+                if entry.perm_type in _PERM_TYPES:
+                    data.grants.add(PermissionGrant(perm_type=entry.perm_type, target_id=entry.target_id))
+            for entry in await grants.list_data_scopes(role_id_list):
                 data.data_scope_rules.add(
                     DataScopeRule(
-                        data_source_key=row.data_source_key,
-                        policy_type=row.policy_type,
-                        config=_stable_rows(row.config),
+                        data_source_key=entry.data_source_key,
+                        policy_type=entry.policy_type,
+                        config=_stable_rows(entry.config),
                     )
                 )
             provider = self._build_field_provider(tenant_session, platform_session)

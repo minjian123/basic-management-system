@@ -192,34 +192,6 @@
     },
     {
       "domain": "role",
-      "symbol": "DataScopeRepository",
-      "kind": "repository",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "DirectRoleResolver",
-      "kind": "service_impl",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "MetadataReferenceRepository",
-      "kind": "repository",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "OrgRoleResolver",
-      "kind": "service_impl",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
       "symbol": "PERM_TYPE_FORM",
       "kind": "constant",
       "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
@@ -248,71 +220,8 @@
     },
     {
       "domain": "role",
-      "symbol": "RolePermissionRepository",
-      "kind": "repository",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "RoleRepository",
-      "kind": "repository",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "SeparationGuard",
-      "kind": "service_impl",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
       "symbol": "StaticFieldPermissionProvider",
       "kind": "service_impl",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "SysDataScope",
-      "kind": "orm",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "SysRole",
-      "kind": "orm",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "SysRoleField",
-      "kind": "orm",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "SysRolePermission",
-      "kind": "orm",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "SysUserRole",
-      "kind": "orm",
-      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
-      "owner": "07C 03_04（本轮 auth / role）"
-    },
-    {
-      "domain": "role",
-      "symbol": "UserRoleRepository",
-      "kind": "repository",
       "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
       "owner": "07C 03_04（本轮 auth / role）"
     },

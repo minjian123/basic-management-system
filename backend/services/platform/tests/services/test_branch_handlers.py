@@ -158,7 +158,7 @@ async def test_role_assignments_handler_skips_absent_segments(
             entry.set("user_ids", user_ids)
             captured.add(entry)
 
-    monkeypatch.setattr(bh, "RoleAssignmentWriter", _WriterStub)
+    monkeypatch.setattr(bh, "role_assignment_writer", lambda **kwargs: _WriterStub())
     registry = build_branch_handlers(service_app)
     handler = registry.resolve(ROLE_ASSIGNMENTS_OP)
     assert handler is not None

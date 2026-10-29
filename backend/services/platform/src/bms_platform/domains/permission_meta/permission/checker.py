@@ -14,7 +14,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from functools import partial
 from typing import Any, cast
 
 from fastapi import Request
@@ -31,14 +32,16 @@ from bms_core.permission.rbac import (
     RbacPermissionChecker,
     register_rbac_permission,
 )
+from bms_core.permission.resolver import BaseRoleResolver
 from bms_core.permission.sources import register_permission_data_source_factory
 from bms_core.servicecall.base import BaseServiceClient
-from bms_platform.domains.permission_meta.permission.source import DEFAULT_METADATA_TTL, PlatformPermissionDataSource
+from bms_platform.domains.permission_meta.permission.source import (
+    DEFAULT_METADATA_TTL,
+    GrantsFactory,
+    PlatformPermissionDataSource,
+)
 from bms_platform.domains.role.public import (
     DEFAULT_FIELD_PERMISSION_PROVIDER_KEY,
-    DirectRoleResolver,
-    OrgRoleResolver,
-    UserRoleRepository,
     build_static_field_provider,
 )
 
@@ -51,6 +54,9 @@ __all__ = [
 
 PLATFORM_DATA_SOURCE_KEY = "platform_permission_data_source"
 """平台侧数据来源标识（与 `PlatformPermissionDataSource.key` 一致）。"""
+
+RoleResolversBuilder = Callable[..., ConcurrentStableList[BaseRoleResolver]]
+"""角色解析器组构造入口（`session` + 装配参数 → 解析器元组；由装配面注入应用状态）。"""
 
 _REGISTERED_REGISTRIES: ConcurrentStableList[object] = ConcurrentStableList()
 """已登记平台侧权限装配的注册表实例清单（按实例幂等；注册表重置后需重新登记）。"""
@@ -98,13 +104,15 @@ async def build_platform_source(request: Request) -> PlatformPermissionDataSourc
         if isinstance(raw_ttl, int) and not isinstance(raw_ttl, bool):
             ttl = raw_ttl
         require_org = bool(options.get("require_org_roles", False))
+    resolvers_builder = cast("RoleResolversBuilder", request.app.state.role_resolvers_factory)
+    grants_factory = cast("GrantsFactory", request.app.state.role_grant_factory)
     return PlatformPermissionDataSource(
         registry=registry,
         cache=cache,
-        resolvers_factory=lambda session: (
-            DirectRoleResolver(UserRoleRepository(session)),
-            OrgRoleResolver(service_client, require_roles=require_org, metrics=metrics),
+        resolvers_factory=partial(
+            resolvers_builder, service_client=service_client, require_org=require_org, metrics=metrics
         ),
+        grants_factory=grants_factory,
         field_provider_factory=build_static_field_provider,
         ttl=ttl,
     )

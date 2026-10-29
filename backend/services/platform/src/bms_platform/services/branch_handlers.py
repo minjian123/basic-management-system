@@ -22,14 +22,13 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.transaction.base import BranchHandlerRegistry
-from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.domains.role.schemas.role import RoleAssignmentProfile
-from bms_platform.domains.role.services.role_assignments import ROLE_ASSIGNMENTS_OP, RoleAssignmentWriter
-from bms_platform.domains.role.services.separation import SeparationGuard
+from bms_platform.domains.role.services.role_assignments import ROLE_ASSIGNMENTS_OP
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.schemas.users import UserAssignmentProfile
 from bms_platform.domains.user.services.user_assignments import USER_ASSIGNMENTS_OP, UserAssignmentWriter
 from bms_platform.services.seed_branch_handlers import register_seed_handlers
+from bms_platform.wiring import role_assignment, role_assignment_writer, role_query, separation_guard
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -199,18 +198,6 @@ def _config_of(app: FastAPI) -> BaseConfigSource:
     )
 
 
-def _separation_guard(session: DbSession) -> SeparationGuard:
-    """构造三权分立校验器（分支处理器无请求上下文：不注入审计捕获器）。
-
-    Args:
-        session: 分支同步会话（租户库）。
-
-    Returns:
-        SeparationGuard: 三权分立校验器。
-    """
-    return SeparationGuard(roles=RoleRepository(session), user_roles=UserRoleRepository(session))
-
-
 def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
     """构造并登记本服务的分支处理器（**只调已有服务层**）。
 
@@ -226,14 +213,15 @@ def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
         user_id = _int_arg(args, "user_id")
         profile = _profile_arg(args)
         role_ids = _ids_arg(args, "role_ids") if args.get("role_ids") is not None else None
+        guard = separation_guard(session)
         writer = UserAssignmentWriter(
             session,
             DbUnitOfWork(session),
             UserRepository(session),
-            UserRoleRepository(session),
-            RoleRepository(session),
+            role_assignment(session, guard=guard),
+            role_query(session),
             _outbox_of(app),
-            _separation_guard(session),
+            guard,
         )
         await writer.write(user_id=user_id, profile=profile, role_ids=role_ids)
 
@@ -242,14 +230,12 @@ def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
         role_id = _int_arg(args, "role_id")
         profile = _role_profile_arg(args)
         user_ids = _ids_arg(args, "user_ids") if args.get("user_ids") is not None else None
-        writer = RoleAssignmentWriter(
-            session,
-            DbUnitOfWork(session),
-            RoleRepository(session),
-            UserRoleRepository(session),
-            UserRepository(session),
-            _config_of(app),
-            _separation_guard(session),
+        writer = role_assignment_writer(
+            session=session,
+            uow=DbUnitOfWork(session),
+            users=UserRepository(session),
+            config=_config_of(app),
+            guard=separation_guard(session),
         )
         await writer.write(role_id=role_id, profile=profile, user_ids=user_ids)
 

@@ -38,6 +38,7 @@ from bms_platform.domains.platform_registry.sources.dict_source import PlatformD
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.services.branch_handlers import build_branch_handlers
 from bms_platform.services.demo_service import DemoService
+from bms_platform.wiring import role_grant, role_reference, role_resolvers
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -101,9 +102,17 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             settings: 应用配置（权限选项：档位 / 快照 TTL / 豁免角色类型）。
         """
         app.state.demo_service = DemoService(DemoRepository())
+        # 角色域对外工厂（权限解析器组与授权读面；域内实现经装配面注入，不反向依赖本层）
+        app.state.role_resolvers_factory = role_resolvers
+        app.state.role_grant_factory = role_grant
         # 分支业务处理器注册表（`op` → 本服务已有服务层方法；用户保存编排 op 于 `02_02/_02` 登记）
         app.state.branch_handlers = build_branch_handlers(app)
         # 服务目录权威本地读取器（本服务即 `sys_module` 所有者；共享基座库不静态依赖服务包）
         register_catalog_reader(SERVICE_NAME, read_catalog)
         # 字典平台内建数据源提供者（02_09：`sys_role` 等平台字典经统一出口取数；产品来源由前端直取）
-        register_data_source(PlatformDictDataSource(engines=cast(EngineRegistry, app.state.engine_registry)))
+        register_data_source(
+            PlatformDictDataSource(
+                engines=cast(EngineRegistry, app.state.engine_registry),
+                role_options=role_reference,
+            )
+        )
