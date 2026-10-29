@@ -185,8 +185,9 @@ def test_load_layout_valid(tmp_path: Path) -> None:
     assert layout.public_api_of("ghost") == frozenset()
     assert layout.domain_of("backend/services/platform/src/bms_platform/services/users.py") == "user"
     assert layout.domain_of("backend/services/platform/src/bms_platform/services/role.py") is None
-    assert layout.is_shared("./backend/services/platform/src/bms_platform/main.py")
-    assert not layout.is_shared("backend/services/platform/src/bms_platform/services/users.py")
+    shared_files = layout.shared_files(tmp_path)
+    assert "backend/services/platform/src/bms_platform/main.py" in shared_files
+    assert "backend/services/platform/src/bms_platform/services/users.py" not in shared_files
     assert tuple(layout.entries) and tuple(layout.shared_paths) == (
         "backend/services/platform/src/bms_platform/main.py",
     )
@@ -468,7 +469,7 @@ def test_real_layout_covers_all_service_files() -> None:
     mapping, problems = layout.resolve_files(_REPO_ROOT)
     assert list(problems) == []
     registered = ConcurrentStableSet(mapping)
-    shared = ConcurrentStableSet(layout.shared_paths)
+    shared = layout.shared_files(_REPO_ROOT)
     missing: ConcurrentStableList[str] = ConcurrentStableList()
     for path in (_REPO_ROOT / "backend" / "services").rglob("*.py"):
         if "__pycache__" in path.parts or "tests" in path.parts:

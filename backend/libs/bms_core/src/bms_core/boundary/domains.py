@@ -296,16 +296,24 @@ class DomainLayout(BaseFrameworkObject):
                 return entry.domain_key
         return None
 
-    def is_shared(self, path: str) -> bool:
-        """是否域外路径（装配 / 基座 / 基础设施面）。
+    def shared_files(self, root: Path) -> ConcurrentStableSet[str]:
+        """展开域外声明为文件集合（支持 glob，按 `Path.glob` 语义）。
+
+        域外路径与域路径同权支持 glob：骨架面（`__init__.py` / 装配入口 / 路由）按目录派生，
+        新形态目录仍需逐条登记。用展开而非字符串比对，是为了与「域路径命中文件」共用同一套
+        pathlib 语义——自己写通配匹配迟早与 `_expand` 判得不一样。
 
         Args:
-            path: 相对仓库根的 posix 路径。
+            root: 仓库根。
 
         Returns:
-            bool: 域外声明 True。
+            ConcurrentStableSet[str]: 域外文件相对路径集合。
         """
-        return _normalize(path) in self._shared
+        found: ConcurrentStableSet[str] = ConcurrentStableSet()
+        for declared in self._shared:
+            for item in _expand(root, declared):
+                found.add(item)
+        return found
 
     def resolve_files(self, root: Path) -> tuple[ConcurrentStableDict[str, str], ConcurrentStableList[str]]:
         """展开声明路径为「文件 → 域」索引（glob 按 `Path.glob` 展开）。
@@ -362,6 +370,10 @@ class DomainLayout(BaseFrameworkObject):
         for shared_path in self._shared:
             if not _expand(root, shared_path):
                 problems.add(f"[域布局] 域外路径未命中文件：{shared_path}")
+        shared_files = self.shared_files(root)
+        for path in ConcurrentStableSet(self.resolve_files(root)[0]):
+            if path in shared_files:
+                problems.add(f"[域布局] {path} 同时归属域与域外路径（展开后重叠，须收窄其中一侧）")
         return problems
 
 
