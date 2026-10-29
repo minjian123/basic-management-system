@@ -5,6 +5,7 @@
 """
 
 from collections.abc import Iterator
+from typing import cast
 
 import pytest
 
@@ -34,6 +35,19 @@ from bms_core.services.module_registry import register_domain_services, reset_do
 pytestmark = pytest.mark.kiwi_id(2366)
 
 _TENANT = 7
+
+
+def _reason(exc: CatalogError) -> str:
+    """取异常携带的失败原因（`data.reason`；`data` 为 `object`，测试内显式收窄）。
+
+    Args:
+        exc: 抛出的目录异常。
+
+    Returns:
+        str: 失败原因标识。
+    """
+    data = cast("ConcurrentStableDict[str, str]", exc.data)
+    return data["reason"]
 
 
 @pytest.fixture(autouse=True)
@@ -115,7 +129,7 @@ def test_tenant_snapshot_overrides_default() -> None:
     assert resolve_for(_TENANT, "auth").unit_key == "core"
     with pytest.raises(CatalogError) as captured:
         resolve_for(_TENANT, "org")
-    assert captured.value.data["reason"] == "not_registered"
+    assert _reason(captured.value) == "not_registered"
 
 
 def test_domain_not_registered_in_topology() -> None:
@@ -141,7 +155,7 @@ def test_domain_disabled_is_business_state() -> None:
     )
     with pytest.raises(CatalogError) as captured:
         resolve_for(_TENANT, "auth")
-    assert captured.value.data["reason"] == "not_enabled"
+    assert _reason(captured.value) == "not_enabled"
 
 
 def test_domain_without_layout_service_is_rejected() -> None:
@@ -167,7 +181,9 @@ def test_new_version_becomes_visible() -> None:
         _snapshot(_TENANT, 2, ConcurrentStableDict({"auth": TopologyEntry(unit_key="dom-auth")}))
     )
     assert resolve_for(_TENANT, "auth").unit_key == "dom-auth"
-    assert topology_snapshot(_TENANT).version == 2
+    updated = topology_snapshot(_TENANT)
+    assert updated is not None
+    assert updated.version == 2
 
 
 def test_snapshot_limit_evicts_oldest() -> None:

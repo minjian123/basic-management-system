@@ -13,6 +13,7 @@
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.collaboration.topology import (
@@ -24,9 +25,15 @@ from bms_core.collaboration.topology import (
     register_topology_snapshot,
 )
 from bms_core.collaboration.topology_templates import TEMPLATES, expand_template
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import CatalogError, ConflictError, NotFoundError, ParamError
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.models.platform.tenant_topology import (
     TOPOLOGY_STATUS_ENABLED,
@@ -51,25 +58,24 @@ _DEFAULT_NOTE = "启动自举：域 → 承载服务"
 """默认拓扑自举写入的说明。"""
 
 
-class TopologyRow:
-    """待写入的一行（校验前的中间形态；不对外暴露）。"""
+@dataclass(frozen=True)
+class TopologyRow(BaseValueObject):
+    """待写入的一行（校验前的中间形态；不可变，按需求派生新行）。"""
 
-    def __init__(self, domain_key: str, unit_key: str, status: str = TOPOLOGY_STATUS_ENABLED, note: str = "") -> None:
-        """初始化。
+    domain_key: str
+    """业务域标识。"""
 
-        Args:
-            domain_key: 业务域标识。
-            unit_key: 部署单元标识。
-            status: 状态（enabled / disabled）。
-            note: 说明。
-        """
-        self.domain_key = domain_key
-        self.unit_key = unit_key
-        self.status = status
-        self.note = note
+    unit_key: str
+    """部署单元标识。"""
+
+    status: str = TOPOLOGY_STATUS_ENABLED
+    """状态（`enabled` / `disabled`）。"""
+
+    note: str = ""
+    """说明（批次说明在归一阶段并入）。"""
 
 
-class TenantTopologyService:
+class TenantTopologyService(BaseFrameworkObject):
     """租户拓扑服务（校验 / 写入 / 自举 / 快照 / 导出）。"""
 
     def __init__(self, session: DbSession, *, audit: AuditCapturer | None = None) -> None:
@@ -179,7 +185,11 @@ class TenantTopologyService:
         return target_version, await self._repo.list_current(tenant_id)
 
     async def ensure_default(self, *, actor: int | None = None) -> int:
-        """确保默认拓扑存在（无则按「域 → 承载服务键」自举版本 1）。
+        """确保默认拓扑存在且覆盖全部已登记域（无则自举版本 1，缺域则补齐下一版本）。
+
+        **补齐语义**：产品新接入的业务域（如 mdm 的 `org`）在登记后若默认拓扑还没有它的行，
+        则按「域 → 该域承载服务键」补一行并写下一版本——否则这些域的能力寻址会在运行期被判「未登记拓扑」，
+        而「默认拓扑覆盖全部已登记域」这条不变式也就不再成立。
 
         Args:
             actor: 操作人（启动期为空）。
@@ -191,14 +201,40 @@ class TenantTopologyService:
             CatalogError: 业务域登记为空（无法自举；属装配错误，拒启）。
         """
         version = await self._repo.current_version(DEFAULT_TOPOLOGY_TENANT)
-        if version > 0:
-            snapshot = await self._snapshot_of(DEFAULT_TOPOLOGY_TENANT)
-            if snapshot is not None:
-                register_topology_snapshot(snapshot)
-            return version
         domains = domain_service_view()
         if not domains:
             raise CatalogError("业务域登记为空，无法自举默认拓扑（请检查清单第九类 [[domains]] 装载）")
+        if version > 0:
+            existing = await self._repo.list_current(DEFAULT_TOPOLOGY_TENANT)
+            known = ConcurrentStableSet(row.domain_key for row in existing)
+            missing = ConcurrentStableList(domain for domain in domains if domain not in known)
+            if missing:
+                merged = ConcurrentStableList(
+                    TopologyRow(domain_key=row.domain_key, unit_key=row.unit_key, status=row.status) for row in existing
+                )
+                for domain in missing:
+                    merged.add(TopologyRow(domain_key=domain, unit_key=domains[domain], note=_DEFAULT_NOTE))
+                target_version, _ = await self.replace(DEFAULT_TOPOLOGY_TENANT, rows=merged, note=_DEFAULT_NOTE)
+                return target_version
+            register_topology_snapshot(
+                TopologySnapshot(
+                    tenant_id=DEFAULT_TOPOLOGY_TENANT,
+                    version=version,
+                    entries=ConcurrentStableFrozenDict(
+                        (
+                            row.domain_key,
+                            TopologyEntry(
+                                unit_key=row.unit_key,
+                                status=TOPOLOGY_ENTRY_ENABLED
+                                if row.status == TOPOLOGY_STATUS_ENABLED
+                                else TOPOLOGY_ENTRY_DISABLED,
+                            ),
+                        )
+                        for row in existing
+                    ),
+                )
+            )
+            return version
         entries = ConcurrentStableList(
             TopologyRow(domain_key=domain, unit_key=service, note=_DEFAULT_NOTE) for domain, service in domains.items()
         )
@@ -238,35 +274,6 @@ class TenantTopologyService:
             for tenant_id, entries in grouped.items()
         )
 
-    async def _snapshot_of(self, tenant_id: int) -> TopologySnapshot | None:
-        """取单租户当前版本快照（自举后登记用）。
-
-        Args:
-            tenant_id: 租户主键。
-
-        Returns:
-            TopologySnapshot | None: 快照；无记录返回 None。
-        """
-        rows = await self._repo.list_current(tenant_id)
-        if not rows:
-            return None
-        return TopologySnapshot(
-            tenant_id=tenant_id,
-            version=rows[0].topology_version,
-            entries=ConcurrentStableFrozenDict(
-                (
-                    row.domain_key,
-                    TopologyEntry(
-                        unit_key=row.unit_key,
-                        status=TOPOLOGY_ENTRY_ENABLED
-                        if row.status == TOPOLOGY_STATUS_ENABLED
-                        else TOPOLOGY_ENTRY_DISABLED,
-                    ),
-                )
-                for row in rows
-            ),
-        )
-
     def _entries(
         self, *, rows: Iterable[TopologyRow] | None, template: str | None, note: str
     ) -> ConcurrentStableList[TopologyRow]:
@@ -294,11 +301,19 @@ class TenantTopologyService:
         if rows is None:
             raise ParamError(f"必须提供 rows 或 template（可选 {' / '.join(TEMPLATES)}）")
         items = ConcurrentStableList(rows)
-        if note:
-            for item in items:
-                if not item.note:
-                    item.note = note
-        return items
+        if not note:
+            return items
+        return ConcurrentStableList(
+            item
+            if item.note
+            else TopologyRow(
+                domain_key=item.domain_key,
+                unit_key=item.unit_key,
+                status=item.status,
+                note=note,
+            )
+            for item in items
+        )
 
     @staticmethod
     def _validate(

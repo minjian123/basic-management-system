@@ -13,6 +13,7 @@
 from sqlalchemy import BigInteger, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.models.base import BaseModel
 
 TOPOLOGY_STATUS_ENABLED = "enabled"
@@ -21,7 +22,9 @@ TOPOLOGY_STATUS_ENABLED = "enabled"
 TOPOLOGY_STATUS_DISABLED = "disabled"
 """状态：本租户停用该业务域（解析报 `not_enabled`，业务态而非配置缺失）。"""
 
-TOPOLOGY_STATUSES: tuple[str, ...] = (TOPOLOGY_STATUS_ENABLED, TOPOLOGY_STATUS_DISABLED)
+TOPOLOGY_STATUSES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
+    (TOPOLOGY_STATUS_ENABLED, TOPOLOGY_STATUS_DISABLED)
+)
 """合法状态取值（写入校验用）。"""
 
 DEFAULT_TOPOLOGY_TENANT_ID = 0

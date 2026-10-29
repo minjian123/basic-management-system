@@ -2690,6 +2690,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenant-topologies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Topologies
+         * @description 拓扑记录清单（只读，分页 + 筛选）。
+         *
+         *     需要 `tenant-topology:query` 权限；只读会话取平台库（拓扑跨租户共享）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         query: 分页与排序请求（排序白名单校验、非法忽略）。
+         *         tenant_id: 租户筛选。
+         *         domain_key: 业务域筛选。
+         *         unit_key: 部署单元筛选。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。
+         */
+        get: operations["list_topologies_api_v1_tenant_topologies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenant-topologies/{tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Topology
+         * @description 按租户导出当前版本（部署编排 / 迁移输入）。
+         *
+         *     需要 `tenant-topology:query` 权限；该租户无记录时回退默认拓扑（`tenant_id=0`）。
+         *
+         *     Args:
+         *         tenant_id: 租户主键（0 = 默认拓扑）。
+         *         session: 平台库只读会话。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为 `{tenant_id, version, rows}`。
+         *
+         *     Raises:
+         *         NotFoundError: 该租户与默认拓扑都没有记录（10002）。
+         */
+        get: operations["export_topology_api_v1_tenant_topologies__tenant_id__get"];
+        /**
+         * Replace Topology
+         * @description 整批替换某租户的拓扑（`rows` 或 `template` 二选一；写入即生效）。
+         *
+         *     需要 `tenant-topology:manage` 权限。整批替换语义：旧行软删除、新行同版本写入、版本递增；
+         *     失败即整体回滚（不会出现半新半旧的中间态）。
+         *
+         *     Args:
+         *         tenant_id: 租户主键（0 = 默认拓扑）。
+         *         req: 写入请求。
+         *         uow: 平台库工作单元（写事务边界）。
+         *         audit: 审计捕获器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为生效后的 `{tenant_id, version, rows}`。
+         *
+         *     Raises:
+         *         ParamError: 参数非法 / 域未登记 / 单元命名非法 / 未知模板 / 默认拓扑缺域（10001）。
+         *         ConflictError: 同域重复或版本回退（10003）。
+         */
+        put: operations["replace_topology_api_v1_tenant_topologies__tenant_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/txn/branches": {
         parameters: {
             query?: never;
@@ -7241,6 +7325,63 @@ export interface components {
              * @description SQL 文本（仅只读语句）
              */
             sql: string;
+        };
+        /**
+         * TenantTopologyRowRequest
+         * @description 整批写入的单行（部署单元由调用方指定，库名不落库）。
+         */
+        TenantTopologyRowRequest: {
+            /**
+             * Domain Key
+             * @description 业务域标识（须已登记）
+             */
+            domain_key: string;
+            /**
+             * Note
+             * @description 说明（可选）
+             * @default
+             */
+            note: string;
+            /**
+             * Status
+             * @description 状态（enabled / disabled，缺省 enabled）
+             * @default enabled
+             */
+            status: string;
+            /**
+             * Unit Key
+             * @description 部署单元标识（小写字母开头）
+             */
+            unit_key: string;
+        };
+        /**
+         * TenantTopologyWriteRequest
+         * @description 整批写入请求：`rows` 与 `template` **二选一**（模板先展开，再按需人工调整）。
+         *
+         *     `version` 留空表示「当前版本 + 1」；显式给值时必须大于当前版本（拒绝回退）。
+         */
+        TenantTopologyWriteRequest: {
+            /**
+             * Note
+             * @description 本批次说明（可选）
+             * @default
+             */
+            note: string;
+            /**
+             * Rows
+             * @description 整批行（与 template 二选一）
+             */
+            rows?: components["schemas"]["TenantTopologyRowRequest"][] | null;
+            /**
+             * Template
+             * @description 参照模板名（single / grouped / isolated；与 rows 二选一）
+             */
+            template?: string | null;
+            /**
+             * Version
+             * @description 拓扑版本（空=当前版本+1；须递增）
+             */
+            version?: number | null;
         };
         /**
          * UpdatePasswordRequest
@@ -16338,6 +16479,253 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_topologies_api_v1_tenant_topologies_get: {
+        parameters: {
+            query?: {
+                /** @description 租户筛选；缺省全部 */
+                tenant_id?: number | null;
+                /** @description 业务域筛选；缺省全部 */
+                domain_key?: string | null;
+                /** @description 部署单元筛选；缺省全部 */
+                unit_key?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    export_topology_api_v1_tenant_topologies__tenant_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 租户主键（0 = 平台级默认拓扑） */
+                tenant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    replace_topology_api_v1_tenant_topologies__tenant_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 租户主键（0 = 平台级默认拓扑） */
+                tenant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantTopologyWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description 未认证 */

@@ -18,7 +18,10 @@ from bms_core.collaboration.topology import (
     TenantTopologyResolver,
     register_topology_resolver,
     register_topology_snapshot,
+    reset_topology_resolver,
+    reset_topology_snapshots,
 )
+from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
@@ -28,9 +31,22 @@ from bms_core.db.session import session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
 
-__all__ = ["bootstrap_tenant_topologies"]
+__all__ = ["TopologyResolverResource", "bootstrap_tenant_topologies"]
 
 _LOGGER = get_logger("bms.platform.tenant_topology")
+
+
+class TopologyResolverResource(BaseAsyncResource):
+    """进程级拓扑状态的释放器：随应用关闭复位解析器与快照。
+
+    拓扑快照与第二段解析实现是**进程级全局状态**，在启动钩子里登记；应用关闭（进程退出 /
+    测试用应用拆卸）时复位，避免同一进程内下一次装配读到上一次的快照。
+    """
+
+    async def aclose(self) -> None:
+        """复位第二段解析实现与全部快照（幂等）。"""
+        reset_topology_resolver()
+        reset_topology_snapshots()
 
 
 async def bootstrap_tenant_topologies(app: FastAPI) -> None:
@@ -65,4 +81,5 @@ async def bootstrap_tenant_topologies(app: FastAPI) -> None:
     for snapshot in snapshots:
         register_topology_snapshot(snapshot)
     register_topology_resolver(TenantTopologyResolver())
+    app.state.resources.register(TopologyResolverResource())
     _LOGGER.info("tenant_topology_ready", default_version=version, tenants=len(snapshots))

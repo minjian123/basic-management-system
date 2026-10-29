@@ -28,6 +28,7 @@ from bms_core.schemas.common import ApiResponse
 from bms_core.services.module_registry import service_catalog_view
 from bms_platform.domains.platform_registry.schemas.declaration import DeclarationSubmitRequest
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
+from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
 
 router = BaseRouter(
     key="platform_internal_declarations",
@@ -69,6 +70,9 @@ async def submit_declarations(
     if payload.service_key != req.service_key:
         raise ParamError(f"服务键与清单不一致：清单 {payload.service_key}，请求 {req.service_key}")
     report = await DeclarationRegistryService(uow.session).register(payload)
+    # 默认拓扑补齐（07C `02_01`）：注册可能带来新的业务域，默认拓扑须覆盖全部已登记域，
+    # 否则这些域的能力寻址会在运行期被判「未登记拓扑」。幂等：无新域时只做覆盖校验、不写新版本。
+    await TenantTopologyService(uow.session).ensure_default()
     await uow.commit()
     body = {
         "product_key": report.product_key,

@@ -4,6 +4,7 @@
 """
 
 from collections.abc import Iterator
+from typing import cast
 
 import pytest
 from fastapi import FastAPI
@@ -11,13 +12,16 @@ from httpx import AsyncClient
 from sqlalchemy import func, select
 
 from bms_core.collaboration import resolve_for
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import CatalogError, NotFoundError
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.models.platform.tenant_topology import SysTenantTopology
 from bms_core.services.module_registry import domain_service_view
+from bms_platform.domains.platform_registry.repositories.tenant_topology import (
+    TenantTopologyRepository,
+)
 from bms_platform.domains.platform_registry.services.tenant_topology import (
     TenantTopologyService,
     TopologyRow,
@@ -74,6 +78,19 @@ def _row(domain: str, unit: str) -> TopologyRow:
         TopologyRow: 待写入行。
     """
     return TopologyRow(domain_key=domain, unit_key=unit)
+
+
+def _reason(exc: CatalogError) -> str:
+    """取异常携带的失败原因（`data.reason`；`data` 为 `object`，测试内显式收窄）。
+
+    Args:
+        exc: 抛出的目录异常。
+
+    Returns:
+        str: 失败原因标识。
+    """
+    data = cast("ConcurrentStableDict[str, str]", exc.data)
+    return data["reason"]
 
 
 def _first_domain() -> str:
@@ -262,7 +279,7 @@ async def test_disabled_domain_is_not_resolvable(client: AsyncClient) -> None:
     await client.put(f"{API}/{DISABLED_TENANT}", json={"rows": _rows((domain, "core"), status="disabled")})
     with pytest.raises(CatalogError) as captured:
         resolve_for(DISABLED_TENANT, domain)
-    assert captured.value.data["reason"] == "not_enabled"
+    assert _reason(captured.value) == "not_enabled"
 
 
 async def test_export_missing_tenant_without_default_reports_not_found(
@@ -273,16 +290,17 @@ async def test_export_missing_tenant_without_default_reports_not_found(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
         service = TenantTopologyService(session)
-        monkeypatch.setattr(service._repo, "list_current", _empty_rows)
-        monkeypatch.setattr(service._repo, "current_version", _zero_version)
+        monkeypatch.setattr(TenantTopologyRepository, "list_current", _empty_rows)
+        monkeypatch.setattr(TenantTopologyRepository, "current_version", _zero_version)
         with pytest.raises(NotFoundError):
             await service.export(FALLBACK_TENANT + 1)
 
 
-async def _empty_rows(tenant_id: int) -> ConcurrentStableList[SysTenantTopology]:
+async def _empty_rows(self: object, tenant_id: int) -> ConcurrentStableList[SysTenantTopology]:
     """无记录替身（覆盖导出兜底的「默认拓扑也未自举」分支）。
 
     Args:
+        self: 仓储实例占位（类级替身会被绑定为方法）。
         tenant_id: 租户主键（未使用）。
 
     Returns:
@@ -292,10 +310,11 @@ async def _empty_rows(tenant_id: int) -> ConcurrentStableList[SysTenantTopology]
     return ConcurrentStableList()
 
 
-async def _zero_version(tenant_id: int) -> int:
+async def _zero_version(self: object, tenant_id: int) -> int:
     """无版本替身。
 
     Args:
+        self: 仓储实例占位（类级替身会被绑定为方法）。
         tenant_id: 租户主键（未使用）。
 
     Returns:
@@ -347,6 +366,6 @@ async def test_export_default_without_rows_reports_not_found(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
         service = TenantTopologyService(session)
-        monkeypatch.setattr(service._repo, "list_current", _empty_rows)
+        monkeypatch.setattr(TenantTopologyRepository, "list_current", _empty_rows)
         with pytest.raises(NotFoundError):
             await service.export(0)

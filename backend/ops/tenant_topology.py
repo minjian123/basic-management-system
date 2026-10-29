@@ -20,7 +20,7 @@ import json
 import sys
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def run(command: str, *, tenant_id: int = 0) -> ConcurrentStableList[dict[str, object]]:
+async def run(command: str, *, tenant_id: int = 0) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """在平台应用生命周期内执行命令。
 
     Args:
@@ -54,7 +54,7 @@ async def run(command: str, *, tenant_id: int = 0) -> ConcurrentStableList[dict[
         tenant_id: 导出用的租户主键。
 
     Returns:
-        ConcurrentStableList[dict[str, object]]: 导出结果（`bootstrap` 返回空清单）。
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: 导出结果（`bootstrap` 返回空清单）。
 
     Raises:
         ValueError: 未知命令。
@@ -72,13 +72,15 @@ async def run(command: str, *, tenant_id: int = 0) -> ConcurrentStableList[dict[
         ) as session:
             version, rows = await TenantTopologyService(session).export(tenant_id)
             return ConcurrentStableList(
-                {
-                    "tenant_id": row.tenant_id,
-                    "domain_key": row.domain_key,
-                    "unit_key": row.unit_key,
-                    "topology_version": version,
-                    "status": row.status,
-                }
+                ConcurrentStableDict(
+                    {
+                        "tenant_id": row.tenant_id,
+                        "domain_key": row.domain_key,
+                        "unit_key": row.unit_key,
+                        "topology_version": version,
+                        "status": row.status,
+                    }
+                )
                 for row in rows
             )
 
