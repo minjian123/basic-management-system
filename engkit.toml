@@ -70,6 +70,10 @@ label = "护栏：产品字面量（增量）"
 cmd = ["{python}", "scripts/tools/base_check/check_product_literals.py", "{root}", "--files-from", "{changed}"]
 
 [[devloop.steps]]
+label = "护栏：服务边界（逐文件增量 + 全局全量）"
+cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
 label = "护栏：工作区卫生"
 cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
 
@@ -593,6 +597,9 @@ package_prefix = "bms_"
 shared_lib_service = "platform"
 domain_subdir = "domains"
 shared_table_prefixes = ["sys_"]
+# 增量扫描升为全量的补充触发面（布局 / 基线 / 例外 / 表归属登记 / 服务目录登记由规则字段自身推出）：
+# 生成物目录、清单目录、规则本文件。改这些不止影响改动文件，未改动文件的判定也可能跟着变。
+incremental_full_when = ["deploy/**", "engkit.toml", "**/pyproject.toml", "**/Dockerfile*", ".gitlab-ci.yml"]
 counters = [
   "cross_service_dependency",
   "layer_violation",
