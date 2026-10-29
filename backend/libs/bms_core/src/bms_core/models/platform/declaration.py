@@ -49,7 +49,7 @@ class SysProductRoute(BaseModel):
     )
 
     product_key: Mapped[str] = mapped_column(String(32), comment="产品键（声明方）")
-    domain: Mapped[str] = mapped_column(String(64), comment="域段（前端命名空间段，如 mdm）")
+    domain: Mapped[str] = mapped_column(String(64), comment="域段（前端命名空间段，取产品键）")
     service_key: Mapped[str] = mapped_column(String(64), comment="承载服务键")
     description: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="说明")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/retired）")
@@ -66,7 +66,7 @@ class SysDataSource(BaseModel):
     product_key: Mapped[str] = mapped_column(String(32), comment="声明方产品键")
     name: Mapped[str] = mapped_column(String(64), comment="显示名")
     kind: Mapped[str] = mapped_column(String(16), default="dict", comment="数据源类型（dict/tree/remote）")
-    data_source: Mapped[str] = mapped_column(String(128), comment="取数实现标识（如 mdm.mdm.dept）")
+    data_source: Mapped[str] = mapped_column(String(128), comment="取数实现标识（如 {产品}.{域}.{表}）")
     origin: Mapped[str] = mapped_column(String(16), default="product", comment="来源（platform/product）")
     path: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="提供方访问面路径")
     allowlist: Mapped[str | None] = mapped_column(Text, nullable=True, comment="允许下发字段（JSON 数组）")

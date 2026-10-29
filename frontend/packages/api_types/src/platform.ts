@@ -1981,9 +1981,9 @@ export interface paths {
          * Query Users
          * @description 按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。
          *
-         *     供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
+         *     供产品组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
          *     取用户明细——**不跨库读** `sys_user`。仅接受持有本能力有效分配的服务票据；只读、不写库、不产事件；
-         *     联系方式**原样返回**（脱敏归消费方 mdm 出口）。
+         *     联系方式**原样返回**（脱敏归消费方产品出口）。
          *
          *     Args:
          *         req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。
@@ -5645,8 +5645,8 @@ export interface components {
          * InternalUserItem
          * @description 内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。
          *
-         *     用户＝系统账号，**不含组织字段**（部门 / 岗位关系归 mdm，需求 07-11）——用户-部门关系由
-         *     mdm 自持（`org_user_dept`），不需 platform 回传。
+         *     用户＝系统账号，**不含组织字段**（部门 / 岗位关系归产品组织域，需求 07-11）——用户-部门关系由
+         *     产品自持（`org_user_dept`），不需 platform 回传。
          */
         InternalUserItem: {
             /**
@@ -6774,7 +6774,7 @@ export interface components {
          * RoleAssignmentsResult
          * @description 角色保存编排结果（回带 platform 侧生效后集合）。
          *
-         *     组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——
+         *     组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
          *     XA 分支执行端点契约只回分支状态、不回业务集合。
          */
         RoleAssignmentsResult: {
@@ -7430,7 +7430,7 @@ export interface components {
          * UserAssignmentsResult
          * @description 用户保存编排结果（回带 platform 侧生效后集合）。
          *
-         *     组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——
+         *     组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
          *     XA 分支执行端点契约只回分支状态、不回业务集合。
          */
         UserAssignmentsResult: {

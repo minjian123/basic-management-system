@@ -146,7 +146,7 @@ def _require_status(status: str | None) -> None:
 def _internal_item(row: SysUser) -> InternalUserItem:
     """用户记录 → 内部只读行。
 
-    不含口令哈希 / 失败计数 / 锁定字段 / 策略字段；**不含组织字段**（部门关系归 mdm，需求 07-11）。
+    不含口令哈希 / 失败计数 / 锁定字段 / 策略字段；**不含组织字段**（部门关系归产品组织域，需求 07-11）。
 
     Args:
         row: 用户记录。
@@ -168,9 +168,9 @@ def _internal_item(row: SysUser) -> InternalUserItem:
 async def query_users(req: InternalUserQueryRequest, uow: UowDep) -> ApiResponse[BasePageResponse[InternalUserItem]]:
     """按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。
 
-    供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
+    供产品组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
     取用户明细——**不跨库读** `sys_user`。仅接受持有本能力有效分配的服务票据；只读、不写库、不产事件；
-    联系方式**原样返回**（脱敏归消费方 mdm 出口）。
+    联系方式**原样返回**（脱敏归消费方产品出口）。
 
     Args:
         req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。

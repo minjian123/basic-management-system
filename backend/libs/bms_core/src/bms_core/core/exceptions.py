@@ -785,7 +785,7 @@ class RoleProtectedError(RoleError):
 
 
 class RoleAssignedError(RoleError):
-    """角色仍存在分配（`30044`；用户分配或经 mdm 只读契约核验的岗位 / 部门分配），禁止删除。"""
+    """角色仍存在分配（`30044`；用户分配或经产品只读契约核验的岗位 / 部门分配），禁止删除。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         """初始化角色仍被分配异常。

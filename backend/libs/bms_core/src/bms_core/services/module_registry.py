@@ -319,7 +319,7 @@ class SeedRecord(BaseValueObject):
     """种子名（全局唯一，与平台自身种子共用一个命名空间）。"""
 
     module: str
-    """入口模块点分路径（如 `mdm.seeds.permissions`）。"""
+    """入口模块点分路径（如 `{产品键}.seeds.permissions`）。"""
 
     entry: str
     """入口函数名（装载期校验可导入且可调用）。"""
@@ -327,7 +327,7 @@ class SeedRecord(BaseValueObject):
     service: str = ""
     """**执行服务键**（07B `02_03`）：该种子在哪个服务执行，决定 XA 分支的参与方。
 
-    平台种子为 `platform`；产品种子为其服务键（如 `mdm`）。空串表示未声明
+    平台种子为 `platform`；产品种子为其服务键（取产品键）。空串表示未声明
     （仅 `02_01` 阶段的旧清单会如此，编排时按前置错误拒绝）。
     """
 
@@ -530,7 +530,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             tenant_base=True,
             status=ModuleStatus.ENABLED,
         ),
-        # 产品服务行（如 mdm）**不写死在本常量**：由产品仓自持清单（`deploy/registry/<产品>.toml`）
+        # 产品服务行（**产品键**）不写死在本常量：由产品仓自持清单（`deploy/registry/<产品>.toml`）
         # 经 `register_service_records()` 装载（运行期装配 / 离线网关生成），见 `registry/products.py`。
         ModuleRecord(
             module_key="file",
@@ -760,8 +760,8 @@ PRODUCT_CATALOG: ConcurrentStableList[ProductRecord] = ConcurrentStableList(
 """产品档案（**平台已知产品**的种子，2 行：`biz` / `cw`）。
 
 - **先注册后建表**：产品可先于其模块登记，不要求产品必有模块；
-- 其余产品（如 `mdm`）由产品仓自持清单装载（`register_product_records()`），不再写死在本常量；
-- `frontend_package_source` 取值＝**产品前端工程标识**（`{仓库名}#{前端根}`，如 `mdm#frontend`）：
+- 其余产品由产品仓自持清单装载（`register_product_records()`），不再写死在本常量；
+- `frontend_package_source` 取值＝**产品前端工程标识**（`{仓库名}#{前端根}`，如 `{产品仓}#frontend`）：
   只记「从哪里取」，主机 / 凭据 / 访问地址由部署环境配置注入、**不入库**；
 - 注册要素（表前缀 / 业务码 / 错误码段 / 事件域）只在服务目录（平台常量 + 产品清单），本清单只承载产品级属性。
 """
@@ -1194,7 +1194,7 @@ def merge_service_records(
 ) -> ConcurrentStableList[ModuleRecord]:
     """合并平台服务清单与服务注入记录（**同 `module_key` 同值去重、异值即拒**；12_03 扩展）。
 
-    产品服务在**平台侧已登记**（如 mdm 的 `org` 行——供网关、迁移链、库键与表归属派生）**且产品侧
+    产品服务在**平台侧已登记**（如产品组织域的服务行——供网关、迁移链、库键与表归属派生）**且产品侧
     自报同值清单**注入时，直接拼接会因 `module_key` 重复被唯一性校验拒绝；本函数对「与平台清单中同
     `module_key` 且**逐字段同值**」的注入记录去重，其余原样保留——异值记录仍以 `module_key` 重复被
     `ModuleRegistry.validate()` 拒绝（fail-closed，不静默取一侧，见《后端开发规范》产品服务装配条）。
@@ -1240,7 +1240,7 @@ def enabled_service_keys() -> ConcurrentStableList[str]:
     """已启用**平台服务**标识集合（`service_key` 非空 + `status = enabled` + **非产品分组**，保持目录顺序）。
 
     用于「按服务×租户建库」的服务维度（06_01）与平台侧按服务扫描（契约快照 / 表归属 / 发布编排）：
-    `planned` 服务、无 `service_key` 的产品模块**以及产品分组服务**（如 `mdm` 归产品）均不纳入——
+    `planned` 服务、无 `service_key` 的产品模块**以及产品分组服务**（如组织域归产品）均不纳入——
     产品服务的库、契约与工程随产品仓库（网关侧其 upstream 由 `gateway_catalog.gateway_services()` 覆盖）。
 
     Returns:

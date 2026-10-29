@@ -18,7 +18,7 @@ uv run python -m ops.provision_tenant --code demo \
 
 - **服务维度**：`SERVICE_CATALOG` 中 `service_key` 非空且 `status = enabled` 的服务
   （当前平台 8 个：platform / identity / tenant / file / notification / search / ai / report；
-  产品服务（mdm）随产品清单装载进目录，`--service mdm` 可按需显式指定）；
+  产品服务随产品清单装载进目录，`--service <产品键>` 可按需显式指定）；
   `--service` 可显式指定（须为已登记服务标识）；
 - **库命名（单一来源 `bms_core/db/keys.py`）**：平台服务库 `bms_{service}`（键 `platform_{service}`）、
   服务租户库 `bms_{service}_{tenant}`（键 `tenant_{service}_{code}`）；连接串经各自

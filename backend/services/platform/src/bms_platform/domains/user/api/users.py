@@ -4,7 +4,7 @@
   （`02_04` 起为真实 RBAC 校验器；内置系统管理员的 `user:*` 授权见 `ops/seed_rbac.py`）；
 - **同库**：`sys_user` / `sys_user_role` / `sys_role` / `sys_account_lock` 全在 **platform 服务租户库**；
 - **跨服务**：会话失效经 identity 内部端点（`services/user_sessions.py`，提交后调用、失败不阻断）；
-- **不含**：组织字段（部门 / 岗位，归 mdm，需求 `07-11`）、`locale` / `timezone`（个人中心）、
+- **不含**：组织字段（部门 / 岗位，归产品组织域，需求 `07-11`）、`locale` / `timezone`（个人中心）、
   SSO 身份绑定查看（identity 服务既有端点 `GET /api/v1/users/{id}/identities`，权限码 `sso:bind`）；
 - **留痕**：写操作接 `AuditCapturer` 占位（真实落库随审计阶段）+ 事务性发件箱发射 `sys.user.*`；
 - **契约**：计入 platform 公开契约（`deploy/contracts/platform.json`）。

@@ -281,7 +281,7 @@ class RoleAssignmentsRequest(BaseSchema):
 class RoleAssignmentsResult(BaseSchema):
     """角色保存编排结果（回带 platform 侧生效后集合）。
 
-    组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——
+    组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
     XA 分支执行端点契约只回分支状态、不回业务集合。
     """
 

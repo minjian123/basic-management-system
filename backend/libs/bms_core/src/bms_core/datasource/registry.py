@@ -88,10 +88,10 @@ class DataSourceRecord(BaseValueObject):
     Attributes:
         data_source_key: 数据源标识（业务码字符串，如 `role` / `user` / `org_dept`），全局唯一。
         name: 名称（数据权限左列 / 通用页面显示；多语言随所有者域下发）。
-        data_source: 数据出口标识（统一出口按此路由到具体实现，如 `platform` / `mdm.org.dept`）。
+        data_source: 数据出口标识（统一出口按此路由到具体实现，如 `platform` / `{产品}.{域}.{表}`）。
         kind: 类型（`dict` 字典 / `form` 表单，预留其它）。
         origin: 来源（`platform` 平台内建 / `product` 产品提供）。
-        product_key: 产品标识（`origin=product` 时必填，如 `mdm` / `biz`）。
+        product_key: 产品标识（`origin=product` 时必填，取产品键）。
         path: 产品取数路径（`origin=product` 时前端经网关直取用，如 `/data-source/dept-tree`）。
         allowlist: 可用于数据权限的字段白名单（`match` 策略可匹配字段）。
         cascade: 是否级联（有无上级字段，供级联取数）。
@@ -209,7 +209,7 @@ DATA_SOURCE_CATALOG: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFr
 `kind` 一律**逐条显式声明**（2026-10-13，任务 `08_01`）——不再依赖数据类默认值；
 取值保持既有不变（本清单均为字典表）。
 
-**产品条目不入本常量**：产品（如 mdm）在 `deploy/registry/<产品>.toml` 的 `data_sources` 段声明，
+**产品条目不入本常量**：产品在 `deploy/registry/<产品>.toml` 的 `data_sources` 段声明，
 经 `register_data_source_records()` 装载（装配期 / 离线网关生成），避免产品名与取数路径写进基座源码。
 """
 

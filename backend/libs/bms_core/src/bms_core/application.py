@@ -439,7 +439,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         **产品服务**在此返回本产品表单标识清单（`bms_core.registry.forms.FormRecord`；跨仓库直接
         `import` 自身清单返回）：基座在装配期把它与 `FORM_CATALOG` 经 `merge_form_records()` 拼接为
         **应用级视图**并置为 `app.state.form_registry`（`GET /api/v1/form-keys` 取该视图）。
-        产品侧清单为**唯一出处**（如 mdm 的 `services/form_registry.py`），基座不改常量、无进程级注册表。
+        产品侧清单为**唯一出处**（如某产品的 `services/form_registry.py`），基座不改常量、无进程级注册表。
         平台服务不覆写——视图严格等于 `FORM_CATALOG`，装配与校验行为不变。
 
         Returns:

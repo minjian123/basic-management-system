@@ -878,7 +878,7 @@ def validate_declarations(
         for consumer in record.default_consumers:
             if consumer not in consumer_keys:
                 # 07B `03_01` 决策（§9 偏差 4，方案 A）：注册期只告警，不因「对端尚未注册」拒收。
-                # 平台先起、产品后起是常态（平台自身清单就声明了 `mdm` 消费方），硬校验会让基座无法启动；
+                # 平台先起、产品后起是常态（平台自身清单就声明了产品消费方），硬校验会让基座无法启动；
                 # 可兑现性由运行期判定（取不到即按能力调用语义失败 / 降级）与 `04_02` 跨仓对账兜底。
                 warnings.add(f"{prefix}：默认消费方尚未注册（{consumer}；注册期放行，运行期按授权记录判定）")
     for usage in payload.usages:

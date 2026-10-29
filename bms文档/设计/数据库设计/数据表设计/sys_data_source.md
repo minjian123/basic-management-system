@@ -31,7 +31,7 @@
 | `product_key` | VARCHAR(32) | 否 | 索引 | 声明方产品键（`origin = platform` 时为 `platform`） |
 | `name` | VARCHAR(64) | 否 | — | 显示名（多语言由 `_i18n` 附表承载，本表存默认文案键） |
 | `kind` | VARCHAR(16) | 否 | 默认 `dict` | 数据源类型（`dict` / `tree` / `remote`） |
-| `data_source` | VARCHAR(128) | 否 | — | 取数实现标识（如 `mdm.mdm.dept`） |
+| `data_source` | VARCHAR(128) | 否 | — | 取数实现标识（如 `{产品}.{域}.{表}`） |
 | `origin` | VARCHAR(16) | 否 | 默认 `product` | 来源（`platform` 内建 / `product` 产品自持） |
 | `path` | VARCHAR(255) | 是 | — | 提供方访问面路径（产品自持源必填） |
 | `allowlist` | TEXT | 是 | JSON 数组 | 允许下发的字段白名单（不列即不下发） |

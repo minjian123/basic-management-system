@@ -66,7 +66,7 @@ DEFAULT_DATABASE_NAME_PREFIX = "bms"
 """库名默认前缀（`[database].name_prefix` 缺省值）。
 
 平台库 `{prefix}_{service}`、服务租户库 `{prefix}_{service}_{code}`、归档库 `{prefix}_archive` 统一由
-本前缀派生；产品部署可配自有前缀（如 mdm 产品 → `mdm` / `mdm_{code}` / `mdm_archive`），
+本前缀派生；产品部署可配自有前缀（如某产品 → `{产品键}` / `{产品键}_{code}` / `{产品键}_archive`），
 **库名不得由业务代码自拼**（见《后端开发规范》「模块边界与数据所有权」节与《架构设计 · 多租户路由》）。
 """
 
@@ -204,14 +204,14 @@ def parse_db_key(db_key: str) -> DbKey:
 
 
 def _service_segment(service: str, prefix: str) -> str:
-    """服务名前缀段（`prefix == service` 时去重，避免 `mdm_mdm`）。
+    """服务名前缀段（`prefix == service` 时去重，避免 `{产品键}_{产品键}`）。
 
     Args:
         service: 服务标识。
         prefix: 库名前缀（`[database].name_prefix`）。
 
     Returns:
-        str: 库名前缀段（如 `bms_platform` 的 `bms_platform` 段、`mdm` 的 `mdm` 段）。
+        str: 库名前缀段（如 `bms_platform` 的 `bms_platform` 段、产品库的 `{产品键}` 段）。
     """
     return service if prefix == service else f"{prefix}_{service}"
 

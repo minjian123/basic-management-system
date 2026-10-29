@@ -87,9 +87,9 @@ class UserQueryService(BaseFrameworkObject):
 class InternalUserQueryService(BaseFrameworkObject):
     """内部用户只读查询服务（**服务间出口**）：关键字 / 状态 / 限定集合 + 分页。
 
-    供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
+    供产品组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
     取用户明细——**不跨库读** `sys_user`。字段含联系方式（**原样返回**，脱敏归消费方按其
-    `masked_fields` 接入）；**不含组织字段**（用户-部门关系归 mdm `org_user_dept`，需求 07-11）；
+    `masked_fields` 接入）；**不含组织字段**（用户-部门关系归产品 `org_user_dept`，需求 07-11）；
     **不返回**口令哈希与锁定字段。只读：不写库、不开写事务、不产事件；完整用户域 CRUD 归 `02_01`。
     """
 

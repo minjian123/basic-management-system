@@ -36,7 +36,7 @@ __all__ = [
 ]
 
 SCOPE_SEPARATOR = ":"
-"""scope 的动作段分隔符（形如 `open:read` / `mdm:write`）。"""
+"""scope 的动作段分隔符（形如 `open:read` / `{产品键}:write`）。"""
 
 SCOPE_ACTION_READ = "read"
 """只读动作段（按分配的 scope 放行）。"""
@@ -50,7 +50,7 @@ class OpenScope(BaseValueObject):
     """开放接口 scope 登记记录。"""
 
     scope: str
-    """scope 标识（形如 `open:read` / `mdm:write` / `openid`）。"""
+    """scope 标识（形如 `open:read` / `{产品键}:write` / `openid`）。"""
 
     description: str = ""
     """说明（中文用途）。"""

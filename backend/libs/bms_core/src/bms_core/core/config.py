@@ -107,8 +107,8 @@ class AppSettings(BaseSettings):
     """服务包名前缀（env `BMS_APP__PACKAGE_PREFIX`）——链的服务模型模块按
     `{package_prefix}_{service}.models` 解析（见 `db/migration.py::service_model_modules`）。
 
-    默认 `bms`（平台既有口径，现有部署零影响）；**产品部署配自有前缀**（如 mdm 配 `mdm`，服务包
-    `mdm_org`），使模型解析、迁移与开发库自动建表按产品包名取模型（12_04）。
+    默认 `bms`（平台既有口径，现有部署零影响）；**产品部署配自有前缀**（如某产品配其产品键，服务包
+    `{产品键}_{域}`），使模型解析、迁移与开发库自动建表按产品包名取模型（12_04）。
     """
 
     @field_validator("package_prefix")
@@ -396,7 +396,7 @@ class DatabaseSettings(BaseSettings):
     """库名前缀（env `BMS_DATABASE__NAME_PREFIX`）——平台库 `{prefix}_{service}`、服务租户库
     `{prefix}_{service}_{code}`、归档库 `{prefix}_archive` 的统一来源（`db/keys.py` 派生）。
 
-    默认 `bms`（基座既有口径，现有部署零影响）；产品部署可配自有前缀（如 mdm 配 `mdm`），
+    默认 `bms`（基座既有口径，现有部署零影响）；产品部署可配自有前缀（如某产品配其产品键），
     使库名体现产品标识而仍经基座统一派生（禁止业务侧自拼库名，见《后端开发规范》）。"""
     sqlite_dir: str = ""
     """SQLite 相对文件路径统一基址（env `BMS_DATABASE__SQLITE_DIR`）。

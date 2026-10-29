@@ -6,7 +6,7 @@
     uv run python -m ops.event_contracts export --print  # 导出并打印
     uv run python -m ops.event_contracts check           # 零漂移 + 兼容校验（CI / 预检用）
     uv run python -m ops.event_contracts check --root .  # 指定仓库根
-    uv run python -m ops.event_contracts check --product-contracts mdm_org.events  # 并入产品侧声明
+    uv run python -m ops.event_contracts check --product-contracts {产品包}.events  # 并入产品侧声明
 
 - 注册表：`register_platform_event_contracts()` 登记平台默认契约（23 条）；产品侧契约经
   `register_product_event_contracts()`（bms 侧空清单）或 `--product-contracts <模块路径>` 注入
@@ -72,7 +72,7 @@ def build_registry(product_contracts: str | None = None) -> EventContractRegistr
     """构建现行事件契约注册表（平台默认声明 + 可选产品侧声明）。
 
     Args:
-        product_contracts: 产品事件契约声明模块路径（点分，如 `mdm_org.events.contracts`）；
+        product_contracts: 产品事件契约声明模块路径（点分，如 `{产品包}.events.contracts`）；
             None 只登记平台默认声明（bms 侧产品清单为空清单）。
 
     Returns:

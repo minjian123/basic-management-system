@@ -102,9 +102,7 @@ class SysProduct(BaseModel):
     form_key: Mapped[str] = mapped_column(
         String(64), default="product", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
     )
-    product_key: Mapped[str] = mapped_column(
-        "code", String(32), comment="产品标识（如 mdm / biz / cw；DB 列名为 code）"
-    )
+    product_key: Mapped[str] = mapped_column("code", String(32), comment="产品标识（产品键；DB 列名为 code）")
     name: Mapped[str] = mapped_column(String(128), comment="产品名称（默认文案）")
     frontend_package_source: Mapped[str | None] = mapped_column(
         String(255), nullable=True, comment="前端包来源（产品前端模块产物的获取来源；本期留空）"

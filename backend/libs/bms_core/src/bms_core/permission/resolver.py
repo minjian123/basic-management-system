@@ -6,7 +6,7 @@
 基础版（`smb` 档）注册两个解析器（platform 侧实现）：
 
 - 直接角色（`sys_user_role`）；
-- 岗位 / 部门链角色（mdm 只读出口 `/api/v1/org/user-roles`，含不可达降级与严格模式）。
+- 岗位 / 部门链角色（产品组织域只读出口 `/api/v1/org/user-roles`，含不可达降级与严格模式）。
 
 后代（`enterprise` / `enterprise_hr`）追加解析器（条件化 / 组织继承 / 人事关系）即接入
 （见《02_04 详细设计》§11.2 接缝 1）。

@@ -42,7 +42,7 @@ HOST_BY_SERVICE: ConcurrentStableDict[str, str] = ConcurrentStableDict(
 )
 """服务 → loopback 别名（与 `scripts/tools/dev/本地全套.py`、服务基址模板 `http://{service}:8000` 同形）。
 
-`org` 已随组织主数据归 mdm 产品服务（2026-10-07）退出平台服务清单，本机全套不再纳管。
+`org` 已随组织主数据归产品服务（2026-10-07）退出平台服务清单，本机全套不再纳管。
 """
 
 KNOWN_SERVICES = "tenant / platform / identity"

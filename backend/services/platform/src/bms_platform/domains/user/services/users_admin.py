@@ -11,7 +11,7 @@
   删除前校验角色分配引用（30011）；
 - **事件**：`sys.user.created` / `sys.user.updated` / `sys.user.deleted` / `sys.user.password_reset`
   在写事务内经事务性发件箱发射（载荷不含组织字段）；
-- **不含**：组织（部门 / 岗位）字段与关系（归 mdm，需求 `07-11`）、`locale` / `timezone`（个人中心）。
+- **不含**：组织（部门 / 岗位）字段与关系（归产品组织域，需求 `07-11`）、`locale` / `timezone`（个人中心）。
 """
 
 from __future__ import annotations

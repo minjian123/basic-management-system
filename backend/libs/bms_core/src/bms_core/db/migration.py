@@ -558,9 +558,9 @@ def _package_exists(package: str) -> bool:
 def service_package(service: str, *, settings: Settings | None = None) -> str:
     """取服务包名（`{package_prefix}_{service}`；前缀等于服务标识时去重为 `{service}`）。
 
-    平台默认前缀 `bms`（如 `bms_platform`）；产品配自有前缀（如 mdm 配 `mdm`）。**前缀与产品名相同时
-    去重**（2026-10-23 拍板，与库名 `prefix == service` 去重同规则）——产品 `mdm` 的服务包即 `mdm`，
-    不再出现 `mdm_mdm`；其余仓 `prefix != service` 行为不变。
+    平台默认前缀 `bms`（如 `bms_platform`）；产品配自有前缀（如某产品配其产品键）。**前缀与产品名相同时
+    去重**（2026-10-23 拍板，与库名 `prefix == service` 去重同规则）——产品的服务包即产品键，
+    不再出现 `{产品键}_{产品键}`；其余仓 `prefix != service` 行为不变。
 
     Args:
         service: 服务标识。
@@ -627,7 +627,7 @@ def require_service_model_modules(service: str, *, settings: Settings | None = N
         prefix = (settings or get_settings()).app.package_prefix
         raise ConfigError(
             f"服务包不存在：{package}（当前包名前缀 [app].package_prefix={prefix}）；"
-            "请确认前缀配置与服务工程包名一致（前缀 = 产品名时去重，如 mdm 配 mdm → 包名 mdm）"
+            "请确认前缀配置与服务工程包名一致（前缀 = 产品键时去重，如产品键配同名前缀 → 包名即产品键）"
         )
     return service_model_modules(service, settings=settings)
 

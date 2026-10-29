@@ -7,7 +7,7 @@
 - `DictTableDataSource`：**配置「数据出口标识 + 物理表」即可直接使用**（按启用 + 未软删过滤、
   按 `sort` / `id` 排序、标准列映射为通用条目）；**继承覆写 `mapping()` / `row_to_item()`** 即可定制
   （列名映射 / 本地化 / 过滤）。
-- 为 **mdm 需求域二 `02_01`（参考数据域实现与字典出口）前置**。
+- 为 **产品需求域二 `02_01`（参考数据域实现与字典出口）前置**。
 """
 
 from collections.abc import AsyncGenerator

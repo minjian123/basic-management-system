@@ -55,7 +55,7 @@ def contract_file_name(service_key: str) -> str:
 def enabled_service_records() -> ConcurrentStableList[ModuleRecord]:
     """启用的**平台服务**登记行（`service_key` 非空 + 状态启用 + **非产品分组**）。
 
-    产品分组服务（如 `org` 归 mdm）的公开契约**由产品侧自持**（不在 bms `deploy/contracts/`，
+    产品分组服务（如组织域归产品）的公开契约**由产品侧自持**（不在 bms `deploy/contracts/`，
     也不参与 bms 的快照导出与 oasdiff 门禁，见 12_02 §3），故本视图排除之。
 
     Returns:

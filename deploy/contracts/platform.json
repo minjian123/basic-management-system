@@ -4123,7 +4123,7 @@
       },
       "InternalUserItem": {
         "additionalProperties": false,
-        "description": "内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。\n\n用户＝系统账号，**不含组织字段**（部门 / 岗位关系归 mdm，需求 07-11）——用户-部门关系由\nmdm 自持（`org_user_dept`），不需 platform 回传。",
+        "description": "内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。\n\n用户＝系统账号，**不含组织字段**（部门 / 岗位关系归产品组织域，需求 07-11）——用户-部门关系由\n产品自持（`org_user_dept`），不需 platform 回传。",
         "properties": {
           "email": {
             "anyOf": [
@@ -5934,7 +5934,7 @@
       },
       "RoleAssignmentsResult": {
         "additionalProperties": false,
-        "description": "角色保存编排结果（回带 platform 侧生效后集合）。\n\n组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
+        "description": "角色保存编排结果（回带 platform 侧生效后集合）。\n\n组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
         "properties": {
           "applied": {
             "description": "本次参与的分段名（role / user_ids / role_posts / role_depts）",
@@ -6986,7 +6986,7 @@
       },
       "UserAssignmentsResult": {
         "additionalProperties": false,
-        "description": "用户保存编排结果（回带 platform 侧生效后集合）。\n\n组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
+        "description": "用户保存编排结果（回带 platform 侧生效后集合）。\n\n组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
         "properties": {
           "applied": {
             "description": "本次参与的分段名（profile / role_ids / user_posts / user_depts）",
@@ -15894,7 +15894,7 @@
     },
     "/api/v1/platform/internal/users/query": {
       "post": {
-        "description": "按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。\n\n供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）\n取用户明细——**不跨库读** `sys_user`。仅接受持有本能力有效分配的服务票据；只读、不写库、不产事件；\n联系方式**原样返回**（脱敏归消费方 mdm 出口）。\n\nArgs:\n    req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户只读行（主键升序）。",
+        "description": "按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。\n\n供产品组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）\n取用户明细——**不跨库读** `sys_user`。仅接受持有本能力有效分配的服务票据；只读、不写库、不产事件；\n联系方式**原样返回**（脱敏归消费方产品出口）。\n\nArgs:\n    req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户只读行（主键升序）。",
         "operationId": "query_users_api_v1_platform_internal_users_query_post",
         "parameters": [
           {

@@ -392,7 +392,7 @@ def platform_route_services() -> ConcurrentStableList[ModuleRecord]:
 
     产品服务的对外入口只经产品命名空间 `/api/{product_key}/v1/{domain}/...`（架构 09「独立服务接入
     骨架」节、12_02 §5）；故服务级命名空间不为产品服务生成路由——避免同一服务出现
-    `/api/org/v1`（服务级）与 `/api/mdm/v1/org`（产品级）双路径并存、对外契约口径混乱。
+    `/api/org/v1`（服务级）与 `/api/{product_key}/v1/org`（产品级）双路径并存、对外契约口径混乱。
 
     Returns:
         tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的服务登记行。

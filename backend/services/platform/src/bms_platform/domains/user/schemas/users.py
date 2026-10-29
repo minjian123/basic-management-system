@@ -1,7 +1,7 @@
 """平台服务 schemas 层：用户相关请求 / 响应契约。
 
 - 内部契约（服务间调用，不经网关）：概要 / 重置目标 / 统一建号；**只读查询出口**（`/query`，
-  供 mdm 组织域只读出口取用户明细——组织主数据归 mdm、用户（账号）归 platform，跨服务只经契约）；
+  供产品组织域只读出口取用户明细——组织主数据归产品、用户（账号）归 platform，跨服务只经契约）；
 - 管理面契约（`/api/v1/users`，登录 + `user:query`）：最小用户只读查询行。
 """
 
@@ -47,8 +47,8 @@ class InternalUserQueryRequest(BaseSchema):
 class InternalUserItem(BaseSchema):
     """内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。
 
-    用户＝系统账号，**不含组织字段**（部门 / 岗位关系归 mdm，需求 07-11）——用户-部门关系由
-    mdm 自持（`org_user_dept`），不需 platform 回传。
+    用户＝系统账号，**不含组织字段**（部门 / 岗位关系归产品组织域，需求 07-11）——用户-部门关系由
+    产品自持（`org_user_dept`），不需 platform 回传。
     """
 
     id: int = Field(description="用户主键")
@@ -126,7 +126,7 @@ class UserResetTargetResult(BaseSchema):
 
 # --------------------------------------------------------------------------- 管理面（用户完整域）
 # 用户 CRUD / 启停 / 重置密码 / 角色查看（需求 07-2）。组织字段（部门 / 岗位）不在本模块：
-# 用户＝系统账号，组织关系归 mdm（需求 07-11）。
+# 用户＝系统账号，组织关系归产品组织域（需求 07-11）。
 
 
 class UserAdminCreateRequest(BaseSchema):
@@ -289,7 +289,7 @@ class UserAssignmentsRequest(BaseSchema):
 class UserAssignmentsResult(BaseSchema):
     """用户保存编排结果（回带 platform 侧生效后集合）。
 
-    组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——
+    组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
     XA 分支执行端点契约只回分支状态、不回业务集合。
     """
 
