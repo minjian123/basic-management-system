@@ -2,7 +2,7 @@
 
 - **模板是展开用的常量，不是契约**：展开后可人工调整再写入；模板改动不影响已落库的拓扑
   （已生效的拓扑是数据，不是引用）；
-- **只展开已登记业务域**：模板按传入的域集合展开，未登记的域（如 `biz` 接入前的采购 / 仓储 / 销售）
+- **只展开已登记业务域**：模板按传入的域集合展开，未登记的业务域（如采购 / 仓储 / 销售接入前）
   不出现——否则「引用未登记业务域即拒」的校验会让模板自身不可用；
 - **默认拓扑不使用模板**：默认拓扑必须与现状承载一致（`02_01` §3.7），模板表达的是目标形态；
 - 落点与 `TopologyResolver` 同目录：写入方、`02_02` 寻址、`04_02` 迁移三方共用，不绑某一服务。
@@ -47,8 +47,8 @@ TEMPLATES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
 TEMPLATE_UNIT_PREFIX = "dom-"
 """独立型的单元前缀（`dom-` + 域标识，下划线换连字符以符合单元命名）。"""
 
-GROUPED_UNIT_PREFIX = "biz-"
-"""分组型的产品域单元前缀（`biz-purchase` / `biz-ops`）。"""
+GROUPED_UNIT_PREFIX = "grp-"
+"""分组型的业务域组单元前缀（`grp-purchase` / `grp-ops`；单元标识不带产品键，平台源码不得出现产品标识）。"""
 
 _GROUPED_UNITS: ConcurrentStableFrozenDict[str, str] = ConcurrentStableFrozenDict(
     (

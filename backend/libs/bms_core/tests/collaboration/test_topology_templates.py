@@ -49,9 +49,9 @@ def test_grouped_maps_product_domains_to_biz_units() -> None:
     """分组型：采购 / 仓储 / 销售域落 `biz-*` 单元（含产品前缀的域标识同样命中）。"""
     rows = expand_template(TEMPLATE_GROUPED, ("auth", "purchase", "biz_warehouse", "sales"))
     units = ConcurrentStableDict((row.domain_key, row.unit_key) for row in rows)
-    assert units["purchase"] == "biz-purchase"
-    assert units["biz_warehouse"] == "biz-ops"
-    assert units["sales"] == "biz-ops"
+    assert units["purchase"] == "grp-purchase"
+    assert units["biz_warehouse"] == "grp-ops"
+    assert units["sales"] == "grp-ops"
     assert units["auth"] == DEFAULT_UNIT_KEY
 
 
