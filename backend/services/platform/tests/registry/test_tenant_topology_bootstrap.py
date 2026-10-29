@@ -9,8 +9,10 @@ from typing import cast
 
 import pytest
 from fastapi import FastAPI
+from sqlalchemy.exc import OperationalError
 
 from bms_core.collaboration import (
+    DomainLayoutTopologyResolver,
     TenantTopologyResolver,
     reset_topology_resolver,
     reset_topology_snapshots,
@@ -181,3 +183,19 @@ async def test_bootstrap_appends_registered_domains_missing_from_default(
             assert merged[domain] == "legacy"
         else:
             assert merged[domain] == service
+
+
+async def test_hook_degrades_when_table_not_ready(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """库未就绪（未建表 / 不可读）降级：记降级标记、保留 07B 过渡实现，不拒启。
+
+    与「拓扑未配置」区分：表可读但缺域仍拒启（见其他用例），此处只覆盖环境未就绪。
+    """
+
+    async def _boom(*_: object) -> int:
+        raise OperationalError("select 1", {}, Exception("no such table: sys_tenant_topology"))
+
+    reset_topology_resolver()
+    monkeypatch.setattr(TenantTopologyService, "ensure_default", _boom)
+    await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
+    assert service_app.state.topology_degraded is True
+    assert isinstance(resolve_topology(), DomainLayoutTopologyResolver)
