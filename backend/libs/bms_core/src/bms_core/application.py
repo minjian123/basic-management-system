@@ -671,6 +671,9 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.tenant_source = tenant_source
         app.state.tenant_membership = tenant_membership
         app.state.service_client = service_client
+        # 进程内直调登记（07C `02_02`）：`mode=local` 的能力调用复用本应用 ASGI 栈（不经网络）。
+        # 客户端插件未实现直调时为空实现（照旧走网络自调用），不改变既有行为。
+        service_client.bind_local_app(app)
         app.state.metrics = metrics
         app.state.resources.register(engine_registry)
         app.state.resources.register(primary_health)

@@ -167,3 +167,28 @@ def test_target_base_url_is_the_only_address_source() -> None:
     assert target.mode == CapabilityMode.COLOCATED
     assert target.base_url == "http://core:8000"
     assert list(target.db_keys) == ["platform_core"]
+
+
+@pytest.mark.kiwi_id(2369)
+def test_local_mode_marks_request_for_in_process_dispatch() -> None:
+    """`mode=local` 的解析结果在请求上置 `local`（触发进程内直调，而非网络调用）。"""
+    register_topology_snapshot(_snapshot(DEFAULT_TOPOLOGY_TENANT, "mdm"))
+    register_instance_context("mdm", None)
+
+    endpoint = _endpoint(resolve_for(7, "org"))
+    request = build_capability_request(endpoint, method="GET")
+
+    assert endpoint.target.mode == CapabilityMode.LOCAL
+    assert request.local is True
+
+
+@pytest.mark.kiwi_id(2369)
+def test_colocated_mode_does_not_mark_request_local() -> None:
+    """非 `local` 模式（`colocated` / `remote`）不置 `local`：仍按解析地址走网络。"""
+    register_topology_snapshot(_snapshot(DEFAULT_TOPOLOGY_TENANT, "mdm"))
+    register_instance_context("billing", None)
+
+    endpoint = _endpoint(resolve_for(7, "org"))
+
+    assert endpoint.target.mode == CapabilityMode.COLOCATED
+    assert build_capability_request(endpoint, method="GET").local is False

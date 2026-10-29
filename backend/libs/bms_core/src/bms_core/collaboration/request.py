@@ -12,7 +12,7 @@
 
 from dataclasses import replace
 
-from bms_core.collaboration.base import CapabilityEndpoint
+from bms_core.collaboration.base import CapabilityEndpoint, CapabilityMode
 from bms_core.collaboration.grant import granted_scopes
 from bms_core.core.concurrent import ConcurrentStableFrozenDict
 from bms_core.core.config import get_settings
@@ -59,6 +59,7 @@ def build_capability_request(
         method=method,
         path=path,
         base_url=endpoint.target.base_url,
+        local=endpoint.target.mode == CapabilityMode.LOCAL,
         query=query,
         headers=headers,
         json_body=json_body,

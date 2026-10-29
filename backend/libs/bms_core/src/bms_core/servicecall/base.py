@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import cast
 from urllib.parse import urlencode
 
-from fastapi import Request
+from fastapi import FastAPI, Request
 
 from bms_core.api.base import API_PREFIX
 from bms_core.core.concurrent import (
@@ -150,6 +150,15 @@ class ServiceRequest(BaseValueObject):
     一律由 `build_capability_request` 从 `CapabilityTarget.base_url` 填入。
     """
 
+    local: bool = False
+    """目标是否在本进程（能力寻址第二段的 `mode=local`）。
+
+    True 且应用已登记本地 ASGI（`BaseServiceClient.bind_local_app`）时，调用**不经网络**、
+    直接进入本应用的 ASGI 栈（保留路径 / 中间件 / 鉴权语义）；未登记本地应用时按普通 HTTP
+    发出（自调用本服务，行为与改造前一致）。由 `build_capability_request` 按解析结果填入，
+    消费方不自行设置。
+    """
+
     query: ConcurrentStableFrozenDict[str, str] | None = None
     """查询参数（可选）。"""
 
@@ -260,6 +269,18 @@ class BaseServiceClient(BasePluggable, ABC):
     plugin_key: str = "service_client"
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
+
+    def bind_local_app(self, app: FastAPI) -> None:
+        """登记本进程应用（供 `mode=local` 的调用直连本应用 ASGI 栈）。
+
+        缺省空实现：不实现直调的客户端照旧走网络（自调用本服务），行为与改造前一致；
+        `HttpServiceClient` 覆盖本方法以启用进程内直调。重复登记以后者为准（同进程多应用
+        装配时，最近装配的应用生效）。
+
+        Args:
+            app: 应用实例。
+        """
+        del app
 
     @abstractmethod
     async def call(self, request: ServiceRequest) -> ServiceResponse:

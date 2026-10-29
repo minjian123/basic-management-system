@@ -10,6 +10,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
+from bms_core.collaboration.bootstrap import TOPOLOGY_SNAPSHOT_PATH
 from bms_core.collaboration.topology import DEFAULT_TOPOLOGY_TENANT
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
@@ -147,3 +148,10 @@ async def test_empty_snapshot_when_platform_not_bootstrapped(
 
     assert resp.status_code == 200
     assert resp.json()["data"] == {"default_version": 0, "snapshots": []}
+
+
+@pytest.mark.kiwi_id(2368)
+def test_snapshot_path_constant_matches_route(service_app: FastAPI) -> None:
+    """基座拓扑出口常量必须与平台真实路由一致（路径写错只会 404，运行期难发现）。"""
+    assert TOPOLOGY_SNAPSHOT_PATH == INTERNAL_API
+    assert INTERNAL_API in service_app.openapi()["paths"]
