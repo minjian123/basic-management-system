@@ -10,19 +10,18 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import SessionSettings
-from bms_core.core.objects import BaseFrameworkObject, BaseRefreshableTokenContract
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
-from bms_core.oauth.base import TOKEN_TYPE_BEARER
 from bms_core.oauth.user_token import BaseUserTokenIssuer, UserTokenSpec
 from bms_core.security.base import BaseSessionSecurity
 from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher
+from bms_identity.domains.auth.dto import IssuedSession
 from bms_identity.domains.auth.repositories.session import SessionRepository
 from bms_identity.domains.auth.services.session import SessionService
 
@@ -60,32 +59,6 @@ def truncate_field(value: str | None, limit: int) -> str | None:
     if value is None:
         return None
     return value[:limit]
-
-
-@dataclass(frozen=True)
-class IssuedSession(BaseRefreshableTokenContract):
-    """会话签发结果（双 token + 会话 id，供下发 cookie 与响应体）。"""
-
-    access_token: str
-    """访问令牌（紧凑 JWT）。"""
-
-    refresh_token: str
-    """刷新令牌（紧凑 JWT）。"""
-
-    access_expires_in: int
-    """access 有效期（秒）。"""
-
-    refresh_expires_in: int
-    """refresh 有效期（秒）。"""
-
-    session_id: str
-    """会话 id（= 双 token `jti`）。"""
-
-    remember_me: bool = True
-    """是否记住我（决定 Cookie 是否持久；refresh 保留时长选项）。"""
-
-    token_type: str = TOKEN_TYPE_BEARER
-    """令牌类型（响应口径）。"""
 
 
 class SessionIssuer(BaseFrameworkObject):

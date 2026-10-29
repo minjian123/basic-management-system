@@ -45,7 +45,7 @@ from bms_core.idp.state.base import BaseIdpStateStore, IdpFlowState
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
-from bms_identity.domains.auth.public import IssuedSession, SessionIssuer
+from bms_identity.domains.auth.public import IssuedSession, SessionIssuerPort
 from bms_identity.domains.identity_federation.repositories.identity_provider import IdentityProviderRepository
 from bms_identity.domains.identity_federation.repositories.user_identity import UserIdentityRepository
 from bms_identity.domains.identity_federation.schemas.sso import SsoProviderItem
@@ -301,7 +301,7 @@ class SsoService(BaseFrameworkObject):
         user_agent: str | None,
         session: DbSession,
         platform_session: DbSession,
-        session_issuer: SessionIssuer,
+        session_issuer: SessionIssuerPort,
         state: str = "",
     ) -> SsoLoginResult:
         """回调闭环：换码 / 验签 / 映射 / 概要 → 签发会话。

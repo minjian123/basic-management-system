@@ -599,6 +599,7 @@ runtime_packages = ["bms_core", "ops"]
 layout = "deploy/boundaries/domain_layout.json"
 exceptions = "deploy/boundaries/data_ownership_exceptions.json"
 baseline = "deploy/boundaries/domain_boundary_baseline.json"
+public_export_baseline = "deploy/boundaries/domain_public_export_baseline.json"
 shared_models_marker = "/libs/bms_core/src/bms_core/models/"
 package_prefix = "bms_"
 shared_lib_service = "platform"
@@ -635,6 +636,9 @@ counters = [
   "domain_baseline_used",
   "domain_files_registered",
   "domain_files_unregistered",
+  "public_export_violation",
+  "public_export_exempt_total",
+  "public_export_exempt_used",
 ]
 
 # 分层反向依赖黑名单：源子包 → 禁止依赖的目标子包

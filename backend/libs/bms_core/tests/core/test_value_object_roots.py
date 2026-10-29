@@ -298,7 +298,7 @@ VALUE_OBJECT_BATCH: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList
             "UserInfoResult",
         ),
         ("backend/services/identity/src/bms_identity/domains/auth/services/session.py", "SessionRevokeResult"),
-        ("backend/services/identity/src/bms_identity/domains/auth/services/session_issuer.py", "IssuedSession"),
+        ("backend/services/identity/src/bms_identity/domains/auth/dto.py", "IssuedSession"),
         (
             "backend/services/identity/src/bms_identity/domains/identity_federation/services/sso.py",
             "SsoAuthorizeResult",

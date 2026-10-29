@@ -1,0 +1,397 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "domain": "menu_form",
+      "symbol": "ButtonRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "FieldRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "FormRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "MenuFormRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "MenuFormService",
+      "kind": "service_impl",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "MenuRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "MenuSnapshot",
+      "kind": "service_impl",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SnapshotButton",
+      "kind": "service_impl",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SnapshotField",
+      "kind": "service_impl",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SnapshotForm",
+      "kind": "service_impl",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SnapshotMenu",
+      "kind": "service_impl",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SysButton",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SysField",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SysFieldI18n",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SysForm",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SysMenu",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SysMenuForm",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "menu_form",
+      "symbol": "SysMenuI18n",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "ActionRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "BusinessRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "PermissionMetadataService",
+      "kind": "service_impl",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "PermissionRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "SysAction",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "SysActionI18n",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "SysBusiness",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "SysBusinessI18n",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "permission_meta",
+      "symbol": "SysPermission",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "role",
+      "symbol": "DataScopeRepository",
+      "kind": "repository",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "DirectRoleResolver",
+      "kind": "service_impl",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "MetadataReferenceRepository",
+      "kind": "repository",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "OrgRoleResolver",
+      "kind": "service_impl",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "PERM_TYPE_FORM",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "role",
+      "symbol": "PERM_TYPE_MENU",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "role",
+      "symbol": "PERM_TYPE_PERMISSION",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "role",
+      "symbol": "ROLE_TYPE_CUSTOM",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "role",
+      "symbol": "RolePermissionRepository",
+      "kind": "repository",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "RoleRepository",
+      "kind": "repository",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "SeparationGuard",
+      "kind": "service_impl",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "StaticFieldPermissionProvider",
+      "kind": "service_impl",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "SysDataScope",
+      "kind": "orm",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "SysRole",
+      "kind": "orm",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "SysRoleField",
+      "kind": "orm",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "SysRolePermission",
+      "kind": "orm",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "SysUserRole",
+      "kind": "orm",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "UserRoleRepository",
+      "kind": "repository",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "role",
+      "symbol": "build_static_field_provider",
+      "kind": "service_impl",
+      "reason": "本轮迁移中：出口 DTO 化完成后从白名单删除",
+      "owner": "07C 03_04（本轮 auth / role）"
+    },
+    {
+      "domain": "user",
+      "symbol": "LOCK_TYPES",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "user",
+      "symbol": "LOCK_TYPE_FAIL_LIMIT",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "user",
+      "symbol": "LOCK_TYPE_INACTIVE",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "user",
+      "symbol": "LOCK_TYPE_MANUAL",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "user",
+      "symbol": "SysAccountLock",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "user",
+      "symbol": "SysUser",
+      "kind": "orm",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    },
+    {
+      "domain": "user",
+      "symbol": "UNLOCK_MODES",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "user",
+      "symbol": "UNLOCK_MODE_AUTO",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "user",
+      "symbol": "UNLOCK_MODE_MANUAL",
+      "kind": "constant",
+      "reason": "运行期不可变值域（枚举 / 选项常量），非实现数据面",
+      "owner": "项目骨架 01_08（选项集 / 字典口径收口）"
+    },
+    {
+      "domain": "user",
+      "symbol": "UserRepository",
+      "kind": "repository",
+      "reason": "待迁：域出口 DTO 化随该域改动递减",
+      "owner": "07C 03_04（已迁 / 待迁台账）"
+    }
+  ]
+}

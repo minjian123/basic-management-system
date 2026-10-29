@@ -47,11 +47,11 @@ from bms_core.security.base import BaseSessionSecurity
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher
-from bms_identity.domains.auth.public import build_session_issuer, set_refresh_cookie
 from bms_identity.domains.identity_federation.schemas.sso import SsoAuthorizeInfo, SsoCallbackResult, SsoProviderList
 from bms_identity.domains.identity_federation.services.provider_registry import ProviderRegistry
 from bms_identity.domains.identity_federation.services.sso import SsoLoginResult, SsoService
 from bms_identity.services.platform_client import PlatformCredentialClient
+from bms_identity.wiring import build_cookie_policy, build_session_issuer
 
 router = BaseRouter(key="sso", prefix="/auth/sso", tags=["sso"], default_responses=False)
 
@@ -449,7 +449,7 @@ def _success_response(request: Request, result: SsoLoginResult) -> Response:
         )
     else:
         response = JSONResponse(content=payload.model_dump(mode="json"), status_code=200)
-    set_refresh_cookie(response, request, result.issued.refresh_token, result.issued.refresh_expires_in)
+    build_cookie_policy().apply_refresh(response, request, result.issued)
     return response
 
 

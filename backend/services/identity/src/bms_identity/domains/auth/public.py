@@ -1,18 +1,13 @@
 """认证与会话业务域公共出口（D2 唯一跨域引用面）。
 
-对外提供：会话签发（`build_session_issuer` / `SessionIssuer` / `IssuedSession`）与刷新 cookie 写入
-（身份联邦域在 SSO 回调成功后签发会话时使用）。**本模块只做再导出**，不承载业务规则。
+只交两类：**不可变 DTO**（`IssuedSession`）与**领域服务接口**（`SessionIssuerPort` /
+`SessionCookiePolicy`）。实现类（`SessionIssuer` / `HttpSessionCookiePolicy`）与装配工厂
+（`build_session_issuer`）不出本出口——实现由 `bms_identity.wiring` 构造后注入，跨域消费方
+只持协议与 DTO；改实现不影响出口面（出口形态由 D6 机器护栏守）。
 """
 
-from bms_identity.domains.auth.api.cookies import set_refresh_cookie as set_refresh_cookie
-from bms_identity.domains.auth.services.session_issuer import (
-    IssuedSession as IssuedSession,
-)
-from bms_identity.domains.auth.services.session_issuer import (
-    SessionIssuer as SessionIssuer,
-)
-from bms_identity.domains.auth.services.session_issuer import (
-    build_session_issuer as build_session_issuer,
-)
+from bms_identity.domains.auth.dto import IssuedSession as IssuedSession
+from bms_identity.domains.auth.ports import SessionCookiePolicy as SessionCookiePolicy
+from bms_identity.domains.auth.ports import SessionIssuerPort as SessionIssuerPort
 
-__all__ = ["IssuedSession", "SessionIssuer", "build_session_issuer", "set_refresh_cookie"]
+__all__ = ["IssuedSession", "SessionCookiePolicy", "SessionIssuerPort"]
