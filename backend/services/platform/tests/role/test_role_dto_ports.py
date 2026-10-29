@@ -11,8 +11,10 @@ from typing import Any, cast
 
 import pytest
 
+from bms_core.config.null import NullConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import UserSeparationConflictError
+from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.role import (
     ROLE_TYPE_CUSTOM,
     ROLE_TYPE_SYSTEM,
@@ -23,7 +25,7 @@ from bms_core.models.platform.role import (
 )
 from bms_platform.domains.role.dto import (
     RoleDataScopeEntry,
-    RoleDetail,
+    RoleDetailSnapshot,
     RoleFieldGrant,
     RolePermissionEntry,
     RoleSummary,
@@ -32,6 +34,8 @@ from bms_platform.domains.role.services.role_assignment import RoleAssignmentSer
 from bms_platform.domains.role.services.role_grant_reader import RoleGrantReader
 from bms_platform.domains.role.services.role_query import RoleQueryService
 from bms_platform.domains.role.services.role_reference import RoleReferenceService
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.wiring import role_assignment_writer
 from tests.role import helpers
 
 _NOW = datetime.now(UTC).replace(tzinfo=None)
@@ -72,7 +76,7 @@ def test_role_dto_from_model() -> None:
     assert summary.builtin is True
     assert RoleSummary.from_model(_role(role_type=ROLE_TYPE_CUSTOM)).builtin is False
 
-    detail = RoleDetail.from_model(row)
+    detail = RoleDetailSnapshot.from_model(row)
     assert (detail.version, detail.created_by, detail.updated_by) == (3, 1, 2)
     assert detail.created_at == _NOW and detail.updated_at == _NOW
 
@@ -140,6 +144,7 @@ async def test_role_assignment_port_writes_and_guard() -> None:
 
         applied = await service.set_user_roles(1, ConcurrentStableList([role.id, role.id]))
         assert [item.code for item in applied] == ["ops"]
+        assert [item.code for item in await service.list_roles_of_user(1)] == ["ops"]
         await helpers.commit(cast("Any", session))
         assert list(await service.list_role_ids_of_user(1)) == [role.id]
         assert await service.count_by_user(1) == 1
@@ -172,5 +177,21 @@ async def test_role_assignment_port_writes_and_guard() -> None:
         guarded = RoleAssignmentService(cast("Any", session), guard=cast("Any", _Guard()))
         with pytest.raises(UserSeparationConflictError):
             await guarded.set_user_roles(1, ConcurrentStableList([other.id]))
+    finally:
+        await engine.dispose()
+
+
+async def test_role_assignment_writer_factory() -> None:
+    """装配面：写入器工厂返回可用的角色保存写入器（角色本体 + 分配分段）。"""
+    session, engine = await helpers.session()
+    try:
+        writer = role_assignment_writer(
+            session=cast("Any", session),
+            uow=DbUnitOfWork(cast("Any", session)),
+            users=UserRepository(cast("Any", session)),
+            config=NullConfigSource(),
+            guard=None,
+        )
+        assert writer is not None
     finally:
         await engine.dispose()

@@ -33,6 +33,7 @@ from bms_platform.domains.permission_meta.repositories.business import (
     BusinessRepository,
     PermissionRepository,
 )
+from bms_platform.domains.role.dto import RoleSummary
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.domains.role.services.separation import RoleBusinessPermissions, SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
@@ -284,9 +285,9 @@ async def test_user_roles_exclusive_full_replace(session: tuple[AsyncSession, As
     guard = _guard(target, audit=audit)
     user_id = await _user(target, "bob")
 
-    custom = await _role(target, code="ops")
-    system = await _role(target, code="system_admin", role_type=ROLE_TYPE_SYSTEM)
-    security = await _role(target, code="security_admin", role_type=ROLE_TYPE_SECURITY)
+    custom = RoleSummary.from_model(await _role(target, code="ops"))
+    system = RoleSummary.from_model(await _role(target, code="system_admin", role_type=ROLE_TYPE_SYSTEM))
+    security = RoleSummary.from_model(await _role(target, code="security_admin", role_type=ROLE_TYPE_SECURITY))
 
     await guard.ensure_user_roles_exclusive(
         user_ids=ConcurrentStableList((user_id,)), roles=ConcurrentStableList((custom,))

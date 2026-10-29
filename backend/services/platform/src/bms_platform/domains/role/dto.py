@@ -1,6 +1,6 @@
 """角色业务域数据 DTO：域公共出口只交本模块的不可变对象（D6 出口导出面）。
 
-字段与能力契约的条目模型一一对应（`schemas/role.py` 的 `RoleItem` / `RoleDetail` /
+字段与能力契约的条目模型一一对应（`schemas/role.py` 的 `RoleItem` / `RoleDetailSnapshot` /
 `RolePermissionEntryItem` / `RoleFieldEntryItem` / `RoleDataScopeEntryItem`），
 `from_model` 是**唯一**的模型 → DTO 转换入口：只做字段拷贝，不查询、不遍历关系
 （跨域懒加载等价于隐式读表）。
@@ -18,7 +18,7 @@ from bms_core.models.platform.role import ROLE_TYPE_CUSTOM, SysDataScope, SysRol
 __all__ = [
     "AssignedUser",
     "RoleDataScopeEntry",
-    "RoleDetail",
+    "RoleDetailSnapshot",
     "RoleFieldGrant",
     "RolePermissionEntry",
     "RoleSummary",
@@ -68,8 +68,12 @@ class RoleSummary(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class RoleDetail(RoleSummary):
-    """角色详情（摘要 + 乐观锁版本与审计四列）。"""
+class RoleDetailSnapshot(RoleSummary):
+    """角色详情快照（摘要 + 乐观锁版本与审计四列）。
+
+    命名带 `Snapshot` 是刻意的：响应模型 `schemas/role.py::RoleDetail` 同名，而基座的类形态索引按
+    **类名**聚合（不带模块），同名会让 Pydantic 契约被当成「值对象未冻结」。
+    """
 
     version: int
     """乐观锁版本。"""
@@ -87,14 +91,14 @@ class RoleDetail(RoleSummary):
     """更新人。"""
 
     @classmethod
-    def from_model(cls, row: SysRole) -> RoleDetail:
+    def from_model(cls, row: SysRole) -> RoleDetailSnapshot:
         """由角色记录构造详情。
 
         Args:
             row: 角色 ORM 记录。
 
         Returns:
-            RoleDetail: 角色详情。
+            RoleDetailSnapshot: 角色详情。
         """
         return cls(
             id=row.id,

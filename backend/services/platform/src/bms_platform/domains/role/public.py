@@ -29,7 +29,7 @@ from bms_platform.domains.role.dto import (
     RoleDataScopeEntry as RoleDataScopeEntry,
 )
 from bms_platform.domains.role.dto import (
-    RoleDetail as RoleDetail,
+    RoleDetailSnapshot as RoleDetailSnapshot,
 )
 from bms_platform.domains.role.dto import (
     RoleFieldGrant as RoleFieldGrant,
@@ -71,7 +71,7 @@ __all__ = [
     "AssignedUser",
     "RoleAssignmentPort",
     "RoleDataScopeEntry",
-    "RoleDetail",
+    "RoleDetailSnapshot",
     "RoleFieldGrant",
     "RoleGrantPort",
     "RolePermissionEntry",

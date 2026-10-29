@@ -11,7 +11,7 @@ from typing import Protocol
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_platform.domains.role.dto import (
     RoleDataScopeEntry,
-    RoleDetail,
+    RoleDetailSnapshot,
     RolePermissionEntry,
     RoleSummary,
 )
@@ -28,14 +28,14 @@ __all__ = [
 class RoleQueryPort(Protocol):
     """角色读面：单条 / 批量 / 按码。"""
 
-    async def get(self, role_id: int) -> RoleDetail | None:
+    async def get(self, role_id: int) -> RoleDetailSnapshot | None:
         """取角色详情。
 
         Args:
             role_id: 角色主键。
 
         Returns:
-            RoleDetail | None: 角色详情；不存在返回 None。
+            RoleDetailSnapshot | None: 角色详情；不存在返回 None。
         """
         ...
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
-from bms_platform.domains.role.dto import RoleDetail, RoleSummary
+from bms_platform.domains.role.dto import RoleDetailSnapshot, RoleSummary
 from bms_platform.domains.role.repositories.role import RoleRepository
 
 __all__ = ["RoleQueryService"]
@@ -22,17 +22,17 @@ class RoleQueryService(BaseFrameworkObject):
         """
         self._roles = RoleRepository(session)
 
-    async def get(self, role_id: int) -> RoleDetail | None:
+    async def get(self, role_id: int) -> RoleDetailSnapshot | None:
         """取角色详情。
 
         Args:
             role_id: 角色主键。
 
         Returns:
-            RoleDetail | None: 角色详情；不存在返回 None。
+            RoleDetailSnapshot | None: 角色详情；不存在返回 None。
         """
         row = await self._roles.get(role_id)
-        return None if row is None else RoleDetail.from_model(row)
+        return None if row is None else RoleDetailSnapshot.from_model(row)
 
     async def list_by_ids(self, role_ids: ConcurrentStableList[int]) -> ConcurrentStableList[RoleSummary]:
         """按主键批量取角色引用（未命中项跳过，保序）。
