@@ -57,6 +57,27 @@ depth = "direct"
 ruff_cmd = "uv run --project backend ruff"
 ruff_config = "backend/pyproject.toml"
 
+# ---- 开发环附加步骤（07C 后增；命令模板占位见 engkit 文档「增量扫描」）----
+# 位置约定：ruff（改动文件）之后、选测之前——护栏是秒级，先失败先修，省掉后续测试时间。
+# 增量口径：`{changed}` = 改动清单文件（git 基准为 `[preflight].since`），只扫改动文件；
+# 全量对账（基线 + 全局断言）仍在推送前预检里跑，两者分工见《AI开发规范》「开发环 / 推送环」。
+[[devloop.steps]]
+label = "护栏：集合声明（增量）"
+cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
+label = "护栏：产品字面量（增量）"
+cmd = ["{python}", "scripts/tools/base_check/check_product_literals.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
+label = "护栏：工作区卫生"
+cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
+
+[[devloop.steps]]
+label = "后端静态：pyright（仅改动文件）"
+cmd = ["uv", "run", "--project", "backend", "pyright", "{changed_py*}"]
+only_if = "changed_py"
+
 [rules.backend.global]
 exact = ["backend/pyproject.toml", "backend/uv.lock", ".gitlab-ci.yml"]
 prefixes = ["backend/alembic/", "deploy/"]
