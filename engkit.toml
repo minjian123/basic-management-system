@@ -206,6 +206,13 @@ label = "网关：gateway_config check（服务目录零漂移）"
 cmd = ["uv", "run", "python", "-m", "ops.gateway_config", "check", "--root", "{root}"]
 cwd = "backend"
 
+# 域布局生成物（deploy/boundaries/domain_layout.json）：07B 04_02 重开后由本仓清单第九类
+# [[domains]] 渲染，生成物只读、不得手改；清单改了须跑 --render-domain-layout 重新生成。
+[[preflight.steps]]
+label = "基座：域布局生成物零漂移（清单第九类 [[domains]] 渲染，勿手改）"
+cmd = ["uv", "run", "python", "-m", "ops.check_modules", "--check-domain-layout"]
+cwd = "backend"
+
 # 跨仓：L1 产品声明 ↔ 产品契约 + L2 声明 ↔ 注册表（一次性临时库）。
 # 本地缺同级产品仓克隆属正常（提示跳过，不阻断）；`--allow-missing` 只影响「一个仓都没有」，
 # 有克隆则照常校验（CI 侧不传该参数，取不到即红）。

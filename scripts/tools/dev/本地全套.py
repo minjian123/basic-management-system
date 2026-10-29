@@ -21,7 +21,9 @@
   stop <服务名...>  只停指定服务（其余保持纳管）——供「用 debugpy 调试某服务」时腾出该服务
   status            进程与 /healthz、/readyz 一览（含服务所属仓）
   seed              幂等种子：租户注册库 + 菜单元数据 + 建号（缺省账号 admin；口令随机生成并打印一次）
-  env               确保 `frontend/apps/desktop/.env.local` 含 `VITE_LOCAL_API` 本地服务映射（up 已自动调用）
+  env               确保 `frontend/apps/desktop/.env.local` 含 `VITE_LOCAL_API` 本地服务映射（up 已自动调用）；
+                    并按声明为每个服务写 IDE 调试环境文件 `<仓>/deploy/.dev-env.<服务键>.local`
+                    （供 IDE 启动项 `envFile` 注入——产品进程断点调试走这条路，见平台口径）
   logs [服务名]     打印日志尾部（缺省全部服务；追看用 tail -f）
   unlock [账号]     解锁账号：清 `sys_user.failed_count` / `locked_until` + 删 Redis 登录失败计数键
                     （登录阈值 5 次 / 锁 15 分钟：**验验证码请用不存在的账号试错口令**，
@@ -50,6 +52,10 @@
   （寻址覆盖经 `[service_client].endpoints` 注入；`up` 只在缺别名时提示，不阻断）；
 - 后台进程：Linux 用新会话（等价 nohup），Windows 用分离进程；停止口径同为 TERM → 5s → 强杀 → 2s；
 - 子进程枚举：Linux 用 /proc；Windows 服务本体为单进程，不枚举子进程。
+- IDE 调试：脚本起的都是**后台进程（不带调试器）**；断点调试须「先 stop 该服务，再由 IDE 启动项起它」。
+  平台服务由 `backend/ops/dev_run.py` 注入环境后 runpy 进服务入口；**产品服务**的代码在产品仓，
+  bms 侧脚本无法跨仓 runpy，故改由 IDE 原生 `module` 启动 + `envFile` 注入——环境文件即本脚本
+  `env` 子命令生成的 `<仓>/deploy/.dev-env.<服务键>.local`（与本脚本起进程的口径完全同源）。
 """
 
 import contextlib
@@ -597,25 +603,53 @@ def ensure_keys():
     return 0 if result.returncode == 0 else 1
 
 
-def load_keys_env():
-    """等价 shell 的 `. "$KEYS_FILE"`：解析 `export KEY='VALUE'` 行并注入环境变量。"""
+def _parse_env_file(path):
+    """解析环境文件（`export KEY='VALUE'` / `KEY=VALUE`，值可带成对引号）。
+
+    Args:
+        path: 环境文件路径（开发密钥文件 / IDE 调试环境文件同形态）。
+
+    Returns:
+        (键值对列表, 无法解析的行列表)；文件不可读时键值对为 None。
+    """
     try:
-        with open(KEYS_FILE, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             lines = fh.readlines()
     except OSError:
-        err(f"开发密钥文件不可读：{KEYS_FILE}")
-        return 1
+        return None, []
+    pairs = []
+    bad = []
     for raw in lines:
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        if not line.startswith("export "):
-            err(f"密钥文件存在无法解析的行，已跳过：{line[:60]}")
+        line = line.removeprefix("export ").strip()
+        key, sep, value = line.partition("=")
+        if not sep or not key.strip():
+            bad.append(line)
             continue
-        key, _, value = line[len("export ") :].partition("=")
-        if value.startswith("'") and value.endswith("'") and len(value) >= 2:
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
             value = value[1:-1]
-        os.environ[key.strip()] = value
+        pairs.append((key.strip(), value))
+    return pairs, bad
+
+
+def _quote_env(value):
+    """把环境变量值写成单引号形态（IDE 的 `envFile` 与 shell 都按字面取用）。"""
+    return "'" + value + "'"
+
+
+def load_keys_env():
+    """等价 shell 的 `. "$KEYS_FILE"`：解析 `export KEY='VALUE'` 行并注入环境变量。"""
+    pairs, bad = _parse_env_file(KEYS_FILE)
+    if pairs is None:
+        err(f"开发密钥文件不可读：{KEYS_FILE}")
+        return 1
+    for line in bad:
+        err(f"密钥文件存在无法解析的行，已跳过：{line[:60]}")
+    for key, value in pairs:
+        os.environ[key] = value
     return 0
 
 
@@ -667,6 +701,58 @@ def endpoints_payload(specs):
     容器部署不注入（按 Compose DNS 模板派生），两形态行为同构。
     """
     return json.dumps({spec.key: f"http://{spec.address}" for spec in specs})
+
+
+DEBUG_ENV_TEMPLATE = ".dev-env.{key}.local"
+"""IDE 调试环境文件（`<仓>/deploy/.dev-env.<服务键>.local`；`env` 子命令生成，`*.local` 已忽略）。"""
+
+
+def write_debug_envs(specs, endpoints):
+    """为每个服务写一份 IDE 调试环境文件（`KEY=VALUE`，供 launch.json 的 `envFile` 注入）。
+
+    为什么需要：产品进程的代码在**产品仓**，bms 侧 `ops/dev_run.py` 无法跨仓 runpy 进产品服务；
+    改由 IDE 原生 `module` 启动 + `envFile` 注入与本脚本**同一份**本机口径（回环别名 / 端口 /
+    端点覆盖 / 开发密钥），断点、变量、调用栈与 `python -m <模块>` 完全一致。
+    文件是「声明 + 密钥」的确定性产物，每次 `env`（`up` 收尾自动调用）重写，勿手改。
+
+    Args:
+        specs: 本次纳入的服务规格。
+        endpoints: `endpoints_payload()` 的结果（端点覆盖 JSON）。
+
+    Returns:
+        写出的环境文件份数。
+    """
+    keys, _ = _parse_env_file(KEYS_FILE)
+    if keys is None:
+        err(f"开发密钥文件不可读，调试环境文件将不含密钥：{KEYS_FILE}")
+        keys = []
+    written = 0
+    for spec in specs:
+        deploy_dir = os.path.join(spec.repo_root, "deploy")
+        try:
+            os.makedirs(deploy_dir, exist_ok=True)
+        except OSError as exc:
+            err(f"调试环境文件目录不可写，跳过 {spec.key}：{deploy_dir}（{exc}）")
+            continue
+        pairs = [
+            ("BMS_SERVER__HOST", spec.host),
+            ("BMS_SERVER__PORT", spec.port),
+            ("BMS_REDIS__URL", REDIS_URL),
+            ("BMS_SERVICE_CLIENT__ENDPOINTS", endpoints),
+            ("PYTHONUNBUFFERED", "1"),
+        ]
+        pairs.extend(sorted(spec.extra_env.items()))
+        pairs.extend(keys)
+        lines = [
+            "# IDE 调试环境（由 scripts/tools/dev/本地全套.py 生成，勿手改；*.local 不入库）",
+            f"# 服务 {spec.key}（仓 {spec.repo_name}）· {spec.address} · 模块 {spec.module}",
+        ]
+        lines.extend(f"{key}={_quote_env(value)}" for key, value in pairs)
+        path = os.path.join(deploy_dir, DEBUG_ENV_TEMPLATE.format(key=spec.key))
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("\n".join(lines) + "\n")
+        written += 1
+    return written
 
 
 def start_one(spec, endpoints, procs=None):
@@ -1072,10 +1158,15 @@ def cmd_unlock():
     return result.returncode
 
 
-def cmd_env():
-    specs, rc = _load_or_report()
-    if specs is None:
-        return rc
+def _ensure_frontend_env(specs):
+    """确保前端 `.env.local` 的 `VITE_LOCAL_API` 与声明一致（缺则补、旧则更新）。
+
+    Args:
+        specs: 本次纳入的服务规格。
+
+    Returns:
+        0 = 已就绪；1 = 写入失败。
+    """
     mapping = ",".join(f"{spec.frontend_prefix}={spec.address}" for spec in specs)
     line = f"VITE_LOCAL_API={mapping}"
     if os.path.isfile(FRONTEND_ENV):
@@ -1092,15 +1183,35 @@ def cmd_env():
                 fh.writelines(lines)
             log(f"已更新 {FRONTEND_ENV}：{line}（服务清单来自各仓声明；重启「前端：宿主 dev」生效）")
             return 0
-    os.makedirs(os.path.dirname(FRONTEND_ENV), exist_ok=True)
-    with open(FRONTEND_ENV, "a", encoding="utf-8") as fh:
-        fh.write("\n")
-        fh.write(
-            "# 本机裸跑后端时的服务直连映射（由 scripts/tools/dev/本地全套.py env 按各仓 "
-            "deploy/local_stack.toml 维护；未列出的服务走 VITE_API_PROXY）\n"
-        )
-        fh.write(line + "\n")
+    try:
+        os.makedirs(os.path.dirname(FRONTEND_ENV), exist_ok=True)
+        with open(FRONTEND_ENV, "a", encoding="utf-8") as fh:
+            fh.write("\n")
+            fh.write(
+                "# 本机裸跑后端时的服务直连映射（由 scripts/tools/dev/本地全套.py env 按各仓 "
+                "deploy/local_stack.toml 维护；未列出的服务走 VITE_API_PROXY）\n"
+            )
+            fh.write(line + "\n")
+    except OSError as exc:
+        err(f"前端环境文件写入失败：{FRONTEND_ENV}（{exc}）")
+        return 1
     log(f"已写入 {FRONTEND_ENV}：{line}")
+    return 0
+
+
+def cmd_env():
+    """按声明维护前端服务映射 + 各服务的 IDE 调试环境文件。"""
+    specs, rc = _load_or_report()
+    if specs is None:
+        return rc
+    if _ensure_frontend_env(specs):
+        return 1
+    written = write_debug_envs(specs, endpoints_payload(specs))
+    if written:
+        log(
+            f"已写 {written} 份 IDE 调试环境文件（<仓>/deploy/.dev-env.<服务键>.local）——"
+            "IDE 启动项用 envFile 注入（产品进程断点调试走这条路）"
+        )
     return 0
 
 

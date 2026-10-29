@@ -114,6 +114,7 @@ code D:\Develop\bizs                         # 裸目录打开（等价，状态
 - 任务统一走 `python3 scripts/tools/dev/*.py`（dev 工具脚本为「Python 单一实现 + Linux `.sh` / Windows `.bat` 薄包装」）：端口自愈 `清理宿主端口.py`、5002 模块产物服务 `确保模块产物服务.py`、后端本地全套 `本地全套.py up/down`；本机的 `python3` 为 `%LOCALAPPDATA%\Programs\Python\Python314\python3.exe`（Python 3.14.4）。
 - 后端「本地全套」现为**按各仓声明装载**（固定路径 `deploy/local_stack.toml`；缺省 tenant / platform / identity + mdm 组织主数据，同一 8000 端口 + loopback 别名；寻址经 `[service_client].endpoints` 注入，不依赖系统 hosts）。
 - `backend\.venv` 为指向本地依赖仓的 **junction**（外置与还原脚本见 `bms/scripts/tools/deps/`），Windows 下解释器路径为 `.venv\Scripts\python.exe`。
+- **产品进程断点**（mdm 等）：产品服务模块与其 venv 都在产品仓，`backend/ops/dev_run.py` 只能 `runpy` 本仓模块，故改由 IDE **原生 `module` 启动 + `envFile`**——`本地全套.py up`（收尾自动）或 `env` 按声明为每个服务写 `<仓>\deploy\.dev-env.<服务键>.local`（别名 / 8000 / 端点覆盖 / 开发密钥），工作区根启动项「后端：产品服务（debugpy · mdm）」即用它：`本地全套.py stop mdm` → 启动该项 → 调试完 `up` 补回。
 
 > **注意（现状）**：工作区根 `D:\Develop\bizs\.vscode\` 的 `launch.json` / `tasks.json` **仍是 Linux 口径**（`bash` 调 `.sh`、`/usr/bin/google-chrome`、`backend/.venv/bin/python`）——Windows 下请在 `bizs.code-workspace` 里选 **「BMS 基座/平台」根**（或单独打开 `bms`）使用基座根那套双平台配置。
 
