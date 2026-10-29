@@ -117,13 +117,20 @@ max_rounds = 2
 cwd = "."
 since = "origin/main"
 
-# 场景闸门（2026-10-29 拍板）：预检是**推送前门禁**，工作树有未提交改动（含未跟踪文件）即拒绝执行、
-# 零步骤执行——开发中改完即测走 `scripts/tools/preflight/测试改动内容.py`（开发环）；确需在脏树上
-# 验证护栏本身，显式加 `--allow-dirty`（**只对快速档开放**；定向 / 全量档必须干净树），并记入审计。
-# 审计：真跑 / 被拒 / 绕过三类事件，一行一条 JSON（落 `.cache/`，不进 git）；写盘失败 fail-open。
+# 场景闸门（2026-10-29 拍板）：预检是**推送的内部步骤**（`engkit push`），本地不再有独立入口；
+# 工作树有未提交改动（含未跟踪文件）即拒绝执行、零步骤执行——开发中改完即测走
+# `scripts/tools/preflight/测试改动内容.py`（开发环）。
+# 审计：真跑 / 被拒两类事件，一行一条 JSON（落 `.cache/`，不进 git）；写盘失败 fail-open。
 [preflight.gate]
 dirty_tree = true
 audit_file = ".cache/preflight/audit.jsonl"
+
+# 推送入口（`engkit push` / `scripts/tools/preflight/推送.py`）：预检通过后自动推送。
+# 档位按**待推提交**自动选：全为 doc_globs 命中的文档 → 快速档（静态 + 护栏）；含代码 → 定向档。
+[push]
+remote = "origin"
+branch = "main"
+doc_globs = ["*.md", "*.txt", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.svg", "*.webp", "*.pdf"]
 
 [preflight.budget]
 scoped = [300, 420]

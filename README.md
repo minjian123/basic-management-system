@@ -102,7 +102,7 @@ cd ../../.. && python3 scripts/tools/base_check/check_base.py  # 基座自检（
 python3 scripts/tools/base_check/check_links.py                # 链接自洽校验（本地手工跑，不挂 CI）
 python3 scripts/tools/check_docs/check_status.py --stage <阶段> --strict   # 需求 / 任务 / 计划状态一致性
 python3 scripts/tools/preflight/测试改动内容.py                 # 开发环（改完即测）：只跑改动相关，不采集覆盖率
-python3 scripts/tools/preflight/check_preflight.py --push     # 推送前预检（须先提交：工作树脏即拒）；无参 = 快速档；--full 才跑全量
+python3 scripts/tools/preflight/推送.py     # 推送入口：先预检（按待推提交自动选档，通过才推送；须先提交：工作树脏即拒）
 python3 scripts/tools/governance/collect_metrics.py           # 阶段度量与用例统计（阶段末）
 python3 scripts/tools/governance/review_stage.py              # 阶段末复盘清单
 ```
