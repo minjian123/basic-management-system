@@ -489,6 +489,21 @@ def _seed_record(name: str, **tables: str) -> SeedRecord:
     )
 
 
+async def test_orchestrate_without_participant_skips_stats() -> None:
+    """无分支执行方（`participant=None`）：编排照常返回，不登记统计探针（07B `03_03` 分支补齐）。"""
+    service = SeedOrchestrationService(
+        caller_service="platform",
+        manager=_StubManager(),
+        participant=None,
+        engines=None,
+    )
+
+    result = await service.orchestrate(SeedOrchestrationRequest(dry_run=True))
+
+    assert result.exit_code == 0
+    assert result.reports
+
+
 def test_register_seed_stats_skips_participant_without_method() -> None:
     """占位参与方（无 `register_stats_probe`）时静默跳过，不抛错。"""
     assert list(register_seed_stats(object(), [_seed_record("seed-menu", sys_business="code")])) == []
