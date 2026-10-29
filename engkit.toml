@@ -201,7 +201,7 @@ cmd = ["{python}", "scripts/tools/base_check/check_backend_base.py", "{root}"]
 
 [[preflight.steps]]
 label = "边界：check_service_boundaries"
-cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "{root}"]
+cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "{root}", "--no-cache"]
 
 [[preflight.steps]]
 label = "基座：check_bare_collections（裸无序集合护栏）"
@@ -600,6 +600,9 @@ shared_table_prefixes = ["sys_"]
 # 增量扫描升为全量的补充触发面（布局 / 基线 / 例外 / 表归属登记 / 服务目录登记由规则字段自身推出）：
 # 生成物目录、清单目录、规则本文件。改这些不止影响改动文件，未改动文件的判定也可能跟着变。
 incremental_full_when = ["deploy/**", "engkit.toml", "**/pyproject.toml", "**/Dockerfile*", ".gitlab-ci.yml"]
+# 表声明索引缓存（相对仓根）：全局判据「表名跨服务唯一」要读全仓源码，按文件 (mtime, size) 命中即不读。
+# 缓存只存解析结果、跨文件结论每次现算；推送前预检的该步骤带 --no-cache，权威门禁永远现扫。
+table_index_cache = ".cache/boundaries/table_index.json"
 counters = [
   "cross_service_dependency",
   "layer_violation",
