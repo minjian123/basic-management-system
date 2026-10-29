@@ -21,6 +21,7 @@ from bms_platform.domains.platform_registry.api import (
     internal_capability_grants,
     internal_declarations,
     internal_seeds,
+    internal_tenant_topologies,
     modules,
     products,
     tenant_topologies,
@@ -79,6 +80,8 @@ api_router = mount_service_routers(
             internal_seeds.router,
             # 租户部署拓扑（07C `02_01`）：管理面分页 / 导出 / 整批写入（运维与部署编排面）
             tenant_topologies.router,
+            # 拓扑全量快照（07C `02_02`）：服务间读取，各进程装配期拉取后登记第二段解析
+            internal_tenant_topologies.router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
         ]

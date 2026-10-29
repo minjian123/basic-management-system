@@ -23,3 +23,8 @@ register_on_startup = false
 # CI / 单测默认不引导平台租户（需要时显式调用 ops.bootstrap_platform 或用例内直接调用）
 auto_bootstrap = false
 
+[topology]
+# 单测不起平台进程，启动期拉取拓扑快照必然失败（只会走降级路径、徒增耗时与日志噪声）；
+# 装配期分发口径由用例显式调用 `bootstrap_remote_topologies` 覆盖
+distribute = false
+

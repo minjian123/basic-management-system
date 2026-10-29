@@ -19,6 +19,7 @@ from bms_core.collaboration import (
     TopologySnapshot,
     register_topology_resolver,
     register_topology_snapshot,
+    reset_instance_context,
     reset_topology_resolver,
     reset_topology_snapshots,
     resolve_for,
@@ -59,11 +60,13 @@ def _isolate_topology() -> Iterator[None]:
     """
     reset_topology_snapshots()
     reset_topology_resolver()
+    reset_instance_context()
     reset_domain_services()
     register_domain_services(ConcurrentStableFrozenDict({"auth": "identity", "org": "mdm"}))
     yield
     reset_topology_snapshots()
     reset_topology_resolver()
+    reset_instance_context()
     reset_domain_services()
 
 
@@ -114,12 +117,15 @@ def test_not_loaded_reports_reason() -> None:
 
 
 def test_tenant_without_snapshot_falls_back_to_default() -> None:
-    """租户无记录：整体回退默认拓扑（不逐域合并）。"""
+    """租户无记录：整体回退默认拓扑（不逐域合并）；阶段 A 单元 = 承载服务键。
+
+    `mode` 由 07C `02_02` 判定：本实例未登记承载集合（视为全组）且该域不由本服务承载 → `colocated`。
+    """
     register_topology_snapshot(_default())
     target = resolve_for(_TENANT, "auth")
     assert target.unit_key == "identity"
     assert target.service_key == "identity"
-    assert target.mode == CapabilityMode.REMOTE
+    assert target.mode == CapabilityMode.COLOCATED
 
 
 def test_tenant_snapshot_overrides_default() -> None:

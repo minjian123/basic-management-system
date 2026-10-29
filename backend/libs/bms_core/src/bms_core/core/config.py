@@ -990,6 +990,25 @@ class RegistrySettings(BaseSettings):
     """
 
 
+class TopologySettings(BaseSettings):
+    """部署拓扑配置（`[topology]`，07C `02_02`）：分发开关与本实例承载单元集合。"""
+
+    distribute: bool = True
+    """启动期是否从平台内部出口拉取拓扑快照（其它进程的第二段解析依据）。
+
+    生产 / 部署态为 `true`（拓扑是解析权威，平台是唯一写入方）；单测环境置 `false`：
+    用例不起平台进程，拉取必然失败并走降级路径，徒增启动耗时与日志噪声。
+    """
+
+    units: Annotated[ConcurrentStableList[str] | None, CONTRACT_COLLECTION] = None
+    """本实例承载的部署单元集合（决定 `local` / `colocated` / `remote` 判定）。
+
+    `None`（未配置）= 取默认拓扑（`tenant_id=0`）的全部单元（单实例组形态，等价改造前）；
+    显式给值 = 本实例只承载这些单元，其余单元解析为 `remote`；空集 = 不承载任何单元。
+    集合内每个单元须在默认拓扑中登记，否则启动期拒启（配置漂移）。
+    """
+
+
 class TransactionManagerSettings(PluginSelection):
     """跨服务事务管理器配置（`[transaction_manager]`；在能力选择之外追加协调参数）。
 
@@ -1130,6 +1149,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     minio: MinioSettings = Field(default_factory=MinioSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     cors: CorsSettings = Field(default_factory=CorsSettings)
+    topology: TopologySettings = Field(default_factory=TopologySettings)
 
     # 能力实现选择（分区名 = plugin_key；`object_storage` 别名 `storage`；未列分区取默认 → null）
     archive_policy: PluginSelection = Field(default_factory=PluginSelection)

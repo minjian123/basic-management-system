@@ -15766,6 +15766,78 @@
         ]
       }
     },
+    "/api/v1/platform/internal/tenant-topologies": {
+      "get": {
+        "description": "下发拓扑全量快照（各租户当前版本 + 默认版本）。\n\nArgs:\n    request: 请求对象（登录态分支的权限码校验用）。\n    session: 平台库只读会话。\n    context: 入站身份（服务身份或登录态）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `{default_version, snapshots}`。\n\nRaises:\n    PermissionError: 登录态缺少权限码（30001 / 403）。",
+        "operationId": "topology_snapshot_api_v1_platform_internal_tenant_topologies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Topology Snapshot",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
     "/api/v1/platform/internal/users/create": {
       "post": {
         "description": "统一建号入口（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。\n\n建号成功后经关系数据源维护「用户↔归属租户」可达关系（失败不阻断建号）。\n\nArgs:\n    req: 建号请求（账号 / 昵称 / 语言时区 / 来源）。\n    uow: 请求级工作单元。\n    tenant: 解析链租户上下文（归属租户）。\n    membership: 关系数据源（服务间调用；本服务为远端实现）。\n\nReturns:\n    ApiResponse: 统一响应，data 为建号结果（`UserCreateResult`）。",

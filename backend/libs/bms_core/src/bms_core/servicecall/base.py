@@ -143,6 +143,13 @@ class ServiceRequest(BaseValueObject):
     path: str
     """目标路径（须以内部公开面 `/api/v1` 开头）。"""
 
+    base_url: str | None = None
+    """显式目标基址（能力寻址第二段解析结果；None 表示按 `service` + 基址模板派生）。
+
+    07C `02_02`：拆分拓扑下部署单元与服务标识不再同名，地址须随单元走；消费方仍不拼地址，
+    一律由 `build_capability_request` 从 `CapabilityTarget.base_url` 填入。
+    """
+
     query: ConcurrentStableFrozenDict[str, str] | None = None
     """查询参数（可选）。"""
 
@@ -205,26 +212,41 @@ def validate_service_request(request: ServiceRequest) -> None:
         raise ParamError(f"服务间调用只经公开契约路径（{API_PREFIX}）：{request.path!r}")
     if not request.method:
         raise ParamError("服务间调用缺少 HTTP 方法")
+    if request.base_url is not None and not _is_http_base(request.base_url):
+        raise ParamError(f"服务间调用显式基址须为 http(s) 地址：{request.base_url!r}")
     if request.policy.timeout <= 0:
         raise ParamError(f"服务间调用超时须为正数：{request.policy.timeout!r}")
     if request.policy.max_retries < 0:
         raise ParamError(f"服务间调用最大重试次数不得为负：{request.policy.max_retries!r}")
 
 
+def _is_http_base(base_url: str) -> bool:
+    """校验显式基址是否为 http(s) 地址。
+
+    Args:
+        base_url: 显式基址。
+
+    Returns:
+        bool: `http://` 或 `https://` 开头为 True。
+    """
+    return base_url.startswith("http://") or base_url.startswith("https://")
+
+
 def build_service_url(request: ServiceRequest, base_url_template: str = DEFAULT_BASE_URL_TEMPLATE) -> str:
     """按基址拼装目标地址（含查询串）。
 
-    基址取「已登记端点覆盖 → 基址模板派生」两段（覆盖见 `bms_core.core.service_endpoints`；
-    容器部署无覆盖、按模板走 Compose DNS，本机裸跑由开发脚本注入覆盖）。
+    基址取「显式基址 → 已登记端点覆盖 → 基址模板派生」三段（显式基址来自能力寻址第二段；
+    覆盖见 `bms_core.core.service_endpoints`；容器部署无覆盖、按模板走 Compose DNS，
+    本机裸跑由开发脚本注入覆盖）。
 
     Args:
         request: 调用请求。
-        base_url_template: 基址模板（占位 `{service}`；未登记覆盖时生效）。
+        base_url_template: 基址模板（占位 `{service}`；未给显式基址且无覆盖时生效）。
 
     Returns:
         str: 目标地址（`{基址}{path}`，附查询串）。
     """
-    base = service_base_url(request.service, base_url_template)
+    base = request.base_url.rstrip("/") if request.base_url else service_base_url(request.service, base_url_template)
     url = f"{base}{request.path}"
     if request.query:
         url = f"{url}?{urlencode(request.query)}"

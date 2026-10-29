@@ -9,18 +9,23 @@
   租户取自 `current_tenant_id` 上下文（缺失按默认拓扑），亦可经 `resolve_for(tenant_id, domain)` 显式指定。
   快照按 `(租户, 版本)` 常驻进程内（拓扑只在发布时变化，协议是同步签名）；`db_keys` 只含**平台库键**
   `platform_{unit}`——租户库键 `tenant_{unit}_{db_basis}` 由调用方以自身 `db_basis` 派生（跨域读被 D1/D3 拦截）。
+- **模式判定**（07C `02_02`）：该域承载服务 == 本实例服务 → `local`（同进程，不该走网络）；
+  否则单元 ∈ 本实例承载集合 → `colocated`（同组不同进程）；否则 `remote`（跨组）。
+  本实例承载集合经 `register_instance_context()` 登记（`[topology].units`）；未登记时取默认拓扑全部单元。
 - **失败语义**：统一抛 `CatalogError`（`40003`），`data.reason` 区分 `not_loaded` / `not_registered` / `not_enabled`。
 """
 
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Protocol
+from typing import Protocol, cast
 
 from bms_core.collaboration.base import CapabilityMode, CapabilityTarget
+from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
+    ConcurrentStableList,
 )
 from bms_core.core.context import current_tenant_id
 from bms_core.core.exceptions import CatalogError
@@ -38,13 +43,18 @@ __all__ = [
     "TenantTopologyResolver",
     "TopologyEntry",
     "TopologyResolver",
+    "TopologyResolverResource",
     "TopologySnapshot",
+    "instance_units",
+    "register_instance_context",
     "register_topology_resolver",
     "register_topology_snapshot",
+    "reset_instance_context",
     "reset_topology_resolver",
     "reset_topology_snapshots",
     "resolve_for",
     "resolve_topology",
+    "snapshots_from_payload",
     "topology_snapshot",
 ]
 
@@ -235,6 +245,98 @@ def topology_snapshot(tenant_id: int) -> TopologySnapshot | None:
     return _SNAPSHOTS.get((DEFAULT_TOPOLOGY_TENANT, default_version))
 
 
+_INSTANCE_SERVICE = ""
+"""本实例的服务标识（`register_instance_context()` 登记；空串表示未登记 → 不产生 `local`）。"""
+
+_INSTANCE_UNITS: ConcurrentStableFrozenList[str] | None = None
+"""本实例承载的部署单元集合（`None` 表示未声明 → 取默认拓扑全部单元）。"""
+
+
+def register_instance_context(
+    service_key: str, units: ConcurrentStableList[str] | None = None
+) -> ConcurrentStableFrozenList[str]:
+    """登记本实例的解析身份（服务标识 + 承载单元集合），并校验集合内单元已在默认拓扑登记。
+
+    每个进程在装配期登记一次（平台用本库快照，其它进程用远端拉取的快照）；解析时据此判定
+    `local` / `colocated` / `remote`。
+
+    Args:
+        service_key: 本服务标识（`[app].service`；空串表示不参与同进程判定）。
+        units: 本实例承载的部署单元集合（`None` 表示取默认拓扑全部单元）。
+
+    Returns:
+        ConcurrentStableFrozenList[str]: 生效的承载单元集合（`units` 为 None 时为默认拓扑全部单元）。
+
+    Raises:
+        CatalogError: 集合内单元未在默认拓扑登记（配置漂移，启动期拒启）。
+    """
+    global _INSTANCE_SERVICE, _INSTANCE_UNITS
+    declared = ConcurrentStableFrozenList(units) if units is not None else None
+    default_units = _default_units()
+    if declared is not None and default_units:
+        unknown = ConcurrentStableList[str](unit for unit in declared if unit not in default_units)
+        if unknown:
+            raise CatalogError(
+                f"本实例承载的部署单元未在默认拓扑登记：{'、'.join(unknown)}（请检查 [topology].units 与拓扑记录）",
+                data={"reason": "unit_not_registered", "units": unknown.to_list()},
+            )
+    _INSTANCE_SERVICE = service_key
+    _INSTANCE_UNITS = declared
+    return declared if declared is not None else default_units
+
+
+def reset_instance_context() -> None:
+    """复位本实例解析身份（测试隔离 / 应用关闭；生产路径不单独调用）。"""
+    global _INSTANCE_SERVICE, _INSTANCE_UNITS
+    _INSTANCE_SERVICE = ""
+    _INSTANCE_UNITS = None
+
+
+def _default_units() -> ConcurrentStableFrozenList[str]:
+    """默认拓扑（`tenant_id = 0`）登记的全部部署单元（去重、保插入序）。
+
+    Returns:
+        ConcurrentStableFrozenList[str]: 单元集合；默认拓扑未装载时为空集。
+    """
+    snapshot = topology_snapshot(DEFAULT_TOPOLOGY_TENANT)
+    if snapshot is None:
+        return ConcurrentStableFrozenList[str]()
+    unique: ConcurrentStableDict[str, None] = ConcurrentStableDict()
+    for entry in snapshot.entries.values():
+        unique.set(entry.unit_key, None)
+    return ConcurrentStableFrozenList(unique.keys())
+
+
+def instance_units() -> ConcurrentStableFrozenList[str]:
+    """本实例承载的部署单元集合（未声明时取默认拓扑全部单元）。
+
+    Returns:
+        ConcurrentStableFrozenList[str]: 单元集合；默认拓扑未装载且未声明时为空集
+        （此时不做 `colocated` 判定，全部按 `remote` 处理——与 07B 过渡实现行为一致）。
+    """
+    if _INSTANCE_UNITS is not None:
+        return _INSTANCE_UNITS
+    return _default_units()
+
+
+def _mode_for(domain: str, unit_key: str) -> CapabilityMode:
+    """判定解析目标的部署模式（`local` / `colocated` / `remote`）。
+
+    Args:
+        domain: 业务域标识。
+        unit_key: 该域在当前租户拓扑中的部署单元。
+
+    Returns:
+        CapabilityMode: 判定结果（承载服务为本实例 → `local`；单元 ∈ 本实例集合 → `colocated`）。
+    """
+    carrier = service_key_for_domain(domain)
+    if _INSTANCE_SERVICE and carrier == _INSTANCE_SERVICE:
+        return CapabilityMode.LOCAL
+    if unit_key in instance_units():
+        return CapabilityMode.COLOCATED
+    return CapabilityMode.REMOTE
+
+
 def resolve_for(tenant_id: int, domain: str, *, base_url_template: str = DEFAULT_BASE_URL_TEMPLATE) -> CapabilityTarget:
     """按显式租户解析业务域的部署目标（部署编排 / 运维 / 测试用；协议入口见 `TenantTopologyResolver`）。
 
@@ -244,7 +346,7 @@ def resolve_for(tenant_id: int, domain: str, *, base_url_template: str = DEFAULT
         base_url_template: 基址模板（占位 `{service}`；取部署单元标识填充）。
 
     Returns:
-        CapabilityTarget: 解析目标（`mode=remote`；`db_keys` 只含平台库键 `platform_{unit}`）。
+        CapabilityTarget: 解析目标（`mode` 按 §4.2 判定；`db_keys` 只含平台库键 `platform_{unit}`）。
 
     Raises:
         CatalogError: 快照未装载（`not_loaded`）/ 域未登记（`not_registered`）/ 域已停用（`not_enabled`）。
@@ -273,7 +375,7 @@ def resolve_for(tenant_id: int, domain: str, *, base_url_template: str = DEFAULT
             data={"reason": "not_registered", "tenant_id": snapshot.tenant_id, "domain": domain},
         )
     return CapabilityTarget(
-        mode=CapabilityMode.REMOTE,
+        mode=_mode_for(domain, entry.unit_key),
         unit_key=entry.unit_key,
         service_key=service_key,
         base_url=service_base_url(entry.unit_key, base_url_template),
@@ -323,3 +425,87 @@ class TenantTopologyResolver(BaseFrameworkObject):
             return int(raw)
         except TypeError, ValueError:
             return DEFAULT_TOPOLOGY_TENANT
+
+
+def snapshots_from_payload(payload: object) -> ConcurrentStableList[TopologySnapshot]:
+    """把平台内部出口的响应解析为拓扑快照清单（跨进程分发用）。
+
+    Args:
+        payload: 出口响应体（`{code, message, data: {default_version, snapshots: [...]}}` 形态）。
+
+    Returns:
+        ConcurrentStableList[TopologySnapshot]: 各租户快照（含默认拓扑）；空清单表示平台尚未自举。
+
+    Raises:
+        CatalogError: 响应结构非法（非 JSON 对象 / 缺 `data` / `snapshots` 非数组 / 行缺字段）。
+    """
+    if not isinstance(payload, dict):
+        raise CatalogError("拓扑出口响应非法（非 JSON 对象）")
+    root = cast("ConcurrentStableDict[str, object]", payload)
+    raw_data = root.get("data")
+    if not isinstance(raw_data, dict):
+        raise CatalogError("拓扑出口响应非法（缺少 data 对象）")
+    raw_snapshots = cast("ConcurrentStableDict[str, object]", raw_data).get("snapshots")
+    if not isinstance(raw_snapshots, list):
+        raise CatalogError("拓扑出口响应非法（缺少 snapshots 数组）")
+    snapshots: ConcurrentStableList[TopologySnapshot] = ConcurrentStableList()
+    for raw_snapshot in cast("ConcurrentStableList[object]", raw_snapshots):
+        if not isinstance(raw_snapshot, dict):
+            raise CatalogError("拓扑出口响应非法（snapshots 元素非对象）")
+        snapshot = cast("ConcurrentStableDict[str, object]", raw_snapshot)
+        raw_rows = snapshot.get("rows")
+        if not isinstance(raw_rows, list):
+            raise CatalogError("拓扑出口响应非法（快照缺少 rows 数组）")
+        entries: ConcurrentStableDict[str, TopologyEntry] = ConcurrentStableDict()
+        for raw_row in cast("ConcurrentStableList[object]", raw_rows):
+            if not isinstance(raw_row, dict):
+                raise CatalogError("拓扑出口响应非法（rows 元素非对象）")
+            row = cast("ConcurrentStableDict[str, object]", raw_row)
+            domain_key = str(row.get("domain_key") or "")
+            unit_key = str(row.get("unit_key") or "")
+            if not domain_key or not unit_key:
+                raise CatalogError("拓扑出口响应非法（行缺少 domain_key / unit_key）")
+            entries.set(
+                domain_key,
+                TopologyEntry(unit_key=unit_key, status=str(row.get("status") or TOPOLOGY_ENTRY_ENABLED)),
+            )
+        snapshots.add(
+            TopologySnapshot(
+                tenant_id=_int_field(snapshot.get("tenant_id"), DEFAULT_TOPOLOGY_TENANT),
+                version=_int_field(snapshot.get("version"), 0),
+                entries=ConcurrentStableFrozenDict(entries.to_list()),
+            )
+        )
+    return snapshots
+
+
+def _int_field(raw: object, default: int) -> int:
+    """把出口响应的整数字段转成 int（缺失 / 非法取缺省）。
+
+    Args:
+        raw: 原值（字符串或数字）。
+        default: 缺省值。
+
+    Returns:
+        int: 转换结果。
+    """
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(str(raw))
+    except TypeError, ValueError:
+        return default
+
+
+class TopologyResolverResource(BaseAsyncResource):
+    """进程级拓扑状态释放器：随应用关闭复位解析器、快照与本实例解析身份。
+
+    拓扑快照、解析实现与本实例承载集合都是**进程级全局状态**，在装配期登记；应用关闭
+    （进程退出 / 测试用应用拆卸）时复位，避免同一进程内下一次装配读到上一次的状态。
+    """
+
+    async def aclose(self) -> None:
+        """复位第二段解析实现、全部快照与本实例身份（幂等）。"""
+        reset_topology_resolver()
+        reset_topology_snapshots()
+        reset_instance_context()

@@ -46,7 +46,7 @@ def build_capability_request(
         policy: 调用韧性策略（None 时取缺省策略，并按当前服务**有效授权**自动填 `scopes`）。
 
     Returns:
-        ServiceRequest: 服务间调用请求（`service` 为承载服务标识）。
+        ServiceRequest: 服务间调用请求（`service` 为承载服务标识，`base_url` 为第二段解析出的单元地址）。
 
     Raises:
         ParamError: 能力无访问面（`codes` 类）或路径参数缺失 / 多余（10001）。
@@ -58,6 +58,7 @@ def build_capability_request(
         service=endpoint.target.service_key,
         method=method,
         path=path,
+        base_url=endpoint.target.base_url,
         query=query,
         headers=headers,
         json_body=json_body,

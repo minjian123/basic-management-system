@@ -40,6 +40,7 @@ from bms_core.api.middleware import (
 )
 from bms_core.cache.base import CacheRegion
 from bms_core.catalog.loader import is_catalog_authority, load_catalog_snapshot
+from bms_core.collaboration.bootstrap import bootstrap_remote_topologies
 from bms_core.collaboration.usage import (
     CapabilityUsage,
     register_capability_usages,
@@ -362,6 +363,10 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         # **顺序**：必须先于接库服务目录校验——平台自注册写入 `sys_module` 是目录校验的基准，
         # 放到 `startup_hooks`（更晚）会让重启后的校验对着空库跑，误报「库中缺登记行」全表。
         await bootstrap_declarations(app)
+        # 部署拓扑分发（07C `02_02`）：非平台进程经内部出口拉取全量快照并登记第二段解析与
+        # 本实例承载集合；平台进程内部跳过（本库即权威，由启动钩子装载）。
+        # **顺序**：必须在声明装载之后——承载集合校验与单元判定依赖域登记视图与承载服务映射。
+        await bootstrap_remote_topologies(app)
         await _validate_service_catalog(app)
         await _validate_capability_usages(app)
         await _validate_table_ownership(app)

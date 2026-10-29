@@ -59,3 +59,26 @@ class TenantTopologyExportResponse(BaseSchema):
     tenant_id: int
     version: int
     rows: Annotated[ConcurrentStableList[TenantTopologyRowResponse], CONTRACT_COLLECTION]
+
+
+class TopologySnapshotRow(BaseSchema):
+    """内部快照的一行（解析所需三列，不含 `note` / 审计等运营字段）。"""
+
+    domain_key: Annotated[str, Field(description="业务域标识")]
+    unit_key: Annotated[str, Field(description="部署单元标识")]
+    status: Annotated[str, Field(description="状态（enabled / disabled）")]
+
+
+class TopologySnapshotItem(BaseSchema):
+    """一个租户的当前版本快照（`tenant_id = 0` 为默认拓扑）。"""
+
+    tenant_id: Annotated[int, Field(description="租户主键（0 = 平台级默认拓扑）")]
+    version: Annotated[int, Field(description="拓扑版本")]
+    rows: Annotated[ConcurrentStableList[TopologySnapshotRow], CONTRACT_COLLECTION]
+
+
+class TopologySnapshotResponse(BaseSchema):
+    """拓扑全量快照（跨进程分发：其它服务装配期拉取后登记进程内快照）。"""
+
+    default_version: Annotated[int, Field(description="默认拓扑（tenant_id=0）的当前版本；0 表示尚未自举")]
+    snapshots: Annotated[ConcurrentStableList[TopologySnapshotItem], CONTRACT_COLLECTION]
