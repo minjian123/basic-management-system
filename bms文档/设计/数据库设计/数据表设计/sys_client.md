@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | identity 服务租户库 `bms_identity_{code}`（归属服务 `identity`） |
+| 归属库 | identity 服务租户库 `bms_identity_{code}`（归属部署单元 `identity`） |
 | 覆盖模块 | 27-身份认证SSO（BMS 兼作 IdP 客户端注册；开放接口管理模块复用） |
 | 上游依据 | [需求 02-5](../../../项目/06_认证与安全/需求/02_需求_SSO与身份联邦.md#r02-5)、《概要设计 · 身份认证SSO》「数据模型与表设计」节、《概要设计 · 开放接口管理》「数据模型与表设计」节 |
 | ORM 模型 | `bms_core/models/identity/client.py::SysClient`（继承 `BaseModel`；基座共享模型，14_01 下沉） |

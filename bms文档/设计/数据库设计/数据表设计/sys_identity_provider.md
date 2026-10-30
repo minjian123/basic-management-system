@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | identity 服务租户库 `bms_identity_{code}`（归属服务 `identity`） |
+| 归属库 | identity 服务租户库 `bms_identity_{code}`（归属部署单元 `identity`） |
 | 覆盖模块 | 27-身份认证SSO |
 | 上游依据 | [需求 02-1](../../../项目/06_认证与安全/需求/02_需求_SSO与身份联邦.md#r02-1)、[需求 02-6](../../../项目/06_认证与安全/需求/02_需求_SSO与身份联邦.md#r02-6)、《概要设计 · 身份认证SSO》「数据模型与表设计」节、《架构设计 · 认证与会话》§4 |
 | ORM 模型 | `bms_core/models/identity/identity_provider.py::SysIdentityProvider`（继承 `BaseModel`；基座共享模型，14_01 下沉） |

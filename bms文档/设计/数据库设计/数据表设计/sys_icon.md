@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`） |
+| 归属库 | platform 服务租户库 `bms_platform_{code}`（归属部署单元 `platform`） |
 | 覆盖模块 | 02-4-26 自定义图标与代码校验基座（platform 服务租户库；平台官方与业务自绘图标随代码发布、不落表） |
 | 上游依据 | 任务 `02-4-26`（自定义图标与代码校验基座）、《数据库设计 · 数据规范》「公共字段」节、《数据库开发规范》「系统字段」节 |
 | ORM 模型 | `bms_core/models/platform/system.py::SysIcon`（继承 `BaseModel`；基座共享模型，14_01 下沉；登记于 `bms_core/models/platform::MODEL_MODULES`） |

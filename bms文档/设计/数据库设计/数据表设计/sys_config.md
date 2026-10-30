@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`） |
+| 归属库 | platform 服务租户库 `bms_platform_{code}`（归属部署单元 `platform`） |
 | 覆盖模块 | 11-系统参数 |
 | 上游依据 | [需求 03-8](../../../项目/06_认证与安全/需求/03_需求_验证码与账号治理.md#r03-8)、《[概要设计 · 系统参数](../../概要设计/10_概要设计_系统参数.md)》「核心表」节、《[架构设计 · 数据架构](../../架构设计/07_架构设计_数据架构.md)》§4.1 |
 | ORM 模型 | `bms_core/config/models.py::SysConfig`（继承 `BaseModel`；登记于 `db/migration.py::COMMON_MODEL_MODULES`） |

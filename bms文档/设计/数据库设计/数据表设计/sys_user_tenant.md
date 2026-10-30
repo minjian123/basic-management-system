@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | 平台服务库 `bms_tenant`（归属服务 `tenant`，与 `sys_tenant` 同库） |
+| 归属库 | 平台服务库 `bms_tenant`（归属部署单元 `tenant`，与 `sys_tenant` 同库） |
 | 覆盖模块 | 26-租户管理（租户自助） |
 | 上游依据 | [需求 11-1](../../../项目/06_认证与安全/需求/11_需求_租户自助与用户租户关系.md#r11-1)、《架构设计 · 多租户路由》「租户自助」节、《架构设计 · 数据架构》「数据分布」节 |
 | ORM 模型 | `bms_core/models/tenant/user_tenant.py::SysUserTenant`（继承 `BaseModel`；基座共享模型，14_01 下沉） |

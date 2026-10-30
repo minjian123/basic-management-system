@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | 平台服务库 `bms_tenant`（归属服务 `tenant`，与 `sys_tenant` 同库） |
+| 归属库 | 平台服务库 `bms_tenant`（归属部署单元 `tenant`，与 `sys_tenant` 同库） |
 | 覆盖模块 | 26-租户管理 |
 | 上游依据 | 《架构设计 · 模块注册》3.4 租户模块开关、《架构设计 · 多租户路由》「租户开通/停用」节、[需求 07-7](../../../项目/07_RBAC基础模块/需求/04_需求_租户与平台超管.md#r07-7) |
 | ORM 模型 | `bms_core/models/tenant/tenant_module.py::SysTenantModule`（继承 `BaseModel`；基座共享模型，14_01 下沉） |

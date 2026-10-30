@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`，与 `sys_config` / `sys_user_preference` 同库） |
+| 归属库 | platform 服务租户库 `bms_platform_{code}`（归属部署单元 `platform`，与 `sys_config` / `sys_user_preference` 同库） |
 | 覆盖模块 | 05-前端插件化（域 06 具名插槽：样例插件的后端契约资源；归属 `sys` 模块 —— 平台共享前缀 `sys_`，与平台服务同库同链） |
 | 上游依据 | [需求 05-10](../../../项目/05_前端插件化/需求/06_需求_具名插槽与插件挂接.md#r05-10)、《[架构设计 · 扩展点与插件化](../../架构设计/10_架构设计_子系统_扩展点与插件化.md)》§9.2（数据归属方提供插件）、《[详细设计 · 具名插槽基座功能与前后端配套插件](../../../项目/05_前端插件化/任务/06_具名插槽与插件挂接/06_具名插槽与插件挂接_01_具名插槽基座功能与前后端配套插件/设计/01_详细设计_06_具名插槽与插件挂接_01_具名插槽基座功能与前后端配套插件.md)》§3.7 |
 | ORM 模型 | `bms_core/models/platform/system.py::SysUserExtension`（继承 `BaseModel`；基座共享模型，14_01 下沉；登记于 `bms_core/models/platform::MODEL_MODULES`） |

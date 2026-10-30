@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | 平台库 `bms_platform`（归属服务 `platform`） |
+| 归属库 | 平台库 `bms_platform`（归属部署单元 `platform`） |
 | 覆盖模块 | 08-菜单管理 |
 | 上游依据 | 《[数据库设计 · 数据规范](../02_数据库设计_数据规范.md)》「多语言与 i18n 附表」节、《[需求 07-5](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-5)》「多语言」项 |
 | ORM 模型 | `bms_core/models/platform/menu.py::SysBusinessI18n`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
