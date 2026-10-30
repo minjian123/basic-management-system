@@ -93,6 +93,14 @@ match_prefix = "backend/ops/"
 test_dir_suffix = "/tests/ops/"
 coverage = false
 
+# 服务内按业务域分包（07C `03_03`）后，测试目录按「能力 / 业务域」组织、与源码层级不同构：
+# 改域内实现时只按导入关系推导会漏掉同域的 API / 服务层用例（实测 identity `auth` 域改动仅命中
+# 13/51 个用例，覆盖率门禁据此判缺行）。此规则声明「改该域 ⇒ 并入该域的测试目录」，与《测试规范》
+# §2.1.1「目录同构 + 导入关系」两类依据配合使用；新增业务域时按同一形态补一条（前缀到域为止）。
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/identity/src/bms_identity/domains/auth/"
+test_dir_suffix = "/services/identity/tests/auth/"
+
 [rules.frontend.global]
 exact = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json", ".npmrc"]
 prefixes = ["scripts/"]
