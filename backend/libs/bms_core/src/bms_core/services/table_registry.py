@@ -270,6 +270,20 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             note="租户部署拓扑（租户 × 业务域 → 部署单元；解析取最大版本，07C 02_01）",
         ),
         TableRecord(
+            table_name="sys_release_manifest",
+            owner="platform",
+            domain="platform_registry",
+            datasource=Datasource.PLATFORM,
+            note="发布清单主表（一次发布一行；回滚的原子单位，07C 04_01）",
+        ),
+        TableRecord(
+            table_name="sys_release_manifest_domain",
+            owner="platform",
+            domain="platform_registry",
+            datasource=Datasource.PLATFORM,
+            note="发布清单域明细（一次发布一域一行；结构 / 服务 / 契约三版本快照，07C 04_01）",
+        ),
+        TableRecord(
             table_name="sys_tenant_quota",
             owner="tenant",
             domain="tenant",

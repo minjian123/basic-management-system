@@ -24,6 +24,7 @@ from bms_platform.domains.platform_registry.api import (
     internal_tenant_topologies,
     modules,
     products,
+    releases,
     tenant_topologies,
 )
 from bms_platform.domains.platform_registry.api import dict as dict_api
@@ -82,6 +83,8 @@ api_router = mount_service_routers(
             tenant_topologies.router,
             # 拓扑全量快照（07C `02_02`）：服务间读取，各进程装配期拉取后登记第二段解析
             internal_tenant_topologies.router,
+            # 发布清单（07C `04_01`）：只读管理面（发布与回滚是部署编排动作，经 `ops.release`）
+            releases.router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
         ]

@@ -2369,6 +2369,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Releases
+         * @description 发布记录清单（只读，分页 + 筛选）。
+         *
+         *     需要 `release-manifest:query` 权限；列表不取逐域明细（明细走单条查询），避免大结果集放大。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         query: 分页与排序请求（排序白名单校验、非法忽略）。
+         *         unit_key: 部署单元筛选。
+         *         tenant_scope: 作用范围筛选。
+         *         status: 状态筛选。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。
+         */
+        get: operations["list_releases_api_v1_releases_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/releases/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Releases
+         * @description 按单元查最近若干次发布（含逐域明细）。
+         *
+         *     需要 `release-manifest:query` 权限；「这个单元跑的是哪一版」直接看首条。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         unit_key: 部署单元标识。
+         *         tenant_scope: 作用范围（`0` = 全局）。
+         *         limit: 返回条数上限。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为发布快照数组（批次号降序）。
+         */
+        get: operations["recent_releases_api_v1_releases_recent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/releases/{manifest_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Release
+         * @description 按主键取一次发布（含逐域明细）。
+         *
+         *     需要 `release-manifest:query` 权限。
+         *
+         *     Args:
+         *         manifest_id: 发布清单主键。
+         *         session: 平台库只读会话。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为发布快照。
+         *
+         *     Raises:
+         *         NotFoundError: 发布清单不存在（10002）。
+         */
+        get: operations["get_release_api_v1_releases__manifest_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/roles": {
         parameters: {
             query?: never;
@@ -15363,6 +15458,253 @@ export interface operations {
             header?: never;
             path: {
                 scheme_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_releases_api_v1_releases_get: {
+        parameters: {
+            query?: {
+                /** @description 部署单元筛选；缺省全部 */
+                unit_key?: string | null;
+                /** @description 作用范围筛选（0 = 全局）；缺省全部 */
+                tenant_scope?: number | null;
+                /** @description 状态筛选（released / rolled_back / failed）；缺省全部 */
+                status?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    recent_releases_api_v1_releases_recent_get: {
+        parameters: {
+            query: {
+                /** @description 部署单元标识 */
+                unit_key: string;
+                /** @description 作用范围（0 = 全局） */
+                tenant_scope?: number;
+                /** @description 返回条数上限 */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_release_api_v1_releases__manifest_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 发布清单主键 */
+                manifest_id: number;
             };
             cookie?: never;
         };

@@ -123,6 +123,9 @@ def test_owned_tables_and_chain_derivation() -> None:
             "sys_domain",
             # 租户部署拓扑（07C `02_01`）：租户 × 业务域 → 部署单元
             "sys_tenant_topology",
+            # 发布清单两表（07C `04_01`）：一次发布的行 + 逐域版本快照
+            "sys_release_manifest",
+            "sys_release_manifest_domain",
         }
     )
     assert "sys_tenant" not in registry_platform

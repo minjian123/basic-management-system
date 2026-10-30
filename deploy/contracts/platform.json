@@ -17670,6 +17670,426 @@
         ]
       }
     },
+    "/api/v1/releases": {
+      "get": {
+        "description": "发布记录清单（只读，分页 + 筛选）。\n\n需要 `release-manifest:query` 权限；列表不取逐域明细（明细走单条查询），避免大结果集放大。\n\nArgs:\n    session: 平台库只读会话。\n    query: 分页与排序请求（排序白名单校验、非法忽略）。\n    unit_key: 部署单元筛选。\n    tenant_scope: 作用范围筛选。\n    status: 状态筛选。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。",
+        "operationId": "list_releases_api_v1_releases_get",
+        "parameters": [
+          {
+            "description": "部署单元筛选；缺省全部",
+            "in": "query",
+            "name": "unit_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "部署单元筛选；缺省全部",
+              "title": "Unit Key"
+            }
+          },
+          {
+            "description": "作用范围筛选（0 = 全局）；缺省全部",
+            "in": "query",
+            "name": "tenant_scope",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "作用范围筛选（0 = 全局）；缺省全部",
+              "title": "Tenant Scope"
+            }
+          },
+          {
+            "description": "状态筛选（released / rolled_back / failed）；缺省全部",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（released / rolled_back / failed）；缺省全部",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Releases",
+        "tags": [
+          "release"
+        ]
+      }
+    },
+    "/api/v1/releases/recent": {
+      "get": {
+        "description": "按单元查最近若干次发布（含逐域明细）。\n\n需要 `release-manifest:query` 权限；「这个单元跑的是哪一版」直接看首条。\n\nArgs:\n    session: 平台库只读会话。\n    unit_key: 部署单元标识。\n    tenant_scope: 作用范围（`0` = 全局）。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为发布快照数组（批次号降序）。",
+        "operationId": "recent_releases_api_v1_releases_recent_get",
+        "parameters": [
+          {
+            "description": "部署单元标识",
+            "in": "query",
+            "name": "unit_key",
+            "required": true,
+            "schema": {
+              "description": "部署单元标识",
+              "title": "Unit Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "作用范围（0 = 全局）",
+            "in": "query",
+            "name": "tenant_scope",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "作用范围（0 = 全局）",
+              "title": "Tenant Scope",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "返回条数上限",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "description": "返回条数上限",
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Recent Releases",
+        "tags": [
+          "release"
+        ]
+      }
+    },
+    "/api/v1/releases/{manifest_id}": {
+      "get": {
+        "description": "按主键取一次发布（含逐域明细）。\n\n需要 `release-manifest:query` 权限。\n\nArgs:\n    manifest_id: 发布清单主键。\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应，data 为发布快照。\n\nRaises:\n    NotFoundError: 发布清单不存在（10002）。",
+        "operationId": "get_release_api_v1_releases__manifest_id__get",
+        "parameters": [
+          {
+            "description": "发布清单主键",
+            "in": "path",
+            "name": "manifest_id",
+            "required": true,
+            "schema": {
+              "description": "发布清单主键",
+              "title": "Manifest Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Release",
+        "tags": [
+          "release"
+        ]
+      }
+    },
     "/api/v1/roles": {
       "get": {
         "description": "角色列表（关键字 / 状态筛选 + 分页；含内置标记与主体数）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    kw: 关键字（角色码 / 名称）。\n    status: 状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页角色列表。",

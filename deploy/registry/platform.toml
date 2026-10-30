@@ -360,6 +360,7 @@ paths = [
   "backend/libs/bms_core/src/bms_core/models/platform/capability_grant.py",
   "backend/libs/bms_core/src/bms_core/models/platform/catalog.py",
   "backend/libs/bms_core/src/bms_core/models/platform/declaration.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/release_manifest.py",
   "backend/libs/bms_core/src/bms_core/models/platform/tenant_topology.py",
 ]
 public_api = [
