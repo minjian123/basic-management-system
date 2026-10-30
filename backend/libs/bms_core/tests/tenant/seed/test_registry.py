@@ -100,8 +100,10 @@ def test_tenant_refs_sync_reads_rows(tmp_path: Path) -> None:
 
 @pytest.mark.kiwi_id(2343)
 def test_ref_falls_back_when_db_basis_empty() -> None:
-    """行值为空 / 非字符串时库名基回落编码。"""
-    assert registry._ref("demo", None).db_basis == "demo"  # pyright: ignore[reportPrivateUsage]
-    assert registry._ref("demo", "").db_basis == "demo"  # pyright: ignore[reportPrivateUsage]
-    assert registry._ref("demo", 123).db_basis == "demo"  # pyright: ignore[reportPrivateUsage]
-    assert registry._ref("demo", "basis").db_basis == "basis"  # pyright: ignore[reportPrivateUsage]
+    """行值为空 / 非字符串时库名基回落编码；主键非整型时回落 0。"""
+    assert registry._ref(7, "demo", None).db_basis == "demo"  # pyright: ignore[reportPrivateUsage]
+    assert registry._ref(7, "demo", "").db_basis == "demo"  # pyright: ignore[reportPrivateUsage]
+    assert registry._ref(7, "demo", 123).db_basis == "demo"  # pyright: ignore[reportPrivateUsage]
+    assert registry._ref(7, "demo", "basis").db_basis == "basis"  # pyright: ignore[reportPrivateUsage]
+    assert registry._ref(7, "demo", "basis").tenant_id == 7  # pyright: ignore[reportPrivateUsage]
+    assert registry._ref(None, "demo", "basis").tenant_id == 0  # pyright: ignore[reportPrivateUsage]

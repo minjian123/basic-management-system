@@ -17,6 +17,7 @@
 """
 
 import asyncio
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from sqlalchemy import Connection, MetaData, create_engine, inspect
@@ -42,7 +43,7 @@ from bms_core.db.migration import (
 )
 from bms_core.db.sync import is_sync_only_url
 from bms_core.models.base import Base
-from bms_core.services.table_registry import unit_tables
+from bms_core.services.table_registry import series_tables, unit_tables
 
 logger = get_logger("bms_core.db.bootstrap")
 
@@ -174,6 +175,55 @@ def _apply_sync(url: str, metadata: MetaData, schema: str) -> tuple[int, int]:
     return len(metadata.tables) - len(existing), len(existing)
 
 
+def domains_metadata(domains: Iterable[str], datasource: str, *, include_infrastructure: bool = True) -> MetaData:
+    """取指定业务域集合在某库类别的建表集元数据（部署单元建表与域搬迁共用）。
+
+    **两处调用口径不同，靠 `include_infrastructure` 分开**：
+
+    - 建表（启动期 / `ops.init_schema` / 迁移工具 P2）：含基础设施表——它们每库一份，
+      新库也需要有；
+    - 数据搬迁（`04_02` P3）：**不含**基础设施表——发件箱等表属于「本库自己的事件」，
+      不随业务域搬迁，搬过去会把源库的待发事件复制到目标库导致重复投递。
+
+    Args:
+        domains: 业务域标识集合。
+        datasource: 数据源段。
+        include_infrastructure: 是否并入基础设施表。
+
+    Returns:
+        MetaData: 元数据子集（与 `Base.metadata` 同命名约定）。
+    """
+    resolved = ConcurrentStableList(domains)
+    for domain in resolved:
+        import_models(domain)
+    tables = _tables_of(resolved, datasource, include_infrastructure=include_infrastructure)
+    metadata = MetaData(naming_convention=Base.metadata.naming_convention)
+    for name in sorted(tables & set(Base.metadata.tables)):
+        Base.metadata.tables[name].to_metadata(metadata)
+    return metadata
+
+
+def _tables_of(
+    domains: ConcurrentStableList[str], datasource: str, *, include_infrastructure: bool
+) -> ConcurrentStableSet[str]:
+    """取域集合在某库类别的表集（含 / 不含基础设施表）。
+
+    Args:
+        domains: 业务域标识集合。
+        datasource: 数据源段。
+        include_infrastructure: 是否并入基础设施表。
+
+    Returns:
+        ConcurrentStableSet[str]: 表名集合（插入序）。
+    """
+    if include_infrastructure:
+        return unit_tables(domains, datasource)
+    tables: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for domain in domains:
+        tables.update(series_tables(domain, datasource))
+    return tables
+
+
 def unit_metadata(unit: str, datasource: str) -> MetaData:
     """取部署单元在某库类别的建表集元数据（各域表集并集 + 基础设施表 ∩ 已有模型）。
 
@@ -184,14 +234,45 @@ def unit_metadata(unit: str, datasource: str) -> MetaData:
     Returns:
         MetaData: 元数据子集（迁移目标 / 自动建表共用）。
     """
-    domains = unit_domains(unit)
-    for domain in domains:
-        import_models(domain)
-    tables = unit_tables(domains, datasource)
-    metadata = MetaData(naming_convention=Base.metadata.naming_convention)
-    for name in sorted(tables & set(Base.metadata.tables)):
-        Base.metadata.tables[name].to_metadata(metadata)
-    return metadata
+    return domains_metadata(unit_domains(unit), datasource)
+
+
+async def apply_domains_schema(
+    domains: Iterable[str], datasource: str, url: str, *, target: str = "", schema: str = ""
+) -> SchemaOutcome:
+    """对目标连接串幂等建指定域集合在该库类别的建表集（方言无关；表集空即跳过、不建连）。
+
+    与 `apply_unit_schema` 同源（后者是「域集由单元反推」的特例）：迁移工具 P2 的目标单元
+    在静态域布局里可能还不是这些域的承载服务（拆分新单元），故必须能按**显式域清单**建表。
+
+    Args:
+        domains: 业务域标识集合。
+        datasource: 数据源段。
+        url: 目标连接串（含密码；禁止写入日志）。
+        target: 目标标签（日志与统计用；缺省取域名列表）。
+        schema: 达梦目标模式名（空串表示取连接串 `database` 段）。
+
+    Returns:
+        SchemaOutcome: 建表结果（表集空返回全 0）。
+    """
+    resolved = ConcurrentStableList(domains)
+    label = target or f"{','.join(resolved)}:{datasource}"
+    metadata = domains_metadata(resolved, datasource)
+    if not metadata.tables:
+        return SchemaOutcome(target=label, total=0, created=0, existing=0)
+    if _is_async_url(url):
+        created, existing = await _apply_async(url, metadata)
+    else:
+        created, existing = await asyncio.to_thread(_apply_sync, url, metadata, schema or default_schema_of(url))
+    logger.info(
+        "schema_auto_create",
+        target=label,
+        domains=list(resolved),
+        tables=len(metadata.tables),
+        created=created,
+        existing=existing,
+    )
+    return SchemaOutcome(target=label, total=len(metadata.tables), created=created, existing=existing)
 
 
 async def apply_unit_schema(
@@ -212,24 +293,8 @@ async def apply_unit_schema(
     Returns:
         SchemaOutcome: 建表结果（表集空返回全 0）。
     """
-    label = target or f"{unit}:{datasource}"
-    metadata = unit_metadata(unit, datasource)
-    if not metadata.tables:
-        return SchemaOutcome(target=label, total=0, created=0, existing=0)
-    if _is_async_url(url):
-        created, existing = await _apply_async(url, metadata)
-    else:
-        created, existing = await asyncio.to_thread(_apply_sync, url, metadata, schema or default_schema_of(url))
-    logger.info(
-        "schema_auto_create",
-        target=label,
-        unit=unit,
-        domains=list(unit_domains(unit)),
-        tables=len(metadata.tables),
-        created=created,
-        existing=existing,
-    )
-    return SchemaOutcome(target=label, total=len(metadata.tables), created=created, existing=existing)
+    domains = unit_domains(unit)
+    return await apply_domains_schema(domains, datasource, url, target=target or f"{unit}:{datasource}", schema=schema)
 
 
 async def ensure_unit_schema(settings: Settings, *, factory: EngineFactory | None = None) -> ConcurrentStableList[str]:

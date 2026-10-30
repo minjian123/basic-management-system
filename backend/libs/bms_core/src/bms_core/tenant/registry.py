@@ -31,7 +31,7 @@ _DM = "dm"
 
 @dataclass(frozen=True)
 class TenantRef(BaseValueObject):
-    """租户引用（编码 + 库名基）：库键按 `db_basis` 派生（10_04）。"""
+    """租户引用（编码 + 库名基 + 主键）：库键按 `db_basis` 派生（10_04）。"""
 
     code: str
     """租户编码（当前值）。"""
@@ -39,11 +39,15 @@ class TenantRef(BaseValueObject):
     db_basis: str
     """库名基（对照表 `sys_tenant_database`；缺行回落编码）。"""
 
+    tenant_id: int = 0
+    """租户主键（`sys_tenant.id`；拓扑迁移 `04_02` 按主键写拓扑，缺省 0 表示未取到）。"""
 
-def _ref(code: object, db_basis: object) -> TenantRef:
+
+def _ref(tenant_id: object, code: object, db_basis: object) -> TenantRef:
     """行值 → 租户引用（库名基为空回落编码）。
 
     Args:
+        tenant_id: 租户主键。
         code: 租户编码。
         db_basis: 库名基（可空）。
 
@@ -51,20 +55,21 @@ def _ref(code: object, db_basis: object) -> TenantRef:
         TenantRef: 租户引用。
     """
     basis = str(db_basis) if isinstance(db_basis, str) and db_basis else str(code)
-    return TenantRef(code=str(code), db_basis=basis)
+    key = tenant_id if isinstance(tenant_id, int) else 0
+    return TenantRef(code=str(code), db_basis=basis, tenant_id=key)
 
 
 def _statement():
     """构造租户引用查询语句（`sys_tenant` 左联对照表，均限未软删）。
 
     Returns:
-        Select: 查询语句（列：编码、库名基）。
+        Select: 查询语句（列：主键、编码、库名基）。
     """
     from bms_core.models.tenant.tenant import SysTenant  # 惰性：仅读租户注册库时需要
     from bms_core.models.tenant.tenant_database import SysTenantDatabase
 
     return (
-        select(SysTenant.code, SysTenantDatabase.db_basis)
+        select(SysTenant.id, SysTenant.code, SysTenantDatabase.db_basis)
         .outerjoin(
             SysTenantDatabase,
             (SysTenantDatabase.tenant_id == SysTenant.id) & (SysTenantDatabase.deleted_at.is_(None)),
@@ -85,7 +90,9 @@ def tenant_refs_sync(url: str) -> ConcurrentStableList[TenantRef]:
     engine: Engine = create_engine(url, poolclass=NullPool)
     try:
         with engine.connect() as connection:
-            return ConcurrentStableList(_ref(code, basis) for code, basis in connection.execute(_statement()).all())
+            return ConcurrentStableList(
+                _ref(tenant_id, code, basis) for tenant_id, code, basis in connection.execute(_statement()).all()
+            )
     finally:
         engine.dispose()
 
@@ -105,6 +112,6 @@ async def tenant_refs(registry_url: str) -> ConcurrentStableList[TenantRef]:
     try:
         async with engine.connect() as connection:
             result = await connection.execute(_statement())
-            return ConcurrentStableList(_ref(code, basis) for code, basis in result.all())
+            return ConcurrentStableList(_ref(tenant_id, code, basis) for tenant_id, code, basis in result.all())
     finally:
         await engine.dispose()
