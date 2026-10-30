@@ -433,3 +433,21 @@ url = "sqlite+aiosqlite:///./app.db"
     with pytest.raises(ConfigError) as excinfo:
         load_settings()
     assert "database.tenants" in str(excinfo.value)
+
+
+def test_topology_domains_declaration_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`[topology].domains` 不得声明：域由拓扑解析，两处声明必然漂移（拒启并指明口径）。"""
+    monkeypatch.setenv("BMS_TOPOLOGY__DOMAINS", '["role"]')
+
+    with pytest.raises(ConfigError, match=r"topology\]\.domains 不得声明"):
+        Settings()
+
+
+def test_topology_units_declaration_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`[topology].units` 是唯一可声明的项：承载域由它经拓扑派生（配置不另声明域）。"""
+    monkeypatch.setenv("BMS_TOPOLOGY__UNITS", '["grpops"]')
+
+    settings = Settings()
+
+    assert list(settings.topology.units or []) == ["grpops"]
+    assert settings.topology.domains is None

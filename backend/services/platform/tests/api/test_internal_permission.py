@@ -20,12 +20,16 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import AuthError
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 
 API = "/api/v1/platform/internal/permissions/invalidate"
 SUBJECT_API = "/api/v1/platform/internal/permissions/subject"
 METADATA_API = "/api/v1/platform/internal/permissions/metadata"
+
+_DOMAINS = ConcurrentStableFrozenList(("permission_meta",))
+"""服务票据声明的承载域（07C `04_03`：入站第一道按域归属判定）。"""
 
 
 class _StubVerifier:
@@ -46,11 +50,26 @@ class _StubVerifier:
         """
         del audience
         if token == "mdm":
-            return VerifiedToken(subject="mdm", service="mdm", token_type="service")
+            return VerifiedToken(
+                subject="mdm",
+                service="mdm",
+                token_type="service",
+                domains=_DOMAINS,  # pyright: ignore[reportArgumentType]
+            )
         if token == "identity":
-            return VerifiedToken(subject="identity", service="identity", token_type="service")
+            return VerifiedToken(
+                subject="identity",
+                service="identity",
+                token_type="service",
+                domains=_DOMAINS,  # pyright: ignore[reportArgumentType]
+            )
         if token == "gateway":
-            return VerifiedToken(subject="gateway", service="gateway", token_type="service")
+            return VerifiedToken(
+                subject="gateway",
+                service="gateway",
+                token_type="service",
+                domains=_DOMAINS,  # pyright: ignore[reportArgumentType]
+            )
         raise AuthError("invalid")
 
 

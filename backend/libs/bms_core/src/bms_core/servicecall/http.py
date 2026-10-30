@@ -180,8 +180,16 @@ class HttpServiceClient(BaseServiceClient):
             {name: value for name, value in (request.headers or {}).items() if name.lower() != AUTHORIZATION_HEADER}
         )
         if self._attach_service_token and self._token_issuer is not None and self._caller:
+            # 惰性导入：`collaboration.domain_scope` 经 `grant` 反依赖 `servicecall.base`，顶层导入成环
+            from bms_core.collaboration.domain_scope import instance_domains
+
             token = await self._token_issuer.issue(
-                ServiceTokenSpec(service=self._caller, scopes=request.policy.scopes, tenant_id=request.tenant_id)
+                ServiceTokenSpec(
+                    service=self._caller,
+                    scopes=request.policy.scopes,
+                    tenant_id=request.tenant_id,
+                    domains=instance_domains(),
+                )
             )
             if token.access_token:
                 headers.set("Authorization", f"Bearer {token.access_token}")

@@ -11,7 +11,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.api.deps import get_uow
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import AuthError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.user import SysUser
@@ -88,7 +88,13 @@ class _StubVerifier:
         """
         del audience
         if token == "mdm":
-            return VerifiedToken(subject="mdm", service="mdm", token_type="service")
+            # 07C `04_03`：服务票据声明承载的业务域（入站第一道按域归属判定）
+            return VerifiedToken(
+                subject="mdm",
+                service="mdm",
+                token_type="service",
+                domains=ConcurrentStableFrozenList(("user",)),  # pyright: ignore[reportArgumentType]
+            )
         if token == "identity":
             return VerifiedToken(subject="identity", service="identity", token_type="service")
         if token == "gateway":

@@ -147,6 +147,20 @@ async def test_issue_and_verify_claims() -> None:
     assert claims.expires_at > claims.issued_at
 
 
+async def test_issue_declares_service_domains() -> None:
+    """服务 JWT 声明承载域（`domains` 空格分隔；未声明时不写该 claim）。"""
+    issuer = JwtServiceTokenIssuer(issuer="bms", keys=[_rsa_key()], active_kid="k1")
+
+    with_domains = await issuer.issue(
+        ServiceTokenSpec(service="platform", domains=ConcurrentStableFrozenList(("role", "user")))
+    )
+    payload = dict(issuer.verify(with_domains.access_token).payload)
+    assert payload["domains"] == "role user"
+
+    bare = await issuer.issue(ServiceTokenSpec(service="platform"))
+    assert "domains" not in dict(issuer.verify(bare.access_token).payload), "未声明就不写 claim（缺失可被入站识别）"
+
+
 @pytest.mark.kiwi_id(2180)
 async def test_issue_ec_algorithm() -> None:
     """ES256 密钥可签发并通过本地验签。"""

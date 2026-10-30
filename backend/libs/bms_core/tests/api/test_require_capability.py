@@ -1,31 +1,87 @@
 """入站能力判定依赖用例（07B `03_01`）：`require_capability` / `require_capability_or_service`。
 
-覆盖判定顺序：网关代发票据拒 → 白名单放行 → 能力分配判定；以及「票据无签发方」与「无凭证」两条拒法。
+覆盖判定顺序：网关代发票据拒 → 白名单放行 → **域归属（第一道）** → 能力分配判定（第二道）；
+以及「票据无签发方」「无凭证」「域声明缺失 / 不符 / 域未启用」四条拒法（07C `04_03`）。
 """
 
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 import pytest
 
 from bms_core.api import capability as capability_module
 from bms_core.api.capability import require_capability, require_capability_or_service
-from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.collaboration.domain_scope import instance_domains
+from bms_core.collaboration.topology import (
+    DEFAULT_TOPOLOGY_TENANT,
+    TopologyEntry,
+    TopologySnapshot,
+    register_instance_context,
+    register_topology_snapshot,
+    reset_instance_context,
+    reset_topology_snapshots,
+)
+from bms_core.core.concurrent import (
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import AuthError, PermissionError
 from bms_core.oauth.verify import VerifiedToken
+from bms_core.services.module_registry import (
+    CollaborationRecord,
+    register_collaboration_records,
+    register_domain_services,
+    reset_collaboration_records,
+    reset_domain_services,
+)
 
 _CAPABILITY = "platform.user.query"
+"""被测能力（提供方域 `user`）。"""
+
+_DOMAIN = "user"
+"""被测能力所属业务域。"""
+
+
+@pytest.fixture(autouse=True)
+def _catalog() -> Iterator[None]:
+    """登记能力与其提供方域（`capability_domain` 的权威来源），用后复位。"""
+    reset_domain_services()
+    reset_collaboration_records()
+    reset_topology_snapshots()
+    reset_instance_context()
+    register_domain_services(ConcurrentStableFrozenDict({_DOMAIN: "platform", "role": "platform"}))
+    register_collaboration_records(
+        (
+            CollaborationRecord(
+                name=_CAPABILITY,
+                domain=_DOMAIN,
+                kind="read",
+                contract_version="0.1.0",
+                path="/api/v1/user/query",
+                product_key="platform",
+            ),
+        )
+    )
+    yield
+    reset_domain_services()
+    reset_collaboration_records()
+    reset_topology_snapshots()
+    reset_instance_context()
 
 
 class _Verifier:
     """令牌校验替身：按令牌串返回固定身份声明。"""
 
-    def __init__(self, *, service: str) -> None:
+    def __init__(self, *, service: str, domains: Iterable[str] = ()) -> None:
         """初始化。
 
         Args:
             service: 返回的签发方服务标识（空串表示票据缺签发方）。
+            domains: 返回的业务域声明（空表示旧版票据，无 `domains` claim）。
         """
         self._service = service
+        self._domains = domains
 
     async def verify(self, token: str, *, audience: str) -> VerifiedToken:
         """返回固定身份。
@@ -35,10 +91,15 @@ class _Verifier:
             audience: 目标受众（未使用）。
 
         Returns:
-            VerifiedToken: 身份声明。
+            VerifiedToken: 身份声明（域声明按构造入参）。
         """
         del token, audience
-        return VerifiedToken(subject="svc", service=self._service, scopes=ConcurrentStableFrozenList())
+        return VerifiedToken(
+            subject="svc",
+            service=self._service,
+            scopes=ConcurrentStableFrozenList(),
+            domains=ConcurrentStableFrozenList(self._domains),  # pyright: ignore[reportArgumentType]
+        )
 
 
 class _Metrics:
@@ -53,19 +114,26 @@ class _Metrics:
         """
 
 
-async def _call(dependency: Any, *, authorization: str | None, service: str) -> VerifiedToken:
+async def _call(
+    dependency: Any,
+    *,
+    authorization: str | None,
+    service: str,
+    domains: Iterable[str] = (_DOMAIN,),
+) -> VerifiedToken:
     """执行一次依赖调用。
 
     Args:
         dependency: `require_capability(...)` 产出的依赖函数。
         authorization: `Authorization` 头。
         service: 校验替身返回的签发方。
+        domains: 校验替身返回的业务域声明（缺省含被测能力所属域）。
 
     Returns:
         VerifiedToken: 依赖返回值。
     """
     return await dependency(
-        verifier=_Verifier(service=service),
+        verifier=_Verifier(service=service, domains=domains),
         metrics=_Metrics(),
         authorization=authorization,
     )
@@ -224,3 +292,86 @@ async def test_or_service_gateway_token_rejected() -> None:
             authorization="Bearer tok",
             service="gateway",
         )
+
+
+async def test_domain_claim_missing_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """域声明缺失（旧版签发）：403，且不进入能力分配判定。"""
+    called: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _never(*_args: object, **_kwargs: object) -> None:
+        """记录误调用（不应发生）。
+
+        Args:
+            *_args: 位置参数（未使用）。
+            **_kwargs: 关键字参数（未使用）。
+        """
+        called.append("access")
+
+    monkeypatch.setattr(capability_module, "check_capability_access", _never)
+
+    with pytest.raises(PermissionError, match="缺少业务域声明"):
+        await _call(require_capability(_CAPABILITY), authorization="Bearer tok", service="mdm", domains=())
+    assert called == [], "第一道拒绝后不再判定能力分配"
+
+
+async def test_domain_claim_mismatch_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """声明不含被调能力所属域：403，错误含域 / 能力 / 消费方。"""
+    called: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _never(*_args: object, **_kwargs: object) -> None:
+        """记录误调用（不应发生）。
+
+        Args:
+            *_args: 位置参数（未使用）。
+            **_kwargs: 关键字参数（未使用）。
+        """
+        called.append("access")
+
+    monkeypatch.setattr(capability_module, "check_capability_access", _never)
+
+    with pytest.raises(PermissionError, match="调用方未声明业务域：user"):
+        await _call(require_capability(_CAPABILITY), authorization="Bearer tok", service="mdm", domains=("role",))
+    assert called == []
+
+
+async def test_domain_not_enabled_on_instance_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """域由别的部署单元承载（本实例未启用）：403，错误提示检查承载单元与拓扑。"""
+    register_topology_snapshot(
+        TopologySnapshot(
+            tenant_id=DEFAULT_TOPOLOGY_TENANT,
+            version=1,
+            entries=ConcurrentStableFrozenDict(
+                {
+                    _DOMAIN: TopologyEntry(unit_key="userops"),
+                    "role": TopologyEntry(unit_key="platform"),
+                }
+            ),
+        )
+    )
+    register_instance_context("platform", ConcurrentStableFrozenList(("platform",)))
+    assert list(instance_domains()) == ["role"], "本实例只承载 role（user 在 userops）"
+
+    async def _never(*_args: object, **_kwargs: object) -> None:
+        """记录误调用（不应发生）。
+
+        Args:
+            *_args: 位置参数（未使用）。
+            **_kwargs: 关键字参数（未使用）。
+        """
+
+    monkeypatch.setattr(capability_module, "check_capability_access", _never)
+
+    with pytest.raises(PermissionError, match="业务域未在本实例启用：user"):
+        await _call(require_capability(_CAPABILITY), authorization="Bearer tok", service="mdm")
+
+
+async def test_or_service_whitelist_skips_domain_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """白名单内部服务：不经域归属判定（平台内部调用不持业务域声明）。"""
+    verified = await _call(
+        require_capability_or_service(_CAPABILITY, "identity"),
+        authorization="Bearer tok",
+        service="identity",
+        domains=(),
+    )
+
+    assert verified.service == "identity"

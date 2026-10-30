@@ -5,6 +5,7 @@
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.audit.hashchain import BaseHashChain, ChainVerifyResult, HashChainEntry
+from bms_core.collaboration.domain_scope import domain_of_table
 from bms_core.core.capability import BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.events.base import EventEnvelope
@@ -46,9 +47,12 @@ class NullAuditCapturer(AuditCapturer, BaseNullObject):
             actor: 操作者 ID（占位忽略）。
 
         Returns:
-            EventEnvelope: 占位审计事件。
+            EventEnvelope: 占位审计事件（`payload` 带 `table` / `domain_key`，与真实实现同口径）。
         """
-        return EventEnvelope(event_type="audit.null")
+        return EventEnvelope(
+            event_type="audit.null",
+            payload=ConcurrentStableDict({"table": table, "domain_key": domain_of_table(table)}),
+        )
 
 
 class NullHashChain(BaseHashChain, BaseNullObject):

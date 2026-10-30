@@ -29,6 +29,8 @@ from bms_core.oauth.base import OAuthToken
 __all__ = [
     "DEFAULT_SERVICE_TOKEN_ISSUER",
     "DEFAULT_SERVICE_TOKEN_TTL",
+    "SERVICE_DOMAIN_CLAIM",
+    "SERVICE_DOMAIN_SEPARATOR",
     "SERVICE_TOKEN_TYPE",
     "TOKEN_AUDIENCE_API",
     "TOKEN_AUDIENCE_SERVICE",
@@ -45,6 +47,12 @@ TOKEN_AUDIENCE_SERVICE = "service"
 
 SERVICE_TOKEN_TYPE = "service"
 """服务 JWT 类型（claims `typ`）。"""
+
+SERVICE_DOMAIN_CLAIM = "domains"
+"""服务 JWT 的业务域声明键（07C `04_03`；值为空格分隔的域标识列表）。"""
+
+SERVICE_DOMAIN_SEPARATOR = " "
+"""业务域声明分隔符（与 `scope` claim 同口径）。"""
 
 DEFAULT_SERVICE_TOKEN_ISSUER = "bms"
 """自签服务 JWT 的默认签发方（`iss`；生产建议配置稳定 URI）。"""
@@ -65,6 +73,13 @@ class ServiceTokenSpec(BaseTokenSpecContract):
 
     tenant_id: str | None = None
     """租户主键（雪花 id 十进制字符串；扩展 claim `tenant_id`，可选；服务身份跨租户时留空）。"""
+
+    domains: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
+    """承载的业务域（扩展 claim `domains`，空格分隔；07C `04_03`）。
+
+    取值来自**签发实例的承载域**（`collaboration/domain_scope.py::instance_domains()`，由拓扑与
+    `[topology].units` 派生），不是请求参数；入站侧据此判定「调用方是否声明了被调能力所属域」。
+    """
 
     ttl: int | None = None
     """有效期覆盖（秒；None 取签发者默认 TTL）。"""

@@ -6,7 +6,12 @@ from typing import Any, cast
 import pytest
 import yaml
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.services import gateway_catalog as gc
 from bms_core.services.module_registry import ProductRouteRecord
 
@@ -391,6 +396,34 @@ def _product_route(
     return ProductRouteRecord(product_key=product_key, domain=domain, service_key=service_key)
 
 
+def _topology(
+    units: ConcurrentStableDict[str, str] | None = None,
+    *,
+    disabled: ConcurrentStableFrozenList[str] | None = None,
+) -> ConcurrentStableFrozenDict[str, gc.RouteTarget]:
+    """构造路由拓扑（域 → 单元；列在 `disabled` 的域标停用）。
+
+    Args:
+        units: 域 → 部署单元；None 表示空拓扑。
+        disabled: 需标为停用的域；None 表示全部启用。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, gc.RouteTarget]: 路由拓扑。
+    """
+    mapping = ConcurrentStableDict[str, str]() if units is None else units
+    return ConcurrentStableFrozenDict(
+        {
+            domain: gc.RouteTarget(
+                unit_key=unit,
+                status=gc.ROUTE_TARGET_DISABLED
+                if disabled is not None and domain in disabled
+                else gc.ROUTE_TARGET_ENABLED,
+            )
+            for domain, unit in mapping.items()
+        }
+    )
+
+
 @pytest.mark.kiwi_id(2250)
 def test_product_routes_default_empty() -> None:
     """默认产品级路由为空（产品路由由产品清单装载）；完整配置=平台服务路由 + 登录。"""
@@ -403,7 +436,9 @@ def test_product_routes_default_empty() -> None:
 @pytest.mark.kiwi_id(2250)
 def test_render_product_routes_shape_and_rewrite() -> None:
     """产品级路由：产品命名空间 /api/{product_key}/v1/{domain}；上游=映射服务；重写剥离产品前缀（域段保留）。"""
-    routes = gc.render_product_routes(ConcurrentStableList((_product_route(),)))
+    routes = gc.render_product_routes(
+        ConcurrentStableList((_product_route(),)), _topology(ConcurrentStableDict({"org": "tenant"}))
+    )
     assert len(routes) == 1
     route = routes[0]
     prefix = "/api/biz/v1/org"
@@ -439,10 +474,129 @@ def test_product_routes_skip_unreachable_target() -> None:
 def test_product_routes_merged_into_full_config() -> None:
     """产品路由并入完整配置的路由段，且生成件保持确定性（供 Git 比对与零漂移）。"""
     routes = ConcurrentStableList((_product_route(),))
-    ids = [item["id"] for item in cast("list[Any]", gc.render_apisix_config(routes)["routes"])]
+    ids = [
+        item["id"]
+        for item in cast(
+            "list[Any]", gc.render_apisix_config(routes, _topology(ConcurrentStableDict({"org": "tenant"})))["routes"]
+        )
+    ]
     assert ids == [f"route-{key}" for key in _EXPECTED_PLATFORM_ROUTE_SERVICES] + [
         gc.LOGIN_ROUTE_ID,
         "route-biz-org",
     ]
     assert gc.render_apisix_yaml() == gc.render_apisix_yaml()
-    assert gc.validate_service_discovery(gc.render_apisix_config(routes)) == []
+    assert (
+        gc.validate_service_discovery(
+            gc.render_apisix_config(routes, _topology(ConcurrentStableDict({"org": "tenant"})))
+        )
+        == []
+    )
+
+
+def test_route_paths_stable_across_topologies() -> None:
+    """同域两种拓扑：对外路径完全相同，只有上游指向不同单元（前端口径无感）。"""
+    routes = ConcurrentStableList((_product_route(),))
+    merged = _topology(ConcurrentStableDict({"org": "orgops"}))
+    split = _topology(ConcurrentStableDict({"org": "org"}))
+
+    merged_routes = gc.render_product_routes(routes, merged)
+    split_routes = gc.render_product_routes(routes, split)
+
+    assert [item["uris"] for item in merged_routes] == [item["uris"] for item in split_routes]
+    assert [item["id"] for item in merged_routes] == [item["id"] for item in split_routes]
+    assert merged_routes[0]["upstream_id"] == "orgops"
+    assert split_routes[0]["upstream_id"] == "org"
+
+
+def test_merged_unit_gets_single_upstream() -> None:
+    """合并部署：一个单元承载多域时只生成一条 upstream（不按域重复建）。"""
+    routes = ConcurrentStableList((_product_route(domain="org"), _product_route(domain="pur", service_key="tenant")))
+    topology = _topology(ConcurrentStableDict({"org": "orgops", "pur": "orgops"}))
+
+    upstreams = gc.render_upstreams(routes, topology)
+
+    ids = [item["id"] for item in upstreams]
+    assert ids.count("orgops") == 1
+    assert ids[: len(_EXPECTED_SERVICES)] == list(_EXPECTED_SERVICES), "服务级上游保持原顺序与口径"
+
+
+def test_disabled_domain_generates_no_route() -> None:
+    """拓扑停用的域不生成路由（不是生成后拒绝），其单元也不进上游段。"""
+    routes = ConcurrentStableList((_product_route(),))
+    topology = _topology(ConcurrentStableDict({"org": "orgops"}), disabled=ConcurrentStableFrozenList(("org",)))
+
+    assert gc.render_product_routes(routes, topology) == []
+    assert "orgops" not in [item["id"] for item in gc.render_upstreams(routes, topology)]
+
+
+def test_missing_topology_entry_rejected() -> None:
+    """域未在拓扑登记：生成前即拒（拓扑不完整，错误指明域与产品）。"""
+    from bms_core.core.exceptions import CatalogError
+
+    with pytest.raises(CatalogError, match="业务域未在部署拓扑登记：org"):
+        gc.render_product_routes(ConcurrentStableList((_product_route(),)), _topology())
+
+
+def test_empty_unit_rejected() -> None:
+    """拓扑行单元为空：同属生成前必拒（避免路由指向空上游）。"""
+    from bms_core.core.exceptions import CatalogError
+
+    with pytest.raises(CatalogError, match="业务域未指定部署单元：org"):
+        gc.render_product_routes(
+            ConcurrentStableList((_product_route(),)), _topology(ConcurrentStableDict({"org": ""}))
+        )
+
+
+def test_platform_service_routes_unaffected_by_topology() -> None:
+    """服务级路由不受拓扑影响：仍为 `/api/{service}/v1`，上游按服务。"""
+    before = gc.render_routes()
+    gc.render_apisix_config(
+        ConcurrentStableList((_product_route(),)),
+        _topology(ConcurrentStableDict({"org": "orgops"})),
+    )
+    after = gc.render_routes()
+
+    assert [item["id"] for item in before] == [item["id"] for item in after]
+    assert [item["uris"] for item in before] == [item["uris"] for item in after]
+    assert [item["upstream_id"] for item in before] == [item["upstream_id"] for item in after]
+
+
+def test_product_path_overlapping_service_path_rejected() -> None:
+    """产品域路径与平台服务级路径重叠：生成前拒绝（同一实现断言不重叠）。"""
+    from bms_core.core.exceptions import CatalogError
+
+    routes = ConcurrentStableList((_product_route(product_key="tenant", domain="extra"),))
+
+    with pytest.raises(CatalogError, match="路径与平台服务级路径重叠"):
+        gc.render_product_routes(routes, _topology(ConcurrentStableDict({"extra": "tenant"})))
+
+
+def test_default_route_topology_mirrors_domain_registry() -> None:
+    """默认拓扑 = 域登记面（域 → 承载服务，全部启用）；清单模式下与改造前生成物同形。"""
+    from bms_core.services.module_registry import register_domain_services, reset_domain_services
+
+    reset_domain_services()
+    register_domain_services(ConcurrentStableFrozenDict({"org": "tenant", "user": "platform"}))
+    try:
+        topology = gc.default_route_topology()
+    finally:
+        reset_domain_services()
+
+    assert dict(topology) == {
+        "org": gc.RouteTarget(unit_key="tenant"),
+        "user": gc.RouteTarget(unit_key="platform"),
+    }
+    assert all(target.enabled for target in topology.values())
+    assert gc.route_targets_from_rows((("org", "orgops", "enabled"),))["org"] == gc.RouteTarget(unit_key="orgops")
+    empty = ConcurrentStableList[ProductRouteRecord]()
+    topology_units = _topology(ConcurrentStableDict({"org": "tenant"}))
+    assert gc.render_apisix_yaml(empty, topology_units) == gc.render_apisix_yaml(empty, topology_units), (
+        "同一输入 → 同文本（确定性）"
+    )
+
+
+def test_route_targets_skip_blank_domain_rows() -> None:
+    """拓扑行域为空：跳过（脏行不产生路由目标，也不报错）。"""
+    targets = gc.route_targets_from_rows((("", "orgops", "enabled"), ("org", "orgops", "enabled")))
+
+    assert list(targets.keys()) == ["org"]

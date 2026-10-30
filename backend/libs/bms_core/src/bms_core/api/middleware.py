@@ -11,6 +11,9 @@
 - `RequestLoggingMiddleware`：纯 ASGI 中间件——每请求生成 `request_id`（uuid4 hex）并解析 `client_ip` 写入上下文；
   请求结束输出单行访问日志（普通 INFO `request`，超 `slow_request_ms` 整行 WARNING `slow_request`）；
   探针（`/healthz`、`/readyz`）与文档路径（`/docs`、`/redoc`、`/openapi.json`）排除，任何级别不记。
+  **按业务域标注**（07C `04_03`）：访问日志与请求指标统一注入 `domain_key` / `unit_key`（域段经
+  `collaboration/domain_scope.py::domain_of_path` 派生，单元取本实例 `[app].unit`）；归属不明的 API 请求
+  记 `domain=unknown` 并单独告警（不丢样本、可按域过滤告警）。
 
 口径：
 - **必须为纯 ASGI 中间件**（不经 `BaseHTTPMiddleware`）：后者把下游应用放在独立任务中执行，
@@ -29,7 +32,9 @@ from typing import cast
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from bms_core.api.base import API_PREFIX
 from bms_core.api.errors import build_error_response
+from bms_core.collaboration.domain_scope import UNKNOWN_DOMAIN, domain_of_path
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.core.context import (
     get_current_request_id,
@@ -310,7 +315,7 @@ class RequestLoggingMiddleware(BaseMiddleware):
         if path in _EXCLUDED_PATHS:
             return
         method = str(scope.get("method", ""))
-        base = {"method": method, "route": path}
+        base = {"method": method, "route": path, "domain": _request_domain(scope), "unit": _request_unit(scope)}
         await metrics.counter("bms_request_total", labels={**base, "status": str(status_code)})
         await metrics.histogram("bms_request_duration_seconds", value=duration_s, labels=base)
 
@@ -323,12 +328,15 @@ class RequestLoggingMiddleware(BaseMiddleware):
         if path in _EXCLUDED_PATHS:
             return
         logger = get_logger("app.request")
+        domain_key = _request_domain(scope)
         fields: ConcurrentStableDict[str, object] = ConcurrentStableDict(
             {
                 "method": scope.get("method", ""),
                 "path": path,
                 "status": status_code,
                 "duration_ms": duration_ms,
+                "domain_key": domain_key,
+                "unit_key": _request_unit(scope),
             }
         )
         state = ConcurrentStableDict(scope.get("state", {}))
@@ -338,6 +346,9 @@ class RequestLoggingMiddleware(BaseMiddleware):
             logger.warning("slow_request", **fields)
         else:
             logger.info("request", **fields)
+        if domain_key == UNKNOWN_DOMAIN and path.startswith(f"{API_PREFIX}/"):
+            # 归属不明的 API 请求：不丢样本，单独一条告警（指标侧按 domain=unknown 过滤告警）
+            logger.warning("request_domain_unknown", **fields)
 
 
 class EdgeGuardMiddleware(BaseMiddleware):
@@ -449,6 +460,35 @@ def _rewrite_headers(scope: Scope, *, drops: ConcurrentStableSet[str], sets: Con
     kept = [(key, value) for key, value in scope.get("headers", []) if key.decode("latin-1").lower() not in drops]
     kept.extend((name.lower().encode("latin-1"), value.encode("latin-1")) for name, value in sets.items())
     scope["headers"] = kept
+
+
+def _request_domain(scope: Scope) -> str:
+    """请求的业务域标签（路由模板 / 原始路径的域段，归属不明回落 `unknown`）。
+
+    Args:
+        scope: ASGI 作用域。
+
+    Returns:
+        str: 业务域标识或 `unknown`。
+    """
+    route = scope.get("route")
+    path = str(getattr(route, "path", "") or scope.get("path", ""))
+    return domain_of_path(path)
+
+
+def _request_unit(scope: Scope) -> str:
+    """请求的部署单元标签（本实例 `[app].unit`，缺省回落服务标识）。
+
+    Args:
+        scope: ASGI 作用域。
+
+    Returns:
+        str: 部署单元标识；配置不可读时回落 `unknown`。
+    """
+    settings = getattr(getattr(scope.get("app"), "state", None), "settings", None)
+    app_settings = getattr(settings, "app", None)
+    unit = str(getattr(app_settings, "unit", "") or getattr(app_settings, "service", "") or "")
+    return unit or UNKNOWN_DOMAIN
 
 
 def _client_ip(scope: Scope) -> str | None:

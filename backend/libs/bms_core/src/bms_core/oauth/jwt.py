@@ -28,6 +28,8 @@ from bms_core.oauth.keys import TokenKey, build_jwks, to_key_set
 from bms_core.oauth.token import (
     DEFAULT_SERVICE_TOKEN_ISSUER,
     DEFAULT_SERVICE_TOKEN_TTL,
+    SERVICE_DOMAIN_CLAIM,
+    SERVICE_DOMAIN_SEPARATOR,
     SERVICE_TOKEN_TYPE,
     TOKEN_AUDIENCE_SERVICE,
     BaseServiceTokenIssuer,
@@ -107,6 +109,9 @@ class JwtServiceTokenIssuer(BaseServiceTokenIssuer):
         )
         if spec.tenant_id:
             claims.set("tenant_id", spec.tenant_id)
+        if spec.domains:
+            # 07C `04_03`：服务令牌声明其承载的业务域（空格分隔，与 `scope` 同口径）
+            claims.set(SERVICE_DOMAIN_CLAIM, SERVICE_DOMAIN_SEPARATOR.join(spec.domains))
         token = jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, dict(claims), key)
         return OAuthToken(access_token=token, expires_in=ttl, scopes=spec.scopes)
 

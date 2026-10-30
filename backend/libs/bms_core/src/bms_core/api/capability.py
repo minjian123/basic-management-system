@@ -5,6 +5,8 @@
 
 口径：
 
+- **两道判定**（07C `04_03`）：先判**域归属**（本实例是否启用该域、调用方是否声明该域，见
+  `collaboration/domain_scope.py::check_domain_attribution`），再判**能力分配**（本模块下文口径）；
 - 授权主体统一用**服务键**（服务 JWT `sub`）；前端应用不持有服务令牌、不参与分配；
 - 判定一律以**提供方侧授权视图**为准（不把入站令牌的 scope 当授权凭证，scope 是出站背书）；
 - 打点按「调用方 × 能力」：`bms_capability_call_total{capability, consumer, result}` 与
@@ -22,13 +24,18 @@ from typing import Annotated
 from fastapi import Depends, Header
 
 from bms_core.api.base import DEFAULT_GATEWAY_SERVICE_IDENTITY
+from bms_core.collaboration.domain_scope import DOMAIN_CLAIM, check_domain_attribution
 from bms_core.collaboration.grant import check_capability_access
 from bms_core.core.exceptions import AuthError, PermissionError
+from bms_core.core.logging import get_logger
 from bms_core.metrics.base import BaseMetrics, get_metrics
 from bms_core.oauth.token import TOKEN_AUDIENCE_SERVICE
 from bms_core.oauth.verify import BaseTokenVerifier, VerifiedToken, get_token_verifier
 
 __all__ = ["require_capability", "require_capability_or_service"]
+
+_LOGGER = "bms_core.api.capability"
+"""日志通道名（域归属判定留痕）。"""
 
 
 def require_capability(capability: str) -> Callable[..., Awaitable[VerifiedToken]]:
@@ -71,6 +78,7 @@ def require_capability(capability: str) -> Callable[..., Awaitable[VerifiedToken
         if consumer == DEFAULT_GATEWAY_SERVICE_IDENTITY:
             # 网关代发的服务票据只代表「请求来自网关」，不是产品服务；前端应用不参与分配
             raise PermissionError(f"网关代发的服务票据不得作为能力消费方：{capability}")
+        _check_domain(capability, verified, consumer)
         await check_capability_access(capability, consumer, metrics=metrics)
         return verified
 
@@ -127,10 +135,33 @@ def require_capability_or_service(
             raise PermissionError(f"网关代发的服务票据不得作为能力消费方：{capability}")
         if consumer in services:
             return verified
+        _check_domain(capability, verified, consumer)
         await check_capability_access(capability, consumer, metrics=metrics)
         return verified
 
     return dependency
+
+
+def _check_domain(capability: str, verified: VerifiedToken, consumer: str) -> None:
+    """入站域归属判定（第一道，07C `04_03`）：本实例启用该域 + 调用方声明该域。
+
+    Args:
+        capability: 端点声明的能力名。
+        verified: 校验通过的服务身份声明（取 `domains` claim）。
+        consumer: 调用方服务标识。
+
+    Raises:
+        PermissionError: 域未启用 / 未声明 / 声明不含该域（30001 / 403）。
+        CatalogError: 能力未在目录登记（配置漂移）。
+    """
+    domain = check_domain_attribution(capability, verified.domains, consumer=consumer)
+    get_logger(_LOGGER).debug(
+        "capability_domain_attributed",
+        capability=capability,
+        consumer=consumer,
+        domain=domain,
+        claim=DOMAIN_CLAIM,
+    )
 
 
 def _bearer_token(authorization: str | None) -> str | None:

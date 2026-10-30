@@ -59,7 +59,8 @@ class AuditCapturer(BasePluggable, ABC):
             actor: 操作者 ID。
 
         Returns:
-            EventEnvelope: 审计事件信封。
+            EventEnvelope: 审计事件信封（实现须在 `payload["domain_key"]` 标注业务域，取值经
+            `collaboration/domain_scope.py::domain_of_table` 由表归属派生——07C `04_03`）。
         """
 
 

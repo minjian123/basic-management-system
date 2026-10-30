@@ -7,7 +7,12 @@
 - **产品命名空间（R4.2）**：产品服务经**产品级**路由暴露——`/api/{product_key}/v1/{domain}/...`
   由产品级路由映射登记（`PRODUCT_ROUTES`，显式「域段 → 服务」）驱动，剥离 `/api/{product_key}/v1`
   还原为 `/api/v1/...`（域段保留为服务内路径首段）；仅目标服务已启用时生成路由，映射为空即无产品路由。
-- 上游按服务标识经 Compose DNS 寻址（`{service_key}:{SERVICE_PORT}`），迁 K8s 平移为 Service 名。
+- **上游按部署单元（07C `04_03`）**：产品级路由的上游取该域**当前部署单元**（拓扑 `域 → 单元`），不是
+  承载服务键——合并部署（一个单元承载多域）时同一单元只需一个 upstream；默认拓扑（单元 = 承载服务）
+  下生成物与改造前逐字一致。**对外路径不随拓扑变化**（同域在合并 / 拆分下路径完全相同，只有上游变）；
+  拓扑里 `disabled` 的域**不生成路由**（不是生成后拒绝）。
+- 服务级路由（`/api/{service_key}/v1`）仍按**服务**（平台自身 API 不属产品能力面），上游按服务标识经
+  Compose DNS 寻址（`{service_key}:{SERVICE_PORT}`），迁 K8s 平移为 Service 名。
 - 认证插件按服务附加（07_03）：每条服务路由与认证敏感登录路由挂 `forward-auth`，转调认证服务
   内部校验端点（`{GATEWAY_AUTH_HOST}:8000/api/v1/auth/introspect`）——用户 JWT 由认证服务按 `aud=api`
   全校验，公开路径由认证端点判定；校验通过后网关按 `upstream_headers` 注入契约身份头并覆盖
@@ -32,10 +37,17 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+)
+from bms_core.core.exceptions import CatalogError
+from bms_core.core.objects import BaseValueObject
 from bms_core.edge.headers import (
     GATEWAY_IDENTITY_HEADER,
     GATEWAY_IDENTITY_VALUE,
@@ -51,6 +63,7 @@ from bms_core.services.module_registry import (
     ModuleStatus,
     ProductRouteRecord,
     ServiceGroup,
+    domain_service_view,
     product_routes_view,
     service_catalog_view,
 )
@@ -78,7 +91,10 @@ __all__ = [
     "RATE_LIMIT_KEY_TYPE",
     "ROUTE_HEADERS_SET",
     "ROUTE_PLUGINS",
+    "ROUTE_TARGET_DISABLED",
+    "ROUTE_TARGET_ENABLED",
     "SERVICE_PORT",
+    "RouteTarget",
     "dump_yaml",
     "env_var",
     "forward_auth_plugin",
@@ -96,7 +112,9 @@ __all__ = [
     "render_routes",
     "render_upstreams",
     "route_prefix",
+    "route_targets_from_rows",
     "upstream_node",
+    "validate_route_topology",
     "validate_service_discovery",
 ]
 
@@ -108,6 +126,33 @@ GATEWAY_PATH_PREFIX = "/api"
 
 SERVICE_PORT = 8000
 """上游默认端口；每服务端口随「每服务独立配置」（06_需求）回改本常量来源。"""
+
+ROUTE_TARGET_ENABLED = "enabled"
+"""拓扑条目状态：该域在本拓扑启用（生成路由）。"""
+
+ROUTE_TARGET_DISABLED = "disabled"
+"""拓扑条目状态：该域在本拓扑停用（不生成路由，不是生成后拒绝）。"""
+
+
+@dataclass(frozen=True)
+class RouteTarget(BaseValueObject):
+    """一条路由目标：业务域 → 当前部署单元与启用状态（拓扑在网关侧的投影）。"""
+
+    unit_key: str
+    """承载该业务域的部署单元（路由 upstream 的标识；默认拓扑下即承载服务键）。"""
+
+    status: str = ROUTE_TARGET_ENABLED
+    """启用状态（`enabled` / `disabled`）。"""
+
+    @property
+    def enabled(self) -> bool:
+        """是否启用（停用域不生成路由）。
+
+        Returns:
+            bool: 启用为 True。
+        """
+        return self.status == ROUTE_TARGET_ENABLED
+
 
 ROUTE_PLUGINS: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
 """路由级插件钩子（按 `service_key` 合并）。
@@ -453,21 +498,33 @@ def _rewrite_regex(service_key: str) -> str:
     return f"^{route_prefix(service_key)}(.*)$"
 
 
-def render_upstreams() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
-    """上游段（每启用服务一条，`roundrobin`）。
+def render_upstreams(
+    routes: ConcurrentStableList[ProductRouteRecord] | None = None,
+    topology: ConcurrentStableFrozenDict[str, RouteTarget] | None = None,
+) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+    """上游段（每启用服务一条 + 每条产品路由的部署单元一条，`roundrobin`）。
+
+    默认拓扑（单元 = 承载服务）下单元与启用服务键重合，故生成物与改造前逐字一致；合并部署时新增的是
+    承载多域的那个单元（同一单元只一条 upstream）。
+
+    Args:
+        routes: 产品级路由映射（缺省运行期视图）。
+        topology: 域 → 路由目标（缺省 `default_route_topology()`）。
 
     Returns:
         ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `upstreams` 列表。
     """
+    targets = default_route_topology() if topology is None else topology
+    ids: ConcurrentStableList[str] = ConcurrentStableList(_enabled_service_keys())
+    for record in product_gateway_routes(routes):
+        target = targets.get(record.domain)
+        if target is None or not target.enabled or not target.unit_key:
+            continue
+        if target.unit_key not in ids:
+            ids.add(target.unit_key)
     return ConcurrentStableList(
-        ConcurrentStableDict(
-            {
-                "id": service_key,
-                "type": "roundrobin",
-                "nodes": {upstream_node(service_key): 1},
-            }
-        )
-        for service_key in _enabled_service_keys()
+        ConcurrentStableDict({"id": unit_key, "type": "roundrobin", "nodes": {upstream_node(unit_key): 1}})
+        for unit_key in ids
     )
 
 
@@ -519,6 +576,78 @@ def render_routes() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     return routes
 
 
+def default_route_topology() -> ConcurrentStableFrozenDict[str, RouteTarget]:
+    """默认拓扑在网关侧的投影（域 → 承载服务键，全部启用）。
+
+    网关离线生成（清单模式 / CI 零依赖）拿不到平台库的拓扑快照，故以**域登记面**（域布局装载后的
+    `domain_service_view()`）派生默认拓扑：默认拓扑的定义即「每域由承载服务所在单元承载」，两者等价；
+    平台库注册表模式（`--from-registry`）改读 `sys_tenant_topology` 的默认租户行，语义相同、口径更权威。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, RouteTarget]: 域 → 路由目标（插入序）。
+    """
+    return ConcurrentStableFrozenDict(
+        {domain: RouteTarget(unit_key=service) for domain, service in domain_service_view().items()}
+    )
+
+
+def route_targets_from_rows(
+    rows: Iterable[tuple[str, str, str]],
+) -> ConcurrentStableFrozenDict[str, RouteTarget]:
+    """把拓扑行（`域 / 单元 / 状态`）投影为路由目标映射（注册表模式用）。
+
+    Args:
+        rows: 拓扑行三元组序列（`domain_key` / `unit_key` / `status`；顺序即插入序）。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, RouteTarget]: 域 → 路由目标（同域后者覆盖前者）。
+    """
+    targets: ConcurrentStableDict[str, RouteTarget] = ConcurrentStableDict()
+    for domain, unit_key, status in rows:
+        if not domain:
+            continue
+        targets.set(domain, RouteTarget(unit_key=unit_key, status=status or ROUTE_TARGET_ENABLED))
+    return ConcurrentStableFrozenDict(targets.to_list())
+
+
+def validate_route_topology(
+    routes: ConcurrentStableList[ProductRouteRecord] | None = None,
+    topology: ConcurrentStableFrozenDict[str, RouteTarget] | None = None,
+) -> ConcurrentStableList[str]:
+    """校验「路由 → 拓扑」完整性与路径不重叠（生成前拦截，避免入口放大拓扑错误）。
+
+    校验项：① 每条参与生成的路由，其域在拓扑中有行且单元非空；② 单元标识非空；
+    ③ 产品域路径前缀不得与平台服务级路径（`/api/{service}/v1`）重叠。
+
+    Args:
+        routes: 产品级路由映射（缺省 `PRODUCT_ROUTES` 运行期视图）。
+        topology: 域 → 路由目标（缺省 `default_route_topology()`）。
+
+    Returns:
+        ConcurrentStableList[str]: 违规说明（空表示通过）。
+    """
+    targets = default_route_topology() if topology is None else topology
+    violations: ConcurrentStableList[str] = ConcurrentStableList()
+    for record in product_gateway_routes(routes):
+        target = targets.get(record.domain)
+        if target is None:
+            violations.add(
+                f"业务域未在部署拓扑登记：{record.domain}（产品 {record.product_key}；"
+                "请在产品清单 [[domains]] 登记该域，或在拓扑中补行）"
+            )
+            continue
+        if not target.unit_key:
+            violations.add(f"业务域未指定部署单元：{record.domain}（拓扑行的单元为空）")
+        if not target.enabled:
+            continue
+        prefix = product_route_prefix(record.product_key, record.domain)
+        for service_key in _platform_route_service_keys():
+            service_prefix = route_prefix(service_key)
+            if prefix == service_prefix or prefix.startswith(f"{service_prefix}/"):
+                violations.add(f"产品域路径与平台服务级路径重叠：{prefix} ↔ {service_prefix}")
+    return violations
+
+
 def product_route_prefix(product_key: str, domain: str) -> str:
     """产品级路由的外部路径前缀（`/api/{product_key}/v1/{domain}`）。
 
@@ -552,20 +681,34 @@ def product_gateway_routes(
 
 def render_product_routes(
     routes: ConcurrentStableList[ProductRouteRecord] | None = None,
+    topology: ConcurrentStableFrozenDict[str, RouteTarget] | None = None,
 ) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """产品级路由段（每映射一条；产品命名空间 + 前缀剥离 + 同平台服务插件口径）。
 
     外部 `^/api/{product_key}/v1(.*)$` → 服务内 `/api/v1$1`（域段保留，作为服务内路径首段）。
+    **上游取该域当前部署单元**（拓扑 `域 → 单元`）；拓扑 `disabled` 的域不生成路由。
 
     Args:
         routes: 产品级路由映射（缺省 `PRODUCT_ROUTES`）。
+        topology: 域 → 路由目标（缺省 `default_route_topology()`）。
 
     Returns:
         ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `routes` 列表。
+
+    Raises:
+        CatalogError: 参与生成的路由其域未在拓扑登记（拓扑不完整，生成前即拒）。
     """
+    targets = default_route_topology() if topology is None else topology
+    violations = validate_route_topology(routes, targets)
+    if violations:
+        raise CatalogError("网关路由生成被拒绝：" + "；".join(violations))
     rendered: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     for record in product_gateway_routes(routes):
+        target = targets.get(record.domain)
+        if target is None or not target.enabled:
+            continue
         service_key = record.service_key
+        unit_key = target.unit_key
         prefix = product_route_prefix(record.product_key, record.domain)
         headers_set: ConcurrentStableDict[str, str] = ConcurrentStableDict(
             {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
@@ -595,7 +738,7 @@ def render_product_routes(
                 {
                     "id": f"{_ROUTE_ID_PREFIX}{record.product_key}-{record.domain}",
                     "uris": [prefix, f"{prefix}/*"],
-                    "upstream_id": service_key,
+                    "upstream_id": unit_key,
                     "plugins": plugins,
                 }
             )
@@ -707,32 +850,43 @@ def render_plugin_metadata() -> ConcurrentStableList[ConcurrentStableDict[str, o
 
 def render_apisix_config(
     routes: ConcurrentStableList[ProductRouteRecord] | None = None,
+    topology: ConcurrentStableFrozenDict[str, RouteTarget] | None = None,
 ) -> ConcurrentStableDict[str, object]:
     """完整配置映射（可扩展 `consumers` / `plugin_metadata`）。
 
     Args:
         routes: 产品级路由映射（缺省 `product_routes_view()`：平台内建 + 已装载产品清单）。
+        topology: 域 → 路由目标（缺省 `default_route_topology()`；注册表模式传平台库默认拓扑）。
 
     Returns:
         ConcurrentStableDict[str, object]: APISIX 配置映射。
     """
     return ConcurrentStableDict(
         {
-            "upstreams": render_upstreams(),
-            "routes": ConcurrentStableList([*render_routes(), *render_login_routes(), *render_product_routes(routes)]),
+            "upstreams": render_upstreams(routes, topology),
+            "routes": ConcurrentStableList(
+                [*render_routes(), *render_login_routes(), *render_product_routes(routes, topology)]
+            ),
             "global_rules": render_global_rules(),
             "plugin_metadata": render_plugin_metadata(),
         }
     )
 
 
-def render_apisix_yaml() -> str:
+def render_apisix_yaml(
+    routes: ConcurrentStableList[ProductRouteRecord] | None = None,
+    topology: ConcurrentStableFrozenDict[str, RouteTarget] | None = None,
+) -> str:
     """确定性 YAML 文本（末尾 `#END`，APISIX 文件驱动必需结束标记）。
+
+    Args:
+        routes: 产品级路由映射（缺省运行期视图）。
+        topology: 域 → 路由目标（缺省默认拓扑）。
 
     Returns:
         str: 完整 `apisix.yaml` 内容。
     """
-    return "\n".join([*_HEADER, dump_yaml(render_apisix_config()), "#END", ""])
+    return "\n".join([*_HEADER, dump_yaml(render_apisix_config(routes, topology)), "#END", ""])
 
 
 def dump_yaml(value: object) -> str:

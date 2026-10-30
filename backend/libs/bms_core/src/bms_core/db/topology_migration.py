@@ -31,7 +31,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableSet,
 )
 from bms_core.core.exceptions import ConfigError
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.sync import is_sync_only_url
 
 __all__ = [
@@ -234,7 +234,7 @@ def _empty_entries() -> ConcurrentStableDict[str, ConcurrentStableDict[str, obje
 
 
 @dataclass
-class MigrationProgress:
+class MigrationProgress(BaseFrameworkObject):
     """文件型迁移进度（断点续跑 + 审计留痕的最小载体；落库见设计 §7 开放项 2）。"""
 
     path: Path

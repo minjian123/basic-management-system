@@ -111,3 +111,29 @@ async def test_dependency_provider_resolves() -> None:
 
         assert resp.status_code == 200
         assert resp.json() == {"key": "hash_chain", "type": "NullHashChain", "digest": "null-record-hash"}
+
+
+def test_null_capture_labels_domain_key() -> None:
+    """审计占位捕获按表归属标注业务域（07C `04_03`：审计记录带 `domain_key`）。"""
+    from bms_core.audit.null import NullAuditCapturer
+    from bms_core.core.concurrent import ConcurrentStableList
+
+    envelope = NullAuditCapturer().capture(
+        table="sys_role",
+        model_id=1,
+        changes=ConcurrentStableList(),
+        actor=7,
+    )
+
+    assert envelope.payload["table"] == "sys_role"
+    assert envelope.payload["domain_key"] == "role", "域取表归属登记，不由调用方传"
+
+
+def test_null_capture_unknown_table_falls_back() -> None:
+    """表未登记归属：`domain_key` 回落 `unknown`（不抛错，仍留痕）。"""
+    from bms_core.audit.null import NullAuditCapturer
+    from bms_core.core.concurrent import ConcurrentStableList
+
+    envelope = NullAuditCapturer().capture(table="not_a_table", model_id=1, changes=ConcurrentStableList())
+
+    assert envelope.payload["domain_key"] == "unknown"

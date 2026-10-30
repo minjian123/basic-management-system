@@ -1008,6 +1008,31 @@ class TopologySettings(BaseSettings):
     集合内每个单元须在默认拓扑中登记，否则启动期拒启（配置漂移）。
     """
 
+    domains: Annotated[ConcurrentStableList[str] | None, CONTRACT_COLLECTION] = None
+    """**禁止声明的冗余项**（07C `04_03`）：本实例承载的业务域集合由拓扑解析，不在配置里写。
+
+    承载域 = 默认拓扑启用域 ∩ 本实例承载单元（`collaboration/domain_scope.py::instance_domains`）。
+    若同时声明「单元」与「域集合」，两处会漂移（改了单元忘了改域），故声明本字段即**拒启**
+    （`model_validator` 给出明确错误），而不是静默择一。
+    """
+
+    @model_validator(mode="after")
+    def _reject_domain_declaration(self) -> TopologySettings:
+        """拒绝在配置里声明业务域集合（只声明单元，域由拓扑解析）。
+
+        Returns:
+            TopologySettings: 自身。
+
+        Raises:
+            ConfigError: 声明了 `[topology].domains`（两处声明必然漂移）。
+        """
+        if self.domains:
+            raise ConfigError(
+                f"[topology].domains 不得声明（已给 {list(self.domains)}）：业务域由拓扑解析——"
+                "配置只声明 [topology].units，承载域＝默认拓扑启用域 ∩ 本实例承载单元"
+            )
+        return self
+
 
 class TransactionManagerSettings(PluginSelection):
     """跨服务事务管理器配置（`[transaction_manager]`；在能力选择之外追加协调参数）。

@@ -43,9 +43,9 @@ def test_new_capabilities_wired_and_null() -> None:
 
     capturer = NullAuditCapturer()
     assert capturer.is_audited("sys_user") is False
-    assert capturer.capture(table="sys_user", model_id=1, changes=ConcurrentStableList([])) == EventEnvelope(
-        event_type="audit.null"
-    )
+    envelope = capturer.capture(table="sys_user", model_id=1, changes=ConcurrentStableList([]))
+    assert envelope.event_type == "audit.null"
+    assert envelope.payload["domain_key"] == "user", "审计记录带业务域（07C `04_03`）"
 
     task = NullTask()
     assert task.name == "null_task"

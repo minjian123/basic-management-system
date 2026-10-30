@@ -18,7 +18,7 @@ from bms_core.collaboration import (
     register_capability_grant_source,
     reset_capability_grants,
 )
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import AuthError, PermissionError
 from bms_core.oauth.verify import VerifiedToken
 from bms_core.services.module_registry import (
@@ -49,7 +49,12 @@ class _StubVerifier:
         """
         del audience
         if token == "platform":
-            return VerifiedToken(subject="platform", service="platform", token_type="service")
+            return VerifiedToken(
+                subject="platform",
+                service="platform",
+                token_type="service",
+                domains=ConcurrentStableFrozenList(("org",)),  # pyright: ignore[reportArgumentType]
+            )
         if token == "gateway":
             return VerifiedToken(subject="gateway", service="gateway", token_type="service")
         if token == "blank":

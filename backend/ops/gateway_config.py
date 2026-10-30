@@ -12,6 +12,15 @@
 按配置解析平台库（与 `ops.check_modules` 同口径：`resolve_url(service="platform")`）。
 部署编排 `release.py gateway check` 即在 platform 镜像内以注册表模式跑本命令。
 
+**路由上游按部署单元（07C `04_03`）**：产品级路由的上游取该域**当前部署单元**。
+
+- 清单模式（缺省，CI 零依赖）：拓扑取**域登记面**派生的默认拓扑（域 → 承载服务，全部启用）——
+  与改造前的生成物逐字一致；
+- 注册表模式（`--from-registry`）：增读平台库 `sys_tenant_topology` 的**默认租户**（`tenant_id = 0`）
+  当前版本行，部署态权威；
+- 边缘路由是全局的（APISIX 路由不按租户分流），故**只有默认拓扑参与生成**：其它租户把某域迁到别的
+  单元时本命令**只告警不失败**（该情形需按租户路由，属开放项）。
+
 `check` 同时校验**请求体上限三方一致**（04-1-2）：边缘 nginx 模板（变量化声明）↔ 网关编排缺省值
 ↔ APISIX 启动配置，且该值 ≥ 文件上传整包上限（`file.upload.max_size` = 20MB，超限走分片）。
 
@@ -32,11 +41,17 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _BACKEND_ROOT / "libs" / "bms_core" / "src"
 sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+from bms_core.core.concurrent import (  # noqa: E402
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+)
 from bms_core.registry.products import load_product_manifests  # noqa: E402
 from bms_core.services.gateway_catalog import (  # noqa: E402
+    RouteTarget,
+    default_route_topology,
     render_apisix_config,
     render_apisix_yaml,
+    route_targets_from_rows,
     validate_service_discovery,
 )
 
@@ -142,10 +157,9 @@ def validate_body_size(root: Path) -> ConcurrentStableList[str]:
         if match is None:
             problems.add(f"APISIX 启动配置缺请求体上限（client_max_body_size）：{APISIX_CONFIG_RELATIVE}")
         else:
-            apisix_bytes = parse_size(match.group(1))
-            if apisix_bytes is None:
-                problems.add(f"APISIX 请求体上限不可解析：{match.group(1)!r}")
-            elif default_bytes is not None and apisix_bytes != default_bytes:
+            # 正则已限定「数字 + 可选单位」，`parse_size` 在此必成功（不设不可达防御分支）
+            apisix_bytes = parse_size(match.group(1)) or 0
+            if default_bytes is not None and apisix_bytes != default_bytes:
                 problems.add(
                     f"APISIX 请求体上限（{match.group(1)}）与边缘缺省值（{default_text}）不一致："
                     f"{APISIX_CONFIG_RELATIVE}"
@@ -279,8 +293,87 @@ def load_registries_from_db(url: str) -> ConcurrentStableList[str]:
     return ConcurrentStableList()
 
 
-def _load(root: Path, *, source: str, url: str, manifests: Iterable[str] = ()) -> ConcurrentStableList[str]:
-    """按取数口径装载声明视图。
+_DEFAULT_TOPOLOGY_SQL = (
+    "SELECT domain_key, unit_key, status FROM sys_tenant_topology WHERE tenant_id = :tenant "
+    "AND deleted_at IS NULL AND topology_version = ("
+    "SELECT MAX(topology_version) FROM sys_tenant_topology WHERE tenant_id = :tenant AND deleted_at IS NULL)"
+)
+"""默认租户当前版本拓扑行的查询（`tenant_id = 0` 为平台级默认拓扑）。"""
+
+_TENANT_DEVIATION_SQL = (
+    "SELECT t.tenant_id, t.domain_key, t.unit_key FROM sys_tenant_topology t WHERE t.tenant_id <> :tenant "
+    "AND t.deleted_at IS NULL AND t.topology_version = ("
+    "SELECT MAX(x.topology_version) FROM sys_tenant_topology x "
+    "WHERE x.tenant_id = t.tenant_id AND x.deleted_at IS NULL)"
+)
+"""其它租户当前版本拓扑行（用于「边缘路由只用默认拓扑」的偏离告警）。"""
+
+
+def load_topology_from_db(
+    url: str,
+) -> tuple[ConcurrentStableFrozenDict[str, RouteTarget], ConcurrentStableList[str]]:
+    """读平台库默认拓扑并给出「其它租户偏离默认落点」的告警清单（注册表模式）。
+
+    Args:
+        url: 平台库连接串（含密码；禁止写入日志）。
+
+    Returns:
+        tuple[ConcurrentStableFrozenDict[str, RouteTarget], ConcurrentStableList[str]]:
+        路由拓扑（默认拓扑行派生）与告警清单（无行 / 租户偏离）。
+
+    Raises:
+        Exception: 平台库不可读（由调用方转成可读错误）。
+    """
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from bms_core.collaboration.topology import DEFAULT_TOPOLOGY_TENANT
+
+    async def _read() -> tuple[ConcurrentStableList[tuple[str, str, str]], ConcurrentStableList[str]]:
+        """读默认拓扑行与偏离清单。
+
+        Returns:
+            tuple: 默认拓扑三元组序列与告警文本。
+        """
+        warnings: ConcurrentStableList[str] = ConcurrentStableList()
+        engine = create_async_engine(url)
+        try:
+            async with engine.connect() as connection:
+                default_rows = (
+                    await connection.execute(text(_DEFAULT_TOPOLOGY_SQL), {"tenant": DEFAULT_TOPOLOGY_TENANT})
+                ).all()
+                deviation_rows = (
+                    await connection.execute(text(_TENANT_DEVIATION_SQL), {"tenant": DEFAULT_TOPOLOGY_TENANT})
+                ).all()
+        finally:
+            await engine.dispose()
+        rows: ConcurrentStableList[tuple[str, str, str]] = ConcurrentStableList(
+            (str(row[0]), str(row[1]), str(row[2])) for row in default_rows
+        )
+        default_units = {domain: unit for domain, unit, _status in rows}
+        for tenant_id, domain, unit in deviation_rows:
+            expected = default_units.get(str(domain))
+            if expected is not None and expected != str(unit):
+                warnings.add(
+                    f"租户 {tenant_id} 的业务域 {domain} 位于单元 {unit}（默认拓扑为 {expected}）："
+                    "边缘路由按默认单元转发，该租户的域级分流需按租户路由（开放项）"
+                )
+        return rows, warnings
+
+    rows, warnings = asyncio.run(_read())
+    topology = route_targets_from_rows(rows)
+    if not topology:
+        warnings.add("平台默认拓扑为空（sys_tenant_topology 无 tenant_id=0 行）：退回域登记面派生的默认拓扑")
+        topology = default_route_topology()
+    return topology, warnings
+
+
+def _load(
+    root: Path, *, source: str, url: str, manifests: Iterable[str] = ()
+) -> tuple[ConcurrentStableList[str], ConcurrentStableFrozenDict[str, RouteTarget] | None, ConcurrentStableList[str]]:
+    """按取数口径装载声明视图与路由拓扑。
 
     Args:
         root: 仓库根。
@@ -289,7 +382,7 @@ def _load(root: Path, *, source: str, url: str, manifests: Iterable[str] = ()) -
         manifests: 额外清单路径（`--manifest`；清单模式生效）。
 
     Returns:
-        ConcurrentStableList[str]: 错误明细（空表示成功）。
+        tuple: 错误明细（空表示成功）、路由拓扑（None 表示用域登记面派生的默认拓扑）、告警清单。
     """
     if source == "registry":
         target = url
@@ -297,17 +390,36 @@ def _load(root: Path, *, source: str, url: str, manifests: Iterable[str] = ()) -
             try:
                 target = default_platform_url()
             except Exception as exc:
-                return ConcurrentStableList(
-                    [
-                        f"--from-registry 未给 --url 且按配置解析平台库失败（{type(exc).__name__}: {exc}）："
-                        "请显式 --url，或用 --from-manifest 走清单模式"
-                    ]
+                return (
+                    ConcurrentStableList(
+                        [
+                            f"--from-registry 未给 --url 且按配置解析平台库失败（{type(exc).__name__}: {exc}）："
+                            "请显式 --url，或用 --from-manifest 走清单模式"
+                        ]
+                    ),
+                    None,
+                    ConcurrentStableList(),
                 )
             if not target:
-                return ConcurrentStableList(["--from-registry 需要 --url（按配置解析得到空连接串）"])
-        return load_registries_from_db(target)
+                return (
+                    ConcurrentStableList(["--from-registry 需要 --url（按配置解析得到空连接串）"]),
+                    None,
+                    ConcurrentStableList(),
+                )
+        errors = load_registries_from_db(target)
+        if errors:
+            return errors, None, ConcurrentStableList()
+        try:
+            topology, warnings = load_topology_from_db(target)
+        except Exception as exc:
+            return (
+                ConcurrentStableList([f"平台拓扑不可读（{type(exc).__name__}）：{exc}"]),
+                None,
+                ConcurrentStableList(),
+            )
+        return ConcurrentStableList(), topology, warnings
     load_registries(root, manifests)
-    return ConcurrentStableList()
+    return ConcurrentStableList(), None, ConcurrentStableList()
 
 
 def render(
@@ -330,12 +442,14 @@ def render(
     Returns:
         int: 退出码（0 成功；1 装载失败）。
     """
-    errors = _load(root, source=source, url=url, manifests=manifests)
+    errors, topology, warnings = _load(root, source=source, url=url, manifests=manifests)
     if errors:
         for error in errors:
             print(f"[gateway_config] {error}", file=sys.stderr)
         return 1
-    text = render_apisix_yaml()
+    for warning in warnings:
+        print(f"[gateway_config] 告警：{warning}", file=sys.stderr)
+    text = render_apisix_yaml(None, topology)
     target = config_path(root)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
@@ -364,16 +478,18 @@ def check(
     Returns:
         int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP / 请求体上限口径不一致）。
     """
-    errors = _load(root, source=source, url=url, manifests=manifests)
+    errors, topology, warnings = _load(root, source=source, url=url, manifests=manifests)
     if errors:
         for error in errors:
             print(f"[gateway_config] {error}", file=sys.stderr)
         return 1
+    for warning in warnings:
+        print(f"[gateway_config] 告警：{warning}", file=sys.stderr)
     target = config_path(root)
     if not target.is_file():
         print(f"[gateway_config] 缺失生成件：{target}（运行 render 生成）", file=sys.stderr)
         return 1
-    if target.read_text(encoding="utf-8") != render_apisix_yaml():
+    if target.read_text(encoding="utf-8") != render_apisix_yaml(None, topology):
         print(
             f"[gateway_config] 网关配置与服务目录不一致：{target}\n"
             "  运行 `uv run python -m ops.gateway_config render` 重新生成"
@@ -381,7 +497,7 @@ def check(
             file=sys.stderr,
         )
         return 1
-    violations = validate_service_discovery(render_apisix_config())
+    violations = validate_service_discovery(render_apisix_config(None, topology))
     if violations:
         print(
             f"[gateway_config] 服务发现校验失败（禁硬编码 IP）：{target}",

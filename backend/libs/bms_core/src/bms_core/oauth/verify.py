@@ -31,6 +31,7 @@ from bms_core.core.objects import BaseTokenClaimsContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.token import (
+    SERVICE_DOMAIN_CLAIM,
     TOKEN_AUDIENCE_API,
     TOKEN_AUDIENCE_SERVICE,
     BaseServiceTokenIssuer,
@@ -70,6 +71,9 @@ class VerifiedToken(BaseTokenClaimsContract):
 
     service: str = ""
     """服务标识（服务 JWT 扩展 claim；用户 JWT 为空）。"""
+
+    domains: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
+    """承载的业务域（服务 JWT 扩展 claim `domains`；用户 JWT 为空集；07C `04_03`）。"""
 
     tenant_id: str | None = None
     """租户主键（雪花 id 十进制字符串；扩展 claim `tenant_id`，可选）。"""
@@ -209,6 +213,8 @@ def _from_claims(claims: IdentityClaims) -> VerifiedToken:
     payload = dict(claims.payload)
     raw_scope = payload.get("scope")
     scopes = tuple(item for item in str(raw_scope).split() if item) if isinstance(raw_scope, str) else ()
+    raw_domains = payload.get(SERVICE_DOMAIN_CLAIM)
+    domains = tuple(item for item in str(raw_domains).split() if item) if isinstance(raw_domains, str) else ()
     tenant_id = payload.get("tenant_id")
     return VerifiedToken(
         subject=claims.subject,
@@ -217,6 +223,7 @@ def _from_claims(claims: IdentityClaims) -> VerifiedToken:
         issuer=claims.issuer,
         scopes=scopes,  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
         service=str(payload.get("service") or ""),
+        domains=domains,  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
         tenant_id=tenant_id if isinstance(tenant_id, str) and tenant_id else None,
         expires_at=claims.expires_at,
         issued_at=claims.issued_at,

@@ -119,6 +119,22 @@ async def test_verify_service_token_locally() -> None:
     assert verified.expires_at > verified.issued_at
 
 
+async def test_verify_service_token_domains_claim() -> None:
+    """服务受众：`domains` claim 回填到归一声明（入站域归属判定的取数面）。"""
+    issuer = _service_issuer()
+    verifier = _verifier(service=issuer)
+    token = (
+        await issuer.issue(ServiceTokenSpec(service="mdm", domains=ConcurrentStableFrozenList(("org", "user"))))
+    ).access_token
+
+    verified = await verifier.verify(token, audience=TOKEN_AUDIENCE_SERVICE)
+
+    assert verified.domains == ("org", "user")
+
+    bare = (await issuer.issue(ServiceTokenSpec(service="mdm"))).access_token
+    assert (await verifier.verify(bare, audience=TOKEN_AUDIENCE_SERVICE)).domains == ()
+
+
 @pytest.mark.kiwi_id(2193)
 async def test_verify_user_token_locally() -> None:
     """用户受众：经本地用户令牌 JWKS 校验并回填声明（校验源已由 IdP 切至 BMS 自签）。"""
