@@ -13,7 +13,7 @@
 | 覆盖模块 | 07C-产品与服务划分（发布对账） |
 | 上游依据 | 《[架构设计 · 产品与服务划分](../../../设计/架构设计/39_架构设计_子系统_产品与服务划分.md)》「发布与版本」节、[需求 04-1](../../../项目/07C_产品与服务划分/需求/04_需求_发布与迁移.md#r04-1) |
 | ORM 模型 | `bms_core/models/platform/release_manifest.py::SysReleaseManifest`（继承 `BaseModel`；随 `04_01` 落地） |
-| 状态 | 待落库（设计已定；建表随 `platform:platform` 链） |
+| 状态 | 已落库（2026-10-30，随 `04_01`） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_release_manifest_domain](sys_release_manifest_domain.md)、[sys_tenant_topology](sys_tenant_topology.md) |
 
 - **语义**：一次发布 = 一行；记录「某个部署单元（某租户范围内）这一次发布包含了哪些域、各自到哪个版本」，是**回滚的原子单位**与版本对账的依据。
