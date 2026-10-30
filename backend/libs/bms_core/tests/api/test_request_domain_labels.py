@@ -14,8 +14,8 @@ from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.middleware import (
     RequestLoggingMiddleware,
-    _request_domain,
-    _request_unit,
+    _request_domain,  # pyright: ignore[reportPrivateUsage]
+    _request_unit,  # pyright: ignore[reportPrivateUsage]
 )
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import LogSettings, Settings

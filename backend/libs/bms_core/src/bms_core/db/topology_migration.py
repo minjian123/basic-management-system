@@ -16,9 +16,9 @@ import asyncio
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from sqlalchemy import Connection, MetaData, Select, Table, create_engine, func, inspect, select
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
@@ -224,24 +224,31 @@ class VerifyReport(BaseValueObject):
         return not self.failed_tables and all(item.ok for item in self.assertions)
 
 
-def _empty_entries() -> ConcurrentStableDict[str, ConcurrentStableDict[str, object]]:
-    """空进度表（`field` 工厂需带类型参数，避免字段类型退化为 Unknown）。
-
-    Returns:
-        ConcurrentStableDict[str, ConcurrentStableDict[str, object]]: 空映射。
-    """
-    return ConcurrentStableDict()
-
-
-@dataclass
 class MigrationProgress(BaseFrameworkObject):
-    """文件型迁移进度（断点续跑 + 审计留痕的最小载体；落库见设计 §7 开放项 2）。"""
+    """文件型迁移进度（断点续跑 + 审计留痕的最小载体；落库见设计 §7 开放项 2）。
 
-    path: Path
-    """进度文件路径（JSON）。"""
+    属**框架对象**（可变状态载体，不参与值语义与序列化输出），故不用 `@dataclass`：字段在
+    `__init__` 显式赋值（同 `TenantTopologyResolver` 等状态型框架对象的写法）。
+    """
 
-    entries: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = field(default_factory=_empty_entries)
-    """逐表进度：表名 → `{cursor, done}`。"""
+    object_kind: ClassVar[str] = "migration_progress"
+    """框架对象统一标识（迁移进度载体）。"""
+
+    def __init__(
+        self, path: Path, entries: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] | None = None
+    ) -> None:
+        """初始化。
+
+        Args:
+            path: 进度文件路径（JSON）。
+            entries: 逐表进度（表名 → `{cursor, done}`）；None 表示空进度。
+        """
+        self.path = path
+        """进度文件路径（JSON）。"""
+        self.entries: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = (
+            ConcurrentStableDict() if entries is None else entries
+        )
+        """逐表进度：表名 → `{cursor, done}`。"""
 
     @classmethod
     def load(cls, path: Path) -> MigrationProgress:
