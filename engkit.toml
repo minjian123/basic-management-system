@@ -101,6 +101,47 @@ coverage = false
 match_prefix = "backend/services/identity/src/bms_identity/domains/auth/"
 test_dir_suffix = "/services/identity/tests/auth/"
 
+# 其余按域分包的服务：测试目录按「能力」而非「域」组织，多数域没有同名测试目录（如 platform 的
+# `user` 域对应 `tests/users/`、`permission_meta` 域对应 `tests/permission/`），故按**服务粒度**
+# 声明并集：改该服务任一业务域 ⇒ 并入该服务全部测试目录。规则**只有首条命中的生效**（同前缀不可叠加），
+# 因此每个服务只写一条；identity `auth` 的域级规则在上方更精确，故仍先命中它。
+# 新增按域分包的服务时按同一形态补一条（前缀到 `domains/` 为止）。
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/ai/src/bms_ai/domains/"
+test_dir_suffix = "/services/ai/tests/"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/file/src/bms_file/domains/"
+test_dir_suffix = "/services/file/tests/"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/identity/src/bms_identity/domains/"
+test_dir_suffix = "/services/identity/tests/"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/notification/src/bms_notification/domains/"
+test_dir_suffix = "/services/notification/tests/"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/platform/src/bms_platform/domains/"
+test_dir_suffix = "/services/platform/tests/"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/report/src/bms_report/domains/"
+test_dir_suffix = "/services/report/tests/"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/search/src/bms_search/domains/"
+test_dir_suffix = "/services/search/tests/"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/tenant/src/bms_tenant/domains/"
+test_dir_suffix = "/services/tenant/tests/"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/services/txn/src/bms_txn/domains/"
+test_dir_suffix = "/services/txn/tests/"
+
 [rules.frontend.global]
 exact = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json", ".npmrc"]
 prefixes = ["scripts/"]

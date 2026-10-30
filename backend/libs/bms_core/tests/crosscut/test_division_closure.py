@@ -17,6 +17,7 @@ _PLAN = _STAGE / "计划" / "01_计划_产品与服务划分.md"
 _TASK = _STAGE / "任务" / "05_阶段验收" / "05_阶段验收_01_专项验收与测试报告" / "05_阶段验收_01_专项验收与测试报告.md"
 _DOMAIN = _STAGE / "任务" / "05_阶段验收" / "05_阶段验收.md"
 _TABLE_DIR = _ROOT / "bms文档" / "设计" / "数据库设计" / "数据表设计"
+_HANDOVER = _STAGE / "02_部署窗口待办_产品与服务划分.md"
 
 _GATE_ROWS = 7
 """门禁行数（单一事实源为计划 §5）。"""
@@ -225,6 +226,51 @@ def test_evidence_paths_exist() -> None:
     report = _REPORT.read_text(encoding="utf-8")
     for rel in _EVIDENCE_FILES:
         assert Path(rel).name in report, f"报告未索引证据：{rel}"
+
+
+def test_followup_covers_design_open_items() -> None:
+    """台账覆盖实质开放项（2026-10-31 补登）：只写在各设计 §9 的待办必须在 §7 查得到。
+
+    背景：收口时 §7 只有 11 项，而 `04_02` / `04_03` / `03_04` 的实质开放项（真实双写、迁移进度落库、
+    按租户路由、域级条件装配、跨仓 `domains` 升级、强档护栏）只散在设计 §9 与 §2 括号里，
+    翻 §7 会以为什么都不欠。本断言盯住这六项的**关键词**，防止回退。
+    """
+    text = _plan_text()
+    section = text.split("## 7. 后续阶段待办", 1)[1]
+    numbers = _followup_numbers(text)
+    assert numbers == ConcurrentStableList(range(1, len(numbers) + 1)), "台账编号须从 1 连续"
+    for keyword in (
+        "真实双写",
+        "落库",
+        "按租户路由",
+        "域级条件装配",
+        "domains` claim",
+        "强档护栏",
+    ):
+        assert keyword in section, f"台账缺实质开放项关键词：{keyword}"
+    assert "台账边界" in section, "§7 须声明「评估型开放项以各设计 §9 为准」的边界"
+    assert "02_部署窗口待办_产品与服务划分.md" in section, "窗口类待办须指向移交清单"
+
+
+def test_handover_checklist_registered() -> None:
+    """移交清单归档并登记索引：W1~W4 四节齐备、回写落点成表、README 与首页均有入口。"""
+    assert _HANDOVER.is_file(), "收口移交清单须归档在专项根"
+    text = _HANDOVER.read_text(encoding="utf-8")
+    for heading in (
+        "## 1. 适用与边界",
+        "## 2. W1 真库与真部署演练（S1 合并 / S3 换库）",
+        "## 3. W2 切换后数据补偿",
+        "## 4. W3 跨仓调用方升级（`domains` claim）",
+        "## 5. W4 Kiwi 用例编号补登记（平台窗口）",
+        "## 6. 完成后回写",
+    ):
+        assert heading in text, f"移交清单缺节：{heading}"
+    for command in ("ops.migrate_topology", "--dry-run", "--verify-only", "--skip-release", "--backup-ref"):
+        assert command in text, f"移交清单缺可执行要素：{command}"
+    readme = (_STAGE / "README.md").read_text(encoding="utf-8")
+    assert "02_部署窗口待办_产品与服务划分.md" in readme, "专项 README 未登记移交清单"
+    homepage = (_ROOT / "bms文档" / "文档首页.md").read_text(encoding="utf-8")
+    assert "02_部署窗口待办_产品与服务划分.md" in homepage, "文档首页未登记移交清单"
 
 
 def test_task_doc_has_no_progress_fields() -> None:
