@@ -271,12 +271,17 @@ class ReleaseService(BaseFrameworkObject):
             RollbackPlan: 逐域回退步骤 + 阻断原因。
 
         Raises:
+            ParamError: 回退目标批次不早于当前发布（10001）。
             NotFoundError: 没有可回滚的发布 / 目标发布（10002）。
         """
         source = await self._locate(unit_key, tenant_scope, version=source_version)
         if source is None:
             raise NotFoundError(f"部署单元 {unit_key}（范围 {tenant_scope}）没有可回滚的成功发布")
         target = await self._locate(unit_key, tenant_scope, version=target_version, before=source.manifest_version)
+        if target is not None and target.manifest_version >= source.manifest_version:
+            raise ParamError(
+                f"回退目标批次必须早于当前发布：当前 {source.manifest_version}，目标 {target.manifest_version}"
+            )
         if target is None:
             raise NotFoundError(
                 f"部署单元 {unit_key}（范围 {tenant_scope}）在批次 {source.manifest_version} 之前没有成功发布，无法回滚"

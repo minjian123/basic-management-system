@@ -13,7 +13,6 @@ from sqlalchemy import ColumnElement, func, select
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.platform.release_manifest import (
-    RELEASE_STATUS_FAILED,
     RELEASE_STATUS_RELEASED,
     SysReleaseManifest,
     SysReleaseManifestDomain,
@@ -206,23 +205,6 @@ class ReleaseManifestRepository(BaseDbRepository[SysReleaseManifest]):
             rolled_back_from=rolled_back_from,
             note=note,
         )
-
-    async def count_failed(self, unit_key: str, tenant_scope: int) -> int:
-        """统计某单元范围的失败行数（排查与清理策略用）。
-
-        Args:
-            unit_key: 部署单元标识。
-            tenant_scope: 作用范围。
-
-        Returns:
-            int: 失败行数。
-        """
-        statement = (
-            select(func.count())
-            .select_from(self.model)
-            .where(*self._conditions(unit_key=unit_key, tenant_scope=tenant_scope, status=RELEASE_STATUS_FAILED))
-        )
-        return int((await self._session.execute(statement)).scalar_one())
 
 
 class ReleaseManifestDomainRepository(BaseDbRepository[SysReleaseManifestDomain]):
