@@ -39,6 +39,7 @@ x-service-env: &service-env
   BMS_SECURITY__KEYS: ${BMS_SECURITY__KEYS:-}
   BMS_SECURITY__ACTIVE_KID: ${BMS_SECURITY__ACTIVE_KID:-}
   BMS_SECURITY__SECRET_KEY: ${BMS_SECURITY__SECRET_KEY:-}
+  # 雪花 WorkerId（每进程全局唯一；API 容器 11+ / 作业 worker 容器 101+，见各服务条目）
 
 x-service-base: &service-base
   restart: unless-stopped
@@ -58,6 +59,19 @@ services:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-platform:${BMS_TAG_PLATFORM:?BMS_TAG_PLATFORM required}
     container_name: bms-platform
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_PLATFORM:-11}
+
+  platform-jobs:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-platform:${BMS_TAG_PLATFORM:?BMS_TAG_PLATFORM required}
+    container_name: bms-platform-jobs
+    command: ["python", "-m", "bms_platform.jobs"]
+    expose: []
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_PLATFORM_JOBS:-101}
 
   identity:
     <<: *service-base
@@ -67,38 +81,70 @@ services:
       # SSO 演示 IdP 行 client_secret_ref=env:KEYCLOAK_CLIENT_SECRET 解析用（密钥只在 .env，不入库 / 不入仓）
       <<: *service-env
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_IDENTITY:-12}
 
   tenant:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-tenant:${BMS_TAG_TENANT:?BMS_TAG_TENANT required}
     container_name: bms-tenant
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_TENANT:-13}
 
   file:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-file:${BMS_TAG_FILE:?BMS_TAG_FILE required}
     container_name: bms-file
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_FILE:-14}
+
+  file-jobs:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-file:${BMS_TAG_FILE:?BMS_TAG_FILE required}
+    container_name: bms-file-jobs
+    command: ["python", "-m", "bms_file.jobs"]
+    expose: []
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_FILE_JOBS:-102}
 
   notification:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-notification:${BMS_TAG_NOTIFICATION:?BMS_TAG_NOTIFICATION required}
     container_name: bms-notification
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_NOTIFICATION:-15}
 
   search:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-search:${BMS_TAG_SEARCH:?BMS_TAG_SEARCH required}
     container_name: bms-search
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_SEARCH:-16}
 
   ai:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-ai:${BMS_TAG_AI:?BMS_TAG_AI required}
     container_name: bms-ai
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_AI:-17}
 
   report:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-report:${BMS_TAG_REPORT:?BMS_TAG_REPORT required}
     container_name: bms-report
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_REPORT:-18}
 
   txn:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-txn:${BMS_TAG_TXN:?BMS_TAG_TXN required}
     container_name: bms-txn
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_TXN:-19}

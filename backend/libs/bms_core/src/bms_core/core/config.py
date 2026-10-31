@@ -1616,6 +1616,10 @@ def validate_startup(settings: Settings) -> None:
     """
     if settings.app.env == "prod" and not settings.security.secret_key:
         raise ConfigError("生产环境必须提供 security.secret_key（BMS_SECURITY__SECRET_KEY）")
+    if settings.app.env == "prod" and settings.app.worker_id == 0:
+        raise ConfigError(
+            "生产环境必须为每个进程分配唯一的 app.worker_id（BMS_APP__WORKER_ID）：默认 0 会让多进程雪花 ID 撞号"
+        )
     from bms_core.core.id import id_generator
 
     id_generator.reconfigure(settings.app.worker_id)
