@@ -1,0 +1,26 @@
+# 02_01 字典统一数据源与运行时查询 · Kiwi 用例登记清单
+
+# 口径：`uv run --project backend engkit kiwi register --cases <本文件>`（bms 仓根执行，凭据取 `deploy/.env`）；
+# 文本字段写覆盖范围与自动化文件路径（《KiwiTCMS部署使用说明》§5.3：一任务一条用例，多条断言共用同一编号）。
+
+[[case]]
+summary = "字典统一数据源与运行时查询（02_01）：12 key 真实取数 + 版本化失效 + 三防参数化 + 清单护栏"
+category = "平台骨架"
+priority = "P2"
+status = "CONFIRMED"
+tags = ["自动化"]
+text = """
+<p><b>覆盖范围（详细设计 §6，24 条差距的验收映射）</b>：</p>
+<p>① <b>12 个平台内建 key 真实取数</b>：<code>module</code> / <code>product</code> / <code>business</code> / <code>action</code> / <code>tenant</code>（平台库）与 <code>role</code> / <code>user</code> / <code>config</code> / <code>icon</code> / <code>task</code> / <code>identity_provider</code> / <code>client</code>（租户库）均按规格表取到启用条目；空库返回空集不报错。</p>
+<p>② <b>未登记 key 返回空结果</b>：<code>version=0</code>、<code>items=()</code>，不抛错、不写缓存。</p>
+<p>③ <b>locale 与 i18n 回退</b>：<code>module</code> / <code>business</code> / <code>action</code> / <code>icon</code> 按 <code>_i18n</code> 附表取 label，无对应行回退主表 <code>name</code>；<code>batch</code> 尊重入参 <code>locale</code>。</p>
+<p>④ <b>版本化失效</b>：角色域写端点（建 / 改含启停 / 删）提交后 <code>DictInvalidator</code> 删各 locale 类型键 + 删 id 子集键 + <code>INCR bms:{tenant}:dict:version</code>；下一次请求读到新值；Redis 不可用时只告警不阻断写。</p>
+<p>⑤ <b>跨实例一致性（真机）</b>：真 Redis 上两套出口实例（各自 L1）——A 失效后 B 下一请求回源读到新值。</p>
+<p>⑥ <b>三防参数化</b>：<code>[dict]</code> 的 <code>type_ttl_seconds</code> / <code>empty_ttl_seconds</code> / <code>lock_ttl_seconds</code> / <code>lock_wait_seconds</code> / <code>l1_max_items</code> / <code>probe_limit</code> 生效；空结果走短 TTL；互斥锁键为 <code>bms:{tenant}:dict:lock:{locale}:{type}</code>。</p>
+<p>⑦ <b>翻译复用缓存</b>：第二次翻译命中 id 子集缓存、不再 <code>load</code>（替身计次断言）。</p>
+<p>⑧ <b>失败隔离</b>：单个 key 的 <code>load</code> 抛错 → 记 warning、返回空、不写缓存；其余 key 不受影响。</p>
+<p>⑨ <b>表单多字段批量</b>：30 个 key 一次 <code>batch</code>，登记的有结果、未登记为空、顺序与入参一致。</p>
+<p>⑩ <b>清单与常量护栏</b>：<code>DataSourceKey</code> 枚举值集合 == <code>DATA_SOURCE_CATALOG</code> 键集合；声明表外不得出现 <code>data_source_key="字面量"</code>；表登记无 <code>sys_dict*</code> 残留；启动期 <code>DataSourceRegistry.validate()</code> 对非法 key 抛 <code>CatalogError</code>（<code>provider=routed</code> 时另校验提供者覆盖）。</p>
+<p><b>自动化文件</b>：<code>bms/backend/libs/bms_core/tests/dict/{test_dict_invalidate,test_outlet_empty_cache,test_outlet_translate_cache,test_table_i18n_scope,test_dict_config}.py</code>、<code>bms/backend/libs/bms_core/tests/datasource/test_registry_guard.py</code>、<code>bms/backend/services/platform/tests/dict/{test_dict_specs,test_dict_registry_guard,test_dict_source_table}.py</code>、<code>bms/backend/services/platform/tests/api/test_dict_api.py</code>、<code>bms/backend/libs/bms_core/tests/integration/test_dict_cache_real.py</code>（真 Redis，缺 <code>BMS_REDIS__URL</code> 自动 skip）。</p>
+<p><b>kiwi_id 标注</b>：<code>@pytest.mark.kiwi_id(&lt;本用例编号&gt;)</code></p>
+"""
