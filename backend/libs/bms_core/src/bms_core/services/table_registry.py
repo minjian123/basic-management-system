@@ -514,6 +514,22 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             note="定时任务执行记录（01_02 落库，进租户链）",
         ),
         TableRecord(
+            table_name="sys_file",
+            owner="file",
+            domain="file",
+            datasource=Datasource.TENANT,
+            status=TableStatus.ENABLED,
+            note="文件元数据与上传会话（03_01 落库，进租户链）",
+        ),
+        TableRecord(
+            table_name="sys_file_part",
+            owner="file",
+            domain="file",
+            datasource=Datasource.TENANT,
+            status=TableStatus.ENABLED,
+            note="文件分片状态（断点续传权威，只硬删）",
+        ),
+        TableRecord(
             table_name="sys_user_preference",
             owner="platform",
             domain="user",

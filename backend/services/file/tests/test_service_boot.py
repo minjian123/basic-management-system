@@ -1,5 +1,7 @@
 """BMS 文件服务服务启动冒烟（脚手架生成，02_03 拆分落位）。"""
 
+import importlib
+
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
@@ -9,8 +11,10 @@ from bms_file.models import MODEL_MODULES
 
 
 def test_models_package_declares_module_list() -> None:
-    """服务 `models` 包须声明 `MODEL_MODULES`（迁移链按服务解析模型；本服务暂无模型 → 空元组）。"""
-    assert MODEL_MODULES == ()
+    """服务 `models` 包须声明可导入的模型模块清单（03_01 起含文件域模型，迁移链据此解析）。"""
+    assert MODEL_MODULES, "文件服务已定义模型，清单不得为空"
+    for module in MODEL_MODULES:
+        importlib.import_module(module)
 
 
 @pytest.mark.kiwi_id(1206)
