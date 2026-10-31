@@ -116,3 +116,36 @@ async def test_locale_passed_to_provider() -> None:
         DictTranslateQuery(data_source_key="role", ids=ConcurrentStableList((1,)), locale="en-US")
     )
     assert list(provider.locales) == ["en-US"]
+
+
+class _FailingProvider(_CountingProvider):
+    """第二次 `load` 抛错（模拟提供者故障）。"""
+
+    async def load(self, data_source_key: str, locale: str) -> ConcurrentStableList[DataSourceItem]:
+        """首次正常返回，之后抛错。
+
+        Args:
+            data_source_key: 数据源标识。
+            locale: 语言。
+
+        Returns:
+            ConcurrentStableList[DataSourceItem]: 首次的条目。
+
+        Raises:
+            RuntimeError: 第二次及以后调用。
+        """
+        self.calls += 1
+        if self.calls > 1:
+            raise RuntimeError("provider down")
+        return self._items
+
+
+@pytest.mark.kiwi_id(2372)
+async def test_provider_failure_falls_back_to_cached_subset() -> None:
+    """提供者故障时只返回已缓存子集（不抛错、不把故障写进缓存）。"""
+    provider = _FailingProvider(_ITEMS)
+    translator = _translator(provider, MemoryDictCacheRegion())
+    await translator.translate(DictTranslateQuery(data_source_key="role", ids=ConcurrentStableList((1,))))
+    result = await translator.translate(DictTranslateQuery(data_source_key="role", ids=ConcurrentStableList((1, 2))))
+    assert dict(result.items()) == {1: "管理员"}
+    assert provider.calls == 2

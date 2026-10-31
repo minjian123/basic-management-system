@@ -110,3 +110,28 @@ def test_baseline_has_dict_sections() -> None:
     baseline = (Path(config._CONFIG_DIR) / "config.toml").read_text(encoding="utf-8")  # pyright: ignore[reportPrivateUsage]
     for section in ("[data_source]", "[dict_translator]", "[dict_cache_region]", "[dict]"):
         assert section in baseline, f"基线 config.toml 缺配置节 {section}"
+
+
+@pytest.mark.kiwi_id(2372)
+def test_dict_options_from_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`DictOptions.from_settings` 把 `[dict]` 节原样映射为出口运行参数（唯一构造入口）。"""
+    from bms_core.dict.base import DictOptions
+
+    body = (
+        _VALID_BASE
+        + """
+[dict]
+type_ttl_seconds = 11
+empty_ttl_seconds = 2
+lock_ttl_seconds = 3
+lock_wait_seconds = 0.4
+probe_limit = 99
+"""
+    )
+    _use_config_dir(monkeypatch, tmp_path, body)
+    options = DictOptions.from_settings(load_settings())
+    assert options.type_ttl_seconds == 11
+    assert options.empty_ttl_seconds == 2
+    assert options.lock_ttl_seconds == 3
+    assert options.lock_wait_seconds == 0.4
+    assert options.probe_limit == 99

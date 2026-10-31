@@ -75,3 +75,12 @@ async def test_platform_dict_source_loads_enabled_roles(dict_source: PlatformDic
     assert items[0].code == "ops"
 
     assert await dict_source.load("ghost", "zh-CN") == ()
+
+
+async def test_table_source_instance_cached_per_spec(dict_source: PlatformDictDataSource) -> None:
+    """同一规格复用同一个表源实例（按 key 缓存，避免每次取数重建）。"""
+    spec = dict_source._specs["icon"]  # pyright: ignore[reportPrivateUsage]
+    first = dict_source._table_source(spec)  # pyright: ignore[reportPrivateUsage]
+    assert dict_source._table_source(spec) is first  # pyright: ignore[reportPrivateUsage]
+    other = dict_source._table_source(dict_source._specs["task"])  # pyright: ignore[reportPrivateUsage]
+    assert other is not first
