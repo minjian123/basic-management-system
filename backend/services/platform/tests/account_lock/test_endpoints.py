@@ -82,7 +82,7 @@ async def test_lock_endpoints_flow(client: AsyncClient, service_app: FastAPI, tm
     created = await client.post(API, json={"user_id": user_id, "reason": "违规处置"})
     assert created.status_code == 200
     data = created.json()["data"]
-    assert data["lock_type"] == "manual" and data["locked_by"] == 1001 and data["unlock_at"] is None
+    assert data["lock_type"] == "manual" and data["locked_by"] == "1001" and data["unlock_at"] is None
 
     check = factory()
     locked_until = (await UserRepository(check).get_by_id(user_id)).locked_until  # type: ignore[union-attr]
@@ -101,7 +101,7 @@ async def test_lock_endpoints_flow(client: AsyncClient, service_app: FastAPI, tm
     unlocked = await client.put(f"{API}/{data['id']}/unlock")
     assert unlocked.status_code == 200
     unlocked_data = unlocked.json()["data"]
-    assert unlocked_data["unlock_mode"] == "manual" and unlocked_data["unlock_by"] == 1001
+    assert unlocked_data["unlock_mode"] == "manual" and unlocked_data["unlock_by"] == "1001"
 
     check = factory()
     restored = (await UserRepository(check).get_by_id(user_id)).locked_until  # type: ignore[union-attr]

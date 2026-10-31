@@ -70,6 +70,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "identity_provider",
         "idp_state_store",
         "importer",
+        "job_handler",
         "llm_provider",
         "masking",
         "metrics",
@@ -118,8 +119,8 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
 )
 
 
-_PORTS_WITHOUT_NULL: ConcurrentStableSet[str] = ConcurrentStableSet()
-"""暂无 `NullXxx` 缺省实现的端口（05 已补齐 cache / audit / task / event，当前为空集）。"""
+_PORTS_WITHOUT_NULL: ConcurrentStableSet[str] = ConcurrentStableSet({"job_handler"})
+"""无 `NullXxx` 缺省实现的端口：`job_handler` 由作业类型注册表按类型解析，不设空实现（01_03）。"""
 
 _PLATFORM_FACTORY_KEYS = frozenset({"masking"})
 """构造需参数（`NullMasker` 需注入 checker），不自动登记、由装配清单显式工厂登记（01_02）。"""
