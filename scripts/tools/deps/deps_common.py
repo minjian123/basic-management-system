@@ -13,6 +13,12 @@ Linux 的同名 .sh 与 Windows 的同名 .bat 均为「转调同名 .py」的�
   1) 环境变量 DEPS_DIR；
   2) bms/deploy/.env 中的 DEPS_DIR=；
   3) 缺省 $HOME/dev-deps/bms。
+
+**平台分目录（2026-10-31 事故后加固）**：依赖根下再按平台分一层
+（`<DEPS_DIR>/windows` 或 `<DEPS_DIR>/linux`），并在目录内落 `.platform` 标识。
+Windows 与 WSL 共用同一 `DEPS_DIR`（同一份 `deploy/.env`）时，两边的 venv / node_modules
+落在不同子目录，**即使有人绕过脚本直接 `uv sync`，也只会写坏自己平台那份**；
+脚本侧再用 `.platform` 与 `pyvenv.cfg` 双重校验，跨平台误用直接拒绝。
 """
 
 import contextlib
@@ -56,8 +62,18 @@ def find_repo_root(script_file, prefix):
     return root
 
 
-def resolve_deps_dir(root):
-    """本地依赖仓目录：环境变量 DEPS_DIR > deploy/.env 的 DEPS_DIR= > 缺省 $HOME/dev-deps/bms。"""
+PLATFORM_TAG = "windows" if IS_WINDOWS else ("linux" if sys.platform.startswith("linux") else sys.platform)
+"""本平台标签（依赖仓子目录名与 `.platform` 标识取值）。"""
+
+PLATFORM_MARKER = ".platform"
+"""依赖仓内的平台标识文件名（内容即 `PLATFORM_TAG`）。"""
+
+LEGACY_ENTRIES = ("backend-venv", "node_modules", "frontend")
+"""平台分目录改造前的依赖仓顶层条目（一次性迁移的对象）。"""
+
+
+def resolve_deps_root(root):
+    """依赖仓**根**：环境变量 DEPS_DIR > deploy/.env 的 DEPS_DIR= > 缺省 $HOME/dev-deps/bms。"""
     value = os.environ.get("DEPS_DIR", "").strip()
     if value:
         return os.path.abspath(os.path.expanduser(value))
@@ -73,6 +89,66 @@ def resolve_deps_dir(root):
         except OSError:
             pass
     return os.path.abspath(os.path.join(os.path.expanduser("~"), "dev-deps", "bms"))
+
+
+def migrate_legacy_layout(base):
+    """把平台分目录改造前的顶层依赖条目搬进 `<base>/<PLATFORM_TAG>/`（幂等）。
+
+    - 目标已存在同名条目：保留目标、跳过（不覆盖，避免把刚装好的环境换回旧版）；
+    - venv 由另一平台创建：不搬移（跨平台结构不兼容）。
+
+    Returns:
+        搬移 / 跳过的说明列表（供调用方打印）。
+    """
+    notes = []
+    if not os.path.isdir(base):
+        return notes
+    target = os.path.join(base, PLATFORM_TAG)
+    for name in LEGACY_ENTRIES:
+        src = os.path.join(base, name)
+        if not os.path.lexists(src):
+            continue
+        dest = os.path.join(target, name)
+        if os.path.lexists(dest):
+            notes.append(f"[迁移] 跳过 {name}：{PLATFORM_TAG} 目录已有同名条目")
+            continue
+        if name == "backend-venv" and venv_foreign(src):
+            notes.append(f"[迁移] 跳过 backend-venv：{venv_foreign(src)}")
+            continue
+        os.makedirs(target, exist_ok=True)
+        move_dir(src, dest)
+        notes.append(f"[迁移] {name} -> {os.path.join(PLATFORM_TAG, name)}")
+    return notes
+
+
+def resolve_deps_dir(root):
+    """本地依赖仓目录（**按平台分目录**）：`<根>/<windows|linux>`。
+
+    平台分目录是硬隔离手段：Windows 与 WSL 共用同一 `DEPS_DIR` 时互不覆盖；
+    老布局（依赖条目直接放在根下）在解析时一次性迁移，调用方无感。
+    """
+    base = resolve_deps_root(root)
+    for note in migrate_legacy_layout(base):
+        print(note)
+    return os.path.join(base, PLATFORM_TAG)
+
+
+def ensure_platform_marker(deps_dir, prefix):
+    """校验并落平台标识（跨平台误用即拒；缺标识时写入）。"""
+    os.makedirs(deps_dir, exist_ok=True)
+    marker = os.path.join(deps_dir, PLATFORM_MARKER)
+    if os.path.isfile(marker):
+        with open(marker, encoding="utf-8", errors="replace") as handle:
+            recorded = handle.read().strip()
+        if recorded and recorded != PLATFORM_TAG:
+            sys.stderr.write(
+                f"[{prefix}] 依赖仓 {deps_dir} 标注为 {recorded}，本平台是 {PLATFORM_TAG}，拒绝使用。\n"
+                f"[{prefix}] 处置：为各平台使用独立 DEPS_DIR，或删掉该目录让本平台重建。\n"
+            )
+            sys.exit(2)
+        return
+    with open(marker, "w", encoding="utf-8") as handle:
+        handle.write(PLATFORM_TAG + "\n")
 
 
 def validate_layout(root, deps_dir, prefix):

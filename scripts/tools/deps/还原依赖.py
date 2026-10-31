@@ -24,6 +24,7 @@ def main(argv):
     os.chdir(root)
 
     deps_dir = common.resolve_deps_dir(root)
+    common.ensure_platform_marker(deps_dir, PREFIX)
     print(f"[{PREFIX}] 本地依赖仓：{deps_dir}")
 
     count = 0

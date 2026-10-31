@@ -39,9 +39,11 @@ def main(argv):
     root = common.find_repo_root(__file__, PREFIX)
     os.chdir(root)
 
-    # 解析并以环境变量导出：子脚本（还原/外置）读取一致值
+    # 解析并以环境变量导出：子脚本（还原/外置）读取一致值。
+    # 导出的是**依赖仓根**（不含平台子目录）——子脚本会自行再拼平台标签，导出平台目录会叠成 `<根>/windows/windows`。
     deps_dir = common.resolve_deps_dir(root)
-    os.environ["DEPS_DIR"] = deps_dir
+    common.ensure_platform_marker(deps_dir, PREFIX)
+    os.environ["DEPS_DIR"] = os.path.dirname(deps_dir)
     print(f"[{PREFIX}] 本地依赖仓：{deps_dir}")
 
     # 依赖命令预检（缺哪个报哪个，避免中途才失败）

@@ -32,6 +32,7 @@ def main(argv):
     os.chdir(root)
 
     deps_dir = common.resolve_deps_dir(root)
+    common.ensure_platform_marker(deps_dir, PREFIX)
     common.validate_layout(root, deps_dir, PREFIX)
     common.warn_cross_volume(root, deps_dir)
     print(f"[{PREFIX}] 本地依赖仓：{deps_dir}")
