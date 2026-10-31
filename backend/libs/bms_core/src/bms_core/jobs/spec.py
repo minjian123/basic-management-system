@@ -17,6 +17,7 @@ from bms_core.models.job import DEFAULT_PAYLOAD_VERSION
 __all__ = [
     "JobSnapshot",
     "JobSubmission",
+    "JobTypeSpec",
     "dump_payload",
     "now_utc",
     "parse_job_payload",
@@ -109,6 +110,41 @@ class JobSubmission(BaseValueObject):
 
 
 @dataclass(frozen=True)
+class JobTypeSpec(BaseValueObject):
+    """作业类型声明要素（服务侧持有一份，平台侧落 `sys_job_type`）。"""
+
+    job_type: str
+    """作业类型（全局唯一）。"""
+
+    service_key: str
+    """提供方服务键（执行者所在服务）。"""
+
+    domain_key: str
+    """提供方业务域。"""
+
+    handler: str = ""
+    """执行者点分路径（`module:attr`；代码侧注册时可为空）。"""
+
+    description: str = ""
+    """说明。"""
+
+    timeout_seconds: int = 1800
+    """单次执行超时（提示 / 监控）。"""
+
+    max_attempts: int = 3
+    """最大执行次数。"""
+
+    backoff_seconds: int = 30
+    """退避基数（秒）。"""
+
+    concurrency: int = 4
+    """单租户该类型并发上限。"""
+
+    payload_version: str = DEFAULT_PAYLOAD_VERSION
+    """负载版本。"""
+
+
+@dataclass(frozen=True)
 class JobSnapshot(BaseValueObject):
     """作业只读快照（抢占后交给消费者执行，避免跨会话持有 ORM 实体）。"""
 
@@ -130,3 +166,8 @@ class JobSnapshot(BaseValueObject):
     idempotency_key: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    db_key: str = ""
+    """作业所在库键（执行体取会话与心跳用）。"""
+
+    lease_owner: str = ""
+    """当前租约持有者（worker 实例标识）。"""
