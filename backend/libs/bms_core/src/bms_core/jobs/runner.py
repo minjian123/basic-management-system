@@ -413,7 +413,6 @@ class JobRunner(BaseFrameworkObject):
             JobHandlerNotRegisteredError: 代码侧 handler 缺失（`71006`）。
         """
         spec = self.spec_of(submission.job_type)
-        self._registry.get(submission.job_type)
         max_attempts = submission.max_attempts or spec.max_attempts
         record, created = await store.submit_job(
             session,

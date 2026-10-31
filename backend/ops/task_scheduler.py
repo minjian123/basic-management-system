@@ -11,16 +11,12 @@
     # 单轮诊断：跑一轮 tick 即退出（联调 / 冒烟）
     uv run python -m ops.task_scheduler --beat --once
 
-    # 长驻执行（多副本；从 Redis 队列取任务）
-    uv run python -m ops.task_scheduler --worker
-
-    # 单条诊断：消费一条消息即退出
-    uv run python -m ops.task_scheduler --worker --once
-
-- **不启 lifespan**：CLI 不建表、不跑启动校验，只装配「调度器 + 引擎注册表 + 锁 + 队列 + 信号」；
+- **不启 lifespan**：CLI 不建表、不跑启动校验，只装配「调度器 + 引擎注册表 + 锁 + 作业提交器 + 信号」；
   首次使用前服务应已正常启动过一次（库表就绪）。
-- **前置**：`[task_scheduler]` 参数就绪；`[distributed_lock].provider = "redis"`（否则退化为进程内锁，
+- **前置**：`[task_scheduler]` / `[jobs]` 参数就绪；`[distributed_lock].provider = "redis"`（否则退化为进程内锁，
   多实例会双发）；`[redis]` 指向可用实例。
+- **执行归作业中心（01_03）**：beat 只负责「到期 → 落 `sys_task_log(running)` → 提交 `sys.task.run` 作业」，
+  作业消费者由 `bms_platform.jobs` 承载；本命令**不再提供 `--worker`**（避免双执行）。
 - **租户枚举**：库键由租户注册库（`platform_tenant`）的 `db_basis` 派生，清单按
   `[task_scheduler].tenant_cache_ttl_seconds` 缓存；与 `ops/migrate_tenants` 同一口径。
 """
@@ -43,15 +39,17 @@ from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
+from bms_core.jobs.limits import JobLimits
+from bms_core.jobs.registry import JobHandlerRegistry
+from bms_core.jobs.runner import JobRunner
+from bms_core.jobs.spec import JobTypeSpec
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.lock.memory import MemoryDistributedLock
 from bms_core.metrics.base import BaseMetrics
 from bms_core.metrics.null import NullMetrics
 from bms_core.tasks.builtin import BUILTIN_TASK_SPECS
-from bms_core.tasks.queue import TaskQueue
-from bms_core.tasks.scheduler import TaskScheduler
+from bms_core.tasks.scheduler import TASK_RUN_JOB_TYPE, TaskScheduler, TenantDbRef
 from bms_core.tasks.signal import TaskChangeSignal
-from bms_core.tasks.worker import TaskWorker
 from bms_core.tenant.registry import tenant_refs
 
 RUN_IMAGE = "*"
@@ -59,6 +57,19 @@ RUN_IMAGE = "*"
 
 _PLATFORM_UNIT = "platform"
 """任务定义与执行记录落在 platform 服务的租户库。"""
+
+TASK_RUN_SPEC = JobTypeSpec(
+    job_type=TASK_RUN_JOB_TYPE,
+    service_key=_PLATFORM_UNIT,
+    domain_key="task",
+    handler="bms_platform.domains.task.jobs:TaskJobHandler",
+    description="执行一条到期的定时任务（任务定义与执行记录保留在 sys_task / sys_task_log）",
+    timeout_seconds=1800,
+    max_attempts=3,
+    backoff_seconds=30,
+    concurrency=4,
+)
+"""`sys.task.run` 类型参数（与 `deploy/registry/platform.toml` 的 `[[jobs]]` 一致）。"""
 
 
 def _resolve[PortT](plugin_key: str, provider: str, expected_version: str, fallback: PortT) -> PortT:
@@ -93,22 +104,26 @@ class TenantKeyCache(BaseFrameworkObject):
         """
         self._factory = factory
         self._ttl = ttl_seconds
-        self._cached: ConcurrentStableList[str] = ConcurrentStableList()
+        self._cached: ConcurrentStableList[TenantDbRef] = ConcurrentStableList()
         self._expires_at = 0.0
 
-    async def __call__(self) -> ConcurrentStableList[str]:
-        """取租户库键清单（命中缓存直接返回）。
+    async def __call__(self) -> ConcurrentStableList[TenantDbRef]:
+        """取租户库键与主键清单（命中缓存直接返回）。
 
         Returns:
-            ConcurrentStableList[str]: 租户库键清单。
+            ConcurrentStableList[TenantDbRef]: 租户库键清单。
         """
         now = time.monotonic()
         if self._cached and now < self._expires_at:
             return self._cached
         registry_url = self._factory.resolved_url(build_platform_db_key(TENANT_SERVICE_KEY))
         refs = await tenant_refs(registry_url)
-        keys: ConcurrentStableList[str] = ConcurrentStableList(
-            build_tenant_db_key(ref.db_basis, service=_PLATFORM_UNIT) for ref in refs
+        keys: ConcurrentStableList[TenantDbRef] = ConcurrentStableList(
+            TenantDbRef(
+                db_key=build_tenant_db_key(ref.db_basis, service=_PLATFORM_UNIT),
+                tenant_id=ref.tenant_id or None,
+            )
+            for ref in refs
         )
         self._cached = keys
         self._expires_at = now + self._ttl
@@ -133,10 +148,15 @@ def _build_scheduler(settings: Settings) -> tuple[TaskScheduler, EngineRegistry]
         MemoryDistributedLock(),
     )
     metrics = _resolve("metrics", settings.metrics.provider, BaseMetrics.contract_version, NullMetrics())
+    runner = JobRunner(
+        registry=JobHandlerRegistry(),
+        specs={TASK_RUN_SPEC.job_type: TASK_RUN_SPEC},
+        limits=JobLimits(settings.jobs),
+    )
     scheduler = TaskScheduler(
         settings=settings.task_scheduler,
         registry=registry,
-        queue=TaskQueue(key=settings.task_scheduler.queue_key),
+        runner=runner,
         lock=lock,
         tenant_keys=TenantKeyCache(factory=factory, ttl_seconds=settings.task_scheduler.tenant_cache_ttl_seconds),
         signal=TaskChangeSignal(channel=settings.task_scheduler.change_channel),
@@ -144,28 +164,6 @@ def _build_scheduler(settings: Settings) -> tuple[TaskScheduler, EngineRegistry]
         metrics=metrics,
     )
     return scheduler, registry
-
-
-def _build_worker(settings: Settings) -> tuple[TaskWorker, EngineRegistry]:
-    """按配置装配执行器与引擎注册表（调用方负责释放）。
-
-    Args:
-        settings: 应用配置。
-
-    Returns:
-        tuple[TaskWorker, EngineRegistry]: 执行器与引擎注册表。
-    """
-    registry = EngineRegistry(EngineFactory(settings))
-    metrics = _resolve("metrics", settings.metrics.provider, BaseMetrics.contract_version, NullMetrics())
-    worker = TaskWorker(
-        settings=settings.task_scheduler,
-        registry=registry,
-        queue=TaskQueue(key=settings.task_scheduler.queue_key),
-        allowed_handler_prefixes=settings.task_scheduler.allowed_handler_prefixes,
-        session_factory=SessionFactory(),
-        metrics=metrics,
-    )
-    return worker, registry
 
 
 def _print_builtin_tasks() -> int:
@@ -209,37 +207,6 @@ async def _run_beat(args: argparse.Namespace) -> int:
     return 0
 
 
-async def _run_worker(args: argparse.Namespace) -> int:
-    """运行执行器（单条或长驻）。
-
-    Args:
-        args: 命令行参数。
-
-    Returns:
-        int: 退出码（0 成功；单条模式下队列空返回 1）。
-    """
-    settings = get_settings()
-    worker, registry = _build_worker(settings)
-    try:
-        if args.once:
-            handled = await worker.run_once()
-            if not handled:
-                print("队列为空（无可消费任务）")
-                return 1
-            print("已消费一条任务")
-            return 0
-        queue_key = settings.task_scheduler.queue_key
-        concurrency = settings.task_scheduler.worker_concurrency
-        print(f"执行器启动：并发 {concurrency}，队列 {queue_key}")
-        await worker.run_forever()
-    except KeyboardInterrupt:
-        print("执行器收到中断，已退出")
-    finally:
-        await worker.aclose()
-        await registry.aclose()
-    return 0
-
-
 def _build_parser() -> argparse.ArgumentParser:
     """构造命令行解析器。
 
@@ -250,7 +217,6 @@ def _build_parser() -> argparse.ArgumentParser:
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument("--list", action="store_true", help="打印内置任务清单（不连库）")
     modes.add_argument("--beat", action="store_true", help="运行调度器（长驻；配 --once 只跑一轮）")
-    modes.add_argument("--worker", action="store_true", help="运行执行器（长驻；配 --once 只消费一条）")
     parser.add_argument("--once", action="store_true", help="只跑一轮 tick 即退出（联调 / 冒烟）")
     return parser
 
@@ -268,9 +234,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     args = parser.parse_args(None if argv is None else list(argv))
     if args.list:
         return _print_builtin_tasks()
-    runner = _run_worker if args.worker else _run_beat
     with contextlib.suppress(KeyboardInterrupt):
-        return asyncio.run(runner(args))
+        return asyncio.run(_run_beat(args))
     return 0
 
 

@@ -59,6 +59,7 @@ class JobInternalClient(BaseFrameworkObject):
         idempotency_key: str | None = None,
         max_attempts: int | None = None,
         payload_version: str | None = None,
+        tenant_id: int | None = None,
     ) -> int:
         """向目标服务提交作业。
 
@@ -70,6 +71,7 @@ class JobInternalClient(BaseFrameworkObject):
             idempotency_key: 幂等键。
             max_attempts: 最大执行次数（None 由目标服务取声明 / 默认）。
             payload_version: 负载版本。
+            tenant_id: 租户主键（租户链作业必填；平台链为空）。
 
         Returns:
             int: 作业主键。
@@ -93,20 +95,27 @@ class JobInternalClient(BaseFrameworkObject):
         if payload_version:
             body.set("payload_version", payload_version)
         data = await self._call(
-            service_key, "POST", JOB_INTERNAL_PATH, json_body=ConcurrentStableFrozenDict(dict(body))
+            service_key,
+            "POST",
+            JOB_INTERNAL_PATH,
+            json_body=ConcurrentStableFrozenDict(dict(body)),
+            tenant_id=tenant_id,
         )
         job_id = data.get("job_id")
         if job_id is None:
             raise ServiceUnavailableError("作业提交响应缺少 job_id")
         return int(str(job_id))
 
-    async def cancel(self, *, service_key: str, job_id: int, reason: str | None = None) -> str:
+    async def cancel(
+        self, *, service_key: str, job_id: int, reason: str | None = None, tenant_id: int | None = None
+    ) -> str:
         """取消作业（按目标服务定向调用）。
 
         Args:
             service_key: 目标服务键。
             job_id: 作业主键。
             reason: 取消原因。
+            tenant_id: 租户主键（租户链作业必填）。
 
         Returns:
             str: 对端返回的状态（`canceled` / `requested`）。
@@ -123,15 +132,17 @@ class JobInternalClient(BaseFrameworkObject):
             "POST",
             f"{JOB_INTERNAL_PATH}/{job_id}/cancel",
             json_body=ConcurrentStableFrozenDict(dict(body)),
+            tenant_id=tenant_id,
         )
         return str(data.get("status") or "")
 
-    async def retry(self, *, service_key: str, job_id: int) -> str:
+    async def retry(self, *, service_key: str, job_id: int, tenant_id: int | None = None) -> str:
         """重试作业（仅 dead / failed）。
 
         Args:
             service_key: 目标服务键。
             job_id: 作业主键。
+            tenant_id: 租户主键（租户链作业必填）。
 
         Returns:
             str: 对端返回的状态（`retried`）。
@@ -140,15 +151,18 @@ class JobInternalClient(BaseFrameworkObject):
             ServiceUnavailableError: 下游不可达 / 响应非法。
             JobError: 业务错误码映射（`71xxx`）。
         """
-        data = await self._call(service_key, "POST", f"{JOB_INTERNAL_PATH}/{job_id}/retry")
+        data = await self._call(service_key, "POST", f"{JOB_INTERNAL_PATH}/{job_id}/retry", tenant_id=tenant_id)
         return str(data.get("status") or "")
 
-    async def get(self, *, service_key: str, job_id: int) -> ConcurrentStableDict[str, object]:
+    async def get(
+        self, *, service_key: str, job_id: int, tenant_id: int | None = None
+    ) -> ConcurrentStableDict[str, object]:
         """取目标服务的本地作业详情。
 
         Args:
             service_key: 目标服务键。
             job_id: 作业主键。
+            tenant_id: 租户主键（租户链作业必填）。
 
         Returns:
             ConcurrentStableDict[str, object]: 详情数据。
@@ -157,7 +171,9 @@ class JobInternalClient(BaseFrameworkObject):
             ServiceUnavailableError: 下游不可达 / 响应非法。
             JobError: 业务错误码映射（`71xxx`）。
         """
-        return await self._call(service_key, "GET", f"{JOB_INTERNAL_PATH}/{job_id}")
+        return await self._call(
+            service_key, "GET", f"{JOB_INTERNAL_PATH}/{job_id}", tenant_id=tenant_id
+        )
 
     async def _call(
         self,
@@ -166,6 +182,7 @@ class JobInternalClient(BaseFrameworkObject):
         path: str,
         *,
         json_body: ConcurrentStableFrozenDict[str, object] | None = None,
+        tenant_id: int | None = None,
     ) -> ConcurrentStableDict[str, object]:
         """发起内部调用并解析统一响应。
 
@@ -174,6 +191,7 @@ class JobInternalClient(BaseFrameworkObject):
             method: HTTP 方法。
             path: 路径。
             json_body: JSON 请求体。
+            tenant_id: 租户主键（随服务 JWT 传递，目标服务据此解析租户库）。
 
         Returns:
             ConcurrentStableDict[str, object]: 响应 `data` 对象。
@@ -187,6 +205,7 @@ class JobInternalClient(BaseFrameworkObject):
             method=method,
             path=path,
             json_body=json_body,
+            tenant_id=None if tenant_id is None else str(tenant_id),
             policy=ServiceCallPolicy(),
         )
         response = await self._client.call(request)

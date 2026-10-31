@@ -16,16 +16,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from importlib import import_module
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.roots import BaseValueObject
+from bms_core.jobs.client import JobInternalClient
 from bms_core.servicecall.base import BaseServiceClient
-from bms_core.storage.maintenance import FileMaintenanceClient
 from bms_core.tasks.spec import TaskContext, TaskResult
 
 __all__ = [
@@ -40,6 +41,9 @@ __all__ = [
 
 _HANDLER_MODULE = "bms_core.tasks.builtin"
 """内置执行体所在模块（handler 白名单前缀的唯一来源）。"""
+
+FILE_SERVICE_KEY = "file"
+"""文件服务标识（孤儿回收作业的提供方）。"""
 
 
 @dataclass(frozen=True)
@@ -72,7 +76,7 @@ BUILTIN_TASK_SPECS: ConcurrentStableList[BuiltinTaskSpec] = ConcurrentStableList
             name="孤儿分片清理",
             cron="0 3 * * *",
             handler=f"{_HANDLER_MODULE}:run_cleanup_orphan_parts",
-            owner="03_01（文件管理，已落地：触发 file 内部清理端点）",
+            owner="03_01（文件管理，经 file.cleanup_orphans 作业执行）",
             summary="回收上传中断遗留的分片对象与超期上传中记录",
         ),
         BuiltinTaskSpec(
@@ -154,23 +158,28 @@ def build_service_client() -> BaseServiceClient:
 
 
 async def run_cleanup_orphan_parts(ctx: TaskContext) -> TaskResult:
-    """孤儿分片清理（触发型：经服务间调用驱动 file 服务的内部清理端点）。
+    """孤儿分片清理（提交型：向 file 服务提交 `file.cleanup_orphans` 作业）。
 
     Args:
-        ctx: 执行上下文（本执行体不读写任何库，只用 `sys_task_log` 记摘要）。
+        ctx: 执行上下文（本执行体只提交作业，扫描 / 清理 / 置 `orphan` 全在 file 域）。
 
     Returns:
-        TaskResult: 成功带回收摘要；下游不可用为失败（由调度器按策略重试）。
+        TaskResult: 成功带作业标识；下游不可用为失败（由调度器按策略重试提交）。
     """
-    _ = ctx
+    today = datetime.now(UTC).date().isoformat()
+    tenant_part = ctx.run.tenant_id if ctx.run.tenant_id is not None else "platform"
     try:
-        summary = await FileMaintenanceClient(build_service_client()).cleanup_orphans()
+        client = JobInternalClient(build_service_client())
+        job_id = await client.submit(
+            service_key=FILE_SERVICE_KEY,
+            job_type="file.cleanup_orphans",
+            payload=ConcurrentStableDict[str, object](),
+            idempotency_key=f"file.cleanup_orphans:{tenant_part}:{today}",
+            tenant_id=ctx.run.tenant_id,
+        )
     except ServiceUnavailableError as exc:
-        return TaskResult.failed(f"孤儿回收触发失败：{exc}")
-    return TaskResult.success(
-        f"孤儿回收完成：扫描 {summary.scanned} / 回收 {summary.orphaned} / 失败 {summary.failed}",
-        output=f"scanned={summary.scanned} orphaned={summary.orphaned} failed={summary.failed}",
-    )
+        return TaskResult.failed(f"孤儿回收作业提交失败：{exc}")
+    return TaskResult.success(f"已提交孤儿回收作业 {job_id}", output=f"job_id={job_id}")
 
 
 async def run_archive_audit_logs(ctx: TaskContext) -> TaskResult:

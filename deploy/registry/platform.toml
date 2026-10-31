@@ -489,3 +489,18 @@ public_api = [
 
 
 # 域外路径（装配面 / 基座横切面 / 基础设施与不归域文件；随生成物一并渲染）
+
+# ---- 作业类型声明（01_03：平台装载进 sys_job_type 目录；执行由各服务 worker 承载）----
+
+[[jobs]]
+job_type = "sys.task.run"
+service = "platform"
+domain = "task"
+handler = "bms_platform.domains.task.jobs:TaskJobHandler"
+description = "执行一条到期的定时任务（任务定义与执行记录保留在 sys_task / sys_task_log）"
+timeout_seconds = 1800
+max_attempts = 3
+backoff_seconds = 30
+concurrency = 4
+payload_version = "1.0.0"
+status = "enabled"

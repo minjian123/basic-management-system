@@ -89,7 +89,10 @@ from bms_core.services.module_registry import (
 from bms_core.transaction.base import MAX_BRANCH_ID_LENGTH
 
 __all__ = [
+    "JOB_STATUSES",
+    "JOB_TYPE_RE",
     "SKIP_CONTRACT_ENV",
+    "JobDeclaration",
     "ManifestInspection",
     "ProductManifest",
     "inspect_product_manifests",
@@ -135,6 +138,44 @@ _FALSY_ENV = ConcurrentStableFrozenSet(("", "0", "false", "no", "off"))
 
 
 @dataclass(frozen=True)
+class JobDeclaration(BaseValueObject):
+    """作业类型声明（`[[jobs]]`，01_03）：平台装载进 `sys_job_type` 目录。
+
+    Attributes:
+        job_type: 作业类型（全局唯一，`{服务/业务域}.{作业名}`）。
+        service: 提供方服务键（执行者所在服务）。
+        domain: 提供方业务域（域布局登记）。
+        handler: 执行者点分路径（`module:attr`；装载期只校验格式）。
+        description: 说明。
+        timeout_seconds: 单次执行超时。
+        max_attempts: 最大执行次数。
+        backoff_seconds: 退避基数（秒）。
+        concurrency: 单租户该类型并发上限。
+        payload_version: 负载版本。
+        status: 目录状态（enabled / deprecated / retired）。
+    """
+
+    job_type: str
+    service: str
+    domain: str
+    handler: str
+    description: str
+    timeout_seconds: int = 1800
+    max_attempts: int = 3
+    backoff_seconds: int = 30
+    concurrency: int = 4
+    payload_version: str = "1.0.0"
+    status: str = "enabled"
+
+
+JOB_TYPE_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
+"""作业类型形态（至少两段，小写点分）。"""
+
+JOB_STATUSES = ("enabled", "deprecated", "retired")
+"""作业类型目录状态取值。"""
+
+
+@dataclass(frozen=True)
 class ProductManifest(BaseValueObject):
     """产品登记清单（六类记录 + 产品档案）。
 
@@ -177,6 +218,9 @@ class ProductManifest(BaseValueObject):
 
     domain_shared_paths: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList())
     """域外路径（装配面 / 基座横切面 / 基础设施与不归域文件；渲染 `domain_layout.json` 用）。"""
+
+    jobs: ConcurrentStableFrozenList[JobDeclaration] = field(default_factory=lambda: ConcurrentStableFrozenList())
+    """作业类型声明（`[[jobs]]`，01_03）：平台装载进 `sys_job_type` 目录。"""
 
 
 @dataclass(frozen=True)
@@ -823,6 +867,9 @@ def _build_manifest(root: ConcurrentStableDict[str, object], *, path: Path) -> P
     domains: ConcurrentStableList[DomainEntry] = ConcurrentStableList(
         _domain_record(raw, scope="domains") for raw in _records(root.get("domains"), scope="domains")
     )
+    jobs: ConcurrentStableList[JobDeclaration] = ConcurrentStableList(
+        _job_record(raw, scope="jobs") for raw in _records(root.get("jobs"), scope="jobs")
+    )
     return ProductManifest(
         product_key=product_key,
         products=ConcurrentStableFrozenList(products),
@@ -837,6 +884,7 @@ def _build_manifest(root: ConcurrentStableDict[str, object], *, path: Path) -> P
         domain_shared_paths=ConcurrentStableFrozenList(
             _str_list(root.get("domain_shared_paths"), scope="domain_shared_paths")
         ),
+        jobs=ConcurrentStableFrozenList(jobs),
     )
 
 
@@ -906,6 +954,99 @@ def _domain_record(raw: object, *, scope: str) -> DomainEntry:
         public_api=ConcurrentStableFrozenList(public_api),
         name=str(data.get("name") or ""),
     )
+
+
+def _job_record(raw: object, *, scope: str) -> JobDeclaration:
+    """构造作业类型声明（`[[jobs]]`，01_03）。
+
+    Args:
+        raw: 原始映射。
+        scope: 错误信息作用域（`jobs`）。
+
+    Returns:
+        JobDeclaration: 作业类型声明。
+
+    Raises:
+        CatalogError: 必填缺失 / 形态非法 / 数值越界。
+    """
+    data = _as_mapping(raw)
+    job_type = str(_require(data, "job_type", scope=scope))
+    if not JOB_TYPE_RE.match(job_type):
+        raise CatalogError(f"产品清单 {scope}｜作业 {job_type}：类型须为小写点分（如 file.cleanup_orphans）")
+    service = str(_require(data, "service", scope=scope))
+    domain = str(_require(data, "domain", scope=scope))
+    handler = str(_require(data, "handler", scope=scope))
+    module, _, attr = handler.partition(":")
+    if not module or not attr or ":" in attr:
+        raise CatalogError(f"产品清单 {scope}｜作业 {job_type}：handler 须为 `module:attr` 形式")
+    description = str(_require(data, "description", scope=scope))
+    if not description.strip():
+        raise CatalogError(f"产品清单 {scope}｜作业 {job_type}：description 不得为空")
+    status = str(data.get("status") or "enabled")
+    if status not in JOB_STATUSES:
+        raise CatalogError(f"产品清单 {scope}｜作业 {job_type}：状态非法（{status!r}；允许 {JOB_STATUSES}）")
+    payload_version = str(data.get("payload_version") or "1.0.0")
+    if not CONTRACT_VERSION_RE.match(payload_version):
+        raise CatalogError(f"产品清单 {scope}｜作业 {job_type}：payload_version 须为 X.Y.Z（现 {payload_version!r}）")
+    return JobDeclaration(
+        job_type=job_type,
+        service=service,
+        domain=domain,
+        handler=handler,
+        description=description,
+        timeout_seconds=_positive_int(data, "timeout_seconds", 1800, scope=f"{scope}｜{job_type}"),
+        max_attempts=_positive_int(data, "max_attempts", 3, scope=f"{scope}｜{job_type}"),
+        backoff_seconds=_non_negative_int(data, "backoff_seconds", 30, scope=f"{scope}｜{job_type}"),
+        concurrency=_positive_int(data, "concurrency", 4, scope=f"{scope}｜{job_type}"),
+        payload_version=payload_version,
+        status=status,
+    )
+
+
+def _positive_int(data: ConcurrentStableDict[str, object], key: str, default: int, *, scope: str) -> int:
+    """取正整数配置（缺省用默认；非 int / 非正即拒）。
+
+    Args:
+        data: 原始映射。
+        key: 字段名。
+        default: 缺省值。
+        scope: 错误作用域。
+
+    Returns:
+        int: 取值。
+
+    Raises:
+        CatalogError: 非正整数。
+    """
+    raw = data.get(key)
+    if raw is None:
+        return default
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw <= 0:
+        raise CatalogError(f"产品清单 {scope}：{key} 须为正整数（现 {raw!r}）")
+    return raw
+
+
+def _non_negative_int(data: ConcurrentStableDict[str, object], key: str, default: int, *, scope: str) -> int:
+    """取非负整数配置（缺省用默认；非 int / 负数即拒）。
+
+    Args:
+        data: 原始映射。
+        key: 字段名。
+        default: 缺省值。
+        scope: 错误作用域。
+
+    Returns:
+        int: 取值。
+
+    Raises:
+        CatalogError: 非负整数。
+    """
+    raw = data.get(key)
+    if raw is None:
+        return default
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 0:
+        raise CatalogError(f"产品清单 {scope}：{key} 须为非负整数（现 {raw!r}）")
+    return raw
 
 
 def _usage_record(raw: object, *, scope: str) -> CapabilityUsage:
@@ -1258,6 +1399,53 @@ def _validate_domain_declarations(
     return errors
 
 
+def _validate_jobs(
+    manifests: ConcurrentStableList[ProductManifest], sources: ConcurrentStableList[Path]
+) -> ConcurrentStableList[str]:
+    """校验作业类型声明（01_03）：同清单唯一 / 跨清单撞键 / 服务与域登记。
+
+    Args:
+        manifests: 已解析清单（插入序）。
+        sources: 与 `manifests` 逐一对应的清单路径。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    owners: ConcurrentStableDict[str, tuple[str, str]] = ConcurrentStableDict()
+    for manifest, source in zip(manifests, sources, strict=True):
+        label = str(source)
+        declared_services = ConcurrentStableSet(
+            service.service_key for service in manifest.services if service.service_key
+        )
+        declared_domains = ConcurrentStableSet(entry.domain_key for entry in manifest.domains)
+        seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+        for entry in manifest.jobs:
+            prefix = f"{label}｜作业 {entry.job_type}"
+            if entry.job_type in seen:
+                errors.add(f"{prefix}：同一清单内作业类型重复声明")
+                continue
+            seen.add(entry.job_type)
+            if declared_services and entry.service not in declared_services:
+                errors.add(
+                    f"{prefix}：提供方服务未在本清单 [[services]] 声明（{entry.service}；"
+                    f"已声明 {sorted(declared_services)}）"
+                )
+            if declared_domains and entry.domain not in declared_domains:
+                errors.add(f"{prefix}：提供方业务域未在本清单 [[domains]] 声明（{entry.domain}）")
+            owner = owners.get(entry.job_type)
+            if owner is None:
+                owners.set(entry.job_type, (entry.service, manifest.product_key))
+                continue
+            other_service, other_product = owner
+            if other_service != entry.service:
+                errors.add(
+                    f"{prefix}：作业类型跨产品撞键（已被产品 {other_product} 声明为服务 {other_service!r}，"
+                    f"本清单声明 {entry.service!r}）"
+                )
+    return errors
+
+
 def _validate_manifest_entries(
     manifest: ProductManifest,
     source: Path,
@@ -1466,6 +1654,7 @@ def inspect_product_manifests(paths: Iterable[str | Path]) -> ManifestInspection
     errors.update(_validate_collaboration_names(manifests, sources))
     errors.update(_validate_error_codes(manifests, sources))
     errors.update(_validate_domain_declarations(manifests, sources))
+    errors.update(_validate_jobs(manifests, sources))
     has_collaborations = any(manifest.collaborations for manifest in manifests)
     layout: ConcurrentStableDict[str, str] = (
         _layout_registry_map(manifests, warnings) if has_collaborations else ConcurrentStableDict()

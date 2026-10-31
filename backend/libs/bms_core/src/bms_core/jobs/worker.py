@@ -19,6 +19,7 @@ from datetime import timedelta
 from typing import Any
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.exceptions import JobHandlerNotRegisteredError
 from bms_core.core.logging import get_logger
 from bms_core.core.roots import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
@@ -115,6 +116,9 @@ class JobWorker(BaseFrameworkObject):
         self._tenant_semaphores: ConcurrentStableDict[str, asyncio.Semaphore] = ConcurrentStableDict()
         self._type_semaphores: ConcurrentStableDict[str, asyncio.Semaphore] = ConcurrentStableDict()
         self._inflight: ConcurrentStableList[asyncio.Task[None]] = ConcurrentStableList()
+        missing = [job_type for job_type in specs if not registry.has(job_type)]
+        if missing:
+            raise JobHandlerNotRegisteredError(f"作业类型声明存在但代码侧 handler 缺失：{sorted(missing)}")
 
     @property
     def worker_id(self) -> str:

@@ -20,23 +20,21 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from redis.exceptions import RedisError
-
 from bms_core.core.capability import BaseAsyncResource
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import TaskSchedulerSettings
-from bms_core.core.exceptions import RedisUnavailableError, TaskCronInvalidError
+from bms_core.core.exceptions import TaskCronInvalidError
 from bms_core.core.logging import get_logger
 from bms_core.core.roots import BaseValueObject
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, SessionFactory, session_scope
+from bms_core.jobs.runner import JobRunner
+from bms_core.jobs.spec import JobSubmission
 from bms_core.lock.base import BaseDistributedLock, build_lock_key
 from bms_core.metrics.base import BaseMetrics
 from bms_core.models.platform.task import TASK_TRIGGER_SCHEDULE
 from bms_core.tasks.cron import next_fire, parse_cron
-from bms_core.tasks.queue import TaskQueue
 from bms_core.tasks.signal import TaskChangeSignal
-from bms_core.tasks.spec import TaskRunSpec
 from bms_core.tasks.store import (
     TaskClaim,
     claim_task,
@@ -46,12 +44,33 @@ from bms_core.tasks.store import (
     reclaim_timeout_runs,
 )
 
-__all__ = ["BEAT_LOCK_RESOURCE", "TaskScheduler", "TenantTick", "TickReport"]
+__all__ = [
+    "BEAT_LOCK_RESOURCE",
+    "TASK_RUN_JOB_TYPE",
+    "TaskScheduler",
+    "TenantDbRef",
+    "TenantTick",
+    "TickReport",
+]
 
 _LOGGER = get_logger("bms")
 
 BEAT_LOCK_RESOURCE = "beat"
 """锁资源名（经 `build_lock_key(tenant=None, ...)` 派生 `bms:global:lock:beat`）。"""
+
+TASK_RUN_JOB_TYPE = "sys.task.run"
+"""任务执行作业类型（平台声明；到期任务统一提交该类型作业）。"""
+
+
+@dataclass(frozen=True)
+class TenantDbRef(BaseValueObject):
+    """租户库键与租户主键（调度与作业提交共用）。"""
+
+    db_key: str
+    """租户库键。"""
+
+    tenant_id: int | None = None
+    """租户主键（雪花 id；解析不到为空）。"""
 
 
 @dataclass(frozen=True)
@@ -111,9 +130,9 @@ class TaskScheduler(BaseAsyncResource):
         *,
         settings: TaskSchedulerSettings,
         registry: EngineRegistry,
-        queue: TaskQueue,
+        runner: JobRunner,
         lock: BaseDistributedLock,
-        tenant_keys: Callable[[], Awaitable[ConcurrentStableList[str]]],
+        tenant_keys: Callable[[], Awaitable[ConcurrentStableList[TenantDbRef]]],
         signal: TaskChangeSignal | None = None,
         session_factory: SessionFactory | None = None,
         metrics: BaseMetrics | None = None,
@@ -124,7 +143,7 @@ class TaskScheduler(BaseAsyncResource):
         Args:
             settings: 调度参数。
             registry: 引擎注册表（按租户库键开会话）。
-            queue: 待执行队列。
+            runner: 作业提交器（到期任务提交 `sys.task.run`）。
             lock: 分布式锁（单副本互斥）。
             tenant_keys: 租户库键提供者（带缓存的枚举入口）。
             signal: 变更信号（None 表示不订阅，只按周期轮询）。
@@ -134,7 +153,7 @@ class TaskScheduler(BaseAsyncResource):
         """
         self._settings = settings
         self._registry = registry
-        self._queue = queue
+        self._runner = runner
         self._lock = lock
         self._tenant_keys = tenant_keys
         self._signal = signal
@@ -190,26 +209,27 @@ class TaskScheduler(BaseAsyncResource):
         if token is None:
             return TickReport(lock_held=False, tenants=ConcurrentStableList())
         try:
-            keys = await self._tenant_keys()
+            refs = await self._tenant_keys()
             semaphore = asyncio.Semaphore(self._settings.tenant_concurrency)
-            results = await asyncio.gather(*(self._tick_tenant(key, semaphore) for key in keys))
+            results = await asyncio.gather(*(self._tick_tenant(ref, semaphore) for ref in refs))
         finally:
             await self._lock.release(self.lock_key, token)
         return TickReport(lock_held=True, tenants=ConcurrentStableList(results))
 
-    async def _tick_tenant(self, db_key: str, semaphore: asyncio.Semaphore) -> TenantTick:
-        """处理单个租户库（扫描 → 抢占 → 落记录 → 入队 → 回收）。
+    async def _tick_tenant(self, ref: TenantDbRef, semaphore: asyncio.Semaphore) -> TenantTick:
+        """处理单个租户库（扫描 → 抢占 → 落记录 → 提交作业 → 回收）。
 
         Args:
-            db_key: 租户库键。
+            ref: 租户库键与租户主键。
             semaphore: 并发闸门。
 
         Returns:
             TenantTick: 本租户结果。
         """
+        db_key = ref.db_key
         moment = self._clock()
-        specs: ConcurrentStableList[TaskRunSpec] = ConcurrentStableList()
-        claimed = 0
+        submitted = 0
+        failed = 0
         reclaimed = 0
         async with semaphore:
             try:
@@ -224,57 +244,51 @@ class TaskScheduler(BaseAsyncResource):
                     )
                     claims = await list_due_tasks(session, now=moment, limit=self._settings.batch_size)
                     for claim in claims:
-                        spec = await self._claim_one(session, db_key, claim, moment)
-                        if spec is not None:
-                            claimed += 1
-                            specs.append(spec)
+                        if await self._claim_one(session, ref, claim, moment):
+                            submitted += 1
+                        else:
+                            failed += 1
             except Exception as exc:  # 单租户失败不拖垮其他租户
                 _LOGGER.error("任务调度扫描租户失败（其他租户继续）", db_key=db_key, error=str(exc))
                 return TenantTick(db_key=db_key, reclaimed=reclaimed)
-        dispatched = 0
-        failed = 0
-        for spec in specs:
-            if await self._enqueue(spec):
-                dispatched += 1
-            else:
-                failed += 1
         if self._metrics is not None:
             await self._metrics.counter(
-                "bms_task_dispatch_total", value=float(dispatched), labels={"source": "schedule"}
+                "bms_task_dispatch_total", value=float(submitted), labels={"source": "schedule"}
             )
-        return TenantTick(db_key=db_key, dispatched=dispatched, claimed=claimed, reclaimed=reclaimed, failed=failed)
+        return TenantTick(db_key=db_key, dispatched=submitted, claimed=submitted, reclaimed=reclaimed, failed=failed)
 
     async def _claim_one(
         self,
         session: DbSession,
-        db_key: str,
+        ref: TenantDbRef,
         claim: TaskClaim,
         moment: datetime,
-    ) -> TaskRunSpec | None:
-        """算下次到期并抢占一条任务；抢到则落 `running` 记录并返回待入队规格。
+    ) -> bool:
+        """算下次到期并抢占一条任务；抢到则落 `running` 记录并提交作业。
 
         Args:
             session: 租户库会话。
-            db_key: 租户库键（写进队列载荷，执行器据此取库会话）。
+            ref: 租户库键与租户主键（写进作业负载，执行器据此取库会话）。
             claim: 到期候选。
             moment: 当前时刻（naive UTC）。
 
         Returns:
-            TaskRunSpec | None: 抢到返回规格；未抢到 / cron 无法计算返回 None。
+            bool: 抢占并提交成功 True；未抢到 / cron 无法计算 / 提交失败 False。
         """
+        db_key = ref.db_key
         try:
             upcoming = next_fire(parse_cron(claim.cron), moment.replace(tzinfo=UTC))
         except TaskCronInvalidError as exc:
             _LOGGER.error("任务 cron 无法计算，自动停用", task_id=claim.task_id, cron=claim.cron, error=str(exc))
             await disable_task(session, task_id=claim.task_id, now=moment)
-            return None
+            return False
         if not await claim_task(
             session,
             task_id=claim.task_id,
             next_run_at=upcoming.replace(tzinfo=None),
             now=moment,
         ):
-            return None
+            return False
         run_id = uuid4().hex
         log_id = await create_run_record(
             session,
@@ -283,29 +297,30 @@ class TaskScheduler(BaseAsyncResource):
             trigger_source=TASK_TRIGGER_SCHEDULE,
             started_at=moment,
         )
-        return TaskRunSpec(
-            db_key=db_key,
-            task_id=claim.task_id,
-            log_id=log_id,
-            run_id=run_id,
-            code=claim.code,
-            handler=claim.handler,
-            args_json=claim.args_json,
+        payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "db_key": db_key,
+                "tenant_id": ref.tenant_id,
+                "task_id": claim.task_id,
+                "log_id": log_id,
+                "run_id": run_id,
+                "code": claim.code,
+                "handler": claim.handler,
+                "args_json": claim.args_json,
+            }
         )
-
-    async def _enqueue(self, spec: TaskRunSpec) -> bool:
-        """入队一条已落记录的运行规格。
-
-        Args:
-            spec: 运行规格（`db_key` 已在调用处补齐）。
-
-        Returns:
-            bool: 入队成功 True；Redis 不可用 False（记录留待超时回收）。
-        """
         try:
-            await self._queue.push(spec)
-        except (RedisUnavailableError, RedisError) as exc:
-            _LOGGER.error("任务入队失败（记录留待超时回收）", task_id=spec.task_id, run_id=spec.run_id, error=str(exc))
+            await self._runner.submit(
+                session,
+                JobSubmission(
+                    job_type=TASK_RUN_JOB_TYPE,
+                    payload=payload,
+                    idempotency_key=f"task:{claim.task_id}:{log_id}",
+                ),
+                tenant_id=ref.tenant_id,
+            )
+        except Exception as exc:  # 提交失败：任务日志留 running，由超时回收兜底
+            _LOGGER.error("任务提交作业失败（记录留待超时回收）", task_id=claim.task_id, run_id=run_id, error=str(exc))
             return False
         return True
 

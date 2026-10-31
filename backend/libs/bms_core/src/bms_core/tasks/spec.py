@@ -96,6 +96,9 @@ class TaskRunSpec(BaseValueObject):
     args_json: str | None = None
     """参数原文（解析延后到执行前，避免载荷与记录不一致）。"""
 
+    tenant_id: int | None = None
+    """租户主键（雪花 id；跨服务提交作业时携带，平台链为空）。"""
+
     trigger_source: str = TASK_TRIGGER_SCHEDULE
     """触发来源（`schedule` / `manual`）。"""
 

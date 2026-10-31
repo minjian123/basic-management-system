@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 from uuid import uuid4
 
 from redis.asyncio import Redis as AsyncRedis
@@ -28,8 +29,11 @@ from bms_core.core.exceptions import (
 )
 from bms_core.core.logging import get_logger
 from bms_core.core.roots import BaseFrameworkObject
+from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_context
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.jobs.runner import JobRunner
+from bms_core.jobs.spec import JobSubmission
 from bms_core.models.platform.task import (
     TASK_RUN_RUNNING,
     TASK_STATUS_DISABLED,
@@ -40,9 +44,9 @@ from bms_core.models.platform.task import (
 from bms_core.redis.base import shared_async_client
 from bms_core.tasks.cron import next_fire, parse_cron
 from bms_core.tasks.handlers import is_allowed_handler
-from bms_core.tasks.queue import TaskQueue
+from bms_core.tasks.scheduler import TASK_RUN_JOB_TYPE
 from bms_core.tasks.signal import TaskChangeSignal
-from bms_core.tasks.spec import TaskRunSpec, parse_task_args
+from bms_core.tasks.spec import parse_task_args
 from bms_platform.domains.task.repositories.task import TaskLogRepository, TaskRepository
 from bms_platform.domains.task.schemas.task import (
     TaskCreateRequest,
@@ -83,7 +87,7 @@ class TaskService(BaseFrameworkObject):
         logs: TaskLogRepository,
         uow: UnitOfWork,
         *,
-        queue: TaskQueue,
+        runner: JobRunner,
         signal: TaskChangeSignal,
         settings: TaskSchedulerSettings | None = None,
         redis: AsyncRedis | None = None,
@@ -94,7 +98,7 @@ class TaskService(BaseFrameworkObject):
             repository: 任务定义仓储。
             logs: 执行记录仓储。
             uow: 工作单元。
-            queue: 待执行队列（手动触发入队）。
+            runner: 作业提交器（手动触发提交 `sys.task.run`）。
             signal: 变更信号（写路径后置通知）。
             settings: 调度参数（白名单 / 冷却 / 截断）。
             redis: 冷却计数用的 Redis 客户端（缺省取共享客户端）。
@@ -102,7 +106,7 @@ class TaskService(BaseFrameworkObject):
         self._repo = repository
         self._logs = logs
         self._uow = uow
-        self._queue = queue
+        self._runner = runner
         self._signal = signal
         self._settings = settings if settings is not None else get_settings().task_scheduler
         self._redis = redis
@@ -304,17 +308,28 @@ class TaskService(BaseFrameworkObject):
                 started_at=now,
             )
             log_id = int(record.id)
-        spec = TaskRunSpec(
-            db_key=self._db_key(),
-            task_id=task_id,
-            log_id=log_id,
-            run_id=run_id,
-            code=task.code,
-            handler=task.handler,
-            args_json=task.args,
-            trigger_source=TASK_TRIGGER_MANUAL,
-        )
-        await self._queue.push(spec)
+            tenant = current_tenant_context()
+            payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+                {
+                    "db_key": tenant.db_key,
+                    "tenant_id": tenant.tenant_id,
+                    "task_id": task_id,
+                    "log_id": log_id,
+                    "run_id": run_id,
+                    "code": task.code,
+                    "handler": task.handler,
+                    "args_json": task.args,
+                }
+            )
+            await self._runner.submit(
+                cast("DbSession", self._uow.session),
+                JobSubmission(
+                    job_type=TASK_RUN_JOB_TYPE,
+                    payload=payload,
+                    idempotency_key=f"task:{task_id}:{log_id}",
+                ),
+                tenant_id=tenant.tenant_id,
+            )
         return TaskTriggerResult(log_id=log_id, run_id=run_id)
 
     async def _require(self, task_id: int) -> SysTask:
@@ -408,7 +423,7 @@ class TaskService(BaseFrameworkObject):
             raise TaskTriggerTooFrequentError(f"任务触发过于频繁：{task_id}")
 
     def _db_key(self) -> str:
-        """取当前租户库键（队列载荷用）。
+        """取当前租户库键（作业负载用）。
 
         Returns:
             str: 当前租户上下文库键。

@@ -19,11 +19,11 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery
-from bms_core.tasks.queue import TaskQueue
 from bms_core.tasks.signal import TaskChangeSignal
 from bms_platform.domains.task.repositories.task import TaskLogRepository, TaskRepository
 from bms_platform.domains.task.schemas.task import TaskCreateRequest, TaskUpdateRequest
 from bms_platform.domains.task.services.task import TaskService
+from bms_platform.jobs import build_runner
 
 router = BaseRouter(
     key="task",
@@ -56,7 +56,7 @@ def _service(uow: UnitOfWork) -> TaskService:
         TaskRepository(session),
         TaskLogRepository(session),
         uow,
-        queue=TaskQueue(),
+        runner=build_runner(),
         signal=TaskChangeSignal(),
     )
 
