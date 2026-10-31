@@ -38,6 +38,8 @@ domain_shared_paths = [
   "backend/libs/bms_core/src/bms_core/models/outbox.py",
   "backend/libs/bms_core/src/bms_core/models/*/__init__.py",
   # ③ 存量业务文件（公共面，待迁入 domains/）
+  "backend/libs/bms_core/src/bms_core/models/job.py",
+  "backend/libs/bms_core/src/bms_core/jobs/**/*.py",
   "backend/libs/bms_core/src/bms_core/models/platform/demo.py",
   "backend/services/*/src/*/api/codecheck.py",
   "backend/services/*/src/*/api/demo.py",
@@ -471,6 +473,18 @@ paths = [
 ]
 public_api = [
   "bms_report.domains.report.public",
+]
+
+[[domains]]
+domain_key = "job"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/job/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/job.py",
+]
+public_api = [
+  "bms_platform.domains.job.public",
 ]
 
 

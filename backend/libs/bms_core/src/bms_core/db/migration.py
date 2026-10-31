@@ -151,8 +151,10 @@ COMMON_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
   保证建表集与分包前一致。
 """
 
-BASE_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(("bms_core.models.outbox",))
-"""基座基础设施模型（发件箱三表：不归业务域、每库一份，由部署单元级建表集追加）。"""
+BASE_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
+    ("bms_core.models.outbox", "bms_core.models.job")
+)
+"""基座基础设施模型（发件箱三表 + 作业记录两表：不归业务域、每库一份，由部署单元级建表集追加）。"""
 
 _DOMAIN_MODEL_CACHE: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
 """域 → 模型模块缓存（布局只读一次；键为域标识）。"""

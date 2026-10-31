@@ -199,6 +199,18 @@
       "public_api": [
         "bms_report.domains.report.public"
       ]
+    },
+    {
+      "domain_key": "job",
+      "service_key": "platform",
+      "status": "placement",
+      "paths": [
+        "backend/services/platform/src/bms_platform/domains/job/**/*.py",
+        "backend/libs/bms_core/src/bms_core/models/platform/job.py"
+      ],
+      "public_api": [
+        "bms_platform.domains.job.public"
+      ]
     }
   ],
   "shared_paths": [
@@ -209,6 +221,8 @@
     "backend/libs/bms_core/src/bms_core/models/base.py",
     "backend/libs/bms_core/src/bms_core/models/outbox.py",
     "backend/libs/bms_core/src/bms_core/models/*/__init__.py",
+    "backend/libs/bms_core/src/bms_core/models/job.py",
+    "backend/libs/bms_core/src/bms_core/jobs/**/*.py",
     "backend/libs/bms_core/src/bms_core/models/platform/demo.py",
     "backend/services/*/src/*/api/codecheck.py",
     "backend/services/*/src/*/api/demo.py",

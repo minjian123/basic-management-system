@@ -141,6 +141,20 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             datasource=Datasource.BOTH,
             note="死信（每服务每链各一）",
         ),
+        TableRecord(
+            table_name="sys_job",
+            owner=OWNER_EVERY_SERVICE,
+            domain="",
+            datasource=Datasource.BOTH,
+            note="异步作业记录（每服务每链各一；01_03）",
+        ),
+        TableRecord(
+            table_name="sys_job_error",
+            owner=OWNER_EVERY_SERVICE,
+            domain="",
+            datasource=Datasource.BOTH,
+            note="作业行级错误明细（随 sys_job 同链；01_03）",
+        ),
         # ---- 跨服务事务账本（TM 专属：平台侧独立基础设施库 `bms_txn`；去租户、与业务库物理分离）----
         TableRecord(
             table_name="txn_global",
@@ -282,6 +296,20 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             domain="platform_registry",
             datasource=Datasource.PLATFORM,
             note="发布清单域明细（一次发布一域一行；结构 / 服务 / 契约三版本快照，07C 04_01）",
+        ),
+        TableRecord(
+            table_name="sys_job_type",
+            owner="platform",
+            domain="job",
+            datasource=Datasource.PLATFORM,
+            note="作业类型目录（[[jobs]] 声明的只读投影；01_03）",
+        ),
+        TableRecord(
+            table_name="sys_job_monitor",
+            owner="platform",
+            domain="job",
+            datasource=Datasource.PLATFORM,
+            note="平台作业监控投影（四条生命周期事件 upsert；01_03）",
         ),
         TableRecord(
             table_name="sys_tenant_quota",
