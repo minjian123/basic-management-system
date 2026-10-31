@@ -11,6 +11,9 @@
 
 from __future__ import annotations
 
+# pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
+# 说明：redis-py 的 publish / PubSub 在严格模式下返回 Unknown（stub 未参数化）；本模块只做
+# 「发一条信号 / 读一条消息」的薄封装，不做业务类型推断，故在模块级关闭这三项未知类型告警。
 import asyncio
 
 from redis.asyncio import Redis as AsyncRedis

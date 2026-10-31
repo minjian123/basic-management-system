@@ -1,9 +1,12 @@
 """任务调度命令行护栏：清单输出 / 单轮诊断两种结果 / 动作互斥。"""
 
+from collections.abc import Callable
+
 import pytest
 
 import ops.task_scheduler as cli
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.config import Settings
 from bms_core.core.roots import BaseFrameworkObject
 from bms_core.tasks.scheduler import TenantTick, TickReport
 
@@ -43,6 +46,23 @@ class _StubRegistry(BaseFrameworkObject):
         """释放（空操作）。"""
 
 
+def _builder(scheduler: _StubScheduler) -> Callable[[Settings], tuple[_StubScheduler, _StubRegistry]]:
+    """构造与 `_build_scheduler` 同签名的替身工厂。
+
+    Args:
+        scheduler: 调度器替身。
+
+    Returns:
+        Callable[[Settings], tuple[_StubScheduler, _StubRegistry]]: 工厂函数。
+    """
+
+    def _factory(settings: Settings) -> tuple[_StubScheduler, _StubRegistry]:
+        _ = settings
+        return scheduler, _StubRegistry()
+
+    return _factory
+
+
 def test_list_prints_builtin_tasks(capsys: pytest.CaptureFixture[str]) -> None:
     """`--list` 打印四条内置任务并返回 0（不连库）。"""
     assert cli.main(ConcurrentStableList(["--list"])) == 0
@@ -55,7 +75,7 @@ def test_list_prints_builtin_tasks(capsys: pytest.CaptureFixture[str]) -> None:
 def test_once_reports_dispatch(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """`--beat --once`：取到锁时打印派发与回收条数并返回 0。"""
     scheduler = _StubScheduler()
-    monkeypatch.setattr(cli, "_build_scheduler", lambda settings: (scheduler, _StubRegistry()))
+    monkeypatch.setattr(cli, "_build_scheduler", _builder(scheduler))
     assert cli.main(ConcurrentStableList(["--beat", "--once"])) == 0
     assert "单轮派发 1 条" in capsys.readouterr().out
     assert scheduler.ticked == 1
@@ -64,7 +84,7 @@ def test_once_reports_dispatch(monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
 def test_once_reports_busy_lock(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """`--beat --once`：锁被占用时提示并返回 1（不静默当成成功）。"""
     scheduler = _StubScheduler(lock_held=False)
-    monkeypatch.setattr(cli, "_build_scheduler", lambda settings: (scheduler, _StubRegistry()))
+    monkeypatch.setattr(cli, "_build_scheduler", _builder(scheduler))
     assert cli.main(ConcurrentStableList(["--beat", "--once"])) == 1
     assert "调度锁被占用" in capsys.readouterr().out
 

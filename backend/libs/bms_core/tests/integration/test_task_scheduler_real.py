@@ -17,11 +17,16 @@ uv run pytest libs/bms_core/tests/integration/test_task_scheduler_real.py -v
 库用临时 SQLite（真库引擎、真事务），Redis 用开发服务器实例（真锁、真队列）。
 """
 
+# pyright: reportUnknownMemberType=false, reportUnnecessaryCast=false
+# 说明：redis-py 的 `from_url` / `ping` 在严格模式下返回 partially-unknown（stub 未参数化），
+# 本文件只做「连真 Redis 跑一轮」的集成装配，不做类型推断上的业务判定。
+
 from __future__ import annotations
 
 import asyncio
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -70,7 +75,7 @@ async def _probe(url: str) -> AsyncRedis:
     Raises:
         pytest.skip: 连不上（本机无该 Redis）。
     """
-    client = cast("AsyncRedis", AsyncRedis.from_url(url, decode_responses=False))
+    client: AsyncRedis = AsyncRedis.from_url(url, decode_responses=False)
     try:
         await client.ping()
     except Exception as exc:  # 环境不可用时跳过，不让 CI 红
@@ -79,7 +84,7 @@ async def _probe(url: str) -> AsyncRedis:
     return client
 
 
-async def test_two_beats_dispatch_once(tmp_path) -> None:
+async def test_two_beats_dispatch_once(tmp_path: Path) -> None:
     """双 beat 并发：真锁互斥 + 条件 UPDATE CAS，只派发一次。"""
     url = _redis_url()
     client = await _probe(url)

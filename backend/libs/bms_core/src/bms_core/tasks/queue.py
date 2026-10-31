@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import cast
 
 from redis.asyncio import Redis as AsyncRedis
 
@@ -154,7 +155,7 @@ def decode_spec(raw: str | bytes) -> tuple[TaskRunSpec | None, str | None]:
     if not isinstance(loaded, dict):
         return None, "队列载荷不是 JSON 对象"
     mapping: ConcurrentStableDict[str, object] = ConcurrentStableDict(
-        {str(key): value for key, value in loaded.items()}
+        {str(key): value for key, value in cast("dict[object, object]", loaded).items()}
     )
     for required in (_KEY_DB, _KEY_RUN_ID, _KEY_CODE, _KEY_HANDLER, _KEY_TASK_ID, _KEY_LOG_ID):
         if mapping.get(required) in (None, ""):

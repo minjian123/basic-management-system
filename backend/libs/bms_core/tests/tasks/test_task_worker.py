@@ -1,5 +1,8 @@
 """执行器护栏：成功 / 重试与耗尽 / 跳过 / 未登记 handler / 参数非法 / 脏消息 / 取消回队 / 终态事件。"""
 
+# pyright: reportUnusedFunction=false
+# 说明：执行体经 `module:attr` 字符串登记给执行器解析，静态分析看不到直接调用，故关闭该项。
+
 import asyncio
 from datetime import datetime
 from typing import Any

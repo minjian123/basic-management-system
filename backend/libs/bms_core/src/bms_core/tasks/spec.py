@@ -14,13 +14,9 @@ import json
 from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
-from bms_core.core.concurrent import (
-    ConcurrentStableDict,
-    ConcurrentStableFrozenDict,
-    ConcurrentStableList,
-)
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import TaskArgsInvalidError
 from bms_core.core.roots import BaseDataContract, BaseValueObject
 from bms_core.models.base import to_stable_value
@@ -66,10 +62,12 @@ def parse_task_args(raw: str | None) -> TaskArgs | None:
     except json.JSONDecodeError as exc:
         raise TaskArgsInvalidError(f"任务参数不是合法 JSON：{exc.msg}") from exc
     if isinstance(loaded, dict):
-        mapping = {str(key): to_stable_value(item) for key, item in loaded.items()}
-        return ConcurrentStableDict(mapping)
+        mapping: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {str(key): to_stable_value(item) for key, item in cast("dict[object, object]", loaded).items()}
+        )
+        return mapping
     if isinstance(loaded, list):
-        return ConcurrentStableList(to_stable_value(item) for item in loaded)
+        return ConcurrentStableList(to_stable_value(item) for item in cast("list[object]", loaded))
     raise TaskArgsInvalidError("任务参数顶层须为 JSON 对象或数组")
 
 
@@ -166,9 +164,6 @@ class TaskContext(BaseDataContract):
 
     open_session: Callable[[], AbstractAsyncContextManager[Any]] | None = field(default=None, repr=False)
     """租户库会话开合口（执行器注入；执行体不自建连接 / 不另起事件循环）。"""
-
-    extra: ConcurrentStableFrozenDict[str, object] = field(default_factory=ConcurrentStableFrozenDict, repr=False)
-    """附加元数据（预留：跨任务传参 / 诊断信息；默认空）。"""
 
     def session(self) -> AbstractAsyncContextManager[Any]:
         """取租户库会话上下文（`async with ctx.session() as session:`）。
