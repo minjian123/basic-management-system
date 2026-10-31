@@ -29,6 +29,8 @@ from bms_core.events.rocketmq_consumer import RocketMqEventConsumerGroup
 from bms_core.events.topic import encode_event, event_attributes
 from bms_core.models.outbox import SysEventDeadLetter
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 class _Message:
     """消息替身（与 SDK `Message` 同形的最小字段集）。"""
@@ -205,7 +207,7 @@ def _group(
         ConcurrentStableList(
             [
                 EventConsumerRecord(
-                    consumer="bms.audit.chain",
+                    consumer="bms-audit-chain",
                     event_type=handler.event_type,
                     handler_factory=lambda: handler,
                     ordered=True,
@@ -262,7 +264,7 @@ async def test_poison_message_goes_dead_without_retry(dead_letter_registry: Engi
     assert handler.calls == 0
     rows = await _dead_letters(dead_letter_registry)
     assert len(rows) == 1
-    assert rows[0].consumer == "bms.audit.chain"
+    assert rows[0].consumer == "bms-audit-chain"
     assert "不是合法 JSON" in rows[0].error_msg
     await group.aclose()
 
@@ -346,7 +348,7 @@ async def test_subscriptions_reflect_declarations(dead_letter_registry: EngineRe
     """订阅清单由声明派生（供契约覆盖校验）。"""
     group = _group(dead_letter_registry, _Consumer(), _Handler())
     subscriptions = group.subscriptions()
-    assert [(item.consumer, item.event_type) for item in subscriptions] == [("bms.audit.chain", "sys.user.created")]
+    assert [(item.consumer, item.event_type) for item in subscriptions] == [("bms-audit-chain", "sys.user.created")]
     await group.aclose()
 
 

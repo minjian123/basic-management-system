@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import time
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -44,12 +45,15 @@ from bms_core.events.contracts import EventSubscription, event_version_compatibl
 from bms_core.events.dead_letter import EventDeadLetterEntry, EventDeadLetterRecorder
 from bms_core.events.dedup import EventConsumeDedup
 from bms_core.events.lane import KeyedLaneExecutor
-from bms_core.events.topic import ATTR_EVENT_ID, decode_event
+from bms_core.events.topic import ATTR_EVENT_ID, decode_event, topic_for
 from bms_core.metrics.base import BaseMetrics
 
 __all__ = ["RocketMqEventConsumerGroup"]
 
 _LOGGER = get_logger("bms")
+
+_GROUP_REGISTER_WAIT_SECONDS = 1.5
+"""首次建连后等待消费组在 broker 侧注册完成（秒）。"""
 
 _METRIC_CONSUME = "bms_event_consume_total"
 _METRIC_DEAD = "bms_event_dead_letter_total"
@@ -309,13 +313,33 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
                 f"订阅不支持该契约版本：{event.event_version}",
                 event=event,
             )
+        # 幂等预判 + 处理 + 标记**整体进串行道**：同批次里同一 event_id 的两条消息若并发预判，
+        # 都会在对方标记之前读到「未处理」→ 重复执行。同 key 串行后，后一条必然看到前一条的标记。
+        lanes = runtime.lanes_or_create()
+        return await lanes.submit(
+            _partition_key(event),
+            lambda: self._consume_once_deduped(runtime, event, handler),
+        )
+
+    async def _consume_once_deduped(
+        self, runtime: _GroupRuntime, event: EventEnvelope, handler: EventConsumer
+    ) -> tuple[str, bool]:
+        """串行道内执行「预判 → 处理 → 标记」。（返回值同 `_process_one`）。
+
+        Args:
+            runtime: 组运行时。
+            event: 事件信封。
+            handler: 处理器。
+
+        Returns:
+            tuple[str, bool]: （结果类别，是否可 ack）。
+        """
         if await self._dedup.seen(group=runtime.name, event_id=event.event_id or ""):
             return ("skipped", True)
-        lanes = runtime.lanes_or_create()
         try:
-            await lanes.submit(_partition_key(event), lambda: handler.consume(event))
+            await handler.consume(event)
         except Exception as exc:
-            return await self._retry_or_dead(runtime, message, event, exc)
+            return await self._retry_or_dead(runtime, None, event, exc)
         await self._dedup.remember(group=runtime.name, event_id=event.event_id or "")
         return ("succeeded", True)
 
@@ -401,7 +425,8 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
         """
         if runtime.consumer is not None:
             return runtime.consumer
-        topics = ConcurrentStableList(runtime.handlers.keys())
+        # 订阅按 **topic** 而非事件类型：多个事件类型可能落在同一 topic（域的同一对象），去重后订阅
+        topics = ConcurrentStableList({topic_for(event_type) for event_type in runtime.handlers})
         if self._consumer_factory is not None:
             runtime.consumer = self._consumer_factory(runtime.name, topics)
         else:
@@ -434,19 +459,21 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
             ) from exc
         has_credentials = bool(rocketmq.access_key and rocketmq.secret_key)
         credentials = Credentials(rocketmq.access_key, rocketmq.secret_key) if has_credentials else Credentials()
+        # 长轮询时长必须**显著小于** gRPC 请求超时，否则 SDK 报 40018（deadline 不够 polling）
+        poll_seconds = max(1, int(self._settings.event_consumer.poll_interval_seconds))
+        request_timeout = max(int(rocketmq.request_timeout_seconds), poll_seconds + 5)
         config = (
-            ClientConfiguration(rocketmq.endpoints, credentials, rocketmq.namespace)
+            ClientConfiguration(rocketmq.endpoints, credentials, rocketmq.namespace, request_timeout=request_timeout)
             if rocketmq.namespace
-            else ClientConfiguration(rocketmq.endpoints, credentials)
+            else ClientConfiguration(rocketmq.endpoints, credentials, request_timeout=request_timeout)
         )
-        consumer = SimpleConsumer(
-            config,
-            group,
-            await_duration=max(1, int(self._settings.event_consumer.poll_interval_seconds)),
-        )
+        consumer = SimpleConsumer(config, group, await_duration=poll_seconds)
         consumer.startup()
         for topic in topics:
             consumer.subscribe(topic)
+        # 消费组靠 heartbeat 在 broker 侧注册；注册完成前 proxy 的 receive 会抛 50001（NPE）。
+        # 首次建连后短暂等待，避免「刚启动就拉取」必然失败（后续拉取由循环与退避兜底）。
+        time.sleep(_GROUP_REGISTER_WAIT_SECONDS)
         _LOGGER.info("rocketmq_consumer_started", group=group, topics=list(topics), endpoints=rocketmq.endpoints)
         return consumer
 

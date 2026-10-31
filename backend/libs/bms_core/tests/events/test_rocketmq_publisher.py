@@ -13,6 +13,8 @@ from bms_core.events.base import EventEnvelope
 from bms_core.events.rocketmq_publisher import EventPublishError, RocketMqEventPublisher
 from bms_core.events.topic import ATTR_EVENT_ID, ATTR_EVENT_TYPE, decode_event
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 class _Message:
     """消息替身（与 SDK `Message` 同形的最小接口）。"""
@@ -130,10 +132,10 @@ def _event(event_type: str = "sys.user.created", **overrides: object) -> EventEn
 
 
 async def test_publish_routes_to_domain_object_topic() -> None:
-    """topic 取事件名前两段（`sys.user.created` → `bms.sys.user`）。"""
+    """topic 取事件名前两段（`sys.user.created` → `bms-sys-user`）。"""
     factory = _Factory()
     await _publisher(factory).publish(_event())
-    assert [producer.topic for producer in factory.created] == ["bms.sys.user"]
+    assert [producer.topic for producer in factory.created] == ["bms-sys-user"]
 
 
 async def test_publish_reuses_producer_per_topic() -> None:
@@ -152,7 +154,7 @@ async def test_publish_creates_producer_per_topic() -> None:
     publisher = _publisher(factory)
     await publisher.publish(_event("sys.user.created"))
     await publisher.publish(_event("wf.task.completed"))
-    assert sorted(producer.topic for producer in factory.created) == ["bms.sys.user", "bms.wf.task"]
+    assert sorted(producer.topic for producer in factory.created) == ["bms-sys-user", "bms-wf-task"]
 
 
 async def test_message_carries_envelope_and_attributes() -> None:

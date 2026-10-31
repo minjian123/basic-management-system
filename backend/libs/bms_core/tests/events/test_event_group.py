@@ -20,6 +20,8 @@ from bms_core.events.base import (
 from bms_core.events.consumer_records import EventConsumerRecord
 from bms_core.events.null import NullEventConsumer, NullEventConsumerGroup
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 class _Handler(EventConsumer):
     """测试处理器。"""
@@ -42,7 +44,7 @@ def _factory() -> _Handler:
     return _Handler()
 
 
-def _record(consumer: str = "audit.chain", event_type: str = "sys.user.created") -> EventConsumerRecord:
+def _record(consumer: str = "audit-chain", event_type: str = "sys.user.created") -> EventConsumerRecord:
     """构造一条声明。
 
     Args:
@@ -81,7 +83,7 @@ def test_null_group_loads_records_without_starting() -> None:
     group.load(ConcurrentStableList([_record(), _record()]))
     assert len(group.records) == 1
     subscriptions = group.subscriptions()
-    assert [(item.consumer, item.event_type) for item in subscriptions] == [("audit.chain", "sys.user.created")]
+    assert [(item.consumer, item.event_type) for item in subscriptions] == [("audit-chain", "sys.user.created")]
 
 
 def test_null_group_load_keeps_multiple_event_types() -> None:

@@ -38,8 +38,11 @@ __all__ = [
     "validate_event_consumer_records",
 ]
 
-CONSUMER_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
-"""消费组名形态：点分小写、至少两段（`{group_prefix}.{域}`，如 `bms.audit.chain`）。"""
+CONSUMER_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*(-[a-z0-9_]+)+$")
+"""消费组名形态：小写连字符分隔、至少两段（`{group_prefix}-{域}`，如 `bms-audit-chain`）。
+
+用连字符而非点号：RocketMQ 的 topic / 消费组名只接受 `[%a-zA-Z0-9_-]`，点号会被客户端直接拒绝。
+"""
 
 DEFAULT_GROUP_PREFIX = "bms"
 """消费组名缺省前缀（`[event_consumer].group_prefix` 未配置时）。"""
@@ -50,7 +53,7 @@ class EventConsumerRecord(BaseValueObject):
     """消费组声明（服务自持；基座合并后装载进组运行器）。
 
     Attributes:
-        consumer: 组名（`{group_prefix}.{域}`；不含前缀时由装载方补齐）。
+        consumer: 组名（`{group_prefix}-{域}`；不含前缀时由装载方补齐）。
         event_type: 订阅的事件类型（须已登记契约）。
         handler_factory: 处理器工厂（每次启动构造独立实例）。
         ordered: 是否全组串行（True → 该组 lane 固定 1，审计链组等强顺序场景）。
@@ -70,7 +73,7 @@ def qualify_consumer(consumer: str, *, group_prefix: str = DEFAULT_GROUP_PREFIX)
     """补齐组名前缀（已含前缀 / 多段组名保持原样）。
 
     Args:
-        consumer: 组名（如 `audit.chain` 或 `bms.audit.chain`）。
+        consumer: 组名（如 `audit-chain` 或 `bms-audit-chain`）。
         group_prefix: 组名前缀（`[event_consumer].group_prefix`）。
 
     Returns:
@@ -78,10 +81,10 @@ def qualify_consumer(consumer: str, *, group_prefix: str = DEFAULT_GROUP_PREFIX)
     """
     if not consumer:
         return consumer
-    prefix = (group_prefix or DEFAULT_GROUP_PREFIX).strip().strip(".")
-    if not prefix or consumer == prefix or consumer.startswith(f"{prefix}."):
+    prefix = (group_prefix or DEFAULT_GROUP_PREFIX).strip().strip("-.")
+    if not prefix or consumer == prefix or consumer.startswith(f"{prefix}-"):
         return consumer
-    return f"{prefix}.{consumer}"
+    return f"{prefix}-{consumer}"
 
 
 def merge_event_consumer_records(
@@ -143,7 +146,7 @@ def validate_event_consumer_records(
     for record in records:
         label = f"{record.consumer} ← {record.event_type}"
         if not record.consumer or not CONSUMER_NAME_RE.fullmatch(record.consumer):
-            errors.add(f"消费组名非法（应为点分小写、至少两段）：{record.consumer!r}")
+            errors.add(f"消费组名非法（应为小写连字符分隔、至少两段）：{record.consumer!r}")
         if not EVENT_TYPE_RE.fullmatch(record.event_type):
             errors.add(f"订阅事件类型非法：{label}")
         elif resolve_event_contract(record.event_type, registry=contract_registry) is None:

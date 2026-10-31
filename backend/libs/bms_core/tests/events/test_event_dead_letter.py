@@ -17,6 +17,8 @@ from bms_core.events.dead_letter import EventDeadLetterEntry, EventDeadLetterRec
 from bms_core.models.outbox import SysEventDeadLetter
 from bms_core.outbox.base import DEAD_LETTER_SOURCE_CONSUMER, ERROR_MSG_MAX_LENGTH
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 def _entry(**overrides: object) -> EventDeadLetterEntry:
     """构造一条死信（缺省字段取合法值）。
@@ -29,7 +31,7 @@ def _entry(**overrides: object) -> EventDeadLetterEntry:
     """
     base: ConcurrentStableDict[str, object] = ConcurrentStableDict(
         {
-            "consumer": "bms.audit.chain",
+            "consumer": "bms-audit-chain",
             "event_id": "evt-1",
             "event_type": "sys.user.created",
             "error_msg": "boom",
@@ -65,7 +67,7 @@ async def test_record_writes_consumer_dead_letter(dead_letter_registry: EngineRe
     assert len(rows) == 1
     row = rows[0]
     assert row.source == DEAD_LETTER_SOURCE_CONSUMER
-    assert row.consumer == "bms.audit.chain"
+    assert row.consumer == "bms-audit-chain"
     assert row.event_id == "evt-1"
     assert row.event_type == "sys.user.created"
     assert row.aggregate_key == "1234567890"
@@ -134,7 +136,7 @@ async def test_missing_payload_defaults_to_empty(dead_letter_registry: EngineReg
     """负载缺省为空对象（无载荷事件也能入死信排障）。"""
     recorder = EventDeadLetterRecorder(engine_registry=dead_letter_registry)
     entry = EventDeadLetterEntry(
-        consumer="bms.log.operation",
+        consumer="bms-log-operation",
         event_id="evt-9",
         event_type="sys.user.created",
         error_msg="decode failed",

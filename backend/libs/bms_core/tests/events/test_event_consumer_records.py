@@ -18,6 +18,8 @@ from bms_core.events.consumer_records import (
 )
 from bms_core.events.platform_events import register_platform_event_contracts
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 class _Handler(EventConsumer):
     """测试处理器（记录收到的事件）。"""
@@ -64,7 +66,7 @@ def _records(*items: EventConsumerRecord) -> ConcurrentStableList[EventConsumerR
 
 def _record(
     *,
-    consumer: str = "audit.chain",
+    consumer: str = "audit-chain",
     event_type: str = "sys.user.created",
     handler_factory: object = _first_handler,
     ordered: bool = False,
@@ -99,9 +101,9 @@ def _platform_contracts() -> None:
 
 def test_qualify_consumer_prefixes_bare_name() -> None:
     """裸组名补前缀；已含前缀 / 多段保持原样。"""
-    assert qualify_consumer("audit.chain") == "bms.audit.chain"
-    assert qualify_consumer("bms.audit.chain") == "bms.audit.chain"
-    assert qualify_consumer("audit.chain", group_prefix="bms_x") == "bms_x.audit.chain"
+    assert qualify_consumer("audit-chain") == "bms-audit-chain"
+    assert qualify_consumer("bms-audit-chain") == "bms-audit-chain"
+    assert qualify_consumer("audit-chain", group_prefix="bms-x") == "bms-x-audit-chain"
 
 
 def test_qualify_consumer_keeps_empty() -> None:
@@ -113,7 +115,7 @@ def test_merge_deduplicates_same_declaration() -> None:
     """同 `(组, 事件)` 且同处理器 → 去重保留一条，顺序稳定。"""
     merged = merge_event_consumer_records(_records(_record(), _record()))
     assert len(merged) == 1
-    assert merged[0].consumer == "bms.audit.chain"
+    assert merged[0].consumer == "bms-audit-chain"
 
 
 def test_merge_rejects_conflicting_handlers() -> None:
@@ -136,7 +138,7 @@ def test_validate_accepts_registered_contract() -> None:
 
 def test_validate_rejects_bad_group_name() -> None:
     """组名不合规（单段 / 大写 / 短横线）→ 拒。"""
-    for name in ("audit", "Audit.Chain", "audit-chain.x"):
+    for name in ("audit", "Audit-Chain", "audit-chain.x"):
         errors = validate_event_consumer_records(_records(_record(consumer=name)))
         assert any("消费组名非法" in error for error in errors), name
 

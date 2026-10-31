@@ -258,10 +258,11 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
             return None
         has_credentials = bool(self._access_key and self._secret_key)
         credentials = Credentials(self._access_key, self._secret_key) if has_credentials else Credentials()
+        timeout = max(1, int(self._request_timeout_seconds))
         self._config = (
-            ClientConfiguration(self._endpoints, credentials, self._namespace)
+            ClientConfiguration(self._endpoints, credentials, self._namespace, request_timeout=timeout)
             if self._namespace
-            else ClientConfiguration(self._endpoints, credentials)
+            else ClientConfiguration(self._endpoints, credentials, request_timeout=timeout)
         )
         return self._config
 

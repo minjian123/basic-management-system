@@ -12,6 +12,8 @@ from redis.asyncio import Redis
 
 from bms_core.events.dedup import EventConsumeDedup, dedup_key
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 class _BrokenClient:
     """恒抛连接异常的客户端替身（验证降级放行）。"""

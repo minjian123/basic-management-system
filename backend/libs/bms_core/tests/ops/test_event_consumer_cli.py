@@ -9,6 +9,8 @@ import pytest
 from bms_core.core.concurrent import ConcurrentStableList
 from ops.event_consumer import main
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 def test_groups_lists_declarations(capsys: pytest.CaptureFixture[str]) -> None:
     """`--groups` 打印服务声明与开关；平台服务当前未声明消费组（0 条）。"""

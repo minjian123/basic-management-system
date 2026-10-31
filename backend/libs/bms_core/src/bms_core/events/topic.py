@@ -1,6 +1,6 @@
 """事件通道编码：topic 派生与「信封 ↔ 消息体 / 消息属性」编解码（纯函数，无 IO）。
 
-- **topic 派生**：`bms.{事件域}.{对象}`——取事件名前两段。同对象的多个动作落同一 topic
+- **topic 派生**：`bms-{事件域}-{对象}`——取事件名前两段。同对象的多个动作落同一 topic
   （`wf.task` 承载 created / completed / rejected），topic 数量不随动作数膨胀；订阅仍按
   `event_type` 精确匹配（组内声明），topic 只承担通道与分区职责。
 - **消息体**：完整信封 JSON，确定性输出（键排序、非 ASCII 直出），便于对账与排障。
@@ -32,6 +32,7 @@ __all__ = [
     "ATTR_TRACE_ID",
     "TOPIC_MAX_SEGMENTS",
     "TOPIC_PREFIX",
+    "TOPIC_SEPARATOR",
     "decode_event",
     "encode_event",
     "event_attributes",
@@ -40,6 +41,9 @@ __all__ = [
 
 TOPIC_PREFIX = "bms"
 """topic 前缀（与《命名规范》「RocketMQ topic」同口径）。"""
+
+TOPIC_SEPARATOR = "-"
+"""topic 段分隔符：RocketMQ 只接受 `[%a-zA-Z0-9_-]`，**点号会直接被 broker 客户端拒发**。"""
 
 TOPIC_MAX_SEGMENTS = 2
 """topic 取事件名前几段（域 + 对象）。"""
@@ -79,7 +83,7 @@ def topic_for(event_type: str) -> str:
         event_type: 事件类型（`{域}.{对象}.{动作}`，至少两段）。
 
     Returns:
-        str: topic 名（如 `sys.user.created` → `bms.sys.user`）。
+        str: topic 名（如 `sys.user.created` → `bms-sys-user`）。
 
     Raises:
         EventConsumeError: 事件类型不合规（段数不足 / 形态非法）。
@@ -87,7 +91,7 @@ def topic_for(event_type: str) -> str:
     if not EVENT_TYPE_RE.match(event_type):
         raise EventConsumeError(f"事件类型非法，无法派生 topic：{event_type!r}")
     parts = event_type.split(".")
-    return ".".join((TOPIC_PREFIX, *parts[:TOPIC_MAX_SEGMENTS]))
+    return TOPIC_SEPARATOR.join((TOPIC_PREFIX, *parts[:TOPIC_MAX_SEGMENTS]))
 
 
 def encode_event(event: EventEnvelope) -> bytes:

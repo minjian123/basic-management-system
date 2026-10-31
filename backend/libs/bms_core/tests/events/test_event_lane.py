@@ -12,6 +12,8 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import EventConsumeError
 from bms_core.events.lane import KeyedLaneExecutor, lane_index
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 def test_lane_index_is_stable_and_bounded() -> None:
     """同键恒定落同道；道号在 [0, lanes) 内；不同键可分散。"""

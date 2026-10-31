@@ -286,6 +286,7 @@ def test_contract_mode_invalid_rejected() -> None:
         SqlOutboxStore(contract_mode="loud")
 
 
+@pytest.mark.kiwi_id(2370)
 async def test_enqueue_persists_trace_id_and_restores_envelope(session: AsyncSession) -> None:
     """链路 id 落库并保真：投递器重建信封时 `trace_id` 不丢（消费端据此续接 span / 日志）。"""
     store = SqlOutboxStore()
@@ -306,6 +307,7 @@ async def test_enqueue_persists_trace_id_and_restores_envelope(session: AsyncSes
     assert record.to_envelope().trace_id == "a" * 32
 
 
+@pytest.mark.kiwi_id(2370)
 async def test_enqueue_without_trace_keeps_null(session: AsyncSession) -> None:
     """无链路上下文时写 NULL（不编造 trace_id，避免假链路）。"""
     store = SqlOutboxStore()

@@ -26,17 +26,19 @@ from bms_core.events.topic import (
     topic_for,
 )
 
+pytestmark = pytest.mark.kiwi_id(2370)
+
 
 def test_topic_for_takes_domain_and_object() -> None:
     """topic 取事件名前两段：动作不进 topic。"""
-    assert topic_for("sys.user.created") == "bms.sys.user"
-    assert topic_for("sys.user.updated") == "bms.sys.user"
-    assert topic_for("wf.task.completed") == "bms.wf.task"
+    assert topic_for("sys.user.created") == "bms-sys-user"
+    assert topic_for("sys.user.updated") == "bms-sys-user"
+    assert topic_for("wf.task.completed") == "bms-wf-task"
 
 
 def test_topic_for_two_segment_event() -> None:
     """两段事件名全取（域 + 事件），与架构示例同形。"""
-    assert topic_for("notification.sent") == "bms.notification.sent"
+    assert topic_for("notification.sent") == "bms-notification-sent"
 
 
 def test_topic_for_rejects_invalid_event_type() -> None:
