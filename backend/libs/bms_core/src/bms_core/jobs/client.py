@@ -7,9 +7,11 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
+from bms_core.core.config import get_settings
 from bms_core.core.exceptions import (
     JobHandlerNotRegisteredError,
     JobNotCancelableError,
@@ -20,9 +22,10 @@ from bms_core.core.exceptions import (
     ServiceUnavailableError,
 )
 from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.servicecall.base import BaseServiceClient, ServiceCallPolicy, ServiceRequest
 
-__all__ = ["JOB_INTERNAL_PATH", "JobInternalClient"]
+__all__ = ["JOB_INTERNAL_PATH", "JobInternalClient", "build_service_client"]
 
 JOB_INTERNAL_PATH = "/api/v1/jobs/internal"
 """作业内部契约根路径。"""
@@ -36,6 +39,28 @@ _ERROR_TYPES: dict[int, type[Exception]] = {
     71006: JobHandlerNotRegisteredError,
 }
 """内部契约业务错误码 → 异常类型。"""
+
+
+def build_service_client() -> BaseServiceClient:
+    """解析服务间调用客户端（按 `[service_client].provider` 构建注册表）。
+
+    Returns:
+        BaseServiceClient: 调用客户端。
+
+    Raises:
+        ServiceUnavailableError: 未启用服务间调用实现（provider 为空）。
+    """
+    settings = get_settings()
+    provider = settings.service_client.provider
+    if not provider:
+        raise ServiceUnavailableError("服务间调用实现未启用（[service_client].provider 为空）")
+    for module in ("bms_core.servicecall.null", "bms_core.servicecall.http"):
+        import_module(module)
+    build_plugin_registry()
+    return cast(
+        "BaseServiceClient",
+        resolve_plugin("service_client", provider, expected_version=BaseServiceClient.contract_version),
+    )
 
 
 class JobInternalClient(BaseFrameworkObject):

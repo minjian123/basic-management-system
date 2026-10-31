@@ -15,10 +15,13 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.registry import EngineRegistry
 from bms_core.dict.outlet import register_data_source
+from bms_core.events.consumer_records import EventConsumerRecord
 from bms_core.permission.rbac import RBAC_PROVIDER_NAME
 from bms_core.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
+from bms_platform.domains.job.jobs import event_consumer_records as job_event_consumer_records
+from bms_platform.domains.job.services.bootstrap import bootstrap_job_types
 from bms_platform.domains.permission_meta.icon.registry import (  # noqa: F401  (导入即登记 icon_registry:db)
     DB_ICON_PROVIDER,
     DbIconRegistry,  # pyright: ignore[reportUnusedImport]
@@ -91,8 +94,21 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             ConcurrentStableList[StartupHook]: 启动钩子清单。
         """
         return ConcurrentStableList(
-            (bootstrap_platform_declarations, bootstrap_capability_grants, bootstrap_tenant_topologies)
+            (
+                bootstrap_platform_declarations,
+                bootstrap_job_types,
+                bootstrap_capability_grants,
+                bootstrap_tenant_topologies,
+            )
         )
+
+    def event_consumer_records(self) -> ConcurrentStableList[EventConsumerRecord]:
+        """平台自持的事件消费组声明（作业监控投影）。
+
+        Returns:
+            ConcurrentStableList[EventConsumerRecord]: 消费组声明。
+        """
+        return job_event_consumer_records()
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）与权限实现。

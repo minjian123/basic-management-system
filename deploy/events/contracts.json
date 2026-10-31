@@ -210,6 +210,114 @@
     },
     {
       "deprecated": false,
+      "description": "异步作业进入终态",
+      "event_type": "sys.job.completed",
+      "fields": {
+        "attempts": {
+          "required": true,
+          "type": "integer"
+        },
+        "error": {
+          "required": false,
+          "type": "string"
+        },
+        "job_id": {
+          "required": true,
+          "type": "string"
+        },
+        "job_type": {
+          "required": true,
+          "type": "string"
+        },
+        "service_key": {
+          "required": true,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "异步作业进度更新",
+      "event_type": "sys.job.progress",
+      "fields": {
+        "job_id": {
+          "required": true,
+          "type": "string"
+        },
+        "job_type": {
+          "required": true,
+          "type": "string"
+        },
+        "progress_done": {
+          "required": true,
+          "type": "integer"
+        },
+        "progress_total": {
+          "required": false,
+          "type": "integer"
+        },
+        "service_key": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "异步作业开始执行",
+      "event_type": "sys.job.started",
+      "fields": {
+        "attempt": {
+          "required": true,
+          "type": "integer"
+        },
+        "job_id": {
+          "required": true,
+          "type": "string"
+        },
+        "job_type": {
+          "required": true,
+          "type": "string"
+        },
+        "service_key": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "异步作业提交成功",
+      "event_type": "sys.job.submitted",
+      "fields": {
+        "job_id": {
+          "required": true,
+          "type": "string"
+        },
+        "job_type": {
+          "required": true,
+          "type": "string"
+        },
+        "service_key": {
+          "required": true,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
       "description": "公告发布 / 更新 / 下线",
       "event_type": "sys.notice.published",
       "fields": {

@@ -17,16 +17,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from importlib import import_module
-from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ServiceUnavailableError
-from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.roots import BaseValueObject
-from bms_core.jobs.client import JobInternalClient
-from bms_core.servicecall.base import BaseServiceClient
+from bms_core.jobs.client import JobInternalClient, build_service_client
 from bms_core.tasks.spec import TaskContext, TaskResult
 
 __all__ = [
@@ -133,28 +128,6 @@ def _skipped(owner: str) -> TaskResult:
         TaskResult: `skipped` 结果。
     """
     return TaskResult.skipped(f"占位实现：真实逻辑归口 {owner}；策略定稿后在此实现")
-
-
-def build_service_client() -> BaseServiceClient:
-    """解析服务间调用客户端（离线执行体用：按 `[service_client].provider` 构建注册表）。
-
-    Returns:
-        BaseServiceClient: 调用客户端。
-
-    Raises:
-        ServiceUnavailableError: 未启用服务间调用实现（provider 为空）。
-    """
-    settings = get_settings()
-    provider = settings.service_client.provider
-    if not provider:
-        raise ServiceUnavailableError("服务间调用实现未启用（[service_client].provider 为空）")
-    for module in ("bms_core.servicecall.null", "bms_core.servicecall.http"):
-        import_module(module)
-    build_plugin_registry()
-    return cast(
-        "BaseServiceClient",
-        resolve_plugin("service_client", provider, expected_version=BaseServiceClient.contract_version),
-    )
 
 
 async def run_cleanup_orphan_parts(ctx: TaskContext) -> TaskResult:

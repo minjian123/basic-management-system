@@ -12,6 +12,8 @@ from bms_platform.api import (
     outbox,
     plugins,
 )
+from bms_platform.domains.job.api import internal_job as internal_job_api
+from bms_platform.domains.job.api import job as job_api
 from bms_platform.domains.menu_form.api import form_key, menu
 from bms_platform.domains.permission_meta.api import icon, permission, permission_meta
 from bms_platform.domains.platform_config.api import configs, internal_config, query_scheme
@@ -90,6 +92,9 @@ api_router = mount_service_routers(
             releases.router,
             # 任务调度（01_02）：任务定义 / 启停 / 手动触发 / 执行记录
             task_api.router,
+            # 异步作业中心（01_03）：类型目录 / 统一列表 / 详情 / 取消 / 重试 + 服务内部面
+            job_api.router,
+            internal_job_api.router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
         ]

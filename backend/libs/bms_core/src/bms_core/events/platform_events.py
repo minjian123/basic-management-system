@@ -30,6 +30,7 @@ __all__ = [
 _STRING_REQUIRED = EventFieldSpec(type="string", required=True)
 _STRING_OPTIONAL = EventFieldSpec(type="string")
 _INTEGER_REQUIRED = EventFieldSpec(type="integer", required=True)
+_INTEGER_OPTIONAL = EventFieldSpec(type="integer")
 _BOOLEAN_REQUIRED = EventFieldSpec(type="boolean", required=True)
 
 TENANT_ID_PAYLOAD_KEY = "tenant_id"
@@ -203,6 +204,57 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
             event_type="sys.task.completed",
             description="定时任务执行完成",
             fields=ConcurrentStableFrozenDict({"task_id": _STRING_REQUIRED, "status": _STRING_REQUIRED}),
+        ),
+        EventContract(
+            event_type="sys.job.submitted",
+            description="异步作业提交成功",
+            fields=ConcurrentStableFrozenDict(
+                {
+                    "job_id": _STRING_REQUIRED,
+                    "job_type": _STRING_REQUIRED,
+                    "service_key": _STRING_REQUIRED,
+                    "status": _STRING_REQUIRED,
+                }
+            ),
+        ),
+        EventContract(
+            event_type="sys.job.started",
+            description="异步作业开始执行",
+            fields=ConcurrentStableFrozenDict(
+                {
+                    "job_id": _STRING_REQUIRED,
+                    "job_type": _STRING_REQUIRED,
+                    "service_key": _STRING_REQUIRED,
+                    "attempt": _INTEGER_REQUIRED,
+                }
+            ),
+        ),
+        EventContract(
+            event_type="sys.job.progress",
+            description="异步作业进度更新",
+            fields=ConcurrentStableFrozenDict(
+                {
+                    "job_id": _STRING_REQUIRED,
+                    "job_type": _STRING_REQUIRED,
+                    "service_key": _STRING_REQUIRED,
+                    "progress_done": _INTEGER_REQUIRED,
+                    "progress_total": _INTEGER_OPTIONAL,
+                }
+            ),
+        ),
+        EventContract(
+            event_type="sys.job.completed",
+            description="异步作业进入终态",
+            fields=ConcurrentStableFrozenDict(
+                {
+                    "job_id": _STRING_REQUIRED,
+                    "job_type": _STRING_REQUIRED,
+                    "service_key": _STRING_REQUIRED,
+                    "status": _STRING_REQUIRED,
+                    "attempts": _INTEGER_REQUIRED,
+                    "error": _STRING_OPTIONAL,
+                }
+            ),
         ),
         EventContract(
             event_type="tenant.created",
