@@ -73,6 +73,7 @@ from bms_core.edge.marker import MarkerEdgeTrust
 from bms_core.edge.service_jwt import ServiceJwtEdgeTrustFactory
 from bms_core.events.base import BaseEventConsumerGroup, EventPublisher
 from bms_core.events.platform_events import register_platform_event_contracts
+from bms_core.events.rocketmq_consumer import RocketMqEventConsumerGroup
 from bms_core.events.rocketmq_publisher import RocketMqEventPublisher
 from bms_core.fallback.base import BaseFallbackPolicy
 from bms_core.fieldtype.base import BaseFieldTypeRegistry
@@ -435,6 +436,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
     register_plugin("tenant_module", "remote", RemoteTenantModuleGateFactory(settings, app))
     register_plugin("event", "rocketmq", RocketMqEventPublisherFactory(settings))
+    register_plugin("event_consumer", "rocketmq", RocketMqEventConsumerGroupFactory(settings, app))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
@@ -1074,6 +1076,50 @@ class TableOwnershipGuardFactory(BasePluginFactory[TableOwnershipGuard]):
             settings.app.service,
             mode=settings.data_ownership.mode,
             exceptions=entries,
+            metrics=metrics,
+        )
+
+
+class RocketMqEventConsumerGroupFactory(BasePluginFactory[RocketMqEventConsumerGroup]):
+    """RocketMQ 消费组运行时工厂（`rocketmq`：多组并行 + 组内键级串行）。
+
+    零参工厂**不声明 `plugin_name`**（避免被插件注册表自动收集）；经 `register_plugin` 显式登记。
+    声明装载由 `service_lifespan` 在装配前完成（`event_consumer_records()` 钩子 → 合并 → `load`）。
+    """
+
+    plugin_key: str = "event_consumer"
+
+    def __init__(self, settings: Settings, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[event_consumer]` / `[rocketmq]`）。
+            app: 应用实例（取引擎注册表 / 会话工厂 / 指标）。
+        """
+        self._settings = settings
+        self._app = app
+
+    def create(self, options: None = None) -> RocketMqEventConsumerGroup:
+        """构造消费组运行时。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RocketMqEventConsumerGroup: 运行时实例。
+        """
+        metrics = cast(
+            "BaseMetrics",
+            resolve_plugin(
+                "metrics",
+                self._settings.metrics.provider,
+                expected_version=BaseMetrics.contract_version,
+            ),
+        )
+        return RocketMqEventConsumerGroup(
+            settings=self._settings,
+            engine_registry=cast("EngineRegistry", self._app.state.engine_registry),
+            session_factory=cast("SessionFactory | None", getattr(self._app.state, "session_factory", None)),
             metrics=metrics,
         )
 

@@ -53,6 +53,8 @@ METRIC_DOCS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
         "bms_boundary_cross_access_total": "跨服务边界访问次数（按服务 / 表前缀 / 归属 / 操作）。",
         "bms_outbox_delivery_total": "发件箱投递次数（按服务 / 结果）。",
         "bms_outbox_backlog": "发件箱积压（按服务 / 库键）。",
+        "bms_event_consume_total": "事件消费次数（按消费组 / 结果）。",
+        "bms_event_dead_letter_total": "事件转死信次数（按消费组）。",
         "bms_release_total": "服务发布次数（按服务 / 结果；CI 推送 Pushgateway）。",
         "bms_contract_breaking_total": "契约破坏性变更数（按服务；CI 推送 Pushgateway）。",
         "bms_txn_global_total": "全局事务数（按服务 / 状态）。",

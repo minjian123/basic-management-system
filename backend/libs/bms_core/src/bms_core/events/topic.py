@@ -18,8 +18,8 @@ from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import EventConsumeError
-from bms_core.events.base import DEFAULT_EVENT_VERSION, EventEnvelope
-from bms_core.events.contracts import EVENT_TYPE_RE
+from bms_core.events.base import EventEnvelope
+from bms_core.events.contracts import EVENT_TYPE_RE, resolve_event_version
 
 __all__ = [
     "ATTR_AGGREGATE_KEY",
@@ -104,7 +104,7 @@ def encode_event(event: EventEnvelope) -> bytes:
         {
             "event_id": event.event_id,
             "event_type": event.event_type,
-            "event_version": event.event_version or DEFAULT_EVENT_VERSION,
+            "event_version": event.event_version or resolve_event_version(event.event_type),
             "tenant_id": event.tenant_id,
             "trace_id": event.trace_id,
             "aggregate_key": event.aggregate_key,
@@ -130,7 +130,7 @@ def event_attributes(event: EventEnvelope, *, traceparent: str | None = None) ->
         {
             ATTR_EVENT_ID: event.event_id,
             ATTR_EVENT_TYPE: event.event_type,
-            ATTR_EVENT_VERSION: event.event_version or DEFAULT_EVENT_VERSION,
+            ATTR_EVENT_VERSION: event.event_version or resolve_event_version(event.event_type),
             ATTR_TENANT_ID: event.tenant_id,
             ATTR_AGGREGATE_KEY: event.aggregate_key,
             ATTR_TRACE_ID: event.trace_id,

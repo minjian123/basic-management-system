@@ -47,6 +47,8 @@ METRIC_NAMES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_boundary_cross_access_total",
         "bms_outbox_delivery_total",
         "bms_outbox_backlog",
+        "bms_event_consume_total",
+        "bms_event_dead_letter_total",
         "bms_db_count",
         "bms_release_total",
         "bms_contract_breaking_total",
