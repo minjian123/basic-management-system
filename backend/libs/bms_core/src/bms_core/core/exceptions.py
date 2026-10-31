@@ -1064,6 +1064,104 @@ class MenuPermissionExistsError(MenuError):
         MenuError.__init__(self, ErrorCode.MENU_PERMISSION_EXISTS, message, data=data)
 
 
+class ConfigParamError(BizError):
+    """系统参数管理子段（系统配置段内 `405xx`）异常基类。
+
+    与 `ConfigError`（`40001`，启动期配置加载失败）区分：本段是**运行期参数维护**的业务错误。
+    """
+
+
+class ConfigKeyNotFoundError(ConfigParamError):
+    """系统参数不存在或已删除（`40501` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化参数不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CONFIG_KEY_NOT_FOUND, message, http_status=404, data=data)
+
+
+class ConfigKeyExistsError(ConfigParamError):
+    """系统参数键重复（`40502` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化参数键重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CONFIG_KEY_EXISTS, message, http_status=409, data=data)
+
+
+class ConfigKeyInvalidError(ConfigParamError):
+    """系统参数键格式非法（`40503` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化参数键非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CONFIG_KEY_INVALID, message, http_status=400, data=data)
+
+
+class ConfigValueInvalidError(ConfigParamError):
+    """系统参数值非法（类型 / 长度，`40504` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化参数值非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CONFIG_VALUE_INVALID, message, http_status=400, data=data)
+
+
+class ConfigDependencyUnsatisfiedError(ConfigParamError):
+    """系统参数依赖不满足（`40505` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化依赖不满足异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CONFIG_DEPENDENCY_UNSATISFIED, message, http_status=409, data=data)
+
+
+class ConfigDefaultProtectedError(ConfigParamError):
+    """平台默认参数受保护（未覆盖项不可删除，`40506` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化默认项受保护异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CONFIG_DEFAULT_PROTECTED, message, http_status=403, data=data)
+
+
+class ConfigNoPlatformDefaultError(ConfigParamError):
+    """参数无平台默认值（重置无意义，`40507` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化无平台默认异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.CONFIG_NO_PLATFORM_DEFAULT, message, http_status=400, data=data)
+
+
 class FileError(BizError):
     """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
 

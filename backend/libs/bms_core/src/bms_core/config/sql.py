@@ -2,7 +2,8 @@
 
 - 租户：实现侧从上下文解析并经 `EngineRegistry` 取租户库；缓存键租户位取 `current_tenant_id_str()`
   （雪花 id，无主键落 global）；调用方不传租户。
-- 缓存：逐 key 先查缓存域（内存 / Redis），未命中批量回源（一次 `IN`）后回填；Redis 不可用由 Region 内部兜底。
+- 缓存：**每批取一次**版本号 → 逐 key 按版本读载荷（内存 / Redis，版本不一致即视为未命中）→ 未命中批量回源
+  （一次 `IN`）后按版本回填；缺失键写短 TTL 负缓存防穿透。`[config].version_check=false` 时跳过版本比对。
 - 降级：DB 异常返回空结果 + 日志告警（调用方回落代码默认表，不抛业务错）。
 """
 
@@ -15,6 +16,7 @@ from bms_core.config.base import BaseConfigSource, ConfigCacheRegion
 from bms_core.config.cache import MemoryConfigCacheRegion
 from bms_core.config.models import SysConfig
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.config import ConfigCacheSettings
 from bms_core.core.logging import get_logger
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
@@ -30,15 +32,23 @@ class SqlConfigSource(BaseConfigSource):
 
     plugin_name: str = "sql"
 
-    def __init__(self, *, engines: EngineRegistry, cache: ConfigCacheRegion | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        engines: EngineRegistry,
+        cache: ConfigCacheRegion | None = None,
+        options: ConfigCacheSettings | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             engines: 多租户引擎注册表（按租户库键取引擎）。
             cache: 系统参数缓存域（缺省进程内实现；装配侧注入配置选定的实现）。
+            options: 缓存参数（`[config]`；缺省取内置默认值）。
         """
         self._engines = engines
         self._cache = cache or MemoryConfigCacheRegion()
+        self._options = options if options is not None else ConfigCacheSettings()
 
     @property
     def cache(self) -> ConfigCacheRegion:
@@ -50,7 +60,7 @@ class SqlConfigSource(BaseConfigSource):
         return self._cache
 
     async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
-        """批量取参数值（缓存优先，未命中回源）。
+        """批量取参数值（缓存优先，未命中回源，缺失负缓存）。
 
         Args:
             keys: 参数键序列（插入序）。
@@ -62,19 +72,23 @@ class SqlConfigSource(BaseConfigSource):
         if not unique:
             return ConcurrentStableDict()
         tenant = current_tenant_id_str()
+        version = await self._cache.aversion(tenant) if self._options.version_check else 0
         result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         missing: ConcurrentStableList[str] = ConcurrentStableList()
         for key in unique:
-            cached = await self._cache.aget_value(tenant, key)
-            if cached is not None:
-                result.set(key, cached)
-            else:
+            entry = await self._cache.aget_entry(tenant, key, version)
+            if entry is None:
                 missing.add(key)
+            elif not entry.missing:
+                result.set(key, entry.value)
         if not missing:
             return result
         loaded = await self._load(missing)
         for key, value in loaded.items():
-            await self._cache.aset_value(tenant, key, value)
+            await self._cache.aset_value_at(tenant, key, value, version, self._options.value_ttl_seconds)
+        for key in missing:
+            if key not in loaded:
+                await self._cache.aset_missing(tenant, key, version, self._options.missing_ttl_seconds)
         result.update(loaded.items())
         return result
 

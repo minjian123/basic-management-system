@@ -1,8 +1,10 @@
-"""系统参数写 / 失效服务：先写库后删缓存 + 递增租户版本键（本轮无管理 API）。
+"""系统参数写 / 失效服务：先写库后删缓存 + 递增租户版本键。
 
-- 仅服务方法（`set` / `drop`），供「策略变更即时生效」验证与后续阶段八管理面复用。
-- 失效协议：写库 → 删缓存 key（含 L1）→ 递增租户版本键（多实例 L1 惰性失效）。
-- 租户：按当前上下文取租户库（`session_scope`）。
+- `ConfigService`：基座写方法（`set` / `drop`），供非 HTTP 写路径与「策略变更即时生效」场景复用；
+  管理端 CRUD（分页 / 新增 / 修改 / 重置 / 回收站）在 `domains/platform_config`。
+- `invalidate_config`：参数失效的**唯一入口**（管理面与基座共用）——`DEL` 参数键 + `INCR` 版本键。
+  顺序不可反：先 `INCR` 会让并发读把旧值以新版本号写回缓存，成为「污染的有效载荷」。
+- 租户：按当前上下文取租户库（`session_scope`）与缓存键租户位。
 """
 
 from collections.abc import AsyncGenerator
@@ -20,7 +22,20 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import current_tenant_id_str
 
-__all__ = ["ConfigService"]
+__all__ = ["ConfigService", "invalidate_config"]
+
+
+async def invalidate_config(cache: ConfigCacheRegion, config_key: str, *, tenant: str | None = None) -> None:
+    """失效单个参数缓存（`DEL` 参数键 → `INCR` 版本键）。
+
+    Args:
+        cache: 系统参数缓存域（与应用取数共用同一实例）。
+        config_key: 参数键。
+        tenant: 租户标识；None 取当前租户上下文（写路径均在租户上下文内）。
+    """
+    resolved = tenant if tenant is not None else current_tenant_id_str()
+    await cache.adrop_value(resolved, config_key)
+    await cache.aincrease_version(resolved)
 
 
 class ConfigService(BaseFrameworkObject):
@@ -50,9 +65,10 @@ class ConfigService(BaseFrameworkObject):
         async with self._session() as session:
             row = await _find(session, config_key)
             if row is None:
-                session.add(SysConfig(config_key=config_key, value=value, remark=remark))
+                session.add(SysConfig(config_key=config_key, value=value, remark=remark, is_overridden=True))
             else:
                 row.value = value
+                row.is_overridden = True
                 if remark is not None:
                     row.remark = remark
             await self._commit(session)
@@ -75,14 +91,12 @@ class ConfigService(BaseFrameworkObject):
         await self._invalidate(config_key)
 
     async def _invalidate(self, config_key: str) -> None:
-        """失效参数缓存：删 key + 递增租户版本键（跨实例失效）。
+        """失效参数缓存（委托 `invalidate_config`：DEL 参数键 + INCR 版本键）。
 
         Args:
             config_key: 参数键。
         """
-        tenant = current_tenant_id_str()
-        await self._cache.adrop_value(tenant, config_key)
-        await self._cache.aincrease_version(tenant)
+        await invalidate_config(self._cache, config_key)
 
     async def _commit(self, session: DbSession) -> None:
         """提交（乐观锁冲突转统一错误）。

@@ -3,19 +3,57 @@
 - `MemoryConfigCacheRegion`：纯进程内（值 + 按租户版本）；无 Redis 环境 / 测试用。
 - `RedisConfigCacheRegion`：Redis 共享层（值 key / 版本键 `INCR`）叠加进程内 L1（先 L1 后 Redis，命中回填）；
   Redis 不可用时由 `RedisCacheRegion` 内部兜底（读写不中断）。
+- **载荷带版本**（02_02）：值键存 `{"v": 版本, "value": 值, "missing": 是否确认不存在}`（内置 `dict`，
+  可被 Redis 区域 `json.dumps` / `json.loads` 原样往返）；读取时版本不一致即丢弃回源——多实例下
+  「写方 `DEL` + `INCR` 后，其它实例下一次读即生效」由此保证，TTL 只是最后兜底。
 """
 
 from threading import Lock
+from typing import cast
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.cache.redis import RedisCacheRegion
-from bms_core.config.base import CONFIG_CACHE_DOMAIN, ConfigCacheRegion
+from bms_core.config.base import CONFIG_CACHE_DOMAIN, ConfigCacheEntry, ConfigCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict
 
 __all__ = ["MemoryConfigCacheRegion", "RedisConfigCacheRegion"]
 
 DEFAULT_MAX_ITEMS = 1024
 """L1 条目上限（LRU）。"""
+
+
+def _dump_entry(entry: ConfigCacheEntry) -> object:
+    """载荷序列化为内置 `dict`（JSON 可往返；集合类会被 `json.dumps(default=str)` 变成 repr）。
+
+    Args:
+        entry: 缓存载荷。
+
+    Returns:
+        object: 内置 `dict` 载荷。
+    """
+    return dict({"v": entry.version, "value": entry.value, "missing": entry.missing})
+
+
+def _load_entry(raw: object) -> ConfigCacheEntry | None:
+    """解析载荷（旧格式纯字符串 / 脏值一律按未命中）。
+
+    Args:
+        raw: 缓存原值。
+
+    Returns:
+        ConfigCacheEntry | None: 载荷；不可解析返回 None。
+    """
+    if not isinstance(raw, dict):
+        return None
+    data = cast("dict[str, object]", raw)
+    version = data.get("v")
+    value = data.get("value")
+    missing = data.get("missing")
+    if not isinstance(version, int) or isinstance(version, bool):
+        return None
+    if not isinstance(value, str):
+        return None
+    return ConfigCacheEntry(version=version, value=value, missing=bool(missing))
 
 
 class MemoryConfigCacheRegion(ConfigCacheRegion):
@@ -70,6 +108,52 @@ class MemoryConfigCacheRegion(ConfigCacheRegion):
             int: 当前版本号。
         """
         return self._memory.get_global_version()
+
+    async def aget_entry(self, tenant: str | None, config_key: str, version: int) -> ConfigCacheEntry | None:
+        """按版本读参数缓存载荷（版本不一致即丢弃）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            config_key: 参数键。
+            version: 当前版本号。
+
+        Returns:
+            ConfigCacheEntry | None: 载荷；未命中 / 版本过期返回 None。
+        """
+        key = self.config_key(tenant, config_key)
+        entry = _load_entry(self._memory.get(key))
+        if entry is None:
+            return None
+        if version > 0 and entry.version != version:
+            self._memory.delete(key)
+            return None
+        return entry
+
+    async def aset_value_at(
+        self, tenant: str | None, config_key: str, value: str, version: int, ttl: int | None = None
+    ) -> None:
+        """按版本写参数缓存。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            config_key: 参数键。
+            value: 参数值。
+            version: 写入时版本号。
+            ttl: 有效期（秒）。
+        """
+        self._memory.set(self.config_key(tenant, config_key), _dump_entry(ConfigCacheEntry(version, value)), ttl)
+
+    async def aset_missing(self, tenant: str | None, config_key: str, version: int, ttl: int) -> None:
+        """写「确认不存在」负缓存。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            config_key: 参数键。
+            version: 写入时版本号。
+            ttl: 有效期（秒）。
+        """
+        entry = ConfigCacheEntry(version=version, missing=True)
+        self._memory.set(self.config_key(tenant, config_key), _dump_entry(entry), ttl)
 
     def bump_version(self, tenant: str | None = None) -> int:
         """递增指定租户版本号（写路径同步调用）。
@@ -195,37 +279,62 @@ class RedisConfigCacheRegion(ConfigCacheRegion):
         """释放 Redis 客户端（幂等）。"""
         await self._redis.aclose()
 
-    async def aget_value(self, tenant: str | None, config_key: str) -> str | None:
-        """读参数缓存（先 L1 后 Redis，命中回填 L1）。
+    async def aget_entry(self, tenant: str | None, config_key: str, version: int) -> ConfigCacheEntry | None:
+        """按版本读参数缓存载荷（先 L1 后 Redis，版本不一致即丢弃并回源）。
 
         Args:
             tenant: 租户标识；None 为全局。
             config_key: 参数键。
+            version: 当前版本号。
 
         Returns:
-            str | None: 命中值；未命中返回 None。
+            ConfigCacheEntry | None: 载荷；未命中 / 版本过期返回 None。
         """
         key = self.config_key(tenant, config_key)
-        cached = self._l1.get(key)
-        if cached is not None:
-            return cached if isinstance(cached, str) else None
-        value = await self._redis.aget(key)
-        if value is not None:
-            self._l1.set(key, value)
-        return value if isinstance(value, str) else None
+        entry = _load_entry(self._l1.get(key))
+        if entry is not None and (version <= 0 or entry.version == version):
+            return entry
+        if entry is not None:
+            self._l1.delete(key)
+        shared = _load_entry(await self._redis.aget(key))
+        if shared is None:
+            return None
+        if version > 0 and shared.version != version:
+            await self._redis.adelete(key)
+            return None
+        self._l1.set(key, _dump_entry(shared))
+        return shared
 
-    async def aset_value(self, tenant: str | None, config_key: str, value: str, ttl: int | None = None) -> None:
-        """写参数缓存（L1 + Redis）。
+    async def aset_value_at(
+        self, tenant: str | None, config_key: str, value: str, version: int, ttl: int | None = None
+    ) -> None:
+        """按版本写参数缓存（L1 + Redis）。
 
         Args:
             tenant: 租户标识；None 为全局。
             config_key: 参数键。
             value: 参数值。
+            version: 写入时版本号。
             ttl: 有效期（秒）。
         """
         key = self.config_key(tenant, config_key)
-        self._l1.set(key, value, ttl)
-        await self._redis.aset(key, value, ttl)
+        payload = _dump_entry(ConfigCacheEntry(version, value))
+        self._l1.set(key, payload, ttl)
+        await self._redis.aset(key, payload, ttl)
+
+    async def aset_missing(self, tenant: str | None, config_key: str, version: int, ttl: int) -> None:
+        """写「确认不存在」负缓存（L1 + Redis）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            config_key: 参数键。
+            version: 写入时版本号。
+            ttl: 有效期（秒）。
+        """
+        key = self.config_key(tenant, config_key)
+        payload = _dump_entry(ConfigCacheEntry(version=version, missing=True))
+        self._l1.set(key, payload, ttl)
+        await self._redis.aset(key, payload, ttl)
 
     async def adrop_value(self, tenant: str | None, config_key: str) -> None:
         """删参数缓存（L1 + Redis）。

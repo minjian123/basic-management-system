@@ -407,7 +407,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     # 跨服务读出口（06_02）：非 platform 服务经公开契约读平台服务字典接口（权威侧仍为 platform）
     register_plugin("data_source", "http", HttpDataSourceFactory(app))
     register_plugin("dict_translator", "http", HttpDictTranslatorFactory(app))
-    register_plugin("config_cache_region", "memory", MemoryConfigCacheRegionFactory())
+    register_plugin("config_cache_region", "memory", MemoryConfigCacheRegionFactory(settings))
     register_plugin("config_cache_region", "redis", RedisConfigCacheRegionFactory(settings))
     register_plugin("config_source", "sql", SqlConfigSourceFactory(app))
     register_plugin("config_source", "http", HttpConfigSourceFactory(app))
@@ -833,10 +833,18 @@ class DefaultPasswordPolicyFactory(BasePluginFactory[DefaultPasswordPolicy]):
 
 
 class MemoryConfigCacheRegionFactory(BasePluginFactory[MemoryConfigCacheRegion]):
-    """系统参数内存缓存域工厂（零参）。"""
+    """系统参数内存缓存域工厂（注入 L1 容量）。"""
 
     plugin_key: str = "config_cache_region"
     # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取 `[config].l1_max_items`）。
+        """
+        self._settings = settings
 
     def create(self, options: None = None) -> MemoryConfigCacheRegion:
         """构造内存缓存域。
@@ -847,7 +855,7 @@ class MemoryConfigCacheRegionFactory(BasePluginFactory[MemoryConfigCacheRegion])
         Returns:
             MemoryConfigCacheRegion: 内存缓存域实例。
         """
-        return MemoryConfigCacheRegion()
+        return MemoryConfigCacheRegion(max_items=self._settings.config_options.l1_max_items)
 
 
 class RedisConfigCacheRegionFactory(BasePluginFactory[RedisConfigCacheRegion]):
@@ -901,7 +909,8 @@ class SqlConfigSourceFactory(BasePluginFactory[SqlConfigSource]):
         """
         engines = cast("EngineRegistry", self._app.state.engine_registry)
         cache = cast("ConfigCacheRegion | None", getattr(self._app.state, "config_cache_region", None))
-        return SqlConfigSource(engines=engines, cache=cache)
+        settings = cast("Settings", self._app.state.settings)
+        return SqlConfigSource(engines=engines, cache=cache, options=settings.config_options)
 
 
 class HttpConfigSourceFactory(BasePluginFactory[HttpConfigSource]):

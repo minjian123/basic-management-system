@@ -528,6 +528,189 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Configs
+         * @description 参数分页（关键字 / 分组 / 状态筛选，可含回收站行）。
+         *
+         *     Args:
+         *         uow: 工作单元。
+         *         page: 分页参数。
+         *         cache: 系统参数缓存域。
+         *         invalidator: 字典失效器。
+         *         audit: 审计捕获器。
+         *         keyword: 关键字。
+         *         group: 分组前缀。
+         *         status: 状态。
+         *         include_deleted: 是否包含已软删行。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页结果。
+         */
+        get: operations["list_configs_api_v1_configs_get"];
+        put?: never;
+        /**
+         * Create Config
+         * @description 新增参数（键格式 / 重复 / 值类型 / 依赖校验）。
+         *
+         *     Args:
+         *         request: 新增请求。
+         *         uow: 工作单元。
+         *         cache: 系统参数缓存域。
+         *         invalidator: 字典失效器。
+         *         audit: 审计捕获器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为新建条目。
+         */
+        post: operations["create_config_api_v1_configs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configs/{config_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Config
+         * @description 按参数键取详情（页面回显）。
+         *
+         *     Args:
+         *         config_key: 参数键。
+         *         uow: 工作单元。
+         *         cache: 系统参数缓存域。
+         *         invalidator: 字典失效器。
+         *         audit: 审计捕获器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为参数条目。
+         */
+        get: operations["get_config_api_v1_configs__config_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configs/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Config
+         * @description 修改参数（乐观锁：`version` 不匹配即并发冲突）。
+         *
+         *     Args:
+         *         item_id: 参数主键。
+         *         request: 修改请求。
+         *         uow: 工作单元。
+         *         cache: 系统参数缓存域。
+         *         invalidator: 字典失效器。
+         *         audit: 审计捕获器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为修改后的条目。
+         */
+        put: operations["update_config_api_v1_configs__item_id__put"];
+        post?: never;
+        /**
+         * Delete Config
+         * @description 删除参数（覆盖项软删进回收站；平台默认项拒绝）。
+         *
+         *     Args:
+         *         item_id: 参数主键。
+         *         uow: 工作单元。
+         *         cache: 系统参数缓存域。
+         *         invalidator: 字典失效器。
+         *         audit: 审计捕获器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_config_api_v1_configs__item_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configs/{item_id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Config
+         * @description 重置为平台默认值（未覆盖项幂等返回）。
+         *
+         *     Args:
+         *         item_id: 参数主键。
+         *         uow: 工作单元。
+         *         cache: 系统参数缓存域。
+         *         invalidator: 字典失效器。
+         *         audit: 审计捕获器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为重置后的条目。
+         */
+        post: operations["reset_config_api_v1_configs__item_id__reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configs/{item_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Config
+         * @description 从回收站恢复参数（同键已有活行则拒绝）。
+         *
+         *     Args:
+         *         item_id: 参数主键。
+         *         uow: 工作单元。
+         *         cache: 系统参数缓存域。
+         *         invalidator: 字典失效器。
+         *         audit: 审计捕获器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为恢复后的条目。
+         */
+        post: operations["restore_config_api_v1_configs__item_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/data-sources": {
         parameters: {
             query?: never;
@@ -3909,6 +4092,34 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[ConfigItem] */
+        ApiResponse_ConfigItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ConfigItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ConfigPage] */
+        ApiResponse_ConfigPage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ConfigPage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ConfigResolveResponse] */
         ApiResponse_ConfigResolveResponse_: {
             /**
@@ -4996,6 +5207,118 @@ export interface components {
             status: string;
         };
         /**
+         * ConfigCreateRequest
+         * @description 新增系统参数（租户自建；平台默认项已由种子下发）。
+         */
+        ConfigCreateRequest: {
+            /**
+             * Config Key
+             * @description 参数键（点分小写）
+             */
+            config_key: string;
+            /**
+             * Name
+             * @description 参数名称（缺省取参数键）
+             */
+            name?: string | null;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             */
+            status: string;
+            /**
+             * Value
+             * @description 参数值
+             */
+            value: string;
+        };
+        /**
+         * ConfigItem
+         * @description 系统参数条目（列表 / 详情同构）。
+         */
+        ConfigItem: {
+            /**
+             * Config Key
+             * @description 参数键（点分小写，如 password.max_age_days）
+             */
+            config_key: string;
+            /**
+             * Deleted At
+             * @description 软删除时间（回收站视图非空）
+             */
+            deleted_at?: string | null;
+            /**
+             * Group
+             * @description 分组（参数键首段，如 password）
+             */
+            group: string;
+            /**
+             * Id
+             * @description 参数主键
+             */
+            id: string;
+            /**
+             * Is Sensitive
+             * @description 是否安全敏感参数（页面提示 + 审计留痕）
+             */
+            is_sensitive: boolean;
+            /**
+             * Name
+             * @description 参数名称（缺省取参数键）
+             */
+            name: string;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Source
+             * @description 取值来源（platform=平台默认 / tenant=租户覆盖）
+             */
+            source: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Updated At
+             * @description 最后更新时间（UTC）
+             */
+            updated_at?: string | null;
+            /**
+             * Value
+             * @description 参数值（文本承载）
+             */
+            value: string;
+            /**
+             * Version
+             * @description 乐观锁版本
+             */
+            version: number;
+        };
+        /**
+         * ConfigPage
+         * @description 系统参数分页响应。
+         */
+        ConfigPage: {
+            /** List */
+            list: components["schemas"]["ConfigItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
          * ConfigResolveRequest
          * @description 批量取参数请求。
          */
@@ -5018,6 +5341,37 @@ export interface components {
             values?: {
                 [key: string]: string;
             };
+        };
+        /**
+         * ConfigUpdateRequest
+         * @description 修改系统参数（乐观锁：`version` 必填）。
+         */
+        ConfigUpdateRequest: {
+            /**
+             * Name
+             * @description 参数名称
+             */
+            name?: string | null;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status?: string | null;
+            /**
+             * Value
+             * @description 参数值
+             */
+            value?: string | null;
+            /**
+             * Version
+             * @description 乐观锁版本（取详情里的当前值）
+             */
+            version: number;
         };
         /**
          * CredentialUserSummary
@@ -10080,6 +10434,559 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_configs_api_v1_configs_get: {
+        parameters: {
+            query?: {
+                /** @description 关键字（参数键 / 名称 / 备注模糊匹配） */
+                keyword?: string | null;
+                /** @description 分组前缀（参数键首段，如 password） */
+                group?: string | null;
+                /** @description 状态筛选（enabled/disabled） */
+                status?: string | null;
+                /** @description 是否包含已软删行（回收站视图） */
+                include_deleted?: boolean;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ConfigPage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_config_api_v1_configs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ConfigItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_config_api_v1_configs__config_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                config_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ConfigItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_config_api_v1_configs__item_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ConfigItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_config_api_v1_configs__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    reset_config_api_v1_configs__item_id__reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ConfigItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    restore_config_api_v1_configs__item_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ConfigItem_"];
                 };
             };
             /** @description 未认证 */

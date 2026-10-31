@@ -225,6 +225,25 @@ class DictSettings(BaseSettings):
     """所有者域写后是否自动失效（关掉即失效器退化为 no-op，压测 / 排障用）。"""
 
 
+class ConfigCacheSettings(BaseSettings):
+    """系统参数读缓存参数（段 `[config]`；02_02）。
+
+    与字典段（`[dict]`）分治：参数按**参数键**失效（`DEL` + 版本键 `INCR`），字典按 `dict:version` 失效。
+    """
+
+    value_ttl_seconds: int = Field(default=300, ge=1)
+    """命中值缓存 TTL（秒；写入共享层时叠加通用抖动）。"""
+
+    missing_ttl_seconds: int = Field(default=30, ge=1)
+    """缺失键负缓存 TTL（秒；防穿透，远短于 `value_ttl_seconds`）。"""
+
+    version_check: bool = True
+    """读取时是否比对 `bms:{tenant}:config:version`（false = 退回旧行为，仅排障用）。"""
+
+    l1_max_items: int = Field(default=1024, ge=1)
+    """进程内 L1 条目上限（LRU）。"""
+
+
 class TenantMembershipSettings(BaseSettings):
     """用户↔租户可达关系数据源（段 `[tenant_membership]`；11_01）。"""
 
@@ -1327,6 +1346,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     code_validator: PluginSelection = Field(default_factory=PluginSelection)
     config_cache_region: PluginSelection = Field(default_factory=PluginSelection)
     config_source: PluginSelection = Field(default_factory=PluginSelection)
+    config_options: ConfigCacheSettings = Field(default_factory=ConfigCacheSettings, validation_alias="config")
+    """系统参数读缓存参数（TOML 段 `[config]`；字段名不叫 `config` 以免与基类成员冲突）。"""
     consistency_barrier: ConsistencyBarrierSettings = Field(default_factory=ConsistencyBarrierSettings)
     dashboard_card_registry: PluginSelection = Field(default_factory=PluginSelection)
     data_ownership: DataOwnershipSettings = Field(default_factory=DataOwnershipSettings)

@@ -10,10 +10,13 @@
 
 口径：**租户隔离由实现侧拼缓存 key / 选库**（方法不显式传租户，从请求上下文取），调用方不可绕过；
 `get_many` 只承担「取存在的键值」，缺省回落由消费方的代码默认表承担（如验证码场景策略）。
-管理面（CRUD / 页面 / 审计 / 平台默认下发流程）归阶段八「系统参数」模块，本基座只承载读取链路。
+缓存载荷带版本（`aget_value_at` / `aset_value_at` / `aset_missing`）：读取时比对 `version_key`，
+不一致即视为未命中并回源——多实例下的「改完即生效」由此保证（02_02）。
+管理面（CRUD / 重置 / 回收站恢复 / 页面）在 `domains/platform_config`，本基座只承载读写链路与失效入口。
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
@@ -21,11 +24,13 @@ from fastapi import Request
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
 __all__ = [
     "CONFIG_CACHE_DOMAIN",
     "BaseConfigSource",
+    "ConfigCacheEntry",
     "ConfigCacheRegion",
     "get_config_cache_region",
     "get_config_source",
@@ -33,6 +38,23 @@ __all__ = [
 
 CONFIG_CACHE_DOMAIN = "config"
 """缓存域简称（`ConfigCacheRegion.domain`；key `bms:{tenant}:config:{config_key}`）。"""
+
+
+@dataclass(frozen=True)
+class ConfigCacheEntry(BaseValueObject):
+    """参数缓存载荷（版本 + 值 + 缺失标记）。
+
+    载荷在共享层以**内置 `dict`** `{"v", "value", "missing"}` 往返；本记录是内存侧的判读结构。
+    """
+
+    version: int
+    """写入时捕获的 `bms:{tenant}:config:version`。"""
+
+    value: str = ""
+    """参数值（`missing=True` 时为空串）。"""
+
+    missing: bool = False
+    """是否「确认不存在」（负缓存，防穿透）。"""
 
 
 class BaseConfigSource(BasePluggable, ABC):
@@ -132,8 +154,40 @@ class ConfigCacheRegion(CacheRegion, ABC):
         Returns:
             str | None: 命中值；未命中返回 None。
         """
+        version = await self.aversion(tenant)
+        return await self.aget_value_at(tenant, config_key, version)
+
+    async def aget_entry(self, tenant: str | None, config_key: str, version: int) -> ConfigCacheEntry | None:
+        """按版本读参数缓存载荷（缺省实现不校验版本，兼容旧区域实现）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            config_key: 参数键。
+            version: 期望版本号（实现侧决定是否比对）。
+
+        Returns:
+            ConfigCacheEntry | None: 载荷；未命中返回 None。
+        """
         cached = self.get(self.config_key(tenant, config_key))
-        return cached if isinstance(cached, str) else None
+        if isinstance(cached, str):
+            return ConfigCacheEntry(version=version, value=cached)
+        return None
+
+    async def aget_value_at(self, tenant: str | None, config_key: str, version: int) -> str | None:
+        """按版本读参数值（缺省实现委托 `aget_entry`）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            config_key: 参数键。
+            version: 期望版本号。
+
+        Returns:
+            str | None: 命中值；未命中 / 版本过期 / 缺失标记返回 None。
+        """
+        entry = await self.aget_entry(tenant, config_key, version)
+        if entry is None or entry.missing:
+            return None
+        return entry.value
 
     async def aset_value(self, tenant: str | None, config_key: str, value: str, ttl: int | None = None) -> None:
         """写参数缓存（异步；缺省回退同步实现）。
@@ -144,7 +198,32 @@ class ConfigCacheRegion(CacheRegion, ABC):
             value: 参数值。
             ttl: 有效期（秒）。
         """
+        version = await self.aversion(tenant)
+        await self.aset_value_at(tenant, config_key, value, version, ttl)
+
+    async def aset_value_at(
+        self, tenant: str | None, config_key: str, value: str, version: int, ttl: int | None = None
+    ) -> None:
+        """按版本写参数缓存（缺省实现不携带版本，兼容旧区域实现）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            config_key: 参数键。
+            value: 参数值。
+            version: 写入时捕获的版本号。
+            ttl: 有效期（秒）。
+        """
         self.set(self.config_key(tenant, config_key), value, ttl)
+
+    async def aset_missing(self, tenant: str | None, config_key: str, version: int, ttl: int) -> None:
+        """写「确认不存在」负缓存（缺省实现为空操作：宁可不缓存缺失，也不把缺失伪装成空串）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            config_key: 参数键。
+            version: 写入时捕获的版本号。
+            ttl: 有效期（秒）。
+        """
 
     async def adrop_value(self, tenant: str | None, config_key: str) -> None:
         """删参数缓存（异步；缺省回退同步实现）。

@@ -1,12 +1,12 @@
 """异常构造路径补齐用例（`bms_core/core/exceptions.py`）。
 
 口径：**不做抽样**。`_EXCEPTIONS` 覆盖「可用缺省参数直接构造」的**全部** `BizError` 子类
-（101 个），并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内
+（108 个），并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内
 所有子类做完整性自校验——将来新增可缺省构造的异常类而未登记本表，用例直接失败，
 不会像抽样清单那样静默留下覆盖率缺口。
 
-无法无参构造的 11 个段位基类（`UserOrgError` / `RoleError` / `MenuError` / `OidcError` /
-`FileError` / `PrintError` / `ClientError` / `OpenTenantError` / `AccountLockError` /
+无法无参构造的 12 个段位基类（`UserOrgError` / `RoleError` / `MenuError` / `ConfigParamError` /
+`OidcError` / `FileError` / `PrintError` / `ClientError` / `OpenTenantError` / `AccountLockError` /
 `GeneralError` / `TaskError`）不在此表：它们的 `__init__` 只做透传，覆盖由各自子类完成。
 """
 
@@ -40,7 +40,14 @@ _EXCEPTIONS: ConcurrentStableList[tuple[type[BizError], int, int]] = ConcurrentS
         (exceptions.ClientInvalidError, 80112, 400),
         (exceptions.ClientNotFoundError, 80111, 404),
         (exceptions.ConcurrentConflictError, 10004, 409),
+        (exceptions.ConfigDefaultProtectedError, 40506, 403),
+        (exceptions.ConfigDependencyUnsatisfiedError, 40505, 409),
         (exceptions.ConfigError, 40001, 500),
+        (exceptions.ConfigKeyExistsError, 40502, 409),
+        (exceptions.ConfigKeyInvalidError, 40503, 400),
+        (exceptions.ConfigKeyNotFoundError, 40501, 404),
+        (exceptions.ConfigNoPlatformDefaultError, 40507, 400),
+        (exceptions.ConfigValueInvalidError, 40504, 400),
         (exceptions.ConflictError, 10003, 200),
         (exceptions.ConsistencyBarrierTimeout, 10011, 409),
         (exceptions.DataOwnershipError, 10008, 500),

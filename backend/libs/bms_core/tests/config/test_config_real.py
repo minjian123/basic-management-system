@@ -45,6 +45,7 @@ EXPECTED_COLUMNS = {
     "name",
     "status",
     "value",
+    "is_overridden",
     "remark",
     "parent_id",
     "created_at",

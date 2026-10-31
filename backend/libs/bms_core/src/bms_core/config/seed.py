@@ -1,8 +1,11 @@
 """系统参数平台默认种子：向租户库幂等写入平台默认参数（含验证码场景策略键）。
 
-- 幂等：按 `config_key` 判存（存在跳过）；可重复执行（`ops/seed_config.py` 与 `ops/init_tenant.py` 共用）。
-- 平台默认来源：概要 10 §6.3 与《验证码与账号治理》需求 03-8；键名点分小写（《命名规范》）。
-- 缺省回落：消费方（如验证码场景策略）以代码默认表兜底；本种子只投放「平台默认值」供按租户覆盖。
+- 幂等与升级：按 `config_key` 判存——缺失则插入；存在且 `is_overridden=false` 则按清单刷新
+  `value` / `remark`（平台默认随发版演进可下发到未覆盖租户）；**已覆盖行（`is_overridden=true`）永不覆盖**。
+- 可重复执行（`ops/seed_config.py` 与租户开通编排共用）。
+- 平台默认来源：概要 10 §6.3、《验证码与账号治理》需求 03-8、会话 / 文件 / AI 开关与菜单 / 角色域键；
+  键名点分小写（《命名规范》）。
+- 缺省回落：消费方以代码默认表兜底；本种子只投放「平台默认值」供按租户覆盖。
 """
 
 from dataclasses import dataclass
@@ -12,9 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.config.models import SysConfig
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseValueObject
 
 __all__ = ["PLATFORM_CONFIG_DEFAULTS", "SeedConfig", "seed_configs"]
+
+_LOGGER = get_logger("bms")
 
 
 @dataclass(frozen=True)
@@ -73,6 +79,13 @@ PLATFORM_CONFIG_DEFAULTS: ConcurrentStableList[SeedConfig] = ConcurrentStableLis
         SeedConfig("password.max_age_days", "90", "密码有效期（天），pwd_changed_at 驱动强制改密"),
         SeedConfig("password.history_count", "5", "历史密码不可重复比对条数"),
         SeedConfig("account.inactive_lock_days", "180", "未登录自动锁定阈值（天）"),
+        SeedConfig("session.max_active", "5", "单账号活跃会话数上限（超出后最旧会话失效）"),
+        SeedConfig("file.upload.max_size", "20971520", "整包上传大小上限（字节，超限走分片上传）"),
+        SeedConfig("file.upload.max_file_size", "2147483648", "单文件上传上限（字节，分片上传）"),
+        SeedConfig("menu.tree_cache_ttl", "300", "菜单树缓存 TTL（秒，含随机偏移）"),
+        SeedConfig("role.code_pattern", "^[a-z][a-z0-9_-]{1,31}$", "角色码格式（正则）"),
+        SeedConfig("ai.auto_execute", "false", "AI 自动执行写操作开关（默认关闭；阶段十九消费）"),
+        SeedConfig("ai.auto_approve", "false", "AI 自动审批开关（默认关闭；依赖 ai.auto_execute 开启）"),
         SeedConfig("audit.archive.operation_log_days", "90", "操作日志归档保留天数"),
         SeedConfig("audit.archive.login_log_days", "90", "登录日志归档保留天数"),
         SeedConfig("audit.archive.data_audit_log_days", "90", "数据变更审计归档保留天数"),
@@ -83,23 +96,33 @@ PLATFORM_CONFIG_DEFAULTS: ConcurrentStableList[SeedConfig] = ConcurrentStableLis
 
 
 async def seed_configs(session: AsyncSession) -> int:
-    """幂等写入平台默认参数（返回新增行数；已存在项跳过）。
+    """幂等写入平台默认参数（返回新增行数；未覆盖行按清单刷新，已覆盖行不动）。
 
     Args:
         session: 租户库会话（调用方负责引擎与租户）。
 
     Returns:
-        int: 新增行数。
+        int: 新增行数（刷新条数只记日志，不改变返回值语义）。
     """
     created = 0
+    refreshed = 0
     for seed in PLATFORM_CONFIG_DEFAULTS:
         stmt = select(SysConfig).where(
             SysConfig.config_key == seed.config_key,
             SysConfig.deleted_at.is_(None),
         )
-        if (await session.execute(stmt)).scalar_one_or_none() is not None:
+        row = (await session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            session.add(SysConfig(config_key=seed.config_key, value=seed.value, remark=seed.remark))
+            created += 1
             continue
-        session.add(SysConfig(config_key=seed.config_key, value=seed.value, remark=seed.remark))
-        created += 1
+        if row.is_overridden:
+            continue
+        if row.value != seed.value or row.remark != seed.remark:
+            row.value = seed.value
+            row.remark = seed.remark
+            refreshed += 1
     await session.commit()
+    if refreshed:
+        _LOGGER.info("config_platform_default_refreshed", count=refreshed)
     return created

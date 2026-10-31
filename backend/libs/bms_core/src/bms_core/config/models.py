@@ -5,7 +5,7 @@
 - 字段 / 索引口径见《数据库设计 · 数据表设计 · sys_config》表文件（字段唯一事实源）。
 """
 
-from sqlalchemy import BigInteger, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel
@@ -29,6 +29,9 @@ class SysConfig(BaseModel):
     name: Mapped[str] = mapped_column(String(128), default="", comment="参数名称（展示）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
     value: Mapped[str] = mapped_column(Text, default="", comment="参数值（文本承载）")
+    is_overridden: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="是否被租户覆盖（false=平台默认值；重置回落与默认升级的判据）"
+    )
     remark: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="备注（参数用途说明）")
     parent_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"

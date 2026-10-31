@@ -14,7 +14,7 @@ from bms_platform.api import (
 )
 from bms_platform.domains.menu_form.api import form_key, menu
 from bms_platform.domains.permission_meta.api import icon, permission, permission_meta
-from bms_platform.domains.platform_config.api import internal_config, query_scheme
+from bms_platform.domains.platform_config.api import configs, internal_config, query_scheme
 from bms_platform.domains.platform_registry.api import (
     capability_grants,
     data_source,
@@ -56,6 +56,8 @@ api_router = mount_service_routers(
             codecheck.router,
             outbox.router,
             internal_config.router,
+            # 系统参数管理面（02_02）：分页 / 详情 / 新增 / 修改 / 重置 / 删除 / 恢复
+            configs.router,
             user_extensions.router,
             internal_credentials.router,
             internal_users.router,

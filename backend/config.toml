@@ -231,6 +231,13 @@ l1_max_items = 1024          # 进程内 L1 条目上限（LRU；整类型与 id
 probe_limit = 2001           # 探针上限（前端 limit=2001 判别超大字典，阈值 2000）
 invalidate_on_write = true   # 所有者域写后自动失效（关掉即失效器 no-op，压测 / 排障用）
 
+[config]
+# 系统参数读缓存（02_02）：参数按参数键失效（DEL 键 + INCR 版本），与字典的 dict:version 语义独立
+value_ttl_seconds = 300      # 命中值缓存 TTL（秒；写入共享层时叠加通用抖动，防雪崩）
+missing_ttl_seconds = 30     # 缺失键负缓存 TTL（秒；防穿透，远短于 value_ttl）
+version_check = true         # 读取时比对 bms:{tenant}:config:version（false = 退回旧行为，仅排障用）
+l1_max_items = 1024          # 进程内 L1 条目上限（LRU）
+
 [captcha]
 # 验证码实现选择（插件化配置；default = Pillow 出图 + Redis 一次性校验、空串解析到 null 占位）
 provider = "default"
