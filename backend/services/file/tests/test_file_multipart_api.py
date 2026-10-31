@@ -205,3 +205,34 @@ async def test_initiate_idempotency_reuses_first_session(
     first = await client.post(f"{API}/multipart", json=body, headers={"Idempotency-Key": "case-2374"})
     second = await client.post(f"{API}/multipart", json=body, headers={"Idempotency-Key": "case-2374"})
     assert first.json()["data"] == second.json()["data"]
+
+
+class _StaleIdempotencyStore(IdempotencyStore):
+    """幂等替身：键已占用但载荷已过期（`begin` 未抢到、`load` 也未命中）。"""
+
+    async def begin(self, key: str, *, ttl: int = 0) -> bool:
+        """始终视为已被占用。"""
+        del key, ttl
+        return False
+
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
+        """始终未命中（载荷已过期）。"""
+        del key
+        return None
+
+    async def save(self, key: str, payload: IDEMPOTENCY_PAYLOAD_TYPE, *, ttl: int = 0) -> None:
+        """无需保存。"""
+        del key, payload, ttl
+
+
+async def test_initiate_proceeds_when_cached_payload_expired(
+    client: AsyncClient, file_ports: FilePorts, service_app: FastAPI
+) -> None:
+    """幂等键占用但载荷过期：按首次请求继续初始化（不返回空、不报错）。"""
+    service_app.dependency_overrides[get_idempotency_store] = lambda: _StaleIdempotencyStore()
+    body = {"name": "big.pdf", "size": len(PDF_BYTES), "sha256": hashlib.sha256(PDF_BYTES).hexdigest()}
+
+    resp = await client.post(f"{API}/multipart", json=body, headers={"Idempotency-Key": "expired-payload"})
+
+    assert resp.status_code == 200
+    assert resp.json()["data"]["file_id"]

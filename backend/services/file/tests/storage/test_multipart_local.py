@@ -115,7 +115,7 @@ async def test_sha256_and_delete_object_paths(tmp_path: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(b"stream-me")
 
-    assert await upload._sha256_of(_KEY)  # pyright: ignore[reportPrivateUsage]  # pyright: ignore[reportPrivateUsage] == hashlib.sha256(b"stream-me").hexdigest()
+    assert await upload._sha256_of(_KEY) == hashlib.sha256(b"stream-me").hexdigest()  # pyright: ignore[reportPrivateUsage]
     await upload._delete_object(_KEY)  # pyright: ignore[reportPrivateUsage]
     await upload._delete_object(_KEY)  # pyright: ignore[reportPrivateUsage]
     assert not target.exists()
@@ -126,3 +126,18 @@ async def test_sha256_and_delete_object_paths(tmp_path: Path) -> None:
 def test_chunk_size_is_bounded() -> None:
     """流式块大小固定（内存占用有界；实现常量 64KB，用例按行为断言读写不受影响）。"""
     assert 64 * 1024 > 0
+
+
+async def test_concat_reports_part_vanished_between_check_and_merge(tmp_path: Path) -> None:
+    """拼接阶段发现分片被外部删除：报 `NotFoundError`（不产出半成品对象）。"""
+    upload = LocalMultipartUpload(root=tmp_path)
+    session = await upload.initiate(MultipartInit(key=_KEY, size=13, sha256=_sha(_PARTS), part_size=5))
+    for index, data in enumerate(_PARTS, start=1):
+        await upload.upload_part(session.upload_id, index, data)
+    (tmp_path / part_key(_KEY, 2)).unlink()
+    current = await upload.session_store.load(session.upload_id)
+    assert current is not None
+
+    with pytest.raises(NotFoundError) as excinfo:
+        upload._concat(current)  # pyright: ignore[reportPrivateUsage]
+    assert "分片缺失：2" in str(excinfo.value)

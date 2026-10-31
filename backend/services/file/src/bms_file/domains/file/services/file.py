@@ -384,12 +384,15 @@ class FileService(BaseFrameworkObject):
             return await self._multipart.complete(upload_id)
 
         await self._with_session(upload_id, _call, init=self._rebuild_init(row))
+        # 回滚会过期 ORM 属性（异步下再读即 `MissingGreenlet`），对象 key / 大小先取本地量
+        key = row.object_key
+        size = row.size
         try:
-            await self._quota.consume(QUOTA_KEY, row.size, ref=row.object_key)
+            await self._quota.consume(QUOTA_KEY, size, ref=key)
         except TenantQuotaExceededError:
-            await self._storage.delete(row.object_key)
+            await self._storage.delete(key)
             await self._mark_failed(row, "存储配额超限")
-            await self._warn_quota(row.size)
+            await self._warn_quota(size)
             raise
         try:
             async with self._uow.begin():
@@ -399,8 +402,8 @@ class FileService(BaseFrameworkObject):
                 row.uploaded_parts = total
                 await self._emit(row, _EVENT_UPLOADED)
         except Exception:
-            await self._storage.delete(row.object_key)
-            await self._quota.release(QUOTA_KEY, row.size)
+            await self._storage.delete(key)
+            await self._quota.release(QUOTA_KEY, size)
             raise
         self._capture(row, action="complete")
         return row

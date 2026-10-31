@@ -21,7 +21,6 @@ __all__ = [
     "DEFAULT_WHITELIST",
     "SNIFF_LENGTH",
     "WhitelistEntry",
-    "extension_of",
     "is_previewable",
     "normalize_extension",
     "object_key_for",
@@ -115,18 +114,6 @@ def normalize_extension(name: str) -> str | None:
         return None
     candidate = suffix.strip().lower()
     return candidate if _EXT_PATTERN.fullmatch(candidate) else None
-
-
-def extension_of(name: str) -> str | None:
-    """同 `normalize_extension`（语义别名，供调用点可读）。
-
-    Args:
-        name: 原始文件名。
-
-    Returns:
-        str | None: 扩展名；非法为 None。
-    """
-    return normalize_extension(name)
 
 
 def sniff_mime(head: bytes) -> str | None:

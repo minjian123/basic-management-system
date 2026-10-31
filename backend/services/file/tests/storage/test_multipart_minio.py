@@ -211,7 +211,7 @@ async def test_sha256_streams_and_reports_missing(monkeypatch: pytest.MonkeyPatc
     payload = b"x" * (1024 * 1024 + 1)
     client.objects.set(_KEY, payload)
 
-    assert await upload._sha256_of(_KEY)  # pyright: ignore[reportPrivateUsage]  # pyright: ignore[reportPrivateUsage] == hashlib.sha256(payload).hexdigest()
+    assert await upload._sha256_of(_KEY) == hashlib.sha256(payload).hexdigest()  # pyright: ignore[reportPrivateUsage]
     await upload._delete_object(_KEY)  # pyright: ignore[reportPrivateUsage]
     await upload._delete_object(_KEY)  # pyright: ignore[reportPrivateUsage]
     with pytest.raises(NotFoundError):
@@ -228,3 +228,61 @@ async def test_stat_and_remove_missing_are_tolerated(monkeypatch: pytest.MonkeyP
 def test_module_chunk_size() -> None:
     """复算按 1MB 分块（内存占用有界；由实现常量保证，此处断言行为不依赖整份入内存）。"""
     assert 1024 * 1024 > 0
+
+
+async def test_complete_skips_rehash_when_verification_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """关闭复算时组合后不读回复算（声明值不比对，省一次全量读）。"""
+    upload, client = _stub(monkeypatch, verify_sha256=False)
+    session = await upload.initiate(MultipartInit(key=_KEY, size=13, sha256="f" * 64, part_size=5))
+    for index, data in enumerate(_PARTS, start=1):
+        await upload.upload_part(session.upload_id, index, data)
+
+    stored = await upload.complete(session.upload_id)
+    assert stored.size == 13
+    assert client.objects[_KEY] == b"".join(_PARTS)
+
+
+def test_ensure_client_builds_once_and_reuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """惰性建客户端：首次按端点 / 凭据构造，之后复用同一实例（不在导入期建连）。"""
+    created: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+
+    def _build(endpoint: str, **kwargs: Any) -> _FakeMinioClient:
+        created.add(ConcurrentStableDict({"endpoint": endpoint, **kwargs}))
+        return _FakeMinioClient()
+
+    monkeypatch.setattr("minio.Minio", _build)
+    upload = MinioMultipartUpload(
+        endpoint="minio.local:9000", access_key="ak", secret_key="sk", bucket="bms-files", secure=False
+    )
+
+    first = upload._ensure_client()  # pyright: ignore[reportPrivateUsage]
+    second = upload._ensure_client()  # pyright: ignore[reportPrivateUsage]
+
+    assert first is second
+    assert len(created) == 1
+    assert created[0]["endpoint"] == "minio.local:9000"
+    assert created[0]["access_key"] == "ak"
+    assert created[0]["secure"] is False
+
+
+def test_non_missing_key_errors_are_not_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """非 `NoSuchKey` 的 SDK 错误一律上抛（删除 / 复算两个同步入口）。"""
+    monkeypatch.setattr("minio.error.S3Error", _FakeS3Error)
+
+    class _Denied:
+        """拒绝访问的假客户端（任何操作都抛 `AccessDenied`）。"""
+
+        def remove_object(self, bucket: str, key: str) -> None:
+            """抛访问拒绝。"""
+            raise _FakeS3Error("AccessDenied")
+
+        def get_object(self, bucket: str, key: str) -> _FakeBody:
+            """抛访问拒绝。"""
+            raise _FakeS3Error("AccessDenied")
+
+    upload = MinioMultipartUpload(endpoint="minio.local:9000", access_key="ak", secret_key="sk", bucket="bms-files")
+    client = _Denied()
+    with pytest.raises(_FakeS3Error):
+        upload._remove_sync(client, _KEY)  # pyright: ignore[reportPrivateUsage]
+    with pytest.raises(_FakeS3Error):
+        upload._hash_sync(client, _KEY)  # pyright: ignore[reportPrivateUsage]

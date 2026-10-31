@@ -3,6 +3,8 @@
 覆盖：契约与标识 / 数据契约与常量 / 占位会话语义 / 异常处置 / 依赖解析 / 占位路由与幂等接线。
 """
 
+from typing import Any, cast
+
 import pytest
 from pydantic import ValidationError
 
@@ -171,3 +173,16 @@ async def test_dependency_provider_resolves() -> None:
         assert resolve_plugin("multipart_upload", "local") is app.state.multipart_upload
         providers = app.state.plugin_providers
         assert providers["multipart_upload"] == "local"
+
+
+@pytest.mark.kiwi_id(845)
+async def test_dependency_helper_resolves_app_instance() -> None:
+    """依赖提供者 `get_multipart_upload` 从应用状态取到已装配实例（路由注入路径）。"""
+    from types import SimpleNamespace
+
+    from bms_core.api.deps import get_multipart_upload
+
+    app = ApplicationFactory().create(None)
+    async with lifespan(app):
+        request = cast("Any", SimpleNamespace(app=app))
+        assert get_multipart_upload(request) is app.state.multipart_upload

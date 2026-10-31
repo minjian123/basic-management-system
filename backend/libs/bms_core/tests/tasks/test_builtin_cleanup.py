@@ -97,3 +97,44 @@ async def test_maintenance_client_passes_limit() -> None:
     summary = await FileMaintenanceClient(client).cleanup_orphans(limit=50)
     assert summary.scanned == 0
     assert client.calls[0].query == ConcurrentStableFrozenDict({"limit": "50"})
+
+
+async def test_maintenance_client_rejects_non_object_payload() -> None:
+    """响应体不是 JSON 对象：视为不可用（不按缺字段静默补 0）。
+
+    Raises:
+        ServiceUnavailableError: 期望抛出。
+    """
+    with pytest.raises(ServiceUnavailableError):
+        await FileMaintenanceClient(_Client(body=[1, 2, 3])).cleanup_orphans()
+
+
+def test_build_service_client_requires_provider() -> None:
+    """服务间调用未启用（provider 空）：构建即报不可用（离线执行体据此转失败态）。
+
+    Raises:
+        ServiceUnavailableError: 期望抛出。
+    """
+    from bms_core.core.config import get_settings
+
+    settings = get_settings()
+    original = settings.service_client.provider
+    settings.service_client.provider = ""
+    try:
+        with pytest.raises(ServiceUnavailableError, match="未启用"):
+            builtin.build_service_client()
+    finally:
+        settings.service_client.provider = original
+
+
+def test_build_service_client_resolves_registered_provider() -> None:
+    """服务间调用启用时：按 provider 解析出真实客户端（不依赖应用装配）。"""
+    from bms_core.core.config import get_settings
+
+    settings = get_settings()
+    original = settings.service_client.provider
+    settings.service_client.provider = "null"
+    try:
+        assert isinstance(builtin.build_service_client(), BaseServiceClient)
+    finally:
+        settings.service_client.provider = original

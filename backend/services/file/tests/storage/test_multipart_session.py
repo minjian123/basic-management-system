@@ -17,6 +17,7 @@ from bms_core.storage.multipart import (
     part_key,
 )
 from bms_core.storage.multipart_local import LocalMultipartUpload
+from bms_core.storage.multipart_minio import MinioMultipartUpload
 
 pytestmark = pytest.mark.kiwi_id(2374)
 
@@ -122,3 +123,35 @@ async def test_factories_enforce_storage_pairing(monkeypatch: pytest.MonkeyPatch
         MinioMultipartUploadFactory(settings).create(None)
 
     assert isinstance(settings, Settings)
+
+
+async def test_store_accessors_and_check_contract(tmp_path: Path) -> None:
+    """会话存储访问器（TTL / 实例）与秒传判定契约：真实实现恒未命中（判定归文件域）。"""
+    upload = LocalMultipartUpload(root=tmp_path, session_ttl_seconds=90)
+    assert upload.session_store.ttl_seconds == 90
+    assert isinstance(upload.session_store, UploadSessionStore)
+    assert await upload.check("a" * 64, 1024) is None
+
+
+async def test_minio_multipart_factory_requires_sdk_and_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    """MinIO 分片工厂：SDK 缺失 / 凭据不全即拒启；三项齐备时正常构造。"""
+    from bms_core.core import assembly
+
+    def _missing(name: str) -> object:
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setattr(assembly, "import_module", _missing)
+    with pytest.raises(PluginError, match="minio"):
+        assembly.MinioMultipartUploadFactory(get_settings()).create(None)
+
+    monkeypatch.undo()
+    settings = get_settings()
+    monkeypatch.setattr(settings.storage, "provider", "minio", raising=False)
+    with pytest.raises(PluginError, match="凭据"):
+        assembly.MinioMultipartUploadFactory(settings).create(None)
+
+    monkeypatch.setattr(settings.minio, "endpoint", "minio.local:9000", raising=False)
+    monkeypatch.setattr(settings.minio, "access_key", "ak", raising=False)
+    monkeypatch.setattr(settings.minio, "secret_key", "sk", raising=False)
+    upload = assembly.MinioMultipartUploadFactory(settings).create(None)
+    assert isinstance(upload, MinioMultipartUpload)
