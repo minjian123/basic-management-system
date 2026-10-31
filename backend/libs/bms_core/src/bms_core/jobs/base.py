@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from bms_core.core.concurrent import ConcurrentStableDict
-from bms_core.core.plugin import BasePluggable
+from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 from bms_core.core.roots import BaseDataContract, BaseValueObject
 
 __all__ = ["BaseJobHandler", "JobContext", "JobResult"]
@@ -210,6 +210,12 @@ class BaseJobHandler(BasePluggable, ABC):
 
     plugin_key: str = "job_handler"
     """能力域键。"""
+
+    plugin_name: str = NULL_PLUGIN_NAME
+    """插件名（端口缺省 null；具体实现由作业注册表按类型装配）。"""
+
+    contract_version: str = DEFAULT_CONTRACT_VERSION
+    """插件契约版本（与基座插件体系一致）。"""
 
     job_type: str = ""
     """作业类型（子类必须声明；与 `[[jobs]]` 声明一致）。"""
