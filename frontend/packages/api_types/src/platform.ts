@@ -2495,6 +2495,7 @@ export interface paths {
          *         req: 新增请求（角色码 / 名称 / 状态）。
          *         uow: 请求级工作单元。
          *         config: 系统参数取数。
+         *         invalidator: 字典版本化失效器（写后失效 `role` 字典）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为角色详情。
@@ -2535,6 +2536,7 @@ export interface paths {
          *         req: 修改请求（角色码 / 名称 / 状态 / 版本）。
          *         uow: 请求级工作单元。
          *         config: 系统参数取数。
+         *         invalidator: 字典版本化失效器（改名 / 启停后即时失效）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为角色详情。
@@ -2549,6 +2551,7 @@ export interface paths {
          *         role_id: 角色主键。
          *         uow: 请求级工作单元。
          *         config: 系统参数取数。
+         *         invalidator: 字典版本化失效器（删除后即时失效）。
          *
          *     Returns:
          *         ApiResponse: 统一响应（data 为空）。

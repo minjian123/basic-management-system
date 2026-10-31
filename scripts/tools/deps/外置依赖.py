@@ -38,6 +38,11 @@ def main(argv):
     print(f"[{PREFIX}] 本地依赖仓：{deps_dir}")
     print(f"[{PREFIX}] 项目根：{root}")
 
+    # ---- 修复指向旧布局的链接 ----
+    # 平台分目录改造只搬了依赖条目，项目内既有链接仍指向 `<依赖仓根>/<rel>` 这一旧路径，
+    # 换平台 / 迁移后即断链（表现为 `Cannot find package`）。此处按新布局重写，幂等。
+    _rewrite_legacy_platform_links(root, deps_dir, dry_run)
+
     # ---- node_modules 外置 ----
     # 先收集全部候选再统一搬移（遍历中搬走目录会中断遍历，与 shell 版同口径）。
     count = 0
@@ -136,6 +141,43 @@ def main(argv):
     print("[外置] 查看本地依赖仓体积： du -sh <依赖仓>（Windows 可看文件夹属性）")
     print("[外置] 确认项目内为链接： ls -la <包>/node_modules（Windows 为 junction）")
     return 0
+
+
+def _rewrite_legacy_platform_links(root, deps_dir, dry_run):
+    """把指向「平台分目录改造前」旧布局的依赖链接重写到当前平台目录。
+
+    旧布局：`<依赖仓根>/<rel>`；新布局：`<依赖仓根>/<windows|linux>/<rel>`。
+    平台迁移只搬依赖条目，项目内链接仍指向旧路径，切换平台后即断链；此函数按新布局重写。
+    幂等：目标已在当前平台目录内的链接天然跳过。
+
+    Args:
+        root: 仓库根。
+        deps_dir: 当前平台的依赖仓目录（`<根>/<平台>`）。
+        dry_run: 只打印不落地。
+    """
+    deps_root = os.path.dirname(deps_dir)
+    for dirpath, dirnames, _ in os.walk(root):
+        if "node_modules" not in dirnames:
+            continue
+        link = os.path.join(dirpath, "node_modules")
+        if not common.is_link(link):
+            continue
+        dirnames.remove("node_modules")  # 链接不跟随，避免走进依赖仓
+        target = common.link_target(link)
+        if not target or common.is_within(target, deps_dir):
+            continue
+        if not common.is_within(target, deps_root):
+            continue
+        rel = os.path.relpath(common.norm(target), deps_root)
+        rewritten = os.path.join(deps_dir, rel)
+        if not os.path.isdir(rewritten):
+            print(f"[跳过] {os.path.relpath(link, root)}：新布局目标不存在 {rewritten}")
+            continue
+        print(f"[修复] {os.path.relpath(link, root)} -> {rewritten}（原指向旧布局）")
+        if dry_run:
+            continue
+        common.remove_link(link)
+        common.create_link(link, rewritten)
 
 
 if __name__ == "__main__":
