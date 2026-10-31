@@ -16,7 +16,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.registry import EngineRegistry
 from bms_core.dict.table import DictI18nSpec, DictTableDataSource, DictTableScope
 
@@ -221,7 +221,7 @@ def _seed_custom(
     table: sa.Table,
     *,
     extra: sa.Table | None = None,
-    extra_rows: ConcurrentStableList[dict[str, object]] | None = None,
+    extra_row: ConcurrentStableDict[str, object] | None = None,
 ) -> None:
     """建主表（写一行启用）与可选附表（写指定行），供「附表列不全」用例。
 
@@ -229,7 +229,7 @@ def _seed_custom(
         db_path: SQLite 文件路径。
         table: 主表。
         extra: 附表（可选）。
-        extra_rows: 附表行（可选）。
+        extra_row: 附表行（可选）。
     """
     engine = sa.create_engine(f"sqlite:///{db_path}")
     table.create(engine)
@@ -237,9 +237,9 @@ def _seed_custom(
         connection.execute(table.insert(), [{"id": 1, "code": "admin", "name": "管理员", "status": "enabled"}])
     if extra is not None:
         extra.create(engine)
-        if extra_rows:
+        if extra_row is not None:
             with engine.begin() as connection:
-                connection.execute(extra.insert(), list(extra_rows))
+                connection.execute(extra.insert(), [extra_row])
     engine.dispose()
 
 
@@ -278,7 +278,7 @@ async def test_i18n_table_without_soft_delete_column(tmp_path: Path) -> None:
         db_path,
         table,
         extra=no_soft,
-        extra_rows=ConcurrentStableList([{"id": 11, "role_id": 1, "locale": "en-US", "name": "Administrator"}]),
+        extra_row=ConcurrentStableDict({"id": 11, "role_id": 1, "locale": "en-US", "name": "Administrator"}),
     )
     i18n = DictI18nSpec(table=no_soft, relation_column="role_id")
     items = await _source(table, db_path, i18n=i18n).load("role", "en-US")

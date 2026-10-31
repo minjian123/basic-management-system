@@ -60,7 +60,7 @@ from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.resources import ResourceManager
 from bms_core.core.service import ServiceIdentity, attach_service
 from bms_core.core.service_endpoints import register_service_endpoints, reset_service_endpoints
-from bms_core.datasource.registry import DataSourceOrigin, DataSourceRegistry, data_source_records_view
+from bms_core.datasource.registry import DATA_SOURCE_CATALOG, DataSourceOrigin, DataSourceRegistry
 from bms_core.db.bootstrap import ensure_unit_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
@@ -121,6 +121,11 @@ def _validate_data_sources(settings: Settings) -> None:
        必须能解析到本地提供者；产品来源豁免（前端直取产品命名空间），`http` 出口的其他服务也豁免
        （它们本就没有本地提供者，无条件校验会让除 platform 外的服务全部启动失败）。
 
+    校验对象是**本仓内建清单** `DATA_SOURCE_CATALOG`，不含产品清单注入项：产品条目由装载入口
+    （`register_data_source_records` 同键异值即拒）与跨仓对账保证，其出口指向产品命名空间，本进程本就不该
+    有提供者。若把注入项一并校验，任何产品的清单笔误（如策略值拼错）都会让**所有服务**起不来，且
+    校验结果随「本进程装载了哪些产品」漂移（实测：tenant 服务因产品示例条目而拒启）。
+
     Args:
         settings: 应用配置。
 
@@ -129,7 +134,7 @@ def _validate_data_sources(settings: Settings) -> None:
     """
     from bms_core.dict.outlet import registered_data_sources
 
-    registry = DataSourceRegistry(data_source_records_view())
+    registry = DataSourceRegistry(DATA_SOURCE_CATALOG)
     errors = ConcurrentStableList(registry.validate())
     providers = registered_data_sources()
     # 只在本进程确实承担字典取数（已登记提供者）且出口为统一出口时才做覆盖校验：
