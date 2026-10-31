@@ -7,7 +7,7 @@
 改为替换表源的 `_session` 为临时 SQLite 会话、用记录器断言库键选择——测的是表源自身逻辑。
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import cast
@@ -90,7 +90,7 @@ def _seed_sqlite(db_path: Path, table: sa.Table, *, i18n: sa.Table | None = None
 
 
 @asynccontextmanager
-async def _local_session(db_path: Path) -> AsyncIterator[AsyncSession]:
+async def _local_session(db_path: Path) -> AsyncGenerator[AsyncSession]:
     """本地 SQLite 异步会话（替代 `session_scope`，只供表源用例）。
 
     Args:
@@ -127,7 +127,7 @@ def _source(
     source = DictTableDataSource(
         engines=_DUMMY_REGISTRY, data_source="platform", table=table, db_scope=db_scope, i18n=i18n
     )
-    source._session = lambda: _local_session(db_path)  # pyright: ignore[reportAttributeAccessIssue]
+    source._session = lambda: _local_session(db_path)  # pyright: ignore[reportAttributeAccessIssue,reportPrivateUsage]
     return source
 
 
@@ -202,7 +202,7 @@ async def test_platform_scope_uses_platform_db_key(
     @asynccontextmanager
     async def _recording_scope(
         registry: EngineRegistry, *, db_key: str | None = None, read_only: bool = False
-    ) -> AsyncIterator[AsyncSession]:
+    ) -> AsyncGenerator[AsyncSession]:
         captured.add(db_key)
         async with _local_session(db_path) as session:
             yield session

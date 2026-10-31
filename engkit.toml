@@ -79,7 +79,7 @@ cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quie
 
 [[devloop.steps]]
 label = "后端静态：pyright（仅改动文件）"
-cmd = ["uv", "run", "--project", "backend", "pyright", "{changed_py*}"]
+cmd = ["{python}", "-m", "pyright", "--project", "backend", "--pythonpath", "{python}", "{changed_py*}"]
 only_if = "changed_py"
 
 [rules.backend.global]
@@ -211,7 +211,9 @@ cwd = "backend"
 
 [[preflight.steps]]
 label = "后端静态：pyright"
-cmd = ["uv", "run", "pyright"]
+# `--pythonpath` 显式指向本仓 venv：venv 外置（junction 到依赖仓）且按平台分目录后，pyright 的环境探测会
+# 落到系统解释器，第三方 import 全部误报（实测 5.3 万条）。显式传解释器与其自身一致，与依赖仓路径无关。
+cmd = ["{python}", "-m", "pyright", "--pythonpath", "{python}"]
 cwd = "backend"
 
 [[preflight.steps]]
@@ -581,7 +583,7 @@ row_parent_id = "parent_id"
 [rules.system_fields.catalog]
 path = "backend/libs/bms_core/src/bms_core/registry/forms.py"
 const = "FORM_CATALOG"
-enum = "FormKind"
+enum = "FormKind,DataSourceKey@backend/libs/bms_core/src/bms_core/datasource/keys.py"
 key_field = "form_key"
 table_field = "table"
 kind_field = "kind"
@@ -589,7 +591,7 @@ kind_field = "kind"
 [rules.system_fields.datasource]
 path = "backend/libs/bms_core/src/bms_core/datasource/registry.py"
 const = "DATA_SOURCE_CATALOG"
-enum = "DataSourceKind"
+enum = "DataSourceKind,DataSourceKey@backend/libs/bms_core/src/bms_core/datasource/keys.py"
 key_field = "data_source_key"
 kind_field = "kind"
 

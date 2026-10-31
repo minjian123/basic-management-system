@@ -5,6 +5,7 @@
 """
 
 import json
+from typing import cast
 
 import pytest
 
@@ -162,8 +163,9 @@ async def test_cache_payload_is_json_roundtrippable() -> None:
     source = _source(_Provider(_ITEMS), cache)
     await source.by_type(DictQuery(data_source_key="role"))
     payload = cache.payloads[0]
-    restored = json.loads(json.dumps(payload, ensure_ascii=False))
+    restored = cast("dict[str, object]", json.loads(json.dumps(payload, ensure_ascii=False)))
     assert isinstance(restored, dict)
     assert restored["version"] == 0
     assert restored["total"] == 1
-    assert [item["label"] for item in restored["items"]] == ["管理员"]
+    items = cast("list[dict[str, str]]", restored["items"])
+    assert [item["label"] for item in items] == ["管理员"]
