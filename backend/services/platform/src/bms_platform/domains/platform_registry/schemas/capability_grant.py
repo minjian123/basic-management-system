@@ -22,7 +22,7 @@ class CapabilityGrantResponse(BaseSchema):
     source: str
     status: str
     expire_at: datetime | None
-    granted_by: int | None
+    granted_by: SnowflakeIdStr | None
     granted_at: datetime | None
     revoked_at: datetime | None
     note: str | None
