@@ -1,33 +1,55 @@
-"""文件分片上传占位路由：`/api/v1/files`（初始化 / 分片 / 合并 / 取消 / 秒传查询）。
+"""文件管理接口：`/api/v1/files`（整包 / 分片 / 断点续传 / 秒传 / 下载预览 / 列表删除 / 内部清理）。
 
-- 统一经分片上传基座（占位实现：内存会话表 + 固定返回）；真实分片托管、秒传判定与上传下载路由随
-  文件管理阶段，本路由只做参数校验与委托。
-- 初始化入口按需求 02-45 接幂等基座：读 `Idempotency-Key` 头（缺失即跳过），重复初始化复用首次会话。
-- 分片状态机、孤儿回收、类型与大小校验、租户配额归文件管理模块（上层），本路由不承载。
+- **权限**：上传挂 `file:upload`、列表挂 `file:query`、取址挂 `file:download`、删除挂 `file:delete`；
+  内部清理端点只接受服务 JWT（不经网关）。
+- **不代理文件流**：下载 / 预览只回限时预签名地址，客户端直连对象存储。
+- **分片上传**：`PUT .../parts/{part_no}` 必带 `X-Part-Sha256`（服务端复算比对）；
+  `GET .../multipart/{upload_id}` 回已上传 / 缺失片序号供断点续传。
+- **幂等**：初始化入口读 `Idempotency-Key`（缺失即跳过），重复初始化复用首次会话响应。
 """
 
-import re
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, cast
 
 from fastapi import Depends, File, Header, Path, Query, UploadFile
 
-from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import get_idempotency_store, get_multipart_upload, get_object_storage, get_service_client
-from bms_core.core.context import current_tenant
-from bms_core.core.exceptions import ParamError, TenantQuotaExceededError
-from bms_core.db.tenant import current_tenant_id_str
-from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
-from bms_core.schemas.common import ApiResponse
-from bms_core.schemas.storage import (
-    DedupResponse,
-    MultipartInitiateRequest,
-    MultipartPartResponse,
-    MultipartSessionResponse,
-    StoredObjectResponse,
+from bms_core.api.base import BaseRouter, page_query, require_auth, require_service
+from bms_core.api.deps import (
+    get_audit_capturer,
+    get_config_source,
+    get_idempotency_store,
+    get_metrics,
+    get_multipart_upload,
+    get_object_storage,
+    get_outbox_store,
+    get_service_client,
+    get_uow,
 )
+from bms_core.audit.base import AuditCapturer
+from bms_core.config.base import BaseConfigSource
+from bms_core.core.context import current_tenant
+from bms_core.db.tenant import current_tenant_id_str
+from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
+from bms_core.metrics.base import BaseMetrics
+from bms_core.outbox.base import BaseOutboxStore
+from bms_core.permission.base import require_permission
+from bms_core.schemas.common import ApiResponse
+from bms_core.schemas.pagination import BasePageQuery
 from bms_core.servicecall.base import BaseServiceClient
-from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage, MultipartInit, MultipartSession
+from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage
 from bms_core.tenant_module.quota import TenantQuotaClient
+from bms_file.domains.file.schemas.file import (
+    DedupRequest,
+    DedupResult,
+    MultipartCompleteResult,
+    MultipartInitiateRequest,
+    MultipartInitiateResult,
+    MultipartPartResult,
+    PresignResult,
+    UploadResult,
+)
+from bms_file.domains.file.services.file import FileService
 
 router = BaseRouter(
     key="file",
@@ -36,188 +58,561 @@ router = BaseRouter(
     dependencies=[Depends(require_auth)],
 )
 
-StoreDep = Annotated[BaseMultipartUpload, Depends(get_multipart_upload)]
+router_internal = BaseRouter(
+    key="file_internal",
+    prefix="/files/internal",
+    tags=["file-internal"],
+)
+
+_REQUIRE_UPLOAD = Depends(require_permission("file:upload"))
+_REQUIRE_QUERY = Depends(require_permission("file:query"))
+_REQUIRE_DOWNLOAD = Depends(require_permission("file:download"))
+_REQUIRE_DELETE = Depends(require_permission("file:delete"))
+
+UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 StorageDep = Annotated[BaseObjectStorage, Depends(get_object_storage)]
+MultipartDep = Annotated[BaseMultipartUpload, Depends(get_multipart_upload)]
+ConfigDep = Annotated[BaseConfigSource, Depends(get_config_source)]
 ClientDep = Annotated[BaseServiceClient, Depends(get_service_client)]
+OutboxDep = Annotated[BaseOutboxStore, Depends(get_outbox_store)]
+AuditDep = Annotated[AuditCapturer, Depends(get_audit_capturer)]
+MetricsDep = Annotated[BaseMetrics, Depends(get_metrics)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
+PageDep = Annotated[BasePageQuery, Depends(page_query)]
+
 UploadIdPath = Annotated[str, Path(description="上传会话标识")]
 PartNoPath = Annotated[int, Path(ge=1, description="分片序号（从 1 起）")]
+FileIdPath = Annotated[int, Path(gt=0, description="文件主键")]
+PartShaHeader = Annotated[str, Header(alias="X-Part-Sha256", description="该分片 SHA256（64 位小写十六进制）")]
 IdempotencyKeyHeader = Annotated[
-    str | None,
-    Header(alias=IDEMPOTENCY_HEADER, description="幂等键（可选；重复初始化复用首次会话）"),
+    str | None, Header(alias=IDEMPOTENCY_HEADER, description="幂等键（可选；重复初始化复用首次会话）")
 ]
-Sha256Query = Annotated[str, Query(description="整文件 SHA256（64 位小写十六进制）")]
-SizeQuery = Annotated[int, Query(gt=0, description="文件字节数（须大于 0）")]
-PartDataFile = Annotated[UploadFile, File(description="分片内容（表单字段 data）")]
-
-_SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
-
-
-def _session_response(session: MultipartSession) -> MultipartSessionResponse:
-    """把能力域会话映射为路由响应契约（字段一一对应，不隐式透传）。
-
-    Args:
-        session: 能力域会话。
-
-    Returns:
-        MultipartSessionResponse: 路由响应契约。
-    """
-    return MultipartSessionResponse(
-        upload_id=session.upload_id,
-        key=session.key,
-        part_size=session.part_size,
-        total_parts=session.total_parts,
-    )
+ExpiresQuery = Annotated[int | None, Query(gt=0, le=86400, description="期望有效期（秒；不得超过参数上限）")]
+NameQuery = Annotated[str | None, Query(description="文件名关键字（模糊匹配）")]
+MimeQuery = Annotated[str | None, Query(description="内容类型前缀（如 image/）")]
+UploaderQuery = Annotated[int | None, Query(description="上传人")]
+StatusQuery = Annotated[str | None, Query(description="状态（uploading/completed/failed/orphan）")]
+FromQuery = Annotated[datetime | None, Query(description="创建时间下限（含）")]
+ToQuery = Annotated[datetime | None, Query(description="创建时间上限（含）")]
+LimitQuery = Annotated[int | None, Query(gt=0, le=1000, description="单批清理上限")]
+OptionalName = Annotated[str | None, Query(description="覆盖文件名（可选，缺省取上传文件名）")]
+UploadBody = Annotated[UploadFile, File(description="文件内容（表单字段 file）")]
+PartBody = Annotated[UploadFile, File(description="分片内容（表单字段 data）")]
 
 
-def _ensure_sha256(sha256: str) -> str:
-    """校验 SHA256 格式（64 位小写十六进制）。
+def _service(
+    uow: UnitOfWork,
+    storage: BaseObjectStorage,
+    multipart: BaseMultipartUpload,
+    config: BaseConfigSource,
+    client: BaseServiceClient,
+    outbox: BaseOutboxStore,
+    audit: AuditCapturer,
+    metrics: BaseMetrics,
+) -> FileService:
+    """构造文件域服务（请求级依赖组合）。
 
     Args:
-        sha256: 待校验的 SHA256。
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数取数。
+        client: 服务间调用客户端（配额记账）。
+        outbox: 事务性发件箱。
+        audit: 审计捕获器。
+        metrics: 指标记录器。
 
     Returns:
-        str: 原值。
-
-    Raises:
-        ParamError: 格式非法（10001）。
+        FileService: 文件域服务。
     """
-    if _SHA256_PATTERN.fullmatch(sha256) is None:
-        raise ParamError("SHA256 格式非法（应为 64 位小写十六进制）")
-    return sha256
-
-
-@router.post("/uploads")
-async def initiate_upload(
-    store: StoreDep,
-    idempotency: IdempotencyDep,
-    req: MultipartInitiateRequest,
-    idempotency_key: IdempotencyKeyHeader = None,
-) -> ApiResponse:
-    """初始化分片上传会话（可按幂等键复用首次会话）。
-
-    Args:
-        store: 分片上传基座。
-        idempotency: 幂等基座（首次结果复用）。
-        req: 初始化请求。
-        idempotency_key: 幂等键请求头（可选）。
-
-    Returns:
-        ApiResponse: 统一响应，data 为会话（`MultipartSessionResponse`）。
-    """
-    init = MultipartInit(
-        key=req.key,
-        size=req.size,
-        sha256=req.sha256,
-        mime=req.mime,
-        part_size=req.part_size,
-    )
-    if not idempotency_key:
-        return ApiResponse.ok(_session_response(await store.initiate(init)))
-    key = build_idempotency_key(key=idempotency_key)
-    if not await idempotency.begin(key):
-        payload = await idempotency.load(key)
-        if payload is not None:
-            return ApiResponse.ok(MultipartSessionResponse.model_validate(payload))
-    session = await store.initiate(init)
-    await idempotency.save(key, session.model_dump(mode="json"))
-    return ApiResponse.ok(_session_response(session))
-
-
-@router.put("/uploads/{upload_id}/parts/{part_no}")
-async def upload_part(
-    store: StoreDep,
-    upload_id: UploadIdPath,
-    part_no: PartNoPath,
-    data: PartDataFile,
-) -> ApiResponse:
-    """上传单个分片。
-
-    Args:
-        store: 分片上传基座。
-        upload_id: 上传会话标识。
-        part_no: 分片序号。
-        data: 分片内容（表单字段 `data`）。
-
-    Returns:
-        ApiResponse: 统一响应，data 为分片结果（`MultipartPartResponse`）。
-    """
-    content = await data.read()
-    part = await store.upload_part(upload_id, part_no, content)
-    return ApiResponse.ok(MultipartPartResponse(part_no=part.part_no, etag=part.etag, size=part.size))
-
-
-@router.post("/uploads/{upload_id}/complete")
-async def complete_upload(
-    store: StoreDep, storage: StorageDep, client: ClientDep, upload_id: UploadIdPath
-) -> ApiResponse:
-    """合并分片为最终对象，并占用租户存储配额（超限删除已合并对象并拒绝）。
-
-    Args:
-        store: 分片上传基座。
-        storage: 对象存储（配额超限时清理已合并对象）。
-        client: 服务间调用客户端（tenant 配额内部契约）。
-        upload_id: 上传会话标识。
-
-    Returns:
-        ApiResponse: 统一响应，data 为合并产物元数据（`StoredObjectResponse`）。
-
-    Raises:
-        TenantQuotaExceededError: 租户存储配额超限（82005 / 409）。
-    """
-    stored = await store.complete(upload_id)
     quota = TenantQuotaClient(client, tenant_id=current_tenant_id_str(), tenant_code=current_tenant.get())
-    try:
-        await quota.consume("storage_bytes", stored.size, ref=stored.key)
-    except TenantQuotaExceededError:
-        await storage.delete(stored.key)
-        raise
+    return FileService(
+        uow=uow,
+        storage=storage,
+        multipart=multipart,
+        config=config,
+        quota=quota,
+        outbox=outbox,
+        audit=audit,
+        metrics=metrics,
+    )
+
+
+@router.post("", dependencies=[_REQUIRE_UPLOAD])
+async def upload_file(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    file: UploadBody,
+    name: OptionalName = None,
+) -> ApiResponse:
+    """整包上传（≤ `file.upload.max_size`；类型白名单 + 大小 + 配额校验）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        file: 上传文件。
+        name: 覆盖文件名（可选）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `UploadResult`。
+    """
+    content = await file.read()
+    row = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).upload(
+        name=name or file.filename or "unnamed",
+        data=content,
+    )
     return ApiResponse.ok(
-        StoredObjectResponse(
-            key=stored.key,
-            size=stored.size,
-            content_type=stored.content_type,
-            etag=stored.etag,
+        UploadResult(
+            file_id=row.id,
+            name=row.name,
+            mime_type=row.mime_type,
+            size=row.size,
+            sha256=row.sha256,
+            status=row.status,
         )
     )
 
 
-@router.delete("/uploads/{upload_id}")
-async def abort_upload(store: StoreDep, upload_id: UploadIdPath) -> ApiResponse:
-    """取消上传会话（清理临时分片）。
+@router.post("/multipart", dependencies=[_REQUIRE_UPLOAD])
+async def initiate_multipart(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    idempotency: IdempotencyDep,
+    request: MultipartInitiateRequest,
+    idempotency_key: IdempotencyKeyHeader = None,
+) -> ApiResponse:
+    """分片上传初始化（返回会话标识 / 分片大小 / 分片总数 / 过期时间；可按幂等键复用）。
 
     Args:
-        store: 分片上传基座。
-        upload_id: 上传会话标识。
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        idempotency: 幂等存储。
+        request: 初始化请求。
+        idempotency_key: 幂等键（可选）。
 
     Returns:
-        ApiResponse: 统一响应，data 为 null。
+        ApiResponse: 统一响应，data 为 `MultipartInitiateResult`。
     """
-    await store.abort(upload_id)
+    service = _service(uow, storage, multipart, config, client, outbox, audit, metrics)
+    if idempotency_key:
+        token = build_idempotency_key(key=idempotency_key)
+        if not await idempotency.begin(token):
+            cached = await idempotency.load(token)
+            if cached is not None:
+                return ApiResponse.ok(MultipartInitiateResult.model_validate(cached))
+    row = await service.initiate(name=request.name, size=request.size, sha256=request.sha256, mime=request.mime)
+    result = MultipartInitiateResult(
+        file_id=row.id,
+        upload_id=row.upload_id or "",
+        part_size=row.part_size or 0,
+        total_parts=row.total_parts or 0,
+        expires_at=cast("datetime", row.expires_at),
+    )
+    if idempotency_key:
+        await idempotency.save(build_idempotency_key(key=idempotency_key), result.model_dump(mode="json"))
+    return ApiResponse.ok(result)
+
+
+@router.put("/multipart/{upload_id}/parts/{part_no}", dependencies=[_REQUIRE_UPLOAD])
+async def upload_part(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    upload_id: UploadIdPath,
+    part_no: PartNoPath,
+    part_sha256: PartShaHeader,
+    data: PartBody,
+) -> ApiResponse:
+    """上传单个分片（服务端复算 SHA256 与请求头比对；同片重传为覆盖写）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        upload_id: 会话标识。
+        part_no: 分片序号。
+        part_sha256: 分片 SHA256（请求头）。
+        data: 分片内容。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `MultipartPartResult`。
+    """
+    part = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).upload_part(
+        upload_id=upload_id,
+        part_no=part_no,
+        data=await data.read(),
+        expected_sha256=part_sha256,
+    )
+    return ApiResponse.ok(MultipartPartResult(part_no=part.part_no, etag=part.etag, size=part.size))
+
+
+@router.get("/multipart/{upload_id}", dependencies=[_REQUIRE_UPLOAD])
+async def multipart_status(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    upload_id: UploadIdPath,
+) -> ApiResponse:
+    """断点续传状态（已上传 / 缺失分片序号）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        upload_id: 会话标识。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `MultipartStatusResult`。
+    """
+    result = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).status(upload_id)
+    return ApiResponse.ok(result)
+
+
+@router.post("/multipart/{upload_id}/complete", dependencies=[_REQUIRE_UPLOAD])
+async def complete_multipart(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    upload_id: UploadIdPath,
+) -> ApiResponse:
+    """合并分片为最终对象（幂等：已完成的重复调用回既有结果）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        upload_id: 会话标识。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `MultipartCompleteResult`。
+    """
+    row = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).complete(upload_id)
+    return ApiResponse.ok(
+        MultipartCompleteResult(
+            file_id=row.id,
+            size=row.size,
+            sha256=row.sha256,
+            status=row.status,
+            completed_at=row.completed_at,
+        )
+    )
+
+
+@router.delete("/multipart/{upload_id}", dependencies=[_REQUIRE_UPLOAD])
+async def abort_multipart(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    upload_id: UploadIdPath,
+) -> ApiResponse:
+    """取消上传会话（清分片对象与分片行，状态置 failed）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        upload_id: 会话标识。
+
+    Returns:
+        ApiResponse: 统一响应（data 为空）。
+    """
+    await _service(uow, storage, multipart, config, client, outbox, audit, metrics).abort(upload_id)
     return ApiResponse.ok()
 
 
-@router.get("/dedup")
-async def check_dedup(store: StoreDep, sha256: Sha256Query, size: SizeQuery) -> ApiResponse:
-    """秒传判定：查询同内容既有对象。
+@router.post("/dedup", dependencies=[_REQUIRE_UPLOAD])
+async def dedup(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    request: DedupRequest,
+) -> ApiResponse:
+    """秒传登记（同租户命中既有对象即建行；未命中 data 为 null）。
 
     Args:
-        store: 分片上传基座。
-        sha256: 整文件 SHA256。
-        size: 文件字节数。
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        request: 秒传请求。
 
     Returns:
-        ApiResponse: 统一响应，命中 data 为既有对象引用（`DedupResponse`）、未命中为 null。
+        ApiResponse: 统一响应，data 为 `DedupResult` 或 null。
     """
-    ref = await store.check(_ensure_sha256(sha256), size)
-    if ref is None:
-        return ApiResponse.ok()
-    return ApiResponse.ok(
-        DedupResponse(
-            key=ref.key,
-            size=ref.size,
-            content_type=ref.content_type,
-            etag=ref.etag,
-            stored_at=ref.stored_at,
-        )
+    row = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).dedup(
+        name=request.name,
+        size=request.size,
+        sha256=request.sha256,
+        mime=request.mime,
     )
+    if row is None:
+        return ApiResponse.ok()
+    return ApiResponse.ok(DedupResult(file_id=row.id, dedup=True, size=row.size))
+
+
+@router.get("", dependencies=[_REQUIRE_QUERY])
+async def list_files(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    page: PageDep,
+    name: NameQuery = None,
+    mime_type: MimeQuery = None,
+    uploader_id: UploaderQuery = None,
+    status: StatusQuery = None,
+    created_from: FromQuery = None,
+    created_to: ToQuery = None,
+) -> ApiResponse:
+    """文件列表（名称 / 类型 / 上传人 / 状态 / 时间范围筛选 + 分页）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        page: 分页参数。
+        name: 名称关键字。
+        mime_type: 内容类型前缀。
+        uploader_id: 上传人。
+        status: 状态。
+        created_from: 创建时间下限。
+        created_to: 创建时间上限。
+
+    Returns:
+        ApiResponse: 统一响应，data 为分页结果。
+    """
+    result = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).page(
+        page=page.page,
+        size=page.size,
+        name=name,
+        mime_type=mime_type,
+        uploader_id=uploader_id,
+        status=status,
+        created_from=created_from,
+        created_to=created_to,
+    )
+    return ApiResponse.ok(result)
+
+
+@router.get("/{file_id}/download-url", dependencies=[_REQUIRE_DOWNLOAD])
+async def download_url(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    file_id: FileIdPath,
+    expires_in: ExpiresQuery = None,
+) -> ApiResponse:
+    """取限时预签名下载地址（后端不代理文件流；过期即不可下载）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        file_id: 文件主键。
+        expires_in: 期望有效期（秒）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `PresignResult`。
+    """
+    result = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).presign(
+        file_id=file_id, preview=False, expires_in=expires_in
+    )
+    return ApiResponse.ok(
+        PresignResult(file_id=file_id, url=result.url, expires_in=result.expires_in, method=result.method)
+    )
+
+
+@router.get("/{file_id}/preview-url", dependencies=[_REQUIRE_DOWNLOAD])
+async def preview_url(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    file_id: FileIdPath,
+    expires_in: ExpiresQuery = None,
+) -> ApiResponse:
+    """取限时预签名预览地址（仅图片 / PDF 直开）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        file_id: 文件主键。
+        expires_in: 期望有效期（秒）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `PresignResult`。
+    """
+    result = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).presign(
+        file_id=file_id, preview=True, expires_in=expires_in
+    )
+    return ApiResponse.ok(
+        PresignResult(file_id=file_id, url=result.url, expires_in=result.expires_in, method=result.method)
+    )
+
+
+@router.delete("/{file_id}", dependencies=[_REQUIRE_DELETE])
+async def delete_file(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    file_id: FileIdPath,
+) -> ApiResponse:
+    """删除文件（软删元数据；对象保留、配额不释放，物理清理归 13_01）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        file_id: 文件主键。
+
+    Returns:
+        ApiResponse: 统一响应（data 为空）。
+    """
+    await _service(uow, storage, multipart, config, client, outbox, audit, metrics).delete(file_id)
+    return ApiResponse.ok()
+
+
+@router_internal.post("/cleanup-orphans", dependencies=[Depends(require_service())])
+async def cleanup_orphans(
+    uow: UowDep,
+    storage: StorageDep,
+    multipart: MultipartDep,
+    config: ConfigDep,
+    client: ClientDep,
+    outbox: OutboxDep,
+    audit: AuditDep,
+    metrics: MetricsDep,
+    limit: LimitQuery = None,
+) -> ApiResponse:
+    """孤儿回收（服务间内部端点；由内置任务 `cleanup_orphan_parts` 触发）。
+
+    Args:
+        uow: 工作单元。
+        storage: 对象存储。
+        multipart: 分片上传。
+        config: 系统参数。
+        client: 服务调用客户端。
+        outbox: 发件箱。
+        audit: 审计捕获器。
+        metrics: 指标。
+        limit: 单批上限。
+
+    Returns:
+        ApiResponse: 统一响应，data 为 `CleanupResult`。
+    """
+    result = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).cleanup_orphans(
+        limit=limit
+    )
+    return ApiResponse.ok(result)

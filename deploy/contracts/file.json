@@ -28,7 +28,22 @@
         "title": "ApiResponse",
         "type": "object"
       },
-      "Body_upload_part_api_v1_files_uploads__upload_id__parts__part_no__put": {
+      "Body_upload_file_api_v1_files_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "文件内容（表单字段 file）",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_file_api_v1_files_post",
+        "type": "object"
+      },
+      "Body_upload_part_api_v1_files_multipart__upload_id__parts__part_no__put": {
         "properties": {
           "data": {
             "contentMediaType": "application/octet-stream",
@@ -40,7 +55,53 @@
         "required": [
           "data"
         ],
-        "title": "Body_upload_part_api_v1_files_uploads__upload_id__parts__part_no__put",
+        "title": "Body_upload_part_api_v1_files_multipart__upload_id__parts__part_no__put",
+        "type": "object"
+      },
+      "DedupRequest": {
+        "additionalProperties": false,
+        "description": "秒传登记请求。",
+        "properties": {
+          "mime": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "声明的内容类型（仅供预检）",
+            "title": "Mime"
+          },
+          "name": {
+            "description": "原始文件名（含扩展名）",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "整文件 SHA256",
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "description": "文件字节数",
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "size",
+          "sha256"
+        ],
+        "title": "DedupRequest",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -58,54 +119,44 @@
       },
       "MultipartInitiateRequest": {
         "additionalProperties": false,
-        "description": "分片上传初始化请求。",
+        "description": "分片初始化请求。",
         "properties": {
-          "key": {
-            "description": "目标对象 key（上层按 bms:{租户}:files:{业务键} 构造）",
-            "minLength": 1,
-            "title": "Key",
-            "type": "string"
-          },
           "mime": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "内容类型（可空）",
+            "description": "声明的内容类型（仅供预检，不作真值）",
             "title": "Mime"
           },
-          "part_size": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "分片大小（字节）；缺省取基座缺省分片大小",
-            "title": "Part Size"
+          "name": {
+            "description": "原始文件名（含扩展名）",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
           },
           "sha256": {
-            "description": "整文件 SHA256（供秒传判定与合并校验）",
-            "minLength": 1,
+            "description": "整文件 SHA256（64 位小写十六进制）",
+            "maxLength": 64,
+            "minLength": 64,
             "title": "Sha256",
             "type": "string"
           },
           "size": {
-            "description": "文件字节数（须大于 0；空文件不走分片上传）",
+            "description": "文件字节数（须大于 0）",
             "exclusiveMinimum": 0.0,
             "title": "Size",
             "type": "integer"
           }
         },
         "required": [
-          "key",
+          "name",
           "size",
           "sha256"
         ],
@@ -179,32 +230,185 @@
         "summary": "Root"
       }
     },
-    "/api/v1/files/dedup": {
+    "/api/v1/files": {
       "get": {
-        "description": "秒传判定：查询同内容既有对象。\n\nArgs:\n    store: 分片上传基座。\n    sha256: 整文件 SHA256。\n    size: 文件字节数。\n\nReturns:\n    ApiResponse: 统一响应，命中 data 为既有对象引用（`DedupResponse`）、未命中为 null。",
-        "operationId": "check_dedup_api_v1_files_dedup_get",
+        "description": "文件列表（名称 / 类型 / 上传人 / 状态 / 时间范围筛选 + 分页）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    page: 分页参数。\n    name: 名称关键字。\n    mime_type: 内容类型前缀。\n    uploader_id: 上传人。\n    status: 状态。\n    created_from: 创建时间下限。\n    created_to: 创建时间上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "operationId": "list_files_api_v1_files_get",
         "parameters": [
           {
-            "description": "整文件 SHA256（64 位小写十六进制）",
+            "description": "文件名关键字（模糊匹配）",
             "in": "query",
-            "name": "sha256",
-            "required": true,
+            "name": "name",
+            "required": false,
             "schema": {
-              "description": "整文件 SHA256（64 位小写十六进制）",
-              "title": "Sha256",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "文件名关键字（模糊匹配）",
+              "title": "Name"
             }
           },
           {
-            "description": "文件字节数（须大于 0）",
+            "description": "内容类型前缀（如 image/）",
+            "in": "query",
+            "name": "mime_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "内容类型前缀（如 image/）",
+              "title": "Mime Type"
+            }
+          },
+          {
+            "description": "上传人",
+            "in": "query",
+            "name": "uploader_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "上传人",
+              "title": "Uploader Id"
+            }
+          },
+          {
+            "description": "状态（uploading/completed/failed/orphan）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态（uploading/completed/failed/orphan）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "创建时间下限（含）",
+            "in": "query",
+            "name": "created_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "创建时间下限（含）",
+              "title": "Created From"
+            }
+          },
+          {
+            "description": "创建时间上限（含）",
+            "in": "query",
+            "name": "created_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "创建时间上限（含）",
+              "title": "Created To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
             "in": "query",
             "name": "size",
-            "required": true,
+            "required": false,
             "schema": {
-              "description": "文件字节数（须大于 0）",
-              "exclusiveMinimum": 0,
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
               "title": "Size",
               "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
             }
           }
         ],
@@ -280,16 +484,338 @@
             "description": "服务异常"
           }
         },
-        "summary": "Check Dedup",
+        "summary": "List Files",
+        "tags": [
+          "file"
+        ]
+      },
+      "post": {
+        "description": "整包上传（≤ `file.upload.max_size`；类型白名单 + 大小 + 配额校验）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    file: 上传文件。\n    name: 覆盖文件名（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `UploadResult`。",
+        "operationId": "upload_file_api_v1_files_post",
+        "parameters": [
+          {
+            "description": "覆盖文件名（可选，缺省取上传文件名）",
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "覆盖文件名（可选，缺省取上传文件名）",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_file_api_v1_files_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Upload File",
         "tags": [
           "file"
         ]
       }
     },
-    "/api/v1/files/uploads": {
+    "/api/v1/files/dedup": {
       "post": {
-        "description": "初始化分片上传会话（可按幂等键复用首次会话）。\n\nArgs:\n    store: 分片上传基座。\n    idempotency: 幂等基座（首次结果复用）。\n    req: 初始化请求。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为会话（`MultipartSessionResponse`）。",
-        "operationId": "initiate_upload_api_v1_files_uploads_post",
+        "description": "秒传登记（同租户命中既有对象即建行；未命中 data 为 null）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    request: 秒传请求。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `DedupResult` 或 null。",
+        "operationId": "dedup_api_v1_files_dedup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DedupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Dedup",
+        "tags": [
+          "file"
+        ]
+      }
+    },
+    "/api/v1/files/internal/cleanup-orphans": {
+      "post": {
+        "description": "孤儿回收（服务间内部端点；由内置任务 `cleanup_orphan_parts` 触发）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    limit: 单批上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `CleanupResult`。",
+        "operationId": "cleanup_orphans_api_v1_files_internal_cleanup_orphans_post",
+        "parameters": [
+          {
+            "description": "单批清理上限",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 1000,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "单批清理上限",
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Cleanup Orphans",
+        "tags": [
+          "file-internal"
+        ]
+      }
+    },
+    "/api/v1/files/multipart": {
+      "post": {
+        "description": "分片上传初始化（返回会话标识 / 分片大小 / 分片总数 / 过期时间；可按幂等键复用）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    idempotency: 幂等存储。\n    request: 初始化请求。\n    idempotency_key: 幂等键（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `MultipartInitiateResult`。",
+        "operationId": "initiate_multipart_api_v1_files_multipart_post",
         "parameters": [
           {
             "description": "幂等键（可选；重复初始化复用首次会话）",
@@ -392,16 +918,16 @@
             "description": "服务异常"
           }
         },
-        "summary": "Initiate Upload",
+        "summary": "Initiate Multipart",
         "tags": [
           "file"
         ]
       }
     },
-    "/api/v1/files/uploads/{upload_id}": {
+    "/api/v1/files/multipart/{upload_id}": {
       "delete": {
-        "description": "取消上传会话（清理临时分片）。\n\nArgs:\n    store: 分片上传基座。\n    upload_id: 上传会话标识。\n\nReturns:\n    ApiResponse: 统一响应，data 为 null。",
-        "operationId": "abort_upload_api_v1_files_uploads__upload_id__delete",
+        "description": "取消上传会话（清分片对象与分片行，状态置 failed）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    upload_id: 会话标识。\n\nReturns:\n    ApiResponse: 统一响应（data 为空）。",
+        "operationId": "abort_multipart_api_v1_files_multipart__upload_id__delete",
         "parameters": [
           {
             "description": "上传会话标识",
@@ -487,16 +1013,109 @@
             "description": "服务异常"
           }
         },
-        "summary": "Abort Upload",
+        "summary": "Abort Multipart",
+        "tags": [
+          "file"
+        ]
+      },
+      "get": {
+        "description": "断点续传状态（已上传 / 缺失分片序号）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    upload_id: 会话标识。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `MultipartStatusResult`。",
+        "operationId": "multipart_status_api_v1_files_multipart__upload_id__get",
+        "parameters": [
+          {
+            "description": "上传会话标识",
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "description": "上传会话标识",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Multipart Status",
         "tags": [
           "file"
         ]
       }
     },
-    "/api/v1/files/uploads/{upload_id}/complete": {
+    "/api/v1/files/multipart/{upload_id}/complete": {
       "post": {
-        "description": "合并分片为最终对象，并占用租户存储配额（超限删除已合并对象并拒绝）。\n\nArgs:\n    store: 分片上传基座。\n    storage: 对象存储（配额超限时清理已合并对象）。\n    client: 服务间调用客户端（tenant 配额内部契约）。\n    upload_id: 上传会话标识。\n\nReturns:\n    ApiResponse: 统一响应，data 为合并产物元数据（`StoredObjectResponse`）。\n\nRaises:\n    TenantQuotaExceededError: 租户存储配额超限（82005 / 409）。",
-        "operationId": "complete_upload_api_v1_files_uploads__upload_id__complete_post",
+        "description": "合并分片为最终对象（幂等：已完成的重复调用回既有结果）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    upload_id: 会话标识。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `MultipartCompleteResult`。",
+        "operationId": "complete_multipart_api_v1_files_multipart__upload_id__complete_post",
         "parameters": [
           {
             "description": "上传会话标识",
@@ -582,16 +1201,16 @@
             "description": "服务异常"
           }
         },
-        "summary": "Complete Upload",
+        "summary": "Complete Multipart",
         "tags": [
           "file"
         ]
       }
     },
-    "/api/v1/files/uploads/{upload_id}/parts/{part_no}": {
+    "/api/v1/files/multipart/{upload_id}/parts/{part_no}": {
       "put": {
-        "description": "上传单个分片。\n\nArgs:\n    store: 分片上传基座。\n    upload_id: 上传会话标识。\n    part_no: 分片序号。\n    data: 分片内容（表单字段 `data`）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分片结果（`MultipartPartResponse`）。",
-        "operationId": "upload_part_api_v1_files_uploads__upload_id__parts__part_no__put",
+        "description": "上传单个分片（服务端复算 SHA256 与请求头比对；同片重传为覆盖写）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    upload_id: 会话标识。\n    part_no: 分片序号。\n    part_sha256: 分片 SHA256（请求头）。\n    data: 分片内容。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `MultipartPartResult`。",
+        "operationId": "upload_part_api_v1_files_multipart__upload_id__parts__part_no__put",
         "parameters": [
           {
             "description": "上传会话标识",
@@ -615,13 +1234,24 @@
               "title": "Part No",
               "type": "integer"
             }
+          },
+          {
+            "description": "该分片 SHA256（64 位小写十六进制）",
+            "in": "header",
+            "name": "X-Part-Sha256",
+            "required": true,
+            "schema": {
+              "description": "该分片 SHA256（64 位小写十六进制）",
+              "title": "X-Part-Sha256",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_upload_part_api_v1_files_uploads__upload_id__parts__part_no__put"
+                "$ref": "#/components/schemas/Body_upload_part_api_v1_files_multipart__upload_id__parts__part_no__put"
               }
             }
           },
@@ -700,6 +1330,334 @@
           }
         },
         "summary": "Upload Part",
+        "tags": [
+          "file"
+        ]
+      }
+    },
+    "/api/v1/files/{file_id}": {
+      "delete": {
+        "description": "删除文件（软删元数据；对象保留、配额不释放，物理清理归 13_01）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    file_id: 文件主键。\n\nReturns:\n    ApiResponse: 统一响应（data 为空）。",
+        "operationId": "delete_file_api_v1_files__file_id__delete",
+        "parameters": [
+          {
+            "description": "文件主键",
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "description": "文件主键",
+              "exclusiveMinimum": 0,
+              "title": "File Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete File",
+        "tags": [
+          "file"
+        ]
+      }
+    },
+    "/api/v1/files/{file_id}/download-url": {
+      "get": {
+        "description": "取限时预签名下载地址（后端不代理文件流；过期即不可下载）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    file_id: 文件主键。\n    expires_in: 期望有效期（秒）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `PresignResult`。",
+        "operationId": "download_url_api_v1_files__file_id__download_url_get",
+        "parameters": [
+          {
+            "description": "文件主键",
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "description": "文件主键",
+              "exclusiveMinimum": 0,
+              "title": "File Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "期望有效期（秒；不得超过参数上限）",
+            "in": "query",
+            "name": "expires_in",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 86400,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "期望有效期（秒；不得超过参数上限）",
+              "title": "Expires In"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Download Url",
+        "tags": [
+          "file"
+        ]
+      }
+    },
+    "/api/v1/files/{file_id}/preview-url": {
+      "get": {
+        "description": "取限时预签名预览地址（仅图片 / PDF 直开）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    file_id: 文件主键。\n    expires_in: 期望有效期（秒）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `PresignResult`。",
+        "operationId": "preview_url_api_v1_files__file_id__preview_url_get",
+        "parameters": [
+          {
+            "description": "文件主键",
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "description": "文件主键",
+              "exclusiveMinimum": 0,
+              "title": "File Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "期望有效期（秒；不得超过参数上限）",
+            "in": "query",
+            "name": "expires_in",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 86400,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "期望有效期（秒；不得超过参数上限）",
+              "title": "Expires In"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Preview Url",
         "tags": [
           "file"
         ]

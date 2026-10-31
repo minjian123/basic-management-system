@@ -1,4 +1,7 @@
-"""内置任务护栏：清单与 cron 合法 / 占位执行体返回 skipped + 归口说明。"""
+"""内置任务护栏：清单与 cron 合法 / 未落地执行体返回 skipped + 归口说明。
+
+孤儿分片清理已随 03_01 落地（触发型），其行为由 `test_builtin_cleanup.py` 覆盖。
+"""
 
 import pytest
 
@@ -8,7 +11,6 @@ from bms_core.tasks.builtin import (
     BUILTIN_TASK_SPECS,
     builtin_spec_of,
     run_archive_audit_logs,
-    run_cleanup_orphan_parts,
     run_precreate_shard_tables,
     run_purge_soft_deleted,
 )
@@ -64,7 +66,6 @@ def test_builtin_spec_of_hit_and_miss() -> None:
 async def test_all_builtin_runners_skip_with_owner() -> None:
     """占位执行体统一返回 skipped，且说明里写明归口任务号。"""
     cases = (
-        (run_cleanup_orphan_parts, "03_01"),
         (run_archive_audit_logs, "06_01"),
         (run_precreate_shard_tables, "13"),
         (run_purge_soft_deleted, "13"),

@@ -54,14 +54,16 @@ class SysFile(BaseModel):
     name: Mapped[str] = mapped_column(String(255), comment="原始文件名（含扩展名）")
     ext: Mapped[str | None] = mapped_column(String(32), nullable=True, comment="小写扩展名（不含点；无扩展名为空）")
     bucket: Mapped[str] = mapped_column(String(64), default="bms-files", comment="对象存储桶名")
-    object_key: Mapped[str] = mapped_column(
-        String(512), comment="对象 key（秒传可与既有行相同，非唯一）"
-    )
+    object_key: Mapped[str] = mapped_column(String(512), comment="对象 key（秒传可与既有行相同，非唯一）")
     size: Mapped[int] = mapped_column(BigInteger, comment="文件字节数")
     mime_type: Mapped[str] = mapped_column(String(128), comment="服务端嗅探得到的 MIME")
     sha256: Mapped[str] = mapped_column(String(64), comment="整文件 SHA256（完成后可通过校验）")
-    uploader_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="上传人（雪花 ID；系统产物可空）")
-    source: Mapped[str] = mapped_column(String(16), default=FILE_SOURCE_UPLOAD, comment="来源：upload/dedup/print/export")
+    uploader_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上传人（雪花 ID；系统产物可空）"
+    )
+    source: Mapped[str] = mapped_column(
+        String(16), default=FILE_SOURCE_UPLOAD, comment="来源：upload/dedup/print/export"
+    )
     status: Mapped[str] = mapped_column(String(16), default=FILE_STATUS_UPLOADING, comment="状态（四态）")
     upload_id: Mapped[str | None] = mapped_column(
         String(64), nullable=True, comment="分片会话标识（整包为空；单列唯一）"

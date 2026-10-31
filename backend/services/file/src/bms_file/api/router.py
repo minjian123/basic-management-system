@@ -8,4 +8,4 @@ from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_file.domains.file.api import file
 
-api_router = mount_service_routers(ConcurrentStableList([file.router]))
+api_router = mount_service_routers(ConcurrentStableList([file.router, file.router_internal]))

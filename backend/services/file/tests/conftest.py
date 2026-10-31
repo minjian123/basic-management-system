@@ -7,11 +7,19 @@
 
 import asyncio
 from collections.abc import AsyncIterator, Iterator
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from bms_core.api.deps import (
+    get_config_source,
+    get_multipart_upload,
+    get_object_storage,
+    get_outbox_store,
+    get_service_client,
+)
 from bms_core.core.config import get_settings
 from bms_core.testing.fixtures import (
     clear_tenant_cache,
@@ -24,6 +32,8 @@ from bms_core.testing.fixtures import (
 )
 
 __all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
+from file_fixtures import FilePorts
+
 from bms_file.main import ApplicationFactory
 from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
@@ -115,3 +125,31 @@ async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
     async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
         c.headers.update(auth_headers())
         yield c
+
+
+@pytest.fixture
+def file_ports(service_app: FastAPI, tmp_path: Path) -> Iterator[FilePorts]:
+    """把对象存储 / 分片 / 配额 / 参数 / 发件箱替换为可控替身（真实读写落临时目录）。
+
+    Args:
+        service_app: 服务应用（依赖覆盖挂载点）。
+        tmp_path: 用例临时目录。
+
+    Yields:
+        FilePorts: 替身集合。
+    """
+    from file_fixtures import FilePorts
+
+    from bms_core.storage.local import LocalObjectStorage
+    from bms_core.storage.multipart_local import LocalMultipartUpload
+
+    ports = FilePorts(LocalObjectStorage(root=tmp_path), LocalMultipartUpload(root=tmp_path))
+    service_app.dependency_overrides[get_object_storage] = lambda: ports.storage
+    service_app.dependency_overrides[get_multipart_upload] = lambda: ports.multipart
+    service_app.dependency_overrides[get_service_client] = lambda: ports.quota
+    service_app.dependency_overrides[get_config_source] = lambda: ports.config
+    service_app.dependency_overrides[get_outbox_store] = lambda: ports.outbox
+    try:
+        yield ports
+    finally:
+        service_app.dependency_overrides.clear()
