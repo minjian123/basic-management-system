@@ -504,3 +504,16 @@ backoff_seconds = 30
 concurrency = 4
 payload_version = "1.0.0"
 status = "enabled"
+
+[[jobs]]
+job_type = "file.cleanup_orphans"
+service = "file"
+domain = "file"
+handler = "bms_file.domains.file.jobs:CleanupOrphansJob"
+description = "回收超期上传分片与孤儿记录（file 域）"
+timeout_seconds = 1800
+max_attempts = 3
+backoff_seconds = 30
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"

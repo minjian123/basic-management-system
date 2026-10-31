@@ -17,6 +17,7 @@ from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import TaskArgsInvalidError, TaskHandlerNotRegisteredError
 from bms_core.core.logging import get_logger
+from bms_core.db.session import DbSession
 from bms_core.events.base import EventEnvelope
 from bms_core.jobs.base import BaseJobHandler, JobContext, JobResult
 from bms_core.models.platform.task import (
@@ -130,22 +131,66 @@ class TaskJobHandler(BaseJobHandler):
             error_text: 错误摘要。
         """
         async with ctx.session() as session:
-            await finish_run(
-                session,
-                log_id=log_id,
-                status=status,
-                finished_at=_utc_now(),
-                cost_time=cost_time,
-                retry_count=max(0, ctx.attempt - 1),
-                result_text=result_text,
-                error_text=error_text,
-            )
-            envelope = EventEnvelope(
-                event_type=TASK_COMPLETED_EVENT,
-                payload=ConcurrentStableDict({"task_id": str(ctx.payload.get("task_id") or ""), "status": status}),
-                aggregate_key=f"task:{ctx.payload.get('task_id')}",
-            )
-            await SqlOutboxStore().enqueue(session, envelope)
+            if session.in_transaction():
+                await self._write_finish(
+                    session,
+                    ctx,
+                    log_id=log_id,
+                    status=status,
+                    cost_time=cost_time,
+                    result_text=result_text,
+                    error_text=error_text,
+                )
+            else:
+                async with session.begin():
+                    await self._write_finish(
+                        session,
+                        ctx,
+                        log_id=log_id,
+                        status=status,
+                        cost_time=cost_time,
+                        result_text=result_text,
+                        error_text=error_text,
+                    )
+
+    async def _write_finish(
+        self,
+        session: DbSession,
+        ctx: JobContext,
+        *,
+        log_id: int,
+        status: str,
+        cost_time: int,
+        result_text: str | None,
+        error_text: str | None,
+    ) -> None:
+        """在同一会话内回写任务日志并写完成事件。
+
+        Args:
+            session: 会话。
+            ctx: 执行上下文。
+            log_id: 执行记录主键。
+            status: 任务终态。
+            cost_time: 耗时（毫秒）。
+            result_text: 成功输出摘要。
+            error_text: 错误摘要。
+        """
+        await finish_run(
+            session,
+            log_id=log_id,
+            status=status,
+            finished_at=_utc_now(),
+            cost_time=cost_time,
+            retry_count=max(0, ctx.attempt - 1),
+            result_text=result_text,
+            error_text=error_text,
+        )
+        envelope = EventEnvelope(
+            event_type=TASK_COMPLETED_EVENT,
+            payload=ConcurrentStableDict({"task_id": str(ctx.payload.get("task_id") or ""), "status": status}),
+            aggregate_key=f"task:{ctx.payload.get('task_id')}",
+        )
+        await SqlOutboxStore().enqueue(session, envelope)
 
 
 def _optional_int(value: object) -> int | None:

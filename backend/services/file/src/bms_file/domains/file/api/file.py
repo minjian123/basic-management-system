@@ -13,7 +13,7 @@ from typing import Annotated, cast
 
 from fastapi import Depends, File, Header, Path, Query, UploadFile
 
-from bms_core.api.base import BaseRouter, page_query, require_auth, require_service
+from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import (
     get_audit_capturer,
     get_config_source,
@@ -582,37 +582,3 @@ async def delete_file(
     """
     await _service(uow, storage, multipart, config, client, outbox, audit, metrics).delete(file_id)
     return ApiResponse.ok()
-
-
-@router_internal.post("/cleanup-orphans", dependencies=[Depends(require_service())])
-async def cleanup_orphans(
-    uow: UowDep,
-    storage: StorageDep,
-    multipart: MultipartDep,
-    config: ConfigDep,
-    client: ClientDep,
-    outbox: OutboxDep,
-    audit: AuditDep,
-    metrics: MetricsDep,
-    limit: LimitQuery = None,
-) -> ApiResponse:
-    """孤儿回收（服务间内部端点；由内置任务 `cleanup_orphan_parts` 触发）。
-
-    Args:
-        uow: 工作单元。
-        storage: 对象存储。
-        multipart: 分片上传。
-        config: 系统参数。
-        client: 服务调用客户端。
-        outbox: 发件箱。
-        audit: 审计捕获器。
-        metrics: 指标。
-        limit: 单批上限。
-
-    Returns:
-        ApiResponse: 统一响应，data 为 `CleanupResult`。
-    """
-    result = await _service(uow, storage, multipart, config, client, outbox, audit, metrics).cleanup_orphans(
-        limit=limit
-    )
-    return ApiResponse.ok(result)

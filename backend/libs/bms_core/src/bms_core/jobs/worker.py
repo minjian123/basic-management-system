@@ -222,7 +222,7 @@ class JobWorker(BaseFrameworkObject):
         snapshots: ConcurrentStableList[JobSnapshot] = ConcurrentStableList()
         requeued = 0
         dead = 0
-        async with self._tx(db_key) as session:
+        async with self._tx(db_key) as session, session.begin():
             reclaim = await store.reclaim_expired(session, now=now)
             requeued += reclaim.requeued
             dead += reclaim.dead
@@ -340,18 +340,15 @@ class JobWorker(BaseFrameworkObject):
 
     @asynccontextmanager
     async def _tx(self, db_key: str) -> AsyncGenerator[DbSession]:
-        """打开一个短事务会话（写路径统一入口）。
+        """打开一个会话（事务边界由调用方 / 作业写操作自行管理）。
 
         Args:
             db_key: 库键。
 
         Yields:
-            DbSession: 事务内会话。
+            DbSession: 会话。
         """
-        async with (
-            session_scope(self._engine_registry, db_key=db_key, factory=self._session_factory) as session,
-            session.begin(),
-        ):
+        async with session_scope(self._engine_registry, db_key=db_key, factory=self._session_factory) as session:
             yield session
 
 

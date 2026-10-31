@@ -6,6 +6,16 @@
 
 from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.jobs.api import build_job_internal_router
 from bms_file.domains.file.api import file
+from bms_file.jobs import build_runner
 
-api_router = mount_service_routers(ConcurrentStableList([file.router, file.router_internal]))
+api_router = mount_service_routers(
+    ConcurrentStableList(
+        [
+            file.router,
+            file.router_internal,
+            build_job_internal_router(runner_factory=build_runner),
+        ]
+    )
+)

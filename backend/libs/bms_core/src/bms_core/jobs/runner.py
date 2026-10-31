@@ -64,6 +64,7 @@ class JobExecutor(BaseFrameworkObject):
         worker_id: str,
         outbox: BaseOutboxStore | None = None,
         heartbeat_enabled: bool = True,
+        transactional_writes: bool = True,
         clock: Callable[[], Any] | None = None,
         sleep: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
@@ -71,10 +72,12 @@ class JobExecutor(BaseFrameworkObject):
 
         Args:
             limits: 作业生效参数。
-            session_provider: 事务内会话提供者（每次调用打开一个短事务）。
+            session_provider: 会话提供者（每次调用打开一个会话；是否已开启事务由本类决定）。
             worker_id: 执行者实例标识（心跳与租约持有者）。
             outbox: 发件箱存储（缺省 SQL 实现）。
             heartbeat_enabled: 是否启用心跳续租（同步内联与调用方共事务时关闭）。
+            transactional_writes: 作业自身写操作是否自行开启事务（worker=True；
+                同步内联与调用方共事务时 False）。
             clock: 时钟（测试注入）。
             sleep: 睡眠（测试注入；心跳循环用）。
         """
@@ -83,9 +86,24 @@ class JobExecutor(BaseFrameworkObject):
         self._worker_id = worker_id
         self._outbox = outbox
         self._heartbeat_enabled = heartbeat_enabled
+        self._transactional_writes = transactional_writes
         self._clock = clock if clock is not None else now_utc
         self._sleep = sleep if sleep is not None else asyncio.sleep
         self._last_progress_at: float | None = None
+
+    @asynccontextmanager
+    async def _write(self) -> AsyncGenerator[DbSession]:
+        """作业自身写操作的会话（按模式决定是否自行开启事务）。
+
+        Yields:
+            DbSession: 会话。
+        """
+        async with self._session_provider() as session:
+            if self._transactional_writes:
+                async with session.begin():
+                    yield session
+            else:
+                yield session
 
     async def execute(
         self,
@@ -174,7 +192,7 @@ class JobExecutor(BaseFrameworkObject):
         async def _write_error(
             message: str, *, row_no: int | None = None, column_key: str | None = None, item_ref: str | None = None
         ) -> None:
-            async with self._session_provider() as session:
+            async with self._write() as session:
                 await store.add_job_error(
                     session,
                     job_id=snapshot.id,
@@ -220,7 +238,7 @@ class JobExecutor(BaseFrameworkObject):
             return
         self._last_progress_at = monotonic
         try:
-            async with self._session_provider() as session:
+            async with self._write() as session:
                 if not await store.update_progress(session, job_id=snapshot.id, done=done, total=total, now=now):
                     return
                 await enqueue_job_event(
@@ -250,7 +268,7 @@ class JobExecutor(BaseFrameworkObject):
             while True:
                 await self._sleep(self._limits.heartbeat_interval_seconds)
                 now = self._clock()
-                async with self._session_provider() as session:
+                async with self._write() as session:
                     alive = await store.heartbeat(
                         session,
                         job_id=snapshot.id,
@@ -295,7 +313,7 @@ class JobExecutor(BaseFrameworkObject):
             backoff_seconds * (2 ** max(0, snapshot.attempts - 1)),
             self._limits.backoff_max_seconds,
         )
-        async with self._session_provider() as session:
+        async with self._write() as session:
             await store.requeue_job(
                 session,
                 job_id=snapshot.id,
@@ -322,7 +340,7 @@ class JobExecutor(BaseFrameworkObject):
             result_text: 结果 JSON。
             error_text: 错误摘要。
         """
-        async with self._session_provider() as session:
+        async with self._write() as session:
             updated = await store.finish_job(
                 session,
                 job_id=snapshot.id,
@@ -510,6 +528,7 @@ class JobRunner(BaseFrameworkObject):
             worker_id=worker_id,
             outbox=self._outbox,
             heartbeat_enabled=False,
+            transactional_writes=False,
             clock=self._clock,
         )
         result = await executor.execute(
