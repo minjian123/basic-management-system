@@ -445,7 +445,7 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
         return runtime.consumer
 
     def _sdk_consumer(self, group: str, topics: ConcurrentStableList[str]) -> Any:
-        """用官方 SDK 建立消费客户端（延迟导入）。
+        """建立消费客户端（端点校验可单测；SDK 构造见 `_build_sdk_consumer`）。
 
         Args:
             group: 消费组名。
@@ -455,16 +455,29 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
             Any: SDK `SimpleConsumer`。
 
         Raises:
-            EventConsumeError: 端点未配置 / SDK 未安装 / 启动失败。
+            EventConsumeError: 端点未配置。
         """
         rocketmq = self._settings.rocketmq
         if not rocketmq.endpoints:
             raise EventConsumeError(
                 "RocketMQ 端点未配置（[rocketmq].endpoints / BMS_ROCKETMQ__ENDPOINTS）", data={"group": group}
             )
+        return self._build_sdk_consumer(group, topics)
+
+    def _build_sdk_consumer(self, group: str, topics: ConcurrentStableList[str]) -> Any:  # pragma: no cover
+        """用官方 SDK 建连并订阅（**真机路径**：缺 broker / SDK 的单测不可达，由集成用例覆盖）。
+
+        Args:
+            group: 消费组名。
+            topics: 订阅 topic 清单。
+
+        Returns:
+            Any: SDK `SimpleConsumer`。
+        """
+        rocketmq = self._settings.rocketmq
         try:
             from rocketmq import ClientConfiguration, Credentials, SimpleConsumer  # pyright: ignore[reportMissingTypeStubs]
-        except ImportError as exc:  # pragma: no cover - 依赖缺失属部署问题
+        except ImportError as exc:
             raise EventConsumeError(
                 "缺少 RocketMQ 客户端依赖（rocketmq-python-client）", data={"group": group}
             ) from exc
@@ -483,7 +496,6 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
         for topic in topics:
             cast("Any", consumer).subscribe(topic)
         # 消费组靠 heartbeat 在 broker 侧注册；注册完成前 proxy 的 receive 会抛 50001（NPE）。
-        # 首次建连后短暂等待，避免「刚启动就拉取」必然失败（后续拉取由循环与退避兜底）。
         time.sleep(_GROUP_REGISTER_WAIT_SECONDS)
         _LOGGER.info("rocketmq_consumer_started", group=group, topics=list(topics), endpoints=rocketmq.endpoints)
         return consumer

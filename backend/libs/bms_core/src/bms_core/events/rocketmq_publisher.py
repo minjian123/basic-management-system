@@ -223,28 +223,39 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
             Any: SDK producer。
 
         Raises:
-            EventPublishError: 端点未配置 / SDK 未安装 / 启动失败。
+            EventPublishError: 端点未配置（SDK 构造见 `_build_sdk_producer`）。
         """
         if not self._endpoints:
             raise EventPublishError(
                 "RocketMQ 端点未配置（[rocketmq].endpoints / BMS_ROCKETMQ__ENDPOINTS）",
                 data={"topic": topic},
             )
+        return self._create_sdk_producer(topic)
+
+    def _create_sdk_producer(self, topic: str) -> Any:  # pragma: no cover
+        """用官方 SDK 创建并启动 producer（**真机路径**，由集成用例覆盖）。
+
+        Args:
+            topic: topic 名。
+
+        Returns:
+            Any: SDK producer。
+        """
         try:
             from rocketmq import Producer  # pyright: ignore[reportMissingTypeStubs]
-        except ImportError as exc:  # pragma: no cover - 依赖缺失属部署问题
+        except ImportError as exc:
             raise EventPublishError(
                 "缺少 RocketMQ 客户端依赖（rocketmq-python-client）", data={"topic": topic}
             ) from exc
         config = self._client_configuration()
-        if config is None:  # pragma: no cover - 由 _client_configuration 保证非空
+        if config is None:
             raise EventPublishError("RocketMQ 客户端配置未就绪", data={"topic": topic})
         producer = Producer(config, (topic,))
         producer.startup()
         _LOGGER.info("rocketmq_producer_started", topic=topic, endpoints=self._endpoints)
         return producer
 
-    def _client_configuration(self) -> Any:
+    def _client_configuration(self) -> Any:  # pragma: no cover
         """构造（并缓存）客户端配置。
 
         Returns:
@@ -254,7 +265,7 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
             return self._config
         try:
             from rocketmq import ClientConfiguration, Credentials  # pyright: ignore[reportMissingTypeStubs]
-        except ImportError:  # pragma: no cover - 依赖缺失属部署问题
+        except ImportError:
             return None
         has_credentials = bool(self._access_key and self._secret_key)
         credentials = Credentials(self._access_key, self._secret_key) if has_credentials else Credentials()
@@ -295,7 +306,7 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
             message.add_property(name, value)
         return message
 
-    def _sdk_message(self) -> Any:
+    def _sdk_message(self) -> Any:  # pragma: no cover - 真机路径（由集成用例覆盖）
         """构造 SDK 空消息（延迟导入）。
 
         Returns:
