@@ -206,6 +206,31 @@ options = {}
 provider = "redis"
 options = {}
 
+[data_source]
+# 字典 / 表单数据源取数出口（02_09 / 02_10 / 02_01）：
+# - routed = 统一出口（按登记路由到平台内建数据源 + L1/Redis 缓存；platform 服务态）
+# - http   = 经 service_client 读 platform 服务字典接口（其余服务态；不可达降级为空结果）
+# - 空串   = null 占位（字典恒空）
+provider = "routed"
+
+[dict_translator]
+# 字典翻译出口（条目 id → label）：取值口径同 [data_source]
+provider = "routed"
+
+[dict_cache_region]
+# 字典缓存域实现（L1 + 共享层）：memory = 纯进程内（单测 / 无 Redis 可跑）、redis = Redis + 进程内 L1
+provider = "memory"
+
+[dict]
+# 字典取数缓存与三防参数（02_01）：出口按此注入，业务代码不再有魔法常量
+type_ttl_seconds = 300       # 有数据的条目集缓存 TTL（秒；写 Redis 时叠加通用抖动，防雪崩）
+empty_ttl_seconds = 30       # 空结果缓存 TTL（秒；防穿透，远短于 type_ttl）
+lock_ttl_seconds = 5         # 回源互斥锁 TTL（秒；防击穿）
+lock_wait_seconds = 0.05     # 未获锁时等待后重读缓存的时长（秒）
+l1_max_items = 1024          # 进程内 L1 条目上限（LRU；整类型与 id 子集共享）
+probe_limit = 2001           # 探针上限（前端 limit=2001 判别超大字典，阈值 2000）
+invalidate_on_write = true   # 所有者域写后自动失效（关掉即失效器 no-op，压测 / 排障用）
+
 [captcha]
 # 验证码实现选择（插件化配置；default = Pillow 出图 + Redis 一次性校验、空串解析到 null 占位）
 provider = "default"

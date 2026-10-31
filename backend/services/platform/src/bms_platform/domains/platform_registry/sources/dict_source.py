@@ -1,19 +1,27 @@
-"""平台内建数据源提供者（02_09 起，02_10 泛化）：登记项 `origin=platform` 的取数实现。
+"""平台内建数据源提供者（02_09 起，02_10 泛化，02_01 规格化）：`origin=platform` 的取数实现。
 
-- `PlatformDictDataSource`：平台内建字典取数（读平台实体表），**本期示例「角色」（`sys_role`）**，
-  其余数据源返回空（决策 13：与 `02_09`「示例各落一」一致；各域随各自任务接入）。
-  只负责**加载某数据源全部启用行**；版本比对 / 缓存 / 关键字 / 级联 / 按值子集 / 截断由统一出口承载。
+- `PlatformDictDataSource`：**12 个平台内建字典共用一条取数路径**——按 `dict_specs` 的规格分派：
+  - `mode=table` → `DictTableDataSource`（库域 / 表 / 列映射 / i18n / 排序全部来自规格，无 per-key 代码）；
+  - `mode=port` → 域读面（目前只有 `role` 走 `RoleReferencePort`，保留域内过滤语义）；
+  - 未登记标识 → 空行（出口按「未登记」处理）。
+- 只负责**加载某数据源全部启用行**；版本比对 / 缓存 / 关键字 / 级联 / 按值子集 / 截断由统一出口承载。
+- 新增一个字典：登记清单加一条 + `dict_specs` 加一行，**本文件不动**。
 - 产品来源数据源（`origin=product`）不经本提供者：前端经网关直取产品命名空间。
-- 通用字典表取数可用可直用 / 可继承实现类 `bms_core/dict/table.py::DictTableDataSource`。
 """
 
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.datasource.base import BaseDictDataSource, DataSourceItem
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
+from bms_core.dict.table import DictTableDataSource
+from bms_platform.domains.platform_registry.sources.dict_specs import (
+    DictSourceMode,
+    DictSourceSpec,
+    platform_dict_specs,
+)
 from bms_platform.domains.role.public import RoleReferencePort
 
 __all__ = ["PlatformDictDataSource", "RoleOptionsFactory"]
@@ -21,22 +29,28 @@ __all__ = ["PlatformDictDataSource", "RoleOptionsFactory"]
 RoleOptionsFactory = Callable[[DbSession], RoleReferencePort]
 """角色引用面工厂（装配处传入，域实现不依赖装配层）。"""
 
-_DATA_SOURCE_KEY_ROLE = "role"
-"""本期平台内建示例数据源标识（角色）。"""
-
 
 class PlatformDictDataSource(BaseDictDataSource):
-    """平台内建数据源提供者（示例：角色 `sys_role`）。"""
+    """平台内建数据源提供者（按 `dict_specs` 规格分派；12 个内建字典共用一条路径）。"""
 
-    def __init__(self, *, engines: EngineRegistry, role_options: RoleOptionsFactory) -> None:
+    def __init__(
+        self,
+        *,
+        engines: EngineRegistry,
+        role_options: RoleOptionsFactory,
+        specs: ConcurrentStableDict[str, DictSourceSpec] | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             engines: 多租户引擎注册表。
             role_options: 角色引用面工厂（装配处传入）。
+            specs: 数据源规格（缺省取平台内建 12 条；装配 / 用例可注入子集）。
         """
         self._engines = engines
         self._role_options = role_options
+        self._specs = specs if specs is not None else platform_dict_specs()
+        self._table_sources: ConcurrentStableDict[str, DictTableDataSource] = ConcurrentStableDict()
 
     @property
     def data_source(self) -> str:
@@ -57,9 +71,34 @@ class PlatformDictDataSource(BaseDictDataSource):
         Returns:
             tuple[DataSourceItem, ...]: 启用行；未支持标识返回空元组。
         """
-        if data_source_key == _DATA_SOURCE_KEY_ROLE:
+        spec = self._specs.get(data_source_key)
+        if spec is None:
+            return ConcurrentStableList(())
+        if spec.mode == DictSourceMode.PORT.value:
             return await self._load_roles()
-        return ConcurrentStableList(())
+        return await self._table_source(spec).load(data_source_key, locale)
+
+    def _table_source(self, spec: DictSourceSpec) -> DictTableDataSource:
+        """按规格取（并缓存）表源实例。
+
+        Args:
+            spec: 数据源规格。
+
+        Returns:
+            DictTableDataSource: 该规格对应的表源。
+        """
+        existing = self._table_sources.get(spec.data_source_key)
+        if existing is not None:
+            return existing
+        created = DictTableDataSource(
+            engines=self._engines,
+            data_source=self.data_source,
+            table=spec.table,
+            db_scope=spec.db_scope,
+            i18n=spec.i18n,
+        )
+        self._table_sources.set(spec.data_source_key, created)
+        return created
 
     async def _load_roles(self) -> ConcurrentStableList[DataSourceItem]:
         """加载启用角色（经角色域 `RoleReferencePort`，只取 DTO）。

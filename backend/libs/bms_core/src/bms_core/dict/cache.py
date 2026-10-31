@@ -420,7 +420,7 @@ class RedisDictCacheRegion(DictCacheRegion):
         Returns:
             bool: 获锁为 True。
         """
-        key = f"lock:{self.type_cache_key(tenant, locale, data_source_key)}"
+        key = self.lock_cache_key(tenant, locale, data_source_key)
         return await self._redis.asetnx(key, token, ttl)
 
     async def arelease_lock(
@@ -441,5 +441,5 @@ class RedisDictCacheRegion(DictCacheRegion):
         Returns:
             bool: 释放到为 True。
         """
-        key = f"lock:{self.type_cache_key(tenant, locale, data_source_key)}"
+        key = self.lock_cache_key(tenant, locale, data_source_key)
         return await self._redis.arelease_lock(key, token)

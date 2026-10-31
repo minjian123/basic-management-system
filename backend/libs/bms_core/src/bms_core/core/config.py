@@ -200,6 +200,31 @@ class PaginationSettings(BaseSettings):
     """页码分页最大深度（`BasePageQuery.page` 上限；超限按参数非法 10001）。"""
 
 
+class DictSettings(BaseSettings):
+    """字典取数缓存与三防参数（段 `[dict]`；02_01）。"""
+
+    type_ttl_seconds: int = Field(default=300, ge=1)
+    """类型缓存 TTL（秒；有数据的条目集，写入 Redis 时叠加通用抖动）。"""
+
+    empty_ttl_seconds: int = Field(default=30, ge=1)
+    """空结果缓存 TTL（秒；防穿透，远短于 `type_ttl_seconds`）。"""
+
+    lock_ttl_seconds: int = Field(default=5, ge=1)
+    """回源互斥锁 TTL（秒；防击穿）。"""
+
+    lock_wait_seconds: float = Field(default=0.05, ge=0.0)
+    """未获锁时短暂等待后重读缓存的时长（秒）。"""
+
+    l1_max_items: int = Field(default=1024, ge=1)
+    """进程内 L1 条目上限（LRU；整类型与 id 子集共享）。"""
+
+    probe_limit: int = Field(default=2001, ge=1)
+    """探针条数上限（前端以 `limit=2001` 判别超大字典；阈值 2000）。"""
+
+    invalidate_on_write: bool = True
+    """所有者域写后是否自动失效（关掉即失效器退化为 no-op，压测 / 排障用）。"""
+
+
 class TenantMembershipSettings(BaseSettings):
     """用户↔租户可达关系数据源（段 `[tenant_membership]`；11_01）。"""
 
@@ -1307,6 +1332,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     data_ownership: DataOwnershipSettings = Field(default_factory=DataOwnershipSettings)
     data_scope: PluginSelection = Field(default_factory=PluginSelection)
     dict_cache_region: PluginSelection = Field(default_factory=PluginSelection)
+    dict_options: DictSettings = Field(default_factory=DictSettings, validation_alias="dict")
+    """字典取数缓存与三防参数（TOML 段 `[dict]`；字段名不叫 `dict` 以免遮蔽 `BaseSettings.dict()`）。"""
     data_source: PluginSelection = Field(default_factory=PluginSelection)
     dict_translator: PluginSelection = Field(default_factory=PluginSelection)
     distributed_lock: PluginSelection = Field(default_factory=PluginSelection)

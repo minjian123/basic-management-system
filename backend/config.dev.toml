@@ -44,20 +44,11 @@ dev_tenants = ["demo", "acme", "platform"]
 [cache]
 provider = "memory"
 
-# 字典取数与缓存（02-4-27；06_02 补跨服务读出口；2026-10-11 02_09 口径返工）：
-# - provider = "routed"：字典统一出口——按登记（DATA_SOURCE_CATALOG）路由到**平台内建数据源**并叠加缓存
-#   （platform 服务态；产品来源字典由前端经网关直取产品命名空间，不经本出口）；
-# - provider = "http"：经 service_client 读 **platform 服务**字典接口（其余服务态，权威侧仍是 platform；不可达降级为空结果 / 原值）；
-# - provider = ""：占位（null 实现）。
-# Redis 可用时把 dict_cache_region 改为 "redis"（连接串取 [redis].url）。
-[data_source]
-provider = "routed"
-
-[dict_translator]
-provider = "routed"
-
+# 字典取数与缓存（02_01）：`[data_source]` / `[dict_translator]` / `[dict]` 取基线（routed / routed / 300s 等），
+# 本环境只覆盖缓存域——dev 走 Redis 共享层，用于多实例一致性实测；本机 Redis 不可达时自动降级（读穿透、写忽略）。
+# 产品来源字典仍由前端经网关直取产品命名空间，不经本出口。
 [dict_cache_region]
-provider = "memory"
+provider = "redis"
 
 # 系统参数读取与缓存（03_08）：
 # - provider = "sql"：读**本服务租户库** sys_config（platform 服务态；dev 各服务库自动建表 + 种子）；

@@ -34,9 +34,11 @@ from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
+from bms_core.datasource.keys import DataSourceKey
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import TenantContext, current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.dict.invalidate import DictInvalidator, get_dict_invalidator
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from bms_core.models.platform.role import ROLE_TYPE_CUSTOM, SysDataScope, SysRole, SysRoleField, SysRolePermission
 from bms_core.permission.base import BasePermissionChecker, get_permission_checker, require_permission
@@ -110,6 +112,7 @@ ManagerDep = Annotated[BaseTransactionManager, Depends(get_transaction_manager)]
 ParticipantDep = Annotated[BaseTransactionParticipant, Depends(get_transaction_participant)]
 CheckerDep = Annotated[BasePermissionChecker, Depends(get_permission_checker)]
 AuditDep = Annotated[AuditCapturer, Depends(get_audit_capturer)]
+DictInvalidatorDep = Annotated[DictInvalidator, Depends(get_dict_invalidator)]
 KeywordQuery = Annotated[str | None, Query(description="关键字（角色码 / 名称；用户账号 / 姓名）")]
 StatusQuery = Annotated[str | None, Query(description="状态（enabled/disabled）")]
 IdempotencyKeyHeader = Annotated[
@@ -413,19 +416,23 @@ async def list_roles(
 
 
 @router.post("", dependencies=[_REQUIRE_CREATE, _ROLE_DOMAIN_GUARD])
-async def create_role(req: RoleCreateRequest, uow: UowDep, config: ConfigDep) -> ApiResponse[RoleDetail]:
+async def create_role(
+    req: RoleCreateRequest, uow: UowDep, config: ConfigDep, invalidator: DictInvalidatorDep
+) -> ApiResponse[RoleDetail]:
     """新增角色（角色码唯一 + 格式校验；内置角色码不可自建）。
 
     Args:
         req: 新增请求（角色码 / 名称 / 状态）。
         uow: 请求级工作单元。
         config: 系统参数取数。
+        invalidator: 字典版本化失效器（写后失效 `role` 字典）。
 
     Returns:
         ApiResponse: 统一响应，data 为角色详情。
     """
     service = _role_service(uow, config)
     role = await service.create_role(code=req.code, name=req.name, status=req.status)
+    await invalidator.invalidate(ConcurrentStableList((DataSourceKey.ROLE.value,)))
     return ApiResponse.ok(_role_detail(role, builtin=_is_builtin(role), subject_count=0))
 
 
@@ -448,7 +455,13 @@ async def get_role(role_id: int, uow: UowDep, config: ConfigDep) -> ApiResponse[
 
 
 @router.put("/{role_id}", dependencies=[_REQUIRE_UPDATE, _ROLE_DOMAIN_GUARD])
-async def update_role(role_id: int, req: RoleUpdateRequest, uow: UowDep, config: ConfigDep) -> ApiResponse[RoleDetail]:
+async def update_role(
+    role_id: int,
+    req: RoleUpdateRequest,
+    uow: UowDep,
+    config: ConfigDep,
+    invalidator: DictInvalidatorDep,
+) -> ApiResponse[RoleDetail]:
     """修改角色（角色码 / 名称 / 状态；乐观锁 + 内置角色保护）。
 
     Args:
@@ -456,29 +469,35 @@ async def update_role(role_id: int, req: RoleUpdateRequest, uow: UowDep, config:
         req: 修改请求（角色码 / 名称 / 状态 / 版本）。
         uow: 请求级工作单元。
         config: 系统参数取数。
+        invalidator: 字典版本化失效器（改名 / 启停后即时失效）。
 
     Returns:
         ApiResponse: 统一响应，data 为角色详情。
     """
     service = _role_service(uow, config)
     role = await service.update_role(role_id, code=req.code, name=req.name, status=req.status, version=req.version)
+    await invalidator.invalidate(ConcurrentStableList((DataSourceKey.ROLE.value,)))
     counts = await service.subject_counts(ConcurrentStableList((role_id,)))
     return ApiResponse.ok(_role_detail(role, builtin=_is_builtin(role), subject_count=counts.get(role_id) or 0))
 
 
 @router.delete("/{role_id}", dependencies=[_REQUIRE_DELETE, _ROLE_DOMAIN_GUARD])
-async def delete_role(role_id: int, uow: UowDep, config: ConfigDep) -> ApiResponse[None]:
+async def delete_role(
+    role_id: int, uow: UowDep, config: ConfigDep, invalidator: DictInvalidatorDep
+) -> ApiResponse[None]:
     """删除角色（内置保护 + 用户分配保护）。
 
     Args:
         role_id: 角色主键。
         uow: 请求级工作单元。
         config: 系统参数取数。
+        invalidator: 字典版本化失效器（删除后即时失效）。
 
     Returns:
         ApiResponse: 统一响应（data 为空）。
     """
     await _role_service(uow, config).delete_role(role_id)
+    await invalidator.invalidate(ConcurrentStableList((DataSourceKey.ROLE.value,)))
     return ApiResponse.ok(None)
 
 

@@ -22,6 +22,7 @@ from enum import StrEnum
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
+from bms_core.datasource.keys import DataSourceKey
 
 __all__ = [
     "FORM_CATALOG",
@@ -83,84 +84,84 @@ FORM_CATALOG: ConcurrentStableList[FormRecord] = ConcurrentStableList(
             table="sys_module",
             name="业务模块注册",
             kind=FormKind.DICT.value,
-            data_source_key="module",
+            data_source_key=DataSourceKey.MODULE.value,
         ),
         FormRecord(
             form_key="product",
             table="sys_product",
             name="产品档案",
             kind=FormKind.DICT.value,
-            data_source_key="product",
+            data_source_key=DataSourceKey.PRODUCT.value,
         ),
         FormRecord(
             form_key="business",
             table="sys_business",
             name="业务码",
             kind=FormKind.DICT.value,
-            data_source_key="business",
+            data_source_key=DataSourceKey.BUSINESS.value,
         ),
         FormRecord(
             form_key="action",
             table="sys_action",
             name="动作码",
             kind=FormKind.DICT.value,
-            data_source_key="action",
+            data_source_key=DataSourceKey.ACTION.value,
         ),
         FormRecord(
             form_key="role",
             table="sys_role",
             name="角色",
             kind=FormKind.DICT.value,
-            data_source_key="role",
+            data_source_key=DataSourceKey.ROLE.value,
         ),
         FormRecord(
             form_key="user",
             table="sys_user",
             name="用户",
             kind=FormKind.DICT.value,
-            data_source_key="user",
+            data_source_key=DataSourceKey.USER.value,
         ),
         FormRecord(
             form_key="config",
             table="sys_config",
             name="系统参数",
             kind=FormKind.DICT.value,
-            data_source_key="config",
+            data_source_key=DataSourceKey.CONFIG.value,
         ),
         FormRecord(
             form_key="tenant",
             table="sys_tenant",
             name="租户",
             kind=FormKind.DICT.value,
-            data_source_key="tenant",
+            data_source_key=DataSourceKey.TENANT.value,
         ),
         FormRecord(
             form_key="identity_provider",
             table="sys_identity_provider",
             name="外部 IdP 配置",
             kind=FormKind.DICT.value,
-            data_source_key="identity_provider",
+            data_source_key=DataSourceKey.IDENTITY_PROVIDER.value,
         ),
         FormRecord(
             form_key="client",
             table="sys_client",
             name="第三方应用",
             kind=FormKind.DICT.value,
-            data_source_key="client",
+            data_source_key=DataSourceKey.CLIENT.value,
         ),
         FormRecord(
             form_key="task",
             table="sys_task",
             name="定时任务",
             kind=FormKind.DICT.value,
-            data_source_key="task",
+            data_source_key=DataSourceKey.TASK.value,
         ),
         FormRecord(
             form_key="icon",
             table="sys_icon",
             name="自定义图标",
             kind=FormKind.DICT.value,
-            data_source_key="icon",
+            data_source_key=DataSourceKey.ICON.value,
         ),
     )
 )

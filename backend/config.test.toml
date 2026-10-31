@@ -28,3 +28,10 @@ auto_bootstrap = false
 # 装配期分发口径由用例显式调用 `bootstrap_remote_topologies` 覆盖
 distribute = false
 
+
+# 字典取数缓存（02_01）：测试环境压短 TTL，用例不等 300 秒；缓存域继承基线 memory（单测不依赖 Redis）
+[dict]
+type_ttl_seconds = 5
+empty_ttl_seconds = 1
+lock_ttl_seconds = 2
+lock_wait_seconds = 0.01

@@ -60,6 +60,7 @@ from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.resources import ResourceManager
 from bms_core.core.service import ServiceIdentity, attach_service
 from bms_core.core.service_endpoints import register_service_endpoints, reset_service_endpoints
+from bms_core.datasource.registry import DataSourceOrigin, DataSourceRegistry, data_source_records_view
 from bms_core.db.bootstrap import ensure_unit_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
@@ -109,6 +110,42 @@ from bms_core.tracing.setup import setup_observability
 __all__ = ["BaseServiceApplicationFactory", "service_lifespan"]
 
 _LOGGER = "bms_core.application"
+
+
+def _validate_data_sources(settings: Settings) -> None:
+    """数据源登记启动期校验（02_01，fail-closed）。
+
+    1. 清单自校验：标识格式 `^[a-z][a-z0-9_]*$`、全局唯一、名称 / 出口非空、`kind` / `origin` / 策略合法、
+       白名单字段名合法、`origin=product` 必带 `product_key`（规则实现只有 `DataSourceRegistry.validate()` 一处）。
+    2. 覆盖校验（仅 `[data_source].provider=routed` **且本进程已登记提供者**时）：`origin=platform` 的登记项
+       必须能解析到本地提供者；产品来源豁免（前端直取产品命名空间），`http` 出口的其他服务也豁免
+       （它们本就没有本地提供者，无条件校验会让除 platform 外的服务全部启动失败）。
+
+    Args:
+        settings: 应用配置。
+
+    Raises:
+        CatalogError: 存在违规（标识格式 / 重复 / 覆盖缺失等）。
+    """
+    from bms_core.dict.outlet import registered_data_sources
+
+    registry = DataSourceRegistry(data_source_records_view())
+    errors = ConcurrentStableList(registry.validate())
+    providers = registered_data_sources()
+    # 只在本进程确实承担字典取数（已登记提供者）且出口为统一出口时才做覆盖校验：
+    # 非平台服务用 `http` 出口、也不注册本地提供者，无条件校验会让它们启动失败。
+    if settings.data_source.provider == "routed" and providers:
+        for record in registry.catalog_records():
+            if record.origin != DataSourceOrigin.PLATFORM.value:
+                continue
+            if record.data_source not in providers:
+                errors.add(
+                    f"数据源无提供者覆盖：{record.data_source_key!r}（出口 {record.data_source!r} 未登记；"
+                    "新增字典须同时登记清单与取数实现）"
+                )
+    if errors:
+        get_logger("bms").critical("data_source_catalog_invalid", errors=errors)
+        raise CatalogError("数据源登记校验失败：" + "；".join(errors))
 
 
 async def _validate_service_catalog(app: FastAPI) -> None:
@@ -369,6 +406,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """
     settings = get_settings()
     validate_startup(settings)
+    _validate_data_sources(settings)
     # 服务端点覆盖（本机裸跑寻址补充）：装配前登记，服务间调用与能力寻址同口径取用
     # （容器部署 endpoints 为空表，行为与未引入覆盖时一致）；收尾复位，避免同进程多次装配互相污染。
     register_service_endpoints(settings.service_client.endpoints)

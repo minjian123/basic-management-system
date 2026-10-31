@@ -21,18 +21,19 @@ from typing import cast
 from uuid import uuid4
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.datasource.base import BaseDictDataSource, BaseGenericDataSource, DataSourceItem
 from bms_core.datasource.registry import DataSourceRegistry, data_source_records_view
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.dict.base import (
-    DICT_PROBE_LIMIT,
     BaseDataSource,
     BaseDictTranslator,
     DictBatchQuery,
     DictBatchResult,
     DictCacheRegion,
     DictItem,
+    DictOptions,
     DictQuery,
     DictTranslateQuery,
     DictTypeResult,
@@ -42,8 +43,6 @@ from bms_core.dict.cache import MemoryDictCacheRegion
 from bms_core.i18n.base import DEFAULT_LOCALE
 
 __all__ = [
-    "LOCK_TTL_SECONDS",
-    "LOCK_WAIT_SECONDS",
     "DataSourceOutlet",
     "EmptyDictDataSource",
     "RoutedDataSource",
@@ -53,11 +52,7 @@ __all__ = [
     "registered_data_sources",
 ]
 
-LOCK_TTL_SECONDS = 5
-"""取数互斥锁有效期（秒）。"""
-
-LOCK_WAIT_SECONDS = 0.05
-"""未获锁短暂等待（秒）后重读缓存，仍无则回源（防击穿）。"""
+_LOGGER = get_logger("bms")
 
 
 def _empty_result() -> DictTypeResult:
@@ -67,6 +62,35 @@ def _empty_result() -> DictTypeResult:
         DictTypeResult: 版本 0、`items=()` 的空结果。
     """
     return DictTypeResult(version=0, items=ConcurrentStableList(()))
+
+
+async def _load_rows(
+    provider: BaseGenericDataSource, data_source_key: str, locale: str
+) -> ConcurrentStableList[DataSourceItem] | None:
+    """调提供者取数（异常边界：单个字典失败不拖垮调用方）。
+
+    兜底范围**只到提供者调用边界**：把「表缺失 / 库不可用 / 权限异常」这类运行时故障转成空结果 +
+    `warning`，且失败结果**不写缓存**（避免把一次故障固化一个 TTL）；出口自身的过滤 / 缓存逻辑不包，
+    编程错误照常暴露。
+
+    Args:
+        provider: 数据源提供者。
+        data_source_key: 数据源标识。
+        locale: 语言。
+
+    Returns:
+        ConcurrentStableList[DataSourceItem] | None: 启用行；提供者抛错时返回 None（调用方按空结果处理）。
+    """
+    try:
+        return await provider.load(data_source_key, locale)
+    except Exception as exc:  # 字典取数失败不得拖垮表单页；范围限于提供者边界
+        _LOGGER.warning(
+            "dict_load_failed",
+            data_source_key=data_source_key,
+            locale=locale,
+            error_type=type(exc).__name__,
+        )
+        return None
 
 
 class EmptyDictDataSource(BaseDictDataSource):
@@ -254,15 +278,22 @@ class RoutedDataSource(BaseDataSource):
     探针截断（功能一个不能少）；并负责通用条目 → 字典对外契约条目映射。
     """
 
-    def __init__(self, outlet: DataSourceOutlet, cache: DictCacheRegion | None = None) -> None:
+    def __init__(
+        self,
+        outlet: DataSourceOutlet,
+        cache: DictCacheRegion | None = None,
+        options: DictOptions | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             outlet: 数据源出口。
             cache: 字典缓存域（缺省进程内实现；装配侧注入配置选定的实现）。
+            options: 出口运行参数（缺省取配置缺省值；装配侧注入 `[dict]` 节）。
         """
         self._outlet = outlet
         self._cache = cache or MemoryDictCacheRegion()
+        self._options = options or DictOptions()
 
     @property
     def cache(self) -> DictCacheRegion:
@@ -306,15 +337,17 @@ class RoutedDataSource(BaseDataSource):
             if snapshot is not None:
                 return snapshot
         token = uuid4().hex
-        locked = await self._cache.alock(tenant, locale, query.data_source_key, token, LOCK_TTL_SECONDS)
+        locked = await self._cache.alock(tenant, locale, query.data_source_key, token, self._options.lock_ttl_seconds)
         if not locked:
-            await asyncio.sleep(LOCK_WAIT_SECONDS)
+            await asyncio.sleep(self._options.lock_wait_seconds)
             if cacheable_read:
                 snapshot = _cache_snapshot(await self._cache.aget_type(tenant, locale, query.data_source_key), version)
                 if snapshot is not None:
                     return snapshot
         try:
-            loaded = await provider.load(query.data_source_key, locale)
+            loaded = await _load_rows(provider, query.data_source_key, locale)
+            if loaded is None:
+                return _empty_result()
             items = _apply_filters(ConcurrentStableList(_to_dict_item(item) for item in loaded), query)
             total = len(items)
             has_more = query.limit is not None and total > query.limit
@@ -325,11 +358,15 @@ class RoutedDataSource(BaseDataSource):
                 await self._cache.arelease_lock(tenant, locale, query.data_source_key, token)
         result = DictTypeResult(version=version, items=items, has_more=has_more, total=total)
         if cacheable_read:
-            await self._cache.aset_type(tenant, locale, query.data_source_key, _snapshot_payload(result))
+            ttl = self._options.type_ttl_seconds if items else self._options.empty_ttl_seconds
+            await self._cache.aset_type(tenant, locale, query.data_source_key, _snapshot_payload(result), ttl)
         return result
 
     async def batch(self, query: DictBatchQuery) -> DictBatchResult:
-        """批量合并取数（逐标识路由合并）。
+        """批量合并取数（逐标识路由合并；按入参 `locale` 生效）。
+
+        `DictBatchQuery.locale` 的契约缺省值就是「未指定」（默认中文），故与上下文语言同时存在时：
+        入参非缺省 → 以入参为准；入参为缺省 → 沿用请求上下文（`Accept-Language`）。
 
         Args:
             query: 批量取数参数对象。
@@ -337,15 +374,23 @@ class RoutedDataSource(BaseDataSource):
         Returns:
             DictBatchResult: 批量结果（版本一致的类型 items=None）。
         """
-        items: ConcurrentStableDict[str, DictTypeResult | None] = ConcurrentStableDict()
-        version = 0
-        for data_source_key in query.types:
-            cached_read = query.version
-            result = await self.by_type(
-                DictQuery(data_source_key=data_source_key, version=cached_read, limit=DICT_PROBE_LIMIT)
-            )
-            version = max(version, result.version)
-            items.set(data_source_key, result)
+        requested = query.locale if query.locale and query.locale != DEFAULT_LOCALE else None
+        token = current_dict_locale.set(requested or current_dict_locale.get() or DEFAULT_LOCALE)
+        try:
+            items: ConcurrentStableDict[str, DictTypeResult | None] = ConcurrentStableDict()
+            version = 0
+            for data_source_key in query.types:
+                result = await self.by_type(
+                    DictQuery(
+                        data_source_key=data_source_key,
+                        version=query.version,
+                        limit=self._options.probe_limit,
+                    )
+                )
+                version = max(version, result.version)
+                items.set(data_source_key, result)
+        finally:
+            current_dict_locale.reset(token)
         return DictBatchResult(version=version, items=items)
 
 
@@ -365,6 +410,9 @@ class RoutedDictTranslator(BaseDictTranslator):
     async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[int, str]:
         """按条目 id 批量翻译为 label（当前 locale；未命中不占位）。
 
+        与取数**共用同一份缓存域**：先读 id 子集缓存，只对缺失 id 回源，回源后按缺失集合回填——
+        表单列表页几十个 id 的展示不再整表拉取（原实现每次全量 `load`）。
+
         Args:
             query: 翻译参数对象。
 
@@ -378,13 +426,24 @@ class RoutedDictTranslator(BaseDictTranslator):
         ids = ConcurrentStableList(dict.fromkeys(query.ids))
         if not ids:
             return ConcurrentStableDict()
-        loaded = await provider.load(query.data_source_key, locale)
-        wanted = set(ids)
-        mapping: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+        tenant = current_tenant_id_str()
+        cached = await self._cache.aid_subset(tenant, locale, query.data_source_key, ids)
+        missing = ConcurrentStableList(item_id for item_id in ids if item_id not in cached)
+        if not missing:
+            return cached
+        loaded = await _load_rows(provider, query.data_source_key, locale)
+        if loaded is None:
+            return cached
+        wanted = set(missing)
+        fetched: ConcurrentStableDict[int, str] = ConcurrentStableDict()
         for item in loaded:
             if item.id in wanted:
-                mapping.set(item.id, item.label)
-        return ConcurrentStableDict((item_id, mapping[item_id]) for item_id in ids if item_id in mapping)
+                fetched.set(item.id, item.label)
+        if fetched:
+            await self._cache.aset_id_subset(tenant, locale, query.data_source_key, fetched)
+        merged: ConcurrentStableDict[int, str] = ConcurrentStableDict(cached)
+        merged.update(fetched.items())
+        return ConcurrentStableDict((item_id, merged[item_id]) for item_id in ids if item_id in merged)
 
 
 _PROVIDERS: ConcurrentStableDict[str, BaseGenericDataSource] = ConcurrentStableDict()

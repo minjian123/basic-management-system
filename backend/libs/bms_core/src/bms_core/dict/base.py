@@ -27,6 +27,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Annotated, cast
 
 from fastapi import Request
@@ -35,6 +36,7 @@ from pydantic import Field
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.schemas.base import (
@@ -54,6 +56,7 @@ __all__ = [
     "DictBatchResult",
     "DictCacheRegion",
     "DictItem",
+    "DictOptions",
     "DictQuery",
     "DictTranslateQuery",
     "DictTypeResult",
@@ -77,6 +80,49 @@ NULL_DICT_VERSION = 1
 
 current_dict_locale: ContextVar[str] = ContextVar("current_dict_locale", default=DEFAULT_LOCALE)
 """当前请求语言（路由层按 `Accept-Language` 解析后设置；缺省 `zh-CN`）。"""
+
+
+@dataclass(frozen=True)
+class DictOptions(BaseValueObject):
+    """字典出口运行参数（唯一来源：`[dict]` 配置节；缺省值与配置缺省一致）。
+
+    出口（`RoutedDataSource` / `RoutedDictTranslator`）按本对象决定 TTL / 锁 / 探针上限，
+    业务代码不再各自持有魔法常量；装配侧用 `from_settings()` 从配置注入。
+    """
+
+    type_ttl_seconds: int = 300
+    """有数据的条目集缓存 TTL（秒）。"""
+
+    empty_ttl_seconds: int = 30
+    """空结果缓存 TTL（秒；防穿透）。"""
+
+    lock_ttl_seconds: int = 5
+    """回源互斥锁 TTL（秒；防击穿）。"""
+
+    lock_wait_seconds: float = 0.05
+    """未获锁时等待后重读缓存的时长（秒）。"""
+
+    probe_limit: int = 2001
+    """探针条数上限（超大字典判别阈值 +1）。"""
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> DictOptions:
+        """按应用配置构造（`[dict]` 节）。
+
+        Args:
+            settings: 应用配置。
+
+        Returns:
+            DictOptions: 出口运行参数。
+        """
+        configured = settings.dict_options
+        return cls(
+            type_ttl_seconds=configured.type_ttl_seconds,
+            empty_ttl_seconds=configured.empty_ttl_seconds,
+            lock_ttl_seconds=configured.lock_ttl_seconds,
+            lock_wait_seconds=configured.lock_wait_seconds,
+            probe_limit=configured.probe_limit,
+        )
 
 
 class DictQuery(BaseSchema):
@@ -243,6 +289,22 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         return self.build_key("version", tenant=tenant)
 
+    def lock_cache_key(self, tenant: str | None, locale: str, data_source_key: str) -> str:
+        """拼回源互斥锁键（`bms:{tenant}:dict:lock:{locale}:{type}`）。
+
+        口径（命名规范 §10）：锁也是字典域的键，前缀必须落在 `bms:{租户|global}:{域}:` 之后；
+        旧实现拼成 `lock:bms:...`（前缀跑到 `bms:` 之前），多环境共用 Redis 时无法按 `bms:*` 清库。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            data_source_key: 字典类型码。
+
+        Returns:
+            str: 互斥锁 key。
+        """
+        return self.build_key(f"lock:{locale}:{data_source_key}", tenant=tenant)
+
     def id_cache_key(self, tenant: str | None, locale: str, data_source_key: str) -> str:
         """拼字典按条目 id 子集缓存键（`bms:{tenant}:dict:{locale}:{type}:id`，整体映射 JSON）。
 
@@ -362,6 +424,16 @@ class DictCacheRegion(CacheRegion, ABC):
             merged.update((str(item), str(label)) for item, label in payload.items())
         merged.update((str(item), str(label)) for item, label in mapping.items())
         self.set(key, dict(merged))
+
+    async def adrop_id_subset(self, tenant: str | None, locale: str, data_source_key: str) -> None:
+        """删按条目 id 子集缓存（异步；写路径失效时与类型键一并删，避免残留旧 label）。
+
+        Args:
+            tenant: 租户标识；None 为全局。
+            locale: 语言。
+            data_source_key: 字典类型码。
+        """
+        self.delete(self.id_cache_key(tenant, locale, data_source_key))
 
     async def aversion(self, tenant: str | None) -> int:
         """读全局版本号（异步；缺省回退同步实现）。

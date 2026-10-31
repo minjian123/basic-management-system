@@ -24,3 +24,7 @@ auto_create = false
 # 生产链路采样下调（全采存储 / 开销压力大；需全量排查时经 BMS_TRACER__SAMPLER_RATIO 临时调回）
 [tracer]
 sampler_ratio = 0.1
+
+# 字典缓存域走 Redis 共享层（多实例一致；连接串取 [redis].url，不可达时按 CacheRegion 降级）
+[dict_cache_region]
+provider = "redis"

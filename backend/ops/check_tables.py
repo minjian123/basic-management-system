@@ -41,6 +41,7 @@ from sqlalchemy.pool import NullPool
 
 from bms_core.boundary.domains import DEFAULT_LAYOUT_RELATIVE, load_layout
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.datasource.registry import DataSourceRegistry
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import (
     DATASOURCES,
@@ -151,7 +152,20 @@ def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> ConcurrentStableLis
 
     errors.update(_check_script_tables(versions_root))
     errors.update(_check_form_keys())
+    errors.update(_check_data_sources())
     return errors
+
+
+def _check_data_sources() -> ConcurrentStableList[str]:
+    """数据源登记校验（02_01）：标识格式 / 唯一 / 名称 / 出口 / 类型 / 白名单 / 产品标识。
+
+    启动期另有同一校验（fail-closed）；此处供运维与 CI 离线复跑，两处共用
+    `DataSourceRegistry.validate()`，不重复维护规则。
+
+    Returns:
+        ConcurrentStableList[str]: 违规明细。
+    """
+    return ConcurrentStableList(DataSourceRegistry().validate())
 
 
 def _check_form_keys() -> ConcurrentStableList[str]:

@@ -13,16 +13,19 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from enum import StrEnum
+from typing import Any
 
-from sqlalchemy import Table, select
+from sqlalchemy import ColumnElement, Join, Table, and_, func, select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseValueObject
 from bms_core.datasource.base import BaseDictDataSource, DataSourceItem
+from bms_core.db.keys import build_platform_db_key
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 
-__all__ = ["DictColumnMapping", "DictTableDataSource"]
+__all__ = ["DictColumnMapping", "DictI18nSpec", "DictTableDataSource", "DictTableScope"]
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,34 @@ class DictColumnMapping(BaseValueObject):
     soft_delete: str = "deleted_at"
 
 
+class DictTableScope(StrEnum):
+    """字典表所在库域（平台库 / 租户库）。"""
+
+    TENANT = "tenant"
+    PLATFORM = "platform"
+
+
+@dataclass(frozen=True)
+class DictI18nSpec(BaseValueObject):
+    """字典表多语言附表规格（`<实体>_i18n` 表；同结构：`<实体>_id` / `locale` / `name`）。
+
+    命中行覆盖主表 label，未命中回退主表文案（需求 01-1 §7「缺省回退默认文案」）。
+
+    Attributes:
+        table: 多语言附表。
+        relation_column: 与主表 `id` 关联的列（如 `module_id`）。
+        locale_column: 语言列（缺省 `locale`）。
+        name_column: 文案列（缺省 `name`）。
+        soft_delete: 软删除列（缺省 `deleted_at`；表无该列时置空）。
+    """
+
+    table: Table
+    relation_column: str
+    locale_column: str = "locale"
+    name_column: str = "name"
+    soft_delete: str = "deleted_at"
+
+
 class DictTableDataSource(BaseDictDataSource):
     """可直用的字典表数据源：读标准字典系统字段（启用 + 未软删、按排序取行）。
 
@@ -62,6 +93,8 @@ class DictTableDataSource(BaseDictDataSource):
         data_source: str,
         table: Table,
         mapping: DictColumnMapping | None = None,
+        db_scope: str = DictTableScope.TENANT.value,
+        i18n: DictI18nSpec | None = None,
     ) -> None:
         """初始化。
 
@@ -70,11 +103,15 @@ class DictTableDataSource(BaseDictDataSource):
             data_source: 数据出口标识（与登记项 `DataSourceRecord.data_source` 对齐）。
             table: 字典物理表（SQLAlchemy `Table`，取标准字典系统字段）。
             mapping: 列名映射（缺省标准列名）。
+            db_scope: 库域（`tenant` 当前租户库 / `platform` 本服务平台库）。
+            i18n: 多语言附表规格（无则 label 恒取主表，忽略 locale）。
         """
         self._engines = engines
         self._data_source = data_source
         self._table = table
         self._mapping = mapping or DictColumnMapping()
+        self._db_scope = db_scope
+        self._i18n = i18n
 
     @property
     def data_source(self) -> str:
@@ -120,7 +157,23 @@ class DictTableDataSource(BaseDictDataSource):
         soft_delete_col = columns.get(mapping.soft_delete)
         id_col = columns.get("id")
 
-        selected = [value_col.label("value"), label_col.label("label"), code_col.label("code")]
+        label_expr: ColumnElement[Any] = label_col
+        from_clause: Join | None = None
+        if self._i18n is not None and id_col is not None:
+            spec = self._i18n
+            i18n_columns = spec.table.c
+            locale_col = i18n_columns.get(spec.locale_column)
+            name_col = i18n_columns.get(spec.name_column)
+            relation_col = i18n_columns.get(spec.relation_column)
+            if locale_col is not None and name_col is not None and relation_col is not None:
+                conditions = [relation_col == id_col, locale_col == locale]
+                i18n_soft_delete = i18n_columns.get(spec.soft_delete)
+                if i18n_soft_delete is not None:
+                    conditions.append(i18n_soft_delete.is_(None))
+                from_clause = self._table.outerjoin(spec.table, and_(*conditions))
+                label_expr = func.coalesce(name_col, label_col)
+
+        selected = [value_col.label("value"), label_expr.label("label"), code_col.label("code")]
         if parent_col is not None:
             selected.append(parent_col.label("parent_id"))
         if sort_col is not None:
@@ -130,6 +183,8 @@ class DictTableDataSource(BaseDictDataSource):
         if id_col is not None:
             selected.append(id_col.label("id"))
         statement = select(*selected)
+        if from_clause is not None:
+            statement = statement.select_from(from_clause)
         if status_col is not None:
             statement = statement.where(status_col == "enabled")
         if soft_delete_col is not None:
@@ -166,11 +221,15 @@ class DictTableDataSource(BaseDictDataSource):
 
     @asynccontextmanager
     async def _session(self) -> AsyncGenerator[DbSession]:
-        """租户库会话（按当前租户上下文取引擎）。
+        """按库域开会话（租户库取当前租户上下文；平台库取本服务平台库）。
 
         Yields:
-            DbSession: 租户库会话。
+            DbSession: 数据库会话。
         """
+        if self._db_scope == DictTableScope.PLATFORM.value:
+            async with session_scope(self._engines, db_key=build_platform_db_key()) as session:
+                yield session
+            return
         async with session_scope(self._engines) as session:
             yield session
 

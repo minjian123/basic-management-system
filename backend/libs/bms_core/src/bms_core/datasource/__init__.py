@@ -7,6 +7,7 @@ from bms_core.datasource.base import (
     BaseGenericDataSource,
     DataSourceItem,
 )
+from bms_core.datasource.keys import DataSourceKey, platform_data_source_keys
 from bms_core.datasource.registry import (
     DATA_SOURCE_CATALOG,
     DATA_SOURCE_KEY_PATTERN,
@@ -29,6 +30,7 @@ __all__ = [
     "BaseFormDataSource",
     "BaseGenericDataSource",
     "DataSourceItem",
+    "DataSourceKey",
     "DataSourceKind",
     "DataSourceOrigin",
     "DataSourceRecord",
@@ -37,5 +39,6 @@ __all__ = [
     "DataSourceStrategy",
     "data_source_records_view",
     "merge_data_source_records",
+    "platform_data_source_keys",
     "register_data_source_records",
 ]

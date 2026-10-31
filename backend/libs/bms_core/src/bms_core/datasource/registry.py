@@ -31,6 +31,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableSet,
 )
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
+from bms_core.datasource.keys import DataSourceKey
 
 __all__ = [
     "DATA_SOURCE_CATALOG",
@@ -119,84 +120,84 @@ DATA_SOURCE_CATALOG: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFr
         # 平台内建：bms 侧全部字典表（与 `bms_core/registry/forms.py::FORM_CATALOG` 的 `form_key` 一一对应；
         # 数据本体在平台实体表，经平台统一出口取数）
         DataSourceRecord(
-            data_source_key="module",
+            data_source_key=DataSourceKey.MODULE.value,
             name="业务模块注册",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="product",
+            data_source_key=DataSourceKey.PRODUCT.value,
             name="产品档案",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="business",
+            data_source_key=DataSourceKey.BUSINESS.value,
             name="业务码",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="action",
+            data_source_key=DataSourceKey.ACTION.value,
             name="动作码",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="role",
+            data_source_key=DataSourceKey.ROLE.value,
             name="角色",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code", "label")),
         ),
         DataSourceRecord(
-            data_source_key="user",
+            data_source_key=DataSourceKey.USER.value,
             name="用户",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="config",
+            data_source_key=DataSourceKey.CONFIG.value,
             name="系统参数",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="tenant",
+            data_source_key=DataSourceKey.TENANT.value,
             name="租户",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="identity_provider",
+            data_source_key=DataSourceKey.IDENTITY_PROVIDER.value,
             name="外部 IdP 配置",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="client",
+            data_source_key=DataSourceKey.CLIENT.value,
             name="第三方应用",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="task",
+            data_source_key=DataSourceKey.TASK.value,
             name="定时任务",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
-            data_source_key="icon",
+            data_source_key=DataSourceKey.ICON.value,
             name="自定义图标",
             data_source="platform",
             kind=DataSourceKind.DICT.value,
