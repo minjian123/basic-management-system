@@ -111,6 +111,10 @@ class MultipartInit(BaseSchema):
     sha256: str = Field(min_length=1, description="整文件 SHA256（供秒传判定与合并校验）")
     mime: str | None = Field(default=None, description="内容类型（可空）")
     part_size: int | None = Field(default=None, gt=0, description="分片大小（字节）；缺省取 DEFAULT_PART_SIZE")
+    upload_id: str | None = Field(
+        default=None,
+        description="会话标识（可选；指定时为「按原标识重建会话」，用于快照丢失后的断点续传恢复）",
+    )
 
 
 class MultipartSession(BaseSchema):

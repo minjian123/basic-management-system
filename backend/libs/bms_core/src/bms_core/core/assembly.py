@@ -391,6 +391,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
     register_plugin("object_storage", "local", LocalObjectStorageFactory(settings))
     register_plugin("object_storage", "minio", MinioObjectStorageFactory(settings))
+    register_plugin("multipart_upload", "local", LocalMultipartUploadFactory(settings))
+    register_plugin("multipart_upload", "minio", MinioMultipartUploadFactory(settings))
     register_plugin("redis_client", "redis", RedisRedisClientFactory(settings))
     register_plugin("cache", "memory", MemoryCacheRegionFactory())
     register_plugin("cache", "redis", RedisCacheRegionFactory(settings))
@@ -612,6 +614,107 @@ class MinioObjectStorageFactory(BasePluginFactory[BaseObjectStorage]):
             secret_key=minio_settings.secret_key,
             bucket=cast("str", bucket),
             secure=minio_settings.secure,
+        )
+
+
+class LocalMultipartUploadFactory(BasePluginFactory[BaseMultipartUpload]):
+    """本地分片上传工厂（根目录 / 分片参数取 `[storage].options.root` 与 `[file]`）。
+
+    配对校验只拦「已知后端互相错配」（local 分片 + MinIO 存储）；自定义存储实现由其自身负责，
+    不在基座写死名单（避免第三方实现被误拒）。
+    """
+
+    plugin_key: str = "multipart_upload"
+    plugin_name: str = "local"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> BaseMultipartUpload:
+        """构造本地分片实现。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            BaseMultipartUpload: 本地分片实现。
+
+        Raises:
+            PluginError: 与 `[storage].provider` 不配对（本地分片只能配本地存储）。
+        """
+        provider = self._settings.storage.provider
+        if provider == "minio":
+            raise PluginError("分片实现与存储实现不配对：multipart_upload=local / storage=minio")
+        from bms_core.storage.local import DEFAULT_ROOT
+        from bms_core.storage.multipart_local import LocalMultipartUpload
+
+        file_settings = self._settings.file_options
+        root = self._settings.storage.options.get("root") or DEFAULT_ROOT
+        return LocalMultipartUpload(
+            root=cast("str", root),
+            part_size=file_settings.part_size,
+            max_parts=file_settings.max_parts,
+            session_ttl_seconds=file_settings.session_ttl_seconds,
+            verify_sha256=file_settings.verify_sha256_on_merge,
+        )
+
+
+class MinioMultipartUploadFactory(BasePluginFactory[BaseMultipartUpload]):
+    """MinIO 分片上传工厂（端点 / 凭据取 `[minio]`；与存储实现配对校验）。"""
+
+    plugin_key: str = "multipart_upload"
+    plugin_name: str = "minio"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> BaseMultipartUpload:
+        """构造 MinIO 分片实现（依赖 / 配置校验在实例化前完成）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            BaseMultipartUpload: MinIO 分片实现。
+
+        Raises:
+            PluginError: 依赖缺失 / 配置不全 / 与 `[storage].provider` 不配对。
+        """
+        try:
+            import_module("minio")
+        except ModuleNotFoundError as exc:
+            raise PluginError("minio 实现依赖未安装：uv sync --extra storage-minio") from exc
+        provider = self._settings.storage.provider
+        if provider == "local":
+            raise PluginError("分片实现与存储实现不配对：multipart_upload=minio / storage=local")
+        minio_settings = self._settings.minio
+        if not (minio_settings.endpoint and minio_settings.access_key and minio_settings.secret_key):
+            raise PluginError("minio 实现缺少端点 / 凭据配置（经 BMS_MINIO__* 环境变量注入）")
+        from bms_core.storage.base import STORAGE_BUCKET
+        from bms_core.storage.multipart_minio import MinioMultipartUpload
+
+        file_settings = self._settings.file_options
+        bucket = self._settings.storage.options.get("bucket") or STORAGE_BUCKET
+        return MinioMultipartUpload(
+            endpoint=minio_settings.endpoint,
+            access_key=minio_settings.access_key,
+            secret_key=minio_settings.secret_key,
+            bucket=cast("str", bucket),
+            secure=minio_settings.secure,
+            part_size=file_settings.part_size,
+            max_parts=file_settings.max_parts,
+            session_ttl_seconds=file_settings.session_ttl_seconds,
+            verify_sha256=file_settings.verify_sha256_on_merge,
         )
 
 

@@ -119,6 +119,20 @@ class LocalObjectStorage(BaseObjectStorage):
         absolute = await asyncio.to_thread(path.resolve)
         return PresignedUrl(url=absolute.as_uri(), expires_in=expires_in, method=method)
 
+    def path_of(self, key: str) -> Path:
+        """把对象 key 映射为根目录下的文件路径（分片实现复用同一 key 空间 / 安全校验）。
+
+        Args:
+            key: 对象 key。
+
+        Returns:
+            Path: 目标文件路径。
+
+        Raises:
+            ValueError: 对象 key 非法（空 / 绝对路径 / 含 `..`）。
+        """
+        return self._resolve(key)
+
     def _resolve(self, key: str) -> Path:
         """键安全校验并映射为根目录下路径。
 

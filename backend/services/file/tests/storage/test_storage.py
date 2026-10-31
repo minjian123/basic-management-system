@@ -271,6 +271,7 @@ async def test_storage_provider_switch_zero_change(monkeypatch: pytest.MonkeyPat
         "bms_core.application.get_settings",
         lambda: Settings(
             storage=PluginSelection(provider="minio", options=ConcurrentStableDict({"bucket": "switch-bucket"})),
+            multipart_upload=PluginSelection(provider="minio"),
             minio=MinioSettings(endpoint="localhost:9000", access_key="ak", secret_key="sk"),
         ),
     )
@@ -321,7 +322,11 @@ async def test_minio_rejects_missing_config(monkeypatch: pytest.MonkeyPatch) -> 
     _isolated_registry(monkeypatch)
     monkeypatch.setattr(
         "bms_core.application.get_settings",
-        lambda: Settings(storage=PluginSelection(provider="minio"), minio=MinioSettings()),
+        lambda: Settings(
+            storage=PluginSelection(provider="minio"),
+            multipart_upload=PluginSelection(provider="minio"),
+            minio=MinioSettings(),
+        ),
     )
     app = ApplicationFactory().create(None)
     with pytest.raises(PluginError, match="端点 / 凭据"):
@@ -337,6 +342,7 @@ async def test_minio_secret_not_leaked(monkeypatch: pytest.MonkeyPatch, caplog: 
     monkeypatch.setenv("BMS_MINIO__ACCESS_KEY", "ak-662")
     monkeypatch.setenv("BMS_MINIO__SECRET_KEY", sentinel)
     monkeypatch.setenv("BMS_STORAGE__PROVIDER", "minio")
+    monkeypatch.setenv("BMS_MULTIPART_UPLOAD__PROVIDER", "minio")
     _isolated_registry(monkeypatch)
     app = ApplicationFactory().create(None)
     with caplog.at_level(logging.INFO):
