@@ -28,20 +28,20 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `capability_name` | VARCHAR(128) | 否 | 与 `consumer_key`、`deleted_at` 复合唯一 | 能力名（跨库逻辑外键 → 产品自持声明中的 `collaborations[].name`，只持值） |
 | `consumer_key` | VARCHAR(64) | 否 | 同上 | 消费方标识（服务键或产品键；写入前经服务目录校验「已登记」） |
 | `source` | VARCHAR(16) | 否 | 默认 `declared` | 来源（`declared` 随产品声明装载 / `manual` 管理面人工授予） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` 有效 / `disabled` 已撤销） |
 | `expire_at` | DATETIME | 是 | — | 有效期截止（UTC；NULL = 长期有效；过期视为无效） |
-| `granted_by` | BIGINT | 是 | — | 授予人（`sys_user.id`；声明装载为 NULL） |
+| `granted_by` | DECIMAL(38,0) | 是 | — | 授予人（`sys_user.id`；声明装载为 NULL） |
 | `granted_at` | DATETIME | 是 | — | 授予时间（UTC） |
 | `revoked_at` | DATETIME | 是 | — | 最近撤销时间（UTC；重新授予时清空） |
 | `note` | VARCHAR(255) | 是 | — | 授予理由（人工授予时建议填写；声明装载写默认说明） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

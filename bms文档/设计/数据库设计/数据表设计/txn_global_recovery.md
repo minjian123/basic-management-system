@@ -23,7 +23,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `global_txn_id` | VARCHAR(64) | 否 | `idx_txn_global_recovery_txn` | 被处置的全局事务标识 |
 | `branch_id` | VARCHAR(64) | 是 | — | 被处置分支（悬挂 / 启发式定位到具体分支时填写；空 = 整事务级） |
 | `detected_at` | DATETIME | 否 | `idx_txn_global_recovery_detected_at` | 发现时刻（UTC） |
@@ -32,7 +32,7 @@
 | `actor` | VARCHAR(64) | 否 | — | 处置方：`recoverer`（恢复器自动）/ `operator`（`ops/txn_recovery.py` 人工驱动） |
 | `handler` | VARCHAR(64) | 是 | — | 人工处置时的操作人标识（自动处置为空） |
 | `conclusion` | VARCHAR(255) | 是 | — | 处置结论（成功 / 失败原因；截断） |
-| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel` |
 
 ## 3. 索引与约束 <a id="index"></a>
@@ -57,5 +57,5 @@
 | 2026-10-09 | v1 | 新建表结构（TM 恢复 / 对账台账；处置动作只驱动协议、禁止改业务数据；随 05_07 落地） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `txn:platform` 链 `0003_system_fields_form_key` | minjian |
 | 2026-10-18 | v3 | 「归档」口径定稿：按 `detected_at` 保留期内供审计、超期**就地物理删除**（不迁归档表）——详设 05_07 §3.5 | minjian |
-
+| 2026-11-01 | v4 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -21,7 +21,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
 | `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 客户端标识（服务端生成 `bms_` + 随机串；租户内唯一）。**DB 列名 `code`，ORM 属性与契约字段名仍为 `client_id`** · **系统字段**：代码 |
 | `client_secret_hash` | VARCHAR(255) | 是 | — | 客户端密钥哈希（PBKDF2 自描述串）；**公共客户端为空**，明文仅创建 / 重置响应回显一次 |
@@ -31,11 +31,11 @@
 | `scopes` | TEXT | 否 | JSON 数组 | 允许申请的 scope 集合（`authorization_code` 须含 `openid`） |
 | `ip_whitelist` | TEXT | 否 | JSON 数组（默认值由应用侧写 `[]`） | 来源 IP / CIDR 白名单（开放接口阶段十消费；空 = 不限制） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled`；停用后授权 / 换码拒绝） |
-| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间 |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -64,5 +64,5 @@
 | 2026-09-27 | v1 | 新建表结构（identity 服务租户库；随 02_05 落库迁移 `0003_sys_client`） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `client_id` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `client_id`），唯一约束改 `uq_sys_client_code_deleted_at`；随 `identity:tenant` 链 `0006_system_fields_form_key` | minjian |
 | 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/identity/client.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
-
+| 2026-11-01 | v4 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

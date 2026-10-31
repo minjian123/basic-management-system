@@ -28,17 +28,17 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
-| `tenant_id` | BIGINT | 否 | 与 `domain_key`、`deleted_at` 复合唯一 | 租户主键（同库逻辑外键 → `sys_tenant.id`，只持值）；`0` = 平台级默认拓扑 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `tenant_id` | DECIMAL(38,0) | 否 | 与 `domain_key`、`deleted_at` 复合唯一 | 租户主键（同库逻辑外键 → `sys_tenant.id`，只持值）；`0` = 平台级默认拓扑 |
 | `domain_key` | VARCHAR(64) | 否 | 同上 | 业务域标识（跨库逻辑外键 → 业务域清单，只持值；写入前校验已登记） |
 | `unit_key` | VARCHAR(64) | 否 | — | 部署单元标识（同一租户内由本表定义；写入前校验命名合法） |
 | `topology_version` | INT | 否 | 默认 1 | 拓扑版本（同租户同版本号；发布时整批写入，解析取最大版本） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` 承载中 / `disabled` 已停用） |
 | `note` | VARCHAR(255) | 是 | — | 说明（如“按业务重心拆分”“模板：分组型”） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

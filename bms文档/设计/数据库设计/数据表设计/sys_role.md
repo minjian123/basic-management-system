@@ -21,17 +21,17 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
 | `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 角色码（租户内唯一；格式受 `role.code_pattern` 约束；**创建后可修改**） · **系统字段**：代码 |
 | `name` | VARCHAR(128) | 否 | — | 角色名称 |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled`） |
 | `role_type` | VARCHAR(16) | 否 | 默认 `custom` | 角色类型（`custom` / `system` / `security` / `audit`；**内置判定依据，不可修改**） |
-| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -61,5 +61,5 @@
 | 2026-10-08 | v2 | 增 `role_type` 列（内置判定由配置常量改为列判定）、角色码放开可修改（子任务「角色码可改与内置判定脱钩」，迁移 `0009_role_type`） | minjian |
 | 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 | 2026-10-22 | v4 | ORM 模型落点迁基座共享 `bms_core/models/platform/role.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
-
+| 2026-11-01 | v5 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

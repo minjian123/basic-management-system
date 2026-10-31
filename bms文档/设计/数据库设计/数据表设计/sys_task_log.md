@@ -21,8 +21,8 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `task_id` | BIGINT | 否 | `idx_sys_task_log_task_id_started_at` 首列 | 任务定义 ID（逻辑外键 → `sys_task.id`） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
+| `task_id` | DECIMAL(38,0) | 否 | `idx_sys_task_log_task_id_started_at` 首列 | 任务定义 ID（逻辑外键 → `sys_task.id`） |
 | `run_id` | VARCHAR(64) | 是 | — | 本次执行标识（UUID；日志与事件串联的排障键） |
 | `trigger_source` | VARCHAR(16) | 否 | 默认 `schedule` | 触发来源（`schedule` / `manual`） |
 | `status` | VARCHAR(16) | 否 | — | 执行状态（`running` / `success` / `failed` / `skipped`） |
@@ -32,11 +32,11 @@
 | `cost_time` | INT | 是 | — | 耗时（毫秒） |
 | `result` | TEXT | 是 | — | 成功输出摘要（按 `result_max_chars` 截断） |
 | `error_msg` | VARCHAR(512) | 是 | — | 错误摘要（截断 512，与死信同口径） |
-| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -64,5 +64,5 @@
 | 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）（`planned` 表只补表文件与模型，迁移随其入链时补） | minjian |
 | 2026-10-22 | v4 | ORM 模型落点迁基座共享 `bms_core/models/platform/system.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 | 2026-10-31 | v5 | 01_02 任务调度落库：增 `run_id` / `trigger_source` / `retry_count` / `cost_time` / `error_msg`；`result` 收窄为成功输出摘要；`status` 取值扩 `skipped`；索引 `idx_sys_task_log_task_id` 升级为 `(task_id, started_at)` 复合并增 `idx_sys_task_log_status`；状态由 `planned` 转 `enabled` 进租户链 | minjian |
-
+| 2026-11-01 | v6 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

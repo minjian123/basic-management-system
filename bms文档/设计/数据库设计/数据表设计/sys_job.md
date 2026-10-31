@@ -21,11 +21,11 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 作业标识（接口按字符串输出；全系统唯一依赖部署 `worker_id` 唯一） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 作业标识（接口按字符串输出；全系统唯一依赖部署 `worker_id` 唯一） |
 | `job_type` | VARCHAR(128) | 否 | `idx_sys_job_type_created` | 作业类型（全局唯一形态 `{服务/业务域}.{作业名}`，与 `[[jobs]]` 声明一致） |
 | `service_key` | VARCHAR(64) | 否 | — | 提供方服务键（执行者所在服务） |
 | `domain_key` | VARCHAR(64) | 否 | — | 提供方业务域（取自声明，排障 / 统计用） |
-| `tenant_id` | BIGINT | 是 | `idx_sys_job_tenant_status` | 租户主键（雪花 id；平台链作业为 NULL） |
+| `tenant_id` | DECIMAL(38,0) | 是 | `idx_sys_job_tenant_status` | 租户主键（雪花 id；平台链作业为 NULL） |
 | `status` | VARCHAR(16) | 否 | 默认 `queued`；`idx_sys_job_claim` / `idx_sys_job_lease` | 状态：`queued` / `running` / `succeeded` / `failed` / `canceled` / `dead` |
 | `priority` | INT | 否 | 默认 0；`idx_sys_job_claim` | 租户内优先级（大者先；不跨租户抢占） |
 | `payload` | TEXT | 否 | — | 负载 JSON（业务无关；版本见 `payload_version`） |
@@ -46,7 +46,7 @@
 | `started_at` | DATETIME | 是 | — | 首次开始时刻（UTC） |
 | `finished_at` | DATETIME | 是 | — | 终态时刻（UTC） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel` |
-
+| 2026-11-01 | v2 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > **物理账本口径（偏离说明）**：作业记录是运行态数据，按保留期**硬删**，不做软删除；幂等唯一约束 **不并入 `deleted_at`**（`(job_type, idempotency_key)`）——若并入，MySQL / PostgreSQL / SQLite 对 NULL 视作互异，同一幂等键可重复插入、破坏提交幂等。`deleted_at` / `version` 列随 `BaseModel` 保留，`version` 用于抢占 / 终态的条件更新。
 
 ## 3. 索引与约束 <a id="index"></a>

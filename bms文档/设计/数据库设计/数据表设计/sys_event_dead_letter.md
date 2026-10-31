@@ -21,20 +21,20 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `source` | VARCHAR(16) | 否 | — | 来源：`outbox`（投递失败）/ `consumer`（消费失败） |
 | `event_id` | VARCHAR(64) | 否 | — | 事件 ID（与 `sys_outbox.event_id` 同源） |
 | `event_type` | VARCHAR(128) | 否 | — | 事件类型 |
 | `consumer` | VARCHAR(128) | 是 | — | 消费者标识（`source=consumer` 时填） |
 | `aggregate_key` | VARCHAR(128) | 是 | — | 聚合 / 分区键 |
-| `tenant_id` | BIGINT | 是 | — | 租户主键（雪花 id；平台链不可解析的租户位保持 NULL） |
+| `tenant_id` | DECIMAL(38,0) | 是 | — | 租户主键（雪花 id；平台链不可解析的租户位保持 NULL） |
 | `payload` | JSON | 否 | — | 事件负载（便于重投 / 排障） |
 | `error_msg` | VARCHAR(512) | 否 | — | 失败原因（截断） |
 | `retry_count` | INT | 否 | 默认 0 | 转入死信前的已重试次数 |
 | `status` | VARCHAR(16) | 否 | 默认 `pending`；`idx_sys_event_dead_letter_status` | 处置状态：`pending` / `replayed` / `ignored` |
 | `occurred_at` | DATETIME | 否 | — | 事件发生时间（UTC） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel` |
-
+| 2026-11-01 | v3 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 本表为基础死信账本，行不作软删除；`created_at` 即「转入死信时间」。
 
 ## 3. 索引与约束 <a id="index"></a>

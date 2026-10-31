@@ -23,14 +23,14 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `global_txn_id` | VARCHAR(64) | 否 | 唯一（`uq_txn_global_txn_id_deleted_at`） | 全局事务标识（对外业务主键；同时作为 XA `gtrid`，见详设 §3.3 `xid` 规范） |
 | `caller_service` | VARCHAR(64) | 否 | `idx_txn_global_state` | 发起方服务键（调用方自报并经服务身份校验） |
 | `state` | VARCHAR(24) | 否 | 默认 `active`；`idx_txn_global_state` | 状态机：`active` / `preparing` / `committing` / `committed` / `rolling_back` / `rolled_back` / `heuristic_commit` / `heuristic_rollback` / `heuristic_mixed` |
 | `deadline_at` | DATETIME | 否 | — | 提交决定截止时间（UTC）；到期仍未提交 ⇒ 恢复器置回滚 |
 | `decided_at` | DATETIME | 是 | — | 提交决定点时间（UTC；落 `committing` 的那一刻，**唯一权威**） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel`；`version` 兼作**行级乐观锁**（并发写冲突即重试） |
-
+| 2026-11-01 | v3 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > **状态机不变量**：`decided_at` 非空即「已过决定点」——此之前一切失败一律回滚，此之后**只 commit、不再回滚**（详设 §3.1）。
 
 ## 3. 索引与约束 <a id="index"></a>

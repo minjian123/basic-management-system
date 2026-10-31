@@ -21,11 +21,11 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `job_id` | BIGINT | 否 | 唯一（`uq_sys_job_monitor_job_id`） | 作业标识（`sys_job.id`，雪花；跨服务全局唯一） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
+| `job_id` | DECIMAL(38,0) | 否 | 唯一（`uq_sys_job_monitor_job_id`） | 作业标识（`sys_job.id`，雪花；跨服务全局唯一） |
 | `service_key` | VARCHAR(64) | 否 | — | 提供方服务键（取消 / 重试转发依据） |
 | `job_type` | VARCHAR(128) | 否 | `idx_sys_job_monitor_type` | 作业类型 |
-| `tenant_id` | BIGINT | 是 | `idx_sys_job_monitor_tenant` | 租户主键（平台链作业为 NULL） |
+| `tenant_id` | DECIMAL(38,0) | 是 | `idx_sys_job_monitor_tenant` | 租户主键（平台链作业为 NULL） |
 | `status` | VARCHAR(16) | 否 | `idx_sys_job_monitor_status` | 作业状态（六态同 `sys_job`） |
 | `progress_done` | BIGINT | 否 | 默认 0 | 已完成量 |
 | `progress_total` | BIGINT | 是 | — | 总量（NULL = 不确定进度） |
@@ -36,7 +36,7 @@
 | `finished_at` | DATETIME | 是 | — | 终态时刻（`sys.job.completed` 事件） |
 | `last_event_at` | DATETIME | 否 | `idx_sys_job_monitor_status` / `idx_sys_job_monitor_type` / `idx_sys_job_monitor_tenant` | 最近事件时刻（防旧事件覆盖） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel` |
-
+| 2026-11-01 | v2 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > **投影口径**：本表由平台 `job-monitor` 消费组消费 `sys.job.submitted` / `started` / `progress` / `completed` 四条事件，按 `job_id` upsert；`last_event_at` 小于等于既有值时丢弃（乱序保护）。投影**可重建**，不可用时只影响平台统一列表，不影响作业执行与服务本地查询。
 
 ## 3. 索引与约束 <a id="index"></a>

@@ -21,9 +21,9 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键（= 会话 id） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键（= 会话 id） |
 | `session_id` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 会话 id（= JWT `jti`；与 `id` 同值；Redis 标记键名依据） |
-| `user_id` | BIGINT | 否 | — | 用户 ID（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`） |
+| `user_id` | DECIMAL(38,0) | 否 | — | 用户 ID（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`） |
 | `refresh_token_hash` | VARCHAR(128) | 否 | — | refresh token 哈希（SHA-256 hex；不落原始值） |
 | `device` | VARCHAR(255) | 是 | — | 设备标识（User-Agent 摘要） |
 | `ip` | VARCHAR(64) | 是 | — | 登录 IP |
@@ -32,9 +32,9 @@
 | `remember_me` | BOOLEAN | 是 | — | 是否记住我（true=14 天持久 / false=会话级 24 小时 / NULL=历史行按 14 天；05-5） |
 | `revoked_at` | DATETIME | 是 | — | 撤销时间（UTC；NULL=有效；登出 / 踢出 / 超限作废写入） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间 |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -61,5 +61,5 @@
 | 2026-09-26 | v1 | 新建表结构（identity 服务租户库；随 01_03 落库迁移 `0001_sys_session`） | minjian |
 | 2026-10-03 | v2 | 增 `remember_me`（可空 BOOLEAN；登录保留时长选项，随 05_05 迁移 `0005_sys_session_remember_me`） | minjian |
 | 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/identity/session.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
-
+| 2026-11-01 | v4 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

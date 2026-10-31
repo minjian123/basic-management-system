@@ -26,16 +26,16 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `tenant_id` | BIGINT | 否 | 与 `user_id`、`target_tenant_id`、`deleted_at` 复合唯一 | 归属租户主键（同库逻辑外键 → `sys_tenant.id`，只持值） |
-| `user_id` | BIGINT | 否 | 同上 | 用户主键（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`，只持值） |
-| `target_tenant_id` | BIGINT | 否 | 同上 | 可访问目标租户主键（同库逻辑外键 → `sys_tenant.id`，只持值） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
+| `tenant_id` | DECIMAL(38,0) | 否 | 与 `user_id`、`target_tenant_id`、`deleted_at` 复合唯一 | 归属租户主键（同库逻辑外键 → `sys_tenant.id`，只持值） |
+| `user_id` | DECIMAL(38,0) | 否 | 同上 | 用户主键（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`，只持值） |
+| `target_tenant_id` | DECIMAL(38,0) | 否 | 同上 | 可访问目标租户主键（同库逻辑外键 → `sys_tenant.id`，只持值） |
 | `source` | VARCHAR(32) | 否 | — | 写入来源（`super_admin` / `admin_create` / `import` / `sso_jit` / `self_register` / `self_heal`；末值＝读路径兜底自愈补建） |
 | `status` | VARCHAR(16) | 否 | 默认 `active` | 状态（`active` / `disabled`）；回收置 `disabled`（保留行、可再启），彻底移除才软删 |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -60,5 +60,5 @@
 | --- | --- | --- | --- |
 | 2026-10-04 | v1 | 新建表结构（平台库 `bms_tenant`；归属租户 + 用户 + 目标租户 + 来源 + 状态，复合唯一 `(tenant_id, user_id, target_tenant_id, deleted_at)`；随 `tenant:platform` 迁移 `0006_sys_user_tenant`） | minjian |
 | 2026-10-22 | v2 | ORM 模型落点迁基座共享 `bms_core/models/tenant/user_tenant.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变）；落库状态由 `待落库` 改为 `已落库`（幂等建表实测建出） | minjian |
-
+| 2026-11-01 | v3 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

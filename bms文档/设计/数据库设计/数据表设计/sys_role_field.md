@@ -21,18 +21,18 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `role_id` | BIGINT | 否 | 建索引 | 角色 ID（逻辑外键 → `sys_role.id`，同库） |
-| `form_id` | BIGINT | 否 | — | 表单 ID（平台实体，**跨库逻辑外键** → `sys_form.id`） |
-| `field_id` | BIGINT | 否 | — | 字段 ID（平台实体，**跨库逻辑外键** → `sys_field.id`） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
+| `role_id` | DECIMAL(38,0) | 否 | 建索引 | 角色 ID（逻辑外键 → `sys_role.id`，同库） |
+| `form_id` | DECIMAL(38,0) | 否 | — | 表单 ID（平台实体，**跨库逻辑外键** → `sys_form.id`） |
+| `field_id` | DECIMAL(38,0) | 否 | — | 字段 ID（平台实体，**跨库逻辑外键** → `sys_field.id`） |
 | `visible` | BOOLEAN | 否 | 默认 `true` | 是否可见（`false` = 读时过滤，不返回不渲染） |
 | `editable` | BOOLEAN | 否 | 默认 `true` | 是否可编辑（`false` = 写时拒绝） |
-| `source_menu_id` | BIGINT | 否 | 默认 `0` | 来源菜单入口 ID；`0` = 表单级直接授予（口径同 [sys_role_permission](sys_role_permission.md)） |
-| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
+| `source_menu_id` | DECIMAL(38,0) | 否 | 默认 `0` | 来源菜单入口 ID；`0` = 表单级直接授予（口径同 [sys_role_permission](sys_role_permission.md)） |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -63,5 +63,5 @@
 | 2026-10-06 | v1 | 新建表结构（org 服务租户库；只存收窄项、带来源标记） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 | 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/platform/role.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
-
+| 2026-11-01 | v4 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

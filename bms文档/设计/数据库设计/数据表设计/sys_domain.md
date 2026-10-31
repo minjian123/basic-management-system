@@ -26,7 +26,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `product_key` | VARCHAR(32) | 否 | 与 `domain_key`、`deleted_at` 复合唯一 | 声明方产品键 |
 | `domain_key` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一（全局唯一） | 业务域标识（`^[a-z][a-z0-9_]*$`；一经发布不改） |
 | `service_key` | VARCHAR(64) | 否 | — | 承载服务键（恒不变；表归属双字段一致性与部署单元反推以它为准） |
@@ -34,8 +34,8 @@
 | `paths` | TEXT | 是 | — | 域代码路径（JSON 数组，相对仓库根，允许 glob） |
 | `public_api` | TEXT | 是 | — | 域内公共出口模块名（JSON 数组，≤1；D2 唯一跨域引用面） |
 | `content_hash` | CHAR(64) | 否 | 索引 | 内容稳定哈希（未变不写） |
-| `created_at` / `created_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 创建时间 / 创建人 |
-| `updated_at` / `updated_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 更新时间 / 更新人 |
+| `created_at` / `created_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 创建时间 / 创建人 |
+| `updated_at` / `updated_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 更新时间 / 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除 | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

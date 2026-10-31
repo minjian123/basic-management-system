@@ -28,20 +28,20 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `unit_key` | VARCHAR(64) | 否 | 与 `tenant_scope`、`manifest_version`、`deleted_at` 复合唯一 | 部署单元标识（跨库逻辑外键 → `sys_tenant_topology.unit_key`，只持值） |
-| `tenant_scope` | BIGINT | 否 | 同上；默认 `0` | 作用范围（`0` = 全局 / 默认拓扑；非 0 = 该租户 ID） |
+| `tenant_scope` | DECIMAL(38,0) | 否 | 同上；默认 `0` | 作用范围（`0` = 全局 / 默认拓扑；非 0 = 该租户 ID） |
 | `manifest_version` | INT | 否 | 同上；默认 1 | 发布批次号（同一单元同一范围内递增，不允许回退） |
 | `topology_version` | INT | 否 | — | 本次发布对应的拓扑版本（取自 `sys_tenant_topology`） |
 | `status` | VARCHAR(16) | 否 | 默认 `released` | 状态（`released` 已发布 / `rolled_back` 已回滚 / `failed` 发布失败） |
 | `released_at` | DATETIME | 否 | — | 发布时间（UTC） |
-| `released_by` | BIGINT | 是 | — | 发布人（`sys_user.id`；自动化发布为 NULL） |
-| `rolled_back_from` | BIGINT | 是 | — | 回滚来源清单主键（本行由回滚产生时填写，指向被回滚的那次发布） |
+| `released_by` | DECIMAL(38,0) | 是 | — | 发布人（`sys_user.id`；自动化发布为 NULL） |
+| `rolled_back_from` | DECIMAL(38,0) | 是 | — | 回滚来源清单主键（本行由回滚产生时填写，指向被回滚的那次发布） |
 | `note` | VARCHAR(255) | 是 | — | 说明（发布摘要 / 回滚原因） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

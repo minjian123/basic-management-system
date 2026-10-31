@@ -22,16 +22,16 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `file_id` | BIGINT | 否 | 与 `part_no` 复合唯一 | 所属文件（逻辑指向 `sys_file.id`，无物理外键） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
+| `file_id` | DECIMAL(38,0) | 否 | 与 `part_no` 复合唯一 | 所属文件（逻辑指向 `sys_file.id`，无物理外键） |
 | `part_no` | INT | 否 | 与 `file_id` 复合唯一 | 分片序号（从 1 起） |
 | `size` | INT | 否 | > 0 | 分片字节数（末片可小于分片大小） |
 | `sha256` | CHAR(64) | 否 | — | 分片 SHA256（服务端复算值与客户端声明比对通过后落库） |
 | `etag` | VARCHAR(128) | 是 | — | 存储侧分片 etag（留痕；MinIO 组合按对象名，不依赖此值） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | **本表不使用软删**（见 §4），列随基类保留 |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -56,5 +56,5 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-31 | v1 | 新建（03_01 文件管理）：分片状态权威，只硬删 | minjian |
-
+| 2026-11-01 | v2 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

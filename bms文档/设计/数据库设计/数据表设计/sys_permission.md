@@ -21,14 +21,14 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
-| `business_id` | BIGINT | 否 | `(business_id, action_id, deleted_at)` 复合唯一；建索引 | 业务码 ID（逻辑外键 → `sys_business.id`） |
-| `action_id` | BIGINT | 否 | 同上；建索引 | 动作码 ID（逻辑外键 → `sys_action.id`） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `business_id` | DECIMAL(38,0) | 否 | `(business_id, action_id, deleted_at)` 复合唯一；建索引 | 业务码 ID（逻辑外键 → `sys_business.id`） |
+| `action_id` | DECIMAL(38,0) | 否 | 同上；建索引 | 动作码 ID（逻辑外键 → `sys_action.id`） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled`（停用代替删除） · **系统字段**：状态（通用可选） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） · **系统字段**：审计字段 |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 · **系统字段**：审计字段 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 · **系统字段**：审计字段 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） · **系统字段**：软删除 |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 · **系统字段**：版本号 |
 
@@ -58,5 +58,5 @@
 | --- | --- | --- | --- |
 | 2026-10-10 | v1 | 新建表结构（三词分治：业务码 × 动作码组合；随平台链 `0007_menu_metadata` 迁移落地） | minjian |
 | 2026-10-22 | v2 | ORM 模型落点迁基座共享 `bms_core/models/platform/menu.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
-
+| 2026-11-01 | v3 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

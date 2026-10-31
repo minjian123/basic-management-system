@@ -26,7 +26,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `name` | VARCHAR(64) | 否 | 全局唯一（含 `deleted_at`） | 种子名（与平台自身种子共用命名空间） |
 | `product_key` | VARCHAR(32) | 否 | 索引 | 声明方产品键（执行身份来源） |
 | `service` | VARCHAR(64) | 否 | — | 执行服务键（决定 XA 分支参与方） |
@@ -39,8 +39,8 @@
 | `tables` | TEXT | 是 | JSON 对象 | 目标表 → 自然键（编排器做执行前后对比、逐项统计） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `retired`） |
 | `content_hash` | CHAR(64) | 否 | 索引 | 内容稳定哈希（未变不写） |
-| `created_at` / `created_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 创建时间 / 创建人 |
-| `updated_at` / `updated_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 更新时间 / 更新人 |
+| `created_at` / `created_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 创建时间 / 创建人 |
+| `updated_at` / `updated_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 更新时间 / 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除 | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

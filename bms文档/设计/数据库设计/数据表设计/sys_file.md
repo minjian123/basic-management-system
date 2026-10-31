@@ -22,7 +22,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `name` | VARCHAR(255) | 否 | — | 原始文件名（含扩展名；列表展示与下载文件名） |
 | `ext` | VARCHAR(32) | 是 | — | 小写扩展名（不含点；无扩展名为空）——白名单校验与列表筛选用 |
 | `bucket` | VARCHAR(64) | 否 | 默认 `bms-files` | 对象存储桶名 |
@@ -30,7 +30,7 @@
 | `size` | BIGINT | 否 | > 0 | 文件字节数 |
 | `mime_type` | VARCHAR(128) | 否 | — | **服务端嗅探**得到的 MIME（不采信客户端声明） |
 | `sha256` | CHAR(64) | 否 | — | 整文件 SHA256（初始化时由客户端声明，完成时校验） |
-| `uploader_id` | BIGINT | 是 | — | 上传人（雪花 ID；系统产物可空） |
+| `uploader_id` | DECIMAL(38,0) | 是 | — | 上传人（雪花 ID；系统产物可空） |
 | `source` | VARCHAR(16) | 否 | 默认 `upload` | 来源：`upload` / `dedup` / `print` / `export` |
 | `status` | VARCHAR(16) | 否 | 默认 `uploading` | 状态：`uploading` / `completed` / `failed` / `orphan` |
 | `upload_id` | VARCHAR(64) | 是 | 单列唯一 | 分片会话标识（整包上传为空；与 `sys_file_part` 关联的业务键） |
@@ -41,9 +41,9 @@
 | `completed_at` | DATETIME | 是 | — | 完成时刻（UTC） |
 | `remark` | VARCHAR(256) | 是 | — | 失败原因 / 备注 |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删；删除不动物体、不释放配额） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -72,5 +72,5 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-31 | v1 | 新建（03_01 文件管理）：元数据 + 上传会话 + 四态状态机；秒传共享 `object_key` 语义 | minjian |
-
+| 2026-11-01 | v2 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

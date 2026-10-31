@@ -21,12 +21,12 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `consumer` | VARCHAR(128) | 否 | 与 `event_id` 复合唯一（`uq_sys_event_consumed`） | 消费者标识（消费组 / 处理者） |
 | `event_id` | VARCHAR(64) | 否 | 同上 | 事件 ID（与 `sys_outbox.event_id` 同源） |
 | `event_type` | VARCHAR(128) | 是 | — | 事件类型（排障用） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel` |
-
+| 2026-11-01 | v2 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > **物理账本口径（偏离说明）**：本表为消费幂等账本，行不作软删除，唯一约束 **不并入 `deleted_at`**（唯一 `(consumer, event_id)`）——去重须跨方言严格成立；若按 `(consumer, event_id, deleted_at)` 复合唯一，MySQL / PostgreSQL / SQLite 对 NULL 视作互异，重复事件可再次插入、去重失效。`created_at` 即「消费登记时间」。
 
 ## 3. 索引与约束 <a id="index"></a>

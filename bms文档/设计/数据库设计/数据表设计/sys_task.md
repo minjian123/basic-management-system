@@ -21,7 +21,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
 | `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 任务代码（如 `cleanup_outbox`） · **系统字段**：代码 |
 | `name` | VARCHAR(128) | 否 | 与 `deleted_at` 复合唯一 | 任务名（唯一） · **系统字段**：名称 |
@@ -33,11 +33,11 @@
 | `enabled` | BOOLEAN | 否 | 默认 true | 是否启用（**与 `status` 同步写入**；读取一律以 `status` 为准） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled`） · **系统字段**：状态 |
 | `remark` | VARCHAR(256) | 是 | — | 备注 |
-| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -66,5 +66,5 @@
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `code` + `status` + `parent_id`（`planned` 表只补表文件与模型，迁移随其入链时补） | minjian |
 | 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/platform/system.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 | 2026-10-31 | v4 | 01_02 任务调度落库：增 `args` / `next_run_at` / `last_run_at` / `remark` 四字段与 `idx_sys_task_status_next_run_at`；`enabled` 收敛为「与 `status` 同步写入、读取只认 `status`」；状态由 `planned` 转 `enabled` 进租户链 | minjian |
-
+| 2026-11-01 | v5 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

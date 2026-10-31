@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- |
 | `name` | VARCHAR(64) | 否 | 与作用域组合唯一 | 方案名 |
 | `scope` | VARCHAR(16) | 否 | — | 作用域（user / tenant / platform） |
-| `owner_id` | BIGINT | 是 | 个人方案填 | 归属用户 ID |
+| `owner_id` | DECIMAL(38,0) | 是 | 个人方案填 | 归属用户 ID |
 | `target` | VARCHAR(16) | 否 | — | 目标（items 字典条目 / business 列表筛选） |
 | `data_source_key` | VARCHAR(64) | 是 | — | 数据源标识（target=items 时填；2026-10-11 由 `dict_type` 改 `dict_key`（02_09）、再由 `dict_key` 改 `data_source_key`（02_10）） |
 | `field_key` | VARCHAR(64) | 是 | — | 表单标识（target=business 时为 form_key） |
@@ -34,11 +34,11 @@
 | `is_default` | BOOLEAN | 否 | 默认 false | 是否默认方案 |
 | `shared` | BOOLEAN | 否 | 默认 false | 是否共享 |
 | `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled） |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -66,5 +66,5 @@
 | 2026-09-22 | v3 | 公共软删除索引不再逐表列出（见数据规范） | minjian |
 | 2026-10-11 | v4 | 02_09 口径返工：字典归属列 `dict_type` → **`dict_key`**（字典标识；迁移 `0014_query_scheme_dict_key`，纯改名） | minjian |
 | 2026-10-11 | v5 | 02_10 泛化：归属列 `dict_key` → **`data_source_key`**（数据源标识；迁移 `0016_data_source_key`，纯改名）；唯一约束 `uq_scheme_scope_name_deleted_at` 列随改名 | minjian |
-
+| 2026-11-01 | v6 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

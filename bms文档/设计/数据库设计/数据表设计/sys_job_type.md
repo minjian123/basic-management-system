@@ -21,7 +21,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `job_type` | VARCHAR(128) | 否 | 唯一（`uq_sys_job_type`） | 作业类型（全局唯一，`{服务/业务域}.{作业名}`） |
 | `service_key` | VARCHAR(64) | 否 | `idx_sys_job_type_service` | 提供方服务键（执行者所在服务） |
 | `domain_key` | VARCHAR(64) | 否 | — | 提供方业务域（域布局登记） |
@@ -36,7 +36,7 @@
 | `source` | VARCHAR(16) | 否 | — | 声明来源：`platform` / `product` |
 | `content_hash` | CHAR(64) | 否 | — | 声明要素稳定哈希（未变不写） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel` |
-
+| 2026-11-01 | v2 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > **只读投影口径**：本表是 `[[jobs]]` 清单声明的**只读投影**，由平台装载写入（`content_hash` 去重），平台不手写产品记录；`status=retired` 仅停止新提交，历史作业仍可查。
 
 ## 3. 索引与约束 <a id="index"></a>

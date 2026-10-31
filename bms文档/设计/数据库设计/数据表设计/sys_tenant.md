@@ -21,7 +21,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
 | `kind` | VARCHAR(16) | 否 | 默认 `business` | 租户类型（`business` 业务租户 / `platform` 平台租户；平台租户全局唯一一条，`04_01` 起） |
 | `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 租户编码（全小写） · **系统字段**：代码 |
@@ -30,11 +30,11 @@
 | `db_key` | VARCHAR(64) | 是 | — | **已废弃**（06_01 起不再写入）：服务化后库键由 `tenant_{service}_{code}` 派生，注册表不持有数据源键；存量取值保留但不再被消费 |
 | `status` | VARCHAR(16) | 否 | — | 状态（`provisioning` 开通中 / `active` 启用 / `suspended` 停用） |
 | `expire_at` | DATETIME | 是 | — | 到期时间（UTC） |
-| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -66,5 +66,5 @@
 | 2026-10-11 | v5 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；随 `tenant:platform` 链 `0007_system_fields_form_key` | minjian |
 | 2026-10-20 | v6 | 增 `kind`（`business` / `platform`，平台租户）；`status` 取值增 `provisioning`；`idx_sys_tenant_domain` 改 `uq_sys_tenant_domain_deleted_at` 复合唯一（需求 07-7 / 任务 `04_01`） | minjian |
 | 2026-10-22 | v7 | ORM 模型落点迁基座共享 `bms_core/models/tenant/tenant.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
-
+| 2026-11-01 | v8 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

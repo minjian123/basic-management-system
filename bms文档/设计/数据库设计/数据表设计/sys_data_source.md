@@ -26,7 +26,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `data_source_key` | VARCHAR(64) | 否 | 全局唯一（含 `deleted_at`） | 数据源键（前端与后端共用标识） |
 | `product_key` | VARCHAR(32) | 否 | 索引 | 声明方产品键（`origin = platform` 时为 `platform`） |
 | `name` | VARCHAR(64) | 否 | — | 显示名（多语言由 `_i18n` 附表承载，本表存默认文案键） |
@@ -39,8 +39,8 @@
 | `strategies` | TEXT | 是 | JSON 数组 | 支持的取数策略（`select` / `region` / `match`） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `retired`） |
 | `content_hash` | CHAR(64) | 否 | 索引 | 内容稳定哈希（未变不写） |
-| `created_at` / `created_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 创建时间 / 创建人 |
-| `updated_at` / `updated_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 更新时间 / 更新人 |
+| `created_at` / `created_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 创建时间 / 创建人 |
+| `updated_at` / `updated_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 更新时间 / 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除 | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

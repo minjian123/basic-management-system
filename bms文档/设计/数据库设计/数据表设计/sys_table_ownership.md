@@ -26,7 +26,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `table_name` | VARCHAR(64) | 否 | `(table_name, deleted_at)` 复合唯一 | 表名（小写 snake_case） |
 | `owner` | VARCHAR(32) | 否 | — | 归属服务标识（取服务目录 `service_key`；`*` = 每服务自有） |
 | `domain` | VARCHAR(32) | 否 | 默认 `''` | 归属业务域标识（`domain_layout.json` 的 `domain_key`；空串 = **不归域**，仅基础设施表与测试遗留表） |
@@ -34,9 +34,9 @@
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` = 已定案且入链 / `planned` = 未定稿、不进链） |
 | `note` | VARCHAR(255) | 否 | 默认 `''` | 说明（用途 / 归属备注） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -62,5 +62,5 @@
 | --- | --- | --- | --- |
 | 2026-09-23 | v1 | 新建表结构（平台服务库；随分链迁移 `0005_sys_table_ownership` 落地） | minjian |
 | 2026-10-24 | v2 | 增 `domain`（归属业务域，空串 = 不归域）；与 `owner` 双字段并存，护栏强制一致（07C `03_01`） | minjian |
-
+| 2026-11-01 | v3 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

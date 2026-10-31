@@ -26,15 +26,15 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `product_key` | VARCHAR(32) | 否 | 与 `capability_name`、`deleted_at` 复合唯一 | 声明方（＝消费方）产品键 |
 | `capability_name` | VARCHAR(128) | 否 | 同上 | 被消费能力名（逻辑外键 → [sys_collaboration](sys_collaboration.md).`name`） |
 | `degrade` | VARCHAR(16) | 否 | 默认 `none` | 降级模式（`none` / `empty` / `stale`；`stale` 当前拒收） |
 | `reason` | VARCHAR(255) | 是 | — | 降级理由（`degrade != none` 必填） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `retired`） |
 | `content_hash` | CHAR(64) | 否 | 索引 | 内容稳定哈希（未变不写） |
-| `created_at` / `created_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 创建时间 / 创建人 |
-| `updated_at` / `updated_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 更新时间 / 更新人 |
+| `created_at` / `created_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 创建时间 / 创建人 |
+| `updated_at` / `updated_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 更新时间 / 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除 | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

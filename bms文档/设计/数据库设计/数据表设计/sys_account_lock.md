@@ -21,21 +21,21 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `user_id` | BIGINT | 否 | — | 用户主键（逻辑外键 `sys_user.id`；**同库**、只持值、不建物理外键） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
+| `user_id` | DECIMAL(38,0) | 否 | — | 用户主键（逻辑外键 `sys_user.id`；**同库**、只持值、不建物理外键） |
 | `lock_type` | VARCHAR(16) | 否 | — | 锁定类型（`fail_limit` / `inactive` / `manual`） |
 | `reason` | VARCHAR(255) | 是 | — | 锁定原因 |
 | `locked_at` | DATETIME | 否 | — | 锁定时间（UTC） |
-| `locked_by` | BIGINT | 是 | — | 锁定操作人（`inactive` / `fail_limit` 系统触发为 NULL；`manual` 为操作人） |
+| `locked_by` | DECIMAL(38,0) | 是 | — | 锁定操作人（`inactive` / `fail_limit` 系统触发为 NULL；`manual` 为操作人） |
 | `expire_at` | DATETIME | 是 | — | 锁定到期时间（UTC；`fail_limit` = 锁定时间 + 限流窗口；`inactive` / `manual` = NULL 表示需手动解锁） |
 | `unlock_at` | DATETIME | 是 | — | 解锁时间（UTC；NULL=未解锁） |
-| `unlock_by` | BIGINT | 是 | — | 解锁操作人（手动解锁为操作人；自动解锁为 NULL） |
+| `unlock_by` | DECIMAL(38,0) | 是 | — | 解锁操作人（手动解锁为操作人；自动解锁为 NULL） |
 | `unlock_mode` | VARCHAR(16) | 是 | — | 解锁方式（`manual` 手动 / `auto` 到期自动；NULL=未解锁） |
-| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间 |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -67,5 +67,5 @@
 | 2026-10-07 | v3 | **归属库迁移**：org 服务租户库 → **platform 服务租户库**（随 02_05 落 `platform:tenant` 链 `0008_user_tables`；字段 / 索引 / 约束不变） | minjian |
 | 2026-10-11 | v4 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 | 2026-10-22 | v5 | ORM 模型落点迁基座共享 `bms_core/models/platform/user.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
-
+| 2026-11-01 | v6 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

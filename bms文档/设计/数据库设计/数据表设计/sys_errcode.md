@@ -26,7 +26,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `code` | INT | 否 | 全局唯一（含 `deleted_at`） | 错误码（6 位 = 2 位段 + 4 位序号） |
 | `product_key` | VARCHAR(32) | 否 | 索引 | 声明方产品键 |
 | `segment` | VARCHAR(2) | 否 | 索引 | 段位（取自服务行 `errcode_segment`，装载/注册期注入） |
@@ -37,8 +37,8 @@
 | `description` | VARCHAR(255) | 是 | — | 中文描述（文案缺失时的回退与审计读用） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `retired`） |
 | `content_hash` | CHAR(64) | 否 | 索引 | 内容稳定哈希（未变不写） |
-| `created_at` / `created_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 创建时间 / 创建人 |
-| `updated_at` / `updated_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 更新时间 / 更新人 |
+| `created_at` / `created_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 创建时间 / 创建人 |
+| `updated_at` / `updated_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 更新时间 / 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除 | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

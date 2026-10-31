@@ -21,12 +21,12 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `event_id` | VARCHAR(64) | 否 | 唯一（`uq_sys_outbox_event_id`） | 事件 ID（幂等键；应用侧生成雪花 ID 字符串） |
 | `event_type` | VARCHAR(128) | 否 | — | 事件类型（`{域}.{对象}.{动作}`，首段为已登记事件域） |
 | `event_version` | VARCHAR(16) | 否 | 默认 `1.0.0` | 事件契约版本（`X.Y.Z`；签发缺省按登记契约补齐、投递保真） |
 | `aggregate_key` | VARCHAR(128) | 是 | `idx_sys_outbox_aggregate` | 聚合 / 分区键（同聚合按序投递；空 = 独立事件） |
-| `tenant_id` | BIGINT | 是 | — | 租户主键（雪花 id；平台链不可解析的租户位保持 NULL） |
+| `tenant_id` | DECIMAL(38,0) | 是 | — | 租户主键（雪花 id；平台链不可解析的租户位保持 NULL） |
 | `trace_id` | VARCHAR(64) | 是 | — | 链路 id（写入时取请求上下文 / OTel；投递保真，供消费端续接 span 与日志） |
 | `payload` | JSON | 否 | — | 事件负载（事件信封 payload） |
 | `occurred_at` | DATETIME | 否 | — | 事件发生时间（UTC） |
@@ -36,7 +36,7 @@
 | `delivered_at` | DATETIME | 是 | — | 投递成功时间（UTC） |
 | `error_msg` | VARCHAR(512) | 是 | — | 最近一次失败原因（截断） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel` |
-
+| 2026-11-01 | v5 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > **物理账本口径（偏离说明）**：本表为基础发件箱账本，行不作软删除，唯一约束 **不并入 `deleted_at`**（唯一 `event_id`）——发件箱要求跨方言严格唯一；若按 `(event_id, deleted_at)` 复合唯一，MySQL / PostgreSQL / SQLite 对 NULL 视作互异，同一 `event_id` 可重复插入、破坏幂等。`deleted_at` / `version` 列随 `BaseModel` 保留但业务不使用。
 
 ## 3. 索引与约束 <a id="index"></a>

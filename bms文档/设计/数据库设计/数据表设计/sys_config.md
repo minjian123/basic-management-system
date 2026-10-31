@@ -21,7 +21,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
 | `code` | VARCHAR(128) | 否 | 与 `deleted_at` 复合唯一 | 参数键（点分小写，如 `captcha.scene.login.required`）。**DB 列名 `code`，ORM 属性与契约字段名仍为 `config_key`** · **系统字段**：代码 |
 | `name` | VARCHAR(128) | 否 | 应用侧缺省取 `code` | 参数名称（展示） · **系统字段**：名称 |
@@ -29,11 +29,11 @@
 | `value` | TEXT | 否 | —（应用侧缺省空串；DB 不设默认值） | 参数值（标量 / 布尔 / JSON 字符串统一按文本承载，由消费方按类型解析；仅应用侧读写、无库内 JSON 检索需求，取 `TEXT` 最大跨方言安全；**TEXT 在 MySQL 不允许默认值**，空值由应用侧承载） |
 | `is_overridden` | BOOLEAN | 否 | 默认 `false` | 是否被租户覆盖（`false` = 平台默认值，`true` = 租户覆盖值）。**重置**（按平台默认清单回填后置回 `false`）、**删除保护**（`false` 的行不可删）与**平台默认升级**（只刷新 `false` 的行）均以此列为判据 · **系统字段**：状态（覆盖标记） |
 | `remark` | VARCHAR(255) | 是 | — | 备注（参数用途说明） |
-| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间 |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -62,3 +62,4 @@
 | 2026-09-27 | v1 | 新建表结构（platform 服务租户库；随 `03_08` 落 `platform:tenant` 链迁移 `0004_sys_config`） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `name` + `status` + `parent_id`；既有标识列 `config_key` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `config_key`），唯一约束改 `uq_sys_config_code_deleted_at`；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 | 2026-10-31 | v3 | 系统参数管理面（08 `02_02`）：增 `is_overridden`（覆盖标记，重置 / 删除保护 / 默认升级判据）；§3 补「`(code, deleted_at)` 在 NULL 下不生效、唯一性靠应用层」实测结论；§4 缓存改版本化载荷 + 缺失负缓存（结构随建表自动落地，本项目删库重建） | minjian |
+| 2026-11-01 | v4 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |

@@ -24,15 +24,15 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `idp_key` | VARCHAR(160) | 否 | 与 `external_id`、`deleted_at` 复合唯一 | 映射键 = `{tenant_id}:{provider_key}`（雪花租户主键前缀；跨租户共享 IdP 不冲突、issuer 变更不破坏映射） |
 | `external_id` | VARCHAR(255) | 否 | 同上 | 外部身份主体（OIDC 取 `sub`；CAS / 企微 / 钉钉取各自主体标识） |
-| `tenant_id` | BIGINT | 否 | — | 租户主键（雪花 id；与 `sys_tenant.id` 值传递） |
-| `user_id` | BIGINT | 否 | — | 用户 ID（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`，只持值） |
+| `tenant_id` | DECIMAL(38,0) | 否 | — | 租户主键（雪花 id；与 `sys_tenant.id` 值传递） |
+| `user_id` | DECIMAL(38,0) | 否 | — | 用户 ID（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`，只持值） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `updated_by` | DECIMAL(38,0) | 是 | 审计 | 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间 |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 
@@ -61,5 +61,5 @@
 | 2026-09-27 | v1 | 新建表结构（平台库；随 02_01 落库迁移 `0001_sys_user_identity`，新建 `identity:platform` 链） | minjian |
 | 2026-09-29 | v2 | `tenant_id` 由 `VARCHAR(64)`（租户编码）改 `BIGINT`（雪花租户主键）；`idp_key` 值前缀 `{tenant_code}` → `{tenant_id}`（随 10_04 迁移 + `ops/backfill_tenant_id_columns.py` 回填） | minjian |
 | 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/identity/user_identity.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
-
+| 2026-11-01 | v4 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

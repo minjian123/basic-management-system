@@ -21,14 +21,14 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `job_id` | BIGINT | 否 | `idx_sys_job_error_job` | 所属作业（`sys_job.id`；逻辑外键） |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
+| `job_id` | DECIMAL(38,0) | 否 | `idx_sys_job_error_job` | 所属作业（`sys_job.id`；逻辑外键） |
 | `row_no` | INT | 是 | — | 业务行号（导入 Excel 行，自 2 起；非行号场景为空） |
 | `column_key` | VARCHAR(64) | 是 | — | 出错列 / 字段键 |
 | `item_ref` | VARCHAR(128) | 是 | — | 业务条目标识（非行号场景，如外部编码） |
 | `message` | VARCHAR(512) | 否 | — | 错误原因（可读文案 / 文案键；截断 512） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel` |
-
+| 2026-11-01 | v2 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > **物理账本口径（偏离说明）**：行级错误是运行态明细，随作业清理**硬删**，不做软删除；无唯一约束（同一行同一列可有多条原因）。`deleted_at` / `version` 列随 `BaseModel` 保留但业务不使用。
 
 ## 3. 索引与约束 <a id="index"></a>

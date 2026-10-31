@@ -27,7 +27,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `name` | VARCHAR(128) | 否 | 全局唯一（含 `deleted_at`） | 能力名（`{产品}.{业务域}.{能力}`，全局唯一，与提供方实现标识解耦） |
 | `product_key` | VARCHAR(32) | 否 | 索引 | 声明方产品键（提供方；注册只能写自己名下） |
 | `domain` | VARCHAR(64) | 否 | 索引 | 提供方**业务域**标识（须在域布局登记；非服务键） |
@@ -43,8 +43,8 @@
 | `replacement` | VARCHAR(128) | 是 | — | 替代能力名（`deprecated` 态必填） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled` / `deprecated` / `retired`） |
 | `content_hash` | CHAR(64) | 否 | 索引 | 声明要素稳定哈希（内容未变不写；变更检测） |
-| `created_at` / `created_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 创建时间 / 创建人 |
-| `updated_at` / `updated_by` | DATETIME / BIGINT | 否 / 是 | 审计 | 更新时间 / 更新人 |
+| `created_at` / `created_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 创建时间 / 创建人 |
+| `updated_at` / `updated_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 更新时间 / 更新人 |
 | `deleted_at` | DATETIME | 是 | 软删除 | 软删除时间（NULL=未删） |
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 |
 

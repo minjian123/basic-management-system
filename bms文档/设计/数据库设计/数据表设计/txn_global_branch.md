@@ -23,7 +23,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `id` | DECIMAL(38,0) | 否 | 主键，雪花 ID | 主键 |
 | `global_txn_id` | VARCHAR(64) | 否 | 与 `branch_id` 复合唯一（`uq_txn_global_branch_txn_branch_deleted_at`） | 所属全局事务标识 |
 | `branch_id` | VARCHAR(64) | 否 | 同上复合唯一 | 分支标识（租户内唯一；同时作为 XA `bqual`） |
 | `service` | VARCHAR(64) | 否 | — | 参与方服务键（分支执行端点的服务身份白名单来源） |
@@ -33,7 +33,7 @@
 | `retry_count` | INT | 否 | 默认 0 | TM 驱动重试次数（退避重试，不静默放弃） |
 | `last_error` | VARCHAR(512) | 是 | — | 最近一次驱动失败原因（截断） |
 | `request_hash` | VARCHAR(64) | 是 | — | 分支执行载荷摘要（**分支级幂等**：同 `xid` 同摘要的重复执行直接返回原结果） |
-| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
+| `parent_id` | DECIMAL(38,0) | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel`；`version` 兼作**行级乐观锁** |
 
 ## 3. 索引与约束 <a id="index"></a>
@@ -59,5 +59,5 @@
 | 2026-10-09 | v1 | 新建表结构（TM 账本分支表；`db_key` 为不透明库键，TM 不感知租户 / 业务；随 05_07 落地） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `txn:platform` 链 `0003_system_fields_form_key` | minjian |
 | 2026-10-18 | v3 | 「归档」口径定稿：随所属全局事务一并**就地物理删除**（终态 + 超期才删、非终态不动；不迁归档表）——详设 05_07 §3.5 | minjian |
-
+| 2026-11-01 | v4 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
