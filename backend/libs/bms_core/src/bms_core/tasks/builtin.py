@@ -1,22 +1,31 @@
-"""内置任务：清单登记 + 占位执行体（真实清理逻辑由归口任务回填）。
+"""内置任务：清单登记 + 执行体（已落地的做真实动作，未落地的仍是占位）。
 
-四条内置任务在 `sys_task` 里有定义（种子入库）、有 cron、有执行记录，但**执行体是占位实现**：
-返回 `skipped` 并在 `message` 里写明归口任务号。理由见详细设计 §4.6：
+四条内置任务在 `sys_task` 里有定义（种子入库）、有 cron、有执行记录：
+
+- **孤儿分片清理**（03_01 已落地）：执行体为**触发型**——经服务间调用驱动 file 服务的内部清理端点
+  （扫描 / 清理 / 置 `orphan` 全在 file 域，基座不跨库写文件表），返回执行摘要；
+- 其余三条仍是占位实现：返回 `skipped` 并在 `message` 里写明归口任务号。理由见详细设计 §4.6：
 
 - 「只登记不执行」会让 handler 白名单直接拒掉、触发即失败，`sys_task_log` 只剩失败记录，
   「还没做」与「做坏了」不可区分；
 - 「先把它做出来」要预先猜未定稿的保留期 / 上传中记录口径，后续必然返工。
 
-归口：孤儿分片清理 → 03_01；审计日志归档 → 06_01 / 06_02 / 14；分片表预创建 → 13；
-软删除残留清理 → 13 回收站 / 14 归档。
+归口：审计日志归档 → 06_01 / 06_02 / 14；分片表预创建 → 13；软删除残留清理 → 13 回收站 / 14 归档。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib import import_module
+from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.config import get_settings
+from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.roots import BaseValueObject
+from bms_core.servicecall.base import BaseServiceClient
+from bms_core.storage.maintenance import FileMaintenanceClient
 from bms_core.tasks.spec import TaskContext, TaskResult
 
 __all__ = [
@@ -63,7 +72,7 @@ BUILTIN_TASK_SPECS: ConcurrentStableList[BuiltinTaskSpec] = ConcurrentStableList
             name="孤儿分片清理",
             cron="0 3 * * *",
             handler=f"{_HANDLER_MODULE}:run_cleanup_orphan_parts",
-            owner="03_01（文件管理）",
+            owner="03_01（文件管理，已落地：触发 file 内部清理端点）",
             summary="回收上传中断遗留的分片对象与超期上传中记录",
         ),
         BuiltinTaskSpec(
@@ -122,17 +131,46 @@ def _skipped(owner: str) -> TaskResult:
     return TaskResult.skipped(f"占位实现：真实逻辑归口 {owner}；策略定稿后在此实现")
 
 
-async def run_cleanup_orphan_parts(ctx: TaskContext) -> TaskResult:
-    """孤儿分片清理（占位）。
-
-    Args:
-        ctx: 执行上下文。
+def build_service_client() -> BaseServiceClient:
+    """解析服务间调用客户端（离线执行体用：按 `[service_client].provider` 构建注册表）。
 
     Returns:
-        TaskResult: `skipped`（归口 03_01）。
+        BaseServiceClient: 调用客户端。
+
+    Raises:
+        ServiceUnavailableError: 未启用服务间调用实现（provider 为空）。
+    """
+    settings = get_settings()
+    provider = settings.service_client.provider
+    if not provider:
+        raise ServiceUnavailableError("服务间调用实现未启用（[service_client].provider 为空）")
+    for module in ("bms_core.servicecall.null", "bms_core.servicecall.http"):
+        import_module(module)
+    build_plugin_registry()
+    return cast(
+        "BaseServiceClient",
+        resolve_plugin("service_client", provider, expected_version=BaseServiceClient.contract_version),
+    )
+
+
+async def run_cleanup_orphan_parts(ctx: TaskContext) -> TaskResult:
+    """孤儿分片清理（触发型：经服务间调用驱动 file 服务的内部清理端点）。
+
+    Args:
+        ctx: 执行上下文（本执行体不读写任何库，只用 `sys_task_log` 记摘要）。
+
+    Returns:
+        TaskResult: 成功带回收摘要；下游不可用为失败（由调度器按策略重试）。
     """
     _ = ctx
-    return _skipped("03_01（文件管理）")
+    try:
+        summary = await FileMaintenanceClient(build_service_client()).cleanup_orphans()
+    except ServiceUnavailableError as exc:
+        return TaskResult.failed(f"孤儿回收触发失败：{exc}")
+    return TaskResult.success(
+        f"孤儿回收完成：扫描 {summary.scanned} / 回收 {summary.orphaned} / 失败 {summary.failed}",
+        output=f"scanned={summary.scanned} orphaned={summary.orphaned} failed={summary.failed}",
+    )
 
 
 async def run_archive_audit_logs(ctx: TaskContext) -> TaskResult:

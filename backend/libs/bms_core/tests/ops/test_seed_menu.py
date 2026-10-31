@@ -5,9 +5,10 @@ import pytest
 from bms_core.tenant.seed import menu as seed_menu
 
 # 07B `03_03` 改造前的清单规模（凭据：设计 §2.1 实测 44 / 110 / 31）。
-# 2026-10-31 起 `_PERMISSIONS_BEFORE` 记「含平台后续新增条目」的基线：08-02_02 补 `config:manage`（110 → 111）。
+# 2026-10-31 起 `_PERMISSIONS_BEFORE` 记「含平台后续新增条目」的基线：08-02_02 补 `config:manage`（110 → 111）、
+# 08-03_01 补 `file:manage`（111 → 112）。
 _BUSINESS_BEFORE = 44
-_PERMISSIONS_BEFORE = 111
+_PERMISSIONS_BEFORE = 112
 _ACTIONS_BEFORE = 31
 
 

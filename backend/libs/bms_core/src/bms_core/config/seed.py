@@ -18,7 +18,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseValueObject
 
-__all__ = ["PLATFORM_CONFIG_DEFAULTS", "SeedConfig", "seed_configs"]
+__all__ = ["DEFAULT_FILE_WHITELIST", "PLATFORM_CONFIG_DEFAULTS", "SeedConfig", "seed_configs"]
 
 _LOGGER = get_logger("bms")
 
@@ -30,6 +30,16 @@ class SeedConfig(BaseValueObject):
     config_key: str
     value: str
     remark: str = ""
+
+
+DEFAULT_FILE_WHITELIST = (
+    "image/png:png,image/jpeg:jpg|jpeg,image/gif:gif,image/webp:webp,application/pdf:pdf,"
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document:docx,"
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:xlsx,"
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation:pptx,"
+    "text/plain:txt,text/csv:csv"
+)
+"""文件上传类型白名单缺省值（`file.upload.whitelist` 的平台默认；文件域代码默认同源引用）。"""
 
 
 def _captcha_scene_keys(scene: str, *, required: str) -> ConcurrentStableList[SeedConfig]:
@@ -84,11 +94,7 @@ PLATFORM_CONFIG_DEFAULTS: ConcurrentStableList[SeedConfig] = ConcurrentStableLis
         SeedConfig("file.upload.max_file_size", "2147483648", "单文件上传上限（字节，分片上传）"),
         SeedConfig(
             "file.upload.whitelist",
-            "image/png:png,image/jpeg:jpg|jpeg,image/gif:gif,image/webp:webp,application/pdf:pdf,"
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document:docx,"
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:xlsx,"
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation:pptx,"
-            "text/plain:txt,text/csv:csv",
+            DEFAULT_FILE_WHITELIST,
             "上传类型白名单（MIME:扩展名 逗号分隔；扩展名多个用 | 连接）",
         ),
         SeedConfig("file.download.presign_ttl", "3600", "预签名下载 / 预览地址有效期上限（秒）"),

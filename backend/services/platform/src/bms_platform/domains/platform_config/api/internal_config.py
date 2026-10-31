@@ -1,8 +1,9 @@
 """系统参数内部读取路由：`/api/v1/platform/internal/configs`（服务间调用，不经网关）。
 
-- **鉴权**：模块级 `require_capability_or_service("platform.platform_config.snapshot", "identity")`——
-  **产品调用按能力分配判定**（07B `03_01` 收编），`identity` 属平台内部调用、仍按白名单放行
-  （不参与能力分配）。两者均只接受服务 JWT（`aud=service`）；用户票据与网关服务票据（`sub=gateway`）一律拒。
+- **鉴权**：模块级 `require_capability_or_service("platform.platform_config.snapshot", "identity", "file")`——
+  **产品调用按能力分配判定**（07B `03_01` 收编），`identity` / `file` 均属平台自持服务的内部调用、
+  按白名单放行（不参与能力分配）。两者均只接受服务 JWT（`aud=service`）；用户票据与网关服务票据
+  （`sub=gateway`）一律拒。
 - **租户**：由服务 JWT 的 `tenant` claim 经全局租户中间件解析租户库（未走租户豁免）。
 - **契约**：计入 platform 公开契约（`deploy/contracts/platform.json`）；新增端点属非破坏性变更。
 """
@@ -24,7 +25,7 @@ router = BaseRouter(
     key="config_internal",
     prefix="/platform/internal/configs",
     tags=["config-internal"],
-    dependencies=[Depends(require_capability_or_service(CAPABILITY_PLATFORM_CONFIG_SNAPSHOT, "identity"))],
+    dependencies=[Depends(require_capability_or_service(CAPABILITY_PLATFORM_CONFIG_SNAPSHOT, "identity", "file"))],
 )
 
 ConfigDep = Annotated[BaseConfigSource, Depends(get_config_source)]

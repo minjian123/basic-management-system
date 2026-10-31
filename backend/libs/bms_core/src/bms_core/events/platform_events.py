@@ -156,9 +156,7 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
         EventContract(
             event_type="file.upload.abandoned",
             description="分片上传超期被回收（状态转 orphan）",
-            fields=ConcurrentStableFrozenDict(
-                {"file_id": _STRING_REQUIRED, "upload_id": _STRING_OPTIONAL}
-            ),
+            fields=ConcurrentStableFrozenDict({"file_id": _STRING_REQUIRED, "upload_id": _STRING_OPTIONAL}),
         ),
         EventContract(
             event_type="notification.sent",
