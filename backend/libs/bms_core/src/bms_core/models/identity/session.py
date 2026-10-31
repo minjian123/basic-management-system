@@ -8,10 +8,10 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Index, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysSession(BaseModel):
@@ -24,7 +24,7 @@ class SysSession(BaseModel):
     )
 
     session_id: Mapped[str] = mapped_column(String(64), comment="会话 id（= JWT jti；与 id 同值）")
-    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户 ID（逻辑外键 → platform 服务 sys_user.id）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, comment="用户 ID（逻辑外键 → platform 服务 sys_user.id）")
     refresh_token_hash: Mapped[str] = mapped_column(
         String(128), comment="refresh token 哈希（SHA-256 hex；不落原始值）"
     )

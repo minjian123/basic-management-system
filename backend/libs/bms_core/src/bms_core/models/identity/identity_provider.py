@@ -6,10 +6,10 @@
   02_01 落表 + 入口清单读路径，CRUD / 连通性 / 掩码归 02_06。
 """
 
-from sqlalchemy import BigInteger, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysIdentityProvider(BaseModel):
@@ -35,5 +35,5 @@ class SysIdentityProvider(BaseModel):
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
     sort: Mapped[int] = mapped_column(Integer, default=0, comment="登录页排序（升序）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )

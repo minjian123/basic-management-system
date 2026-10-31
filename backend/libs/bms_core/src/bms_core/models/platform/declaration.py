@@ -22,10 +22,10 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_*.md`）。
 """
 
-from sqlalchemy import CHAR, BigInteger, Boolean, Integer, SmallInteger, String, Text, UniqueConstraint
+from sqlalchemy import CHAR, Boolean, Integer, SmallInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 __all__ = [
     "SysCollaboration",
@@ -183,5 +183,5 @@ class SysErrcode(BaseModel):
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/retired）")
     content_hash: Mapped[str] = mapped_column(CHAR(64), comment="声明要素稳定哈希（未变不写）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

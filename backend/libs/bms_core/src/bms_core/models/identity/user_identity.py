@@ -7,10 +7,10 @@
   02_01 落表 + 读路径，JIT 建号与映射写路径归 02_02。
 """
 
-from sqlalchemy import BigInteger, Index, String, UniqueConstraint
+from sqlalchemy import Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysUserIdentity(BaseModel):
@@ -24,5 +24,5 @@ class SysUserIdentity(BaseModel):
 
     idp_key: Mapped[str] = mapped_column(String(160), comment="映射键（{tenant_id}:{provider_key}）")
     external_id: Mapped[str] = mapped_column(String(255), comment="外部身份主体（OIDC 取 sub）")
-    tenant_id: Mapped[int] = mapped_column(BigInteger, comment="租户主键（雪花 id）")
-    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户 ID（逻辑外键 → platform 服务 sys_user.id）")
+    tenant_id: Mapped[int] = mapped_column(SnowflakeId, comment="租户主键（雪花 id）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, comment="用户 ID（逻辑外键 → platform 服务 sys_user.id）")

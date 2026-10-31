@@ -4,11 +4,11 @@
 - `target=items`（字典高级查询，填 `data_source_key`）/ `target=business`（列表筛选，`field_key=form_key`）。
 """
 
-from sqlalchemy import BigInteger, Boolean, Index, String, UniqueConstraint
+from sqlalchemy import Boolean, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.core.concurrent import ConcurrentStableDict
-from bms_core.models.base import BaseModel, StableJson
+from bms_core.models.base import BaseModel, SnowflakeId, StableJson
 
 __all__ = ["SysQueryScheme"]
 
@@ -33,7 +33,7 @@ class SysQueryScheme(BaseModel):
 
     name: Mapped[str] = mapped_column(String(64), comment="方案名")
     scope: Mapped[str] = mapped_column(String(16), comment="作用域（user/tenant/platform）")
-    owner_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="归属用户 ID（个人方案）")
+    owner_id: Mapped[int | None] = mapped_column(SnowflakeId, nullable=True, comment="归属用户 ID（个人方案）")
     target: Mapped[str] = mapped_column(String(16), comment="目标（items/business）")
     data_source_key: Mapped[str | None] = mapped_column(
         String(64), nullable=True, comment="字典标识（target=items；2026-10-11 由 dict_type 改）"

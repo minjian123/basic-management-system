@@ -10,7 +10,7 @@ from sqlalchemy import BigInteger, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 QUOTA_KEY_USER_COUNT = "user_count"
 """配额维度：用户数。"""
@@ -37,10 +37,10 @@ class SysTenantQuota(BaseModel):
         ),
     )
 
-    tenant_id: Mapped[int] = mapped_column(BigInteger, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
+    tenant_id: Mapped[int] = mapped_column(SnowflakeId, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
     quota_key: Mapped[str] = mapped_column(String(32), comment="配额维度（user_count/storage_bytes/open_calls）")
     limit_value: Mapped[int] = mapped_column(BigInteger, comment="限额（open_calls 为日限额；storage_bytes 单位字节）")
     used_value: Mapped[int] = mapped_column(BigInteger, default=0, comment="已用量（原子增量；释放下限 0）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；本表无层级，按明细系统字段口径保留）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；本表无层级，按明细系统字段口径保留）"
     )

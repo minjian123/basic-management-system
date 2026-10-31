@@ -6,10 +6,10 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, String, UniqueConstraint
+from sqlalchemy import DateTime, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 TENANT_KIND_BUSINESS = "business"
 """租户类型：业务租户（缺省）。"""
@@ -62,5 +62,5 @@ class SysTenant(BaseModel):
     )
     expire_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="到期时间（UTC）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )

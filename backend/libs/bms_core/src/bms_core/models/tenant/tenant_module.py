@@ -8,11 +8,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, String, UniqueConstraint
+from sqlalchemy import DateTime, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 TENANT_MODULE_ENABLED = "enabled"
 """模块状态：已开通。"""
@@ -36,11 +36,11 @@ class SysTenantModule(BaseModel):
         ),
     )
 
-    tenant_id: Mapped[int] = mapped_column(BigInteger, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
+    tenant_id: Mapped[int] = mapped_column(SnowflakeId, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
     module_key: Mapped[str] = mapped_column(String(32), comment="模块标识（跨库逻辑外键 → sys_module.code）")
     status: Mapped[str] = mapped_column(String(16), default=TENANT_MODULE_ENABLED, comment="状态（enabled/disabled）")
     opened_by: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="开通操作人（平台租户 sys_user.id；引导 / 系统开通为 NULL）"
+        SnowflakeId, nullable=True, comment="开通操作人（平台租户 sys_user.id；引导 / 系统开通为 NULL）"
     )
     opened_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最近开通时间（UTC）")
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最近停用时间（UTC）")

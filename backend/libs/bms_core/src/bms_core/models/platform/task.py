@@ -9,10 +9,10 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 TASK_STATUS_ENABLED = "enabled"
 """任务启用状态（`sys_task.status`）：参与调度。"""
@@ -66,7 +66,7 @@ class SysTask(BaseModel):
     status: Mapped[str] = mapped_column(String(16), default=TASK_STATUS_ENABLED, comment="状态（enabled/disabled）")
     remark: Mapped[str | None] = mapped_column(String(256), nullable=True, comment="备注")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -79,7 +79,7 @@ class SysTaskLog(BaseModel):
         Index("idx_sys_task_log_status", "status"),
     )
 
-    task_id: Mapped[int] = mapped_column(BigInteger, comment="任务定义 ID")
+    task_id: Mapped[int] = mapped_column(SnowflakeId, comment="任务定义 ID")
     run_id: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="本次执行标识（UUID）")
     trigger_source: Mapped[str] = mapped_column(
         String(16), default=TASK_TRIGGER_SCHEDULE, comment="触发来源（schedule/manual）"
@@ -92,5 +92,5 @@ class SysTaskLog(BaseModel):
     result: Mapped[str | None] = mapped_column(Text, nullable=True, comment="成功输出摘要")
     error_msg: Mapped[str | None] = mapped_column(String(512), nullable=True, comment="错误摘要（截断 512）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

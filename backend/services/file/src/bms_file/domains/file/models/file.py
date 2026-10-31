@@ -13,7 +13,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 FILE_STATUS_UPLOADING = "uploading"
 """文件状态：上传中（分片会话已建，尚未合并）。"""
@@ -59,7 +59,7 @@ class SysFile(BaseModel):
     mime_type: Mapped[str] = mapped_column(String(128), comment="服务端嗅探得到的 MIME")
     sha256: Mapped[str] = mapped_column(String(64), comment="整文件 SHA256（完成后可通过校验）")
     uploader_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上传人（雪花 ID；系统产物可空）"
+        SnowflakeId, nullable=True, comment="上传人（雪花 ID；系统产物可空）"
     )
     source: Mapped[str] = mapped_column(
         String(16), default=FILE_SOURCE_UPLOAD, comment="来源：upload/dedup/print/export"
@@ -87,7 +87,7 @@ class SysFilePart(BaseModel):
         Index("idx_sys_file_part_file_id", "file_id"),
     )
 
-    file_id: Mapped[int] = mapped_column(BigInteger, comment="所属文件（逻辑指向 sys_file.id）")
+    file_id: Mapped[int] = mapped_column(SnowflakeId, comment="所属文件（逻辑指向 sys_file.id）")
     part_no: Mapped[int] = mapped_column(Integer, comment="分片序号（从 1 起）")
     size: Mapped[int] = mapped_column(Integer, comment="分片字节数")
     sha256: Mapped[str] = mapped_column(String(64), comment="分片 SHA256（服务端复算通过后落库）")

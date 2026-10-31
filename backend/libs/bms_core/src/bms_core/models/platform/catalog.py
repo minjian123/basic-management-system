@@ -7,10 +7,10 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_module.md` / `sys_module_i18n.md` / `sys_product.md`）。
 """
 
-from sqlalchemy import BigInteger, Boolean, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysModule(BaseModel):
@@ -59,7 +59,7 @@ class SysModule(BaseModel):
         Boolean, default=False, nullable=False, comment="租户恒开通（产品服务行在自持清单声明；缺省 false）"
     )
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -76,11 +76,11 @@ class SysModuleI18n(BaseModel):
         ),
     )
 
-    module_id: Mapped[int] = mapped_column(BigInteger, comment="模块 ID（逻辑外键 → sys_module.id）")
+    module_id: Mapped[int] = mapped_column(SnowflakeId, comment="模块 ID（逻辑外键 → sys_module.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="模块名文案")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -111,5 +111,5 @@ class SysProduct(BaseModel):
         String(16), default="enabled", comment="状态（enabled/disabled/planned/retired）"
     )
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )

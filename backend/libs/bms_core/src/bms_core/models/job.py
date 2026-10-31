@@ -12,7 +12,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 __all__ = [
     "JOB_STATUS_CANCELED",
@@ -73,7 +73,7 @@ class SysJob(BaseModel):
     service_key: Mapped[str] = mapped_column(String(64), comment="提供方服务键（执行者所在服务）")
     domain_key: Mapped[str] = mapped_column(String(64), comment="提供方业务域（取自声明）")
     tenant_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="租户主键（雪花 id；平台链作业为空）"
+        SnowflakeId, nullable=True, comment="租户主键（雪花 id；平台链作业为空）"
     )
     status: Mapped[str] = mapped_column(String(16), default=JOB_STATUS_QUEUED, comment="状态（六态）")
     priority: Mapped[int] = mapped_column(Integer, default=0, comment="租户内优先级（大者先；不跨租户抢占）")
@@ -114,7 +114,7 @@ class SysJobError(BaseModel):
     __tablename__ = "sys_job_error"
     __table_args__ = (Index("idx_sys_job_error_job", "job_id", "id"),)
 
-    job_id: Mapped[int] = mapped_column(BigInteger, comment="所属作业（sys_job.id；逻辑外键）")
+    job_id: Mapped[int] = mapped_column(SnowflakeId, comment="所属作业（sys_job.id；逻辑外键）")
     row_no: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="业务行号（导入 Excel 行，自 2 起）")
     column_key: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="出错列 / 字段键")
     item_ref: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="业务条目标识（非行号场景）")

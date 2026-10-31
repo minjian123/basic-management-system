@@ -5,10 +5,10 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_client`）。
 """
 
-from sqlalchemy import BigInteger, String, Text, UniqueConstraint
+from sqlalchemy import String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysClient(BaseModel):
@@ -38,5 +38,5 @@ class SysClient(BaseModel):
     ip_whitelist: Mapped[str] = mapped_column(Text, comment="来源 IP / CIDR 白名单 JSON 数组（应用侧写 []）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )

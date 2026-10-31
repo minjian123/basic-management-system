@@ -13,11 +13,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 LOCK_TYPE_FAIL_LIMIT = "fail_limit"
 """锁定类型：登录失败达阈值触发。"""
@@ -82,7 +82,7 @@ class SysUser(BaseModel):
     locale: Mapped[str | None] = mapped_column(String(16), nullable=True, comment="语言偏好（如 zh-cn）")
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="时区偏好（如 Asia/Shanghai）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -96,23 +96,23 @@ class SysAccountLock(BaseModel):
         Index("idx_sys_account_lock_unlock_by", "unlock_by"),
     )
 
-    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户主键（逻辑外键 sys_user.id；同库）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, comment="用户主键（逻辑外键 sys_user.id；同库）")
     lock_type: Mapped[str] = mapped_column(String(16), comment="锁定类型（fail_limit/inactive/manual）")
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="锁定原因")
     locked_at: Mapped[datetime] = mapped_column(DateTime, comment="锁定时间（UTC）")
     locked_by: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="锁定操作人（inactive / fail_limit 系统触发为 NULL）"
+        SnowflakeId, nullable=True, comment="锁定操作人（inactive / fail_limit 系统触发为 NULL）"
     )
     expire_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, comment="锁定到期时间（UTC；NULL=需手动解锁）"
     )
     unlock_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="解锁时间（UTC；NULL=未解锁）")
-    unlock_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="解锁操作人（自动解锁为 NULL）")
+    unlock_by: Mapped[int | None] = mapped_column(SnowflakeId, nullable=True, comment="解锁操作人（自动解锁为 NULL）")
     unlock_mode: Mapped[str | None] = mapped_column(
         String(16), nullable=True, comment="解锁方式（manual/auto；NULL=未解锁）"
     )
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -128,11 +128,11 @@ class SysUserPreference(BaseModel):
         UniqueConstraint("user_id", "pref_key", "deleted_at", name="uq_sys_user_preference_user_key_deleted_at"),
     )
 
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="用户 ID（逻辑外键 → sys_user.id）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, index=True, comment="用户 ID（逻辑外键 → sys_user.id）")
     pref_key: Mapped[str] = mapped_column(String(128), comment="偏好键（域.键，如 list.user_form）")
     pref_value: Mapped[str] = mapped_column(Text, comment="偏好值（JSON 字符串）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -148,9 +148,9 @@ class SysUserExtension(BaseModel):
         UniqueConstraint("user_id", "label", "deleted_at", name="uq_sys_user_extension_user_label_deleted_at"),
     )
 
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="用户主键（逻辑外键 → sys_user.id）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, index=True, comment="用户主键（逻辑外键 → sys_user.id）")
     label: Mapped[str] = mapped_column(String(64), comment="扩展标签（用户维度内唯一）")
     remark: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="备注")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

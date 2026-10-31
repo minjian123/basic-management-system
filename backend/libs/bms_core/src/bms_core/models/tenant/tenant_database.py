@@ -8,10 +8,10 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_tenant_database`）。
 """
 
-from sqlalchemy import BigInteger, String, UniqueConstraint
+from sqlalchemy import String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysTenantDatabase(BaseModel):
@@ -20,8 +20,8 @@ class SysTenantDatabase(BaseModel):
     __tablename__ = "sys_tenant_database"
     __table_args__ = (UniqueConstraint("tenant_id", "deleted_at", name="uq_sys_tenant_database_tenant_deleted_at"),)
 
-    tenant_id: Mapped[int] = mapped_column(BigInteger, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
+    tenant_id: Mapped[int] = mapped_column(SnowflakeId, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
     db_basis: Mapped[str] = mapped_column(String(64), comment="库名基（创建时冻结的租户编码，稳定不可变）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

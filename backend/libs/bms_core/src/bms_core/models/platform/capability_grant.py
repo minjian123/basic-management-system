@@ -9,10 +9,10 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, String, UniqueConstraint
+from sqlalchemy import DateTime, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 GRANT_SOURCE_DECLARED = "declared"
 """来源：产品自持声明装载（`collaborations[].default_consumers`）。"""
@@ -68,7 +68,7 @@ class SysCapabilityGrant(BaseModel):
         DateTime, nullable=True, comment="有效期截止（UTC；NULL=长期有效；过期视为无效，运行时判定）"
     )
     granted_by: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="授予人（sys_user.id；声明装载为 NULL）"
+        SnowflakeId, nullable=True, comment="授予人（sys_user.id；声明装载为 NULL）"
     )
     granted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="授予时间（UTC）")
     revoked_at: Mapped[datetime | None] = mapped_column(

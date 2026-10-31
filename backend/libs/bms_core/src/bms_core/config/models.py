@@ -5,10 +5,10 @@
 - 字段 / 索引口径见《数据库设计 · 数据表设计 · sys_config》表文件（字段唯一事实源）。
 """
 
-from sqlalchemy import BigInteger, Boolean, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 __all__ = ["SysConfig"]
 
@@ -34,5 +34,5 @@ class SysConfig(BaseModel):
     )
     remark: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="备注（参数用途说明）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )

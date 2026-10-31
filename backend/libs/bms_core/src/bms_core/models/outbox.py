@@ -9,12 +9,12 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.events.base import DEFAULT_EVENT_VERSION
-from bms_core.models.base import BaseModel, StableJson
+from bms_core.models.base import BaseModel, SnowflakeId, StableJson
 
 __all__ = ["SysEventConsumed", "SysEventDeadLetter", "SysOutbox"]
 
@@ -38,7 +38,7 @@ class SysOutbox(BaseModel):
         String(128), nullable=True, comment="聚合 / 分区键（同聚合按序投递；空 = 独立事件）"
     )
     tenant_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
+        SnowflakeId, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
     )
     trace_id: Mapped[str | None] = mapped_column(
         String(64), nullable=True, comment="链路 id（写入时取请求上下文 / OTel，投递保真供消费端续接）"
@@ -75,7 +75,7 @@ class SysEventDeadLetter(BaseModel):
     consumer: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="消费者标识（source=consumer）")
     aggregate_key: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="聚合 / 分区键")
     tenant_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
+        SnowflakeId, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
     )
     payload: Mapped[ConcurrentStableDict[str, object]] = mapped_column(
         StableJson, comment="事件负载（便于重投 / 排障）"

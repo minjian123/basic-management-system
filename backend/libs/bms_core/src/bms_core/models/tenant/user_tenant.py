@@ -8,10 +8,10 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_user_tenant`）。
 """
 
-from sqlalchemy import BigInteger, String, UniqueConstraint
+from sqlalchemy import String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysUserTenant(BaseModel):
@@ -32,12 +32,12 @@ class SysUserTenant(BaseModel):
         ),
     )
 
-    tenant_id: Mapped[int] = mapped_column(BigInteger, comment="归属租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
+    tenant_id: Mapped[int] = mapped_column(SnowflakeId, comment="归属租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
     user_id: Mapped[int] = mapped_column(
-        BigInteger, comment="用户主键（跨服务逻辑外键 → org 服务 sys_user.id，只持值）"
+        SnowflakeId, comment="用户主键（跨服务逻辑外键 → org 服务 sys_user.id，只持值）"
     )
     target_tenant_id: Mapped[int] = mapped_column(
-        BigInteger, comment="可访问目标租户主键（同库逻辑外键 → sys_tenant.id，只持值）"
+        SnowflakeId, comment="可访问目标租户主键（同库逻辑外键 → sys_tenant.id，只持值）"
     )
     source: Mapped[str] = mapped_column(
         String(32),

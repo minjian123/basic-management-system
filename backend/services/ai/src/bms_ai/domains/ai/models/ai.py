@@ -5,10 +5,10 @@ AI 交互全量落 `ai_chat_log`；会话列表与历史以本表审计数据为
 本任务只声明结构、不建表、不迁移。表结构以《数据库设计》数据表文件为唯一事实源。
 """
 
-from sqlalchemy import BigInteger, Integer, Numeric, String, Text
+from sqlalchemy import Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class AiChatLog(BaseModel):
@@ -16,8 +16,8 @@ class AiChatLog(BaseModel):
 
     __tablename__ = "ai_chat_log"
 
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="用户 ID（逻辑外键 → sys_user.id）")
-    tenant_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True, comment="租户 ID")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, index=True, comment="用户 ID（逻辑外键 → sys_user.id）")
+    tenant_id: Mapped[int | None] = mapped_column(SnowflakeId, nullable=True, index=True, comment="租户 ID")
     session_id: Mapped[str] = mapped_column(String(64), index=True, comment="会话标识（派生视图分组键）")
     module: Mapped[str] = mapped_column(String(32), comment="模式（ask / report / approval / doc_qa）")
     role: Mapped[str] = mapped_column(String(16), comment="消息角色（user / assistant / system）")

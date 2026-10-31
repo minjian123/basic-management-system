@@ -10,11 +10,11 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_role` 等 5 表）。
 """
 
-from sqlalchemy import BigInteger, Boolean, Index, String, UniqueConstraint
+from sqlalchemy import Boolean, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.models.base import BaseModel, StableJson
+from bms_core.models.base import BaseModel, SnowflakeId, StableJson
 
 PERM_TYPE_MENU = "menu"
 """授权类型：菜单入口（仅菜单入口；勾选连带授予其表单查看权限）。"""
@@ -104,7 +104,7 @@ class SysRole(BaseModel):
         String(16), default=ROLE_TYPE_CUSTOM, comment="角色类型（custom/system/security/audit；内置判定，不可修改）"
     )
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -118,8 +118,8 @@ class SysUserRole(BaseModel):
         Index("idx_sys_user_role_user_id", "user_id"),
     )
 
-    role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
-    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户主键（跨服务逻辑外键 sys_user.id，org 服务租户库）")
+    role_id: Mapped[int] = mapped_column(SnowflakeId, comment="角色主键（逻辑外键 sys_role.id，同库）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, comment="用户主键（跨服务逻辑外键 sys_user.id，org 服务租户库）")
 
 
 class SysRolePermission(BaseModel):
@@ -139,17 +139,17 @@ class SysRolePermission(BaseModel):
         Index("idx_sys_role_permission_target", "target_id"),
     )
 
-    role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
+    role_id: Mapped[int] = mapped_column(SnowflakeId, comment="角色主键（逻辑外键 sys_role.id，同库）")
     perm_type: Mapped[str] = mapped_column(String(16), comment="授权类型（menu/form/action）")
     target_id: Mapped[int] = mapped_column(
-        BigInteger,
+        SnowflakeId,
         comment="授权目标 ID（平台实体雪花 ID：sys_menu/sys_form/sys_permission；platform 平台库跨库逻辑外键）",
     )
     source_menu_id: Mapped[int] = mapped_column(
-        BigInteger, default=NO_SOURCE_MENU_ID, comment="来源菜单入口 ID（0 = 表单级直接授予）"
+        SnowflakeId, default=NO_SOURCE_MENU_ID, comment="来源菜单入口 ID（0 = 表单级直接授予）"
     )
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -169,20 +169,20 @@ class SysRoleField(BaseModel):
         Index("idx_sys_role_field_role_form", "role_id", "form_id"),
     )
 
-    role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
+    role_id: Mapped[int] = mapped_column(SnowflakeId, comment="角色主键（逻辑外键 sys_role.id，同库）")
     form_id: Mapped[int] = mapped_column(
-        BigInteger, comment="表单 ID（平台实体，platform 平台库跨库逻辑外键 sys_form.id）"
+        SnowflakeId, comment="表单 ID（平台实体，platform 平台库跨库逻辑外键 sys_form.id）"
     )
     field_id: Mapped[int] = mapped_column(
-        BigInteger, comment="字段 ID（平台实体，platform 平台库跨库逻辑外键 sys_field.id）"
+        SnowflakeId, comment="字段 ID（平台实体，platform 平台库跨库逻辑外键 sys_field.id）"
     )
     visible: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否可见（false = 读时过滤）")
     editable: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否可编辑（false = 写时拒绝）")
     source_menu_id: Mapped[int] = mapped_column(
-        BigInteger, default=NO_SOURCE_MENU_ID, comment="来源菜单入口 ID（0 = 表单级直接授予）"
+        SnowflakeId, default=NO_SOURCE_MENU_ID, comment="来源菜单入口 ID（0 = 表单级直接授予）"
     )
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -201,7 +201,7 @@ class SysDataScope(BaseModel):
         Index("idx_sys_data_scope_role_id", "role_id"),
     )
 
-    role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
+    role_id: Mapped[int] = mapped_column(SnowflakeId, comment="角色主键（逻辑外键 sys_role.id，同库）")
     data_source_key: Mapped[str] = mapped_column(
         String(64), comment="数据源标识（业务码字符串，如 org_dept / role / wms_bin；登记于统一数据源登记）"
     )
@@ -210,5 +210,5 @@ class SysDataScope(BaseModel):
         StableJson, default=list, comment="结构化策略配置（只选不编，按策略分结构）"
     )
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

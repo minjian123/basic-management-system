@@ -6,10 +6,10 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_icon.md`）。
 """
 
-from sqlalchemy import BigInteger, String, Text, UniqueConstraint
+from sqlalchemy import String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysIcon(BaseModel):
@@ -38,7 +38,7 @@ class SysIcon(BaseModel):
     svg: Mapped[str] = mapped_column(Text, comment="SVG 内容（上传前清洗归文件管理阶段）")
     status: Mapped[str] = mapped_column(String(16), default="active", comment="状态（active/disabled）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -50,9 +50,9 @@ class SysIconI18n(BaseModel):
         UniqueConstraint("icon_id", "locale", "deleted_at", name="uq_sys_icon_i18n_icon_locale_deleted_at"),
     )
 
-    icon_id: Mapped[int] = mapped_column(BigInteger, comment="图标 ID（逻辑外键 → sys_icon.id）")
+    icon_id: Mapped[int] = mapped_column(SnowflakeId, comment="图标 ID（逻辑外键 → sys_icon.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="图标名称文案")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

@@ -4,10 +4,10 @@
 本任务只声明结构、不建表、不迁移；表结构以《数据库设计》数据表文件为唯一事实源。
 """
 
-from sqlalchemy import BigInteger, Boolean, String, Text
+from sqlalchemy import Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysNotification(BaseModel):
@@ -19,7 +19,7 @@ class SysNotification(BaseModel):
 
     __tablename__ = "sys_notification"
 
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="收件用户 ID（逻辑外键 → sys_user.id）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, index=True, comment="收件用户 ID（逻辑外键 → sys_user.id）")
     title: Mapped[str] = mapped_column(String(256), comment="标题")
     content: Mapped[str] = mapped_column(Text, comment="正文（已按收件人 locale 渲染）")
     type: Mapped[str] = mapped_column(String(32), index=True, comment="通知类型")

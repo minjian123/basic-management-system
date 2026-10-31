@@ -10,11 +10,11 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_tenant_topology.md`），字段级口径不在本文件重复。
 """
 
-from sqlalchemy import BigInteger, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 TOPOLOGY_STATUS_ENABLED = "enabled"
 """状态：本租户启用该业务域（参与解析）。"""
@@ -50,7 +50,7 @@ class SysTenantTopology(BaseModel):
     )
 
     tenant_id: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值；0=默认拓扑）"
+        SnowflakeId, nullable=False, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值；0=默认拓扑）"
     )
     domain_key: Mapped[str] = mapped_column(
         String(64), nullable=False, comment="业务域标识（逻辑外键 → 业务域登记，只持值；写入前校验已登记）"

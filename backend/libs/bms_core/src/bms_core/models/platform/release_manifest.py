@@ -13,11 +13,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 RELEASE_STATUS_RELEASED = "released"
 """状态：已发布（正常发布成功）。"""
@@ -60,7 +60,7 @@ class SysReleaseManifest(BaseModel):
         String(64), nullable=False, comment="部署单元标识（跨库逻辑外键 → sys_tenant_topology.unit_key，只持值）"
     )
     tenant_scope: Mapped[int] = mapped_column(
-        BigInteger,
+        SnowflakeId,
         nullable=False,
         default=GLOBAL_TENANT_SCOPE,
         comment="作用范围（0 = 全局 / 默认拓扑；非 0 = 租户主键）",
@@ -76,10 +76,10 @@ class SysReleaseManifest(BaseModel):
     )
     released_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="发布时间（UTC）")
     released_by: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="发布人（sys_user.id；自动化发布为空）"
+        SnowflakeId, nullable=True, comment="发布人（sys_user.id；自动化发布为空）"
     )
     rolled_back_from: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="回滚来源清单主键（本行由回滚产生时填写，指向被回滚的那次发布）"
+        SnowflakeId, nullable=True, comment="回滚来源清单主键（本行由回滚产生时填写，指向被回滚的那次发布）"
     )
     note: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="说明（发布摘要 / 回滚原因）")
 
@@ -103,7 +103,7 @@ class SysReleaseManifestDomain(BaseModel):
     )
 
     manifest_id: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, comment="发布清单主键（同库逻辑外键 → sys_release_manifest.id，只持值）"
+        SnowflakeId, nullable=False, comment="发布清单主键（同库逻辑外键 → sys_release_manifest.id，只持值）"
     )
     domain_key: Mapped[str] = mapped_column(
         String(64), nullable=False, comment="业务域标识（跨库逻辑外键 → 业务域清单，只持值）"

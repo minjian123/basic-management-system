@@ -8,10 +8,10 @@
 **权限码**（`sys_permission`，业务码 × 动作码组合）——业务级由「入口授权」独立判定，接口/数据访问走权限码。
 """
 
-from sqlalchemy import BigInteger, String, UniqueConstraint
+from sqlalchemy import String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 
 class SysBusiness(BaseModel):
@@ -30,7 +30,7 @@ class SysBusiness(BaseModel):
     name: Mapped[str] = mapped_column(String(128), comment="名称（默认文案）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -42,11 +42,11 @@ class SysBusinessI18n(BaseModel):
         UniqueConstraint("business_id", "locale", "deleted_at", name="uq_sys_business_i18n_business_locale_deleted_at"),
     )
 
-    business_id: Mapped[int] = mapped_column(BigInteger, comment="业务码 ID（逻辑外键 → sys_business.id）")
+    business_id: Mapped[int] = mapped_column(SnowflakeId, comment="业务码 ID（逻辑外键 → sys_business.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="业务名的该语言文案")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -66,7 +66,7 @@ class SysAction(BaseModel):
     name: Mapped[str] = mapped_column(String(128), comment="名称（默认文案）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -78,11 +78,11 @@ class SysActionI18n(BaseModel):
         UniqueConstraint("action_id", "locale", "deleted_at", name="uq_sys_action_i18n_action_locale_deleted_at"),
     )
 
-    action_id: Mapped[int] = mapped_column(BigInteger, comment="动作码 ID（逻辑外键 → sys_action.id）")
+    action_id: Mapped[int] = mapped_column(SnowflakeId, comment="动作码 ID（逻辑外键 → sys_action.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="动作名的该语言文案")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -98,6 +98,6 @@ class SysPermission(BaseModel):
         UniqueConstraint("business_id", "action_id", "deleted_at", name="uq_sys_permission_business_action_deleted_at"),
     )
 
-    business_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="业务码 ID（逻辑外键 → sys_business.id）")
-    action_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="动作码 ID（逻辑外键 → sys_action.id）")
+    business_id: Mapped[int] = mapped_column(SnowflakeId, index=True, comment="业务码 ID（逻辑外键 → sys_business.id）")
+    action_id: Mapped[int] = mapped_column(SnowflakeId, index=True, comment="动作码 ID（逻辑外键 → sys_action.id）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")

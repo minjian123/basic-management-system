@@ -8,10 +8,10 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, SnowflakeId
 
 __all__ = ["GlobalTxn", "GlobalTxnBranch", "GlobalTxnRecovery"]
 
@@ -56,7 +56,7 @@ class GlobalTxnBranch(BaseModel):
         String(64), nullable=True, comment="分支执行载荷摘要（分支级幂等）"
     )
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -78,5 +78,5 @@ class GlobalTxnRecovery(BaseModel):
     handler: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="人工处置的操作人标识")
     conclusion: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="处置结论")
     parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+        SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
