@@ -30,10 +30,17 @@ async def test_list_contract(client: AsyncClient) -> None:
     assert len(keys) == len(set(keys)), "plugin_key 重复"
     assert keys == sorted(keys)
     by_key = {str(group["plugin_key"]): group for group in groups}
-    for plugin_key in ("audit", "event", "task"):
+    for plugin_key in ("audit", "task"):
         group = by_key[plugin_key]
         assert group["provider"] == "null"
         assert group["implementations"] == [{"plugin_name": "null", "contract_version": "0.1.0", "status": "active"}]
+    # 事件发布：缺省 null（未配 provider），真实实现 rocketmq 已登记（01_01 事件总线）
+    event = by_key["event"]
+    assert event["provider"] == "null"
+    assert event["implementations"] == [
+        {"plugin_name": "null", "contract_version": "0.1.0", "status": "active"},
+        {"plugin_name": "rocketmq", "contract_version": "0.1.0", "status": "registered"},
+    ]
     cache = by_key["cache"]
     assert cache["provider"] == "memory"  # dev 覆盖启用进程内缓存（租户解析缓存，01_02）
     # 02-4-27：cache 域新增真实实现（memory / redis）

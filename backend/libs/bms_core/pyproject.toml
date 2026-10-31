@@ -20,6 +20,11 @@ dependencies = [
     "dmSQLAlchemy>=2.0",
     "structlog>=24.1",
     "redis>=5.0",
+    # RocketMQ 5.x gRPC 官方 Python 客户端（模块名 `rocketmq`）：事件总线发布 / 消费的真实实现。
+    # 走 broker proxy 的 8081（`--enable-proxy`），不是 remoting 的 9876 / 10911；
+    # 未部署 broker 的环境由 `[event].provider` / `[event_consumer].provider` 置空走 null 实现，
+    # 该依赖仅在真实实现模块内**延迟导入**，不影响无 broker 环境的启动。
+    "rocketmq-python-client>=5.1.2",
     "python-multipart>=0.0.9",
     "httpx>=0.27",
     "sortedcontainers",

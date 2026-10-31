@@ -73,6 +73,7 @@ from bms_core.edge.marker import MarkerEdgeTrust
 from bms_core.edge.service_jwt import ServiceJwtEdgeTrustFactory
 from bms_core.events.base import BaseEventConsumerGroup, EventPublisher
 from bms_core.events.platform_events import register_platform_event_contracts
+from bms_core.events.rocketmq_publisher import RocketMqEventPublisher
 from bms_core.fallback.base import BaseFallbackPolicy
 from bms_core.fieldtype.base import BaseFieldTypeRegistry
 from bms_core.fieldtype.local import LocalFieldTypeRegistry
@@ -433,6 +434,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
     register_plugin("tenant_module", "remote", RemoteTenantModuleGateFactory(settings, app))
+    register_plugin("event", "rocketmq", RocketMqEventPublisherFactory(settings))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
@@ -1074,6 +1076,35 @@ class TableOwnershipGuardFactory(BasePluginFactory[TableOwnershipGuard]):
             exceptions=entries,
             metrics=metrics,
         )
+
+
+class RocketMqEventPublisherFactory(BasePluginFactory[RocketMqEventPublisher]):
+    """RocketMQ 事件发布实现工厂（`rocketmq`：gRPC proxy 投递）。
+
+    零参工厂**不声明 `plugin_name`**（避免被插件注册表自动收集）；经 `register_plugin` 显式登记。
+    producer 懒启动：装配期不建连，未部署 broker 的环境不受影响（provider 应保持为空）。
+    """
+
+    plugin_key: str = "event"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[rocketmq]` 接入参数）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RocketMqEventPublisher:
+        """构造发布实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RocketMqEventPublisher: 发布实例。
+        """
+        return RocketMqEventPublisher.from_settings(self._settings)
 
 
 class SqlOutboxStoreFactory(BasePluginFactory[SqlOutboxStore]):
