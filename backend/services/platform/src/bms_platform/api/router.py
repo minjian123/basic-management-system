@@ -29,6 +29,7 @@ from bms_platform.domains.platform_registry.api import (
 )
 from bms_platform.domains.platform_registry.api import dict as dict_api
 from bms_platform.domains.role.api import role
+from bms_platform.domains.task.api import task as task_api
 from bms_platform.domains.user.api import (
     account_locks,
     internal_account_locks,
@@ -85,6 +86,8 @@ api_router = mount_service_routers(
             internal_tenant_topologies.router,
             # 发布清单（07C `04_01`）：只读管理面（发布与回滚是部署编排动作，经 `ops.release`）
             releases.router,
+            # 任务调度（01_02）：任务定义 / 启停 / 手动触发 / 执行记录
+            task_api.router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
         ]

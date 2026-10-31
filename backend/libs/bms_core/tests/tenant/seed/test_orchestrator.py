@@ -75,7 +75,7 @@ def _records(*records: SeedRecord) -> ConcurrentStableList[SeedRecord]:
 
 
 def test_platform_declaration_loaded_into_catalog() -> None:
-    """用例 1：`platform.toml` 的 9 条种子进入合并视图，字段逐一正确。"""
+    """用例 1：`platform.toml` 的 10 条种子进入合并视图，字段逐一正确。"""
     reset_seed_records()
     load_product_manifests(ConcurrentStableList())
     view = seed_catalog_view()
@@ -88,6 +88,7 @@ def test_platform_declaration_loaded_into_catalog() -> None:
         "seed-tenant",
         "seed-config",
         "seed-platform-role",
+        "seed-tasks",
         "seed-rbac-role",
         "seed-platform-grant",
         "seed-rbac-grant",
@@ -425,7 +426,7 @@ def test_source_of_uses_injected_source() -> None:
 
 def test_ops_shell_still_forwards_to_base_module() -> None:
     """用例 27：`ops.seed_menu` 等薄壳仍转发到基座实现（原 `main` 保留）。"""
-    from ops import seed_menu
+    import ops.seed_menu as seed_menu
 
     assert callable(seed_menu.main)
     assert callable(seed_menu.seed_menu_entry)

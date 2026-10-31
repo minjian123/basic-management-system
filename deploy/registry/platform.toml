@@ -142,6 +142,18 @@ description = "平台租户 RBAC（platform_admin / platform_ops 角色与授权
 sys_role = "code"
 
 [[seeds]]
+name = "seed-tasks"
+service = "platform"
+db_key = "tenant_platform_{tenant}"
+module = "ops.seed_tasks"
+entry = "seed_tasks_entry"
+after = ["seed-menu"]
+description = "内置定时任务定义（sys_task 四条；01_02）"
+
+[seeds.tables]
+sys_task = "code"
+
+[[seeds]]
 name = "seed-rbac-role"
 service = "platform"
 db_key = "tenant_platform_{tenant}"
