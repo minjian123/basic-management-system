@@ -105,3 +105,20 @@ def test_rejects_invalid_catalog_entry(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_catalog(monkeypatch, ConcurrentStableList((bad,)))
     with pytest.raises(CatalogError, match="数据源登记校验失败"):
         application._validate_data_sources(_settings(""))  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2372)
+def test_product_origin_record_skipped_in_coverage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """清单内的产品来源条目跳过覆盖校验（出口在产品侧），平台条目照常通过。"""
+    product = DataSourceRecord(
+        data_source_key="dept_tree",
+        name="部门树",
+        data_source="mdm.data_source.dept",
+        origin="product",
+        product_key="mdm",
+        path="/data-source/dept-tree",
+    )
+    platform_record = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
+    _patch_catalog(monkeypatch, ConcurrentStableList((product, platform_record)))
+    _patch_providers(monkeypatch, ConcurrentStableList(("platform",)))
+    application._validate_data_sources(_settings("routed"))  # pyright: ignore[reportPrivateUsage]
