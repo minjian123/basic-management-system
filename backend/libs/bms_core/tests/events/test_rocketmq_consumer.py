@@ -178,6 +178,22 @@ def _event(
     )
 
 
+def _factory(consumer: _Consumer) -> Any:
+    """构造 consumer 工厂替身（显式签名，避免 lambda 参数类型未知）。
+
+    Args:
+        consumer: 消费客户端替身。
+
+    Returns:
+        Any: 工厂函数。
+    """
+
+    def build(name: str, topics: ConcurrentStableList[str]) -> _Consumer:
+        return consumer
+
+    return build
+
+
 def _group(
     registry: EngineRegistry,
     consumer: _Consumer,
@@ -201,7 +217,7 @@ def _group(
         settings=settings or _settings(),
         engine_registry=registry,
         dedup=dedup,
-        consumer_factory=lambda name, topics: consumer,
+        consumer_factory=_factory(consumer),
     )
     group.load(
         ConcurrentStableList(
@@ -324,7 +340,7 @@ async def test_dead_letter_failure_keeps_message_unacked(
     async def _boom(entry: object) -> None:
         raise RuntimeError("db down")
 
-    monkeypatch.setattr(group._dead_letters, "record", _boom)
+    monkeypatch.setattr(group.dead_letter_recorder, "record", _boom)
     tally = await group.consume_once()
     assert tally.dead == 1
     assert len(consumer.acked) == 0

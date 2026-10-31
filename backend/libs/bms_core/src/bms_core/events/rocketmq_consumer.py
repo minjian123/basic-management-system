@@ -66,7 +66,9 @@ class _GroupRuntime(BaseDataContract):
     name: str
     ordered: bool
     concurrency: int | None
-    handlers: ConcurrentStableDict[str, EventConsumer] = field(default_factory=ConcurrentStableDict)
+    handlers: ConcurrentStableDict[str, EventConsumer] = field(
+        default_factory=lambda: ConcurrentStableDict[str, EventConsumer]()
+    )
     lanes: KeyedLaneExecutor | None = None
     consumer: Any = None
     task: asyncio.Task[None] | None = None
@@ -123,6 +125,15 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
     def enabled(self) -> bool:
         """消费是否启用（`[event_consumer].enabled`）。"""
         return bool(self._settings.event_consumer.enabled)
+
+    @property
+    def dead_letter_recorder(self) -> EventDeadLetterRecorder:
+        """死信写入器（诊断 / 测试注入故障用）。
+
+        Returns:
+            EventDeadLetterRecorder: 写入器。
+        """
+        return self._dead_letters
 
     @property
     def host(self) -> str:
@@ -452,7 +463,7 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
                 "RocketMQ 端点未配置（[rocketmq].endpoints / BMS_ROCKETMQ__ENDPOINTS）", data={"group": group}
             )
         try:
-            from rocketmq import ClientConfiguration, Credentials, SimpleConsumer
+            from rocketmq import ClientConfiguration, Credentials, SimpleConsumer  # pyright: ignore[reportMissingTypeStubs]
         except ImportError as exc:  # pragma: no cover - 依赖缺失属部署问题
             raise EventConsumeError(
                 "缺少 RocketMQ 客户端依赖（rocketmq-python-client）", data={"group": group}
@@ -470,7 +481,7 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
         consumer = SimpleConsumer(config, group, await_duration=poll_seconds)
         consumer.startup()
         for topic in topics:
-            consumer.subscribe(topic)
+            cast("Any", consumer).subscribe(topic)
         # 消费组靠 heartbeat 在 broker 侧注册；注册完成前 proxy 的 receive 会抛 50001（NPE）。
         # 首次建连后短暂等待，避免「刚启动就拉取」必然失败（后续拉取由循环与退避兜底）。
         time.sleep(_GROUP_REGISTER_WAIT_SECONDS)
@@ -521,7 +532,7 @@ def _message_properties(message: Any) -> ConcurrentStableDict[str, str]:
     Returns:
         ConcurrentStableDict[str, str]: 属性表。
     """
-    raw = getattr(message, "properties", None) or {}
+    raw: Any = getattr(message, "properties", None) or {}
     return ConcurrentStableDict({str(key): str(value) for key, value in cast("dict[Any, Any]", raw).items()})
 
 
@@ -535,6 +546,6 @@ def _message_property(message: Any, name: str) -> str | None:
     Returns:
         str | None: 属性值。
     """
-    raw = getattr(message, "properties", None) or {}
+    raw: Any = getattr(message, "properties", None) or {}
     value = cast("dict[Any, Any]", raw).get(name)
     return None if value is None else str(value)

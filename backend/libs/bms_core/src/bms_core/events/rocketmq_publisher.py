@@ -231,7 +231,7 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
                 data={"topic": topic},
             )
         try:
-            from rocketmq import Producer
+            from rocketmq import Producer  # pyright: ignore[reportMissingTypeStubs]
         except ImportError as exc:  # pragma: no cover - 依赖缺失属部署问题
             raise EventPublishError(
                 "缺少 RocketMQ 客户端依赖（rocketmq-python-client）", data={"topic": topic}
@@ -253,7 +253,7 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
         if self._config is not None:
             return self._config
         try:
-            from rocketmq import ClientConfiguration, Credentials
+            from rocketmq import ClientConfiguration, Credentials  # pyright: ignore[reportMissingTypeStubs]
         except ImportError:  # pragma: no cover - 依赖缺失属部署问题
             return None
         has_credentials = bool(self._access_key and self._secret_key)
@@ -301,6 +301,6 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
         Returns:
             Any: SDK `Message`。
         """
-        from rocketmq import Message
+        from rocketmq import Message  # pyright: ignore[reportMissingTypeStubs]
 
         return Message()
