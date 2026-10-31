@@ -27,6 +27,7 @@
 | `event_version` | VARCHAR(16) | 否 | 默认 `1.0.0` | 事件契约版本（`X.Y.Z`；签发缺省按登记契约补齐、投递保真） |
 | `aggregate_key` | VARCHAR(128) | 是 | `idx_sys_outbox_aggregate` | 聚合 / 分区键（同聚合按序投递；空 = 独立事件） |
 | `tenant_id` | BIGINT | 是 | — | 租户主键（雪花 id；平台链不可解析的租户位保持 NULL） |
+| `trace_id` | VARCHAR(64) | 是 | — | 链路 id（写入时取请求上下文 / OTel；投递保真，供消费端续接 span 与日志） |
 | `payload` | JSON | 否 | — | 事件负载（事件信封 payload） |
 | `occurred_at` | DATETIME | 否 | — | 事件发生时间（UTC） |
 | `status` | VARCHAR(16) | 否 | 默认 `pending`；`idx_sys_outbox_dispatch` | 投递状态：`pending` / `delivered` / `dead` |
@@ -61,5 +62,6 @@
 | 2026-09-23 | v1 | 新建表结构（平台链 + 租户链双落；事务性发件箱，随 05_03 迁移落地） | minjian |
 | 2026-09-23 | v2 | 增 `event_version` 列（事件契约版本；平台链 0004 / 租户链 0003 补列，随 05_04 落地） | minjian |
 | 2026-09-29 | v3 | `tenant_id` 由 `VARCHAR(64)`（租户编码）改 `BIGINT`（雪花租户主键；平台链 / 租户链分链迁移，随 10_04 落地；存量 `code → id` 回填由 `ops/backfill_tenant_id_columns.py` 承载） | minjian |
+| 2026-10-31 | v4 | 增 `trace_id` 列（链路贯通：写入取请求上下文 / OTel，投递器重建信封保真，消费端续接 span；随 08 阶段 01_01 事件总线落地，结构以模型为事实源、无新迁移脚本） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

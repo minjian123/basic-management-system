@@ -119,6 +119,8 @@ class OutboxRecord(BaseEventRecordContract):
     """投递成功时间（UTC）。"""
     error_msg: str | None = None
     """最近一次失败原因。"""
+    trace_id: str | None = None
+    """链路 id（投递保真；消费端据此续接 span / 日志）。"""
 
     def to_envelope(self) -> EventEnvelope:
         """重建事件信封（保真 `event_id` / `occurred_at` / `aggregate_key` / `event_version`）。
@@ -130,6 +132,7 @@ class OutboxRecord(BaseEventRecordContract):
             event_type=self.event_type,
             payload=ConcurrentStableDict(self.payload),
             tenant_id=self.tenant_id,
+            trace_id=self.trace_id,
             event_id=self.event_id,
             occurred_at=self.occurred_at,
             aggregate_key=self.aggregate_key,

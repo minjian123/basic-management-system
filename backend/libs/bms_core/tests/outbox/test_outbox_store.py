@@ -284,3 +284,34 @@ def test_contract_mode_invalid_rejected() -> None:
     """签发契约校验模式非法即拒（配置错误）。"""
     with pytest.raises(ConfigError):
         SqlOutboxStore(contract_mode="loud")
+
+
+async def test_enqueue_persists_trace_id_and_restores_envelope(session: AsyncSession) -> None:
+    """链路 id 落库并保真：投递器重建信封时 `trace_id` 不丢（消费端据此续接 span / 日志）。"""
+    store = SqlOutboxStore()
+    async with session.begin():
+        event_id = await store.enqueue(
+            session,
+            EventEnvelope(
+                event_type="order.created",
+                payload=ConcurrentStableDict({"n": 1}),
+                trace_id="a" * 32,
+                aggregate_key="agg-1",
+            ),
+        )
+    async with session.begin():
+        records = await store.claim_pending(session, now=_now(), limit=10)
+    record = next(item for item in records if item.event_id == event_id)
+    assert record.trace_id == "a" * 32
+    assert record.to_envelope().trace_id == "a" * 32
+
+
+async def test_enqueue_without_trace_keeps_null(session: AsyncSession) -> None:
+    """无链路上下文时写 NULL（不编造 trace_id，避免假链路）。"""
+    store = SqlOutboxStore()
+    async with session.begin():
+        await store.enqueue(session, EventEnvelope(event_type="order.created", payload=ConcurrentStableDict({"n": 2})))
+    async with session.begin():
+        rows = list((await session.execute(select(SysOutbox))).scalars())
+    row = next(item for item in rows if item.payload.get("n") == 2)
+    assert row.trace_id is None

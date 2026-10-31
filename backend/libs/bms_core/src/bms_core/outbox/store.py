@@ -45,6 +45,7 @@ from bms_core.outbox.base import (
     DeadLetterRecord,
     OutboxRecord,
 )
+from bms_core.tracing.base import resolve_trace_id
 
 
 def _utc_now() -> datetime:
@@ -78,6 +79,7 @@ def _to_record(row: SysOutbox) -> OutboxRecord:
         tenant_id=_tenant_id_str(row.tenant_id),
         payload=ConcurrentStableFrozenDict(row.payload),
         occurred_at=row.occurred_at,
+        trace_id=row.trace_id,
         status=row.status,
         retry_count=row.retry_count,
         next_retry_at=row.next_retry_at,
@@ -213,6 +215,7 @@ class SqlOutboxStore(BaseOutboxStore):
                 event_version=event_version,
                 aggregate_key=event.aggregate_key,
                 tenant_id=_tenant_id_col(event.tenant_id),
+                trace_id=event.trace_id or resolve_trace_id(),
                 payload=dict(event.payload),
                 occurred_at=occurred_at,
                 status=OUTBOX_STATUS_PENDING,

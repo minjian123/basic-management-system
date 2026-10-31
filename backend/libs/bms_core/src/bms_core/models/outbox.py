@@ -40,6 +40,9 @@ class SysOutbox(BaseModel):
     tenant_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, comment="租户主键（雪花 id；平台链不可解析保持空）"
     )
+    trace_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, comment="链路 id（写入时取请求上下文 / OTel，投递保真供消费端续接）"
+    )
     payload: Mapped[ConcurrentStableDict[str, object]] = mapped_column(StableJson, comment="事件负载")
     occurred_at: Mapped[datetime] = mapped_column(DateTime, comment="事件发生时间（UTC）")
     status: Mapped[str] = mapped_column(String(16), default="pending", comment="投递状态（pending/delivered/dead）")
