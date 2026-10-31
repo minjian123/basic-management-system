@@ -1030,6 +1030,61 @@ class EventConsumerSettings(PluginSelection):
     """幂等短窗口 TTL（秒）：Redis 只读预判 + 成功后标记，窗口内重复投递直接跳过。"""
 
 
+class TaskSchedulerSettings(BaseSettings):
+    """任务调度运行参数（`[task_scheduler]`，01_02）。
+
+    调度器（beat）与执行器（worker）都是 `ops/task_scheduler.py` 的长驻进程，**不进插件装配面**；
+    本配置节只承载运行参数，不含能力实现选择（`[task]` 段保留为历史插件位）。
+    """
+
+    poll_interval_seconds: float = Field(default=30.0, gt=0)
+    """beat 轮询间隔（秒）：cron 为分钟粒度，30s 足够；也是热加载信号丢失时的兜底周期。"""
+
+    batch_size: int = Field(default=50, ge=1)
+    """单租户单 tick 最多抢占条数（与 `tenant_concurrency` 共同约束单 tick 时长）。"""
+
+    tenant_concurrency: int = Field(default=4, ge=1)
+    """单 tick 内并发扫描的租户数。"""
+
+    tenant_cache_ttl_seconds: int = Field(default=60, ge=1)
+    """租户清单缓存 TTL（秒）：新开通租户最迟一个 TTL 后被纳入调度。"""
+
+    lock_ttl_seconds: int = Field(default=90, ge=1)
+    """`bms:global:lock:beat` 的 TTL（秒）；须显著大于 `poll_interval_seconds`。"""
+
+    run_timeout_seconds: int = Field(default=1800, ge=1)
+    """`running` 记录超时回收阈值（秒）：worker 失联时的兜底。"""
+
+    worker_concurrency: int = Field(default=4, ge=1)
+    """单 worker 进程并发执行数（每协程独立 BRPOP）。"""
+
+    max_retries: int = Field(default=3, ge=0)
+    """应用内重试次数（0 = 不重试）。"""
+
+    retry_backoff_seconds: float = Field(default=1.0, ge=0)
+    """重试退避基数（秒）：`backoff × 2^(n-1)`。"""
+
+    result_max_chars: int = Field(default=4096, ge=1)
+    """成功输出摘要截断长度。"""
+
+    error_max_chars: int = Field(default=512, ge=1)
+    """错误摘要截断长度（与死信同口径）。"""
+
+    trigger_cooldown_seconds: int = Field(default=5, ge=0)
+    """手动触发冷却（秒）：0 = 不限。"""
+
+    queue_key: str = "bms:global:task:queue"
+    """待执行队列键（LIST；`LPUSH` 入队 / `BRPOP` 出队）。"""
+
+    change_channel: str = "bms:global:task:changed"
+    """任务变更信号信道（pub/sub；只做唤醒，不承担正确性）。"""
+
+    allowed_handler_prefixes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["bms_core.tasks.builtin"])
+    )
+    """handler 允许的模块前缀（白名单；防任务定义写入任意代码路径）。"""
+
+
 class RegistrySettings(BaseSettings):
     """登记清单配置（`[registry]`）。
 
@@ -1309,6 +1364,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     sso: SsoSettings = Field(default_factory=SsoSettings)
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)
+    task_scheduler: TaskSchedulerSettings = Field(default_factory=TaskSchedulerSettings)
     tenant_membership: TenantMembershipSettings = Field(default_factory=TenantMembershipSettings)
     tenant_module: TenantModuleSettings = Field(default_factory=TenantModuleSettings)
     tenant_quota: TenantQuotaSettings = Field(default_factory=TenantQuotaSettings)

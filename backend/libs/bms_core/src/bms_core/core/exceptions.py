@@ -1298,3 +1298,49 @@ class ClientConflictError(ClientError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.CLIENT_CONFLICT, message, http_status=409, data=data)
+
+
+class TaskError(BizError):
+    """任务调度段（`7xxxx`）异常基类。"""
+
+
+class TaskNotFoundError(TaskError):
+    """任务不存在或已删除（`70001` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TASK_NOT_FOUND, message, http_status=404, data=data)
+
+
+class TaskCronInvalidError(TaskError):
+    """cron 表达式非法或永不触发（`70002` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TASK_CRON_INVALID, message, http_status=400, data=data)
+
+
+class TaskHandlerNotRegisteredError(TaskError):
+    """handler 未登记（白名单外执行体路径，`70003` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TASK_HANDLER_NOT_REGISTERED, message, http_status=400, data=data)
+
+
+class TaskArgsInvalidError(TaskError):
+    """任务参数不可解析（`70004` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TASK_ARGS_INVALID, message, http_status=400, data=data)
+
+
+class TaskDefinitionDuplicateError(TaskError):
+    """任务定义重复（代码 / 名称唯一冲突，`70005` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TASK_DEFINITION_DUPLICATE, message, http_status=409, data=data)
+
+
+class TaskTriggerTooFrequentError(TaskError):
+    """手动触发过于频繁（冷却窗口内重复触发，`70006` / 429）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TASK_TRIGGER_TOO_FREQUENT, message, http_status=429, data=data)

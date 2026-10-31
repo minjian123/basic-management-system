@@ -276,9 +276,29 @@ dedup_ttl_seconds = 600
 options = {}
 
 [task]
-# 任务调度实现选择（插件化配置；空串解析到 null 占位实现；调度入库随阶段六）
+# 任务执行体插件位（历史端口 `BaseTask`；空串解析到 null 占位实现）
+# 调度器 / 执行器不进插件装配面（宿主是 `ops/task_scheduler.py` 长驻进程），参数见 [task_scheduler]
 provider = ""
 options = {}
+
+[task_scheduler]
+# 任务调度运行参数（01_02）：beat 轮询 / 抢占 / 锁 / 队列 / 重试 / handler 白名单
+poll_interval_seconds = 30.0        # beat 轮询间隔（cron 为分钟粒度；也是热加载信号丢失时的兜底周期）
+batch_size = 50                     # 单租户单 tick 最多抢占条数
+tenant_concurrency = 4              # 单 tick 内并发扫描的租户数
+tenant_cache_ttl_seconds = 60       # 租户清单缓存（新开通租户最迟一个 TTL 后纳入）
+lock_ttl_seconds = 90               # bms:global:lock:beat 的 TTL（须显著大于轮询间隔）
+run_timeout_seconds = 1800          # running 记录超时回收阈值（worker 失联兜底）
+worker_concurrency = 4              # 单 worker 进程并发执行数（每协程独立 BRPOP）
+max_retries = 3                     # 应用内重试次数（0 = 不重试）
+retry_backoff_seconds = 1.0         # 重试退避基数（backoff × 2^(n-1)）
+result_max_chars = 4096             # 成功输出摘要截断
+error_max_chars = 512               # 错误摘要截断（与死信同口径）
+trigger_cooldown_seconds = 5        # 手动触发冷却（0 = 不限）
+queue_key = "bms:global:task:queue"
+change_channel = "bms:global:task:changed"
+# handler 允许的模块前缀（白名单；防任务定义写入任意代码路径）
+allowed_handler_prefixes = ["bms_core.tasks.builtin"]
 
 [health_check_registry]
 # 健康检查注册表实现选择（local = 真实探针：redis / database，保障 /readyz；空串 = null 占位）

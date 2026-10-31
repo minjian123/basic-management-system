@@ -1,13 +1,13 @@
 """异常构造路径补齐用例（`bms_core/core/exceptions.py`）。
 
 口径：**不做抽样**。`_EXCEPTIONS` 覆盖「可用缺省参数直接构造」的**全部** `BizError` 子类
-（95 个），并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内
+（101 个），并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内
 所有子类做完整性自校验——将来新增可缺省构造的异常类而未登记本表，用例直接失败，
 不会像抽样清单那样静默留下覆盖率缺口。
 
-无法无参构造的 10 个段位基类（`UserOrgError` / `RoleError` / `MenuError` / `OidcError` /
+无法无参构造的 11 个段位基类（`UserOrgError` / `RoleError` / `MenuError` / `OidcError` /
 `FileError` / `PrintError` / `ClientError` / `OpenTenantError` / `AccountLockError` /
-`GeneralError`）不在此表：它们的 `__init__` 只做透传，覆盖由各自子类完成。
+`GeneralError` / `TaskError`）不在此表：它们的 `__init__` 只做透传，覆盖由各自子类完成。
 """
 
 from __future__ import annotations
@@ -121,6 +121,12 @@ _EXCEPTIONS: ConcurrentStableList[tuple[type[BizError], int, int]] = ConcurrentS
         (exceptions.SsoIdentityUnmatchedError, 20054, 403),
         (exceptions.SsoProviderNotFoundError, 20051, 404),
         (exceptions.SsoProviderUnavailableError, 20053, 503),
+        (exceptions.TaskArgsInvalidError, 70004, 400),
+        (exceptions.TaskCronInvalidError, 70002, 400),
+        (exceptions.TaskDefinitionDuplicateError, 70005, 409),
+        (exceptions.TaskHandlerNotRegisteredError, 70003, 400),
+        (exceptions.TaskNotFoundError, 70001, 404),
+        (exceptions.TaskTriggerTooFrequentError, 70006, 429),
         (exceptions.TenantAccessDeniedError, 80003, 403),
         (exceptions.TenantNotFoundError, 80001, 404),
         (exceptions.TenantSuspendedError, 80002, 403),

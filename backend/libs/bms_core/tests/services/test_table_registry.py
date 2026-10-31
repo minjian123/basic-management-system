@@ -152,8 +152,10 @@ def test_owned_tables_and_chain_derivation() -> None:
     } <= unit_tenant
     # 租户自定义图标（03_03 真实落库）已入清单
     assert {"sys_icon", "sys_icon_i18n"} <= unit_tenant
+    # 定时任务两表（01_02 任务调度落库）已转 enabled 进租户链
+    assert {"sys_task", "sys_task_log"} <= unit_tenant
     # 未定稿表（骨架表 / 演示表）不进清单（06_02 状态收口）
-    assert {"sys_task", "sys_task_log", "demo"}.isdisjoint(unit_tenant)
+    assert {"demo"}.isdisjoint(unit_tenant)
 
     assert series_tables("tenant", Datasource.PLATFORM) == frozenset(
         {
