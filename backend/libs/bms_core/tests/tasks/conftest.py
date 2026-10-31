@@ -16,10 +16,17 @@ from bms_core.core.config import get_settings
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.models.base import Base
+from bms_core.models.outbox import SysEventConsumed, SysEventDeadLetter, SysOutbox
 from bms_core.models.platform.task import SysTask, SysTaskLog
 
 TASK_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
-    [cast("Table", SysTask.__table__), cast("Table", SysTaskLog.__table__)]
+    [
+        cast("Table", SysTask.__table__),
+        cast("Table", SysTaskLog.__table__),
+        cast("Table", SysOutbox.__table__),
+        cast("Table", SysEventConsumed.__table__),
+        cast("Table", SysEventDeadLetter.__table__),
+    ]
 )
 
 

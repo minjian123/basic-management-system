@@ -33,6 +33,7 @@ __all__ = [
     "claim_task",
     "create_run_record",
     "disable_task",
+    "finish_run",
     "list_due_tasks",
     "reclaim_timeout_runs",
 ]
@@ -224,6 +225,54 @@ async def disable_task(session: DbSession, *, task_id: int, now: datetime) -> bo
             next_run_at=None,
             updated_at=now,
             version=SysTask.version + 1,
+        )
+    )
+    result = cast("CursorResult[Any]", await session.execute(stmt))
+    return result.rowcount == 1
+
+
+async def finish_run(
+    session: DbSession,
+    *,
+    log_id: int,
+    status: str,
+    finished_at: datetime,
+    cost_time: int,
+    retry_count: int,
+    result_text: str | None = None,
+    error_text: str | None = None,
+) -> bool:
+    """把执行记录从 `running` 收敛到终态（只更新仍处于 running 的记录）。
+
+    Args:
+        session: 租户库会话。
+        log_id: 执行记录主键。
+        status: 终态（`success` / `failed` / `skipped`）。
+        finished_at: 结束时刻（UTC naive）。
+        cost_time: 耗时（毫秒）。
+        retry_count: 已重试次数。
+        result_text: 成功输出摘要（失败 / 跳过为 None）。
+        error_text: 错误摘要（成功为 None）。
+
+    Returns:
+        bool: 更新成功 True；记录已被超时回收（不再是 running）False。
+    """
+    stmt = (
+        update(SysTaskLog)
+        .where(
+            SysTaskLog.id == log_id,
+            SysTaskLog.status == TASK_RUN_RUNNING,
+            SysTaskLog.deleted_at.is_(None),
+        )
+        .values(
+            status=status,
+            finished_at=finished_at,
+            cost_time=cost_time,
+            retry_count=retry_count,
+            result=result_text,
+            error_msg=error_text,
+            updated_at=finished_at,
+            version=SysTaskLog.version + 1,
         )
     )
     result = cast("CursorResult[Any]", await session.execute(stmt))

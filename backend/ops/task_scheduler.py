@@ -11,6 +11,12 @@
     # 单轮诊断：跑一轮 tick 即退出（联调 / 冒烟）
     uv run python -m ops.task_scheduler --beat --once
 
+    # 长驻执行（多副本；从 Redis 队列取任务）
+    uv run python -m ops.task_scheduler --worker
+
+    # 单条诊断：消费一条消息即退出
+    uv run python -m ops.task_scheduler --worker --once
+
 - **不启 lifespan**：CLI 不建表、不跑启动校验，只装配「调度器 + 引擎注册表 + 锁 + 队列 + 信号」；
   首次使用前服务应已正常启动过一次（库表就绪）。
 - **前置**：`[task_scheduler]` 参数就绪；`[distributed_lock].provider = "redis"`（否则退化为进程内锁，
@@ -45,6 +51,7 @@ from bms_core.tasks.builtin import BUILTIN_TASK_SPECS
 from bms_core.tasks.queue import TaskQueue
 from bms_core.tasks.scheduler import TaskScheduler
 from bms_core.tasks.signal import TaskChangeSignal
+from bms_core.tasks.worker import TaskWorker
 from bms_core.tenant.registry import tenant_refs
 
 RUN_IMAGE = "*"
@@ -139,6 +146,28 @@ def _build_scheduler(settings: Settings) -> tuple[TaskScheduler, EngineRegistry]
     return scheduler, registry
 
 
+def _build_worker(settings: Settings) -> tuple[TaskWorker, EngineRegistry]:
+    """按配置装配执行器与引擎注册表（调用方负责释放）。
+
+    Args:
+        settings: 应用配置。
+
+    Returns:
+        tuple[TaskWorker, EngineRegistry]: 执行器与引擎注册表。
+    """
+    registry = EngineRegistry(EngineFactory(settings))
+    metrics = _resolve("metrics", settings.metrics.provider, BaseMetrics.contract_version, NullMetrics())
+    worker = TaskWorker(
+        settings=settings.task_scheduler,
+        registry=registry,
+        queue=TaskQueue(key=settings.task_scheduler.queue_key),
+        allowed_handler_prefixes=settings.task_scheduler.allowed_handler_prefixes,
+        session_factory=SessionFactory(),
+        metrics=metrics,
+    )
+    return worker, registry
+
+
 def _print_builtin_tasks() -> int:
     """打印内置任务清单。
 
@@ -180,6 +209,37 @@ async def _run_beat(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _run_worker(args: argparse.Namespace) -> int:
+    """运行执行器（单条或长驻）。
+
+    Args:
+        args: 命令行参数。
+
+    Returns:
+        int: 退出码（0 成功；单条模式下队列空返回 1）。
+    """
+    settings = get_settings()
+    worker, registry = _build_worker(settings)
+    try:
+        if args.once:
+            handled = await worker.run_once()
+            if not handled:
+                print("队列为空（无可消费任务）")
+                return 1
+            print("已消费一条任务")
+            return 0
+        queue_key = settings.task_scheduler.queue_key
+        concurrency = settings.task_scheduler.worker_concurrency
+        print(f"执行器启动：并发 {concurrency}，队列 {queue_key}")
+        await worker.run_forever()
+    except KeyboardInterrupt:
+        print("执行器收到中断，已退出")
+    finally:
+        await worker.aclose()
+        await registry.aclose()
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """构造命令行解析器。
 
@@ -190,6 +250,7 @@ def _build_parser() -> argparse.ArgumentParser:
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument("--list", action="store_true", help="打印内置任务清单（不连库）")
     modes.add_argument("--beat", action="store_true", help="运行调度器（长驻；配 --once 只跑一轮）")
+    modes.add_argument("--worker", action="store_true", help="运行执行器（长驻；配 --once 只消费一条）")
     parser.add_argument("--once", action="store_true", help="只跑一轮 tick 即退出（联调 / 冒烟）")
     return parser
 
@@ -207,8 +268,9 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     args = parser.parse_args(None if argv is None else list(argv))
     if args.list:
         return _print_builtin_tasks()
+    runner = _run_worker if args.worker else _run_beat
     with contextlib.suppress(KeyboardInterrupt):
-        return asyncio.run(_run_beat(args))
+        return asyncio.run(runner(args))
     return 0
 
 
