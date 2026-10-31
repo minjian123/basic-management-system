@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from bms_core.core.config import get_settings
+from bms_core.models.base import SQLITE_PADDED_WIDTH
 from bms_core.testing.fixtures import (
     clear_tenant_cache,
     platform_db,
@@ -86,11 +87,11 @@ async def _align_tenant_ids(platform_url: str) -> None:
                     "UPDATE sys_tenant_database SET tenant_id = :new WHERE tenant_id = "
                     "(SELECT id FROM sys_tenant WHERE code = :code AND deleted_at IS NULL)"
                 ),
-                {"new": tenant_id, "code": code},
+                {"new": str(tenant_id).zfill(SQLITE_PADDED_WIDTH), "code": code},
             )
             await connection.execute(
                 text("UPDATE sys_tenant SET id = :new WHERE code = :code AND deleted_at IS NULL"),
-                {"new": tenant_id, "code": code},
+                {"new": str(tenant_id).zfill(SQLITE_PADDED_WIDTH), "code": code},
             )
         await engine.dispose()
 

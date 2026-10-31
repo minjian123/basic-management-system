@@ -202,7 +202,7 @@ async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, s
 
     async with sso.platform_scope() as session:
         session.add(
-            SysUserIdentity(idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id="other", user_id=1001)
+            SysUserIdentity(idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id="2002", user_id=1001)
         )
         await session.commit()
     wrong_tenant = await _flow_callback(client, sso)

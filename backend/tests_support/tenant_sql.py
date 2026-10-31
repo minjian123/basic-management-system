@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from bms_core.core.id import id_generator
+from bms_core.testing.sql_ids import sqlite_id
 
 
 async def grant_membership(
@@ -44,11 +45,11 @@ async def grant_membership(
                 "VALUES (:id, :now, NULL, :now, NULL, NULL, 1, :tenant_id, :user_id, :target, :source, :status)"
             ),
             {
-                "id": id_generator.next_id(),
+                "id": sqlite_id(id_generator.next_id()),
                 "now": now,
-                "tenant_id": tenant_id,
-                "user_id": user_id,
-                "target": target_tenant_id,
+                "tenant_id": sqlite_id(tenant_id),
+                "user_id": sqlite_id(user_id),
+                "target": sqlite_id(target_tenant_id),
                 "source": source,
                 "status": status,
             },
@@ -92,7 +93,7 @@ async def membership_status_source(platform_url: str, *, tenant_id: int, user_id
                     "SELECT status, source FROM sys_user_tenant WHERE tenant_id = :tenant_id "
                     "AND user_id = :user_id AND target_tenant_id = :target AND deleted_at IS NULL"
                 ),
-                {"tenant_id": tenant_id, "user_id": user_id, "target": target_tenant_id},
+                {"tenant_id": sqlite_id(tenant_id), "user_id": sqlite_id(user_id), "target": sqlite_id(target_tenant_id)},
             )
         ).first()
     await engine.dispose()
