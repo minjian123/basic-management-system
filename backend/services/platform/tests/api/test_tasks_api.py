@@ -72,7 +72,6 @@ def _fake_redis(monkeypatch: pytest.MonkeyPatch) -> Redis:
         Redis: 假客户端（测试内可直接检查队列）。
     """
     client = cast("Redis", FakeRedis(decode_responses=False))
-    monkeypatch.setattr("bms_core.tasks.queue.shared_async_client", lambda: client)
     monkeypatch.setattr("bms_core.tasks.signal.shared_async_client", lambda: client)
     monkeypatch.setattr("bms_core.redis.base.shared_async_client", lambda: client)
     return client
@@ -259,7 +258,7 @@ async def test_trigger_respects_cooldown(client: AsyncClient) -> None:
 async def test_trigger_when_redis_unavailable_still_allowed(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Redis 不可用：跳过冷却（限流属可降级域），触发照常成功。"""
+    """Redis 不可用：跳过冷却（限流属可降级域），作业提交不依赖 Redis，触发照常成功。"""
     data = await _create(client)
 
     def _boom() -> Redis:
@@ -267,10 +266,9 @@ async def test_trigger_when_redis_unavailable_still_allowed(
 
         raise RedisUnavailableError("redis down")
 
-    monkeypatch.setattr("bms_core.tasks.queue.shared_async_client", _boom)
     monkeypatch.setattr("bms_core.redis.base.shared_async_client", _boom)
     resp = await client.post(f"/api/v1/tasks/{data['id']}/trigger")
-    assert resp.json()["code"] == 10012
+    assert resp.json()["code"] == 0
 
 
 async def test_logs_of_missing_task(client: AsyncClient) -> None:

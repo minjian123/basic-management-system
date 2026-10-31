@@ -229,6 +229,7 @@ class TaskScheduler(BaseAsyncResource):
         db_key = ref.db_key
         moment = self._clock()
         submitted = 0
+        claimed = 0
         failed = 0
         reclaimed = 0
         async with semaphore:
@@ -244,9 +245,12 @@ class TaskScheduler(BaseAsyncResource):
                     )
                     claims = await list_due_tasks(session, now=moment, limit=self._settings.batch_size)
                     for claim in claims:
-                        if await self._claim_one(session, ref, claim, moment):
+                        outcome = await self._claim_one(session, ref, claim, moment)
+                        if outcome == "submitted":
                             submitted += 1
-                        else:
+                            claimed += 1
+                        elif outcome == "claimed":
+                            claimed += 1
                             failed += 1
             except Exception as exc:  # 单租户失败不拖垮其他租户
                 _LOGGER.error("任务调度扫描租户失败（其他租户继续）", db_key=db_key, error=str(exc))
@@ -255,7 +259,7 @@ class TaskScheduler(BaseAsyncResource):
             await self._metrics.counter(
                 "bms_task_dispatch_total", value=float(submitted), labels={"source": "schedule"}
             )
-        return TenantTick(db_key=db_key, dispatched=submitted, claimed=submitted, reclaimed=reclaimed, failed=failed)
+        return TenantTick(db_key=db_key, dispatched=submitted, claimed=claimed, reclaimed=reclaimed, failed=failed)
 
     async def _claim_one(
         self,
@@ -263,7 +267,7 @@ class TaskScheduler(BaseAsyncResource):
         ref: TenantDbRef,
         claim: TaskClaim,
         moment: datetime,
-    ) -> bool:
+    ) -> str:
         """算下次到期并抢占一条任务；抢到则落 `running` 记录并提交作业。
 
         Args:
@@ -273,7 +277,7 @@ class TaskScheduler(BaseAsyncResource):
             moment: 当前时刻（naive UTC）。
 
         Returns:
-            bool: 抢占并提交成功 True；未抢到 / cron 无法计算 / 提交失败 False。
+            str: `submitted`（抢占且提交成功）/ `claimed`（抢占但提交失败）/ `skipped`（未抢到）。
         """
         db_key = ref.db_key
         try:
@@ -281,14 +285,14 @@ class TaskScheduler(BaseAsyncResource):
         except TaskCronInvalidError as exc:
             _LOGGER.error("任务 cron 无法计算，自动停用", task_id=claim.task_id, cron=claim.cron, error=str(exc))
             await disable_task(session, task_id=claim.task_id, now=moment)
-            return False
+            return "skipped"
         if not await claim_task(
             session,
             task_id=claim.task_id,
             next_run_at=upcoming.replace(tzinfo=None),
             now=moment,
         ):
-            return False
+            return "skipped"
         run_id = uuid4().hex
         log_id = await create_run_record(
             session,
@@ -321,8 +325,8 @@ class TaskScheduler(BaseAsyncResource):
             )
         except Exception as exc:  # 提交失败：任务日志留 running，由超时回收兜底
             _LOGGER.error("任务提交作业失败（记录留待超时回收）", task_id=claim.task_id, run_id=run_id, error=str(exc))
-            return False
-        return True
+            return "claimed"
+        return "submitted"
 
 
 def _utc_now_naive() -> datetime:

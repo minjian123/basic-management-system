@@ -1,7 +1,7 @@
 """异常构造路径补齐用例（`bms_core/core/exceptions.py`）。
 
 口径：**不做抽样**。`_EXCEPTIONS` 覆盖「可用缺省参数直接构造」的**全部** `BizError` 子类
-（108 个），并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内
+（114 个），并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内
 所有子类做完整性自校验——将来新增可缺省构造的异常类而未登记本表，用例直接失败，
 不会像抽样清单那样静默留下覆盖率缺口。
 
@@ -141,6 +141,12 @@ _EXCEPTIONS: ConcurrentStableList[tuple[type[BizError], int, int]] = ConcurrentS
         (exceptions.TaskHandlerNotRegisteredError, 70003, 400),
         (exceptions.TaskNotFoundError, 70001, 404),
         (exceptions.TaskTriggerTooFrequentError, 70006, 429),
+        (exceptions.JobHandlerNotRegisteredError, 71006, 500),
+        (exceptions.JobNotCancelableError, 71003, 409),
+        (exceptions.JobNotFoundError, 71001, 404),
+        (exceptions.JobNotRetryableError, 71004, 409),
+        (exceptions.JobPayloadInvalidError, 71005, 400),
+        (exceptions.JobTypeNotRegisteredError, 71002, 400),
         (exceptions.TenantAccessDeniedError, 80003, 403),
         (exceptions.TenantNotFoundError, 80001, 404),
         (exceptions.TenantSuspendedError, 80002, 403),

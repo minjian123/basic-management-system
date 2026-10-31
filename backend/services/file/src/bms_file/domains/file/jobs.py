@@ -34,6 +34,24 @@ class CleanupOrphansJob(BaseJobHandler):
     job_type = "file.cleanup_orphans"
     description = "回收超期上传分片与孤儿记录（file 域）"
 
+    def __init__(
+        self,
+        *,
+        storage: BaseObjectStorage | None = None,
+        multipart: BaseMultipartUpload | None = None,
+        service_client: BaseServiceClient | None = None,
+    ) -> None:
+        """初始化（能力实现可注入；缺省按配置解析，便于单测与排障）。
+
+        Args:
+            storage: 对象存储（None 按配置解析）。
+            multipart: 分片上传（None 按配置解析）。
+            service_client: 服务间调用客户端（None 按配置解析；未启用用空实现）。
+        """
+        self._storage = storage
+        self._multipart = multipart
+        self._service_client = service_client
+
     async def run(self, ctx: JobContext) -> JobResult:
         """执行孤儿回收并按扫描 / 回收数量上报进度。
 
@@ -43,12 +61,12 @@ class CleanupOrphansJob(BaseJobHandler):
         Returns:
             JobResult: 成功带扫描 / 回收 / 失败条数；异常由执行器统一转失败。
         """
-        client = _service_client()
+        client = self._service_client if self._service_client is not None else _service_client()
         async with ctx.session() as session:
             service = FileService(
                 uow=DbUnitOfWork(session),
-                storage=_storage(),
-                multipart=_multipart(),
+                storage=self._storage if self._storage is not None else _storage(),
+                multipart=self._multipart if self._multipart is not None else _multipart(),
                 config=None,
                 quota=TenantQuotaClient(
                     client,

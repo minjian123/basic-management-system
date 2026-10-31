@@ -1,73 +1,94 @@
-"""孤儿回收内置任务测试（Kiwi 2374）：触发型执行体（下游成功 / 不可用 / 未启用）。"""
+"""孤儿回收内置任务迁移测试（Kiwi 2374）：由「触发型」改为「提交 file.cleanup_orphans 作业」."""
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ServiceUnavailableError
-from bms_core.core.serialization import stable_json_dumps
-from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
-from bms_core.storage.maintenance import CLEANUP_ORPHANS_PATH, FILE_SERVICE_KEY, FileMaintenanceClient
+from bms_core.jobs.client import build_service_client
+from bms_core.servicecall.base import BaseServiceClient
 from bms_core.tasks import builtin
 from bms_core.tasks.spec import TaskContext, TaskResult, TaskRunSpec
 
 pytestmark = pytest.mark.kiwi_id(2374)
 
 
-class _Client(BaseServiceClient):
-    """服务调用替身（记录请求；返回预设响应体）。"""
+class _FakeJobClient:
+    """作业内部客户端替身（记录提交参数）。"""
 
-    def __init__(self, *, body: object = None, status_code: int = 200) -> None:
-        self.body = body
-        self.status_code = status_code
-        self.calls: ConcurrentStableList[ServiceRequest] = ConcurrentStableList()
+    def __init__(self, client: object, *, job_id: int = 456, error: Exception | None = None) -> None:
+        self.client = client
+        self.job_id = job_id
+        self.error = error
+        self.calls: list[dict[str, object]] = []
 
-    async def call(self, request: ServiceRequest) -> ServiceResponse:
-        """记录并返回预设响应。
+    async def submit(self, **kwargs: object) -> int:
+        """记录提交并返回作业号（或抛预设异常）。
 
         Args:
-            request: 调用请求。
+            **kwargs: 提交参数。
 
         Returns:
-            ServiceResponse: 预设响应。
+            int: 作业号。
+
+        Raises:
+            Exception: 构造时预设的错误。
         """
-        self.calls.add(request)
-        content = b"" if self.body is None else stable_json_dumps(self.body).encode()
-        return ServiceResponse(status_code=self.status_code, content=content)
+        if self.error is not None:
+            raise self.error
+        self.calls.append(dict(kwargs))
+        return self.job_id
 
 
-def _ctx() -> TaskContext:
-    """构造执行上下文（执行体不使用会话）。"""
+def _ctx(*, tenant_id: int | None = 9) -> TaskContext:
+    """构造执行上下文（执行体只提交作业）。
+
+    Args:
+        tenant_id: 租户主键。
+
+    Returns:
+        TaskContext: 执行上下文。
+    """
     return TaskContext(
         run=TaskRunSpec(
-            db_key="tenant_demo", task_id=1, log_id=1, run_id="r", code="cleanup_orphan_parts", handler="m:f"
+            db_key="tenant_demo",
+            task_id=1,
+            log_id=1,
+            run_id="r",
+            code="cleanup_orphan_parts",
+            handler="m:f",
+            tenant_id=tenant_id,
         )
     )
 
 
-async def test_task_reports_summary(monkeypatch: pytest.MonkeyPatch) -> None:
-    """触发成功：返回成功态并带扫描 / 回收 / 失败摘要；请求打到 file 内部端点。"""
-    client = _Client(body={"code": 0, "data": {"scanned": 3, "orphaned": 2, "failed": 1}})
-    monkeypatch.setattr(builtin, "build_service_client", lambda: client)
+async def test_task_submits_cleanup_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    """提交成功：返回成功态并带作业号；提交到 file 服务且带租户 / 幂等键。"""
+    fake = _FakeJobClient(object())
+    monkeypatch.setattr(builtin, "JobInternalClient", lambda client: fake)
+    monkeypatch.setattr(builtin, "build_service_client", lambda: object())
 
-    result = await builtin.run_cleanup_orphan_parts(_ctx())
+    result = await builtin.run_cleanup_orphan_parts(_ctx(tenant_id=9))
 
     assert isinstance(result, TaskResult)
     assert result.status == "success"
-    assert "扫描 3 / 回收 2 / 失败 1" in result.message
-    assert result.output == "scanned=3 orphaned=2 failed=1"
-    assert client.calls[0].path == CLEANUP_ORPHANS_PATH
-    assert client.calls[0].service == FILE_SERVICE_KEY
-    assert client.calls[0].method == "POST"
+    assert "456" in result.message
+    assert result.output == "job_id=456"
+    call = fake.calls[0]
+    assert call["service_key"] == "file"
+    assert call["job_type"] == "file.cleanup_orphans"
+    assert call["tenant_id"] == 9
+    assert str(call["idempotency_key"]).startswith("file.cleanup_orphans:9:")
 
 
-async def test_task_fails_when_downstream_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    """下游不可用：返回失败态（由调度器按策略重试），不抛异常。"""
-    client = _Client(status_code=503)
-    monkeypatch.setattr(builtin, "build_service_client", lambda: client)
+async def test_task_fails_when_submit_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """提交失败（下游不可用）：返回失败态（由调度器按策略重试提交），不抛异常。"""
+    fake = _FakeJobClient(object(), error=ServiceUnavailableError("down"))
+    monkeypatch.setattr(builtin, "JobInternalClient", lambda client: fake)
+    monkeypatch.setattr(builtin, "build_service_client", lambda: object())
 
     result = await builtin.run_cleanup_orphan_parts(_ctx())
     assert result.status == "failed"
-    assert "触发失败" in result.message
+    assert "提交失败" in result.message
 
 
 async def test_task_fails_when_client_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -81,36 +102,8 @@ async def test_task_fails_when_client_disabled(monkeypatch: pytest.MonkeyPatch) 
     assert result.status == "failed"
 
 
-async def test_maintenance_client_rejects_bad_payload() -> None:
-    """响应缺少 data 对象：视为不可用（不静默返回 0）。
-
-    Raises:
-        ServiceUnavailableError: 期望抛出。
-    """
-    with pytest.raises(ServiceUnavailableError):
-        await FileMaintenanceClient(_Client(body={"code": 0})).cleanup_orphans()
-
-
-async def test_maintenance_client_passes_limit() -> None:
-    """带上限调用时写入查询参数。"""
-    client = _Client(body={"code": 0, "data": {"scanned": 0, "orphaned": 0, "failed": 0}})
-    summary = await FileMaintenanceClient(client).cleanup_orphans(limit=50)
-    assert summary.scanned == 0
-    assert client.calls[0].query == ConcurrentStableFrozenDict({"limit": "50"})
-
-
-async def test_maintenance_client_rejects_non_object_payload() -> None:
-    """响应体不是 JSON 对象：视为不可用（不按缺字段静默补 0）。
-
-    Raises:
-        ServiceUnavailableError: 期望抛出。
-    """
-    with pytest.raises(ServiceUnavailableError):
-        await FileMaintenanceClient(_Client(body=[1, 2, 3])).cleanup_orphans()
-
-
 def test_build_service_client_requires_provider() -> None:
-    """服务间调用未启用（provider 空）：构建即报不可用（离线执行体据此转失败态）。
+    """服务间调用未启用（provider 空）：构建即报不可用。
 
     Raises:
         ServiceUnavailableError: 期望抛出。
@@ -122,7 +115,7 @@ def test_build_service_client_requires_provider() -> None:
     settings.service_client.provider = ""
     try:
         with pytest.raises(ServiceUnavailableError, match="未启用"):
-            builtin.build_service_client()
+            build_service_client()
     finally:
         settings.service_client.provider = original
 
@@ -135,6 +128,9 @@ def test_build_service_client_resolves_registered_provider() -> None:
     original = settings.service_client.provider
     settings.service_client.provider = "null"
     try:
-        assert isinstance(builtin.build_service_client(), BaseServiceClient)
+        assert isinstance(build_service_client(), BaseServiceClient)
     finally:
         settings.service_client.provider = original
+
+
+_ = ConcurrentStableDict

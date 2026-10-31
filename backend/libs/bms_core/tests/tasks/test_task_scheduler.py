@@ -1,4 +1,8 @@
-"""调度器护栏：锁互斥 / 到期抢占派发 / 不重复派发 / cron 失效停用 / 入队失败 / 超时回收 / 租户隔离。"""
+"""调度器迁移护栏（01_03）：锁互斥 / 到期抢占并提交 `sys.task.run` 作业 / 不重复提交 / cron 失效停用 /
+提交失败 / 超时回收 / 租户隔离。
+
+执行本身由 `tests/jobs/test_job_worker.py` 与 `test_task_migration.py` 覆盖；本文件只测 beat 侧。
+"""
 
 import asyncio
 from collections.abc import AsyncGenerator
@@ -7,17 +11,20 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
-from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import TaskSchedulerSettings
-from bms_core.core.exceptions import RedisUnavailableError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
+from bms_core.jobs.limits import JobLimits
+from bms_core.jobs.registry import JobHandlerRegistry
+from bms_core.jobs.runner import JobRunner
+from bms_core.jobs.spec import JobTypeSpec
 from bms_core.lock.base import DEFAULT_WAIT, BaseDistributedLock
 from bms_core.metrics.null import NullMetrics
+from bms_core.models.job import SysJob
 from bms_core.models.platform.task import (
     TASK_RUN_RUNNING,
     TASK_STATUS_DISABLED,
@@ -25,11 +32,9 @@ from bms_core.models.platform.task import (
     SysTaskLog,
 )
 from bms_core.tasks import scheduler as scheduler_module
-from bms_core.tasks.queue import TaskQueue
-from bms_core.tasks.scheduler import BEAT_LOCK_RESOURCE, TaskScheduler, TickReport
-from bms_core.tasks.signal import TaskChangeSignal
+from bms_core.tasks.scheduler import BEAT_LOCK_RESOURCE, TASK_RUN_JOB_TYPE, TaskScheduler, TenantDbRef, TickReport
 
-pytestmark = pytest.mark.kiwi_id(2371)
+pytestmark = pytest.mark.kiwi_id(2383)
 
 NOW = datetime(2026, 11, 1, 3, 0, 0)
 """固定时钟（naive UTC），保证断言可复现。"""
@@ -90,22 +95,6 @@ class _StubLock(BaseDistributedLock):
         return True
 
 
-class _BrokenQueue(TaskQueue):
-    """入队必失败的队列替身（模拟 Redis 抖动）。"""
-
-    async def push(self, spec: Any) -> None:
-        """入队即失败。
-
-        Args:
-            spec: 运行规格。
-
-        Raises:
-            RedisUnavailableError: 固定抛出。
-        """
-        _ = spec
-        raise RedisUnavailableError("queue down")
-
-
 def _keys(*db_keys: str) -> Any:
     """构造租户库键提供者。
 
@@ -116,31 +105,44 @@ def _keys(*db_keys: str) -> Any:
         Any: 异步可调用对象。
     """
 
-    async def _provider() -> ConcurrentStableList[str]:
-        return ConcurrentStableList(db_keys)
+    async def _provider() -> ConcurrentStableList[TenantDbRef]:
+        return ConcurrentStableList(TenantDbRef(db_key=key, tenant_id=1) for key in db_keys)
 
     return _provider
 
 
+def _runner() -> JobRunner:
+    """构造作业提交器（`sys.task.run` 声明）。
+
+    Returns:
+        JobRunner: 提交器。
+    """
+    spec = JobTypeSpec(job_type=TASK_RUN_JOB_TYPE, service_key="platform", domain_key="task")
+    return JobRunner(
+        registry=JobHandlerRegistry(),
+        specs={TASK_RUN_JOB_TYPE: spec},
+        limits=JobLimits(),
+        clock=lambda: NOW,
+    )
+
+
 def _scheduler(
     registry: EngineRegistry,
-    queue: TaskQueue,
     *,
+    runner: JobRunner | None = None,
     lock: BaseDistributedLock | None = None,
     tenants: ConcurrentStableList[str] | None = None,
     metrics: Any = None,
-    signal: TaskChangeSignal | None = None,
     poll_interval: float = 30.0,
 ) -> TaskScheduler:
     """构造调度器（固定时钟）。
 
     Args:
         registry: 引擎注册表。
-        queue: 队列。
+        runner: 作业提交器。
         lock: 锁（缺省取锁成功替身）。
         tenants: 租户库键。
         metrics: 指标器。
-        signal: 变更信号。
         poll_interval: 轮询间隔。
 
     Returns:
@@ -150,10 +152,10 @@ def _scheduler(
     return TaskScheduler(
         settings=settings,
         registry=registry,
-        queue=queue,
+        runner=runner if runner is not None else _runner(),
         lock=lock if lock is not None else _StubLock(),
         tenant_keys=_keys(*(tenants if tenants is not None else ConcurrentStableList(["platform"]))),
-        signal=signal,
+        signal=None,
         session_factory=SessionFactory(),
         metrics=metrics,
         clock=lambda: NOW,
@@ -200,46 +202,45 @@ def test_lock_key_is_global_beat() -> None:
     assert BEAT_LOCK_RESOURCE == "beat"
 
 
-async def test_tick_skips_when_lock_busy(registry: EngineRegistry, session: AsyncSession, fake_redis: Redis) -> None:
+async def test_tick_skips_when_lock_busy(registry: EngineRegistry, session: AsyncSession) -> None:
     """取不到锁即整轮跳过（另一实例在跑），且不派发。"""
     await _add_task(session, next_run_at=None)
-    scheduler = _scheduler(registry, TaskQueue(client=fake_redis), lock=_StubLock(token=None))
-    report = await scheduler.tick()
+    report = await _scheduler(registry, lock=_StubLock(token=None)).tick()
     assert report.lock_held is False
     assert report.dispatched == 0
-    assert await fake_redis.llen("bms:global:task:queue") == 0
+    async with session.begin():
+        assert (await session.execute(select(SysJob))).scalars().all() == []
 
 
-async def test_tick_dispatches_due_task(registry: EngineRegistry, session: AsyncSession, fake_redis: Redis) -> None:
-    """到期任务被抢占、落 running 记录并入队；下一轮不再重复派发。"""
+async def test_tick_submits_job_for_due_task(registry: EngineRegistry, session: AsyncSession) -> None:
+    """到期任务被抢占、落 running 记录并提交 `sys.task.run` 作业；下一轮不再重复提交。"""
     task_id = await _add_task(session, next_run_at=None)
     lock = _StubLock()
-    queue = TaskQueue(client=fake_redis)
-    scheduler = _scheduler(registry, queue, lock=lock)
+    scheduler = _scheduler(registry, lock=lock)
     report = await scheduler.tick()
     assert report.lock_held is True
     assert report.dispatched == 1
     assert report.tenants[0].claimed == 1
-    assert await fake_redis.llen(queue.key) == 1
     assert lock.released == [scheduler.lock_key]
     async with session.begin():
         task = (await session.execute(select(SysTask).where(SysTask.id == task_id))).scalar_one()
-        assert task.next_run_at is not None
-        assert task.next_run_at > NOW
+        assert task.next_run_at is not None and task.next_run_at > NOW
         logs = (await session.execute(select(SysTaskLog).where(SysTaskLog.task_id == task_id))).scalars().all()
+        jobs = (await session.execute(select(SysJob))).scalars().all()
     assert len(logs) == 1
     assert logs[0].status == TASK_RUN_RUNNING
-    assert logs[0].trigger_source == "schedule"
+    assert len(jobs) == 1
+    assert jobs[0].job_type == TASK_RUN_JOB_TYPE
+    assert jobs[0].status == "queued"
+    assert jobs[0].idempotency_key == f"task:{task_id}:{logs[0].id}"
     second = await scheduler.tick()
     assert second.dispatched == 0
 
 
-async def test_tick_disables_task_with_uncomputable_cron(
-    registry: EngineRegistry, session: AsyncSession, fake_redis: Redis
-) -> None:
+async def test_tick_disables_task_with_uncomputable_cron(registry: EngineRegistry, session: AsyncSession) -> None:
     """cron 永不触发（2 月 30 日）：自动停用，避免每轮空转。"""
     task_id = await _add_task(session, cron="0 0 30 2 *", next_run_at=None)
-    report = await _scheduler(registry, TaskQueue(client=fake_redis)).tick()
+    report = await _scheduler(registry).tick()
     assert report.dispatched == 0
     async with session.begin():
         task = (await session.execute(select(SysTask).where(SysTask.id == task_id))).scalar_one()
@@ -247,10 +248,18 @@ async def test_tick_disables_task_with_uncomputable_cron(
     assert task.next_run_at is None
 
 
-async def test_tick_counts_enqueue_failure(registry: EngineRegistry, session: AsyncSession) -> None:
-    """入队失败：计入 failed，记录仍留 running（待超时回收）。"""
+async def test_tick_counts_submit_failure(
+    registry: EngineRegistry, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """提交作业失败：计入 failed，执行记录仍留 running（待超时回收）。"""
+
+    async def _boom(*args: Any, **kwargs: Any) -> Any:
+        _ = (args, kwargs)
+        raise RuntimeError("job store down")
+
+    monkeypatch.setattr(JobRunner, "submit", _boom)
     task_id = await _add_task(session, next_run_at=None)
-    report = await _scheduler(registry, _BrokenQueue()).tick()
+    report = await _scheduler(registry).tick()
     assert report.dispatched == 0
     assert report.tenants[0].claimed == 1
     assert report.tenants[0].failed == 1
@@ -259,7 +268,7 @@ async def test_tick_counts_enqueue_failure(registry: EngineRegistry, session: As
     assert logs[0].status == TASK_RUN_RUNNING
 
 
-async def test_tick_reclaims_stale_running(registry: EngineRegistry, session: AsyncSession, fake_redis: Redis) -> None:
+async def test_tick_reclaims_stale_running(registry: EngineRegistry, session: AsyncSession) -> None:
     """顺带回收超时 running 记录（worker 失联兜底）。"""
     task_id = await _add_task(session, next_run_at=None)
     async with session.begin():
@@ -271,21 +280,20 @@ async def test_tick_reclaims_stale_running(registry: EngineRegistry, session: As
                 started_at=NOW - timedelta(hours=2),
             )
         )
-    report = await _scheduler(registry, TaskQueue(client=fake_redis)).tick()
+    report = await _scheduler(registry).tick()
     assert report.reclaimed == 1
 
 
-async def test_tick_records_metrics(registry: EngineRegistry, session: AsyncSession, fake_redis: Redis) -> None:
+async def test_tick_records_metrics(registry: EngineRegistry, session: AsyncSession) -> None:
     """装配指标器时记录派发计数（未装配则跳过）。"""
     await _add_task(session, next_run_at=None)
-    report = await _scheduler(registry, TaskQueue(client=fake_redis), metrics=NullMetrics()).tick()
+    report = await _scheduler(registry, metrics=NullMetrics()).tick()
     assert report.dispatched == 1
 
 
 async def test_tick_isolates_tenant_failure(
     registry: EngineRegistry,
     session: AsyncSession,
-    fake_redis: Redis,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """单个租户库不可用时不拖垮其他租户。"""
@@ -302,45 +310,29 @@ async def test_tick_isolates_tenant_failure(
 
     monkeypatch.setattr(scheduler_module, "session_scope", _scope)
     await _add_task(session, next_run_at=None)
-    report = await _scheduler(
-        registry, TaskQueue(client=fake_redis), tenants=ConcurrentStableList(["platform", "boom"])
-    ).tick()
+    report = await _scheduler(registry, tenants=ConcurrentStableList(["platform", "boom"])).tick()
     assert report.lock_held is True
     assert [item.db_key for item in report.tenants] == ["platform", "boom"]
     assert report.tenants[0].dispatched == 1
     assert report.tenants[1].dispatched == 0
 
 
-async def test_run_forever_dispatches_once_then_idles(
-    registry: EngineRegistry, session: AsyncSession, fake_redis: Redis
-) -> None:
-    """长驻循环：首个 tick 派发，之后到期时间已推进故不再重复。"""
+async def test_run_forever_submits_once_then_idles(registry: EngineRegistry, session: AsyncSession) -> None:
+    """长驻循环：首个 tick 提交，之后到期时间已推进故不再重复。"""
     await _add_task(session, next_run_at=None)
-    queue = TaskQueue(client=fake_redis)
-    scheduler = _scheduler(registry, queue, poll_interval=0.02)
+    scheduler = _scheduler(registry, poll_interval=0.02)
     task = asyncio.create_task(scheduler.run_forever())
     await asyncio.sleep(0.2)
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
-    assert await fake_redis.llen(queue.key) == 1
+    async with session.begin():
+        jobs = (await session.execute(select(SysJob))).scalars().all()
+    assert len(jobs) == 1
 
 
-async def test_run_forever_with_change_signal(
-    registry: EngineRegistry, session: AsyncSession, fake_redis: Redis
-) -> None:
-    """装配变更信号时启动订阅协程（取消时一并回收，不抛错）。"""
-    signal = TaskChangeSignal(client=fake_redis, channel="wake")
-    scheduler = _scheduler(registry, TaskQueue(client=fake_redis), poll_interval=0.02, signal=signal)
-    task = asyncio.create_task(scheduler.run_forever())
-    await asyncio.sleep(0.15)
-    task.cancel()
-    await asyncio.gather(task, return_exceptions=True)
-    assert task.cancelled() is True
-
-
-async def test_aclose_is_noop(registry: EngineRegistry, fake_redis: Redis) -> None:
+async def test_aclose_is_noop(registry: EngineRegistry) -> None:
     """释放钩子不持有长连接（可重复调用）。"""
-    scheduler = _scheduler(registry, TaskQueue(client=fake_redis))
+    scheduler = _scheduler(registry)
     await scheduler.aclose()
     await scheduler.aclose()
 
@@ -353,9 +345,9 @@ def test_tick_report_aggregates() -> None:
 
 
 async def test_tick_counts_lost_claim(
-    registry: EngineRegistry, session: AsyncSession, fake_redis: Redis, monkeypatch: pytest.MonkeyPatch
+    registry: EngineRegistry, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """候选被别的实例抢先（claim 返回 False）：本实例放弃该条，不落记录不入队。"""
+    """候选被别的实例抢先（claim 返回 False）：本实例放弃该条，不落记录不提交。"""
     await _add_task(session, next_run_at=None)
 
     async def _lose(*args: Any, **kwargs: Any) -> bool:
@@ -363,14 +355,13 @@ async def test_tick_counts_lost_claim(
         return False
 
     monkeypatch.setattr(scheduler_module, "claim_task", _lose)
-    report = await _scheduler(registry, TaskQueue(client=fake_redis)).tick()
+    report = await _scheduler(registry).tick()
     assert report.tenants[0].claimed == 0
     assert report.dispatched == 0
-    assert await fake_redis.llen("bms:global:task:queue") == 0
 
 
 async def test_tick_swallows_scan_error_inside_transaction(
-    registry: EngineRegistry, session: AsyncSession, fake_redis: Redis, monkeypatch: pytest.MonkeyPatch
+    registry: EngineRegistry, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """事务内扫描抛错：本租户收敛为 0 派发（异常路径不拖垮整轮）。"""
     await _add_task(session, next_run_at=None)
@@ -380,20 +371,18 @@ async def test_tick_swallows_scan_error_inside_transaction(
         raise RuntimeError("scan failed")
 
     monkeypatch.setattr(scheduler_module, "list_due_tasks", _boom)
-    report = await _scheduler(registry, TaskQueue(client=fake_redis)).tick()
+    report = await _scheduler(registry).tick()
     assert report.lock_held is True
     assert report.tenants[0].dispatched == 0
 
 
-async def test_tick_uses_real_clock_by_default(
-    registry: EngineRegistry, session: AsyncSession, fake_redis: Redis
-) -> None:
+async def test_tick_uses_real_clock_by_default(registry: EngineRegistry, session: AsyncSession) -> None:
     """未注入时钟时取当前 UTC（naive），仍能正常派发。"""
     await _add_task(session, next_run_at=None)
     scheduler = TaskScheduler(
         settings=TaskSchedulerSettings(),
         registry=registry,
-        queue=TaskQueue(client=fake_redis),
+        runner=_runner(),
         lock=_StubLock(),
         tenant_keys=_keys("platform"),
         session_factory=SessionFactory(),
