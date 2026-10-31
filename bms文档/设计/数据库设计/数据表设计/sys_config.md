@@ -27,6 +27,7 @@
 | `name` | VARCHAR(128) | 否 | 应用侧缺省取 `code` | 参数名称（展示） · **系统字段**：名称 |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled`） · **系统字段**：状态 |
 | `value` | TEXT | 否 | —（应用侧缺省空串；DB 不设默认值） | 参数值（标量 / 布尔 / JSON 字符串统一按文本承载，由消费方按类型解析；仅应用侧读写、无库内 JSON 检索需求，取 `TEXT` 最大跨方言安全；**TEXT 在 MySQL 不允许默认值**，空值由应用侧承载） |
+| `is_overridden` | BOOLEAN | 否 | 默认 `false` | 是否被租户覆盖（`false` = 平台默认值，`true` = 租户覆盖值）。**重置**（按平台默认清单回填后置回 `false`）、**删除保护**（`false` 的行不可删）与**平台默认升级**（只刷新 `false` 的行）均以此列为判据 · **系统字段**：状态（覆盖标记） |
 | `remark` | VARCHAR(255) | 是 | — | 备注（参数用途说明） |
 | `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
@@ -44,6 +45,7 @@
 | `uq_sys_config_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
 
 - 无物理外键；`code`（DB 列名，ORM 属性 / 契约字段名 `config_key`）为平台统一命名空间键（消费方自定义前缀，如 `captcha.` / `password.` / `session.`）。
+- **约束实际效力（实测 2026-10-31）**：`(code, deleted_at)` / `(form_key, deleted_at)` 在 `deleted_at IS NULL`（未删除行）时**不产生唯一约束效果**——SQL 语义中 NULL 互不相等，同一 `code` 可重复插入（SQLite / MySQL / PostgreSQL 同）。故 `config_key` 唯一性由**应用层判重**（写前 `SELECT`）保证，不依赖 DB 约束；该问题为全平台「软删 + 复合唯一」类表的共性，已登记阶段收口评估。
 - 无独立业务索引（查询按 `code` 唯一键命中或 `IN` 子集）；公共软删除索引 `idx_sys_config_deleted_at` 由 `BaseModel` 元数据命名约定生成，不在本表重复列出。
 
 ## 4. 分片 / 归档 / 建表 <a id="storage"></a>
@@ -51,7 +53,7 @@
 - **分片**：不分片（参数为小型热配置数据）。
 - **归档**：不归档（在用配置数据）。
 - **建表**：随 **`platform:tenant` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
-- **缓存**：`bms:{tenant}:config:{config_key}`（短 TTL + 随机偏移；版本键 `bms:{tenant}:config:version`），变更后删 key 并递增版本号（先写库后删缓存）。
+- **缓存**：`bms:{tenant}:config:{config_key}`（载荷 JSON `{v, value, missing}`；短 TTL + 随机偏移，缺失键短 TTL 负缓存）、版本键 `bms:{tenant}:config:version`；变更后**先写库 → DEL 键 → INCR 版本**，读路径按版本比对（版本不一致即回源）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
@@ -59,3 +61,4 @@
 | --- | --- | --- | --- |
 | 2026-09-27 | v1 | 新建表结构（platform 服务租户库；随 `03_08` 落 `platform:tenant` 链迁移 `0004_sys_config`） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `name` + `status` + `parent_id`；既有标识列 `config_key` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `config_key`），唯一约束改 `uq_sys_config_code_deleted_at`；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
+| 2026-10-31 | v3 | 系统参数管理面（08 `02_02`）：增 `is_overridden`（覆盖标记，重置 / 删除保护 / 默认升级判据）；§3 补「`(code, deleted_at)` 在 NULL 下不生效、唯一性靠应用层」实测结论；§4 缓存改版本化载荷 + 缺失负缓存（结构随建表自动落地，本项目删库重建） | minjian |
