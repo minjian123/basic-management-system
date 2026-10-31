@@ -337,6 +337,39 @@ async def test_reset_raises_conflict_when_version_stale(session: AsyncSession) -
         await conflicting.reset(overridden.id)
 
 
+async def test_dependency_reverse_allows_close_when_dependent_off(session: AsyncSession) -> None:
+    """依赖反向校验：被依赖项可关闭（依赖项存在但未开启）。"""
+    execute = await _seed_default(session, "ai.auto_execute", "true")
+    await _seed_default(session, "ai.auto_approve", "false")
+    service = _service(session)
+    detail = await service.detail("ai.auto_execute")
+
+    updated = await service.update(detail.id, ConfigUpdateRequest(value="false", version=detail.version))
+    assert updated.value == "false"
+    assert int(execute.id) == detail.id
+
+
+async def test_dependency_reverse_passes_when_keeping_dependency_on(session: AsyncSession) -> None:
+    """依赖反向校验：被依赖项保持开启值时不拦截（只有关闭才拦）。"""
+    await _seed_default(session, "ai.auto_execute", "true")
+    await _seed_default(session, "ai.auto_approve", "true")
+    service = _service(session)
+    detail = await service.detail("ai.auto_execute")
+
+    updated = await service.update(detail.id, ConfigUpdateRequest(value="true", version=detail.version))
+    assert updated.value == "true"
+
+
+async def test_dependency_reverse_when_dependent_missing(session: AsyncSession) -> None:
+    """依赖反向校验：依赖项参数不存在时直接放行（不 phantom 拦截）。"""
+    await _seed_default(session, "ai.auto_execute", "true")
+    service = _service(session)
+    detail = await service.detail("ai.auto_execute")
+
+    updated = await service.update(detail.id, ConfigUpdateRequest(value="false", version=detail.version))
+    assert updated.value == "false"
+
+
 async def test_rename_keeps_platform_default_protection(session: AsyncSession) -> None:
     """只改名称 / 备注不转覆盖态：默认项仍受删除保护（避免误删唯一承载平台默认的行）。"""
     await _seed_default(session, "menu.tree_cache_ttl", "300")

@@ -308,9 +308,7 @@ class ConfigAdminService(BaseFrameworkObject):
                 raise ConfigDefaultProtectedError(f"平台默认参数不可删除，请改用重置：{row.config_key}")
             before = _snapshot(row)
             await self._repo.soft_delete(item_id)
-            detail = await self._repo.get_including_deleted(item_id)
-        if detail is not None:
-            await self._after_write(detail.config_key, int(detail.id), _changes_for(before, detail))
+        await self._after_write(row.config_key, item_id, _changes_for(before, row))
 
     async def restore(self, item_id: int) -> ConfigItem:
         """从回收站恢复参数（同键已有活行则拒绝）。
