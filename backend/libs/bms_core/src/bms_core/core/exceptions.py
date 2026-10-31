@@ -1533,3 +1533,49 @@ class TaskTriggerTooFrequentError(TaskError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.TASK_TRIGGER_TOO_FREQUENT, message, http_status=429, data=data)
+
+
+class JobError(BizError):
+    """异步作业段（`71xxx`）异常基类。"""
+
+
+class JobNotFoundError(JobError):
+    """作业不存在（含跨租户 / 已清理，`71001` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.JOB_NOT_FOUND, message, http_status=404, data=data)
+
+
+class JobTypeNotRegisteredError(JobError):
+    """作业类型未声明 / 不属于本服务（`71002` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.JOB_TYPE_NOT_REGISTERED, message, http_status=400, data=data)
+
+
+class JobNotCancelableError(JobError):
+    """终态作业不可取消（`71003` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.JOB_NOT_CANCELABLE, message, http_status=409, data=data)
+
+
+class JobNotRetryableError(JobError):
+    """非 dead / failed 作业不可重试（`71004` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.JOB_NOT_RETRYABLE, message, http_status=409, data=data)
+
+
+class JobPayloadInvalidError(JobError):
+    """负载非 JSON 对象 / 版本不匹配（`71005` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.JOB_PAYLOAD_INVALID, message, http_status=400, data=data)
+
+
+class JobHandlerNotRegisteredError(JobError):
+    """声明存在但代码侧 handler 缺失 / 解析失败（`71006` / 500）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.JOB_HANDLER_NOT_REGISTERED, message, http_status=500, data=data)

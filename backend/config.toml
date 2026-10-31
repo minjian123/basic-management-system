@@ -346,6 +346,28 @@ change_channel = "bms:global:task:changed"
 # handler 允许的模块前缀（白名单；防任务定义写入任意代码路径）
 allowed_handler_prefixes = ["bms_core.tasks.builtin"]
 
+[jobs]
+# 异步作业中心运行参数（01_03）：轮询 / 抢占 / 租约 / 并发 / 重试 / 保留期 / 唤醒信号
+enabled = true                      # 作业中心开关（false = 只读写记录、不启动 worker）
+worker_id = ""                      # worker 实例标识（缺省 {service}-{hostname}-{pid}）
+poll_interval_seconds = 2.0         # 轮询间隔（秒）
+claim_batch_size = 10               # 单库单轮抢占上限
+global_concurrency = 4              # 单 worker 进程全局在途上限
+per_tenant_concurrency = 2          # 单租户在途上限
+lease_seconds = 300                 # 租约时长（秒；须大于心跳 × 3）
+heartbeat_interval_seconds = 30     # 心跳 / 续租间隔（秒）
+progress_interval_seconds = 2.0     # 进度事件节流间隔（秒）
+max_attempts_default = 3            # 默认最大执行次数
+backoff_seconds_default = 30        # 默认退避基数（秒）
+backoff_max_seconds = 3600          # 退避上限（秒）
+timeout_seconds_default = 1800      # 默认单次执行超时（提示 / 监控；失联由租约兜底）
+result_max_chars = 65536            # 结果 JSON 截断长度
+error_max_chars = 512               # 错误摘要截断
+retention_days = 30                 # 终态作业保留天数
+shutdown_grace_seconds = 60         # 优雅停机等待上限（秒）
+tenant_cache_ttl_seconds = 60       # 租户清单缓存 TTL（秒）
+change_channel = "bms:global:job:changed"
+
 [health_check_registry]
 # 健康检查注册表实现选择（local = 真实探针：redis / database，保障 /readyz；空串 = null 占位）
 provider = "local"

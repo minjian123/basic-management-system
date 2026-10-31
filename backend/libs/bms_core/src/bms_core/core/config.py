@@ -1153,6 +1153,71 @@ class TaskSchedulerSettings(BaseSettings):
     """handler 允许的模块前缀（白名单；防任务定义写入任意代码路径）。"""
 
 
+class JobSettings(BaseSettings):
+    """异步作业中心运行参数（`[jobs]`，01_03）。
+
+    进程级参数；作业消费者由每服务 `bms_<service>.jobs` 长驻进程承载，不进插件装配面。
+    作业类型声明的 `timeout / max_attempts / backoff / concurrency` 覆盖本节默认值。
+    """
+
+    enabled: bool = True
+    """作业中心开关（false = 只读写记录、不启动 worker）。"""
+
+    worker_id: str = ""
+    """worker 实例标识（缺省按 `{service}-{hostname}-{pid}` 生成；用于租约与排障）。"""
+
+    poll_interval_seconds: float = Field(default=2.0, gt=0)
+    """轮询间隔（秒）；唤醒信号只提前，不替代轮询。"""
+
+    claim_batch_size: int = Field(default=10, ge=1)
+    """单库单轮抢占上限。"""
+
+    global_concurrency: int = Field(default=4, ge=1)
+    """单 worker 进程全局在途上限。"""
+
+    per_tenant_concurrency: int = Field(default=2, ge=1)
+    """单租户在途上限（防单租户万行作业饿死其他租户）。"""
+
+    lease_seconds: int = Field(default=300, ge=1)
+    """租约时长（秒；须大于心跳间隔 × 3）。"""
+
+    heartbeat_interval_seconds: int = Field(default=30, ge=1)
+    """心跳 / 续租间隔（秒）。"""
+
+    progress_interval_seconds: float = Field(default=2.0, ge=0)
+    """进度事件节流间隔（秒；0 = 每次更新都发）。"""
+
+    max_attempts_default: int = Field(default=3, ge=1)
+    """默认最大执行次数。"""
+
+    backoff_seconds_default: int = Field(default=30, ge=0)
+    """默认退避基数（秒）。"""
+
+    backoff_max_seconds: int = Field(default=3600, ge=0)
+    """退避上限（秒）。"""
+
+    timeout_seconds_default: int = Field(default=1800, ge=1)
+    """默认单次执行超时（提示 / 监控；失联由租约兜底）。"""
+
+    result_max_chars: int = Field(default=65536, ge=1)
+    """结果 JSON 截断长度。"""
+
+    error_max_chars: int = Field(default=512, ge=1)
+    """错误摘要截断长度。"""
+
+    retention_days: int = Field(default=30, ge=1)
+    """终态作业保留天数。"""
+
+    shutdown_grace_seconds: int = Field(default=60, ge=0)
+    """优雅停机等待上限（秒）。"""
+
+    tenant_cache_ttl_seconds: int = Field(default=60, ge=1)
+    """租户清单缓存 TTL（秒）。"""
+
+    change_channel: str = "bms:global:job:changed"
+    """唤醒信号信道（仅唤醒，不承担正确性）。"""
+
+
 class RegistrySettings(BaseSettings):
     """登记清单配置（`[registry]`）。
 
@@ -1439,6 +1504,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)
     task_scheduler: TaskSchedulerSettings = Field(default_factory=TaskSchedulerSettings)
+    jobs: JobSettings = Field(default_factory=JobSettings)
+    """异步作业中心运行参数（TOML 段 `[jobs]`）。"""
     tenant_membership: TenantMembershipSettings = Field(default_factory=TenantMembershipSettings)
     tenant_module: TenantModuleSettings = Field(default_factory=TenantModuleSettings)
     tenant_quota: TenantQuotaSettings = Field(default_factory=TenantQuotaSettings)
