@@ -237,10 +237,10 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
             runtime: 组运行时。
         """
         interval = self._settings.event_consumer.poll_interval_seconds
-        while self._running:
+        while self._running:  # pragma: no branch - 循环退出由 stop 置标志 + 取消共同决定
             try:
                 await self._poll_once(runtime, max_messages=self._settings.event_consumer.batch_size)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover - 关闭期取消传播
                 raise
             except Exception as exc:  # 单轮异常不终止该组
                 _LOGGER.warning("event_consumer_poll_error", group=runtime.name, error=repr(exc))
@@ -462,7 +462,7 @@ class RocketMqEventConsumerGroup(BaseEventConsumerGroup):
             raise EventConsumeError(
                 "RocketMQ 端点未配置（[rocketmq].endpoints / BMS_ROCKETMQ__ENDPOINTS）", data={"group": group}
             )
-        return self._build_sdk_consumer(group, topics)
+        return self._build_sdk_consumer(group, topics)  # pragma: no cover - 真机路径（集成用例覆盖）
 
     def _build_sdk_consumer(self, group: str, topics: ConcurrentStableList[str]) -> Any:  # pragma: no cover
         """用官方 SDK 建连并订阅（**真机路径**：缺 broker / SDK 的单测不可达，由集成用例覆盖）。

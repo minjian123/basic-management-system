@@ -532,3 +532,36 @@ async def test_background_loop_survives_poll_error(dead_letter_registry: EngineR
     await asyncio.sleep(0.05)  # 至少一轮拉取抛错并退避
     await group.stop()
     assert consumer.shutdown_calls == 1
+
+
+def test_validate_same_ordered_in_group_passes() -> None:
+    """同组多条声明 ordered 一致 → 不报不一致（覆盖「跳过不一致分支」）。"""
+    records = ConcurrentStableList(
+        [
+            EventConsumerRecord(consumer="audit-chain", event_type=_EVENT_TYPE, handler_factory=_Handler, ordered=True),
+            EventConsumerRecord(
+                consumer="audit-chain", event_type="sys.user.updated", handler_factory=_Handler, ordered=True
+            ),
+        ]
+    )
+    errors = [error for error in validate_event_consumer_records(records) if "ordered 声明不一致" in error]
+    assert errors == []
+
+
+async def test_metrics_without_dead_letter(dead_letter_registry: EngineRegistry) -> None:
+    """有指标但无死信时只上报消费计数（死信指标分支跳过）。"""
+
+    class _Metrics:
+        def __init__(self) -> None:
+            self.calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+        async def counter(self, name: str, value: float = 1.0, labels: Any = None) -> None:
+            self.calls.add(name)
+
+    metrics = _Metrics()
+    consumer = _Consumer(ConcurrentStableList([ConcurrentStableList([_Message(_event())])]))
+    group = _group(dead_letter_registry, consumer, _Handler(), metrics=metrics)
+    await group.consume_once()
+    assert "bms_event_consume_total" in list(metrics.calls)
+    assert "bms_event_dead_letter_total" not in list(metrics.calls)
+    await group.aclose()
