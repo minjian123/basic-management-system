@@ -14,7 +14,7 @@ from bms_core.core.capability import (
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
-from bms_core.events.base import BaseEventWorker, EventConsumer, EventPublisher
+from bms_core.events.base import BaseEventConsumerGroup, BaseEventWorker, EventConsumer, EventPublisher
 from bms_core.scope.base import DataScope
 from bms_core.scope.null import NullDataScope
 from bms_core.sharding.base import ShardingRouter
@@ -69,10 +69,11 @@ def test_capability_keys() -> None:
 
 @pytest.mark.kiwi_id(37)
 def test_event_worker_contract() -> None:
-    """事件工作单元：发布侧继承 `BaseEventWorker`；消费轨分轨为独立端口。"""
+    """事件工作单元：发布侧继承 `BaseEventWorker`；处理器与消费组各自成域（分轨）。"""
     assert issubclass(EventPublisher, BaseEventWorker)
     assert issubclass(EventConsumer, BaseEventWorker)
-    assert EventConsumer.key == "event_consumer"
+    assert EventConsumer.key == "event_handler"
+    assert BaseEventConsumerGroup.key == "event_consumer"
 
 
 @pytest.mark.kiwi_id(37)

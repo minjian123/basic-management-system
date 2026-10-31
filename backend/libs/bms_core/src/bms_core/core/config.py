@@ -973,6 +973,63 @@ class EventSettings(PluginSelection):
     """签发契约校验模式：`off` 不校验 / `warn` 记录告警放行 / `enforce` 未登记即拒发（10010）。"""
 
 
+class RocketMqSettings(BaseSettings):
+    """RocketMQ 接入配置（`[rocketmq]`）：gRPC proxy 端点与调用参数。
+
+    客户端走 5.x gRPC（`rocketmq-python-client`），接入点是 broker 的 **proxy 端口**
+    （`--enable-proxy` 后的 8081），不是 remoting 的 9876 / 10911。
+    """
+
+    endpoints: str = ""
+    """gRPC 接入点（`host:port`，如 `127.0.0.1:8081`；容器内 `rocketmq-broker:8081`）。"""
+
+    namespace: str = ""
+    """命名空间（多环境共用集群时隔离 topic / 消费组；空 = 不启用）。"""
+
+    access_key: str = ""
+    """访问密钥 ID（开启 ACL 时必填；**只经 `BMS_ROCKETMQ__ACCESS_KEY` 注入，不入库**）。"""
+
+    secret_key: str = ""
+    """访问密钥（**只经 `BMS_ROCKETMQ__SECRET_KEY` 注入，不入库**）。"""
+
+    request_timeout_seconds: float = Field(default=3.0, gt=0)
+    """单次请求超时（秒）：短超时快速失败，避免 broker 抖动拖住投递 / 消费线程。"""
+
+
+class EventConsumerSettings(PluginSelection):
+    """事件消费组配置（`[event_consumer]`；在能力选择之外追加运行参数）。"""
+
+    enabled: bool = False
+    """消费开关：False 时只装载声明、不拉取（默认关，避免未部署 broker 的服务启动即报错）。"""
+
+    host: Literal["in_service", "worker"] = "in_service"
+    """宿主形态：`in_service` = 随服务进程启动；`worker` = 仅由独立 worker 进程启动（两者互斥）。"""
+
+    group_prefix: str = "bms"
+    """消费组名前缀（组名 `{前缀}.{域}`，如 `bms.audit.chain`）。"""
+
+    concurrency: int = Field(default=4, ge=1)
+    """每消费组默认并发（键级串行执行器的道数；有序组固定 1）。"""
+
+    batch_size: int = Field(default=32, ge=1)
+    """单组单轮拉取上限。"""
+
+    poll_interval_seconds: float = Field(default=1.0, gt=0)
+    """无消息时的轮询间隔（秒）。"""
+
+    visibility_timeout_seconds: int = Field(default=30, ge=1)
+    """消息可见性超时（秒）：未 ack 的消息在该时长后由 broker 重投。"""
+
+    max_retries: int = Field(default=3, ge=0)
+    """转死信前的应用内重试次数（0 = 不重试，首次失败即死信）。"""
+
+    retry_backoff_seconds: float = Field(default=1.0, ge=0)
+    """重试退避基数（秒）：`backoff × 2^(n-1)`。"""
+
+    dedup_ttl_seconds: int = Field(default=600, ge=1)
+    """幂等短窗口 TTL（秒）：Redis 只读预判 + 成功后标记，窗口内重复投递直接跳过。"""
+
+
 class RegistrySettings(BaseSettings):
     """登记清单配置（`[registry]`）。
 
@@ -1200,7 +1257,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     distributed_lock: PluginSelection = Field(default_factory=PluginSelection)
     edge: EdgeSettings = Field(default_factory=EdgeSettings)
     event: EventSettings = Field(default_factory=EventSettings)
-    event_consumer: PluginSelection = Field(default_factory=PluginSelection)
+    event_consumer: EventConsumerSettings = Field(default_factory=EventConsumerSettings)
     exporter: PluginSelection = Field(default_factory=PluginSelection)
     fallback: PluginSelection = Field(default_factory=PluginSelection)
     field_type_registry: PluginSelection = Field(default_factory=PluginSelection)
@@ -1240,6 +1297,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     rate_limiter: PluginSelection = Field(default_factory=PluginSelection)
     realtime_publisher: PluginSelection = Field(default_factory=PluginSelection)
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
+    rocketmq: RocketMqSettings = Field(default_factory=RocketMqSettings)
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
     search_index: PluginSelection = Field(default_factory=PluginSelection)
     service_client: ServiceClientSettings = Field(default_factory=ServiceClientSettings)

@@ -50,6 +50,7 @@ _EXCEPTIONS: ConcurrentStableList[tuple[type[BizError], int, int]] = ConcurrentS
         (exceptions.DingtalkUnavailableError, 20062, 503),
         (exceptions.EnterpriseIdpError, 20001, 401),
         (exceptions.EventContractError, 10010, 500),
+        (exceptions.EventConsumeError, 10014, 500),
         (exceptions.IdpConfigInvalidError, 20064, 400),
         (exceptions.IdpKeyConflictError, 20065, 409),
         (exceptions.IdpManageError, 20001, 401),

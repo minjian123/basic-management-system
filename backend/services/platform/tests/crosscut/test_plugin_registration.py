@@ -21,7 +21,13 @@ from bms_core.core.plugin import (
     PluginRegistry,
 )
 from bms_core.core.provider import BaseProviderRegistry
-from bms_core.events.base import BaseEventConsumer, BaseEventWorker, EventConsumer, EventPublisher
+from bms_core.events.base import (
+    BaseEventConsumer,
+    BaseEventConsumerGroup,
+    BaseEventWorker,
+    EventConsumer,
+    EventPublisher,
+)
 from bms_core.health.registry import HealthCheckRegistry
 
 _EXPECTED_PLUGIN_KEYS = frozenset(
@@ -50,6 +56,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "edge",
         "event",
         "event_consumer",
+        "event_handler",
         "exporter",
         "fallback",
         "field_type_registry",
@@ -273,20 +280,23 @@ def test_inherited_declaration_does_not_register(registry: PluginRegistry) -> No
 
 @pytest.mark.kiwi_id(531)
 def test_event_worker_location_and_abstraction() -> None:
-    """事件基座落点：`BaseEventWorker` 在 events/base.py；发布 / 消费抽象不登记。"""
+    """事件基座落点：`BaseEventWorker` 在 events/base.py；发布 / 处理器 / 消费组各自成域。"""
     assert BaseEventWorker.__module__ == "bms_core.events.base"
     assert BaseEventWorker.plugin_key == "event"
     assert issubclass(BaseEventWorker, BasePluggable)
     assert inspect.isabstract(BaseEventWorker)
     assert issubclass(EventPublisher, BaseEventWorker)
     assert issubclass(EventConsumer, BaseEventWorker)
-    assert BaseEventConsumer.plugin_key == "event_consumer"  # 消费侧在共享父之下独立成域
+    assert BaseEventConsumer.plugin_key == "event_handler"  # 处理器轨：独立成域、不进装配
+    assert BaseEventConsumerGroup.plugin_key == "event_consumer"  # 组运行时：装配端口
     assert inspect.isabstract(EventPublisher)
     assert inspect.isabstract(EventConsumer)
+    assert inspect.isabstract(BaseEventConsumerGroup)
     snapshot = _snapshot_of_app_classes()
     registered = {impl for bucket in snapshot.values() for impl in bucket.values()}
     assert EventPublisher not in registered
     assert EventConsumer not in registered
+    assert BaseEventConsumerGroup not in registered
 
 
 @pytest.mark.kiwi_id(531)

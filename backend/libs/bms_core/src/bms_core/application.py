@@ -68,6 +68,12 @@ from bms_core.db.registry import EngineRegistry, pool_budget_warnings, tenant_po
 from bms_core.db.session import SessionFactory, session_scope
 from bms_core.db.tenant_remote import register_remote_tenant_source
 from bms_core.db.tenant_source import build_tenant_lookup
+from bms_core.events.base import BaseEventConsumerGroup
+from bms_core.events.consumer_records import (
+    EventConsumerRecord,
+    merge_event_consumer_records,
+    validate_event_consumer_records,
+)
 from bms_core.events.contracts import default_event_contract_registry, validate_event_registry
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.masking.base import get_masker
@@ -303,6 +309,42 @@ def _validate_event_contracts(app: FastAPI) -> None:
         raise EventContractError("事件契约校验失败：" + "；".join(errors))
 
 
+def _load_event_consumer_records(app: FastAPI, settings: Settings) -> None:
+    """装载本服务自持的事件消费组声明（必须先于插件 `setup()`，组在 setup 内启动消费）。
+
+    合并（同值去重、异值即拒）→ 校验（组名 / 事件名 / 契约登记 / 有序与并发）→ 装载进组运行时，
+    并把 `(组名, 事件类型)` 登记为 `EventSubscription`（订阅覆盖面由真实声明驱动）。
+
+    Args:
+        app: 应用实例（构造期已写入 `event_consumer_records`）。
+        settings: 应用配置（`[event_consumer]` 前缀与实现选择）。
+
+    Raises:
+        EventContractError: 声明冲突（同组同事件不同处理器）或校验不通过。
+    """
+    declared = cast("ConcurrentStableList[EventConsumerRecord]", getattr(app.state, "event_consumer_records", ()))
+    records = merge_event_consumer_records(declared, group_prefix=settings.event_consumer.group_prefix)
+    errors = validate_event_consumer_records(records)
+    if errors:
+        get_logger("bms").critical("event_consumer_invalid", errors=errors)
+        raise EventContractError("事件消费组声明校验失败：" + "；".join(errors))
+    group = cast(
+        "BaseEventConsumerGroup",
+        resolve_plugin(
+            "event_consumer",
+            settings.event_consumer.provider,
+            expected_version=BaseEventConsumerGroup.contract_version,
+        ),
+    )
+    group.load(records)
+    if records:
+        get_logger("bms").info(
+            "event_consumers_loaded",
+            count=len(records),
+            subscriptions=[f"{record.consumer}←{record.event_type}" for record in records],
+        )
+
+
 @asynccontextmanager
 async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """服务生命周期：启动校验（离线 + 接库）+ 工厂 / 插件装配（完成后标记就绪），关闭时统一释放异步资源。
@@ -349,6 +391,8 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
             get_logger("bms").critical("service_catalog_invalid", scope="offline", errors=errors)
             raise CatalogError("服务目录校验失败（清单）：" + "；".join(errors))
         _validate_event_contracts(app)
+        # 事件消费组声明装载（01_01）：必须先于插件 `setup()`——组在 setup 内启动消费，声明未装则空启动
+        _load_event_consumer_records(app, settings)
         # 基础能力先行（03_04）：开库引导与接库校验都会取数据库引擎，而引擎注册表的跨实例创建锁
         # 经分布式锁基座取共享 Redis 客户端；该客户端由插件装配期登记，故此处先装配基础能力。
         await assemble_base_plugins(app, settings, cast("ResourceManager", app.state.resources))
@@ -449,6 +493,20 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
 
         Returns:
             ConcurrentStableList[FormRecord]: 补充的表单标识登记记录（插入序）。
+        """
+        return ConcurrentStableList(())
+
+    def event_consumer_records(self) -> ConcurrentStableList[EventConsumerRecord]:
+        """本服务自持的事件消费组声明（子类覆写；缺省空清单）。
+
+        与 `form_records()` / `table_records()` 同范式：**清单归提供方**，基座不改常量、不设进程级
+        注册表。基座在装配期合并（同值去重、异值即拒）后装载进消费组运行时，并把 `(组名, 事件类型)`
+        登记为 `EventSubscription`（使契约覆盖校验真正有约束力）。
+
+        未覆写 = 本服务不消费任何事件，行为与引入消费组之前一致。
+
+        Returns:
+            ConcurrentStableList[EventConsumerRecord]: 消费组声明（插入序）。
         """
         return ConcurrentStableList(())
 
@@ -593,6 +651,9 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         injected_forms = ConcurrentStableList(self.form_records())
         app.state.form_registry = FormRegistry(merge_form_records(injected=injected_forms))
         app.state.form_injected_records = injected_forms
+        # 事件消费组声明（01_01）：各服务自持、基座装配期统一合并装载（无进程级注册表）；
+        # 空声明不产生任何副作用，未覆写钩子的服务行为与改造前一致
+        app.state.event_consumer_records = ConcurrentStableList(self.event_consumer_records())
         app.state.settings = settings
         app.state.startup_complete = False
         app.state.catalog_degraded = False

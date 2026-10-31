@@ -83,3 +83,10 @@ provider = "local"
 [idp_manage]
 # dev 联调：允许内网 / 回环 IdP（本地 Keycloak 等；生产保持 false 防 SSRF）
 allow_private_hosts = true
+
+# RocketMQ（开发期连本机 docker 编排的 broker；`deploy/compose/base.yml` 的 rocketmq 双容器）
+# 端口说明：**8081 是 gRPC proxy**（Python 客户端唯一入口），9876 / 10911 是 remoting 与 HA，客户端用不到。
+# 起法：在 deploy/ 下 `docker compose -f compose/base.yml up -d rocketmq-nameserver rocketmq-broker`
+# 未起 broker 时保持 [event].provider / [event_consumer].provider 为空（null 实现，不连接）。
+[rocketmq]
+endpoints = "127.0.0.1:8081"

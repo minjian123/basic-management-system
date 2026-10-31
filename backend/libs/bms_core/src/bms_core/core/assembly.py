@@ -71,7 +71,7 @@ from bms_core.edge.base import BaseEdgeTrust
 from bms_core.edge.headers import GATEWAY_IDENTITY_VALUE
 from bms_core.edge.marker import MarkerEdgeTrust
 from bms_core.edge.service_jwt import ServiceJwtEdgeTrustFactory
-from bms_core.events.base import BaseEventConsumer, EventPublisher
+from bms_core.events.base import BaseEventConsumerGroup, EventPublisher
 from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.fallback.base import BaseFallbackPolicy
 from bms_core.fieldtype.base import BaseFieldTypeRegistry
@@ -350,7 +350,7 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("config_cache_region", ConfigCacheRegion, "config_cache_region", "config_cache_region"),
         PluginWiring("config_source", BaseConfigSource, "config_source", "config_source"),
         PluginWiring("event", EventPublisher, "event", "event_publisher"),
-        PluginWiring("event_consumer", BaseEventConsumer, "event_consumer", None),  # 消费轨：仅预热，无 app.state 落点
+        PluginWiring("event_consumer", BaseEventConsumerGroup, "event_consumer", "event_consumer_group"),
         # 强一致专项（05_07）：管理器 / 参与方 / 恢复器共用 `[transaction_manager]` 分区（缺省 `null` ⇒ 不启用）
         PluginWiring(TRANSACTION_MANAGER_KEY, BaseTransactionManager, "transaction_manager", "transaction_manager"),
         PluginWiring(

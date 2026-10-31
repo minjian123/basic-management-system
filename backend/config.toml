@@ -215,11 +215,24 @@ provider = "default"
 options = {}
 
 [event]
-# 事件发布实现选择（插件化配置；空串解析到 null 占位实现；消费轨随阶段十 M10 集成消息可用）
+# 事件发布实现选择（插件化配置；rocketmq = RocketMQ gRPC 真实投递、空串 = null 占位不投递）
+# 业务代码不直连 MQ：一律经发件箱（sys_outbox）+ 投递器，由本实现负责最后一跳
 provider = ""
 # 签发契约校验模式：off 不校验 / warn 记录告警放行 / enforce 未登记即拒发（10010 / EventContractError）
 contract_mode = "enforce"
 options = {}
+
+[rocketmq]
+# RocketMQ 接入（5.x gRPC proxy 端点；**不是** remoting 的 9876 / 10911）
+# 端点缺省留空：未部署 broker 的环境（含单测）不解析该实现，也不发起连接
+endpoints = ""
+# 命名空间（多环境共用集群时隔离 topic / 消费组；空 = 不启用）
+namespace = ""
+# 访问密钥（开启 ACL 时必填；**只经 BMS_ROCKETMQ__ACCESS_KEY / __SECRET_KEY 注入，不入库**）
+access_key = ""
+secret_key = ""
+# 单次请求超时（秒）：短超时快速失败，避免 broker 抖动拖住投递 / 消费
+request_timeout_seconds = 3.0
 
 [consistency_barrier]
 # 一致性屏障实现选择（插件化配置；redis = 版本标记 + 有界轮询等待（缺省，03_04 起 Redis 为基础能力）、空串 = null 不启用）
@@ -237,8 +250,29 @@ provider = "redis"
 options = {}
 
 [event_consumer]
-# 事件消费实现选择（插件化配置；空串解析到 null 占位实现；真实消费随阶段十 M10 集成消息可用）
+# 事件消费组运行时（插件化配置；rocketmq = 真实拉取消费、空串 = null 只装载声明不启动）
+# 声明归各服务自持（`event_consumer_records()` 钩子），基座统一装载——本段只管运行时参数
 provider = ""
+# 消费总开关（False = 只装载声明、不拉取；缺省关，避免未部署 broker 的服务启动即报错）
+enabled = false
+# 宿主形态：in_service = 随服务进程启动、worker = 仅由独立 worker 进程启动（两者互斥）
+host = "in_service"
+# 消费组名前缀（组名 `{前缀}.{域}`，如 bms.audit.chain）
+group_prefix = "bms"
+# 每消费组默认并发（键级串行的道数；ordered 组固定为 1）
+concurrency = 4
+# 单组单轮拉取上限
+batch_size = 32
+# 无消息时的轮询间隔（秒）
+poll_interval_seconds = 1.0
+# 消息可见性超时（秒）：未 ack 的消息在该时长后由 broker 重投
+visibility_timeout_seconds = 30
+# 转死信前的应用内重试次数（0 = 首次失败即死信）
+max_retries = 3
+# 重试退避基数（秒）：backoff × 2^(n-1)
+retry_backoff_seconds = 1.0
+# 幂等短窗口 TTL（秒）：Redis 只读预判 + 成功后标记，窗口内重复投递直接跳过
+dedup_ttl_seconds = 600
 options = {}
 
 [task]

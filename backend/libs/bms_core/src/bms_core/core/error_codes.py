@@ -51,6 +51,7 @@ class ErrorCode(IntEnum):
     CONSISTENCY_BARRIER = 10011
     REDIS_UNAVAILABLE = 10012
     TRANSACTION_UNAVAILABLE = 10013
+    EVENT_CONSUME = 10014
     SEARCH_UNAVAILABLE = 10101
     SEARCH_TIMEOUT = 10102
     SEARCH_DEGRADED = 10103
@@ -168,6 +169,7 @@ ERROR_CODE_HTTP_STATUS: ConcurrentStableFrozenDict[ErrorCode, int] = ConcurrentS
         ErrorCode.CONSISTENCY_BARRIER: 409,
         ErrorCode.REDIS_UNAVAILABLE: 503,
         ErrorCode.TRANSACTION_UNAVAILABLE: 503,
+        ErrorCode.EVENT_CONSUME: 500,
         ErrorCode.AUTH: 401,
         ErrorCode.LOGIN_FAILED: 401,
         ErrorCode.ACCOUNT_LOCKED: 401,

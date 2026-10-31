@@ -16,6 +16,12 @@ from tests.contracts.support import build_snapshot
 pytestmark = pytest.mark.kiwi_id(567)
 
 _SNAPSHOT = build_snapshot()
+_NON_WIRING_PLUGIN_KEYS = frozenset({"event_handler"})
+"""无装配接线但有 null 占位的插件域：事件**处理器**轨（`EventConsumer`）。
+
+处理器由消费组按声明装配、不经配置选择实现，故不进 `PLUGIN_WIRINGS`；但保留 `null` 占位实现，
+供「无处理器」场景与既有测试替身使用。
+"""
 _CASES: ConcurrentStableList[tuple[str, str, object]] = ConcurrentStableList(
     (
         (plugin_key, plugin_name, impl)
@@ -34,7 +40,7 @@ def _port_version(plugin_key: str) -> str:
 
 def test_snapshot_integrity() -> None:
     """快照键集与能力清单一致，条目枚举互证；命名 / 版本 / null 基线齐备。"""
-    assert set(_SNAPSHOT) == {wiring.plugin_key for wiring in PLUGIN_WIRINGS}
+    assert set(_SNAPSHOT) == {wiring.plugin_key for wiring in PLUGIN_WIRINGS} | _NON_WIRING_PLUGIN_KEYS
     assert len(_CASES) == sum(len(bucket) for bucket in _SNAPSHOT.values())
     for plugin_key, plugin_name, impl in _CASES:
         assert plugin_name

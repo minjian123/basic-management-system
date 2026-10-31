@@ -581,6 +581,17 @@ class EventContractError(GeneralError):
         super().__init__(ErrorCode.EVENT_CONTRACT, message, http_status=500, data=data)
 
 
+class EventConsumeError(GeneralError):
+    """事件消费异常（`10014` / 500）。
+
+    消息体解码失败（毒消息）、事件类型非法、消费方不支持该主版本时抛出；消费组据此**不重试**、
+    直接转死信（重试只会阻塞同 key 队列），由死信看板人工处置。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.EVENT_CONSUME, message, http_status=500, data=data)
+
+
 class TransactionUnavailableError(GeneralError):
     """跨服务事务能力不可用（`10013` / 503）。
 
