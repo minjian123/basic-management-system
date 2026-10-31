@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import ConfigDict, Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
 from bms_core.schemas.pagination import BasePageResponse
 
 __all__ = [
@@ -25,7 +25,7 @@ class TaskItem(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int = Field(description="任务主键")
+    id: SnowflakeIdStr = Field(description="任务主键")
     code: str = Field(description="任务代码（唯一）")
     name: str = Field(description="任务名（唯一）")
     handler: str = Field(description="执行体（`module:attr`）")
@@ -47,8 +47,8 @@ class TaskLogItem(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int = Field(description="记录主键")
-    task_id: int = Field(description="任务主键")
+    id: SnowflakeIdStr = Field(description="记录主键")
+    task_id: SnowflakeIdStr = Field(description="任务主键")
     run_id: str | None = Field(default=None, description="本次执行标识")
     trigger_source: str = Field(description="触发来源（schedule/manual）")
     status: str = Field(description="执行状态（running/success/failed/skipped）")
@@ -90,5 +90,5 @@ class TaskUpdateRequest(BaseSchema):
 class TaskTriggerResult(BaseSchema):
     """手动触发结果（已落记录并入队）。"""
 
-    log_id: int = Field(description="执行记录主键")
+    log_id: SnowflakeIdStr = Field(description="执行记录主键")
     run_id: str = Field(description="本次执行标识")

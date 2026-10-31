@@ -5,7 +5,7 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, SnowflakeIdStr
 from bms_core.schemas.service import ServiceDto
 
 
@@ -44,7 +44,7 @@ class SsoCallbackResult(BaseSchema):
 class PlatformProfileUser(ServiceDto):
     """platform 内部用户概要（按 id 取数）。"""
 
-    id: int = Field(description="用户 ID")
+    id: SnowflakeIdStr = Field(description="用户 ID")
     username: str = Field(description="登录账号")
     name: str = Field(description="昵称 / 显示名")
     status: str = Field(default="", description="账号状态（enabled / disabled）")

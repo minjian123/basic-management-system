@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import ConfigDict, Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
 from bms_core.schemas.pagination import BasePageResponse
 
 __all__ = [
@@ -45,10 +45,10 @@ class JobMonitorItem(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    job_id: int = Field(description="作业标识（雪花 id）")
+    job_id: SnowflakeIdStr = Field(description="作业标识（雪花 id）")
     service_key: str = Field(description="提供方服务键")
     job_type: str = Field(description="作业类型")
-    tenant_id: int | None = Field(default=None, description="租户主键")
+    tenant_id: SnowflakeIdStr | None = Field(default=None, description="租户主键")
     status: str = Field(description="作业状态（queued/running/succeeded/failed/canceled/dead）")
     progress_done: int = Field(description="已完成量")
     progress_total: int | None = Field(default=None, description="总量（NULL = 不确定进度）")

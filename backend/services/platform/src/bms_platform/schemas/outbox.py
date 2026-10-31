@@ -4,13 +4,13 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from bms_core.core.concurrent import ConcurrentStableDict
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 
 
 class DeadLetterResponse(BaseSchema):
     """死信记录响应（与 `sys_event_dead_letter` 对齐）。"""
 
-    id: int
+    id: SnowflakeIdStr
     source: str
     event_id: str
     event_type: str

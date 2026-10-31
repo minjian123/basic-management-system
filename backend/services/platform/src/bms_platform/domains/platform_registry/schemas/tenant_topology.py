@@ -9,14 +9,14 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 
 
 class TenantTopologyRowResponse(BaseSchema):
     """拓扑记录响应（与 `sys_tenant_topology` 对齐）。"""
 
-    id: int
-    tenant_id: int
+    id: SnowflakeIdStr
+    tenant_id: SnowflakeIdStr
     domain_key: str
     unit_key: str
     topology_version: int
@@ -56,7 +56,7 @@ class TenantTopologyWriteRequest(BaseSchema):
 class TenantTopologyExportResponse(BaseSchema):
     """按租户导出当前版本（部署编排输入）。"""
 
-    tenant_id: int
+    tenant_id: SnowflakeIdStr
     version: int
     rows: Annotated[ConcurrentStableList[TenantTopologyRowResponse], CONTRACT_COLLECTION]
 

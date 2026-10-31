@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
 
 
 class InactiveScanRequest(BaseSchema):
@@ -21,15 +21,15 @@ class InactiveScanResult(BaseSchema):
 class ManualLockRequest(BaseSchema):
     """手动锁定请求（写 `manual` 型；租户经登录态解析）。"""
 
-    user_id: int = Field(description="用户主键")
+    user_id: SnowflakeIdStr = Field(description="用户主键")
     reason: str = Field(default="", max_length=255, description="锁定原因")
 
 
 class LockItem(BaseSchema):
     """锁定记录行契约（列表 / 详情 / 手动锁定 / 解锁统一）。"""
 
-    id: int = Field(description="锁定记录主键")
-    user_id: int = Field(description="用户主键")
+    id: SnowflakeIdStr = Field(description="锁定记录主键")
+    user_id: SnowflakeIdStr = Field(description="用户主键")
     username: str = Field(default="", description="用户登录账号（`sys_user` 同库回显；用户已不存在为空串）")
     name: str = Field(default="", description="用户昵称 / 显示名（同库回显；用户已不存在为空串）")
     lock_type: str = Field(description="锁定类型（fail_limit/inactive/manual）")

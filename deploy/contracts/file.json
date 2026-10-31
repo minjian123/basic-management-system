@@ -117,6 +117,96 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "JobCancelRequest": {
+        "additionalProperties": false,
+        "description": "取消作业请求。",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "取消原因",
+            "title": "Reason"
+          }
+        },
+        "title": "JobCancelRequest",
+        "type": "object"
+      },
+      "JobSubmitRequest": {
+        "additionalProperties": false,
+        "description": "内部提交作业请求。",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "提交幂等键",
+            "title": "Idempotency Key"
+          },
+          "job_type": {
+            "description": "作业类型（须属于本服务声明）",
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Job Type",
+            "type": "string"
+          },
+          "max_attempts": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最大执行次数（缺省取声明）",
+            "title": "Max Attempts"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "description": "负载 JSON 对象",
+            "title": "Payload",
+            "type": "object"
+          },
+          "payload_version": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "负载版本（缺省取声明）",
+            "title": "Payload Version"
+          },
+          "priority": {
+            "default": 0,
+            "description": "租户内优先级（大者先）",
+            "title": "Priority",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_type"
+        ],
+        "title": "JobSubmitRequest",
+        "type": "object"
+      },
       "MultipartInitiateRequest": {
         "additionalProperties": false,
         "description": "分片初始化请求。",
@@ -689,126 +779,6 @@
         "summary": "Dedup",
         "tags": [
           "file"
-        ]
-      }
-    },
-    "/api/v1/files/internal/cleanup-orphans": {
-      "post": {
-        "description": "孤儿回收（服务间内部端点；由内置任务 `cleanup_orphan_parts` 触发）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    limit: 单批上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `CleanupResult`。",
-        "operationId": "cleanup_orphans_api_v1_files_internal_cleanup_orphans_post",
-        "parameters": [
-          {
-            "description": "单批清理上限",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 1000,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "单批清理上限",
-              "title": "Limit"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Cleanup Orphans",
-        "tags": [
-          "file-internal"
         ]
       }
     },
@@ -1660,6 +1630,394 @@
         "summary": "Preview Url",
         "tags": [
           "file"
+        ]
+      }
+    },
+    "/api/v1/jobs/internal": {
+      "post": {
+        "description": "提交本服务声明的作业类型。\n\nArgs:\n    uow: 租户库工作单元。\n    request: 提交请求。\n\nReturns:\n    ApiResponse: 统一响应，data 含作业标识。",
+        "operationId": "submit_job_api_v1_jobs_internal_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Submit Job",
+        "tags": [
+          "job"
+        ]
+      }
+    },
+    "/api/v1/jobs/internal/{job_id}": {
+      "get": {
+        "description": "本地作业详情（含结果与错误摘要）。\n\nArgs:\n    uow: 租户库工作单元。\n    job_id: 作业标识。\n\nReturns:\n    ApiResponse: 统一响应，data 为本地详情。\n\nRaises:\n    JobNotFoundError: 作业不存在（`71001`）。",
+        "operationId": "get_job_api_v1_jobs_internal__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "job"
+        ]
+      }
+    },
+    "/api/v1/jobs/internal/{job_id}/cancel": {
+      "post": {
+        "description": "本地取消作业。\n\nArgs:\n    uow: 租户库工作单元。\n    job_id: 作业标识。\n    request: 取消原因（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为处理结果。\n\nRaises:\n    JobNotFoundError: 作业不存在（`71001`）。\n    JobNotCancelableError: 终态不可取消（`71003`）。",
+        "operationId": "cancel_job_api_v1_jobs_internal__job_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/JobCancelRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Cancel Job",
+        "tags": [
+          "job"
+        ]
+      }
+    },
+    "/api/v1/jobs/internal/{job_id}/retry": {
+      "post": {
+        "description": "本地重试作业（仅 dead / failed）。\n\nArgs:\n    uow: 租户库工作单元。\n    job_id: 作业标识。\n\nReturns:\n    ApiResponse: 统一响应，data 为处理结果。\n\nRaises:\n    JobNotFoundError: 作业不存在（`71001`）。\n    JobNotRetryableError: 非 dead / failed 不可重试（`71004`）。",
+        "operationId": "retry_job_api_v1_jobs_internal__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Retry Job",
+        "tags": [
+          "job"
         ]
       }
     },

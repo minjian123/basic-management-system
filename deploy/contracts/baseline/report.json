@@ -2,6 +2,7 @@
   "components": {
     "schemas": {
       "ApiResponse": {
+        "additionalProperties": false,
         "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
         "properties": {
           "code": {
@@ -41,6 +42,7 @@
         "type": "object"
       },
       "PrintBatchRequest": {
+        "additionalProperties": false,
         "description": "批量打印请求：`{template_key, keys, mode?, options?}`。",
         "properties": {
           "keys": {
@@ -84,6 +86,7 @@
         "type": "object"
       },
       "PrintDocumentPayload": {
+        "additionalProperties": false,
         "description": "单据数据（单据键 + 主表字段 + 明细行）。",
         "properties": {
           "biz_key": {
@@ -118,6 +121,7 @@
         "type": "object"
       },
       "PrintExportRequest": {
+        "additionalProperties": false,
         "description": "单条导出 PDF 请求：`{template_key, document, options?}`。",
         "properties": {
           "document": {
@@ -150,6 +154,7 @@
         "type": "object"
       },
       "PrintOptionsPayload": {
+        "additionalProperties": false,
         "description": "渲染选项（纸张 / 方向 / 色调 / 水印 / 打印人）。",
         "properties": {
           "orientation": {

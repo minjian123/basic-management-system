@@ -10,13 +10,13 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 
 
 class CapabilityGrantResponse(BaseSchema):
     """授权记录响应（与 `sys_capability_grant` 对齐；`id` 序列化为字符串）。"""
 
-    id: int
+    id: SnowflakeIdStr
     capability_name: str
     consumer_key: str
     source: str

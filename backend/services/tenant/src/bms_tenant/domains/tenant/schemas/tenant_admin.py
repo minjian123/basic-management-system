@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 from bms_core.schemas.pagination import BasePageResponse
 
 TenantStatus = Literal["provisioning", "active", "suspended"]
@@ -101,7 +101,7 @@ class TenantModuleOption(BaseSchema):
 class TenantListItem(BaseSchema):
     """租户列表项。"""
 
-    id: int = Field(description="租户主键")
+    id: SnowflakeIdStr = Field(description="租户主键")
     code: str = Field(description="租户编码")
     name: str = Field(description="租户名称")
     domain: str | None = Field(default=None, description="子域名")
@@ -121,7 +121,7 @@ class TenantList(BasePageResponse[TenantListItem]):
 class TenantDetail(BaseSchema):
     """租户详情（含配额与模块）。"""
 
-    id: int = Field(description="租户主键")
+    id: SnowflakeIdStr = Field(description="租户主键")
     code: str = Field(description="租户编码")
     name: str = Field(description="租户名称")
     domain: str | None = Field(default=None, description="子域名")
@@ -161,7 +161,7 @@ class ModuleStatusResponse(BaseSchema):
 class QuotaConsumeRequest(BaseSchema):
     """配额占用 / 校验请求（内部契约）。"""
 
-    tenant_id: int = Field(description="租户主键")
+    tenant_id: SnowflakeIdStr = Field(description="租户主键")
     quota_key: str = Field(description="配额维度（user_count / storage_bytes / open_calls）")
     amount: int = Field(gt=0, description="占用数量（正数）")
 
@@ -169,7 +169,7 @@ class QuotaConsumeRequest(BaseSchema):
 class QuotaReleaseRequest(BaseSchema):
     """配额释放请求（内部契约）。"""
 
-    tenant_id: int = Field(description="租户主键")
+    tenant_id: SnowflakeIdStr = Field(description="租户主键")
     quota_key: str = Field(description="配额维度")
     amount: int = Field(gt=0, description="释放数量（正数）")
 

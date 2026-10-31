@@ -10,13 +10,14 @@
 
 import types
 from collections.abc import Callable, Iterable, Mapping, Set
-from typing import Any, ClassVar, Protocol, Union, cast, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Protocol, Union, cast, get_args, get_origin
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     GetCoreSchemaHandler,
     GetJsonSchemaHandler,
+    PlainSerializer,
     SerializationInfo,
     model_serializer,
 )
@@ -193,6 +194,16 @@ CONTRACT_STABLE_DICT: Callable[[], ConcurrentStableDict[Any, Any]] = ConcurrentS
 
 CONTRACT_STABLE_SET: Callable[[], ConcurrentStableSet[Any]] = ConcurrentStableSet
 """插入序集合空集合工厂（`Field(default_factory=...)`）。"""
+
+SnowflakeIdStr = Annotated[int, PlainSerializer(str, return_type=str, when_used="json")]
+"""雪花 ID 契约字段类型：**内部 `int`，JSON 输出字符串**（126 位 ID 超出 JS 安全整数）。
+
+- 校验：按 `int`（lax 模式接受数字字符串），请求体兼容前端传字符串 ID；
+- 序列化：仅 JSON 模式转字符串（`when_used="json"`）——`model_dump()`（python 模式）保持
+  `int`，内部链路（事件 / 缓存 / 查询参数）零改动；HTTP 响应与 `model_dump_json()` 为 `str`；
+- 可空字段写 `SnowflakeIdStr | None`；
+- 与 `stringify_ids` 的兜底不冲突（后者只处理 `id` / `*_id` 的整型值，值已是字符串时原样返回）。
+"""
 
 
 def _stringified_value_schema(value: Any) -> Any:

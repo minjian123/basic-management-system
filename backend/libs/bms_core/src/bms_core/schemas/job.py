@@ -9,7 +9,7 @@ from datetime import datetime
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
 
 __all__ = ["JobActionResponse", "JobCancelRequest", "JobInternalItem", "JobSubmitRequest"]
 
@@ -40,10 +40,10 @@ class JobActionResponse(BaseSchema):
 class JobInternalItem(BaseSchema):
     """内部本地作业详情（含结果与错误摘要）。"""
 
-    job_id: int = Field(description="作业标识")
+    job_id: SnowflakeIdStr = Field(description="作业标识")
     job_type: str = Field(description="作业类型")
     status: str = Field(description="状态")
-    tenant_id: int | None = Field(default=None, description="租户主键")
+    tenant_id: SnowflakeIdStr | None = Field(default=None, description="租户主键")
     progress_done: int = Field(description="已完成量")
     progress_total: int | None = Field(default=None, description="总量")
     attempts: int = Field(description="尝试次数")

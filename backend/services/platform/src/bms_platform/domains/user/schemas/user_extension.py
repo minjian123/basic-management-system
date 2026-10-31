@@ -9,13 +9,13 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 
 
 class UserExtensionCreateRequest(BaseSchema):
     """新增用户扩展信息请求。"""
 
-    user_id: int = Field(gt=0, description="用户主键")
+    user_id: SnowflakeIdStr = Field(gt=0, description="用户主键")
     label: str = Field(min_length=1, max_length=64, description="扩展标签（用户维度内唯一）")
     remark: str | None = Field(default=None, max_length=255, description="备注")
 
@@ -30,8 +30,8 @@ class UserExtensionUpdateRequest(BaseSchema):
 class UserExtensionItem(BaseSchema):
     """用户扩展信息行。"""
 
-    id: int = Field(description="主键（雪花 ID，JSON 以字符串输出）")
-    user_id: int = Field(description="用户主键")
+    id: SnowflakeIdStr = Field(description="主键（雪花 ID，JSON 以字符串输出）")
+    user_id: SnowflakeIdStr = Field(description="用户主键")
     label: str = Field(description="扩展标签")
     remark: str | None = Field(description="备注")
     created_at: datetime = Field(description="创建时间（UTC）")

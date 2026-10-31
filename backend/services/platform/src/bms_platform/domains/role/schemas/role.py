@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, SnowflakeIdStr
 
 RoleStatus = Literal["enabled", "disabled"]
 """角色状态取值。"""
@@ -56,7 +56,7 @@ class RoleUpdateRequest(BaseSchema):
 class RoleItem(BaseSchema):
     """角色列表行。"""
 
-    id: int = Field(description="角色主键")
+    id: SnowflakeIdStr = Field(description="角色主键")
     code: str = Field(description="角色码")
     name: str = Field(description="角色名称")
     status: str = Field(description="状态（enabled/disabled）")
@@ -68,7 +68,7 @@ class RoleItem(BaseSchema):
 class RoleDetail(BaseSchema):
     """角色详情（含乐观锁版本与审计字段，供记录页「系统信息」）。"""
 
-    id: int = Field(description="角色主键")
+    id: SnowflakeIdStr = Field(description="角色主键")
     code: str = Field(description="角色码")
     name: str = Field(description="角色名称")
     status: str = Field(description="状态（enabled/disabled）")
@@ -77,9 +77,9 @@ class RoleDetail(BaseSchema):
     subject_count: int = Field(description="已分配用户数")
     version: int = Field(description="乐观锁版本")
     created_at: datetime = Field(description="创建时间（UTC）")
-    created_by: int | None = Field(description="创建人")
+    created_by: SnowflakeIdStr | None = Field(description="创建人")
     updated_at: datetime = Field(description="更新时间（UTC）")
-    updated_by: int | None = Field(description="更新人")
+    updated_by: SnowflakeIdStr | None = Field(description="更新人")
 
 
 # --------------------------------------------------------------------------- 用户分配
@@ -88,7 +88,7 @@ class RoleDetail(BaseSchema):
 class AssignedUserItem(BaseSchema):
     """角色已分配用户行（最小字段，同库取 `sys_user`）。"""
 
-    user_id: int = Field(description="用户主键")
+    user_id: SnowflakeIdStr = Field(description="用户主键")
     username: str = Field(description="登录账号")
     name: str = Field(description="用户昵称 / 显示名")
     status: str = Field(description="账号状态（enabled/disabled）")
@@ -117,8 +117,8 @@ class RolePermissionEntryRequest(BaseSchema):
     """一条授权条目（菜单 / 表单 / 权限码）。"""
 
     perm_type: PermType = Field(description="授权类型（menu/form/permission）")
-    target_id: int = Field(gt=0, description="授权目标 ID")
-    source_menu_id: int = Field(default=0, ge=0, description="来源菜单入口 ID（0 = 表单级直接授予）")
+    target_id: SnowflakeIdStr = Field(gt=0, description="授权目标 ID")
+    source_menu_id: SnowflakeIdStr = Field(default=0, ge=0, description="来源菜单入口 ID（0 = 表单级直接授予）")
 
 
 class RolePermissionRequest(BaseSchema):
@@ -132,10 +132,10 @@ class RolePermissionRequest(BaseSchema):
 class RolePermissionEntryItem(BaseSchema):
     """授权条目行（响应）。"""
 
-    id: int = Field(description="授权行主键")
+    id: SnowflakeIdStr = Field(description="授权行主键")
     perm_type: str = Field(description="授权类型（menu/form/permission）")
-    target_id: int = Field(description="授权目标 ID")
-    source_menu_id: int = Field(description="来源菜单入口 ID（0 = 表单级直接授予）")
+    target_id: SnowflakeIdStr = Field(description="授权目标 ID")
+    source_menu_id: SnowflakeIdStr = Field(description="来源菜单入口 ID（0 = 表单级直接授予）")
 
 
 class RolePermissions(BaseSchema):
@@ -152,11 +152,11 @@ class RolePermissions(BaseSchema):
 class RoleFieldEntryRequest(BaseSchema):
     """一条字段权限条目（只落收窄项）。"""
 
-    form_id: int = Field(gt=0, description="表单 ID")
-    field_id: int = Field(gt=0, description="字段 ID")
+    form_id: SnowflakeIdStr = Field(gt=0, description="表单 ID")
+    field_id: SnowflakeIdStr = Field(gt=0, description="字段 ID")
     visible: bool = Field(default=True, description="是否可见")
     editable: bool = Field(default=True, description="是否可编辑（不可见即不可编辑）")
-    source_menu_id: int = Field(default=0, ge=0, description="来源菜单入口 ID（0 = 表单级直接授予）")
+    source_menu_id: SnowflakeIdStr = Field(default=0, ge=0, description="来源菜单入口 ID（0 = 表单级直接授予）")
 
 
 class RoleFieldRequest(BaseSchema):
@@ -170,12 +170,12 @@ class RoleFieldRequest(BaseSchema):
 class RoleFieldEntryItem(BaseSchema):
     """字段权限条目行（响应）。"""
 
-    id: int = Field(description="字段权限行主键")
-    form_id: int = Field(description="表单 ID")
-    field_id: int = Field(description="字段 ID")
+    id: SnowflakeIdStr = Field(description="字段权限行主键")
+    form_id: SnowflakeIdStr = Field(description="表单 ID")
+    field_id: SnowflakeIdStr = Field(description="字段 ID")
     visible: bool = Field(description="是否可见")
     editable: bool = Field(description="是否可编辑")
-    source_menu_id: int = Field(description="来源菜单入口 ID（0 = 表单级直接授予）")
+    source_menu_id: SnowflakeIdStr = Field(description="来源菜单入口 ID（0 = 表单级直接授予）")
 
 
 class RoleFields(BaseSchema):
@@ -210,7 +210,7 @@ class RoleDataScopeRequest(BaseSchema):
 class RoleDataScopeEntryItem(BaseSchema):
     """数据权限条目行（响应）。"""
 
-    id: int = Field(description="数据权限行主键")
+    id: SnowflakeIdStr = Field(description="数据权限行主键")
     data_source_key: str = Field(description="字典标识（业务码字符串）")
     policy_type: str = Field(description="策略类型（select/region/match/extension）")
     config: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(

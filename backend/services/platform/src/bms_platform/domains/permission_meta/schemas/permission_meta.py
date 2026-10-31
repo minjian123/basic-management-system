@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, SnowflakeIdStr
 
 I18nNames = Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION]
 """多语言名称映射（locale → 文案）。"""
@@ -61,8 +61,8 @@ class ActionUpdateRequest(BaseSchema):
 class PermissionCreateRequest(BaseSchema):
     """手工新增权限码组合（组合创建后只读）。"""
 
-    business_id: int = Field(gt=0, description="业务码 ID")
-    action_id: int = Field(gt=0, description="动作码 ID")
+    business_id: SnowflakeIdStr = Field(gt=0, description="业务码 ID")
+    action_id: SnowflakeIdStr = Field(gt=0, description="动作码 ID")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
 
 
@@ -95,7 +95,7 @@ class PermissionGenerateResult(BaseSchema):
 class BusinessItem(BaseSchema):
     """业务码行（纯资源维度）。"""
 
-    id: int = Field(description="业务码主键")
+    id: SnowflakeIdStr = Field(description="业务码主键")
     code: str = Field(description="业务码")
     name: str = Field(description="名称（默认文案）")
     status: str = Field(description="状态（enabled/disabled）")
@@ -114,7 +114,7 @@ class BusinessList(BaseSchema):
 class ActionItem(BaseSchema):
     """动作码行（全局动词维度）。"""
 
-    id: int = Field(description="动作码主键")
+    id: SnowflakeIdStr = Field(description="动作码主键")
     code: str = Field(description="动作码")
     name: str = Field(description="名称（默认文案）")
     status: str = Field(description="状态（enabled/disabled）")
@@ -132,12 +132,12 @@ class ActionList(BaseSchema):
 class PermissionItem(BaseSchema):
     """权限码行（业务码 × 动作码组合，真正权限码）。"""
 
-    id: int = Field(description="权限码主键")
+    id: SnowflakeIdStr = Field(description="权限码主键")
     code: str = Field(description="权限码（业务码:动作码）")
     name: str = Field(default="", description="权限码名称（业务名·动作名，按 locale 本地化）")
-    business_id: int = Field(description="业务码 ID")
+    business_id: SnowflakeIdStr = Field(description="业务码 ID")
     business_code: str = Field(description="业务码")
-    action_id: int = Field(description="动作码 ID")
+    action_id: SnowflakeIdStr = Field(description="动作码 ID")
     action_code: str = Field(description="动作码")
     status: str = Field(description="状态（enabled/disabled）")
 

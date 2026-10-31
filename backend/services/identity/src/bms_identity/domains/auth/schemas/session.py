@@ -9,7 +9,7 @@ from datetime import datetime
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
 
 SESSION_REVOKED_EVENT = "session.revoked"
 """会话失效广播事件名（`BaseRealtimePublisher` 占位，阶段八接真实 Socket.IO）。"""
@@ -19,7 +19,7 @@ class SessionItem(BaseSchema):
     """会话行（用户 / 设备 / IP / 登录与过期时间 / 撤销时间）。"""
 
     session_id: str = Field(description="会话 id（= JWT jti）")
-    user_id: int = Field(description="用户 ID（用户名由前端经 platform 名称接口回显）")
+    user_id: SnowflakeIdStr = Field(description="用户 ID（用户名由前端经 platform 名称接口回显）")
     device: str | None = Field(default=None, description="设备标识（User-Agent 摘要）")
     ip: str | None = Field(default=None, description="登录 IP")
     login_at: datetime = Field(description="登录时间（UTC）")
@@ -38,7 +38,7 @@ class KickResult(BaseSchema):
 class RevokeUserSessionsRequest(BaseSchema):
     """按用户撤销全部会话请求（服务间内部端点；platform 用户管理调用）。"""
 
-    user_id: int = Field(description="用户 ID")
+    user_id: SnowflakeIdStr = Field(description="用户 ID")
     reason: str = Field(
         min_length=1,
         max_length=32,

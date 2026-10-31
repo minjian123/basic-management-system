@@ -2,6 +2,7 @@
   "components": {
     "schemas": {
       "ApiResponse": {
+        "additionalProperties": false,
         "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
         "properties": {
           "code": {
@@ -28,6 +29,7 @@
         "type": "object"
       },
       "ChatMessageInput": {
+        "additionalProperties": false,
         "description": "流式请求中的单条消息（路由内转 `bms_core.llm.base.ChatMessage`）。",
         "properties": {
           "content": {
@@ -49,6 +51,7 @@
         "type": "object"
       },
       "ChatStopRequest": {
+        "additionalProperties": false,
         "description": "中断在途流请求。",
         "properties": {
           "stream_id": {
@@ -64,6 +67,7 @@
         "type": "object"
       },
       "ChatStreamRequest": {
+        "additionalProperties": false,
         "description": "发起流式对话请求。",
         "properties": {
           "messages": {

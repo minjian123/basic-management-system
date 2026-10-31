@@ -9,7 +9,7 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableDict
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema, SnowflakeIdStr
 
 _IDP_KEY_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 """租户内标识 slug（小写字母 / 数字开头，允许 `-` / `_`）。"""
@@ -18,7 +18,7 @@ _IDP_KEY_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 class IdpProviderItem(BaseSchema):
     """IdP 配置列表 / 详情项（`config` 已脱敏，密钥引用不返明文）。"""
 
-    id: int = Field(description="主键")
+    id: SnowflakeIdStr = Field(description="主键")
     name: str = Field(description="显示名")
     idp_key: str = Field(description="租户内标识 slug")
     type: str = Field(description="协议类型（oidc / cas / wecom / dingtalk）")

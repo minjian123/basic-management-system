@@ -14,6 +14,7 @@ from bms_core.schemas.base import (
     CONTRACT_STABLE_DICT,
     CONTRACT_STABLE_LIST,
     BaseSchema,
+    SnowflakeIdStr,
 )
 
 
@@ -21,7 +22,7 @@ class PlatformPermissionGrant(BaseSchema):
     """授权行（授权类型 + 目标主键）。"""
 
     perm_type: str = Field(description="授权类型：menu / form / permission")
-    target_id: int = Field(description="目标主键（按 perm_type 解释）")
+    target_id: SnowflakeIdStr = Field(description="目标主键（按 perm_type 解释）")
 
 
 class PlatformPermissionDataScope(BaseSchema):
@@ -37,7 +38,7 @@ class PlatformPermissionDataScope(BaseSchema):
 class PlatformPermissionField(BaseSchema):
     """字段权限收窄项（未列出即全开）。"""
 
-    form_id: int = Field(description="表单主键")
+    form_id: SnowflakeIdStr = Field(description="表单主键")
     field_key: str = Field(description="字段键")
     visible: bool = Field(description="读时是否返回")
     editable: bool = Field(description="写时是否接受")

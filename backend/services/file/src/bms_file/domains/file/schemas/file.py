@@ -11,7 +11,7 @@ from typing import Annotated
 from pydantic import ConfigDict, Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 from bms_core.schemas.pagination import BasePageResponse
 
 __all__ = [
@@ -35,7 +35,7 @@ class FileItem(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int = Field(description="文件主键")
+    id: SnowflakeIdStr = Field(description="文件主键")
     name: str = Field(description="原始文件名")
     ext: str | None = Field(default=None, description="扩展名（小写，无点）")
     mime_type: str = Field(description="服务端嗅探的内容类型")
@@ -43,7 +43,7 @@ class FileItem(BaseSchema):
     sha256: str = Field(description="整文件 SHA256")
     source: str = Field(description="来源（upload/dedup/print/export）")
     status: str = Field(description="状态（uploading/completed/failed/orphan）")
-    uploader_id: int | None = Field(default=None, description="上传人")
+    uploader_id: SnowflakeIdStr | None = Field(default=None, description="上传人")
     total_parts: int | None = Field(default=None, description="分片总数（整包为空）")
     uploaded_parts: int | None = Field(default=None, description="已上传片数")
     expires_at: datetime | None = Field(default=None, description="会话过期时刻（UTC）")
@@ -59,7 +59,7 @@ class FilePage(BasePageResponse[FileItem]):
 class UploadResult(BaseSchema):
     """整包上传结果。"""
 
-    file_id: int = Field(description="文件主键")
+    file_id: SnowflakeIdStr = Field(description="文件主键")
     name: str = Field(description="原始文件名")
     mime_type: str = Field(description="服务端嗅探的内容类型")
     size: int = Field(description="字节数")
@@ -79,7 +79,7 @@ class MultipartInitiateRequest(BaseSchema):
 class MultipartInitiateResult(BaseSchema):
     """分片初始化结果。"""
 
-    file_id: int = Field(description="文件主键")
+    file_id: SnowflakeIdStr = Field(description="文件主键")
     upload_id: str = Field(description="会话标识（后续分片 / 合并 / 取消均以它为准）")
     part_size: int = Field(description="分片大小（字节）")
     total_parts: int = Field(description="分片总数（part_no 取值 1 ~ total_parts）")
@@ -97,7 +97,7 @@ class MultipartPartResult(BaseSchema):
 class MultipartStatusResult(BaseSchema):
     """断点续传状态。"""
 
-    file_id: int = Field(description="文件主键")
+    file_id: SnowflakeIdStr = Field(description="文件主键")
     upload_id: str = Field(description="会话标识")
     status: str = Field(description="文件状态")
     part_size: int = Field(description="分片大小（字节）")
@@ -113,7 +113,7 @@ class MultipartStatusResult(BaseSchema):
 class MultipartCompleteResult(BaseSchema):
     """合并完成结果。"""
 
-    file_id: int = Field(description="文件主键")
+    file_id: SnowflakeIdStr = Field(description="文件主键")
     size: int = Field(description="字节数")
     sha256: str = Field(description="整文件 SHA256")
     status: str = Field(description="状态（completed）")
@@ -132,7 +132,7 @@ class DedupRequest(BaseSchema):
 class DedupResult(BaseSchema):
     """秒传命中结果（未命中时统一响应 data 为 null）。"""
 
-    file_id: int = Field(description="新建的文件主键（复用既有对象）")
+    file_id: SnowflakeIdStr = Field(description="新建的文件主键（复用既有对象）")
     dedup: bool = Field(default=True, description="固定 true（命中秒传）")
     size: int = Field(description="字节数")
 
@@ -140,7 +140,7 @@ class DedupResult(BaseSchema):
 class PresignResult(BaseSchema):
     """预签名取址结果（后端不代理文件流）。"""
 
-    file_id: int = Field(description="文件主键")
+    file_id: SnowflakeIdStr = Field(description="文件主键")
     url: str = Field(description="限时预签名地址")
     expires_in: int = Field(description="有效期（秒）")
     method: str = Field(description="HTTP 方法")

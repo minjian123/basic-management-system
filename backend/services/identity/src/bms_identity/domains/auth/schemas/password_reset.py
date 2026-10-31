@@ -6,7 +6,7 @@
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
 from bms_core.schemas.service import ServiceDto
 from bms_identity.domains.auth.schemas.auth import CaptchaInput
 
@@ -43,7 +43,7 @@ class PlatformResetTargetResult(ServiceDto):
     """platform 内部重置目标契约 DTO（消费 `UserResetTargetResult`）。"""
 
     found: bool = Field(default=False, description="账号是否存在（未软删）")
-    user_id: int | None = Field(default=None, description="用户主键")
+    user_id: SnowflakeIdStr | None = Field(default=None, description="用户主键")
     account: str = Field(default="", description="登录账号")
     deliverable: bool = Field(default=False, description="是否可送达（启用且有可用通道）")
     channel: str = Field(default="", description="投递通道（email / sms；无可为空串）")

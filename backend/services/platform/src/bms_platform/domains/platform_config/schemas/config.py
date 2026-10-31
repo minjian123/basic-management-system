@@ -11,7 +11,7 @@ from datetime import datetime
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
 from bms_core.schemas.pagination import BasePageResponse
 
 __all__ = [
@@ -25,7 +25,7 @@ __all__ = [
 class ConfigItem(BaseSchema):
     """系统参数条目（列表 / 详情同构）。"""
 
-    id: int = Field(description="参数主键")
+    id: SnowflakeIdStr = Field(description="参数主键")
     config_key: str = Field(description="参数键（点分小写，如 password.max_age_days）")
     name: str = Field(description="参数名称（缺省取参数键）")
     value: str = Field(description="参数值（文本承载）")

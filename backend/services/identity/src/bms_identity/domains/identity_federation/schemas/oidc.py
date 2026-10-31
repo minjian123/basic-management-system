@@ -9,7 +9,7 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, SnowflakeIdStr
 
 
 class ClientCreateRequest(BaseSchema):
@@ -35,7 +35,7 @@ class ClientCreateRequest(BaseSchema):
 class ClientItem(BaseSchema):
     """客户端列表 / 详情项（永不包含 secret 与哈希）。"""
 
-    id: int = Field(description="主键")
+    id: SnowflakeIdStr = Field(description="主键")
     client_id: str = Field(description="客户端标识")
     name: str = Field(description="应用名称")
     redirect_uris: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(

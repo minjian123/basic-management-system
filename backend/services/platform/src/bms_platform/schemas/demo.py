@@ -2,7 +2,7 @@
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
 
 
 class DemoCreateRequest(BaseSchema):
@@ -20,5 +20,5 @@ class DemoUpdateRequest(BaseSchema):
 class DemoResponse(BaseSchema):
     """demo 响应。"""
 
-    id: int
+    id: SnowflakeIdStr
     name: str

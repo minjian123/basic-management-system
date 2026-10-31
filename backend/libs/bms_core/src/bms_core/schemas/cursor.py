@@ -18,6 +18,7 @@ from typing import cast
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseValueObject
+from bms_core.schemas.base import SnowflakeIdStr
 from bms_core.schemas.sorting import SortDirection, SortSpec
 
 CURSOR_VERSION = 1
@@ -38,7 +39,7 @@ class CursorPayload(BaseValueObject):
     values: ConcurrentStableFrozenList[object]
     """末行排序键值（与规格一一对应）。"""
 
-    item_id: int
+    item_id: SnowflakeIdStr
     """末行主键（键集比较兜底键）。"""
 
     def matches(self, sort: ConcurrentStableList[SortSpec]) -> bool:

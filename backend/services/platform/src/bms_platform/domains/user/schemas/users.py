@@ -11,7 +11,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, MaskedFields
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, MaskedFields, SnowflakeIdStr
 
 UserStatus = Literal["enabled", "disabled"]
 """账号状态取值（`enabled` / `disabled`）。"""
@@ -25,7 +25,7 @@ _PHONE_PATTERN = r"^[+]?[0-9][0-9\-\s]{5,31}$"
 class UserItem(BaseSchema):
     """用户列表行（管理面；选择用户弹窗 / 已分配列表回显 / 用户列表共用；不含联系方式）。"""
 
-    id: int = Field(description="用户主键")
+    id: SnowflakeIdStr = Field(description="用户主键")
     username: str = Field(description="登录账号")
     name: str = Field(description="用户昵称 / 显示名")
     status: UserStatus = Field(description="账号状态（enabled/disabled）")
@@ -51,7 +51,7 @@ class InternalUserItem(BaseSchema):
     产品自持（`org_user_dept`），不需 platform 回传。
     """
 
-    id: int = Field(description="用户主键")
+    id: SnowflakeIdStr = Field(description="用户主键")
     username: str = Field(description="登录账号")
     name: str = Field(description="昵称 / 显示名")
     status: str = Field(description="账号状态（enabled / disabled）")
@@ -62,13 +62,13 @@ class InternalUserItem(BaseSchema):
 class UserProfileRequest(BaseSchema):
     """用户概要查询请求（按主键；租户经服务 JWT `tenant` claim 解析）。"""
 
-    user_id: int = Field(description="用户主键")
+    user_id: SnowflakeIdStr = Field(description="用户主键")
 
 
 class UserProfileUser(BaseSchema):
     """用户概要（SSO 回调定位用户后取展示信息与状态）。"""
 
-    id: int = Field(description="用户 ID")
+    id: SnowflakeIdStr = Field(description="用户 ID")
     username: str = Field(description="登录账号")
     name: str = Field(description="昵称 / 显示名")
     status: str = Field(description="账号状态（enabled / disabled）")
@@ -117,7 +117,7 @@ class UserResetTargetResult(BaseSchema):
     """重置目标解析结果（通道与目标供 identity 侧通知投递；不可送达以 `deliverable=false` 表达）。"""
 
     found: bool = Field(default=False, description="账号是否存在（未软删）")
-    user_id: int | None = Field(default=None, description="用户主键（found=true 时返回）")
+    user_id: SnowflakeIdStr | None = Field(default=None, description="用户主键（found=true 时返回）")
     account: str = Field(default="", description="登录账号（found=true 时返回）")
     deliverable: bool = Field(default=False, description="是否可送达（启用且有可用通道）")
     channel: str = Field(default="", description="投递通道（email / sms；无可用通道为空串）")
@@ -178,7 +178,7 @@ class UserDetail(BaseSchema):
 
     masked_fields: ClassVar[MaskedFields] = ConcurrentStableSet({"phone", "email"})
 
-    id: int = Field(description="用户主键")
+    id: SnowflakeIdStr = Field(description="用户主键")
     username: str = Field(description="登录账号")
     name: str = Field(description="昵称 / 显示名")
     status: UserStatus = Field(description="账号状态（enabled/disabled）")
@@ -223,7 +223,7 @@ class UserPasswordResetResult(BaseSchema):
 class UserRoleItem(BaseSchema):
     """用户直接角色行（同库 `sys_user_role` ⋈ `sys_role`；只读，维护归角色管理）。"""
 
-    role_id: int = Field(description="角色主键")
+    role_id: SnowflakeIdStr = Field(description="角色主键")
     role_code: str = Field(description="角色码")
     role_name: str = Field(description="角色名称")
     role_type: str = Field(description="角色类型（custom/system/security/audit）")
@@ -258,7 +258,9 @@ class UserAssignmentPosts(BaseSchema):
     post_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="岗位主键集合（全量覆盖；空集 = 清空）"
     )
-    primary_post_id: int | None = Field(default=None, description="主要岗位主键（须在 post_ids 内；None = 不设）")
+    primary_post_id: SnowflakeIdStr | None = Field(
+        default=None, description="主要岗位主键（须在 post_ids 内；None = 不设）"
+    )
 
 
 class UserAssignmentDepts(BaseSchema):
@@ -267,7 +269,9 @@ class UserAssignmentDepts(BaseSchema):
     dept_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="部门主键集合（全量覆盖；空集 = 清空）"
     )
-    primary_dept_id: int | None = Field(default=None, description="主要部门主键（须在 dept_ids 内；None = 不设）")
+    primary_dept_id: SnowflakeIdStr | None = Field(
+        default=None, description="主要部门主键（须在 dept_ids 内；None = 不设）"
+    )
 
 
 class UserAssignmentsRequest(BaseSchema):

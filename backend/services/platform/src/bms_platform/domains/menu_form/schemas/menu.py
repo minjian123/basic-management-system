@@ -17,6 +17,7 @@ from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
     CONTRACT_STABLE_LIST,
     BaseSchema,
+    SnowflakeIdStr,
 )
 
 I18nNames = Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION]
@@ -35,7 +36,7 @@ ButtonType = Literal["toolbar", "interface"]
 class MenuCreateRequest(BaseSchema):
     """新增菜单请求（只提交多语言文案映射；主表默认文案由服务端按优先级派生）。"""
 
-    parent_id: int = Field(default=0, ge=0, description="父菜单 ID（0 为根）")
+    parent_id: SnowflakeIdStr = Field(default=0, ge=0, description="父菜单 ID（0 为根）")
     path: str = Field(min_length=1, max_length=255, description="前端路由路径（/ 开头）")
     component: str | None = Field(default=None, max_length=255, description="视图组件标识（可空 = 目录节点）")
     icon: str | None = Field(default=None, max_length=64, description="完整 icon key")
@@ -48,7 +49,7 @@ class MenuCreateRequest(BaseSchema):
 class MenuUpdateRequest(BaseSchema):
     """更新菜单请求（整体替换；只提交多语言文案映射）。"""
 
-    parent_id: int = Field(ge=0, description="父菜单 ID（0 为根）")
+    parent_id: SnowflakeIdStr = Field(ge=0, description="父菜单 ID（0 为根）")
     path: str = Field(min_length=1, max_length=255, description="前端路由路径（/ 开头）")
     component: str | None = Field(default=None, max_length=255, description="视图组件标识")
     icon: str | None = Field(default=None, max_length=64, description="完整 icon key")
@@ -64,7 +65,7 @@ class FormCreateRequest(BaseSchema):
     menu_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（可空）"
     )
-    business_id: int = Field(gt=0, description="所属业务码 ID")
+    business_id: SnowflakeIdStr = Field(gt=0, description="所属业务码 ID")
     component: str | None = Field(default=None, max_length=255, description="表单视图组件标识")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
 
@@ -75,7 +76,7 @@ class FormUpdateRequest(BaseSchema):
     menu_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（全量；空 = 解除全部入口）"
     )
-    business_id: int = Field(gt=0, description="所属业务码 ID")
+    business_id: SnowflakeIdStr = Field(gt=0, description="所属业务码 ID")
     component: str | None = Field(default=None, max_length=255, description="表单视图组件标识")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
 
@@ -83,8 +84,8 @@ class FormUpdateRequest(BaseSchema):
 class ButtonCreateRequest(BaseSchema):
     """新增按钮请求（挂表单 / 挂权限码）。"""
 
-    form_id: int = Field(gt=0, description="所属表单 ID")
-    permission_id: int = Field(gt=0, description="挂接权限码 ID")
+    form_id: SnowflakeIdStr = Field(gt=0, description="所属表单 ID")
+    permission_id: SnowflakeIdStr = Field(gt=0, description="挂接权限码 ID")
     name: str = Field(min_length=1, max_length=128, description="按钮名（界面可见文本）")
     type: ButtonType = Field(default="toolbar", description="按钮形态（toolbar/interface）")
     sort: int = Field(default=0, description="同表内排序（升序）")
@@ -94,7 +95,7 @@ class ButtonCreateRequest(BaseSchema):
 class ButtonUpdateRequest(BaseSchema):
     """更新按钮请求。"""
 
-    permission_id: int = Field(gt=0, description="挂接权限码 ID")
+    permission_id: SnowflakeIdStr = Field(gt=0, description="挂接权限码 ID")
     name: str = Field(min_length=1, max_length=128, description="按钮名")
     type: ButtonType = Field(default="toolbar", description="按钮形态（toolbar/interface）")
     sort: int = Field(default=0, description="同表内排序（升序）")
@@ -104,7 +105,7 @@ class ButtonUpdateRequest(BaseSchema):
 class FieldCreateRequest(BaseSchema):
     """新增字段请求（只提交多语言文案映射）。"""
 
-    form_id: int = Field(gt=0, description="所属表单 ID")
+    form_id: SnowflakeIdStr = Field(gt=0, description="所属表单 ID")
     field_key: str = Field(min_length=1, max_length=64, description="字段键（表单内唯一）")
     type: str = Field(min_length=1, max_length=32, description="字段类型（组件语义键）")
     sort: int = Field(default=0, description="同表内排序（升序）")
@@ -127,8 +128,8 @@ class FieldUpdateRequest(BaseSchema):
 class MenuItem(BaseSchema):
     """菜单节点（平台维护视图，树形嵌套）。"""
 
-    id: int = Field(description="菜单主键（雪花 ID，JSON 以字符串输出）")
-    parent_id: int = Field(description="父菜单 ID（0 为根）")
+    id: SnowflakeIdStr = Field(description="菜单主键（雪花 ID，JSON 以字符串输出）")
+    parent_id: SnowflakeIdStr = Field(description="父菜单 ID（0 为根）")
     name: str = Field(description="菜单名（默认文案）")
     path: str = Field(description="前端路由路径")
     component: str | None = Field(description="视图组件标识")
@@ -153,11 +154,11 @@ class MenuTree(BaseSchema):
 class FormItem(BaseSchema):
     """表单行（菜单入口多对多）。"""
 
-    id: int = Field(description="表单主键")
+    id: SnowflakeIdStr = Field(description="表单主键")
     menu_ids: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（雪花 ID 字符串化；空 = 无入口表单）"
     )
-    business_id: int = Field(description="所属业务码 ID")
+    business_id: SnowflakeIdStr = Field(description="所属业务码 ID")
     component: str | None = Field(description="表单视图组件标识")
     status: str = Field(description="状态（enabled/disabled）")
     created_at: datetime = Field(description="创建时间（UTC）")
@@ -175,9 +176,9 @@ class FormList(BaseSchema):
 class ButtonItem(BaseSchema):
     """按钮行。"""
 
-    id: int = Field(description="按钮主键")
-    form_id: int = Field(description="所属表单 ID")
-    permission_id: int = Field(description="挂接权限码 ID")
+    id: SnowflakeIdStr = Field(description="按钮主键")
+    form_id: SnowflakeIdStr = Field(description="所属表单 ID")
+    permission_id: SnowflakeIdStr = Field(description="挂接权限码 ID")
     name: str = Field(description="按钮名")
     type: str = Field(description="按钮形态（toolbar/interface）")
     sort: int = Field(description="同表内排序")
@@ -195,8 +196,8 @@ class ButtonList(BaseSchema):
 class FieldItem(BaseSchema):
     """字段行。"""
 
-    id: int = Field(description="字段主键")
-    form_id: int = Field(description="所属表单 ID")
+    id: SnowflakeIdStr = Field(description="字段主键")
+    form_id: SnowflakeIdStr = Field(description="所属表单 ID")
     field_key: str = Field(description="字段键（表单内唯一）")
     name: str = Field(description="字段名（默认文案）")
     type: str = Field(description="字段类型（组件语义键）")
@@ -219,8 +220,8 @@ class FieldList(BaseSchema):
 class MyMenuButton(BaseSchema):
     """动态菜单下的按钮元数据（按权限码标记可见）。"""
 
-    id: int = Field(description="按钮主键")
-    permission_id: int = Field(description="挂接权限码 ID")
+    id: SnowflakeIdStr = Field(description="按钮主键")
+    permission_id: SnowflakeIdStr = Field(description="挂接权限码 ID")
     permission_code: str = Field(description="权限码（业务码:动作码）")
     name: str = Field(description="按钮名")
     type: str = Field(description="按钮形态（toolbar/interface）")
@@ -231,7 +232,7 @@ class MyMenuButton(BaseSchema):
 class MyMenuField(BaseSchema):
     """动态菜单下的字段元数据（按字段权限标记可见 / 可编辑）。"""
 
-    id: int = Field(description="字段主键")
+    id: SnowflakeIdStr = Field(description="字段主键")
     field_key: str = Field(description="字段键")
     name: str = Field(description="字段名（按 locale 本地化，缺省回退默认文案）")
     type: str = Field(description="字段类型（组件语义键）")
@@ -243,9 +244,9 @@ class MyMenuField(BaseSchema):
 class MyMenuForm(BaseSchema):
     """动态菜单下的表单元数据（一个菜单入口可关联多个表单）。"""
 
-    id: int = Field(description="表单主键")
-    menu_id: int = Field(description="关联菜单入口 ID（即当前节点 ID）")
-    business_id: int = Field(description="所属业务码 ID")
+    id: SnowflakeIdStr = Field(description="表单主键")
+    menu_id: SnowflakeIdStr = Field(description="关联菜单入口 ID（即当前节点 ID）")
+    business_id: SnowflakeIdStr = Field(description="所属业务码 ID")
     business_code: str = Field(description="业务权限码")
     component: str | None = Field(description="表单视图组件标识")
     buttons: Annotated[ConcurrentStableList[MyMenuButton], CONTRACT_COLLECTION] = Field(
@@ -259,8 +260,8 @@ class MyMenuForm(BaseSchema):
 class MyMenuNode(BaseSchema):
     """动态菜单节点（过滤后菜单树，含表单元数据，多对多）。"""
 
-    id: int = Field(description="菜单主键")
-    parent_id: int = Field(description="父菜单 ID（0 为根）")
+    id: SnowflakeIdStr = Field(description="菜单主键")
+    parent_id: SnowflakeIdStr = Field(description="父菜单 ID（0 为根）")
     name: str = Field(description="菜单名（按 locale 本地化，缺省回退默认文案）")
     path: str = Field(description="前端路由路径")
     component: str | None = Field(description="视图组件标识")

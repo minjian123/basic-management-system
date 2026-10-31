@@ -5,7 +5,7 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, SnowflakeIdStr
 from bms_core.schemas.service import ServiceDto
 
 REFRESH_COOKIE_NAME = "bms_refresh_token"
@@ -72,7 +72,7 @@ class PlatformTenantResult(BaseSchema):
 class UserSummary(BaseSchema):
     """登录成功返回的用户概要（权限 / 菜单概要归阶段七 RBAC）。"""
 
-    id: int = Field(description="用户 ID")
+    id: SnowflakeIdStr = Field(description="用户 ID")
     username: str = Field(description="登录账号")
     name: str = Field(description="昵称 / 显示名")
     tenant: str | None = Field(default=None, description="租户编码")
@@ -101,7 +101,7 @@ class RefreshResult(BaseSchema):
 class PlatformUserSummary(ServiceDto):
     """platform 内部凭据校验返回的最小用户概要。"""
 
-    id: int = Field(description="用户 ID")
+    id: SnowflakeIdStr = Field(description="用户 ID")
     username: str = Field(description="登录账号")
     name: str = Field(description="昵称 / 显示名")
     locale: str | None = Field(default=None, description="语言偏好")
