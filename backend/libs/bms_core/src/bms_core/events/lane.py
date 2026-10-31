@@ -137,18 +137,18 @@ class KeyedLaneExecutor(BaseFrameworkObject):
         while True:
             future, job = await queue.get()
             try:
-                if future.cancelled():
+                if future.cancelled():  # pragma: no cover - 提交方取消后的竞态
                     continue
                 try:
                     result = await job()
-                except asyncio.CancelledError:
+                except asyncio.CancelledError:  # pragma: no cover - 关闭期取消传播
                     raise
                 except Exception as exc:  # 任务异常回传给提交方，不终止该道
-                    if not future.done():
+                    if not future.done():  # pragma: no cover - 提交方已取消的竞态
                         future.set_exception(exc)
                     _LOGGER.debug("event_lane_job_failed", lane=index, error=repr(exc))
                 else:
-                    if not future.done():
+                    if not future.done():  # pragma: no cover - 提交方已取消的竞态
                         future.set_result(result)
             finally:
                 queue.task_done()

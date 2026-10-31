@@ -230,7 +230,7 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
                 "RocketMQ 端点未配置（[rocketmq].endpoints / BMS_ROCKETMQ__ENDPOINTS）",
                 data={"topic": topic},
             )
-        return self._create_sdk_producer(topic)
+        return self._create_sdk_producer(topic)  # pragma: no cover - 真机路径（集成用例覆盖）
 
     def _create_sdk_producer(self, topic: str) -> Any:  # pragma: no cover
         """用官方 SDK 创建并启动 producer（**真机路径**，由集成用例覆盖）。

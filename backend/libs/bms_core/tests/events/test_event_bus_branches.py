@@ -6,16 +6,15 @@ Redis 未启用时的降级、消费组启停与关闭异常、ack 失败、版�
 """
 
 import asyncio
-from typing import Any
+from importlib import import_module
+from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
 
-import bms_core.events.null
-import bms_core.metrics.null  # noqa: F401  (导入即登记 null 指标实现)
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import EventConsumeError, EventContractError
+from bms_core.core.exceptions import EventConsumeError, EventContractError, RedisUnavailableError
 from bms_core.core.plugin import build_plugin_registry
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
@@ -77,7 +76,7 @@ class _Message:
             event: 事件信封。
         """
         self.body = encode_event(event)
-        self.properties = dict(event_attributes(event))
+        self.properties: ConcurrentStableDict[str, str] = ConcurrentStableDict(event_attributes(event))
 
     @classmethod
     def raw(cls, body: bytes) -> _Message:
@@ -110,7 +109,7 @@ class _Consumer:
         self.ack_error: Exception | None = None
         self.shutdown_error: Exception | None = None
 
-    def receive(self, max_message_num: int, invisible_duration: int) -> list[Any]:
+    def receive(self, max_message_num: int, invisible_duration: int) -> ConcurrentStableList[Any]:
         """取一批。
 
         Args:
@@ -118,13 +117,13 @@ class _Consumer:
             invisible_duration: 可见性超时（忽略）。
 
         Returns:
-            list[Any]: 批次。
+            ConcurrentStableList[Any]: 批次。
         """
         if not self.batches:
-            return []
+            return ConcurrentStableList()
         batch = self.batches[0]
         self.batches.remove(batch)
-        return list(batch)
+        return ConcurrentStableList(batch)
 
     def ack(self, message: Any) -> None:
         """确认（可注入失败）。
@@ -208,11 +207,15 @@ def _group(
     Returns:
         RocketMqEventConsumerGroup: 运行时。
     """
+
+    def build(name: str, topics: ConcurrentStableList[str]) -> _Consumer:
+        return consumer
+
     group = RocketMqEventConsumerGroup(
         settings=settings or _settings(),
         engine_registry=registry,
         metrics=metrics,
-        consumer_factory=lambda name, topics: consumer,
+        consumer_factory=build,
     )
     group.load(
         ConcurrentStableList(
@@ -224,8 +227,10 @@ def _group(
 
 @pytest.fixture(autouse=True)
 def _contracts() -> None:
-    """登记平台事件契约（幂等）。"""
+    """登记平台事件契约与 null 实现（幂等；装配工厂解析依赖已登记实现）。"""
     register_platform_event_contracts()
+    import_module("bms_core.events.null")
+    import_module("bms_core.metrics.null")
 
 
 # ---- lane ----------------------------------------------------------------
@@ -441,7 +446,7 @@ def test_consumer_factory_creates_instance(tmp_path: Any) -> None:
 
 def test_load_records_rejects_invalid_declaration() -> None:
     """装配期装载：声明校验不通过即拒启（`EventContractError`）。"""
-    from bms_core.application import _load_event_consumer_records
+    from bms_core.application import load_event_consumer_records
 
     build_plugin_registry()
     settings = _settings(enabled=False)
@@ -456,12 +461,12 @@ def test_load_records_rejects_invalid_declaration() -> None:
         ]
     )
     with pytest.raises(EventContractError, match="声明校验失败"):
-        _load_event_consumer_records(app, settings)
+        load_event_consumer_records(app, settings)
 
 
 def test_load_records_accepts_valid_declaration() -> None:
     """装配期装载：合法声明装载进组运行时（不启动）。"""
-    from bms_core.application import _load_event_consumer_records
+    from bms_core.application import load_event_consumer_records
 
     build_plugin_registry()
     settings = _settings(enabled=False)
@@ -469,4 +474,61 @@ def test_load_records_accepts_valid_declaration() -> None:
     app.state.event_consumer_records = ConcurrentStableList(
         [EventConsumerRecord(consumer="audit-chain", event_type=_EVENT_TYPE, handler_factory=_Handler)]
     )
-    _load_event_consumer_records(app, settings)  # 不抛错即通过（装载与装配分两步）
+    load_event_consumer_records(app, settings)  # 不抛错即通过（装载与装配分两步）
+
+
+class _UnavailableDedupClient:
+    """恒抛 `RedisUnavailableError` 的客户端替身（验证 fail-open 降级分支）。"""
+
+    async def exists(self, *args: object, **kwargs: object) -> int:
+        """恒定抛 Redis 不可用。
+
+        Raises:
+            RedisUnavailableError: 恒定。
+        """
+        raise RedisUnavailableError("redis down")
+
+    async def set(self, *args: object, **kwargs: object) -> None:
+        """恒定抛 Redis 不可用。
+
+        Raises:
+            RedisUnavailableError: 恒定。
+        """
+        raise RedisUnavailableError("redis down")
+
+
+async def test_dedup_swallows_redis_unavailable() -> None:
+    """Redis 抛 `RedisUnavailableError`：预判返回 False、标记静默（由唯一约束兜底）。"""
+    from redis.asyncio import Redis
+
+    dedup = EventConsumeDedup(client=cast("Redis", _UnavailableDedupClient()))
+    assert await dedup.seen(group="bms-branch", event_id="evt-1") is False
+    await dedup.remember(group="bms-branch", event_id="evt-1")
+
+
+class _FailingConsumer(_Consumer):
+    """`receive` 恒抛错的客户端替身（验证后台循环的异常续跑分支）。"""
+
+    def receive(self, max_message_num: int, invisible_duration: int) -> ConcurrentStableList[Any]:
+        """恒定抛错。
+
+        Args:
+            max_message_num: 上限（忽略）。
+            invisible_duration: 可见性超时（忽略）。
+
+        Raises:
+            RuntimeError: 恒定。
+        """
+        raise RuntimeError("poll boom")
+
+
+async def test_background_loop_survives_poll_error(dead_letter_registry: EngineRegistry) -> None:
+    """后台循环遇到单轮异常继续跑（不终止该组）。"""
+    settings = _settings()
+    settings.event_consumer.poll_interval_seconds = 0.01
+    consumer = _FailingConsumer()
+    group = _group(dead_letter_registry, consumer, _Handler(), settings=settings)
+    await group.start()
+    await asyncio.sleep(0.05)  # 至少一轮拉取抛错并退避
+    await group.stop()
+    assert consumer.shutdown_calls == 1

@@ -309,7 +309,7 @@ def _validate_event_contracts(app: FastAPI) -> None:
         raise EventContractError("事件契约校验失败：" + "；".join(errors))
 
 
-def _load_event_consumer_records(app: FastAPI, settings: Settings) -> None:
+def load_event_consumer_records(app: FastAPI, settings: Settings) -> None:
     """装载本服务自持的事件消费组声明（必须先于插件 `setup()`，组在 setup 内启动消费）。
 
     合并（同值去重、异值即拒）→ 校验（组名 / 事件名 / 契约登记 / 有序与并发）→ 装载进组运行时，
@@ -392,7 +392,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
             raise CatalogError("服务目录校验失败（清单）：" + "；".join(errors))
         _validate_event_contracts(app)
         # 事件消费组声明装载（01_01）：必须先于插件 `setup()`——组在 setup 内启动消费，声明未装则空启动
-        _load_event_consumer_records(app, settings)
+        load_event_consumer_records(app, settings)
         # 基础能力先行（03_04）：开库引导与接库校验都会取数据库引擎，而引擎注册表的跨实例创建锁
         # 经分布式锁基座取共享 Redis 客户端；该客户端由插件装配期登记，故此处先装配基础能力。
         await assemble_base_plugins(app, settings, cast("ResourceManager", app.state.resources))
