@@ -24,6 +24,7 @@ from bms_core.core.context import (
     current_trace_id,
     current_user_id,
 )
+from bms_core.core.id import MAX_WORKER_ID
 from bms_core.permission.cache import reset_permission_cache_store
 
 
@@ -92,11 +93,11 @@ def worker_id_for_snowflake() -> int:
     按 worker 编号错开工作节点位后，并行进程的 ID 空间互不相交。
 
     Returns:
-        int: 0 ~ 1023 的 WorkerId。
+        int: 0 ~ 2^40-1 的 WorkerId。
     """
     name = os.environ.get("PYTEST_XDIST_WORKER", "")
     index = int(name[2:]) + 1 if name.startswith("gw") and name[2:].isdigit() else 0
-    return index % 1024
+    return index % (MAX_WORKER_ID + 1)
 
 
 @pytest.fixture(name="bms_isolate_settings")

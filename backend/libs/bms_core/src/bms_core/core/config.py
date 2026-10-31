@@ -30,6 +30,7 @@ from sqlalchemy.engine import make_url
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.id_bits import MAX_WORKER_ID
 from bms_core.core.paths import resolve_backend_root
 from bms_core.core.service_endpoints import normalize_service_endpoints
 from bms_core.permission.profile import DEFAULT_PROFILE, ensure_profile_supported, normalize_profile
@@ -81,7 +82,7 @@ class AppSettings(BaseSettings):
     name: str
     env: Literal["dev", "test", "prod"] = "dev"
     debug: bool = False
-    worker_id: int = Field(default=0, ge=0, le=1023)
+    worker_id: int = Field(default=0, ge=0, le=MAX_WORKER_ID)
     service: str = ""
     """服务标识（微服务名；空则取服务包声明，启动期 `attach_service` 回写解析结果）。
 
