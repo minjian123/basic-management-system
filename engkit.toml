@@ -66,6 +66,10 @@ label = "护栏：集合声明（增量）"
 cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "{root}", "--files-from", "{changed}"]
 
 [[devloop.steps]]
+label = "护栏：雪花 ID（增量）"
+cmd = ["{python}", "scripts/tools/base_check/check_snowflake_ids.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
 label = "护栏：产品字面量（增量）"
 cmd = ["{python}", "scripts/tools/base_check/check_product_literals.py", "{root}", "--files-from", "{changed}"]
 
@@ -265,6 +269,10 @@ cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "{roo
 label = "基座：check_bare_collections（裸无序集合护栏）"
 cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "{root}"]
 
+[[preflight.steps]]
+label = "基座：check_snowflake_ids（裸 BigInteger 雪花 ID 列 / schema 残留）"
+cmd = ["{python}", "scripts/tools/base_check/check_snowflake_ids.py", "{root}"]
+
 
 [[preflight.steps]]
 label = "产品字面量：check_product_literals（平台禁入面禁产品标识；基线只减不增）"
@@ -361,6 +369,11 @@ deps = ["scripts/tools/base_check/check_service_boundaries.py", "backend/libs/bm
 label = "基座：check_bare_collections --self-test"
 cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "--self-test"]
 deps = ["scripts/tools/base_check/check_bare_collections.py", "backend/libs/bms_core/"]
+
+[[preflight.self_tests]]
+label = "基座：check_snowflake_ids --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_snowflake_ids.py", "--self-test"]
+deps = ["scripts/tools/base_check/check_snowflake_ids.py", "backend/libs/bms_core/"]
 
 [[preflight.self_tests]]
 label = "产品字面量：check_product_literals --self-test"
@@ -574,6 +587,26 @@ tuple = "同构 tuple 视为集合声明，请落 ConcurrentStableList（值对�
 bare_tuple = "裸 tuple 无元素类型信息，请写明元素类型后按同构 / 固定元数判定"
 banned = "集合声明须命中白名单（插入序 ConcurrentStable* / 不可变 ConcurrentStableFrozen*）"
 unregistered = "未登记的集合形态：请先登记护栏白名单与《后端基类清单》，或改用插入序集合类"
+
+# ---- 雪花 ID 静态护栏（03_05 / 需求 03-6）----
+# 口径：雪花 ID 列（主键 / 逻辑外键 / tenant_id / 审计人 / parent_id / 语义 ID）一律 SnowflakeId；
+# schema 层 ID 字段一律 SnowflakeIdStr。BigInteger 仅用于计数 / 字节度量列，例外在此逐条登记。
+[rules.snowflake_ids]
+scan_targets = ["backend/libs/bms_core/src", "backend/services"]
+id_names = ["id", "tenant_scope", "rolled_back_from"]
+id_suffixes = ["_id", "_by"]
+whitelist = [
+  # 文件大小（字节度量）
+  "backend/services/file/src/bms_file/domains/file/models/file.py::size",
+  # 作业进度计数
+  "backend/libs/bms_core/src/bms_core/models/job.py::progress_done",
+  "backend/libs/bms_core/src/bms_core/models/job.py::progress_total",
+  "backend/libs/bms_core/src/bms_core/models/platform/job.py::progress_done",
+  "backend/libs/bms_core/src/bms_core/models/platform/job.py::progress_total",
+  # 租户配额度量（次数 / 字节）
+  "backend/libs/bms_core/src/bms_core/models/tenant/tenant_quota.py::limit_value",
+  "backend/libs/bms_core/src/bms_core/models/tenant/tenant_quota.py::used_value",
+]
 
 [rules.system_fields]
 table_dir = "bms文档/设计/数据库设计/数据表设计"

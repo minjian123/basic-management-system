@@ -1,11 +1,12 @@
 """四库类型映射、软删除复合唯一索引与索引命名测试（Kiwi 1050）：离线 DDL 编译 + SQLite 真库。
 
-真库确认（01_05，2026-09-22）：本登记表的四方言落点已在 mjbk 常驻三库真库复核一致
-（`BIGINT` / `DATETIME` / `VARCHAR2(n CHAR)` / `SMALLINT` 布尔 / `JSON`，见
-`tests/integration/test_dm8_dialect_measure.py` 与 `test_three_db_integration.py`）；
-**已知方言差异**：达梦 `JSON` 列经 dmPython 读出为字符串（应用层需 `json.loads`）、
-复合唯一 `(唯一字段, deleted_at)` 在达梦视 NULL 相等（未删行不能共存）——
-差异与兜底归口见 01_05 测试记录与《数据库设计 · 方言特性 · 达梦 DM8》。
+雪花 ID 列（`SnowflakeId`）四库落点：SQLite `TEXT`（38 位补零）、MySQL / PostgreSQL / 达梦
+`DECIMAL(38, 0)`；`BigInteger` 仅用于计数 / 字节等度量列。真库确认（01_05，2026-09-22）：
+其余公共字段四方言落点已在 mjbk 常驻三库真库复核一致（`DATETIME` / `VARCHAR2(n CHAR)` /
+`SMALLINT` 布尔 / `JSON`，见 `tests/integration/test_dm8_dialect_measure.py` 与
+`test_three_db_integration.py`）；**已知方言差异**：达梦 `JSON` 列经 dmPython 读出为字符串
+（应用层需 `json.loads`）、复合唯一 `(唯一字段, deleted_at)` 在达梦视 NULL 相等（未删行不能共存）
+——差异与兜底归口见 01_05 测试记录与《数据库设计 · 方言特性 · 达梦 DM8》。
 """
 
 from pathlib import Path
@@ -35,6 +36,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateTable
 
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.models.base import SnowflakeId
 from bms_core.models.platform.catalog import SysModule
 from bms_core.models.platform.task import SysTask
 
@@ -43,7 +45,8 @@ _SYS_MODULE_TABLE = cast("Table", SysModule.__table__)
 _PROBE = Table(
     "type_probe",
     MetaData(),
-    Column("big", BigInteger, primary_key=True, autoincrement=False),
+    Column("snow", SnowflakeId, primary_key=True, autoincrement=False),
+    Column("big", BigInteger),
     Column("flag", Boolean),
     Column("tiny", SmallInteger),
     Column("count", Integer),
@@ -52,12 +55,13 @@ _PROBE = Table(
     Column("at", DateTime),
     Column("tags", JSON),
 )
-"""类型探针表：覆盖公共字段与布尔 / 多值口径（不连库，仅编译 DDL）。"""
+"""类型探针表：覆盖雪花 ID / 计数 BigInteger 与布尔 / 多值口径（不连库，仅编译 DDL）。"""
 
 _EXPECTED_TYPES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict(
     {
         "sqlite": ConcurrentStableDict(
             {
+                "snow": "TEXT",
                 "big": "BIGINT",
                 "flag": "BOOLEAN",
                 "tiny": "SMALLINT",
@@ -70,6 +74,7 @@ _EXPECTED_TYPES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = Con
         ),
         "mysql": ConcurrentStableDict(
             {
+                "snow": "DECIMAL(38, 0)",
                 "big": "BIGINT",
                 "flag": "BOOL",
                 "tiny": "SMALLINT",
@@ -82,6 +87,7 @@ _EXPECTED_TYPES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = Con
         ),
         "postgresql": ConcurrentStableDict(
             {
+                "snow": "DECIMAL(38, 0)",
                 "big": "BIGINT",
                 "flag": "BOOLEAN",
                 "tiny": "SMALLINT",
@@ -94,6 +100,7 @@ _EXPECTED_TYPES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = Con
         ),
         "dm": ConcurrentStableDict(
             {
+                "snow": "DECIMAL(38, 0)",
                 "big": "BIGINT",
                 "flag": "SMALLINT",
                 "tiny": "SMALLINT",

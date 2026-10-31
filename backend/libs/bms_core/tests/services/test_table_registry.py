@@ -87,7 +87,13 @@ def test_table_owner_lookup() -> None:
     record = table_record("sys_tenant")
     assert record is not None and record.datasource == Datasource.PLATFORM
     assert table_record("zzz_unknown") is None
-    assert infrastructure_tables() == {"sys_outbox", "sys_event_consumed", "sys_event_dead_letter"}
+    assert infrastructure_tables() == {
+        "sys_outbox",
+        "sys_event_consumed",
+        "sys_event_dead_letter",
+        "sys_job",
+        "sys_job_error",
+    }
     assert "permission" in known_service_keys()
 
 

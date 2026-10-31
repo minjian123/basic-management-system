@@ -13,7 +13,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from bms_core.core.base import BaseObject
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id
-from bms_core.core.id import SnowflakeGenerator, id_generator
+from bms_core.core.id import MAX_WORKER_ID, SnowflakeGenerator, id_generator
 from bms_core.models.base import Base, BaseModel
 from bms_core.models.platform.demo import Demo
 
@@ -145,13 +145,16 @@ def _fake_time_module(values: ConcurrentStableList[float]) -> types.SimpleNamesp
 
 @pytest.mark.kiwi_id(30)
 def test_snowflake_seq_wrap(monkeypatch: pytest.MonkeyPatch) -> None:
-    """同毫秒序列用尽后等待下一毫秒，ID 不重复。"""
+    """同毫秒序列回绕（压缩到 2 位）后等待下一毫秒，ID 不重复。"""
+    monkeypatch.setattr("bms_core.core.id._SEQ_MASK", 1)
     generator = SnowflakeGenerator(worker_id=0)
     monkeypatch.setattr(
-        "bms_core.core.id.time", _fake_time_module(ConcurrentStableList([2_000_000_000.0] * 4097 + [2_000_000_000.001]))
+        "bms_core.core.id.time",
+        _fake_time_module(ConcurrentStableList([2_000_000_000.0, 2_000_000_000.0, 2_000_000_000.001])),
     )
-    ids = [generator.next_id() for _ in range(4097)]
-    assert len(set(ids)) == 4097
+    ids = [generator.next_id() for _ in range(3)]
+    assert len(set(ids)) == 3
+    assert ids == sorted(ids)
 
 
 @pytest.mark.kiwi_id(30)
@@ -180,15 +183,15 @@ def test_configure_and_invalid_worker() -> None:
     """配置生成器生效；边界 WorkerId 合法、越界报错。"""
     id_generator.reconfigure(2)
     assert id_generator.next_id() > 0
-    assert SnowflakeGenerator(worker_id=1023).next_id() > 0
+    assert SnowflakeGenerator(worker_id=MAX_WORKER_ID).next_id() > 0
     with pytest.raises(ValueError):
-        SnowflakeGenerator(worker_id=9999)
+        SnowflakeGenerator(worker_id=MAX_WORKER_ID + 1)
 
 
 @pytest.mark.kiwi_id(30)
 def test_default_worker_id_is_zero() -> None:
     """导入期默认 WorkerId 为 0（旧名 `BMS_WORKER_ID` 兜底已移除，部署经 `BMS_APP__WORKER_ID` 注入）。"""
-    worker_id = (SnowflakeGenerator().next_id() >> 12) & 1023
+    worker_id = (SnowflakeGenerator().next_id() >> 38) & MAX_WORKER_ID
     assert worker_id == 0
 
 

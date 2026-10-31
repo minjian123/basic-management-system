@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import BigInteger, inspect
+from sqlalchemy import inspect
 
 from bms_core.api.base import AuthContext
 from bms_core.api.deps import current_code_of, current_tenant_id_of
@@ -35,6 +35,7 @@ from bms_core.events import platform_events
 from bms_core.events.base import EventEnvelope
 from bms_core.events.platform_events import TENANT_ID_PAYLOAD_KEY
 from bms_core.idp.state.base import IdpFlowState
+from bms_core.models.base import SnowflakeId
 from bms_core.models.outbox import SysEventDeadLetter, SysOutbox
 from bms_core.oauth.token import ServiceTokenSpec
 from bms_core.oauth.user_token import UserTokenSpec
@@ -107,12 +108,12 @@ def test_event_payload_key_is_tenant_id() -> None:
 
 
 @pytest.mark.kiwi_id(2220)
-def test_outbox_models_tenant_column_is_bigint() -> None:
-    """发件箱 / 死信租户列为 `BIGINT`（雪花 id），不再以 `VARCHAR` 承载编码。"""
+def test_outbox_models_tenant_column_is_snowflake_id() -> None:
+    """发件箱 / 死信租户列为 `SnowflakeId`（126 位雪花 id），不再以 `VARCHAR` 承载编码。"""
     for model in (SysOutbox, SysEventDeadLetter):
         column = _tenant_column(model)
         assert column.name == "tenant_id"
-        assert isinstance(column.type, BigInteger), f"{model.__name__}.tenant_id 应为 BIGINT"
+        assert isinstance(column.type, SnowflakeId), f"{model.__name__}.tenant_id 应为 SnowflakeId"
 
 
 @pytest.mark.kiwi_id(2220)

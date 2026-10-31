@@ -13,7 +13,7 @@ from bms_core.core.factory import (
     register_factory,
     resolve_factory,
 )
-from bms_core.core.id import IdGeneratorFactory, SnowflakeGenerator
+from bms_core.core.id import MAX_WORKER_ID, IdGeneratorFactory, SnowflakeGenerator
 from bms_core.db.engine import EngineFactory
 from bms_core.db.session import SessionFactory
 
@@ -150,4 +150,4 @@ def test_id_generator_factory() -> None:
     generator.reconfigure(5)
     assert generator.next_id() > 0
     with pytest.raises(ValueError):
-        factory.create(9999)
+        factory.create(MAX_WORKER_ID + 1)
