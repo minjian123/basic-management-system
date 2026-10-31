@@ -149,6 +149,18 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
             ),
         ),
         EventContract(
+            event_type="file.deleted",
+            description="文件软删除（元数据进回收站，对象待 13_01 清理）",
+            fields=ConcurrentStableFrozenDict({"file_id": _STRING_REQUIRED, "sha256": _STRING_REQUIRED}),
+        ),
+        EventContract(
+            event_type="file.upload.abandoned",
+            description="分片上传超期被回收（状态转 orphan）",
+            fields=ConcurrentStableFrozenDict(
+                {"file_id": _STRING_REQUIRED, "upload_id": _STRING_OPTIONAL}
+            ),
+        ),
+        EventContract(
             event_type="notification.sent",
             description="通知 / 邮件 / 短信发送",
             fields=ConcurrentStableFrozenDict(

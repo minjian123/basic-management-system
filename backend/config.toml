@@ -195,6 +195,20 @@ provider = "local"
 # 非敏感选项（root = 本地根目录，缺省 var/storage；bucket = 桶名，缺省 bms-files；密钥一律经环境变量注入）
 options = {}
 
+[multipart_upload]
+# 分片上传实现选择（插件化配置；local = 本地文件系统、minio = MinIO 组合对象、空串 = null 占位）
+# 必须与 [storage].provider 一致（本地配本地、MinIO 配 MinIO）；不一致在装配期拒启
+provider = "local"
+options = {}
+
+[file]
+# 文件管理进程级参数（03_01）：分片粒度 / 校验强度 / 回收批量；大小上限与白名单走 sys_config 参数
+part_size = 5242880            # 分片缺省大小（字节，5MB；MinIO 组合下限，末片除外）
+max_parts = 10000              # 单文件片数上限（S3 / MinIO 组合对象源上限）
+session_ttl_seconds = 86400    # 上传会话有效期（秒；Redis 会话 TTL 与孤儿判定基准）
+verify_sha256_on_merge = true  # 合并后整文件复算 SHA256（本地拼接顺手算；MinIO 需读回一次）
+orphan_batch = 100             # 单次孤儿回收处理上限
+
 [audit]
 # 审计捕获实现选择（插件化配置；空串解析到 null 占位实现；真实实现随审计阶段）
 provider = ""

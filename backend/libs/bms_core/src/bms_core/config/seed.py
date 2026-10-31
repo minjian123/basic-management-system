@@ -82,6 +82,16 @@ PLATFORM_CONFIG_DEFAULTS: ConcurrentStableList[SeedConfig] = ConcurrentStableLis
         SeedConfig("session.max_active", "5", "单账号活跃会话数上限（超出后最旧会话失效）"),
         SeedConfig("file.upload.max_size", "20971520", "整包上传大小上限（字节，超限走分片上传）"),
         SeedConfig("file.upload.max_file_size", "2147483648", "单文件上传上限（字节，分片上传）"),
+        SeedConfig(
+            "file.upload.whitelist",
+            "image/png:png,image/jpeg:jpg|jpeg,image/gif:gif,image/webp:webp,application/pdf:pdf,"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document:docx,"
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:xlsx,"
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation:pptx,"
+            "text/plain:txt,text/csv:csv",
+            "上传类型白名单（MIME:扩展名 逗号分隔；扩展名多个用 | 连接）",
+        ),
+        SeedConfig("file.download.presign_ttl", "3600", "预签名下载 / 预览地址有效期上限（秒）"),
         SeedConfig("menu.tree_cache_ttl", "300", "菜单树缓存 TTL（秒，含随机偏移）"),
         SeedConfig("role.code_pattern", "^[a-z][a-z0-9_-]{1,31}$", "角色码格式（正则）"),
         SeedConfig("ai.auto_execute", "false", "AI 自动执行写操作开关（默认关闭；阶段十九消费）"),

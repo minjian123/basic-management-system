@@ -175,6 +175,7 @@ PERMISSION_SEEDS: ConcurrentStableList[tuple[str, str, str, str]] = ConcurrentSt
         ("task", "manage", "管理（含查询与维护）", "Manage"),
         ("task", "trigger", "手动触发", "Trigger"),
         ("file", "query", "查询", "Query"),
+        ("file", "manage", "管理（含查询与维护）", "Manage"),
         ("file", "upload", "上传", "Upload"),
         ("file", "download", "下载", "Download"),
         ("file", "delete", "删除", "Delete"),

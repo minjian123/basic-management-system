@@ -8,7 +8,7 @@
     uv run python -m ops.event_contracts check --root .  # 指定仓库根
     uv run python -m ops.event_contracts check --product-contracts {产品包}.events  # 并入产品侧声明
 
-- 注册表：`register_platform_event_contracts()` 登记平台默认契约（23 条）；产品侧契约经
+- 注册表：`register_platform_event_contracts()` 登记平台默认契约（25 条）；产品侧契约经
   `register_product_event_contracts()`（bms 侧空清单）或 `--product-contracts <模块路径>` 注入
   （产品侧声明模块须暴露 `register_product_event_contracts(registry)`，缺件即拒、不静默降级）；
   校验与兼容判定在 `bms_core/events/contracts.py`。

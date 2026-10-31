@@ -35,8 +35,8 @@ def test_platform_contracts_valid_and_unique() -> None:
     registry = EventContractRegistry()
     register_platform_event_contracts(registry)
     assert validate_event_registry(registry, domains=ConcurrentStableSet(known_event_domains())) == ()
-    assert len(PLATFORM_EVENT_CONTRACTS) == 23
-    assert len({contract.event_type for contract in PLATFORM_EVENT_CONTRACTS}) == 23
+    assert len(PLATFORM_EVENT_CONTRACTS) == 25
+    assert len({contract.event_type for contract in PLATFORM_EVENT_CONTRACTS}) == 25
     assert PLATFORM_EVENT_SUBSCRIPTIONS == ()
 
 

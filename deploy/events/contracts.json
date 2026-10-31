@@ -2,6 +2,38 @@
   "contracts": [
     {
       "deprecated": false,
+      "description": "文件软删除（元数据进回收站，对象待 13_01 清理）",
+      "event_type": "file.deleted",
+      "fields": {
+        "file_id": {
+          "required": true,
+          "type": "string"
+        },
+        "sha256": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "分片上传超期被回收（状态转 orphan）",
+      "event_type": "file.upload.abandoned",
+      "fields": {
+        "file_id": {
+          "required": true,
+          "type": "string"
+        },
+        "upload_id": {
+          "required": false,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
       "description": "文件上传完成",
       "event_type": "file.uploaded",
       "fields": {

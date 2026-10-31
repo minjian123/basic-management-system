@@ -244,6 +244,30 @@ class ConfigCacheSettings(BaseSettings):
     """进程内 L1 条目上限（LRU）。"""
 
 
+class FileSettings(BaseSettings):
+    """文件管理进程级参数（段 `[file]`；03_01）。
+
+    与系统参数（`sys_config`）分工：本段是**部署期**参数（分片粒度、校验强度、批量上限），
+    随环境一致；大小上限、类型白名单、预签名 TTL 属**运行期可调**参数，走 `file.upload.*` /
+    `file.download.*` 参数键（`FileLimits` 读取，缺省回落代码默认）。
+    """
+
+    part_size: int = Field(default=5 * 1024 * 1024, ge=5 * 1024 * 1024)
+    """分片缺省大小（字节；S3 / MinIO 组合下限 5MB，末片除外）。"""
+
+    max_parts: int = Field(default=10000, ge=1)
+    """单文件分片数上限（S3 / MinIO 组合对象源上限）。"""
+
+    session_ttl_seconds: int = Field(default=86400, ge=60)
+    """上传会话有效期（秒）；同时是 Redis 会话快照 TTL 与 `sys_file.expires_at` 的基准。"""
+
+    verify_sha256_on_merge: bool = True
+    """合并后是否整文件复算 SHA256（关掉只保留片级校验，大文件场景省一次全量读回）。"""
+
+    orphan_batch: int = Field(default=100, ge=1)
+    """单次孤儿回收处理上限。"""
+
+
 class TenantMembershipSettings(BaseSettings):
     """用户↔租户可达关系数据源（段 `[tenant_membership]`；11_01）。"""
 
@@ -1347,6 +1371,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     config_cache_region: PluginSelection = Field(default_factory=PluginSelection)
     config_source: PluginSelection = Field(default_factory=PluginSelection)
     config_options: ConfigCacheSettings = Field(default_factory=ConfigCacheSettings, validation_alias="config")
+    file_options: FileSettings = Field(default_factory=FileSettings, validation_alias="file")
+    """文件管理进程级参数（TOML 段 `[file]`；字段名不叫 `file` 以免与内置名混淆）。"""
     """系统参数读缓存参数（TOML 段 `[config]`；字段名不叫 `config` 以免与基类成员冲突）。"""
     consistency_barrier: ConsistencyBarrierSettings = Field(default_factory=ConsistencyBarrierSettings)
     dashboard_card_registry: PluginSelection = Field(default_factory=PluginSelection)

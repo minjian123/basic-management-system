@@ -1166,6 +1166,97 @@ class FileError(BizError):
     """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
 
 
+class FileTypeNotAllowedError(FileError):
+    """文件类型不允许（扩展名或服务端嗅探不在白名单，`50101` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化类型不允许异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.FILE_TYPE_NOT_ALLOWED, message, http_status=400, data=data)
+
+
+class FileSizeExceededError(FileError):
+    """文件大小超限（整包 / 单文件 / 分片尺寸，`50102` / 413）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化大小超限异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.FILE_SIZE_EXCEEDED, message, http_status=413, data=data)
+
+
+class FileChecksumMismatchError(FileError):
+    """校验值不符（分片 SHA256 或合并后整文件 SHA256，`50103` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化校验不符异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.FILE_CHECKSUM_MISMATCH, message, http_status=400, data=data)
+
+
+class FileUploadSessionInvalidError(FileError):
+    """上传会话无效（不存在 / 已合并 / 已过期 / 已取消，`50104` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化会话无效异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.FILE_UPLOAD_SESSION_INVALID, message, http_status=409, data=data)
+
+
+class FileRecordNotFoundError(FileError):
+    """文件元数据不存在（含跨租户 / 已软删，`50106` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化文件不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.FILE_NOT_FOUND, message, http_status=404, data=data)
+
+
+class FilePreviewUnsupportedError(FileError):
+    """不支持在线预览（非图片 / PDF，`50108` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化预览不支持异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.FILE_PREVIEW_UNSUPPORTED, message, http_status=400, data=data)
+
+
+class FileObjectMissingError(FileError):
+    """元数据在而对象已丢失（取址前复核失败，`50109` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化对象丢失异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.FILE_OBJECT_MISSING, message, http_status=404, data=data)
+
+
 class PrintError(FileError):
     """打印与导出 PDF 子段（文件段内 `502xx`）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 
