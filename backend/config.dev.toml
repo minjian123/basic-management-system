@@ -44,11 +44,10 @@ dev_tenants = ["demo", "acme", "platform"]
 [cache]
 provider = "memory"
 
-# 字典取数与缓存（02_01）：`[data_source]` / `[dict_translator]` / `[dict]` 取基线（routed / routed / 300s 等），
-# 本环境只覆盖缓存域——dev 走 Redis 共享层，用于多实例一致性实测；本机 Redis 不可达时自动降级（读穿透、写忽略）。
-# 产品来源字典仍由前端经网关直取产品命名空间，不经本出口。
-[dict_cache_region]
-provider = "redis"
+# 字典取数与缓存（02_01）：`[data_source]` / `[dict_translator]` / `[dict]` / `[dict_cache_region]` 全取基线。
+# 基线缓存域为 memory（单进程开发零外部依赖）：dev 若改 redis，Redis 不可达时插件 `setup()` 会 fail-closed，
+# 无 Redis 的进程（如 identity 子进程用例）直接起不来；跨实例一致性由集成用例
+# `tests/integration/test_dict_cache_real.py` 自建共享客户端 + 真 Redis 验证，不靠改本环境默认值。
 
 # 系统参数读取与缓存（03_08）：
 # - provider = "sql"：读**本服务租户库** sys_config（platform 服务态；dev 各服务库自动建表 + 种子）；

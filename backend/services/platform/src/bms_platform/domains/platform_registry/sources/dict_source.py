@@ -17,7 +17,7 @@ from bms_core.datasource.base import BaseDictDataSource, DataSourceItem
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.dict.table import DictTableDataSource
-from bms_platform.domains.platform_registry.sources.dict_specs import (
+from bms_platform.dict_specs import (
     DictSourceMode,
     DictSourceSpec,
     platform_dict_specs,

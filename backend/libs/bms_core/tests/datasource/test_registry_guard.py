@@ -38,11 +38,11 @@ def test_enum_matches_catalog_keys() -> None:
 
 @pytest.mark.kiwi_id(2372)
 def test_platform_data_source_keys_helper() -> None:
-    """`platform_data_source_keys()` 返回 12 个标识且不可变。"""
+    """`platform_data_source_keys()` 返回 12 个标识且为只读快照（写入抛 `TypeError`）。"""
     keys = platform_data_source_keys()
     assert len(keys) == 12
     assert "role" in keys
-    with pytest.raises(Exception):
+    with pytest.raises(TypeError):
         keys.add("ghost")  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType]
 
 

@@ -23,11 +23,13 @@ Windows 与 WSL 共用同一 `DEPS_DIR`（同一份 `deploy/.env`）时，两边
 
 import contextlib
 import errno
+import io
 import os
 import shutil
 import stat
 import subprocess
 import sys
+from typing import cast
 
 IS_WINDOWS = os.name == "nt"
 _REPARSE_FLAG = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -39,7 +41,7 @@ def configure_stdio():
     """输出统一 UTF-8（Windows 管道 / 重定向下同样稳妥）。"""
     for stream in (sys.stdout, sys.stderr):
         with contextlib.suppress(Exception):
-            stream.reconfigure(encoding="utf-8")
+            cast("io.TextIOWrapper", stream).reconfigure(encoding="utf-8")
 
 
 def norm(path):

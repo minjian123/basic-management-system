@@ -215,21 +215,26 @@ def _apply_filters(items: ConcurrentStableList[DictItem], query: DictQuery) -> C
     return result  # pyright: ignore[reportReturnType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
 
-def _snapshot_payload(result: DictTypeResult) -> ConcurrentStableDict[str, object]:
-    """结果 → 缓存载荷（版本 / 条目 / 截断 / 总数）。
+def _snapshot_payload(result: DictTypeResult) -> object:
+    """结果 → 缓存载荷（版本 / 条目 / 截断 / 总数；**JSON 可往返的普通结构**）。
+
+    载荷会进 Redis 共享层（`json.dumps` + `json.loads`），因此必须是普通 `dict` / `list`：
+    早前用 `ConcurrentStableDict` 作载荷，`json.dumps(..., default=str)` 会把它变成一个
+    repr 字符串，读回时 `json.loads` 失败 → 共享层**只写不读**（跨实例永远打不中）。
+    集合类型约束只针对声明处的容器，这里跨 JSON 边界，按「序列化载荷用普通结构」处理。
 
     Args:
         result: 取数结果。
 
     Returns:
-        ConcurrentStableDict[str, object]: 缓存载荷。
+        object: 缓存载荷（`{"version": int, "items": [dict...], "has_more": bool, "total": int}`）。
     """
-    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-    payload.set("version", result.version)
-    payload.set("items", [dict(item.model_dump(mode="json")) for item in result.items or ()])
-    payload.set("has_more", result.has_more)
-    payload.set("total", result.total)
-    return payload
+    return {
+        "version": result.version,
+        "items": [item.model_dump(mode="json") for item in result.items or ()],
+        "has_more": result.has_more,
+        "total": result.total,
+    }
 
 
 def _cache_snapshot(payload: object, version: int) -> DictTypeResult | None:

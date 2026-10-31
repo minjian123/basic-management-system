@@ -4,6 +4,8 @@
 单个 key 的 `load` 抛错只降级为空结果且**不写缓存**（避免把故障固化一个 TTL）。
 """
 
+import json
+
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -20,6 +22,7 @@ class _RecordingCache(MemoryDictCacheRegion):
     def __init__(self) -> None:
         super().__init__()
         self.ttl_calls: ConcurrentStableList[tuple[str, int | None]] = ConcurrentStableList()
+        self.payloads: ConcurrentStableList[object] = ConcurrentStableList()
 
     async def aset_type(
         self,
@@ -39,6 +42,7 @@ class _RecordingCache(MemoryDictCacheRegion):
             ttl: 有效期（秒）。
         """
         self.ttl_calls.add((data_source_key, ttl))
+        self.payloads.add(value)
         await super().aset_type(tenant, locale, data_source_key, value, ttl)
 
 
@@ -145,3 +149,21 @@ async def test_provider_error_returns_empty_and_skips_cache() -> None:
     assert result.items is not None and len(result.items) == 0
     assert len(cache.ttl_calls) == 0
     assert provider.calls == 1
+
+
+@pytest.mark.kiwi_id(2372)
+async def test_cache_payload_is_json_roundtrippable() -> None:
+    """缓存载荷必须能 JSON 往返（共享层 `json.dumps` / `json.loads` 口径）。
+
+    回归点：载荷曾用 `ConcurrentStableDict` → `json.dumps(default=str)` 变成 repr 字符串，
+    读回 `json.loads` 失败 → Redis 共享层只写不读、跨实例永远打不中（真 Redis 集成用例发现）。
+    """
+    cache = _RecordingCache()
+    source = _source(_Provider(_ITEMS), cache)
+    await source.by_type(DictQuery(data_source_key="role"))
+    payload = cache.payloads[0]
+    restored = json.loads(json.dumps(payload, ensure_ascii=False))
+    assert isinstance(restored, dict)
+    assert restored["version"] == 0
+    assert restored["total"] == 1
+    assert [item["label"] for item in restored["items"]] == ["管理员"]

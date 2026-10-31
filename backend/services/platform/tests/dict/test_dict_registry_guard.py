@@ -11,9 +11,9 @@ from bms_core.datasource.keys import DataSourceKey
 from bms_core.datasource.registry import DATA_SOURCE_CATALOG
 from bms_core.dict.table import DictTableScope
 from bms_core.services.table_registry import table_ownership_view
-from bms_platform.domains.platform_registry.sources.dict_specs import (
-    DictSourceMode,
+from bms_platform.dict_specs import (
     PLATFORM_DICT_SPECS,
+    DictSourceMode,
 )
 
 _REQUIRED_COLUMNS = ("id", "code", "name", "status", "deleted_at")
@@ -23,9 +23,7 @@ _REQUIRED_COLUMNS = ("id", "code", "name", "status", "deleted_at")
 @pytest.mark.kiwi_id(2372)
 def test_specs_cover_all_platform_keys() -> None:
     """规格键集合 == 枚举 == 平台来源的登记项（11 个 table + 1 个 port）。"""
-    catalog_platform_keys = {
-        record.data_source_key for record in DATA_SOURCE_CATALOG if record.origin == "platform"
-    }
+    catalog_platform_keys = {record.data_source_key for record in DATA_SOURCE_CATALOG if record.origin == "platform"}
     assert set(PLATFORM_DICT_SPECS.keys()) == catalog_platform_keys
     assert set(PLATFORM_DICT_SPECS.keys()) == {key.value for key in DataSourceKey}
 

@@ -1,4 +1,9 @@
-"""平台内建字典的数据源规格（02_01）：12 个 key 的**唯一差异声明**。
+"""平台内建字典的数据源规格（02_01）：12 个 key 的**唯一差异声明**（服务级模块）。
+
+**为什么放在服务根而不是某个域内**：字典出口天然**跨域聚合**（数据权限左列 / 业务码下拉要看全平台实体），
+放进 `domains/platform_registry/` 会形成「注册域 import 其余 8 个域的模型」，触发服务边界护栏
+（`check_service_boundaries` 跨域 import）。放在服务级后，域内代码只依赖本域，聚合清单留在装配层，
+与 `wiring.py` 同口径（装配层允许引用各域）。
 
 口径（详细设计 §4.1 / §4.8）：平台字典不再「一 key 一个提供者类」，而是**一张规格表**：
 
@@ -13,6 +18,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import cast
 
 from sqlalchemy import Table
 
@@ -73,16 +79,16 @@ PLATFORM_DICT_SPECS: ConcurrentStableDict[str, DictSourceSpec] = ConcurrentStabl
             DataSourceKey.MODULE.value,
             DictSourceSpec(
                 data_source_key=DataSourceKey.MODULE.value,
-                table=SysModule.__table__,
+                table=cast("Table", SysModule.__table__),
                 db_scope=DictTableScope.PLATFORM.value,
-                i18n=DictI18nSpec(table=SysModuleI18n.__table__, relation_column="module_id"),
+                i18n=DictI18nSpec(table=cast("Table", SysModuleI18n.__table__), relation_column="module_id"),
             ),
         ),
         (
             DataSourceKey.PRODUCT.value,
             DictSourceSpec(
                 data_source_key=DataSourceKey.PRODUCT.value,
-                table=SysProduct.__table__,
+                table=cast("Table", SysProduct.__table__),
                 db_scope=DictTableScope.PLATFORM.value,
             ),
         ),
@@ -90,25 +96,25 @@ PLATFORM_DICT_SPECS: ConcurrentStableDict[str, DictSourceSpec] = ConcurrentStabl
             DataSourceKey.BUSINESS.value,
             DictSourceSpec(
                 data_source_key=DataSourceKey.BUSINESS.value,
-                table=SysBusiness.__table__,
+                table=cast("Table", SysBusiness.__table__),
                 db_scope=DictTableScope.PLATFORM.value,
-                i18n=DictI18nSpec(table=SysBusinessI18n.__table__, relation_column="business_id"),
+                i18n=DictI18nSpec(table=cast("Table", SysBusinessI18n.__table__), relation_column="business_id"),
             ),
         ),
         (
             DataSourceKey.ACTION.value,
             DictSourceSpec(
                 data_source_key=DataSourceKey.ACTION.value,
-                table=SysAction.__table__,
+                table=cast("Table", SysAction.__table__),
                 db_scope=DictTableScope.PLATFORM.value,
-                i18n=DictI18nSpec(table=SysActionI18n.__table__, relation_column="action_id"),
+                i18n=DictI18nSpec(table=cast("Table", SysActionI18n.__table__), relation_column="action_id"),
             ),
         ),
         (
             DataSourceKey.TENANT.value,
             DictSourceSpec(
                 data_source_key=DataSourceKey.TENANT.value,
-                table=SysTenant.__table__,
+                table=cast("Table", SysTenant.__table__),
                 db_scope=DictTableScope.PLATFORM.value,
             ),
         ),
@@ -117,41 +123,41 @@ PLATFORM_DICT_SPECS: ConcurrentStableDict[str, DictSourceSpec] = ConcurrentStabl
             DataSourceKey.ROLE.value,
             DictSourceSpec(
                 data_source_key=DataSourceKey.ROLE.value,
-                table=SysRole.__table__,
+                table=cast("Table", SysRole.__table__),
                 mode=DictSourceMode.PORT.value,
             ),
         ),
         (
             DataSourceKey.USER.value,
-            DictSourceSpec(data_source_key=DataSourceKey.USER.value, table=SysUser.__table__),
+            DictSourceSpec(data_source_key=DataSourceKey.USER.value, table=cast("Table", SysUser.__table__)),
         ),
         (
             DataSourceKey.CONFIG.value,
-            DictSourceSpec(data_source_key=DataSourceKey.CONFIG.value, table=SysConfig.__table__),
+            DictSourceSpec(data_source_key=DataSourceKey.CONFIG.value, table=cast("Table", SysConfig.__table__)),
         ),
         (
             DataSourceKey.ICON.value,
             DictSourceSpec(
                 data_source_key=DataSourceKey.ICON.value,
-                table=SysIcon.__table__,
-                i18n=DictI18nSpec(table=SysIconI18n.__table__, relation_column="icon_id"),
+                table=cast("Table", SysIcon.__table__),
+                i18n=DictI18nSpec(table=cast("Table", SysIconI18n.__table__), relation_column="icon_id"),
             ),
         ),
         (
             DataSourceKey.TASK.value,
-            DictSourceSpec(data_source_key=DataSourceKey.TASK.value, table=SysTask.__table__),
+            DictSourceSpec(data_source_key=DataSourceKey.TASK.value, table=cast("Table", SysTask.__table__)),
         ),
         (
             DataSourceKey.IDENTITY_PROVIDER.value,
             DictSourceSpec(
                 data_source_key=DataSourceKey.IDENTITY_PROVIDER.value,
-                table=SysIdentityProvider.__table__,
+                table=cast("Table", SysIdentityProvider.__table__),
                 sort_column="sort",
             ),
         ),
         (
             DataSourceKey.CLIENT.value,
-            DictSourceSpec(data_source_key=DataSourceKey.CLIENT.value, table=SysClient.__table__),
+            DictSourceSpec(data_source_key=DataSourceKey.CLIENT.value, table=cast("Table", SysClient.__table__)),
         ),
     )
 )

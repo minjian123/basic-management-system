@@ -6,7 +6,7 @@
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.dict.cache import MemoryDictCacheRegion
 from bms_core.dict.invalidate import DictInvalidator
 from bms_core.i18n.base import SUPPORTED_LOCALES
@@ -35,7 +35,7 @@ async def test_invalidate_drops_type_and_subset_keys() -> None:
     cache = MemoryDictCacheRegion()
     for locale in SUPPORTED_LOCALES:
         await cache.aset_type("demo", locale, "role", {"version": 0, "items": [], "has_more": False, "total": 0}, 60)
-        await cache.aset_id_subset("demo", locale, "role", {(1): "管理员"})
+        await cache.aset_id_subset("demo", locale, "role", ConcurrentStableDict({1: "管理员"}))
     invalidator = DictInvalidator(cache)
     version = await invalidator.invalidate(ConcurrentStableList(("role",)), tenant="demo")
     assert version == 1
