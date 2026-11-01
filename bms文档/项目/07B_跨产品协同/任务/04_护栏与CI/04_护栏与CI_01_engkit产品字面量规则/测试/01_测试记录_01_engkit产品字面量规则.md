@@ -46,7 +46,7 @@
 | engkit 全量用例 | `uv run python -m pytest -q`（含新增 43 例） | **547 passed / 0 failed** |
 | 覆盖率门禁 | `--cov=src/engkit --cov-branch --cov-fail-under=100` | 行 6713 / 分支 2578，**100%**，0 缺失 |
 | 静态 | `ruff check` / `ruff format --check` / `pyright` | 0 error / 已格式化 / 0 error |
-| bms 预检（秒级档） | `run_once -- check_preflight.py --fast` | 全部通过（含 `check_product_literals` 与其自测） |
+| bms 预检（秒级档） | `python scripts/tools/preflight/推送.py --check` | 全部通过（含 `check_product_literals` 与其自测） |
 | bms 规则实跑 | `check_product_literals.py .` | 通过：命中 149 处全部在基线（检查 1533 / 排除 12 / 允许 908） |
 
 ## 4. 与详细设计的对照 <a id="design"></a>

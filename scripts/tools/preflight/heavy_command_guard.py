@@ -24,6 +24,7 @@ from engkit.config import GuardConfig, load  # noqa: E402
 from engkit.guard import (  # noqa: E402
     ALLOW_ENV,
     CI_ENVS,
+    INTERNAL_ENV,
     heavy_guidance,
     is_ci,
     pytest_configure,
@@ -37,7 +38,6 @@ from engkit.guard import (  # noqa: E402
 from engkit.guard import (  # noqa: E402
     should_block as _should_block,
 )
-from engkit.runonce import WRAPPED_ENV  # noqa: E402
 
 
 def _guard_config() -> GuardConfig:
@@ -91,7 +91,7 @@ def guidance(kind: str) -> str:
 __all__ = [
     "ALLOW_ENV",
     "CI_ENVS",
-    "WRAPPED_ENV",
+    "INTERNAL_ENV",
     "classify",
     "guidance",
     "is_ci",

@@ -394,10 +394,6 @@ deps = [
   "bms文档/设计/原型设计/",
 ]
 
-[runonce]
-cache_dir = ".cache/run_once"
-window_seconds = 1800
-
 [guard]
 scripts = ["check_preflight.py", "check_base.py", "check_links.py", "check_docs_scope.py"]
 repo_dirs = ["libs", "services", "scripts", "deploy", "frontend"]

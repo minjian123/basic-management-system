@@ -6,7 +6,6 @@
 # 目录内容
 #   engkit_boot.py        engkit 定位：先 import，失败按 ENGKIT_HOME → 同级 ../engkit 注入 sys.path
 #   推送.py               推送入口：转发 `engkit push`（先预检、通过才推送；位置根 → --root）
-#   run_once.py           重命令包装：转发 `engkit run_once`（缓存回放）
 #   run_selected.py       定向执行器：转发 `engkit run_selected`
 #   测试改动内容.py        开发环：转发 `engkit run-changed`（只跑改动相关：直接依赖测试 + 前端受影响包 + 改动文件 ruff）
 #   test_selection.py     选测器：转发 `engkit selection`
@@ -53,6 +52,7 @@
 #      `coverage.py` / `guard.py`；bms 侧护栏用例锁「包装只转发」。
 #   3. 预算护栏（单步 / 总体）与步骤清单在 `engkit.toml`；改预算即改配置，不要改代码。
 #   4. 覆盖率门禁口径见《AI开发规范》「覆盖率要求」节。
-#   5. 分钟级重命令一律经 `run_once.py` 包装；只为看报错时用定向命令，不得整轮重跑。
+#   5. 开发期只跑改动相关（开发环）与单文件 / 单节点；宽目录 pytest、无参数 ruff / pyright
+#      由重命令守卫拦下，跨模块排查走推送预检 / CI，不得整轮重跑。
 #   6. **全量测试只由 CI 执行**：开发期间无目标 / 宽目录 / `--pyargs` 的 pytest 一律被全量守卫拒绝
-#      （`run_once` 包装不解除，也没有 `--full` / 环境变量逃生口）；前端 vitest 同口径。
+#      （没有 `--full` / 环境变量逃生口）；前端 vitest 同口径。

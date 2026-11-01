@@ -68,7 +68,7 @@
 | engkit 用例 + 覆盖率 | `uv run python -m pytest -q --cov=src/engkit --cov-branch --cov-fail-under=100` | **547 passed**；覆盖率 **100%**（行 6713 / 分支 2578，均 0 缺失） |
 | engkit 静态 | `uv run ruff check .` / `ruff format --check .` / `pyright` | 全通过 / 64 文件已格式化 / 0 error |
 | engkit 自举 | `engkit preflight --fast` | 通过（随 bms 预检同批验证） |
-| bms 预检（秒级档） | `run_once -- check_preflight.py --fast` | **全部通过**（含新增步骤与自测） |
+| bms 预检（秒级档） | `python scripts/tools/preflight/推送.py --check` | **全部通过**（含新增步骤与自测） |
 | 规则实跑 | `check_product_literals.py .` | 通过：检查 1533 个文件（排除 12 / 允许 908），命中 149 处全部在基线；`origin/main` 上尚无基线文件故只减不增断言告警跳过（见 §6） |
 
 ## 5. 问题与处置 <a id="issues"></a>
