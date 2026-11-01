@@ -62,7 +62,7 @@ class MenuUpdateRequest(BaseSchema):
 class FormCreateRequest(BaseSchema):
     """新增表单请求（挂业务；菜单入口多对多，可空 = 孤儿表单）。"""
 
-    menu_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    menu_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（可空）"
     )
     business_id: SnowflakeIdStr = Field(gt=0, description="所属业务码 ID")
@@ -73,7 +73,7 @@ class FormCreateRequest(BaseSchema):
 class FormUpdateRequest(BaseSchema):
     """更新表单请求（菜单入口关联全量替换）。"""
 
-    menu_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    menu_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（全量；空 = 解除全部入口）"
     )
     business_id: SnowflakeIdStr = Field(gt=0, description="所属业务码 ID")
@@ -155,7 +155,7 @@ class FormItem(BaseSchema):
     """表单行（菜单入口多对多）。"""
 
     id: SnowflakeIdStr = Field(description="表单主键")
-    menu_ids: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+    menu_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（雪花 ID 字符串化；空 = 无入口表单）"
     )
     business_id: SnowflakeIdStr = Field(description="所属业务码 ID")

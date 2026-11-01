@@ -5919,7 +5919,7 @@
           "role_ids": {
             "description": "主体链收敛后的角色主键集合",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "title": "Role Ids",
             "type": "array"

@@ -72,7 +72,7 @@ class TopologySnapshotRow(BaseSchema):
 class TopologySnapshotItem(BaseSchema):
     """一个租户的当前版本快照（`tenant_id = 0` 为默认拓扑）。"""
 
-    tenant_id: Annotated[int, Field(description="租户主键（0 = 平台级默认拓扑）")]
+    tenant_id: Annotated[SnowflakeIdStr, Field(description="租户主键（0 = 平台级默认拓扑）")]
     version: Annotated[int, Field(description="拓扑版本")]
     rows: Annotated[ConcurrentStableList[TopologySnapshotRow], CONTRACT_COLLECTION]
 

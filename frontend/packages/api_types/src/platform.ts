@@ -7618,7 +7618,7 @@ export interface components {
              * Role Ids
              * @description 主体链收敛后的角色主键集合
              */
-            role_ids?: number[];
+            role_ids?: string[];
             /**
              * Role Types
              * @description 角色主键（字符串化）→ 角色类型

@@ -18,6 +18,7 @@ from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
     CONTRACT_STABLE_LIST,
     BaseSchema,
+    SnowflakeIdStr,
 )
 
 __all__ = [
@@ -62,7 +63,7 @@ class IconUpdateRequest(BaseSchema):
 class IconResponse(BaseSchema):
     """图标定义响应。"""
 
-    id: str = Field(description="图标标识（字符串化主键；非业务标识）")
+    id: SnowflakeIdStr = Field(description="图标标识（字符串化主键；非业务标识）")
     code: str = Field(description="图标键（契约唯一业务标识）")
     name: str = Field(description="图标名称")
     category: str = Field(description="图标分组")

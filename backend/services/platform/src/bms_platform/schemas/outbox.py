@@ -16,7 +16,7 @@ class DeadLetterResponse(BaseSchema):
     event_type: str
     consumer: str | None
     aggregate_key: str | None
-    tenant_id: str | None
+    tenant_id: SnowflakeIdStr | None
     payload: Annotated[ConcurrentStableDict[str, Any], CONTRACT_COLLECTION]
     error_msg: str
     retry_count: int

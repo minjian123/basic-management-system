@@ -255,7 +255,7 @@ class UserAssignmentProfile(BaseSchema):
 class UserAssignmentPosts(BaseSchema):
     """分配编排请求的用户-岗位分段（全量覆盖 + 至多一个主要岗位）。"""
 
-    post_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    post_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="岗位主键集合（全量覆盖；空集 = 清空）"
     )
     primary_post_id: SnowflakeIdStr | None = Field(
@@ -266,7 +266,7 @@ class UserAssignmentPosts(BaseSchema):
 class UserAssignmentDepts(BaseSchema):
     """分配编排请求的用户-部门分段（全量覆盖 + 至多一个主要部门）。"""
 
-    dept_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    dept_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="部门主键集合（全量覆盖；空集 = 清空）"
     )
     primary_dept_id: SnowflakeIdStr | None = Field(
@@ -283,7 +283,7 @@ class UserAssignmentsRequest(BaseSchema):
     """
 
     profile: UserAssignmentProfile | None = Field(default=None, description="用户基础资料分段（None = 不改）")
-    role_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] | None = Field(
+    role_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] | None = Field(
         default=None, description="用户直接角色全量集合（None = 不改；空集 = 清空）"
     )
     user_posts: UserAssignmentPosts | None = Field(default=None, description="用户-岗位分段（None = 不改）")

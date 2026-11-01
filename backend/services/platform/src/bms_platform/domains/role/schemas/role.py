@@ -97,7 +97,7 @@ class AssignedUserItem(BaseSchema):
 class RoleAssignRequest(BaseSchema):
     """批量分配用户请求（幂等 upsert）。"""
 
-    user_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    user_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="用户主键清单"
     )
 
@@ -249,7 +249,7 @@ class RoleAssignmentProfile(BaseSchema):
 class RoleAssignmentPosts(BaseSchema):
     """分配编排请求的角色-岗位分段（全量覆盖；角色侧无主要项）。"""
 
-    post_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    post_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="岗位主键集合（全量覆盖；空集 = 清空）"
     )
 
@@ -257,7 +257,7 @@ class RoleAssignmentPosts(BaseSchema):
 class RoleAssignmentDepts(BaseSchema):
     """分配编排请求的角色-部门分段（全量覆盖；角色侧无主要项）。"""
 
-    dept_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    dept_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="部门主键集合（全量覆盖；空集 = 清空）"
     )
 
@@ -271,7 +271,7 @@ class RoleAssignmentsRequest(BaseSchema):
     """
 
     role: RoleAssignmentProfile | None = Field(default=None, description="角色本体分段（None = 不改）")
-    user_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] | None = Field(
+    user_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] | None = Field(
         default=None, description="角色直接用户全量集合（None = 不改；空集 = 清空）"
     )
     role_posts: RoleAssignmentPosts | None = Field(default=None, description="角色-岗位分段（None = 不改）")

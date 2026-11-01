@@ -10,7 +10,7 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 
 
 class ReleaseDomainEntryResponse(BaseSchema):
@@ -27,7 +27,7 @@ class ReleaseDomainEntryResponse(BaseSchema):
 class ReleaseManifestResponse(BaseSchema):
     """一次发布的完整快照（主表字段 + 逐域明细）。"""
 
-    id: Annotated[int, Field(description="清单主键")]
+    id: Annotated[SnowflakeIdStr, Field(description="清单主键")]
     unit_key: Annotated[str, Field(description="部署单元标识")]
     tenant_scope: Annotated[int, Field(description="作用范围（0 = 全局）")]
     manifest_version: Annotated[int, Field(description="发布批次号")]

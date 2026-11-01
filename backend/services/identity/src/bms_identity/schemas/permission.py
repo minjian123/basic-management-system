@@ -47,7 +47,7 @@ class PlatformPermissionField(BaseSchema):
 class PlatformPermissionSubject(BaseSchema):
     """按用户取回的聚合输入（platform 内部只读契约响应）。"""
 
-    role_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    role_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="主体链收敛后的角色主键集合"
     )
     role_types: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(

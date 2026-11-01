@@ -24,7 +24,7 @@ from bms_core.schemas.base import (
 class PermissionInvalidateRequest(BaseSchema):
     """权限快照失效请求（服务间内部契约）。"""
 
-    user_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    user_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="受影响用户主键（空 = 全租户版本 +1）"
     )
 
@@ -70,7 +70,7 @@ class PermissionFieldItem(BaseSchema):
 class PermissionSubjectResult(BaseSchema):
     """按用户取回的聚合输入（服务间内部契约）。"""
 
-    role_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+    role_ids: Annotated[ConcurrentStableList[SnowflakeIdStr], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="主体链收敛后的角色主键集合"
     )
     role_types: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
