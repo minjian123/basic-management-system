@@ -6820,7 +6820,7 @@ export interface components {
              * Locked By
              * @description 锁定操作人（系统触发为 NULL）
              */
-            locked_by?: number | null;
+            locked_by?: string | null;
             /**
              * Name
              * @description 用户昵称 / 显示名（同库回显；用户已不存在为空串）
@@ -6841,7 +6841,7 @@ export interface components {
              * Unlock By
              * @description 解锁操作人（自动解锁为 NULL）
              */
-            unlock_by?: number | null;
+            unlock_by?: string | null;
             /**
              * Unlock Mode
              * @description 解锁方式（manual/auto；NULL=未解锁）
