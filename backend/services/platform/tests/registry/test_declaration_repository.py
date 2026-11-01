@@ -36,6 +36,11 @@ from bms_platform.domains.platform_registry.repositories.declaration_repository 
 from bms_platform.domains.platform_registry.services.declaration_bootstrap import with_platform_services
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
 
+pytestmark = pytest.mark.own_db(
+    "被测对象是声明对账的内核语义：需空库起步、整表清理后重插、退役与行被删等状态，"
+    "共享库的既有声明会让这些分支无法构造"
+)
+
 _MANIFEST = """
 product_key = "demo"
 

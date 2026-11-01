@@ -29,6 +29,10 @@ from bms_core.services.module_registry import (
 )
 from bms_platform.domains.platform_registry.services import declaration_bootstrap as module
 
+pytestmark = pytest.mark.own_db(
+    "被测对象是平台自注册启动钩子：需清单缺失 / 归属不符 / 库不可用等受控状态，共享库无法构造"
+)
+
 _MANIFEST = """
 product_key = "platform"
 
