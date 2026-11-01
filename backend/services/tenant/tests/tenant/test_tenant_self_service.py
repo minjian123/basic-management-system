@@ -34,6 +34,7 @@ from bms_core.tenant.base import (
 )
 from bms_core.tenant.db import DbTenantSelfService
 from bms_core.tenant.null import NullTenantSelfService
+from bms_core.testing.namespace import Namespace
 from bms_tenant.domains.tenant.api.tenant import router as tenant_router
 from bms_tenant.main import ApplicationFactory
 from tests_support.auth import auth_headers
@@ -46,19 +47,21 @@ DEMO_CODE = "demo"
 DEMO_NAME = "演示租户"
 ACME_CODE = "acme"
 
-_OTHER_USER = "9101"
-"""与默认测试用户不同的用户主体（多租户用例，避免跨用例状态耦合）。"""
 
-_ORPHAN_USER = "9201"
-"""专用用户主体（「未建立关系」用例；不被其他用例自愈，避免跨用例状态耦合）。"""
+def _uid(ns: Namespace, salt: str) -> str:
+    """按命名空间派生登录主体（数字串；同文件多用例、多 worker 之间互不干扰）。
 
-_ORPHAN_DENIED_USER = "9303"
-"""专用用户主体（「自愈后仍越权」用例）。
+    单库叠加下同文件多个用例可能被分到不同 worker 并行执行，共用固定主体会让
+    「未接线用户切他人租户被拒」变成成功切换（2026-10-19 CI 并行实测）。
 
-与 `_ORPHAN_USER` 及 `test_tenant_membership.py` 的 `_USER`（9301，会直写 acme 关系）**都不同**：
-同 worker 内多个文件共用一个平台库，主体撞号会让「未接线用户切他人租户被拒」变成成功切换
-（2026-10-19 CI 并行实测）。
-"""
+    Args:
+        ns: 用例命名空间。
+        salt: 同用例内的主体变体（不同用例传不同值）。
+
+    Returns:
+        str: 数字串主体（令牌 subject）。
+    """
+    return str(int(ns.prefix[2:], 16) + sum(ord(char) for char in salt))
 
 
 class _RecordingIdempotency:
@@ -285,8 +288,10 @@ def test_route_auth_scope() -> None:
 
 
 @pytest.mark.kiwi_id(891)
-async def test_route_my_tenants_self_heals(client: AsyncClient, platform_db_url: str) -> None:
+async def test_route_my_tenants_self_heals(client: AsyncClient, platform_db_url: str, ns: Namespace) -> None:
     """真实路由：我的租户——无可访问行时读路径自愈补建自有租户行（来源 `self_heal`）。"""
+    user = _uid(ns, "heal")
+    client.headers.update(auth_headers(subject=user))
     resp = await client.get(f"{API}/mine")
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
@@ -297,7 +302,7 @@ async def test_route_my_tenants_self_heals(client: AsyncClient, platform_db_url:
     assert data["tenants"][0]["name"] == DEMO_NAME
 
     # 自愈补建行来源为 self_heal（幂等：重复调用不新增）
-    assert await membership_source(platform_db_url, tenant_id=1001, user_id=1001) == (
+    assert await membership_source(platform_db_url, tenant_id=1001, user_id=int(user)) == (
         f"active|{TENANT_MEMBERSHIP_SELF_HEAL_SOURCE}"
     )
     again = await client.get(f"{API}/mine")
@@ -305,12 +310,13 @@ async def test_route_my_tenants_self_heals(client: AsyncClient, platform_db_url:
 
 
 @pytest.mark.kiwi_id(891)
-async def test_route_my_tenants_multi_tenant(client: AsyncClient, platform_db_url: str) -> None:
+async def test_route_my_tenants_multi_tenant(client: AsyncClient, platform_db_url: str, ns: Namespace) -> None:
     """真实路由：多租户——列出全部可访问租户且 `multi_tenant=true`。"""
+    user = _uid(ns, "multi")
     await grant_membership(
-        platform_db_url, tenant_id=1001, user_id=int(_OTHER_USER), target_tenant_id=2002, source="admin_create"
+        platform_db_url, tenant_id=1001, user_id=int(user), target_tenant_id=2002, source="admin_create"
     )
-    client.headers.update(auth_headers(subject=_OTHER_USER))
+    client.headers.update(auth_headers(subject=user))
     resp = await client.get(f"{API}/mine")
     assert resp.status_code == 200
     data = resp.json()["data"]
@@ -320,8 +326,9 @@ async def test_route_my_tenants_multi_tenant(client: AsyncClient, platform_db_ur
 
 
 @pytest.mark.kiwi_id(891)
-async def test_route_switch_hit_and_denied(client: AsyncClient) -> None:
+async def test_route_switch_hit_and_denied(client: AsyncClient, ns: Namespace) -> None:
     """真实路由：切换命中（自有租户）/ 越权（未加入租户）/ 目标不存在 / 空编码。"""
+    client.headers.update(auth_headers(subject=_uid(ns, "switch")))
     await client.get(f"{API}/mine")  # 读路径自愈：先建立自有租户关系
 
     hit = await client.post(f"{API}/switch", json={"code": DEMO_CODE})
@@ -347,9 +354,12 @@ async def test_route_switch_hit_and_denied(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(891)
-async def test_route_switch_self_heals_without_prior_my_tenants(client: AsyncClient, platform_db_url: str) -> None:
+async def test_route_switch_self_heals_without_prior_my_tenants(
+    client: AsyncClient, platform_db_url: str, ns: Namespace
+) -> None:
     """真实路由：未先经 `my_tenants` 时直接切自有租户——`switch` 同出口自愈后命中（200）。"""
-    client.headers.update(auth_headers(subject=_ORPHAN_USER))
+    user = _uid(ns, "orphan")
+    client.headers.update(auth_headers(subject=user))
     hit = await client.post(f"{API}/switch", json={"code": DEMO_CODE})
     assert hit.status_code == 200, hit.text
     data = hit.json()["data"]
@@ -358,33 +368,35 @@ async def test_route_switch_self_heals_without_prior_my_tenants(client: AsyncCli
     assert data["applied"] is True
     assert data["reissue_token"] is True
     # 自愈补建的是自有租户行（来源 self_heal），无需先调 my_tenants
-    assert await membership_source(platform_db_url, tenant_id=1001, user_id=int(_ORPHAN_USER)) == (
+    assert await membership_source(platform_db_url, tenant_id=1001, user_id=int(user)) == (
         f"active|{TENANT_MEMBERSHIP_SELF_HEAL_SOURCE}"
     )
 
 
 @pytest.mark.kiwi_id(891)
-async def test_route_switch_denied_after_self_heal(client: AsyncClient, platform_db_url: str) -> None:
+async def test_route_switch_denied_after_self_heal(client: AsyncClient, platform_db_url: str, ns: Namespace) -> None:
     """真实路由：自愈只补自有租户行——未接线用户直接切他人租户仍被拒（403 / 80003）。"""
-    client.headers.update(auth_headers(subject=_ORPHAN_DENIED_USER))
+    user = _uid(ns, "denied")
+    client.headers.update(auth_headers(subject=user))
     denied = await client.post(f"{API}/switch", json={"code": ACME_CODE})
     assert denied.status_code == 403, denied.text
     assert denied.json()["code"] == 80003
     # 自愈不构成越权放宽：自有租户行已建立，他人租户仍不可达
-    assert await membership_source(platform_db_url, tenant_id=1001, user_id=int(_ORPHAN_DENIED_USER)) == (
+    assert await membership_source(platform_db_url, tenant_id=1001, user_id=int(user)) == (
         f"active|{TENANT_MEMBERSHIP_SELF_HEAL_SOURCE}"
     )
 
 
 @pytest.mark.kiwi_id(891)
 @pytest.mark.kiwi_id(2218)
-async def test_switch_idempotency_reuses_first_result() -> None:
+async def test_switch_idempotency_reuses_first_result(ns: Namespace) -> None:
     """切换按幂等键复用首次结果（作用域绑当前租户位）。"""
+    user = _uid(ns, "idem")
     app = ApplicationFactory().create(None)
     double = _RecordingIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
+        client.headers.update(auth_headers(subject=user))
         await client.get(f"{API}/mine")  # 自愈：建立自有租户关系
         first = await client.post(f"{API}/switch", json={"code": DEMO_CODE}, headers={"Idempotency-Key": "k-1"})
         second = await client.post(f"{API}/switch", json={"code": ACME_CODE}, headers={"Idempotency-Key": "k-1"})
@@ -396,13 +408,14 @@ async def test_switch_idempotency_reuses_first_result() -> None:
 
 @pytest.mark.kiwi_id(891)
 @pytest.mark.kiwi_id(2218)
-async def test_switch_idempotency_without_cached_result_executes() -> None:
+async def test_switch_idempotency_without_cached_result_executes(ns: Namespace) -> None:
     """切换：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
+    user = _uid(ns, "stale")
     app = ApplicationFactory().create(None)
     stale = _StaleIdempotency()
     app.dependency_overrides[get_idempotency_store] = lambda: stale
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
+        client.headers.update(auth_headers(subject=user))
         await client.get(f"{API}/mine")  # 自愈：建立自有租户关系
         resp = await client.post(f"{API}/switch", json={"code": DEMO_CODE}, headers={"Idempotency-Key": "k-9"})
 

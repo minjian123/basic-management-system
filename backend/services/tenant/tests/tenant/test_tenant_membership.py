@@ -18,6 +18,7 @@ from bms_core.db.session import session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.tenant.membership import LOCAL_TENANT_MEMBERSHIP_STORE
+from bms_core.testing.namespace import Namespace
 from bms_tenant.domains.tenant.repositories.tenant_membership import TenantMembershipRepository
 from bms_tenant.domains.tenant.services.membership import TenantMembershipService
 from bms_tenant.domains.tenant.sources.membership import LocalTenantMembershipStore
@@ -26,19 +27,34 @@ from tests_support.tenant_sql import membership_status_source
 API = "/api/v1/tenant/internal/memberships"
 DEMO_TENANT_ID = 1001
 ACME_TENANT_ID = 2002
-_UNKNOWN_TENANT_ID = 9999
 
-_USER = 9301
-_OTHER_USER = 9302
 
-_RECON_USER = 9401
-"""对账巡检用例用户（专用，避免其他用例状态耦合）。"""
+def _uid(ns: Namespace, salt: str) -> int:
+    """按命名空间派生用户主键（同文件多用例、多 worker 之间互不干扰）。
 
-_RECON_OTHER = 9402
-"""对账巡检用例另一用户（带额外目标租户关系）。"""
+    单库叠加下同文件多个用例可能被分到不同 worker 并行执行，共用固定用户会让
+    「回收后清单为空」「对账缺行」这类断言互相污染。
 
-_RECON_ABSENT = 9499
-"""对账巡检用例「清单中无自有关系」用户。"""
+    Args:
+        ns: 用例命名空间。
+        salt: 同用例内的主体变体。
+
+    Returns:
+        int: 用户主键。
+    """
+    return int(ns.prefix[2:], 16) * 10 + sum(ord(char) for char in salt)
+
+
+def _missing_tenant(ns: Namespace) -> int:
+    """本用例专属的「不存在」租户主键。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        int: 不存在的主键。
+    """
+    return int(ns.prefix[2:], 16) + 7_000_000
 
 
 class _StubVerifier:
@@ -79,87 +95,88 @@ def _store(app: FastAPI) -> LocalTenantMembershipStore:
 
 
 @pytest.mark.kiwi_id(891)
-async def test_local_store_ensure_idempotent_and_reactivate(service_app: FastAPI) -> None:
+async def test_local_store_ensure_idempotent_and_reactivate(service_app: FastAPI, ns: Namespace) -> None:
     """本地数据源：ensure 幂等建（首次落来源）、重复幂等、回收后可复活。"""
     store = _store(service_app)
+    user = _uid(ns, "ensure")
 
     created = await store.ensure(
-        tenant_id=DEMO_TENANT_ID, user_id=_USER, target_tenant_id=ACME_TENANT_ID, source="admin_create"
+        tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=ACME_TENANT_ID, source="admin_create"
     )
     assert created.tenant_id == ACME_TENANT_ID
     assert created.code == "acme"
     assert created.status == "active"
 
-    again = await store.ensure(
-        tenant_id=DEMO_TENANT_ID, user_id=_USER, target_tenant_id=ACME_TENANT_ID, source="import"
-    )
+    again = await store.ensure(tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=ACME_TENANT_ID, source="import")
     assert again.status == "active"
-    targets = await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=_USER)
+    targets = await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=user)
     assert [item.tenant_id for item in targets] == [ACME_TENANT_ID]
 
-    await store.revoke(tenant_id=DEMO_TENANT_ID, user_id=_USER, target_tenant_id=ACME_TENANT_ID)
-    await store.revoke(tenant_id=DEMO_TENANT_ID, user_id=_USER, target_tenant_id=ACME_TENANT_ID)  # 幂等
-    assert await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=_USER) == []
-    all_rows = await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=_USER, include_disabled=True)
+    await store.revoke(tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=ACME_TENANT_ID)
+    await store.revoke(tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=ACME_TENANT_ID)  # 幂等
+    assert await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=user) == []
+    all_rows = await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=user, include_disabled=True)
     assert [item.status for item in all_rows] == ["disabled"]
 
     revived = await store.ensure(
-        tenant_id=DEMO_TENANT_ID, user_id=_USER, target_tenant_id=ACME_TENANT_ID, source="import"
+        tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=ACME_TENANT_ID, source="import"
     )
     assert revived.status == "active"
-    rows = await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=_USER)
+    rows = await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=user)
     assert [item.tenant_id for item in rows] == [ACME_TENANT_ID]
 
 
 @pytest.mark.kiwi_id(891)
-async def test_local_store_revoke_all_and_source_validation(service_app: FastAPI) -> None:
+async def test_local_store_revoke_all_and_source_validation(service_app: FastAPI, ns: Namespace) -> None:
     """本地数据源：回收全部（幂等）+ 来源取值校验 + 目标租户不存在。"""
     store = _store(service_app)
+    user = _uid(ns, "revoke-all")
 
-    await store.ensure(tenant_id=DEMO_TENANT_ID, user_id=_OTHER_USER, target_tenant_id=DEMO_TENANT_ID, source="sso_jit")
-    await store.ensure(tenant_id=DEMO_TENANT_ID, user_id=_OTHER_USER, target_tenant_id=ACME_TENANT_ID, source="sso_jit")
-    await store.revoke_all(tenant_id=DEMO_TENANT_ID, user_id=_OTHER_USER)
-    await store.revoke_all(tenant_id=DEMO_TENANT_ID, user_id=_OTHER_USER)  # 幂等
-    assert await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=_OTHER_USER) == []
+    await store.ensure(tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=DEMO_TENANT_ID, source="sso_jit")
+    await store.ensure(tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=ACME_TENANT_ID, source="sso_jit")
+    await store.revoke_all(tenant_id=DEMO_TENANT_ID, user_id=user)
+    await store.revoke_all(tenant_id=DEMO_TENANT_ID, user_id=user)  # 幂等
+    assert await store.list_targets(tenant_id=DEMO_TENANT_ID, user_id=user) == []
 
     with pytest.raises(ParamError):
-        await store.ensure(
-            tenant_id=DEMO_TENANT_ID, user_id=_OTHER_USER, target_tenant_id=DEMO_TENANT_ID, source="bogus"
-        )
+        await store.ensure(tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=DEMO_TENANT_ID, source="bogus")
 
     with pytest.raises(TenantNotFoundError):
         await store.ensure(
             tenant_id=DEMO_TENANT_ID,
-            user_id=_OTHER_USER,
-            target_tenant_id=_UNKNOWN_TENANT_ID,
+            user_id=user,
+            target_tenant_id=_missing_tenant(ns),
             source="admin_create",
         )
 
 
 @pytest.mark.kiwi_id(891)
-async def test_reconcile_reports_missing_and_dangling(service_app: FastAPI) -> None:
+async def test_reconcile_reports_missing_and_dangling(service_app: FastAPI, ns: Namespace) -> None:
     """对账巡检：缺行（清单中无自有关系）/ 悬空行（关系表有行但不在清单）均可检出；无差异为空。"""
     registry = cast("EngineRegistry", service_app.state.engine_registry)
     async with session_scope(registry, db_key=PLATFORM_DB_KEY) as session:
         service = TenantMembershipService(TenantMembershipRepository(session), DbUnitOfWork(session))
-        for user in (_RECON_USER, _RECON_OTHER):
+        recon_user = _uid(ns, "recon")
+        recon_other = _uid(ns, "recon-other")
+        recon_absent = _uid(ns, "recon-absent")
+        for user in (recon_user, recon_other):
             await service.ensure(
                 tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=DEMO_TENANT_ID, source="sso_jit"
             )
         await service.ensure(
-            tenant_id=DEMO_TENANT_ID, user_id=_RECON_OTHER, target_tenant_id=ACME_TENANT_ID, source="import"
+            tenant_id=DEMO_TENANT_ID, user_id=recon_other, target_tenant_id=ACME_TENANT_ID, source="import"
         )
 
         clean = await service.reconcile(
-            tenant_id=DEMO_TENANT_ID, user_ids=ConcurrentStableList([_RECON_USER, _RECON_OTHER])
+            tenant_id=DEMO_TENANT_ID, user_ids=ConcurrentStableList([recon_user, recon_other])
         )
         assert clean.missing == []
 
         report = await service.reconcile(
-            tenant_id=DEMO_TENANT_ID, user_ids=ConcurrentStableList([_RECON_USER, _RECON_ABSENT])
+            tenant_id=DEMO_TENANT_ID, user_ids=ConcurrentStableList([recon_user, recon_absent])
         )
-        assert _RECON_ABSENT in report.missing
-        assert _RECON_OTHER in report.dangling
+        assert recon_absent in report.missing
+        assert recon_other in report.dangling
 
 
 @pytest.mark.kiwi_id(891)
@@ -171,16 +188,19 @@ async def test_membership_store_dependency_export(service_app: FastAPI) -> None:
 
 
 @pytest.mark.kiwi_id(891)
-async def test_internal_endpoints_read_write(client: AsyncClient, service_app: FastAPI, platform_db_url: str) -> None:
+async def test_internal_endpoints_read_write(
+    client: AsyncClient, service_app: FastAPI, platform_db_url: str, ns: Namespace
+) -> None:
     """内部端点：POST 建关系 → GET 读 → DELETE 回收（含 include_disabled 与全部回收）。"""
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
     headers = {"Authorization": "Bearer org"}
+    user = _uid(ns, "internal")
 
     created = await client.post(
         API,
         json={
             "owner_tenant_id": DEMO_TENANT_ID,
-            "user_id": _USER,
+            "user_id": user,
             "target_tenant_id": ACME_TENANT_ID,
             "source": "admin_create",
         },
@@ -191,14 +211,14 @@ async def test_internal_endpoints_read_write(client: AsyncClient, service_app: F
     assert [item["code"] for item in data["targets"]] == ["acme"]
     assert (
         await membership_status_source(
-            platform_db_url, tenant_id=DEMO_TENANT_ID, user_id=_USER, target_tenant_id=ACME_TENANT_ID
+            platform_db_url, tenant_id=DEMO_TENANT_ID, user_id=user, target_tenant_id=ACME_TENANT_ID
         )
         == "active|admin_create"
     )
 
     listed = await client.get(
         API,
-        params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": _USER},
+        params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": user},
         headers=headers,
     )
     assert listed.status_code == 200
@@ -206,7 +226,7 @@ async def test_internal_endpoints_read_write(client: AsyncClient, service_app: F
 
     revoked = await client.delete(
         API,
-        params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": _USER, "target_tenant_id": ACME_TENANT_ID},
+        params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": user, "target_tenant_id": ACME_TENANT_ID},
         headers=headers,
     )
     assert revoked.status_code == 200
@@ -214,37 +234,34 @@ async def test_internal_endpoints_read_write(client: AsyncClient, service_app: F
 
     with_disabled = await client.get(
         API,
-        params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": _USER, "include_disabled": True},
+        params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": user, "include_disabled": True},
         headers=headers,
     )
     assert [item["status"] for item in with_disabled.json()["data"]["targets"]] == ["disabled"]
 
-    revoked_all = await client.delete(
-        API, params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": _USER}, headers=headers
-    )
+    revoked_all = await client.delete(API, params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": user}, headers=headers)
     assert revoked_all.status_code == 200
     assert revoked_all.json()["data"]["targets"] == []
 
 
 @pytest.mark.kiwi_id(891)
-async def test_internal_endpoint_auth_and_validation(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_internal_endpoint_auth_and_validation(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """内部端点：鉴权白名单（org / identity）、网关票据与匿名拒、参数校验与来源校验。"""
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+    user = _uid(ns, "auth")
 
     identity_headers = {"Authorization": "Bearer identity"}
-    ok = await client.get(
-        API, params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": _OTHER_USER}, headers=identity_headers
-    )
+    ok = await client.get(API, params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": user}, headers=identity_headers)
     assert ok.status_code == 200
 
     gateway = await client.get(
         API,
-        params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": _OTHER_USER},
+        params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": user},
         headers={"Authorization": "Bearer gateway"},
     )
     assert gateway.status_code == 401
 
-    anonymous = await client.get(API, params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": _OTHER_USER})
+    anonymous = await client.get(API, params={"owner_tenant_id": DEMO_TENANT_ID, "user_id": user})
     assert anonymous.status_code == 401
 
     # 缺参：统一校验处理器收口为参数错误（10001 / HTTP 200，`BizError` 语义）
@@ -255,7 +272,7 @@ async def test_internal_endpoint_auth_and_validation(client: AsyncClient, servic
         API,
         json={
             "owner_tenant_id": DEMO_TENANT_ID,
-            "user_id": _OTHER_USER,
+            "user_id": user,
             "target_tenant_id": DEMO_TENANT_ID,
             "source": "bogus",
         },
@@ -267,8 +284,8 @@ async def test_internal_endpoint_auth_and_validation(client: AsyncClient, servic
         API,
         json={
             "owner_tenant_id": DEMO_TENANT_ID,
-            "user_id": _OTHER_USER,
-            "target_tenant_id": _UNKNOWN_TENANT_ID,
+            "user_id": user,
+            "target_tenant_id": _missing_tenant(ns),
             "source": "admin_create",
         },
         headers=identity_headers,
