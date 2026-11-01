@@ -76,14 +76,10 @@ class SysJobMonitor(BaseModel):
     job_id: Mapped[int] = mapped_column(SnowflakeId, comment="作业标识（sys_job.id；跨服务全局唯一）")
     service_key: Mapped[str] = mapped_column(String(64), comment="提供方服务键（取消 / 重试转发依据）")
     job_type: Mapped[str] = mapped_column(String(128), comment="作业类型")
-    tenant_id: Mapped[int | None] = mapped_column(
-        SnowflakeId, nullable=True, comment="租户主键（平台链作业为空）"
-    )
+    tenant_id: Mapped[int | None] = mapped_column(SnowflakeId, nullable=True, comment="租户主键（平台链作业为空）")
     status: Mapped[str] = mapped_column(String(16), comment="作业状态（六态同 sys_job）")
     progress_done: Mapped[int] = mapped_column(BigInteger, default=0, comment="已完成量")
-    progress_total: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="总量（NULL = 不确定进度）"
-    )
+    progress_total: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="总量（NULL = 不确定进度）")
     attempts: Mapped[int] = mapped_column(Integer, default=0, comment="尝试次数")
     error: Mapped[str | None] = mapped_column(String(512), nullable=True, comment="错误摘要（截断）")
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="提交时刻（事件）")

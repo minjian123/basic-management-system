@@ -93,7 +93,11 @@ async def membership_status_source(platform_url: str, *, tenant_id: int, user_id
                     "SELECT status, source FROM sys_user_tenant WHERE tenant_id = :tenant_id "
                     "AND user_id = :user_id AND target_tenant_id = :target AND deleted_at IS NULL"
                 ),
-                {"tenant_id": sqlite_id(tenant_id), "user_id": sqlite_id(user_id), "target": sqlite_id(target_tenant_id)},
+                {
+                    "tenant_id": sqlite_id(tenant_id),
+                    "user_id": sqlite_id(user_id),
+                    "target": sqlite_id(target_tenant_id),
+                },
             )
         ).first()
     await engine.dispose()

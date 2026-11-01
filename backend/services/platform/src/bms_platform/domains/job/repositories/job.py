@@ -104,9 +104,7 @@ class JobTypeRepository(BaseDbRepository[SysJobType]):
         payload["updated_at"] = now
         payload["version"] = SysJobType.version + 1
         statement = (
-            update(SysJobType)
-            .where(SysJobType.job_type == job_type, SysJobType.deleted_at.is_(None))
-            .values(**payload)
+            update(SysJobType).where(SysJobType.job_type == job_type, SysJobType.deleted_at.is_(None)).values(**payload)
         )
         result: CursorResult[object] = await self._session.execute(statement)  # pyright: ignore[reportAssignmentType]
         return result.rowcount == 1

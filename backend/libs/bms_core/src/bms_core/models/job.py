@@ -83,9 +83,7 @@ class SysJob(BaseModel):
     )
     result: Mapped[str | None] = mapped_column(Text, nullable=True, comment="结果 JSON 摘要（按上限截断）")
     progress_done: Mapped[int] = mapped_column(BigInteger, default=0, comment="已完成量")
-    progress_total: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="总量（NULL = 不确定进度）"
-    )
+    progress_total: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="总量（NULL = 不确定进度）")
     attempts: Mapped[int] = mapped_column(Integer, default=0, comment="已执行次数（每次抢占 +1）")
     max_attempts: Mapped[int] = mapped_column(Integer, default=3, comment="最大执行次数（提交时快照）")
     next_run_at: Mapped[datetime | None] = mapped_column(

@@ -98,10 +98,14 @@ def test_sqlite_roundtrip_and_ordering(tmp_path: Path) -> None:
             stored = connection.execute(text("select id, length(id) from snow_probe order by id")).all()
             assert [int(row[0]) for row in stored] == sorted(values)
             assert {row[1] for row in stored} == {SQLITE_PADDED_WIDTH}
-            greater = connection.execute(
-                text("select id from snow_probe where id > :bound order by id"),
-                {"bound": str(2**63).zfill(SQLITE_PADDED_WIDTH)},
-            ).scalars().all()
+            greater = (
+                connection.execute(
+                    text("select id from snow_probe where id > :bound order by id"),
+                    {"bound": str(2**63).zfill(SQLITE_PADDED_WIDTH)},
+                )
+                .scalars()
+                .all()
+            )
             assert [int(item) for item in greater] == [2**63 + 1, MAX_ID - 1, MAX_ID]
     finally:
         engine.dispose()

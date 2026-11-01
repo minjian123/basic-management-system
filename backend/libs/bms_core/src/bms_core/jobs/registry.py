@@ -105,9 +105,7 @@ class JobHandlerRegistry(BaseFrameworkObject):
         if not isinstance(handler, BaseJobHandler):  # pyright: ignore[reportUnnecessaryIsInstance] - 运行期 duck typing 防护
             raise JobHandlerNotRegisteredError(f"handler 未继承 BaseJobHandler：{job_type}")
         if handler.job_type and handler.job_type != job_type:
-            raise JobHandlerNotRegisteredError(
-                f"handler.job_type（{handler.job_type}）与注册键（{job_type}）不一致"
-            )
+            raise JobHandlerNotRegisteredError(f"handler.job_type（{handler.job_type}）与注册键（{job_type}）不一致")
         existing = self._handlers.get(job_type)
         if existing is not None and existing is not handler:
             raise JobHandlerNotRegisteredError(f"作业类型重复登记：{job_type}")
@@ -157,9 +155,7 @@ class JobHandlerRegistry(BaseFrameworkObject):
         """
         return ConcurrentStableDict(self._handlers)
 
-    def reconcile(
-        self, declared: Mapping[str, str]
-    ) -> tuple[ConcurrentStableList[str], ConcurrentStableList[str]]:
+    def reconcile(self, declared: Mapping[str, str]) -> tuple[ConcurrentStableList[str], ConcurrentStableList[str]]:
         """与本服务声明对账（声明 = `job_type → handler 点分路径`）。
 
         Args:

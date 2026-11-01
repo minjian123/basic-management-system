@@ -67,9 +67,8 @@ def dump_payload(payload: ConcurrentStableDict[str, object]) -> str:
     Returns:
         str: JSON 文本。
     """
-    return json.dumps(
-        normalize_collections(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    )
+    return json.dumps(normalize_collections(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
 
 def truncate_text(text: str | None, limit: int) -> str | None:
     """按上限截断文本（保留尾部省略号）。

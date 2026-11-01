@@ -179,9 +179,7 @@ async def retry_job(uow: UowDep, job_id: int) -> ApiResponse:
         JobNotRetryableError: 非 dead / failed 不可重试（`71004`）。
     """
     service_key = await _service_key_of(uow, job_id)
-    status = await _client().retry(
-        service_key=service_key, job_id=job_id, tenant_id=current_tenant_context().tenant_id
-    )
+    status = await _client().retry(service_key=service_key, job_id=job_id, tenant_id=current_tenant_context().tenant_id)
     return ApiResponse.ok(JobActionResponse(status=status))
 
 

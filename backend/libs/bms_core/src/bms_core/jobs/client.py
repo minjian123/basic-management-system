@@ -196,9 +196,7 @@ class JobInternalClient(BaseFrameworkObject):
             ServiceUnavailableError: 下游不可达 / 响应非法。
             JobError: 业务错误码映射（`71xxx`）。
         """
-        return await self._call(
-            service_key, "GET", f"{JOB_INTERNAL_PATH}/{job_id}", tenant_id=tenant_id
-        )
+        return await self._call(service_key, "GET", f"{JOB_INTERNAL_PATH}/{job_id}", tenant_id=tenant_id)
 
     async def _call(
         self,

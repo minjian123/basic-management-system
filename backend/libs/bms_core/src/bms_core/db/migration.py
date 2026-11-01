@@ -50,7 +50,6 @@ from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from alembic import command
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenSet,
@@ -151,9 +150,7 @@ COMMON_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
   保证建表集与分包前一致。
 """
 
-BASE_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
-    ("bms_core.models.outbox", "bms_core.models.job")
-)
+BASE_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(("bms_core.models.outbox", "bms_core.models.job"))
 """基座基础设施模型（发件箱三表 + 作业记录两表：不归业务域、每库一份，由部署单元级建表集追加）。"""
 
 _DOMAIN_MODEL_CACHE: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
@@ -968,6 +965,8 @@ def upgrade_series(series: MigrationSeries, url: str, *, schema: str = "") -> No
         url: 目标连接串（含密码；禁止写入日志）。
         schema: 达梦目标模式名（空串表示不切换）。
     """
+    from alembic import command  # 局部导入：规避 isort 两种视图对 `alembic` 包分组的互斥判定
+
     config = alembic_config(series)
     x_args = [f"url={url}"] + ([f"schema={schema}"] if schema else [])
     config.cmd_opts = SimpleNamespace(x=x_args)  # pyright: ignore[reportAttributeAccessIssue]

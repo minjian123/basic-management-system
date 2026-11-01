@@ -104,9 +104,7 @@ def started_envelope(*, job_id: int, job_type: str, service_key: str, attempt: i
     )
 
 
-def progress_envelope(
-    *, job_id: int, job_type: str, service_key: str, done: int, total: int | None
-) -> EventEnvelope:
+def progress_envelope(*, job_id: int, job_type: str, service_key: str, done: int, total: int | None) -> EventEnvelope:
     """构造 `sys.job.progress` 事件。
 
     Args:

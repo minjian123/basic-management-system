@@ -1,5 +1,111 @@
 {
   "version": 1,
-  "generated_at": "2026-10-20",
-  "entries": []
+  "generated_at": "2026-11-01",
+  "entries": [
+    {
+      "file": "backend/libs/bms_core/src/bms_core/jobs/client.py",
+      "line": "_ERROR_TYPES: dict[int, type[Exception]] = {",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/jobs/limits.py",
+      "line": "DEFAULT_LIMITS: dict[str, Any] = {",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/jobs/registry.py",
+      "line": "def load(self, handlers: Mapping[str, BaseJobHandler]) -> None:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/jobs/registry.py",
+      "line": "def reconcile(self, declared: Mapping[str, str]) -> tuple[ConcurrentStableList[str], ConcurrentStableList[str]]:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/jobs/runner.py",
+      "line": "specs: Mapping[str, JobTypeSpec],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/jobs/store.py",
+      "line": "def _values(**changes: object) -> dict[str, object]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/jobs/worker.py",
+      "line": "specs: dict[str, JobTypeSpec],",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/schemas/job.py",
+      "line": "payload: dict[str, object] = Field(default_factory=dict, description=\"负载 JSON 对象\")",
+      "container": "dict",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/jobs/test_job_worker.py",
+      "line": "specs: dict[str, JobTypeSpec] = {",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/ops/test_compose_worker_ids.py",
+      "line": "def _services() -> dict[str, dict[str, object]]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/ops/test_compose_worker_ids.py",
+      "line": "values: list[str] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/tasks/test_builtin_cleanup.py",
+      "line": "self.calls: list[dict[str, object]] = []",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/tasks/test_builtin_cleanup.py",
+      "line": "self.calls: list[dict[str, object]] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/services/file/tests/jobs/test_file_cleanup_job.py",
+      "line": "def _context(progress: list[tuple[int, int | None]]) -> JobContext:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/services/file/tests/jobs/test_file_cleanup_job.py",
+      "line": "progress: list[tuple[int, int | None]] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    }
+  ]
 }

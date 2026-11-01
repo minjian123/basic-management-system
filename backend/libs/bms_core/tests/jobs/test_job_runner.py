@@ -94,9 +94,7 @@ async def test_run_inline_success(session) -> None:
 async def test_run_inline_idempotent(session) -> None:
     """同幂等键再次内联：返回既有作业，不重复执行。"""
     runner = _runner()
-    submission = JobSubmission(
-        job_type="demo.echo", payload=ConcurrentStableDict({"n": 1}), idempotency_key="same"
-    )
+    submission = JobSubmission(job_type="demo.echo", payload=ConcurrentStableDict({"n": 1}), idempotency_key="same")
     async with session.begin():
         first, _ = await runner.run_inline(session, submission, db_key="platform")
     async with session.begin():
@@ -108,9 +106,7 @@ async def test_run_inline_idempotent(session) -> None:
 async def test_run_inline_failed_not_retryable(session) -> None:
     """不可重试失败：终态 failed。"""
     async with session.begin():
-        record, result = await _runner().run_inline(
-            session, JobSubmission(job_type="demo.fail"), db_key="platform"
-        )
+        record, result = await _runner().run_inline(session, JobSubmission(job_type="demo.fail"), db_key="platform")
     assert result.status == "failed"
     assert record.status == "failed"
 
@@ -118,9 +114,7 @@ async def test_run_inline_failed_not_retryable(session) -> None:
 async def test_run_inline_exception_exhausts_to_dead(session) -> None:
     """异常按可重试处理；attempts 达上限即死信。"""
     async with session.begin():
-        record, result = await _runner().run_inline(
-            session, JobSubmission(job_type="demo.explode"), db_key="platform"
-        )
+        record, result = await _runner().run_inline(session, JobSubmission(job_type="demo.explode"), db_key="platform")
     assert result.status == "failed"
     assert record.status == "dead"
     async with session.begin():
@@ -131,9 +125,7 @@ async def test_run_inline_exception_exhausts_to_dead(session) -> None:
 async def test_run_inline_canceled(session) -> None:
     """handler 返回取消：终态 canceled。"""
     async with session.begin():
-        record, result = await _runner().run_inline(
-            session, JobSubmission(job_type="demo.cancel"), db_key="platform"
-        )
+        record, result = await _runner().run_inline(session, JobSubmission(job_type="demo.cancel"), db_key="platform")
     assert result.status == "canceled"
     assert record.status == "canceled"
 

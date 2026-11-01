@@ -133,9 +133,7 @@ def _values(**changes: object) -> dict[str, object]:
     return payload
 
 
-async def find_by_idempotency(
-    session: DbSession, *, job_type: str, idempotency_key: str
-) -> SysJob | None:
+async def find_by_idempotency(session: DbSession, *, job_type: str, idempotency_key: str) -> SysJob | None:
     """按幂等键查既有作业。
 
     Args:
@@ -257,9 +255,7 @@ async def claim_candidates(
     )
 
 
-async def claim_job(
-    session: DbSession, *, job_id: int, worker_id: str, lease_until: datetime, now: datetime
-) -> bool:
+async def claim_job(session: DbSession, *, job_id: int, worker_id: str, lease_until: datetime, now: datetime) -> bool:
     """条件 UPDATE 抢占一条作业（`rowcount=1` 才算抢到）。
 
     Args:
@@ -296,9 +292,7 @@ async def claim_job(
     return result.rowcount == 1
 
 
-async def heartbeat(
-    session: DbSession, *, job_id: int, worker_id: str, lease_until: datetime, now: datetime
-) -> bool:
+async def heartbeat(session: DbSession, *, job_id: int, worker_id: str, lease_until: datetime, now: datetime) -> bool:
     """续租（执行期间心跳；只续自己持有的租约）。
 
     Args:
@@ -325,9 +319,7 @@ async def heartbeat(
     return result.rowcount == 1
 
 
-async def update_progress(
-    session: DbSession, *, job_id: int, done: int, total: int | None, now: datetime
-) -> bool:
+async def update_progress(session: DbSession, *, job_id: int, done: int, total: int | None, now: datetime) -> bool:
     """更新进度（运行中作业；同时刷新心跳）。
 
     Args:

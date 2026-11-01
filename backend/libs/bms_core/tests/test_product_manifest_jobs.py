@@ -70,7 +70,9 @@ def test_rejects_bad_status() -> None:
 
 def test_inspect_rejects_duplicate_type(tmp_path: Path) -> None:
     """跨记录校验：同清单重复作业类型 → 阻断。"""
-    text = _platform_manifest_text() + """
+    text = (
+        _platform_manifest_text()
+        + """
 [[jobs]]
 job_type = "sys.task.run"
 service = "platform"
@@ -78,6 +80,7 @@ domain = "task"
 handler = "m:f"
 description = "重复声明"
 """
+    )
     path = tmp_path / "platform.toml"
     path.write_text(text, encoding="utf-8")
     inspection = inspect_product_manifests([path])

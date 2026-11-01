@@ -152,9 +152,7 @@ class JobResult(BaseValueObject):
     """失败是否可重试（仅 `failed` 有意义；默认异常 / 失败可重试）。"""
 
     @classmethod
-    def success(
-        cls, output: ConcurrentStableDict[str, object] | None = None, message: str = ""
-    ) -> JobResult:
+    def success(cls, output: ConcurrentStableDict[str, object] | None = None, message: str = "") -> JobResult:
         """构造成功结果。
 
         Args:

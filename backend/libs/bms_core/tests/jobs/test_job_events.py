@@ -55,9 +55,7 @@ def test_progress_total_optional() -> None:
 
 def test_completed_envelope_carries_terminal_state() -> None:
     """完成事件：终态 / 尝试次数 / 错误摘要。"""
-    envelope = completed_envelope(
-        job_id=2, job_type="t", service_key="s", status="dead", attempts=3, error="boom"
-    )
+    envelope = completed_envelope(job_id=2, job_type="t", service_key="s", status="dead", attempts=3, error="boom")
     assert envelope.payload["status"] == "dead"
     assert envelope.payload["attempts"] == 3
     assert envelope.payload["error"] == "boom"
