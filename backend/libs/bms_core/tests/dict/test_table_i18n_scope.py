@@ -20,6 +20,8 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.registry import EngineRegistry
 from bms_core.dict.table import DictI18nSpec, DictTableDataSource, DictTableScope
 
+pytestmark = pytest.mark.own_db("被测对象是字典表源的建表与 i18n join 口径：需自造列结构的表，无法落在共享库")
+
 _DUMMY_REGISTRY = cast("EngineRegistry", object())
 
 

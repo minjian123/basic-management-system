@@ -11,12 +11,14 @@ import inspect
 import os
 import tempfile
 import time
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import AsyncIterator, Callable, Generator, Iterator
 from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableList
@@ -55,7 +57,9 @@ __all__ = (
     "resolve_prepare",
     "shared_db_url",
     "shared_platform_db_url",
+    "shared_platform_engine",
     "shared_tenant_db_url",
+    "shared_tenant_engine",
     "test_db_dir",
     "version_for",
     "worker_id_for_snowflake",
@@ -579,6 +583,43 @@ def shared_tenant_db_url(request: pytest.FixtureRequest) -> str:
     """
     prepare = resolve_prepare(request, "tenant")
     return ensure_shared_db("tenant", prepare, version=version_for(prepare))
+
+
+@pytest.fixture
+async def shared_platform_engine(shared_platform_db_url: str) -> AsyncIterator[AsyncEngine]:
+    """共享平台库引擎（用例级，`NullPool`：用完即断，不跨用例串事务）。
+
+    为什么放在基座：单库叠加口径下，用例**不得**自己 `create_async_engine`（护栏 G1 拦），
+    需要直连共享库时一律经本夹具；`NullPool` 保证用例结束后连接不残留未提交事务。
+
+    Args:
+        shared_platform_db_url: 共享平台库连接串（会话级）。
+
+    Yields:
+        AsyncEngine: 指向共享平台库的引擎。
+    """
+    engine = create_async_engine(shared_platform_db_url, poolclass=NullPool)
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture
+async def shared_tenant_engine(shared_tenant_db_url: str) -> AsyncIterator[AsyncEngine]:
+    """共享租户库引擎（用例级，`NullPool`）。
+
+    Args:
+        shared_tenant_db_url: 共享租户库连接串（会话级）。
+
+    Yields:
+        AsyncEngine: 指向共享租户库的引擎。
+    """
+    engine = create_async_engine(shared_tenant_db_url, poolclass=NullPool)
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture

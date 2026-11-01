@@ -4,12 +4,12 @@
 """
 
 from dataclasses import replace
-from pathlib import Path
+from functools import partial
 from typing import cast
 
 import pytest
-from sqlalchemy import Engine, Table, UniqueConstraint, create_engine, select
-from sqlalchemy.orm import Session
+from sqlalchemy import Connection, Table, UniqueConstraint, select
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import CatalogError
@@ -39,6 +39,8 @@ from bms_core.services.module_registry import (
     validate_product_routes,
     validate_products,
 )
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 
 _BASE_RECORD = ModuleRecord(
     module_key="pur",
@@ -49,6 +51,18 @@ _BASE_RECORD = ModuleRecord(
     service_group=ServiceGroup.PRODUCT,
     product_key="biz",
 )
+
+
+def _create_table(table: Table, connection: Connection) -> None:
+    """幂等建表（共享库上只补本文件需要的表，不删表）。"""
+    table.create(connection, checkfirst=True)
+
+
+async def _ensure_tables(engine: AsyncEngine, tables: tuple[Table, ...]) -> None:
+    """在共享平台库上确保这些表存在（已存在即跳过）。"""
+    async with engine.begin() as connection:
+        for table in tables:
+            await connection.run_sync(partial(_create_table, table))
 
 
 def _record(module_key: str = "pur", **overrides: object) -> ModuleRecord:
@@ -189,7 +203,7 @@ def test_validate_detects_bad_format() -> None:
 
 
 @pytest.mark.kiwi_id(2162)
-def test_models_declared_and_persistable(tmp_path: Path) -> None:
+async def test_models_declared_and_persistable(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
     """模型声明：新字段可建表 / 落库；DB 唯一仅 `code` / `form_key` / `table_prefix` / `event_domain`。"""
     assert {"sys_module", "sys_module_i18n"} <= set(Base.metadata.tables)
     unique_names = {
@@ -207,27 +221,30 @@ def test_models_declared_and_persistable(tmp_path: Path) -> None:
     assert columns["product_key"].nullable is True
     assert columns["service_group"].nullable is False
 
-    engine: Engine = create_engine(f"sqlite:///{tmp_path / 'module.db'}")
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
+    await _ensure_tables(
+        shared_platform_engine,
+        (cast("Table", SysModule.__table__), cast("Table", SysModuleI18n.__table__)),
+    )
+
+    async with rollback_session(shared_platform_engine) as session:
+        key = f"{ns.prefix}mod"
         module = SysModule(
-            module_key="identity",
-            service_key="identity",
+            module_key=key,
+            service_key=key,
             name="认证与身份服务",
-            table_prefix="identity_",
-            event_domain="identity",
+            table_prefix=f"{key}_",
+            event_domain=key,
             service_group="foundation",
             build_batch=0,
         )
         session.add(module)
-        session.commit()
+        await session.commit()
         i18n = SysModuleI18n(module_id=module.id, locale="zh-CN", name="认证与身份服务")
         session.add(i18n)
-        session.commit()
+        await session.commit()
         assert module.id > 0
         assert module.errcode_segment is None
         assert i18n.id > 0
-    engine.dispose()
 
 
 @pytest.mark.kiwi_id(2163)
@@ -461,7 +478,7 @@ def test_validate_products_roundtrip_and_drift() -> None:
 
 
 @pytest.mark.kiwi_id(2249)
-def test_sys_product_model_declared_and_persistable(tmp_path: Path) -> None:
+async def test_sys_product_model_declared_and_persistable(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
     """模型声明：`sys_product` 在元数据中、唯一约束 `code` / `form_key`（各配 `deleted_at`）、软删除索引；
     可建表落库且键可复用。"""
     assert "sys_product" in Base.metadata.tables
@@ -475,21 +492,21 @@ def test_sys_product_model_declared_and_persistable(tmp_path: Path) -> None:
     assert columns["frontend_package_source"].nullable is True
     assert columns["status"].default.arg == ProductStatus.ENABLED
 
-    engine: Engine = create_engine(f"sqlite:///{tmp_path / 'product.db'}")
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
-        first = SysProduct(product_key="mdm", name="主数据管理", status=ProductStatus.PLANNED)
+    await _ensure_tables(shared_platform_engine, (cast("Table", SysProduct.__table__),))
+
+    key = f"{ns.prefix}p"
+    async with rollback_session(shared_platform_engine) as session:
+        first = SysProduct(product_key=key, name="主数据管理", status=ProductStatus.PLANNED)
         session.add(first)
-        session.commit()
+        await session.commit()
         assert first.id > 0
         first.soft_delete()
-        session.commit()
-        session.add(SysProduct(product_key="mdm", name="主数据管理", status=ProductStatus.ENABLED))
-        session.commit()
-        rows = session.execute(select(SysProduct).where(SysProduct.product_key == "mdm")).scalars().all()
+        await session.commit()
+        session.add(SysProduct(product_key=key, name="主数据管理", status=ProductStatus.ENABLED))
+        await session.commit()
+        rows = (await session.execute(select(SysProduct).where(SysProduct.product_key == key))).scalars().all()
         assert len(rows) == 2
         assert sorted(row.deleted_at is None for row in rows) == [False, True]
-    engine.dispose()
 
 
 def _route(

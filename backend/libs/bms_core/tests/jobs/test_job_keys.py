@@ -17,9 +17,9 @@ class _Factory:
     """引擎工厂替身：固定返回注册库连接串。"""
 
     def resolved_url(self, db_key: str) -> str:
-        """返回固定连接串。"""
+        """返回固定连接串（替身，永不建连；内存库形态避免被读成自建库）。"""
         del db_key
-        return "sqlite+aiosqlite:///registry.db"
+        return "sqlite+aiosqlite://"
 
 
 class _Ref:

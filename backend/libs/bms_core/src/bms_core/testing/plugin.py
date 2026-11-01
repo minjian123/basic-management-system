@@ -34,7 +34,9 @@ from bms_core.testing.fixtures import (
     resolve_prepare,
     shared_db_url,
     shared_platform_db_url,
+    shared_platform_engine,
     shared_tenant_db_url,
+    shared_tenant_engine,
     test_db_dir,
 )
 
@@ -53,7 +55,9 @@ __all__ = (
     "resolve_prepare",
     "shared_db_url",
     "shared_platform_db_url",
+    "shared_platform_engine",
     "shared_tenant_db_url",
+    "shared_tenant_engine",
     "test_db_dir",
 )
 

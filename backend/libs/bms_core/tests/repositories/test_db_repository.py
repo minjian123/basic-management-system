@@ -1,15 +1,20 @@
-"""DB 仓储真实实现测试（Kiwi 1050）：SQLite 真库验证 CRUD / 作用域 / 软删 / 租户 / 乐观锁 / 分页排序；
-keyset 游标见 Kiwi 1078。"""
+"""DB 仓储真实实现测试（Kiwi 1050）：共享平台库验证 CRUD / 作用域 / 软删 / 租户 / 乐观锁 / 分页排序；
+keyset 游标见 Kiwi 1078。
+
+单库叠加口径（04-6-2）：库用会话级共享平台库（`shared_platform_engine`），本文件的两张测试表
+幂等建在共享库上；数据一律走 `rollback_session`，用例结束整体回滚——只撤本用例写入，
+故「精确总数」断言语义不变。
+"""
 
 from collections.abc import AsyncIterator
-from pathlib import Path
+from functools import partial
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import BigInteger, Integer, String, Table, UniqueConstraint, select
+from sqlalchemy import BigInteger, Connection, Integer, String, Table, UniqueConstraint, select
 from sqlalchemy.dialects import sqlite
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import UserDefinedType
 
@@ -29,6 +34,8 @@ from bms_core.schemas.cursor import encode_cursor
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import SortDirection, SortSpec
 from bms_core.scope.base import DataScope, ScopeCondition
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 
 
 class DbItem(BaseModel):
@@ -121,15 +128,18 @@ class FakeScope(DataScope):
         return True
 
 
+def _create_table(table: Table, connection: Connection) -> None:
+    """幂等建表（共享库上只补本文件需要的表，不删表）。"""
+    table.create(connection, checkfirst=True)
+
+
 @pytest.fixture
-async def engine(tmp_path: Path) -> AsyncIterator[AsyncEngine]:
-    """SQLite 真库引擎：仅建测试两表。"""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'repo.db'}")
-    async with engine.begin() as connection:
-        await connection.run_sync(cast("Table", DbItem.__table__).create)
-        await connection.run_sync(cast("Table", ScopedNote.__table__).create)
-    yield engine
-    await engine.dispose()
+async def engine(shared_platform_engine: AsyncEngine) -> AsyncEngine:
+    """共享平台库引擎：幂等建本文件的测试两表（不建库、不删表）。"""
+    async with shared_platform_engine.begin() as connection:
+        for table in (cast("Table", DbItem.__table__), cast("Table", ScopedNote.__table__)):
+            await connection.run_sync(partial(_create_table, table))
+    return shared_platform_engine
 
 
 @pytest.fixture
@@ -139,9 +149,9 @@ async def session_factory(engine: AsyncEngine) -> AsyncIterator[async_sessionmak
 
 
 @pytest.fixture
-async def session(session_factory: async_sessionmaker[AsyncSession]) -> AsyncIterator[AsyncSession]:
-    """默认异步会话。"""
-    async with session_factory() as session:
+async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    """回滚会话：用例结束整体回滚（只撤本用例写入，精确总数断言因此成立）。"""
+    async with rollback_session(engine) as session:
         yield session
 
 
@@ -430,20 +440,29 @@ async def test_tenant_scope_edge_branches(session: AsyncSession) -> None:
 
 
 @pytest.mark.kiwi_id(1050)
-async def test_optimistic_lock_conflict(session_factory: async_sessionmaker[AsyncSession]) -> None:
-    """并发旧版本更新 flush 触发 StaleDataError，仓储转 ConcurrentConflictError（409）。"""
+async def test_optimistic_lock_conflict(session_factory: async_sessionmaker[AsyncSession], ns: Namespace) -> None:
+    """并发旧版本更新 flush 触发 StaleDataError，仓储转 ConcurrentConflictError（409）。
+
+    本用例需要两个**真实**会话（回滚会话无法模拟并发提交），故数据会落盘：编码用命名空间
+    前缀保证不与他人冲突，结束时物理删掉自己写入的行（删自己的数据是允许的）。
+    """
+    name = ns.code("lock")
     async with session_factory() as first, session_factory() as second:
         first_repo = DbItemRepository(first)
-        created = await first_repo.create(name="lock")
+        created = await first_repo.create(name=name)
         await first.commit()
 
         second_repo = DbItemRepository(second)
         stale = await second_repo.get(created.id)
         assert stale is not None and stale.version == 1
-        assert await first_repo.update(created.id, name="first") is not None
+        assert await first_repo.update(created.id, name=f"{name}-first") is not None
         await first.commit()
         with pytest.raises(ConcurrentConflictError):
-            await second_repo.update(created.id, name="second")
+            await second_repo.update(created.id, name=f"{name}-second")
+
+    async with session_factory() as cleanup:
+        assert await HardDeleteItemRepository(cleanup).hard_delete(created.id) is True
+        await cleanup.commit()
 
 
 @pytest.mark.kiwi_id(1050)
