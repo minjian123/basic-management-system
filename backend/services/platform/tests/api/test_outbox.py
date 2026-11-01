@@ -65,7 +65,7 @@ async def outbox_schema(
         monkeypatch: 环境变量覆盖。
     """
     for engine in (shared_platform_engine, shared_tenant_engine):
-        await ensure_tables(engine, list(_TABLES))
+        await ensure_tables(engine, _TABLES)
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", shared_platform_db_url)
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()

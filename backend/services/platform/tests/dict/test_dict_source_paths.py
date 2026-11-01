@@ -64,7 +64,7 @@ async def scenario(
     Yields:
         _Scenario: 数据源与本用例角色码。
     """
-    await ensure_tables(shared_tenant_engine, list(_TABLES))
+    await ensure_tables(shared_tenant_engine, _TABLES)
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()
 

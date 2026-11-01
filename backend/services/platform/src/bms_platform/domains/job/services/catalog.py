@@ -15,6 +15,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.roots import BaseValueObject
 from bms_core.jobs.spec import now_utc
+from bms_core.models.platform.job import SysJobType
 from bms_core.registry.products import JobDeclaration
 from bms_platform.domains.job.repositories.job import JobTypeRepository
 
@@ -139,10 +140,10 @@ class JobCatalogService(BaseFrameworkObject):
         retired = await self._repo.retire_missing(known_types=known, now=now)
         return JobSyncReport(created=created, updated=updated, unchanged=unchanged, retired=retired)
 
-    async def list_all(self) -> ConcurrentStableList[object]:
+    async def list_all(self) -> ConcurrentStableList[SysJobType]:
         """取全部目录行（供缓存 / 诊断）。
 
         Returns:
-            ConcurrentStableList[object]: 目录行。
+            ConcurrentStableList[SysJobType]: 目录行。
         """
         return ConcurrentStableList(await self._repo.list_all())

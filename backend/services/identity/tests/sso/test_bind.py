@@ -51,18 +51,14 @@ async def _seed(app: FastAPI, *, user_id: int, idp_key: str) -> None:
 
 
 @pytest.mark.kiwi_id(2198)
-async def test_list_identities_returns_bindings(
-    client: AsyncClient, service_app: FastAPI, ns: Namespace
-) -> None:
+async def test_list_identities_returns_bindings(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """命中：返回该用户全部绑定（含映射键 / 外部主体 / 租户）。"""
     subject = _subject(ns)
     await _seed(service_app, user_id=subject, idp_key=ns.code("keycloak"))
     response = await client.get(f"/api/v1/users/{subject}/identities", headers=TENANT_HEADERS)
     assert response.status_code == 200
     items = response.json()["data"]["items"]
-    assert items == [
-        {"idp_key": f"{TENANT_ID}:{ns.code('keycloak')}", "external_id": "sub-1", "tenant_id": TENANT_ID}
-    ]
+    assert items == [{"idp_key": f"{TENANT_ID}:{ns.code('keycloak')}", "external_id": "sub-1", "tenant_id": TENANT_ID}]
 
 
 @pytest.mark.kiwi_id(2198)

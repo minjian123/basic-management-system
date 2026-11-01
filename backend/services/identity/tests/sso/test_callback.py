@@ -30,11 +30,7 @@ async def _drop_own_mappings(session: Any, idp_key: str) -> None:
         idp_key: 身份源标识。
     """
     rows = (
-        (
-            await session.execute(
-                select(SysUserIdentity).where(SysUserIdentity.idp_key == f"{TENANT_ID}:{idp_key}")
-            )
-        )
+        (await session.execute(select(SysUserIdentity).where(SysUserIdentity.idp_key == f"{TENANT_ID}:{idp_key}")))
         .scalars()
         .all()
     )
@@ -103,9 +99,7 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
     assert "code_verifier=" in sso.idp.token_forms[-1]
     assert "code=code-1" in sso.idp.token_forms[-1]
     async with sso.tenant_scope() as session:
-        rows = (
-            (await session.execute(select(SysSession).where(SysSession.user_id == sso.user_id))).scalars().all()
-        )
+        rows = (await session.execute(select(SysSession).where(SysSession.user_id == sso.user_id))).scalars().all()
     assert len(rows) == 1
     row = rows[0]
     assert row.user_id == sso.user_id
@@ -289,9 +283,7 @@ async def test_callback_config_and_dependency_failures(client: AsyncClient, sso:
         """
         async with sso.tenant_scope() as session:
             row = (
-                await session.execute(
-                    select(SysIdentityProvider).where(SysIdentityProvider.idp_key == sso.idp_key)
-                )
+                await session.execute(select(SysIdentityProvider).where(SysIdentityProvider.idp_key == sso.idp_key))
             ).scalar_one()
             for name, value in fields.items():
                 setattr(row, name, value)

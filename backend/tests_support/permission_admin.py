@@ -91,13 +91,17 @@ async def _grant_builtin(user_id: int, *, code: str, name: str, role_type: str) 
             async with factory() as session:
                 role = await _role_row(session, code=code, name=name, role_type=role_type)
                 assigned = (
-                    await session.execute(
-                        select(SysUserRole).where(
-                            SysUserRole.role_id == role.id,
-                            SysUserRole.user_id == user_id,
+                    (
+                        await session.execute(
+                            select(SysUserRole).where(
+                                SysUserRole.role_id == role.id,
+                                SysUserRole.user_id == user_id,
+                            )
                         )
                     )
-                ).scalars().first()
+                    .scalars()
+                    .first()
+                )
                 if assigned is None:
                     session.add(SysUserRole(role_id=role.id, user_id=user_id))
                 await session.commit()
@@ -118,9 +122,7 @@ async def _role_row(session: AsyncSession, *, code: str, name: str, role_type: s
     Returns:
         SysRole: 角色行。
     """
-    rows = (
-        (await session.execute(select(SysRole).where(SysRole.code == code).order_by(SysRole.id))).scalars().all()
-    )
+    rows = (await session.execute(select(SysRole).where(SysRole.code == code).order_by(SysRole.id))).scalars().all()
     if rows:
         return rows[0]
     role = SysRole(code=code, name=name, status="enabled", role_type=role_type)

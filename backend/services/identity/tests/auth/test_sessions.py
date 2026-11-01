@@ -19,9 +19,7 @@ from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, seed_session, 
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_list_active_sessions_and_pagination(
-    client: AsyncClient, service_app: FastAPI, ns: Namespace
-) -> None:
+async def test_list_active_sessions_and_pagination(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """列表仅未撤销未过期会话；分页 total / page / size 正确。"""
     subject = uid(ns)
     issuer, _store, _recorder = await wire_login(service_app, ns=ns)
@@ -38,9 +36,7 @@ async def test_list_active_sessions_and_pagination(
     assert int(item["user_id"]) == subject and item["revoked_at"] is None
     assert set(item) == {"session_id", "user_id", "device", "ip", "login_at", "expires_at", "revoked_at"}
 
-    second = await client.get(
-        API_SESSIONS, params={"user_id": subject, "size": 2, "page": 2}, headers=TENANT_HEADERS
-    )
+    second = await client.get(API_SESSIONS, params={"user_id": subject, "size": 2, "page": 2}, headers=TENANT_HEADERS)
     assert len(second.json()["data"]["list"]) == 1
     assert {i["session_id"] for i in data["list"]} <= {s.session_id for s in issuer.specs}
 
@@ -52,9 +48,7 @@ async def test_list_excludes_revoked_and_expired(client: AsyncClient, service_ap
     _issuer, _store, _recorder = await wire_login(service_app, ns=ns)
     now = utc_now()
     await seed_session(service_app, session_id=sid(ns, 1), user_id=subject, revoked_at=now)
-    await seed_session(
-        service_app, session_id=sid(ns, 2), user_id=subject, expires_at=now - timedelta(minutes=1)
-    )
+    await seed_session(service_app, session_id=sid(ns, 2), user_id=subject, expires_at=now - timedelta(minutes=1))
     await seed_session(service_app, session_id=sid(ns, 3), user_id=subject)
 
     resp = await client.get(API_SESSIONS, params={"user_id": subject}, headers=TENANT_HEADERS)

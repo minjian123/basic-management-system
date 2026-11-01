@@ -39,7 +39,9 @@ _TABLES = [
 ]
 
 
-def _quota(ns: Namespace, tenant_id: int, *, quota_key: str = "user_count") -> dict[str, object]:
+def _quota(  # bare-collections:allow（httpx 请求体：`json=` 须内置 dict）
+    ns: Namespace, tenant_id: int, *, quota_key: str = "user_count"
+) -> dict[str, object]:  # bare-collections:allow（httpx 请求体：`json=` 须内置 dict）
     """构造内部契约请求体（租户主键按本用例派生）。
 
     Args:

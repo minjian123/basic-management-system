@@ -229,9 +229,7 @@ async def test_refresh_legacy_null_remember_me_treated_as_remembered(
         refresh_token_hash=hash_refresh_token("ref-hist"),
         remember_me=None,
     )
-    await store.save(
-        legacy, ConcurrentStableDict({"user_id": uid(ns), "tenant": TENANT_ID}), tenant=TENANT_ID, ttl=600
-    )
+    await store.save(legacy, ConcurrentStableDict({"user_id": uid(ns), "tenant": TENANT_ID}), tenant=TENANT_ID, ttl=600)
     client.cookies.clear()
     resp = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-hist"})
     assert resp.status_code == 200

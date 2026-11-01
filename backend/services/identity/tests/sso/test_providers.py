@@ -17,7 +17,9 @@ API = "/api/v1/auth/sso/providers"
 TENANT_HEADERS: ConcurrentStableDict[str, str] = ConcurrentStableDict({"X-Tenant-ID": "demo"})
 
 
-def _mine(items: list[dict[str, object]], ns: Namespace) -> list[dict[str, object]]:
+def _mine(  # bare-collections:allow（端点返回的 JSON 行，仅按前缀裁剪）
+    items: list[dict[str, object]], ns: Namespace
+) -> list[dict[str, object]]:  # bare-collections:allow（端点返回的 JSON 行，仅按前缀裁剪）
     """裁剪出本用例命名空间内的入口项。
 
     Args:
@@ -31,9 +33,7 @@ def _mine(items: list[dict[str, object]], ns: Namespace) -> list[dict[str, objec
 
 
 @pytest.mark.kiwi_id(2197)
-async def test_list_providers_sorted_and_disabled_filtered(
-    client: AsyncClient, sso: SsoHarness, ns: Namespace
-) -> None:
+async def test_list_providers_sorted_and_disabled_filtered(client: AsyncClient, sso: SsoHarness, ns: Namespace) -> None:
     """入口清单：仅启用项，按 sort 升序；停用项不出现。"""
     empty = await client.get(API, headers=TENANT_HEADERS)
     assert empty.status_code == 200 and _mine(empty.json()["data"]["items"], ns) == []

@@ -322,9 +322,7 @@ class SsoHarness:
         """
         async with self.tenant_scope() as session:
             row = (
-                await session.execute(
-                    select(SysIdentityProvider).where(SysIdentityProvider.idp_key == self.idp_key)
-                )
+                await session.execute(select(SysIdentityProvider).where(SysIdentityProvider.idp_key == self.idp_key))
             ).scalar_one()
             return row
 

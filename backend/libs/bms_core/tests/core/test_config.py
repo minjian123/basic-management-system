@@ -117,15 +117,17 @@ def _clear_db_template_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.kiwi_id(32)
 def test_defaults_and_sections(monkeypatch: pytest.MonkeyPatch) -> None:
-    """八分区齐备、默认值正确（用户令牌密钥由测试夹具注入，此处显式清除断言基线）。"""
+    """八分区齐备、默认值正确（用户令牌密钥与共享库 URL 由夹具注入，此处显式清除断言基线）。"""
     monkeypatch.delenv("BMS_SECURITY__KEYS", raising=False)
     monkeypatch.delenv("BMS_SECURITY__ACTIVE_KID", raising=False)
+    for key in ("BMS_DATABASE__PLATFORM__URL", "BMS_DATABASE__TENANTS__URL"):
+        monkeypatch.delenv(key, raising=False)
     settings = Settings()
     assert settings.app.name == "BMS 基础管理系统"
     assert settings.app.env == "dev"
     assert settings.server.port == 8000
     assert settings.log.level == "DEBUG"
-    assert settings.database.platform.url.endswith("app.db")
+    assert settings.database.platform.url.endswith("bms_platform.db")
     assert settings.redis.url.startswith("redis://")
     # Redis 基础能力（03_04）：类缺省启用 + 短超时 + 必需标志（单测夹具显式关闭 provider，故断言类缺省）
     from bms_core.core.config import RedisSettings

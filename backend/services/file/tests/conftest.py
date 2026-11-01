@@ -173,3 +173,16 @@ def file_ports(service_app: FastAPI, tmp_path: Path) -> Iterator[FilePorts]:
         yield ports
     finally:
         service_app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def serial_db_write() -> Iterator[None]:
+    """共享库写路径跨进程串行（实现与工程根同名夹具一致；子工程 rootdir 时兜底）。
+
+    Yields:
+        None: 持锁区间。
+    """
+    from tests_support.locks import file_lock
+
+    with file_lock("shared-db-write"):
+        yield

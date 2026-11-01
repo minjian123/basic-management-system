@@ -55,6 +55,7 @@ def isolated_dbs(
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
     get_settings.cache_clear()
 
+
 _USERNAME = "bms-sso-e2e"
 _PASSWORD = "Bms-sso-e2e-2026!"
 _USER_ID = 1001

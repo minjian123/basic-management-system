@@ -2,6 +2,10 @@
 
 业务 / 动作权限码无写接口（平台只读口径），用例内直插以构造授权对象；菜单元数据表位于
 平台服务库，逐用例清场以隔离数据（会话级平台库共享）。
+
+单库化（04-6-2）后菜单元数据落**共享平台库**、全 worker 叠加：业务码 / 表单 / 菜单一律由调用方
+按用例命名空间派生；动作码是全局动词（`create` / `query` 等固定词），「查无 → 插入」必须跨进程
+串行（`(code, deleted_at)` 唯一约束在 NULL 上不生效，见 `tests_support/locks.py`）。
 """
 
 import os
@@ -28,6 +32,7 @@ from bms_core.models.platform.permission_meta import (
     SysBusinessI18n,
     SysPermission,
 )
+from tests_support.locks import file_lock
 
 MENU_MODELS: tuple[Any, ...] = (
     SysMenuI18n,
@@ -112,25 +117,28 @@ async def seed_permission(business_id: int, action_code: str = "query", name: st
     engine = create_async_engine(platform_url())
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
-        async with factory() as session:
-            action = (
-                (
-                    await session.execute(
-                        select(SysAction).where(SysAction.code == action_code, SysAction.deleted_at.is_(None))
+        # 动作码是全局动词（`create` / `query` …），共享库上多个 worker 会同时走到「查无 → 插入」：
+        # `(code, deleted_at)` 唯一约束在 NULL 上不生效，不串行就会各写一行同码动作。
+        with file_lock("menu-metadata-action"):
+            async with factory() as session:
+                action = (
+                    (
+                        await session.execute(
+                            select(SysAction).where(SysAction.code == action_code, SysAction.deleted_at.is_(None))
+                        )
                     )
+                    .scalars()
+                    .first()
                 )
-                .scalars()
-                .first()
-            )
-            if action is None:
-                action = SysAction(code=action_code, name=name, status="enabled")
-                session.add(action)
+                if action is None:
+                    action = SysAction(code=action_code, name=name, status="enabled")
+                    session.add(action)
+                    await session.flush()
+                permission = SysPermission(business_id=business_id, action_id=action.id, status="enabled")
+                session.add(permission)
                 await session.flush()
-            permission = SysPermission(business_id=business_id, action_id=action.id, status="enabled")
-            session.add(permission)
-            await session.flush()
-            permission_id = permission.id
-            await session.commit()
+                permission_id = permission.id
+                await session.commit()
         return permission_id
     finally:
         await engine.dispose()

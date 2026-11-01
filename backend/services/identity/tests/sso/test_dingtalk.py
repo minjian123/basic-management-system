@@ -77,9 +77,7 @@ async def test_dingtalk_authorize_url_and_end_to_end(client: AsyncClient, sso: S
         rows = (
             (
                 await session.execute(
-                    select(SysUserIdentity).where(
-                        SysUserIdentity.idp_key == f"{TENANT_ID}:{sso.dingtalk_key}"
-                    )
+                    select(SysUserIdentity).where(SysUserIdentity.idp_key == f"{TENANT_ID}:{sso.dingtalk_key}")
                 )
             )
             .scalars()

@@ -110,9 +110,7 @@ async def test_change_password_policy_and_history(client: AsyncClient, service_a
     """策略违规 30005 / 历史重复 30006 原样上抛。"""
     subject = _uid(ns)
     await _wire(service_app, subject)
-    weak = await client.post(
-        API, json={"old_password": "secret", "new_password": "weak"}, headers=_headers(subject)
-    )
+    weak = await client.post(API, json={"old_password": "secret", "new_password": "weak"}, headers=_headers(subject))
     assert weak.json()["code"] == 30005
     reused = await client.post(
         API, json={"old_password": "secret", "new_password": "old-pass"}, headers=_headers(subject)

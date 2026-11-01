@@ -94,9 +94,7 @@ async def test_business_crud_code_readonly_and_duplicate(client: AsyncClient, ns
     """业务码：新增、重复 40209、code 只读（带 code 更新 422）、名称与状态更新、列表含权限码数。"""
     code = _code(ns, "order")
     business_id = await _create_business(client, code, "测试订单")
-    duplicated = await client.post(
-        _BUSINESSES, json={"code": code, "status": "enabled", "i18n": {"zh-CN": "重复"}}
-    )
+    duplicated = await client.post(_BUSINESSES, json={"code": code, "status": "enabled", "i18n": {"zh-CN": "重复"}})
     assert duplicated.json()["code"] == 40209
 
     with_code = await client.put(

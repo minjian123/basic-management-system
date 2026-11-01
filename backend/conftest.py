@@ -10,9 +10,29 @@
 准备集内容与口径见《[测试规范]「测试数据」节》与任务 04-6-2 详细设计 §4。
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import pytest
+
+
+@pytest.fixture
+def serial_db_write() -> Iterator[None]:
+    """共享库**写路径**跨进程串行（单库叠加下「先读后写」必须排队）。
+
+    为什么需要：SQLite 的延迟事务里「先 SELECT 再 INSERT/UPDATE」会把读锁升级为写锁，
+    此时若另一进程正持写锁，升级一律立即 `database is locked`——`busy_timeout` 对**升级死锁**
+    不生效（等待也无法推进）。共享库上所有「读-改-写」用例（回滚会话里的仓储 / 服务写入）
+    统一经本夹具排队，避免靠「重跑就过」掩盖。
+
+    集成口径：同一把锁名（`shared-db-write`）的用例跨 worker / 跨文件串行；只读用例不受影响。
+
+    Yields:
+        None: 持锁区间。
+    """
+    from tests_support.locks import file_lock
+
+    with file_lock("shared-db-write"):
+        yield
 
 
 @pytest.fixture(scope="session")

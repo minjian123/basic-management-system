@@ -53,9 +53,7 @@ async def _start(client: AsyncClient, sso: SsoHarness) -> str:
 @pytest.mark.kiwi_id(2200)
 async def test_wecom_authorize_url_and_302_and_end_to_end(client: AsyncClient, sso: SsoHarness) -> None:
     """authorize-url 契约 + 302 回归 + 端到端：code 换身份 → JIT 建号 + 映射 + 会话。"""
-    await sso.seed_provider(
-        idp_key=sso.wecom_key, type="wecom", config=sso.wecom_provider_config(jit_enabled=True)
-    )
+    await sso.seed_provider(idp_key=sso.wecom_key, type="wecom", config=sso.wecom_provider_config(jit_enabled=True))
     authorize_url, authorize, callback_url = _urls(sso)
 
     response = await client.get(authorize_url, headers=TENANT_HEADERS)

@@ -3,6 +3,7 @@
 覆盖清单结构 / 分组 / 唯一性与格式校验 / 产品归属与对账 / 产品级路由映射校验 / 模型落库 / 接库校验。
 """
 
+from collections.abc import Iterable
 from dataclasses import replace
 from functools import partial
 from typing import cast
@@ -58,7 +59,7 @@ def _create_table(table: Table, connection: Connection) -> None:
     table.create(connection, checkfirst=True)
 
 
-async def _ensure_tables(engine: AsyncEngine, tables: tuple[Table, ...]) -> None:
+async def _ensure_tables(engine: AsyncEngine, tables: Iterable[Table]) -> None:
     """在共享平台库上确保这些表存在（已存在即跳过）。"""
     async with engine.begin() as connection:
         for table in tables:

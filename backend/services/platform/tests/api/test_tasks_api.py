@@ -57,7 +57,7 @@ async def tenant_db(
         shared_tenant_db_url: 共享租户库连接串。
         monkeypatch: 环境变量覆盖夹具。
     """
-    await ensure_tables(shared_tenant_engine, list(TENANT_TABLES))
+    await ensure_tables(shared_tenant_engine, TENANT_TABLES)
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()
     await assign_system_admin()

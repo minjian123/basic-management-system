@@ -92,9 +92,7 @@ async def test_authorize_unauthenticated_login_redirect(oidc: OidcHarness) -> No
 @pytest.mark.kiwi_id(2202)
 async def test_authorize_unknown_client_no_redirect(client: AsyncClient, oidc: OidcHarness) -> None:
     """未知客户端：400 标准错误（不回跳）。"""
-    response = await client.get(
-        _AUTHORIZE, params=_params(oidc, client_id="ghost"), headers=TENANT_HEADERS
-    )
+    response = await client.get(_AUTHORIZE, params=_params(oidc, client_id="ghost"), headers=TENANT_HEADERS)
     assert response.status_code == 400
     assert response.json()["error"] == "invalid_request"
 
@@ -150,9 +148,7 @@ async def test_authorize_missing_params(client: AsyncClient, oidc: OidcHarness) 
 async def test_authorize_tenant_mismatch(client: AsyncClient, oidc: OidcHarness) -> None:
     """`tenant` 参数与登录态不一致：400 标准错误。"""
     await oidc.seed_client()
-    response = await client.get(
-        _AUTHORIZE, params={**_params(oidc), "tenant": "other"}, headers=TENANT_HEADERS
-    )
+    response = await client.get(_AUTHORIZE, params={**_params(oidc), "tenant": "other"}, headers=TENANT_HEADERS)
     assert response.status_code == 400
     assert response.json()["error"] == "invalid_request"
 
@@ -161,9 +157,7 @@ async def test_authorize_tenant_mismatch(client: AsyncClient, oidc: OidcHarness)
 async def test_authorize_response_type_and_grant(client: AsyncClient, oidc: OidcHarness) -> None:
     """response_type 非 code / 客户端未授权授权码：302 回跳 error。"""
     await oidc.seed_client()
-    wrong_type = await client.get(
-        _AUTHORIZE, params=_params(oidc, response_type="token"), headers=TENANT_HEADERS
-    )
+    wrong_type = await client.get(_AUTHORIZE, params=_params(oidc, response_type="token"), headers=TENANT_HEADERS)
     assert wrong_type.status_code == 302
     assert "error=unsupported_response_type" in wrong_type.headers["location"]
 
@@ -173,9 +167,7 @@ async def test_authorize_response_type_and_grant(client: AsyncClient, oidc: Oidc
         grant_types=ConcurrentStableList(["client_credentials"]),
         redirect_uris=ConcurrentStableList([REDIRECT_URI]),
     )
-    not_granted = await client.get(
-        _AUTHORIZE, params=_params(oidc, client_id=cc_only), headers=TENANT_HEADERS
-    )
+    not_granted = await client.get(_AUTHORIZE, params=_params(oidc, client_id=cc_only), headers=TENANT_HEADERS)
     assert not_granted.status_code == 302
     assert "error=unauthorized_client" in not_granted.headers["location"]
 

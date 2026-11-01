@@ -19,6 +19,7 @@ from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.api.deps import get_uow
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import AccountLockNotFoundError
@@ -33,11 +34,13 @@ from tests_support.permission_admin import assign_system_admin
 
 API = "/api/v1/account-locks"
 
-_TENANT_TABLES: tuple[Table, ...] = (
-    cast("Table", SysRole.__table__),
-    cast("Table", SysUserRole.__table__),
-    cast("Table", SysIcon.__table__),
-    cast("Table", SysIconI18n.__table__),
+_TENANT_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    (
+        cast("Table", SysRole.__table__),
+        cast("Table", SysUserRole.__table__),
+        cast("Table", SysIcon.__table__),
+        cast("Table", SysIconI18n.__table__),
+    )
 )
 """权限引擎读的租户库表（共享租户库幂等补齐）。"""
 
@@ -53,7 +56,7 @@ async def permission_engine(
         shared_tenant_db_url: 共享租户库连接串。
         monkeypatch: 环境变量覆盖夹具。
     """
-    await ensure_tables(shared_tenant_engine, list(_TENANT_TABLES))
+    await ensure_tables(shared_tenant_engine, _TENANT_TABLES)
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()
     await assign_system_admin()
@@ -83,7 +86,7 @@ async def _shared_app(
     Returns:
         tuple[async_sessionmaker[AsyncSession], int]: (会话工厂, 用户主键)。
     """
-    await ensure_tables(engine, [cast("Table", SysUser.__table__)])
+    await ensure_tables(engine, ConcurrentStableList((cast("Table", SysUser.__table__),)))
     factory = async_sessionmaker(engine, expire_on_commit=False)
     seed = factory()
     try:

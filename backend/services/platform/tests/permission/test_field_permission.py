@@ -103,7 +103,7 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
     Yields:
         AsyncSession: 回滚会话（用例内直插种子数据，结束整体回滚）。
     """
-    await ensure_tables(shared_platform_engine, list(_TABLES))
+    await ensure_tables(shared_platform_engine, _TABLES)
     async with rollback_session(shared_platform_engine) as opened:
         yield opened
 

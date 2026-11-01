@@ -215,7 +215,7 @@ async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncI
     Yields:
         _Scenario: 回滚会话与本用例专属用户 / 角色主键。
     """
-    await ensure_tables(shared_platform_engine, list(_TABLES))
+    await ensure_tables(shared_platform_engine, _TABLES)
     async with rollback_session(shared_platform_engine) as session:
         user = await UserRepository(session).create(username=ns.code("reviewer"), password_hash="x", name="复核员")
         role = await _seed(session, ns, user.id)

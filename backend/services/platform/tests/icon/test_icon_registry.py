@@ -50,7 +50,9 @@ API = "/api/v1/icons"
 _ICON_SVG = "<svg/>"
 
 
-def _icon_body(ns: Namespace, code: str, **overrides: object) -> dict[str, object]:
+def _icon_body(  # bare-collections:allow（httpx 请求体：`json=` 须内置 dict）
+    ns: Namespace, code: str, **overrides: object
+) -> dict[str, object]:  # bare-collections:allow（httpx 请求体：`json=` 须内置 dict）
     """构造图标新增请求体（编码按用例命名空间派生）。
 
     Args:
@@ -61,7 +63,7 @@ def _icon_body(ns: Namespace, code: str, **overrides: object) -> dict[str, objec
     Returns:
         dict[str, object]: 请求体。
     """
-    body: dict[str, object] = {
+    body: dict[str, object] = {  # bare-collections:allow（httpx 请求体：`json=` 须内置 dict）
         "code": code,
         "name": "采购订单",
         "category": "menu",
@@ -72,7 +74,9 @@ def _icon_body(ns: Namespace, code: str, **overrides: object) -> dict[str, objec
     return body
 
 
-def _menu_body(ns: Namespace, suffix: str, icon: str) -> dict[str, object]:
+def _menu_body(  # bare-collections:allow（httpx 请求体：`json=` 须内置 dict）
+    ns: Namespace, suffix: str, icon: str
+) -> dict[str, object]:  # bare-collections:allow（httpx 请求体：`json=` 须内置 dict）
     """构造菜单新增请求体（路径按用例命名空间派生）。
 
     Args:
@@ -578,9 +582,7 @@ async def test_icon_update_and_delete_idempotency_reuse(ns: Namespace) -> None:
         await client.post(API, json=_icon_body(ns, main_code))
         await client.post(API, json=_icon_body(ns, other_code, name="收据"))
         updated = await client.put(f"{API}/{main_code}", json={"name": "甲"}, headers={"Idempotency-Key": "k-3"})
-        updated_again = await client.put(
-            f"{API}/{main_code}", json={"name": "乙"}, headers={"Idempotency-Key": "k-3"}
-        )
+        updated_again = await client.put(f"{API}/{main_code}", json={"name": "乙"}, headers={"Idempotency-Key": "k-3"})
         removed = await client.delete(f"{API}/{other_code}", headers={"Idempotency-Key": "k-4"})
         removed_again = await client.delete(f"{API}/{other_code}", headers={"Idempotency-Key": "k-4"})
 

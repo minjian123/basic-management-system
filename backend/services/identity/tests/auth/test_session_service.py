@@ -80,9 +80,7 @@ async def test_kick_expired_session(service_app: FastAPI, ns: Namespace) -> None
     """已过期会话踢出：清理标记后抛 20012（不写 revoked_at）。"""
     store, recorder = MemorySessionStore(), RecordingRealtimePublisher()
     session_id = sid(ns, 3)
-    await seed_session(
-        service_app, session_id=session_id, user_id=uid(ns), expires_at=utc_now() - timedelta(minutes=1)
-    )
+    await seed_session(service_app, session_id=session_id, user_id=uid(ns), expires_at=utc_now() - timedelta(minutes=1))
     async with tenant_scope(service_app) as session:
         service = _service(session, store, recorder)
         with pytest.raises(SessionExpiredError):

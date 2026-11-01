@@ -266,8 +266,10 @@ async def test_dispatch_due_isolates_broken_db(session: DbSession, registry: Eng
         interval=3600.0,
     )
     result = await dispatcher.dispatch_due()
-    assert result.published == 1
-    assert [event.event_type for event in publisher.events] == ["e.ok"]
+    # `dispatch_due` 是**全库扫描**（单库叠加下共享库里可能还有他人未投递的事件），
+    # 故只断言「本用例事件被发布且无失败」，不再断言全局发布条数。
+    assert result.failed == 0
+    assert [event.event_type for event in publisher.events if event.event_type == "e.ok"] == ["e.ok"]
 
 
 @pytest.mark.kiwi_id(2172)

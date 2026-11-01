@@ -68,9 +68,7 @@ async def _wire_reset(
         MemorySessionStore(),
         MemoryRateLimiter(),
     )
-    platform_client.set_user(
-        "admin", password="secret", user_id=uid(ns), name="管理员", email="Admin@Example.com"
-    )
+    platform_client.set_user("admin", password="secret", user_id=uid(ns), name="管理员", email="Admin@Example.com")
     wire_auth(app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     states, notifier = MemoryIdpStateStore(), RecordingNotifier()
     captcha = FakeCaptcha(required=required, verified=verified, required_scene="reset_password")

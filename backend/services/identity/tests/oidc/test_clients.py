@@ -104,9 +104,7 @@ async def test_create_and_use_client(client: AsyncClient, oidc: OidcHarness, ns:
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_list_and_detail_never_expose_secret(
-    client: AsyncClient, oidc: OidcHarness, ns: Namespace
-) -> None:
+async def test_list_and_detail_never_expose_secret(client: AsyncClient, oidc: OidcHarness, ns: Namespace) -> None:
     """列表 / 详情不含 secret 与哈希。"""
     created = await _create(client, ns)
     page = await _page(client, ns)
@@ -191,9 +189,7 @@ async def test_reset_secret_invalidates_old(client: AsyncClient, oidc: OidcHarne
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_create_public_client_and_reset_rejected(
-    client: AsyncClient, oidc: OidcHarness, ns: Namespace
-) -> None:
+async def test_create_public_client_and_reset_rejected(client: AsyncClient, oidc: OidcHarness, ns: Namespace) -> None:
     """公共客户端：secret 为空；重置密钥被拒（80112）。"""
     created = await _create(client, ns, public=True, redirect_uris=["http://rp.test/pub"])
     assert created["client_secret"] == ""
@@ -346,9 +342,7 @@ async def test_create_scope_outside_registry_rejected(client: AsyncClient, oidc:
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_create_dedupes_and_drops_blank_entries(
-    client: AsyncClient, oidc: OidcHarness, ns: Namespace
-) -> None:
+async def test_create_dedupes_and_drops_blank_entries(client: AsyncClient, oidc: OidcHarness, ns: Namespace) -> None:
     """字段归一化：重复值去重、空白项丢弃（`_dedupe` 假分支）。"""
     created = await _create(
         client,

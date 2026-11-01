@@ -73,7 +73,7 @@ async def session(tenant_db: str, shared_tenant_engine: AsyncEngine) -> AsyncIte
     """
     del tenant_db
     with file_lock(_LOCK_NAME):
-        await ensure_tables(shared_tenant_engine, list(_TABLES))
+        await ensure_tables(shared_tenant_engine, _TABLES)
         factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
         async with factory() as db:
             await _restore(db)

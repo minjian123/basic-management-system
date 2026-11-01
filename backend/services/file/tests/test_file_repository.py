@@ -3,6 +3,11 @@
 单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）；
 上传人主键 / 内容摘要 / 文件主键带命名空间派生，断言只落到本用例自造的行
 （禁止「按状态全表计数」「分页总数 == 固定值」）。
+
+**写路径串行（04-6-2 §13 风险 3 处置）**：分片覆盖写是「先查后写」（`upsert_part` 先 SELECT
+再 INSERT/UPDATE），SQLite 下两个 worker 同时把读事务升级为写会立即 `SQLITE_BUSY`（`busy_timeout`
+只对等锁生效、对升级死锁不等待）。用例统一经 `serial_db_write` 取跨进程文件锁串行——
+不靠「重跑就过」，也不回退「每用例建库」。
 """
 
 from collections.abc import AsyncIterator
@@ -13,7 +18,7 @@ import pytest
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import rollback_session
@@ -22,7 +27,21 @@ from bms_file.domains.file.repositories.file import FilePartRepository, FileRepo
 
 pytestmark = pytest.mark.kiwi_id(2374)
 
-_TABLES: tuple[Table, ...] = (cast("Table", SysFile.__table__), cast("Table", SysFilePart.__table__))
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    (cast("Table", SysFile.__table__), cast("Table", SysFilePart.__table__))
+)
+"""本文件涉及的表（幂等建表集）。"""
+
+
+@pytest.fixture(autouse=True)
+def _serial_db_write(serial_db_write: None) -> None:  # pyright: ignore[reportUnusedFunction]
+    """整个文件串行写：本文件用例全部「先读后写」（仓储 upsert / 软删 / 批量硬删）。
+
+    单库叠加下 SQLite 的读→写升级冲突不等待，靠 `serial_db_write` 跨进程排队。
+
+    Args:
+        serial_db_write: 共享库写路径串行夹具（工程根 / 套件 conftest 提供）。
+    """
 
 
 def _now() -> datetime:

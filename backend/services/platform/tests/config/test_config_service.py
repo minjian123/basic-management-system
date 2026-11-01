@@ -8,6 +8,7 @@
 """
 
 from collections.abc import AsyncIterator
+from typing import cast
 
 import pytest
 import pytest_asyncio
@@ -35,7 +36,7 @@ from bms_platform.domains.platform_config.services.config import ConfigAdminServ
 
 pytestmark = pytest.mark.kiwi_id(2373)
 
-_TABLES: ConcurrentStableList[Table] = ConcurrentStableList((SysConfig.__table__,))
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList((cast("Table", SysConfig.__table__),))
 """本文件涉及的表（共享租户库幂等补齐）。"""
 
 
@@ -141,7 +142,7 @@ async def session(shared_tenant_engine: AsyncEngine) -> AsyncIterator[AsyncSessi
     Yields:
         AsyncSession: 用例会话。
     """
-    await ensure_tables(shared_tenant_engine, list(_TABLES))
+    await ensure_tables(shared_tenant_engine, _TABLES)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
     async with factory() as db:
         yield db

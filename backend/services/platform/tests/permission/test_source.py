@@ -244,7 +244,7 @@ async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncI
     Yields:
         _Scenario: 引擎与两个本用例专属用户主键。
     """
-    await ensure_tables(shared_platform_engine, list(_TABLES))
+    await ensure_tables(shared_platform_engine, _TABLES)
     async with rollback_session(shared_platform_engine) as session:
         users = UserRepository(session)
         user = await users.create(username=ns.code("reviewer"), password_hash="x", name="复核员")

@@ -833,7 +833,9 @@ def test_dependents_dedupe_across_domains(
     )
     assert migrate_topology.main(args) == 0
     out = capsys.readouterr().out
-    assert out.count("biz") == 1, "同一消费方只列一次"
+    dependents = [line for line in out.splitlines() if "依赖方清单" in line]
+    assert len(dependents) == 1, dependents
+    assert dependents[0].count("biz") == 1, "同一消费方只列一次"
 
 
 def test_platform_reads_use_sync_gateway(
