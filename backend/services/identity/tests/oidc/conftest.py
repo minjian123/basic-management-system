@@ -129,23 +129,14 @@ async def _ensure_schema(app: FastAPI) -> None:
 
 
 @pytest.fixture(autouse=True)
-def shared_tenant(tenant_db: None) -> None:  # pyright: ignore[reportUnusedFunction]
-    """本目录用例切到**共享租户库**（目录级接线，实现见套件 `conftest.tenant_db`）。
-
-    Args:
-        tenant_db: 共享租户库接线（`BMS_DATABASE__TENANTS__URL` → `.cache/test/tenant.db`）。
-    """
-
-
-@pytest.fixture(autouse=True)
-async def ensure_schema(shared_tenant: None, service_app: FastAPI) -> AsyncIterator[None]:
+async def ensure_schema(tenant_db: None, service_app: FastAPI) -> AsyncIterator[None]:
     """兜底建表（`sys_client` 幂等），**不再整表清场**。
 
     单库叠加口径（04-6-2）：客户端标识按用例命名空间派生，断言只查自己那一行；
     逐例整表删除会在并行下删掉他人用例正在断言的客户端。
 
     Args:
-        shared_tenant: 共享租户库接线（**显式依赖保证先于应用装配**：引擎工厂在 app 创建时
+        tenant_db: 共享租户库接线（**显式依赖保证先于应用装配**：引擎工厂在 app 创建时
             固化连接串，接线晚了会照旧连到工作区 `database/bms/` 下的常驻库）。
         service_app: 应用实例。
 

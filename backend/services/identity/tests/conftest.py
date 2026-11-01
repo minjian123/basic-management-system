@@ -255,8 +255,8 @@ def tenant_db_url(shared_tenant_db_url: str) -> str:
     return shared_tenant_db_url
 
 
-@pytest.fixture
-def tenant_db(tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture(autouse=True)
+def tenant_db(tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
     """把租户库连接串指向**共享租户库**（单库化默认路径）。
 
     为什么必须显式注入：`[database.tenants]` 的缺省 url 是 `./bms_tenant_demo.db`（相对 cwd），
@@ -264,8 +264,8 @@ def tenant_db(tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
     `.cache/test/` 之下——既违背「一次会话只有 platform / tenant 两个库文件」，也让用例结果
     依赖历史残留。
 
-    接线方式：目录级 conftest 用一条 autouse 薄壳启用（`def shared_tenant(tenant_db: None)`），
-    逐目录切换——未改造完的目录仍走旧库，主分支任何时刻可回归（设计 §3「可回退」）。
+    依赖它的夹具（如各目录的 `ensure_schema`）必须**显式声明**：引擎工厂在应用创建时固化
+    连接串，接线晚于 app 装配等于没接。
 
     Args:
         tenant_db_url: 会话级共享租户库连接串。
