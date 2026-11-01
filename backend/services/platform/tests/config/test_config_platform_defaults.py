@@ -19,7 +19,7 @@ from datetime import datetime
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.config.cache import MemoryConfigCacheRegion
 from bms_core.config.models import SysConfig
@@ -94,27 +94,27 @@ async def _restore(db: AsyncSession) -> None:
 
 
 @pytest_asyncio.fixture
-async def session(tenant_db: str) -> AsyncIterator[AsyncSession]:
-    """共享租户库会话（幂等建表 + 平台默认参数幂等播种 + 用例前后复位）。
+async def session(tenant_db: str, shared_tenant_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    """共享租户库会话（幂等建表 + 用例前后复位平台默认键）。
 
     Args:
         tenant_db: 共享租户库连接串（套件夹具已注入 `BMS_DATABASE__TENANTS__URL`）。
+        shared_tenant_engine: 共享租户库引擎（基座夹具，不在此自建引擎）。
 
     Yields:
         AsyncSession: 会话。
     """
-    engine = create_async_engine(tenant_db)
+    del tenant_db
     _acquire_lock()
     try:
-        await ensure_tables(engine, list(_TABLES))
-        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+        await ensure_tables(shared_tenant_engine, list(_TABLES))
+        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
         async with factory() as db:
             await _restore(db)
             yield db
             await _restore(db)
     finally:
         _release_lock()
-        await engine.dispose()
 
 
 def _service(session: AsyncSession) -> ConfigAdminService:
