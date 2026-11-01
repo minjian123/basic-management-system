@@ -3143,7 +3143,7 @@
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/testing/test_shared_db_prepare.py",
-    "tests": 17,
+    "tests": 16,
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
@@ -3459,19 +3459,19 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_menu_admin_api.py",
     "tests": 9,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "已有 own_db 白名单（本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_menu_metadata.py",
     "tests": 9,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "已有 own_db 白名单（本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3504,10 +3504,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_my_menu.py",
     "tests": 4,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "已有 own_db 白名单（本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3621,10 +3621,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/config/test_config_platform_defaults.py",
     "tests": 5,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "已有 own_db 白名单（断言语义绑定平台默认值表与硬编码依赖对，前提是「该键初始为未覆盖态」；共享租户库的默认参数被其他用例读写，且 SQLite 单写者下长事务叠加会互等）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3801,10 +3801,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/icon/test_icon_registry.py",
     "tests": 22,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "已有 own_db 白名单（本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -4665,10 +4665,10 @@
     "repo": "bms",
     "path": "backend/services/identity/tests/auth/test_session_service.py",
     "tests": 6,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（被测对象是「按租户批量撤销本租户库全部在线会话」（整租户库口径）：需要空库起点与全表结果，共享库上会连带撤销并行 worker 的在线会话）"
   },
   {
     "repo": "bms",
@@ -4863,55 +4863,55 @@
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_authorize.py",
     "tests": 4,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_bind.py",
     "tests": 2,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_callback.py",
     "tests": 7,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_cas.py",
     "tests": 4,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_dingtalk.py",
     "tests": 2,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_jit.py",
     "tests": 9,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -4920,34 +4920,34 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "已有 own_db 白名单（真机 Keycloak 联调：提供方标识与回调地址须与真实 Keycloak 客户端注册值一致（固定 keycloak），不能按用例命名空间派生；同时需要空库起点，故走独占库）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_providers.py",
     "tests": 4,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_units.py",
     "tests": 6,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_wecom.py",
     "tests": 3,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
