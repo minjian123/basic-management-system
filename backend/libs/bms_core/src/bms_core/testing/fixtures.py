@@ -319,9 +319,7 @@ def clear_shared_db_files() -> list[str]:
         if name == "namespace-map.jsonl":
             continue
         if not (
-            path.suffix in (".db", ".ready", ".lock", "")
-            or name.startswith(".init")
-            or name.endswith(("-wal", "-shm"))
+            path.suffix in (".db", ".ready", ".lock", "") or name.startswith(".init") or name.endswith(("-wal", "-shm"))
         ):
             continue
         try:
@@ -360,9 +358,7 @@ def _init_lock(name: str) -> Generator[None]:
                 continue
             if time.monotonic() > deadline:
                 listing = sorted(p.name for p in test_db_dir().glob("*"))
-                raise TimeoutError(
-                    f"共享库初始化锁超时（{_INIT_TIMEOUT:.0f}s）：{lock}；目录内容 {listing}"
-                ) from None
+                raise TimeoutError(f"共享库初始化锁超时（{_INIT_TIMEOUT:.0f}s）：{lock}；目录内容 {listing}") from None
             time.sleep(_READY_POLL)
             continue
         os.close(handle)
