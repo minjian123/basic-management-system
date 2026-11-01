@@ -5,11 +5,14 @@
 不在包内依赖 `tests_support`（保证产品仓可直接复用）。
 """
 
+import asyncio
 import os
 import tempfile
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Generator, Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -26,6 +29,8 @@ from bms_core.core.context import (
 )
 from bms_core.core.id import MAX_WORKER_ID
 from bms_core.permission.cache import reset_permission_cache_store
+from bms_core.testing import namespace as namespace_module
+from bms_core.testing.namespace import Namespace
 
 
 def clear_isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -259,3 +264,227 @@ def clear_tenant_cache(app: object) -> None:
     cache = getattr(source, "cache", None)
     if isinstance(cache, MemoryCacheRegion):
         cache.clear()
+
+
+TEST_DB_DIRNAME = "test"
+"""会话测试库子目录名（落 `<仓内>/.cache/test/`，与覆盖率产物 `.cache/coverage/` 同区）。"""
+
+_INIT_TIMEOUT = 120.0
+"""共享库初始化等待上限（秒）；超时即红，不做无限等待。"""
+
+_LOCK_STALE = 120.0
+"""残留锁判定阈值（秒）：锁文件 mtime 超过该值视为上次进程崩溃。"""
+
+_READY_POLL = 0.2
+"""非选主 worker 轮询 `.ready` 的间隔（秒）。"""
+
+
+def test_db_dir() -> Path:
+    """会话测试库目录（`<当前工作目录>/.cache/test`）。
+
+    Returns:
+        Path: 已创建的目录（pytest 的工作目录是 `backend/`，即仓内缓存区）。
+    """
+    directory = Path.cwd() / ".cache" / TEST_DB_DIRNAME
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def shared_db_url(name: str) -> str:
+    """共享库连接串（固定路径，全 worker 共用）。
+
+    Args:
+        name: 逻辑数据源名（如 `platform` / `tenant`）。
+
+    Returns:
+        str: `sqlite+aiosqlite:///<绝对路径>`。
+    """
+    return f"sqlite+aiosqlite:///{(test_db_dir() / f'{name}.db').as_posix()}"
+
+
+def clear_shared_db_files() -> list[str]:
+    """清空会话测试库目录下的库文件与就绪标记（会话开始调用）。
+
+    删除失败（Windows 句柄未释放）时跳过并返回失败清单，由调用方告警，不中断整轮。
+
+    Returns:
+        list[str]: 未能删除的文件名清单。
+    """
+    directory = Path.cwd() / ".cache" / TEST_DB_DIRNAME
+    if not directory.exists():
+        return []
+    failed: list[str] = []
+    for path in sorted(directory.glob("*")):
+        name = path.name
+        if name == "namespace-map.jsonl":
+            continue
+        if not (
+            path.suffix in (".db", ".ready", ".lock", "")
+            or name.startswith(".init")
+            or name.endswith(("-wal", "-shm"))
+        ):
+            continue
+        try:
+            path.unlink()
+        except OSError:
+            failed.append(path.name)
+    return failed
+
+
+@contextmanager
+def _init_lock(name: str) -> Generator[None]:
+    """文件锁选主（`O_CREAT|O_EXCL`）；残留锁按 mtime 判过期后重抢一次。
+
+    Args:
+        name: 逻辑数据源名。
+
+    Yields:
+        None: 持有锁期间。
+
+    Raises:
+        TimeoutError: 120 秒内未抢到锁。
+    """
+    lock = test_db_dir() / f"{name}.init.lock"
+    deadline = time.monotonic() + _INIT_TIMEOUT
+    while True:
+        try:
+            handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                stale = time.time() - lock.stat().st_mtime > _LOCK_STALE
+            except OSError:
+                stale = False
+            if stale:
+                with suppress(OSError):
+                    lock.unlink()
+                continue
+            if time.monotonic() > deadline:
+                listing = sorted(p.name for p in test_db_dir().glob("*"))
+                raise TimeoutError(
+                    f"共享库初始化锁超时（{_INIT_TIMEOUT:.0f}s）：{lock}；目录内容 {listing}"
+                ) from None
+            time.sleep(_READY_POLL)
+            continue
+        os.close(handle)
+        break
+    try:
+        yield
+    finally:
+        with suppress(OSError):
+            lock.unlink()
+
+
+def _default_prepare(url: str) -> None:
+    """缺省建库：按已导入模型的 `Base.metadata` 建表（不含业务种子）。
+
+    Args:
+        url: 共享库连接串。
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from bms_core.models.base import Base
+
+    async def _create() -> None:
+        engine = create_async_engine(url)
+        try:
+            async with engine.begin() as connection:
+                await connection.run_sync(Base.metadata.create_all)
+        finally:
+            await engine.dispose()
+
+    asyncio.run(_create())
+
+
+def ensure_shared_db(
+    name: str,
+    prepare: Callable[[str], None] | None = None,
+    *,
+    version: str = "1",
+) -> str:
+    """确保共享库已就绪（全 worker 只建一次），返回连接串。
+
+    Args:
+        name: 逻辑数据源名（`platform` / `tenant`）。
+        prepare: 建库与播种回调（缺省只建表）；只在选主 worker 上执行一次。
+        version: schema 版本戳；与 `.ready` 内容不一致即重建。
+
+    Returns:
+        str: 共享库连接串。
+
+    Raises:
+        TimeoutError: 等待初始化就绪超时。
+    """
+    url = shared_db_url(name)
+    ready = test_db_dir() / f"{name}.ready"
+    if ready.exists() and ready.read_text(encoding="utf-8").strip() == version:
+        return url
+    with _init_lock(name):
+        # 抢到锁后再判一次：可能上一个持锁者已经建好
+        if ready.exists() and ready.read_text(encoding="utf-8").strip() == version:
+            return url
+        (prepare or _default_prepare)(url)
+        ready.write_text(version, encoding="utf-8")
+    deadline = time.monotonic() + _INIT_TIMEOUT
+    while not (ready.exists() and ready.read_text(encoding="utf-8").strip() == version):
+        if time.monotonic() > deadline:
+            listing = sorted(p.name for p in test_db_dir().glob("*"))
+            raise TimeoutError(f"共享库就绪标记未出现：{ready}（目录内容 {listing}）") from None
+        time.sleep(_READY_POLL)
+    return url
+
+
+def resolve_prepare(request: pytest.FixtureRequest, name: str) -> Callable[[str], None] | None:
+    """解析套件自定义的建库回调（夹具名 `shared_db_prepare`）。
+
+    Args:
+        request: pytest 夹具请求。
+        name: 逻辑数据源名。
+
+    Returns:
+        Callable[[str], None] | None: 回调；套件未提供时为 `None`（走缺省建表）。
+    """
+    candidate = resolve_fixture(request, "shared_db_prepare")
+    if candidate is None:
+        return None
+    if callable(candidate):
+        return cast("Callable[[str], None]", candidate)
+    return None
+
+
+@pytest.fixture(scope="session")
+def shared_platform_db_url(request: pytest.FixtureRequest) -> str:
+    """共享平台库（`platform`，全 worker 共用、会话开始删库重建）。
+
+    Args:
+        request: pytest 夹具请求（取套件自定义建库回调）。
+
+    Returns:
+        str: 平台库连接串。
+    """
+    return ensure_shared_db("platform", resolve_prepare(request, "platform"))
+
+
+@pytest.fixture(scope="session")
+def shared_tenant_db_url(request: pytest.FixtureRequest) -> str:
+    """共享租户库（`tenant`，全 worker 共用、会话开始删库重建）。
+
+    Args:
+        request: pytest 夹具请求（取套件自定义建库回调）。
+
+    Returns:
+        str: 租户库连接串。
+    """
+    return ensure_shared_db("tenant", resolve_prepare(request, "tenant"))
+
+
+@pytest.fixture
+def ns(request: pytest.FixtureRequest) -> Iterator[Namespace]:
+    """当前用例的命名空间（单库叠加下生成唯一编码 / 限定断言）。
+
+    Args:
+        request: pytest 夹具请求。
+
+    Yields:
+        Namespace: 用例命名空间。
+    """
+    yield namespace_module.for_test(request)

@@ -121,6 +121,7 @@ pythonpath = [
 ]
 markers = [
     "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",
+    "own_db: 建库即被测的用例白名单（必填理由，如 @pytest.mark.own_db(\"建删库是被测功能\")）",
     "integration: 需要真实外部服务的集成用例（随 04_02 执行，未配置环境时跳过）",
     "dialect_mysql: 三库真库用例的 MySQL 方言标记（与 CI 的 DB_DIALECT=mysql 同形）",
     "dialect_postgres: 三库真库用例的 PostgreSQL 方言标记（DB_DIALECT=postgres）",

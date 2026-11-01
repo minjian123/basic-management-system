@@ -20,21 +20,37 @@ import pytest
 
 from bms_core.testing import fixtures
 from bms_core.testing.fixtures import (
+    clear_shared_db_files,
     clear_tenant_cache,
     configure_sqlite_basetemp,
+    ensure_shared_db,
     isolate_settings,
+    ns,
     platform_db,
     reset_plugin_registry,
     reset_request_context,
+    resolve_prepare,
+    shared_db_url,
+    shared_platform_db_url,
+    shared_tenant_db_url,
+    test_db_dir,
 )
 
 __all__ = (
+    "clear_shared_db_files",
     "clear_tenant_cache",
     "configure_sqlite_basetemp",
+    "ensure_shared_db",
     "isolate_settings",
+    "ns",
     "platform_db",
     "reset_plugin_registry",
     "reset_request_context",
+    "resolve_prepare",
+    "shared_db_url",
+    "shared_platform_db_url",
+    "shared_tenant_db_url",
+    "test_db_dir",
 )
 
 
@@ -58,3 +74,8 @@ def pytest_configure(config: pytest.Config) -> None:
         # `abspath` 结果必然含父目录，无需再判空
         os.makedirs(os.path.dirname(os.path.abspath(os.fspath(basetemp))), exist_ok=True)
     fixtures.configure_sqlite_basetemp(str(basetemp))
+    if not os.environ.get("PYTEST_XDIST_WORKER"):
+        # 会话开始清空共享测试库（controller 先于 xdist worker 启动，不与 worker 建库竞争）
+        failed = fixtures.clear_shared_db_files()
+        if failed:
+            print(f"[bms_testing_plugin] 共享测试库清理失败（句柄占用），本次改用新库：{failed}")

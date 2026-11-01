@@ -70,6 +70,10 @@ label = "护栏：雪花 ID（增量）"
 cmd = ["{python}", "scripts/tools/base_check/check_snowflake_ids.py", "{root}", "--files-from", "{changed}"]
 
 [[devloop.steps]]
+label = "护栏：测试库隔离（增量）"
+cmd = ["{python}", "scripts/tools/base_check/check_test_db_isolation.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
 label = "护栏：产品字面量（增量）"
 cmd = ["{python}", "scripts/tools/base_check/check_product_literals.py", "{root}", "--files-from", "{changed}"]
 
@@ -611,6 +615,17 @@ whitelist = [
   "backend/libs/bms_core/src/bms_core/models/tenant/tenant_quota.py::limit_value",
   "backend/libs/bms_core/src/bms_core/models/tenant/tenant_quota.py::used_value",
 ]
+
+[rules.test_db_isolation]
+# 测试库隔离静态护栏（任务 04-6-1）：单库叠加口径下禁止为图省事自建 SQLite / 裸 int ID / 清理他人数据
+scan_targets = ["backend/libs/bms_core/tests", "backend/services", "backend/tests_support"]
+allow_marker = "own_db"
+db_literal_prefixes = ["sqlite+aiosqlite:///", "sqlite:///"]
+engine_factories = ["create_async_engine", "create_engine"]
+db_file_suffixes = [".db"]
+id_columns = ["id"]
+cleanup_calls = ["drop_all"]
+exclude_parts = ["__pycache__", ".venv", "node_modules", ".git"]
 
 [rules.system_fields]
 table_dir = "bms文档/设计/数据库设计/数据表设计"
