@@ -90,6 +90,24 @@ async def _align_seed_tenant_ids(url: str) -> None:
         await engine.dispose()
 
 
+async def prepare_platform_async(url: str) -> None:
+    """平台库准备集的异步入口（供异步夹具调用，避免在事件循环里 `asyncio.run`）。
+
+    Args:
+        url: 共享平台库连接串。
+    """
+    await _prepare_platform(url)
+
+
+async def prepare_tenant_async(url: str) -> None:
+    """租户库准备集的异步入口（供异步夹具调用）。
+
+    Args:
+        url: 共享租户库连接串。
+    """
+    await _prepare_tenant(url)
+
+
 def prepare_tenant(url: str) -> None:
     """准备租户库：租户侧建表集（各业务域并集 + 基础设施表）→ 系统参数种子。
 

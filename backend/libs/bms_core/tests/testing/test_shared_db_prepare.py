@@ -7,11 +7,14 @@
 """
 
 import types
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.testing import fixtures
@@ -156,6 +159,77 @@ def test_root_conftest_exposes_prepare_fixtures(
     assert tenant_db_prepare is prepare_tenant
 
 
+async def test_ensure_shared_db_async_awaits_coroutine_prepare(tmp_path: Path) -> None:
+    """异步入口：协程准备集被 await（异步夹具里不能再 `asyncio.run`）。"""
+    from tests_support.shared_db import prepare_platform_async
+
+    url = await fixtures.ensure_shared_db_async("platform", prepare_platform_async, version="v1")
+    assert (tmp_path / ".cache" / "test" / "platform.ready").read_text(encoding="utf-8").strip() == "v1"
+    again = await fixtures.ensure_shared_db_async("platform", prepare_platform_async, version="v1")
+    assert again == url
+
+
+async def test_ensure_shared_db_async_delegates_sync_prepare(tmp_path: Path) -> None:
+    """同步回调：退化为同步实现（避免在外层事件循环里嵌套 `asyncio.run`）。"""
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def prepare(url: str) -> None:
+        calls.append(url)
+
+    url = await fixtures.ensure_shared_db_async("tenant", prepare, version="v2")
+    assert list(calls) == [url]
+    assert (tmp_path / ".cache" / "test" / "tenant.ready").read_text(encoding="utf-8").strip() == "v2"
+
+
+async def test_ensure_shared_db_async_default_prepare_and_peer_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """异步入口：无回调走缺省建表；抢锁后若别处已建好则直接返回（不重复准备）。"""
+    url = await fixtures.ensure_shared_db_async("platform", None, version="v3")
+    assert url.endswith("test/platform.db")
+    assert (tmp_path / ".cache" / "test" / "platform.db").is_file()
+
+    @contextmanager
+    def _peer_built(name: str) -> Generator[None]:
+        """替身锁：进入时假装别的 worker 已写好就绪标记。"""
+        (fixtures.test_db_dir() / f"{name}.ready").write_text("v3", encoding="utf-8")
+        yield
+
+    monkeypatch.setattr(fixtures, "_init_lock", _peer_built)
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _prepare(target: str) -> None:
+        calls.append(target)
+
+    peer_url = await fixtures.ensure_shared_db_async("tenant", _prepare, version="v3")
+    assert peer_url.endswith("tenant.db")
+    assert list(calls) == []
+
+
+async def test_shared_engines_point_at_shared_db(
+    shared_platform_engine: AsyncEngine, shared_tenant_engine: AsyncEngine
+) -> None:
+    """共享库引擎夹具：两个数据源各一条可用连接（且落 `.cache/test` 下的同名库）。"""
+    async with shared_platform_engine.connect() as connection:
+        assert (await connection.execute(text("SELECT 1"))).scalar() == 1
+    async with shared_tenant_engine.connect() as connection:
+        assert (await connection.execute(text("SELECT 1"))).scalar() == 1
+    assert str(shared_platform_engine.url).endswith("test/platform.db")
+    assert str(shared_tenant_engine.url).endswith("test/tenant.db")
+
+
+async def test_prepare_tenant_async_creates_tables_and_configs(tmp_path: Path) -> None:
+    """租户库准备集的异步入口：域并集建表 + 系统参数种子（幂等）。"""
+    from tests_support.shared_db import prepare_tenant_async
+
+    url = f"sqlite+aiosqlite:///{(tmp_path / 'tenant.db').as_posix()}"
+    await prepare_tenant_async(url)
+    first = await _count_async(url, "SELECT COUNT(*) FROM sys_config")
+    await prepare_tenant_async(url)
+    assert first > 0
+    assert await _count_async(url, "SELECT COUNT(*) FROM sys_config") == first
+
+
 def test_prepare_platform_seeds_and_aligns(tmp_path: Path) -> None:
     """平台库准备集：种子租户 + 主键对齐 + 服务目录，重复执行幂等。"""
     from bms_core.models.base import SQLITE_PADDED_WIDTH
@@ -193,6 +267,26 @@ def test_tenant_metadata_falls_back_when_layout_missing(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(shared_db, "domains_metadata", _raise)
     assert shared_db._tenant_metadata() is Base.metadata  # pyright: ignore[reportPrivateUsage]
+
+
+async def _count_async(url: str, statement: str) -> int:
+    """异步取单值计数（异步用例里不能再 `asyncio.run`）。
+
+    Args:
+        url: 连接串。
+        statement: 单值 SQL。
+
+    Returns:
+        int: 计数值。
+    """
+    from sqlalchemy.pool import NullPool
+
+    engine = create_async_engine(url, poolclass=NullPool)
+    try:
+        async with engine.connect() as connection:
+            return int((await connection.execute(text(statement))).scalar_one())
+    finally:
+        await engine.dispose()
 
 
 def _query(url: str, statement: str) -> ConcurrentStableList[ConcurrentStableList[Any]]:

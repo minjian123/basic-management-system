@@ -441,24 +441,28 @@ def _init_lock(name: str) -> Generator[None]:
 
 
 def _default_prepare(url: str) -> None:
-    """缺省建库：按已导入模型的 `Base.metadata` 建表（不含业务种子）。
+    """缺省建库（同步入口）：按已导入模型的 `Base.metadata` 建表（不含业务种子）。
 
     Args:
         url: 共享库连接串。
     """
-    from sqlalchemy.ext.asyncio import create_async_engine
+    asyncio.run(_default_prepare_async(url))
 
+
+async def _default_prepare_async(url: str) -> None:
+    """缺省建库（异步入口）：同步版在事件循环里调用会撞 `asyncio.run`。
+
+    Args:
+        url: 共享库连接串。
+    """
     from bms_core.models.base import Base
 
-    async def _create() -> None:
-        engine = create_async_engine(url)
-        try:
-            async with engine.begin() as connection:
-                await connection.run_sync(Base.metadata.create_all)
-        finally:
-            await engine.dispose()
-
-    asyncio.run(_create())
+    engine = create_async_engine(url)
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+    finally:
+        await engine.dispose()
 
 
 def ensure_shared_db(
@@ -467,7 +471,10 @@ def ensure_shared_db(
     *,
     version: str = "1",
 ) -> str:
-    """确保共享库已就绪（全 worker 只建一次），返回连接串。
+    """确保共享库已就绪（全 worker 只建一次），返回连接串（同步入口）。
+
+    同步入口自己跑选主与等待：准备回调多为**同步**包装（内部再 `asyncio.run` 建库播种），
+    交给异步版本会与外层事件循环嵌套冲突。异步夹具请改用 `ensure_shared_db_async`。
 
     Args:
         name: 逻辑数据源名（`platform` / `tenant`）。
@@ -484,11 +491,7 @@ def ensure_shared_db(
     ready = test_db_dir() / f"{name}.ready"
 
     def _is_ready() -> bool:
-        """就绪判据：标记存在且版本戳一致。
-
-        刻意**不**校验库文件大小：就绪标记代表「准备集已执行完毕」，准备集允许只写标记
-        （部分用例以假回调验证选主与等待逻辑）；库文件是否完整由准备集自身负责。
-        """
+        """就绪判据：标记存在且版本戳一致。"""
         return ready.exists() and ready.read_text(encoding="utf-8").strip() == version
 
     if _is_ready():
@@ -505,6 +508,52 @@ def ensure_shared_db(
             listing = sorted(p.name for p in test_db_dir().glob("*"))
             raise TimeoutError(f"共享库就绪标记未出现：{ready}（目录内容 {listing}）") from None
         time.sleep(_READY_POLL)
+    return url
+
+
+async def ensure_shared_db_async(
+    name: str,
+    prepare: Callable[[str], Any] | None = None,
+    *,
+    version: str = "1",
+) -> str:
+    """确保共享库已就绪（异步版）：协程回调直接 `await`，同步回调退化为同步实现。
+
+    为什么需要异步版：准备集本身是异步的（建表 + 播种走 SQLAlchemy async 引擎），
+    而异步夹具（`pytest_asyncio` 的 `async def` 夹具）里不能再 `asyncio.run`——
+    同步包装器内部一 `asyncio.run` 就会撞上外层事件循环。
+
+    与同步版的差异：异步版自己抢初始化锁阻塞等待（锁内已完成准备），因此不需要再轮询
+    `.ready`——本进程写完标记即可返回。
+
+    Args:
+        name: 逻辑数据源名（`platform` / `tenant`）。
+        prepare: 建库与播种回调（协程函数优先；同步回调走同步实现）；只在选主者上执行一次。
+        version: schema 版本戳；与 `.ready` 内容不一致即重建。
+
+    Returns:
+        str: 共享库连接串。
+    """
+    if prepare is not None and not inspect.iscoroutinefunction(prepare):
+        return ensure_shared_db(name, prepare, version=version)
+    url = shared_db_url(name)
+    ready = test_db_dir() / f"{name}.ready"
+
+    def _is_ready() -> bool:
+        """就绪判据：标记存在且版本戳一致（库文件完整性由准备集自身负责）。"""
+        return ready.exists() and ready.read_text(encoding="utf-8").strip() == version
+
+    if _is_ready():
+        return url
+    with _init_lock(name):
+        # 抢到锁后再判一次：可能上一个持锁者已经建好
+        if _is_ready():
+            return url
+        if prepare is None:
+            await _default_prepare_async(url)
+        else:
+            await prepare(url)
+        ready.write_text(version, encoding="utf-8")
     return url
 
 
