@@ -82,9 +82,15 @@ async def _put_part(client: AsyncClient, upload_id: str, part_no: int, chunk: by
 
 
 async def test_put_part_rejects_out_of_range_index(client: AsyncClient, file_ports: FilePorts) -> None:
-    """分片序号越界（大于总数）：`50104` / 409，不写对象。"""
+    """分片序号越界（大于总数）：`50104` / 409，且会话状态未被写入（状态断言，不依赖全表计数）。
+
+    单库叠加口径（04-6-2）：会话状态来自共享库 / 共享会话存储，断言只认**本会话**的已上传 / 缺失片，
+    不再假设「库里没有别的分片行」。
+    """
     data = _pdf_bytes()
     upload_id = str((await _initiate(client, data))["upload_id"])
+    before = (await client.get(f"{API}/multipart/{upload_id}")).json()["data"]
+    assert before["uploaded"] == [] and before["uploaded_parts"] == 0
 
     resp = await client.put(
         f"{API}/multipart/{upload_id}/parts/9",
@@ -93,6 +99,11 @@ async def test_put_part_rejects_out_of_range_index(client: AsyncClient, file_por
     )
     assert resp.status_code == 409
     assert resp.json()["code"] == ErrorCode.FILE_UPLOAD_SESSION_INVALID
+
+    after = (await client.get(f"{API}/multipart/{upload_id}")).json()["data"]
+    assert after["uploaded"] == [] and after["uploaded_parts"] == 0
+    assert after["missing"] == before["missing"]
+    assert after["status"] == before["status"]
 
 
 async def test_initiate_rejects_declared_mime_conflict(client: AsyncClient, file_ports: FilePorts) -> None:

@@ -1,17 +1,20 @@
 """系统参数的**平台默认值语义**用例：重置回落默认 / 乐观锁冲突 / 依赖双向校验。
 
-这些用例的断言绑定**平台默认值表**（`_PLATFORM_DEFAULTS`）与硬编码依赖对（`ai.auto_execute`
-↔ `ai.auto_approve`），必须使用固定参数键、并要求「该键初始为未覆盖态」的起点；
-共享租户库里这些键由 `seed_configs` 播种且被其他用例读写（SQLite 单写者，长事务叠加会互等）。
+这些用例的断言绑定**平台默认值表**（`PLATFORM_CONFIG_DEFAULTS`）与硬编码依赖对
+（`ai.auto_execute` ↔ `ai.auto_approve`），必须使用固定参数键、并要求「该键初始为未覆盖态」的起点。
 
-`own_db` 白名单（04-6-2 决策 D）：每用例独立临时库 + 平台默认参数播种，故独占、不叠加。
+单库叠加口径（04-6-2）：**不再每用例建独立库**——跑在共享租户库上，改为
+「用例前确保这些键处于平台默认态（未覆盖、未软删）→ 用例内读写 → 用例后复位」；
+同文件用例用 `xdist_group` 固定到同一 worker 串行执行（共享库文件的既有口径），
+避免同文件内不同 worker 互相覆盖平台默认键。
 """
 
 from __future__ import annotations
 
+import os
+import time
 from collections.abc import AsyncIterator
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -20,43 +23,97 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.config.cache import MemoryConfigCacheRegion
 from bms_core.config.models import SysConfig
-from bms_core.config.seed import seed_configs
+from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.testing.paths import project_root
 from bms_core.testing.schema import ensure_tables
 from bms_platform.domains.platform_config.repositories.config import ConfigRepository
 from bms_platform.domains.platform_config.schemas.config import ConfigUpdateRequest
 from bms_platform.domains.platform_config.services.config import ConfigAdminService
 
-pytestmark = pytest.mark.own_db(
-    "断言语义绑定平台默认值表与硬编码依赖对，前提是「该键初始为未覆盖态」；"
-    "共享租户库的默认参数被其他用例读写，且 SQLite 单写者下长事务叠加会互等"
-)
-
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList((SysConfig.__table__,))
-"""本文件涉及的表（独占库建表集）。"""
+"""本文件涉及的表（幂等建表集）。"""
+
+_KEYS = ("session.max_active", "account.inactive_lock_days", "ai.auto_execute", "ai.auto_approve")
+"""本文件读写并需要复位的参数键（平台默认值见 `PLATFORM_CONFIG_DEFAULTS`）。"""
+
+_DEFAULTS = {item.config_key: item.value for item in PLATFORM_CONFIG_DEFAULTS}
+"""参数键 → 平台默认值。"""
+
+_LOCK_PATH = project_root() / ".cache" / "test" / "config-platform-defaults.lock"
+"""跨进程互斥锁文件（共享租户库上这些固定键是全局状态，必须整体串行）。"""
+
+_LOCK_TIMEOUT = 120.0
+"""等锁上限（秒）：超时即报错，不静默并行。"""
+
+
+def _acquire_lock() -> None:
+    """取跨进程锁（`O_CREAT|O_EXCL` 原子创建；锁文件残留超过超时视为陈旧并清理）。
+
+    Raises:
+        TimeoutError: 等待超时（说明有进程长期占锁或锁文件陈旧）。
+    """
+    _LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + _LOCK_TIMEOUT
+    while True:
+        try:
+            handle = os.open(_LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            if time.monotonic() > deadline:
+                raise TimeoutError(f"等待平台默认键锁超时：{_LOCK_PATH}") from None
+            time.sleep(0.05)
+            continue
+        with os.fdopen(handle, "w", encoding="utf-8") as file:
+            file.write(str(os.getpid()))
+        return
+
+
+def _release_lock() -> None:
+    """释放跨进程锁（锁文件不存在时静默）。"""
+    try:
+        _LOCK_PATH.unlink()
+    except FileNotFoundError:
+        return
+
+
+async def _restore(db: AsyncSession) -> None:
+    """把本文件涉及的参数键复位到平台默认态（值 / 未覆盖 / 未软删）。
+
+    Args:
+        db: 租户库会话。
+    """
+    rows = (await db.execute(select(SysConfig).where(SysConfig.config_key.in_(list(_KEYS))))).scalars().all()
+    for row in rows:
+        row.deleted_at = None
+        row.value = _DEFAULTS.get(row.config_key, row.value)
+        row.is_overridden = False
+        row.status = "enabled"
+    await db.commit()
 
 
 @pytest_asyncio.fixture
-async def session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
-    """独占临时租户库会话（建表 + 平台默认参数播种）。
+async def session(tenant_db: str) -> AsyncIterator[AsyncSession]:
+    """共享租户库会话（幂等建表 + 平台默认参数幂等播种 + 用例前后复位）。
 
     Args:
-        tmp_path: 用例级临时目录。
+        tenant_db: 共享租户库连接串（套件夹具已注入 `BMS_DATABASE__TENANTS__URL`）。
 
     Yields:
         AsyncSession: 会话。
     """
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'config_defaults.db'}")
+    engine = create_async_engine(tenant_db)
+    _acquire_lock()
     try:
         await ensure_tables(engine, list(_TABLES))
         factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
         async with factory() as db:
-            await seed_configs(db)
-            await db.commit()
+            await _restore(db)
             yield db
+            await _restore(db)
     finally:
+        _release_lock()
         await engine.dispose()
 
 
