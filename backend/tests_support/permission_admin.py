@@ -15,7 +15,6 @@ import os
 from typing import cast
 
 from sqlalchemy import Table, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.config import get_settings
@@ -23,6 +22,7 @@ from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.models.platform.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_core.testing.schema import ensure_tables
 from tests_support.auth import TEST_SUBJECT
+from tests_support.locks import file_lock
 
 SYSTEM_ADMIN_CODE = "bms_system_admin"
 """测试探针角色码（避开用例自建角色码 `system_admin`）。
@@ -85,26 +85,23 @@ async def _grant_builtin(user_id: int, *, code: str, name: str, role_type: str) 
     engine = create_async_engine(os.environ["BMS_DATABASE__TENANTS__URL"])
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
-        async with factory() as session:
-            role = await _role_row(session, code=code, name=name, role_type=role_type)
-            assigned = (
-                await session.execute(
-                    select(SysUserRole).where(
-                        SysUserRole.role_id == role.id,
-                        SysUserRole.user_id == user_id,
+        # 共享库上「查无 → 插入」必须串行：`(code, deleted_at)` 唯一约束在 NULL 上不生效，
+        # 两个 worker 同时插入会各写一行同码角色，后续 `scalar_one_or_none` 直接炸。
+        with file_lock("permission-admin-seed"):
+            async with factory() as session:
+                role = await _role_row(session, code=code, name=name, role_type=role_type)
+                assigned = (
+                    await session.execute(
+                        select(SysUserRole).where(
+                            SysUserRole.role_id == role.id,
+                            SysUserRole.user_id == user_id,
+                        )
                     )
-                )
-            ).scalar_one_or_none()
-            if assigned is None:
-                session.add(SysUserRole(role_id=role.id, user_id=user_id))
-                try:
-                    await session.commit()
-                except IntegrityError:
-                    # 并行 worker 同时绑定同一主体：已由他人写入，视为成功
-                    await session.rollback()
-            else:
+                ).scalars().first()
+                if assigned is None:
+                    session.add(SysUserRole(role_id=role.id, user_id=user_id))
                 await session.commit()
-            return role.id
+                return role.id
     finally:
         await engine.dispose()
 
@@ -121,16 +118,14 @@ async def _role_row(session: AsyncSession, *, code: str, name: str, role_type: s
     Returns:
         SysRole: 角色行。
     """
-    role = (await session.execute(select(SysRole).where(SysRole.code == code))).scalar_one_or_none()
-    if role is not None:
-        return role
+    rows = (
+        (await session.execute(select(SysRole).where(SysRole.code == code).order_by(SysRole.id))).scalars().all()
+    )
+    if rows:
+        return rows[0]
     role = SysRole(code=code, name=name, status="enabled", role_type=role_type)
     session.add(role)
-    try:
-        await session.flush()
-    except IntegrityError:
-        await session.rollback()
-        return (await session.execute(select(SysRole).where(SysRole.code == code))).scalar_one()
+    await session.flush()
     return role
 
 

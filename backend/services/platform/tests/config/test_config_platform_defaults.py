@@ -11,10 +11,9 @@
 
 from __future__ import annotations
 
-import os
-import time
 from collections.abc import AsyncIterator
 from datetime import datetime
+from typing import cast
 
 import pytest
 import pytest_asyncio
@@ -27,13 +26,13 @@ from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_core.testing.paths import project_root
 from bms_core.testing.schema import ensure_tables
 from bms_platform.domains.platform_config.repositories.config import ConfigRepository
 from bms_platform.domains.platform_config.schemas.config import ConfigUpdateRequest
 from bms_platform.domains.platform_config.services.config import ConfigAdminService
+from tests_support.locks import file_lock
 
-_TABLES: ConcurrentStableList[Table] = ConcurrentStableList((SysConfig.__table__,))
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList((cast("Table", SysConfig.__table__),))
 """本文件涉及的表（幂等建表集）。"""
 
 _KEYS = ("session.max_active", "account.inactive_lock_days", "ai.auto_execute", "ai.auto_approve")
@@ -42,40 +41,8 @@ _KEYS = ("session.max_active", "account.inactive_lock_days", "ai.auto_execute", 
 _DEFAULTS = {item.config_key: item.value for item in PLATFORM_CONFIG_DEFAULTS}
 """参数键 → 平台默认值。"""
 
-_LOCK_PATH = project_root() / ".cache" / "test" / "config-platform-defaults.lock"
-"""跨进程互斥锁文件（共享租户库上这些固定键是全局状态，必须整体串行）。"""
-
-_LOCK_TIMEOUT = 120.0
-"""等锁上限（秒）：超时即报错，不静默并行。"""
-
-
-def _acquire_lock() -> None:
-    """取跨进程锁（`O_CREAT|O_EXCL` 原子创建；锁文件残留超过超时视为陈旧并清理）。
-
-    Raises:
-        TimeoutError: 等待超时（说明有进程长期占锁或锁文件陈旧）。
-    """
-    _LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
-    deadline = time.monotonic() + _LOCK_TIMEOUT
-    while True:
-        try:
-            handle = os.open(_LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            if time.monotonic() > deadline:
-                raise TimeoutError(f"等待平台默认键锁超时：{_LOCK_PATH}") from None
-            time.sleep(0.05)
-            continue
-        with os.fdopen(handle, "w", encoding="utf-8") as file:
-            file.write(str(os.getpid()))
-        return
-
-
-def _release_lock() -> None:
-    """释放跨进程锁（锁文件不存在时静默）。"""
-    try:
-        _LOCK_PATH.unlink()
-    except FileNotFoundError:
-        return
+_LOCK_NAME = "config-platform-defaults"
+"""跨进程锁名（共享租户库上这些固定键是全局状态，必须整体串行）。"""
 
 
 async def _restore(db: AsyncSession) -> None:
@@ -105,16 +72,13 @@ async def session(tenant_db: str, shared_tenant_engine: AsyncEngine) -> AsyncIte
         AsyncSession: 会话。
     """
     del tenant_db
-    _acquire_lock()
-    try:
+    with file_lock(_LOCK_NAME):
         await ensure_tables(shared_tenant_engine, list(_TABLES))
         factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
         async with factory() as db:
             await _restore(db)
             yield db
             await _restore(db)
-    finally:
-        _release_lock()
 
 
 def _service(session: AsyncSession) -> ConfigAdminService:
