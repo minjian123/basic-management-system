@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
 
@@ -14,6 +15,14 @@ pytestmark = [
     pytest.mark.kiwi_id(2399),
     pytest.mark.own_db("被测对象是共享库夹具：需用临时库验证选主 / 清理 / 就绪等待"),
 ]
+
+
+@pytest.fixture(autouse=True)
+def _pin_project_root(tmp_path: Path) -> Iterator[None]:
+    """把测试产物基址钉到临时目录：本文件验证目录行为，不得碰仓内 `.cache/test`。"""
+    fixtures.configure_project_root(str(tmp_path))
+    yield
+    fixtures.configure_project_root("")
 
 
 def test_clear_shared_db_files_reports_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

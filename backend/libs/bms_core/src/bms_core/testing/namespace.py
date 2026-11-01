@@ -22,6 +22,8 @@ from typing import Any, cast
 
 import pytest
 
+from bms_core.testing.paths import project_root
+
 PREFIX_MAX_LEN = 16
 """前缀长度上限（避免撞上业务编码的长度校验）。"""
 
@@ -205,12 +207,12 @@ def map_path(root: Path | None = None) -> Path:
     """命名空间映射文件路径（`.cache/test/namespace-map.jsonl`）。
 
     Args:
-        root: 仓内基址（缺省取当前工作目录，即 pytest 的 `backend/`）。
+        root: 仓内基址（缺省取已钉定的工程根，未钉定时为当前工作目录）。
 
     Returns:
         Path: 映射文件路径（父目录自动创建）。
     """
-    directory = (root or Path.cwd()) / ".cache" / "test"
+    directory = (root or project_root()) / ".cache" / "test"
     directory.mkdir(parents=True, exist_ok=True)
     return directory / "namespace-map.jsonl"
 

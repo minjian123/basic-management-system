@@ -22,11 +22,13 @@ from bms_core.testing import fixtures
 from bms_core.testing.fixtures import (
     clear_shared_db_files,
     clear_tenant_cache,
+    configure_project_root,
     configure_sqlite_basetemp,
     ensure_shared_db,
     isolate_settings,
     ns,
     platform_db,
+    project_root,
     reset_plugin_registry,
     reset_request_context,
     resolve_prepare,
@@ -39,11 +41,13 @@ from bms_core.testing.fixtures import (
 __all__ = (
     "clear_shared_db_files",
     "clear_tenant_cache",
+    "configure_project_root",
     "configure_sqlite_basetemp",
     "ensure_shared_db",
     "isolate_settings",
     "ns",
     "platform_db",
+    "project_root",
     "reset_plugin_registry",
     "reset_request_context",
     "resolve_prepare",
@@ -69,6 +73,9 @@ def pytest_configure(config: pytest.Config) -> None:
     Args:
         config: pytest 配置对象。
     """
+    # 共享测试库基址钉在会话起始的工程根：用例 `chdir` 后解析夹具也不会把库落到临时目录
+    # （否则表现为随机的「no such table」；见 `fixtures.configure_project_root`）。
+    fixtures.configure_project_root(os.getcwd())
     basetemp = getattr(config.option, "basetemp", "") or ""
     if basetemp:
         # `abspath` 结果必然含父目录，无需再判空

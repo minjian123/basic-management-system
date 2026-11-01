@@ -20,9 +20,11 @@ pytestmark = [pytest.mark.kiwi_id(2400), pytest.mark.own_db("被测对象就是�
 
 
 @pytest.fixture(autouse=True)
-def _restore_basetemp() -> Iterator[None]:
-    """用例结束后复位 basetemp 记录，避免影响同 worker 后续用例。"""
+def _restore_basetemp(tmp_path: Path) -> Iterator[None]:
+    """把测试产物基址钉到临时目录，并在用例结束后复位 basetemp 记录。"""
+    fixtures.configure_project_root(str(tmp_path))
     yield
+    fixtures.configure_project_root("")
     fixtures.configure_sqlite_basetemp("")
 
 
@@ -136,10 +138,10 @@ def test_version_for_variants(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_version_for_dynamic_and_anonymous_sources() -> None:
-    """`exec` 动态编译的函数（无真实源文件）与无 `__file__` 的模块：一律退回 `1`。"""
-    namespace: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-    exec("def _dyn(url):\n    return None\n", namespace)
-    assert fixtures.version_for(cast("Callable[[str], None]", namespace["_dyn"])) == "1"
+    """动态编译的函数（无真实源文件）与无 `__file__` 的模块：一律退回 `1`。"""
+    code = compile("lambda url: None", "<dyn>", "eval")
+    dynamic = types.LambdaType(code, {})
+    assert fixtures.version_for(cast("Callable[[str], None]", dynamic)) == "1"
     module = types.ModuleType("no_file_module")
     assert fixtures.version_for(cast("Callable[[str], None]", module)) == "1"
 

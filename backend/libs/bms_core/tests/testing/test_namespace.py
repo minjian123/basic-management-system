@@ -103,6 +103,7 @@ def test_assert_scoped_supports_orm_rows() -> None:
 def test_for_test_records_mapping(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """`for_test` 按 nodeid 生成命名空间，并把映射追加到 `.cache/test/namespace-map.jsonl`。"""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ns_module, "project_root", lambda: tmp_path)
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
     class _Node:

@@ -34,6 +34,33 @@ from bms_core.core.id import MAX_WORKER_ID
 from bms_core.permission.cache import reset_permission_cache_store
 from bms_core.testing import namespace as namespace_module
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.paths import configure_project_root, project_root
+
+__all__ = (
+    "TEST_DB_DIRNAME",
+    "apply_platform_db",
+    "clear_shared_db_files",
+    "clear_tenant_cache",
+    "configure_project_root",
+    "configure_sqlite_basetemp",
+    "ensure_shared_db",
+    "isolation_enabled",
+    "isolation_notice",
+    "ns",
+    "platform_db",
+    "project_root",
+    "reset_plugin_registry",
+    "reset_request_context",
+    "resolve_fixture",
+    "resolve_prepare",
+    "shared_db_url",
+    "shared_platform_db_url",
+    "shared_tenant_db_url",
+    "test_db_dir",
+    "version_for",
+    "worker_id_for_snowflake",
+    "worker_sqlite_dir",
+)
 
 
 def clear_isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -316,7 +343,7 @@ _READY_POLL = 0.2
 def test_db_dir() -> Path:
     """会话测试库目录。
 
-    常规模式落 `<当前工作目录>/.cache/test`（pytest 的工作目录是 `backend/`，即仓内缓存区）；
+    常规模式落 `<工程根>/.cache/test`（工程根由插件在会话起始钉定，缺省即当前工作目录）；
     隔离调试模式（`BMS_TEST_ISOLATED_DB=1`）落 `<basetemp>/test-db-isolated`。
 
     Returns:
@@ -326,7 +353,7 @@ def test_db_dir() -> Path:
         base = Path(_sqlite_basetemp) if _sqlite_basetemp else Path(tempfile.gettempdir())
         directory = base / _ISOLATED_DIRNAME
     else:
-        directory = Path.cwd() / ".cache" / TEST_DB_DIRNAME
+        directory = project_root() / ".cache" / TEST_DB_DIRNAME
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 

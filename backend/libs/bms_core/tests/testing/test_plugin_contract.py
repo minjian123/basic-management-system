@@ -13,6 +13,35 @@ from bms_core.testing import plugin
 from bms_core.testing.fixtures import clear_isolated_env, clear_tenant_cache
 
 
+@pytest.fixture(autouse=True)
+def _no_session_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """本文件会直接调 `pytest_configure`：不得真清共享库、不得改会话基址。
+
+    否则同 worker 后续用例的共享库被删掉（`.db` / `.ready` 一起没），表现为「no such table」。
+    需要断言清理行为的用例在用例内自行 `monkeypatch` 覆盖本夹具的打桩。
+    """
+    monkeypatch.setattr(plugin.fixtures, "configure_project_root", _ignore_root)
+    monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", _no_cleanup)
+
+
+def _ignore_root(value: str) -> None:
+    """桩：忽略基址钉定。
+
+    Args:
+        value: 工程根（忽略）。
+    """
+    del value
+
+
+def _no_cleanup() -> ConcurrentStableList[str]:
+    """桩：不清共享库。
+
+    Returns:
+        ConcurrentStableList[str]: 空失败清单。
+    """
+    return ConcurrentStableList()
+
+
 @pytest.mark.kiwi_id(2317)
 def test_plugin_registers_fixture_module() -> None:
     """插件入口：夹具对象导入到插件命名空间（`-p bms_core.testing.plugin` 全局加载）。"""
@@ -164,6 +193,14 @@ def test_configure_warns_when_shared_db_cleanup_fails(
     monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", lambda: ConcurrentStableList(["platform.db"]))
     plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
     assert "共享测试库清理失败" in capsys.readouterr().out
+
+
+@pytest.mark.kiwi_id(2400)
+def test_configure_prints_isolation_notice(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    """隔离调试模式（`BMS_TEST_ISOLATED_DB=1`）：会话头打印醒目提示，避免误当 CI 口径。"""
+    monkeypatch.setenv("BMS_TEST_ISOLATED_DB", "1")
+    plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
+    assert "隔离调试模式" in capsys.readouterr().out
 
 
 @pytest.mark.kiwi_id(2399)
