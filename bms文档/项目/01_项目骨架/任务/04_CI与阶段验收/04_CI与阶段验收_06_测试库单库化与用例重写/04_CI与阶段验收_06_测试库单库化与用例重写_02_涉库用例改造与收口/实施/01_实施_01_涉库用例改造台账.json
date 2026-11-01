@@ -3288,10 +3288,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/account_lock/test_endpoints.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库：36: tmp_path_factory"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -5358,10 +5358,10 @@
     "repo": "mdm",
     "path": "backend/services/org/tests/api/test_admin_routes.py",
     "tests": 9,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 5,
-    "evidence": "自建库 + 整表断言：274: assert len(stores) == 4"
+    "evidence": "已有 own_db 白名单（管理面路由用例以固定业务编码与 `form_key` 构造组织树，需每例空库起点；共享库行数叠加会让按 `form_key` 取单行命中多行（MultipleResultsFound））"
   },
   {
     "repo": "mdm",
@@ -5538,10 +5538,10 @@
     "repo": "mdm",
     "path": "backend/services/org/tests/test_seeds.py",
     "tests": 6,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 5,
-    "evidence": "自建库 + 整表断言：76: assert len(first) == 1"
+    "evidence": "已有 own_db 白名单（被测对象是**权限码种子编排本身**（`seed_admin_codes` 首次写入 / 幂等重跑 / 期望行覆盖校验），需要在空库上比对「新增 / 跳过 / 校验」计数；共享库恒已播种）"
   },
   {
     "repo": "mdm",
@@ -5628,10 +5628,10 @@
     "repo": "mdm",
     "path": "backend/tests/test_ops_cli.py",
     "tests": 30,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 5,
-    "evidence": "自建库：25: 连接串字面量；26: 连接串字面量"
+    "evidence": "已有 own_db 白名单（被测对象是**运维 CLI 的建库与迁移编排**（`db_admin` / `migrate` 按服务与租户模板派生库文件、建库 / 迁移 / 校验），库文件本身就是被测产物；共享库是固定单文件、无法表达派生拓扑）"
   },
   {
     "repo": "mdm",
