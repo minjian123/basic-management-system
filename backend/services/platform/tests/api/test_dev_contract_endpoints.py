@@ -39,6 +39,12 @@ PATH_PARAM_VALUE = "smoke1"
 """路径参数占位值（只求命中路由，不求命中业务数据；4xx 视为可达通过）。"""
 
 
+pytestmark = pytest.mark.own_db(
+    "被测对象是 dev 环境「每服务每租户」URL 模板下的库名派生与 IP Host 租户解析：需把模板库目录指到临时目录，"
+    "共享库是固定单文件、无法表达派生库拓扑"
+)
+
+
 def _contract_spec(service: str = "platform") -> ConcurrentStableDict[str, Any]:
     """读公开契约快照（仓库根 `deploy/contracts/<服务>.json`）。
 

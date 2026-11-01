@@ -2,6 +2,9 @@
 
 服务端点为 `/api/v1/user-extensions`（具名插槽样例插件的后端契约面）：读＝按 `user_id` 列示、
 写＝新增 / 更新一条；同用户同标签唯一（10003）、目标缺失（10002）、参数非法（10001）。
+
+单库叠加口径（04-6-2）：库用共享租户库（不再建临时库）；`user_id` 按命名空间派生，
+「该用户无扩展行」的前提在叠加下仍成立。
 """
 
 from typing import cast
@@ -10,13 +13,14 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.models.base import Base
 from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysUserExtension
+from bms_core.testing.namespace import Namespace
 from tests_support.permission_admin import assign_system_admin
 
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
@@ -28,26 +32,37 @@ _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
 )
 
 _API = "/api/v1/user-extensions"
-_USER_ID = 1001
+
+
+def _user_id(ns: Namespace) -> int:
+    """按命名空间派生用户主键（叠加下不与他人扩展行相撞）。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        int: 用户主键。
+    """
+    return int(ns.prefix[2:], 16)
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def tenant_schema(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """为临时租户库补建用户扩展信息表，并把服务租户库指向该临时文件。
+async def tenant_schema(
+    shared_tenant_engine: AsyncEngine, shared_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """为共享租户库补建用户扩展信息表，并把服务租户库指向共享库。
 
-    本端点按请求租户库读写，故用例为租户链补建表结构（平台链与种子由既有夹具提供）。
+    本端点按请求租户库读写，故用例为租户链幂等补齐表结构（平台链与种子由既有夹具提供）。
 
     Args:
-        tmp_path_factory: 临时目录工厂。
+        shared_tenant_engine: 共享租户库引擎。
+        shared_tenant_db_url: 共享租户库连接串。
         monkeypatch: 环境变量覆盖。
     """
-    url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('tenant') / 'tenant.db'}"
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
-    get_settings.cache_clear()
-    engine = create_async_engine(url)
-    async with engine.begin() as connection:
+    async with shared_tenant_engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
-    await engine.dispose()
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
+    get_settings.cache_clear()
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -55,36 +70,37 @@ async def system_admin(tenant_schema: None) -> None:
     """测试主体置内置系统管理员（真实权限校验下的豁免层级）。
 
     Args:
-        tenant_schema: 临时租户库夹具（先建表并注入连接串）。
+        tenant_schema: 共享租户库夹具（先建表并注入连接串）。
     """
     await assign_system_admin()
 
 
 @pytest.mark.kiwi_id(2238)
-async def test_user_extension_flow(client: AsyncClient) -> None:
+async def test_user_extension_flow(client: AsyncClient, ns: Namespace) -> None:
     """读列表（空 → 有）→ 新增 → 更新 → 冲突 / 不存在 / 参数校验各分支。"""
-    empty = await client.get(_API, params={"user_id": _USER_ID})
+    user_id = _user_id(ns)
+    empty = await client.get(_API, params={"user_id": user_id})
     assert empty.status_code == 200
     assert empty.json()["code"] == 0
     assert empty.json()["data"]["items"] == []
 
-    created = await client.post(_API, json={"user_id": _USER_ID, "label": "vip", "remark": "重要客户"})
+    created = await client.post(_API, json={"user_id": user_id, "label": "vip", "remark": "重要客户"})
     assert created.json()["code"] == 0
     created_item = created.json()["data"]
     # 契约统一口径：整型字段（含雪花 ID）在 JSON 中以字符串输出，避免前端精度丢失
-    assert created_item["user_id"] == str(_USER_ID)
+    assert created_item["user_id"] == str(user_id)
     assert created_item["label"] == "vip"
     assert created_item["remark"] == "重要客户"
     assert created_item["created_at"] != ""
     extension_id = created_item["id"]
 
-    listed = await client.get(_API, params={"user_id": _USER_ID})
+    listed = await client.get(_API, params={"user_id": user_id})
     assert [item["label"] for item in listed.json()["data"]["items"]] == ["vip"]
 
-    other_user = await client.get(_API, params={"user_id": _USER_ID + 1})
+    other_user = await client.get(_API, params={"user_id": user_id + 1})
     assert other_user.json()["data"]["items"] == []
 
-    conflict = await client.post(_API, json={"user_id": _USER_ID, "label": "vip"})
+    conflict = await client.post(_API, json={"user_id": user_id, "label": "vip"})
     assert conflict.json()["code"] == 10003
 
     updated = await client.put(f"{_API}/{extension_id}", json={"label": "svip", "remark": None})
@@ -92,7 +108,7 @@ async def test_user_extension_flow(client: AsyncClient) -> None:
     assert updated.json()["data"]["label"] == "svip"
     assert updated.json()["data"]["remark"] is None
 
-    missing = await client.put(f"{_API}/999999999", json={"label": "x"})
+    missing = await client.put(f"{_API}/{user_id + 9}", json={"label": "x"})
     assert missing.status_code == 404
     assert missing.json()["code"] == 10002
 
@@ -102,15 +118,16 @@ async def test_user_extension_flow(client: AsyncClient) -> None:
     absent = await client.get(_API)
     assert absent.json()["code"] == 10001
 
-    bad_body = await client.post(_API, json={"user_id": _USER_ID, "label": ""})
+    bad_body = await client.post(_API, json={"user_id": user_id, "label": ""})
     assert bad_body.json()["code"] == 10001
 
 
 @pytest.mark.kiwi_id(2238)
-async def test_user_extension_update_label_conflict(client: AsyncClient) -> None:
+async def test_user_extension_update_label_conflict(client: AsyncClient, ns: Namespace) -> None:
     """更新标签撞上同用户既有行即拒绝；标签不变的保存不再做同键探测。"""
-    first = await client.post(_API, json={"user_id": _USER_ID, "label": "vip"})
-    second = await client.post(_API, json={"user_id": _USER_ID, "label": "inner"})
+    user_id = _user_id(ns)
+    first = await client.post(_API, json={"user_id": user_id, "label": "vip"})
+    second = await client.post(_API, json={"user_id": user_id, "label": "inner"})
     first_id = first.json()["data"]["id"]
     second_id = second.json()["data"]["id"]
 
@@ -122,5 +139,5 @@ async def test_user_extension_update_label_conflict(client: AsyncClient) -> None
     assert kept.json()["data"]["label"] == "inner"
     assert kept.json()["data"]["remark"] == "备注"
 
-    ordered = await client.get(_API, params={"user_id": _USER_ID})
+    ordered = await client.get(_API, params={"user_id": user_id})
     assert [item["id"] for item in ordered.json()["data"]["items"]] == [first_id, second_id]

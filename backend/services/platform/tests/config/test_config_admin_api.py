@@ -2,6 +2,11 @@
 
 鉴权口径：默认 `NullPermissionChecker` 恒放行（`assign_system_admin` 置内置系统管理员命中豁免层级）；
 「权限拒绝」分支待真实检查器注入后由安全专项补齐（本文件不断言 403 越权，避免用假用例凑数）。
+
+`own_db` 白名单（04-6-2 决策 D）：断言语义绑定**平台默认键**（重置回填 `_PLATFORM_DEFAULTS`、
+依赖成对校验、敏感标记）与「库中该键尚无覆盖行」的起点；共享租户库已播种全部平台默认参数
+（`seed_configs`），「新增成功 / 重复键 40502 / 首次非覆盖态」这些前提无法构造，
+强行改名会退化成另一套断言（设计禁止为迁就单库弱化语义）。
 """
 
 from typing import Any, cast
@@ -21,7 +26,13 @@ from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.task import SysTask, SysTaskLog
 from tests_support.permission_admin import assign_system_admin
 
-pytestmark = pytest.mark.kiwi_id(2373)
+pytestmark = [
+    pytest.mark.kiwi_id(2373),
+    pytest.mark.own_db(
+        "被测对象是参数管理 API 的完整契约（新增派生 / 重复键 / 依赖双向 / 重置回填平台默认 / 删除保护 / 回收站），"
+        "其前提是库中平台默认键尚无覆盖行；共享库已播种全部平台默认参数"
+    ),
+]
 
 _ENABLED = "enabled"
 

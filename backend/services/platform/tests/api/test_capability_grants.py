@@ -42,6 +42,11 @@ from bms_core.services.module_registry import (
 from bms_platform.domains.platform_registry.services.capability_grant import CapabilityGrantService
 from tests_support.metrics import RecordingMetrics
 
+pytestmark = pytest.mark.own_db(
+    "被测对象是能力授权声明对账（首次全新增 / 声明移除置撤销 / 回归恢复的计数）与「清空授权表后的受控起点」；"
+    "共享库上整表清理会破坏并行中他人用例的数据"
+)
+
 API = "/api/v1/capability-grants"
 INTERNAL_API = "/api/v1/platform/internal/capability-grants"
 

@@ -4,12 +4,12 @@
 `bms_core.testing.fixtures` 提供（13_04）；本文件保留：
 
 - `isolate_settings`：公共隔离之上追加 fakeredis 与测试令牌密钥；
-- `platform_db_url`：会话级平台库（额外播种服务目录）；
+- `platform_db_url`：会话级平台库——**已切到共享平台库**（04-6-2 单库化，播种由准备集负责）；
+- `platform_db_prepare` / `tenant_db_prepare`：共享库准备集薄壳（子工程自成 rootdir 时兜底）；
 - `fake_tenant_source` / `service_app` / `client`：服务专属（平台应用工厂 + 认证头）。
 """
 
-import asyncio
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 
 import pytest
 from fastapi import FastAPI
@@ -43,8 +43,6 @@ from bms_core.testing.fixtures import (
 )
 from bms_platform.domains.permission_meta.permission.checker import register_platform_permission
 from bms_platform.main import ApplicationFactory
-from ops.seed_module import seed_modules
-from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
 from tests_support.tenant_source import install_fake_tenant_source
 
@@ -240,27 +238,43 @@ def isolate_permission_data_sources(isolate_settings: None) -> Iterator[None]:  
 
 
 @pytest.fixture(scope="session")
-def platform_db_url(
-    tmp_path_factory: pytest.TempPathFactory,
-    pinned_product_manifests: ConcurrentStableList[str],
-) -> str:
-    """会话级平台库：播种租户与服务目录（建库 / 播种整个测试会话只做一次）。
+def platform_db_prepare() -> Callable[[str], None]:
+    """共享平台库准备集回调（子工程自成 rootdir 时的薄壳，实现单源在 `tests_support.shared_db`）。
 
-    服务目录播种使启动接库校验走「非空对账」路径、只读接口可查全量行（贴近生产形态）。
-    播种前显式固定产品清单环境变量（与用例期同一份会话级清单）：服务目录播种与接口断言同源，
-    避免「播种时装载了产品清单、断言时视图为空」的顺序相关错位（04_05 F6）。
+    Returns:
+        Callable[[str], None]: 接受连接串的准备函数。
+    """
+    from tests_support.shared_db import prepare_platform
+
+    return prepare_platform
+
+
+@pytest.fixture(scope="session")
+def tenant_db_prepare() -> Callable[[str], None]:
+    """共享租户库准备集回调（同上，供 `shared_tenant_db_url` 解析）。
+
+    Returns:
+        Callable[[str], None]: 接受连接串的准备函数。
+    """
+    from tests_support.shared_db import prepare_tenant
+
+    return prepare_tenant
+
+
+@pytest.fixture(scope="session")
+def platform_db_url(shared_platform_db_url: str) -> str:
+    """会话级平台库：**共享平台库**（04-6-2 单库化；建库 / 播种由准备集一次性负责）。
+
+    播种（种子租户 → 主键对齐 → 服务目录与产品档案）已并入 `tests_support.shared_db.prepare_platform`，
+    本夹具只做转发——套件内既有用例经 `platform_db` 继续指向同一库，无需逐例改动。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
-        pinned_product_manifests: 会话级固定的产品清单路径。
+        shared_platform_db_url: 共享平台库连接串（会话级）。
 
     Returns:
         str: 会话级平台库连接串。
     """
-    platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
-    asyncio.run(seed_tenants(platform_url))
-    asyncio.run(seed_modules(platform_url))
-    return platform_url
+    return shared_platform_db_url
 
 
 @pytest.fixture(autouse=True)

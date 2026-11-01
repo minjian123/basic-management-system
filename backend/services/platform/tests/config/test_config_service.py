@@ -1,7 +1,10 @@
 """系统参数管理服务用例（Kiwi 2373）：缓存失效 / 字典失效 / 字段级审计 / 重置与保护。
 
-服务层直测（不经 HTTP）：用临时租户库 + 内存缓存域 + 记录型失效器 / 审计捕获器，
+服务层直测（不经 HTTP）：用内存缓存域 + 记录型失效器 / 审计捕获器，
 断言写路径的**提交后动作**与失败隔离（失效或审计异常不得反噬业务写）。
+
+单库叠加口径（04-6-2）：库用共享租户库、写入走 `rollback_session`（整体回滚不残留）；
+参数键带命名空间前缀（`<group>.<ns>`），分页断言按参数键过滤。
 """
 
 from collections.abc import AsyncIterator
@@ -9,29 +12,46 @@ from datetime import datetime
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import Table, select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.config.cache import MemoryConfigCacheRegion
 from bms_core.config.models import SysConfig
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.core.exceptions import (
     ConcurrentConflictError,
     ConfigDefaultProtectedError,
     ConfigValueInvalidError,
 )
 from bms_core.core.roots import BaseFrameworkObject
-from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.dict.cache import MemoryDictCacheRegion
 from bms_core.dict.invalidate import DictInvalidator
 from bms_core.events.base import EventEnvelope
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_config.repositories.config import ConfigRepository
 from bms_platform.domains.platform_config.schemas.config import ConfigCreateRequest, ConfigUpdateRequest
 from bms_platform.domains.platform_config.services.config import ConfigAdminService
 
 pytestmark = pytest.mark.kiwi_id(2373)
+
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList((SysConfig.__table__,))
+"""本文件涉及的表（共享租户库幂等补齐）。"""
+
+
+def _key(ns: Namespace, group: str) -> str:
+    """按命名空间派生参数键（保留分组前缀，叠加下不与他人参数相撞）。
+
+    Args:
+        ns: 用例命名空间。
+        group: 参数分组（键的第一段）。
+
+    Returns:
+        str: 参数键。
+    """
+    return f"{group}.{ns.prefix}"
 
 
 class _RecordingInvalidator(DictInvalidator):
@@ -108,30 +128,19 @@ class _RecordingAudit(AuditCapturer):
 
 
 @pytest_asyncio.fixture
-async def session(
-    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
-) -> AsyncIterator[AsyncSession]:
-    """临时租户库会话（`sys_config` 表）。
+async def session(shared_tenant_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    """共享租户库上的回滚会话（`sys_config` 表幂等补齐）。
 
     Args:
-        tmp_path_factory: 临时目录工厂。
-        monkeypatch: 环境变量覆盖。
+        shared_tenant_engine: 共享租户库引擎。
 
     Yields:
-        AsyncSession: 会话。
+        AsyncSession: 回滚会话。
     """
-    url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('config_service') / 'tenant.db'}"
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
-    get_settings.cache_clear()
-    await apply_unit_schema("platform", "tenant", url, target="config_service")
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as db:
-            yield db
-    finally:
-        await engine.dispose()
-        get_settings.cache_clear()
+    async with shared_tenant_engine.begin() as connection:
+        await connection.run_sync(lambda conn: SysConfig.metadata.create_all(conn, tables=list(_TABLES)))
+    async with rollback_session(shared_tenant_engine) as db:
+        yield db
 
 
 def _service(
@@ -162,7 +171,10 @@ def _service(
 
 
 async def _seed_default(session: AsyncSession, config_key: str, value: str) -> SysConfig:
-    """落一行平台默认参数（未覆盖）。
+    """落一行平台默认参数（未覆盖）；共享库里已有同键行时改为复位到默认态。
+
+    单库叠加口径：`prepare_tenant` 已播种平台默认参数，固定键（如 `ai.auto_execute`）不能重复插入——
+    故这里按「存在即复位、不存在则新建」准备前置数据（用例内写入仍随回滚会话整体回滚）。
 
     Args:
         session: 租户库会话。
@@ -172,26 +184,33 @@ async def _seed_default(session: AsyncSession, config_key: str, value: str) -> S
     Returns:
         SysConfig: 参数行。
     """
-    row = SysConfig(config_key=config_key, value=value, is_overridden=False)
-    session.add(row)
+    row = (await session.execute(select(SysConfig).where(SysConfig.config_key == config_key))).scalars().first()
+    if row is None:
+        row = SysConfig(config_key=config_key, value=value, is_overridden=False)
+        session.add(row)
+    else:
+        row.value = value
+        row.is_overridden = False
+        row.deleted_at = None
     await session.commit()
     return row
 
 
-async def test_create_invalidates_cache_and_dict_and_audits(session: AsyncSession) -> None:
+async def test_create_invalidates_cache_and_dict_and_audits(session: AsyncSession, ns: Namespace) -> None:
     """新增：缓存版本递增 + `config` 字典失效 + 字段级审计（新增项 old 为空）。"""
+    key = _key(ns, "password")
     cache = MemoryConfigCacheRegion()
     invalidator = _RecordingInvalidator()
     audit = _RecordingAudit()
-    await cache.aset_value_at(None, "password.min_length", "8", 0)
+    await cache.aset_value_at(None, key, "8", 0)
     before = await cache.aversion(None)
 
     await _service(session, cache=cache, invalidator=invalidator, audit=audit).create(
-        ConfigCreateRequest(config_key="password.min_length", value="10", name="最小长度")
+        ConfigCreateRequest(config_key=key, value="10", name="最小长度")
     )
 
     assert await cache.aversion(None) == before + 1
-    assert await cache.aget_value_at(None, "password.min_length", before + 1) is None
+    assert await cache.aget_value_at(None, key, before + 1) is None
     assert list(invalidator.keys) == ["config"]
     assert list(audit.tables) == ["sys_config"]
     changes = audit.calls[0]
@@ -200,12 +219,13 @@ async def test_create_invalidates_cache_and_dict_and_audits(session: AsyncSessio
     assert fields["value"].new == "10"
 
 
-async def test_update_records_field_level_diff(session: AsyncSession) -> None:
+async def test_update_records_field_level_diff(session: AsyncSession, ns: Namespace) -> None:
     """修改：审计记录 value 旧值→新值，来源转为租户覆盖。"""
-    await _seed_default(session, "password.max_age_days", "90")
+    key = _key(ns, "password")
+    await _seed_default(session, key, "90")
     audit = _RecordingAudit()
     service = _service(session, audit=audit)
-    detail = await service.detail("password.max_age_days")
+    detail = await service.detail(key)
 
     updated = await service.update(
         detail.id, ConfigUpdateRequest(value="30", version=detail.version, remark="缩短有效期")
@@ -219,13 +239,18 @@ async def test_update_records_field_level_diff(session: AsyncSession) -> None:
 
 
 async def test_reset_restores_default_and_clears_flag(session: AsyncSession) -> None:
-    """重置：值回落平台默认、覆盖标记清空、来源回到 platform。"""
-    await _seed_default(session, "session.max_active", "5")
+    """重置：值回落平台默认、覆盖标记清空、来源回到 platform。
+
+    单库叠加口径：重置的落点是**平台默认值表**里的参数键（`_PLATFORM_DEFAULTS`），故这里用
+    平台默认键并按需复位（共享库已播种同键行，重复插入会撞唯一键）。
+    """
+    key = "session.max_active"
+    await _seed_default(session, key, "5")
     service = _service(session)
-    detail = await service.detail("session.max_active")
+    detail = await service.detail(key)
     await service.update(detail.id, ConfigUpdateRequest(value="9", version=detail.version))
 
-    overridden = await service.detail("session.max_active")
+    overridden = await service.detail(key)
     reset = await service.reset(overridden.id)
     assert reset.value == "5"
     assert reset.source == "platform"
@@ -234,39 +259,43 @@ async def test_reset_restores_default_and_clears_flag(session: AsyncSession) -> 
     assert again.value == "5"
 
 
-async def test_delete_protects_platform_default(session: AsyncSession) -> None:
+async def test_delete_protects_platform_default(session: AsyncSession, ns: Namespace) -> None:
     """删除：未覆盖项拒绝（`40506`），覆盖项软删后可恢复。"""
-    row = await _seed_default(session, "role.code_pattern", "^[a-z]+$")
+    key = _key(ns, "role")
+    row = await _seed_default(session, key, "^[a-z]+$")
     service = _service(session)
-    detail = await service.detail("role.code_pattern")
+    detail = await service.detail(key)
 
     with pytest.raises(ConfigDefaultProtectedError):
         await service.delete(detail.id)
 
     await service.update(detail.id, ConfigUpdateRequest(value="^[a-z0-9]+$", version=detail.version))
-    overridden = await service.detail("role.code_pattern")
+    overridden = await service.detail(key)
     await service.delete(overridden.id)
 
-    page = await service.page(page=1, size=20, include_deleted=True)
+    page = await service.page(page=1, size=20, include_deleted=True, keyword=key)
     assert page.total == 1
     restored = await service.restore(overridden.id)
     assert restored.deleted_at is None
     assert int(row.id) == detail.id
 
 
-async def test_audit_failure_does_not_break_write(session: AsyncSession) -> None:
+async def test_audit_failure_does_not_break_write(session: AsyncSession, ns: Namespace) -> None:
     """审计异常被吞（记 warning），业务写仍然成功。"""
     audit = _RecordingAudit(fail=True)
-    created = await _service(session, audit=audit).create(ConfigCreateRequest(config_key="custom.flag", value="true"))
+    created = await _service(session, audit=audit).create(
+        ConfigCreateRequest(config_key=_key(ns, "custom"), value="true")
+    )
     assert created.value == "true"
 
 
-async def test_service_without_invalidator_and_audit(session: AsyncSession) -> None:
+async def test_service_without_invalidator_and_audit(session: AsyncSession, ns: Namespace) -> None:
     """未注入失效器 / 审计时（可选依赖）写路径照常工作。"""
+    key = _key(ns, "custom")
     service = _service(session)
-    created = await service.create(ConfigCreateRequest(config_key="custom.timeout", value="30"))
+    created = await service.create(ConfigCreateRequest(config_key=key, value="30"))
     assert created.group == "custom"
-    detail = await service.detail("custom.timeout")
+    detail = await service.detail(key)
     assert detail.id == created.id
 
 
@@ -288,12 +317,13 @@ class _AlwaysConflictingRepository(ConfigRepository):
         return False
 
 
-async def test_update_changes_name_remark_and_status(session: AsyncSession) -> None:
+async def test_update_changes_name_remark_and_status(session: AsyncSession, ns: Namespace) -> None:
     """修改：名称 / 备注 / 状态一并更新，并进入审计变更集。"""
-    await _seed_default(session, "file.upload.max_size", "20971520")
+    key = _key(ns, "file")
+    await _seed_default(session, key, "20971520")
     audit = _RecordingAudit()
     service = _service(session, audit=audit)
-    detail = await service.detail("file.upload.max_size")
+    detail = await service.detail(key)
 
     updated = await service.update(
         detail.id,
@@ -307,15 +337,16 @@ async def test_update_changes_name_remark_and_status(session: AsyncSession) -> N
     fields = {change.field for change in audit.calls[0]}
     assert {"value", "name", "remark", "status"} <= fields
 
-    listed = await service.page(page=1, size=10, status="disabled")
+    listed = await service.page(page=1, size=10, status="disabled", keyword=key)
     assert listed.total == 1
 
 
-async def test_update_rejects_invalid_status(session: AsyncSession) -> None:
+async def test_update_rejects_invalid_status(session: AsyncSession, ns: Namespace) -> None:
     """修改：状态取值非法时拒绝（`40504`）。"""
-    await _seed_default(session, "menu.tree_cache_ttl", "300")
+    key = _key(ns, "menu")
+    await _seed_default(session, key, "300")
     service = _service(session)
-    detail = await service.detail("menu.tree_cache_ttl")
+    detail = await service.detail(key)
     with pytest.raises(ConfigValueInvalidError):
         await service.update(detail.id, ConfigUpdateRequest(status="archived", version=detail.version))
 
@@ -361,8 +392,14 @@ async def test_dependency_reverse_passes_when_keeping_dependency_on(session: Asy
 
 
 async def test_dependency_reverse_when_dependent_missing(session: AsyncSession) -> None:
-    """依赖反向校验：依赖项参数不存在时直接放行（不 phantom 拦截）。"""
+    """依赖反向校验：依赖项参数不存在时直接放行（不 phantom 拦截）。
+
+    单库叠加口径：共享库已播种被依赖项（`ai.auto_approve`），故显式软删该行构造「依赖项不存在」。
+    """
     await _seed_default(session, "ai.auto_execute", "true")
+    dependent = await _seed_default(session, "ai.auto_approve", "false")
+    dependent.soft_delete()
+    await session.commit()
     service = _service(session)
     detail = await service.detail("ai.auto_execute")
 

@@ -5,7 +5,11 @@
 授权全量覆盖（含来源校验 30046 + 幂等键）、字段权限（30049）、数据权限（策略结构校验）、
 最小用户只读查询（关键字 / 状态筛选、最小字段集）。
 
-角色 / 用户 / 字典表落**临时租户库**；菜单元数据（授权目标）落会话级平台库，两库分置与生产同构。
+角色 / 用户 / 字典表落**临时租户库**；菜单元数据（授权目标）落平台库，两库分置与生产同构。
+
+`own_db` 白名单（04-6-2 决策 D）：被测对象是角色域 CRUD / 授权全量覆盖 / 字段与数据权限全链，
+前提是**逐例清空的菜单元数据十二表与角色五表**（`reset_menu_tables` 整表清场 + 固定角色码）；
+共享库上整表清场会破坏并行中他人用例的数据，且「授权条数 / 主体数」断言要求起点为空。
 """
 
 import os
@@ -36,6 +40,11 @@ from bms_platform.main import ApplicationFactory
 from tests_support.auth import TEST_SUBJECT, auth_headers
 from tests_support.menu_metadata import reset_menu_tables, seed_business, seed_permission
 from tests_support.permission_admin import assign_role_domain_operator
+
+pytestmark = pytest.mark.own_db(
+    "被测对象是角色域 CRUD 与授权 / 字段 / 数据权限全链，需逐例清空的菜单元数据十二表与角色五表作起点；"
+    "共享库上整表清场会破坏并行中他人用例的数据"
+)
 
 _ROLES = "/api/v1/roles"
 _USERS = "/api/v1/users"

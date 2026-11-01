@@ -197,6 +197,7 @@ def test_module_response_tenant_base_from_loaded_manifest() -> None:
 
 
 @pytest.mark.kiwi_id(2164)
+@pytest.mark.own_db("被测对象是未播种空库的启动容错与空清单口径：需把库置成无任何服务登记的状态，共享库恒为已播种态")
 async def test_list_modules_empty_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """未播种空库：清单空数组 + total=0；明细 404（与启动空目录容错口径一致）。
 

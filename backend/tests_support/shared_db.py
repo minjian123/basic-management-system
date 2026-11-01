@@ -52,9 +52,19 @@ def prepare_platform(url: str) -> None:
 async def _prepare_platform(url: str) -> None:
     """平台库准备集的异步实现（见 `prepare_platform`）。
 
+    **建表集为已导入模型并集**（`Base.metadata.create_all`，幂等）：单库化后全 worker 共用一份库，
+    建表若留给用例各自 `create_all`，多 worker 并发执行会撞「table already exists」。
+    这里一次性建全，用例侧的 `create_all(checkfirst=True)` 只做存在性确认。
+
     Args:
         url: 共享平台库连接串。
     """
+    engine = create_async_engine(url, poolclass=NullPool)
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+    finally:
+        await engine.dispose()
     load_product_manifests(ConcurrentStableList())
     await seed_tenants(url)
     await _align_seed_tenant_ids(url)

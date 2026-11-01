@@ -8,7 +8,6 @@
 import json
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import cast
 
 import pytest
@@ -16,10 +15,11 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient, Response
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.api.deps import get_idempotency_store, get_outbox_store, get_service_client, get_uow
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import (
     ServiceUnavailableError,
@@ -33,12 +33,14 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.events.base import EventEnvelope
 from bms_core.idempotency.base import DEFAULT_IDEMPOTENCY_TTL, IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
 from bms_core.models.base import Base
+from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.models.platform.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_core.models.platform.user import SysAccountLock, SysUser
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.user.api.users import _read_cached_user_id  # pyright: ignore[reportPrivateUsage]
-from tests_support.permission_admin import setup_min_tenant
+from tests_support.permission_admin import assign_system_admin
 
 API = "/api/v1/users"
 REVOKE_PATH = "/api/v1/identity/internal/sessions/revoke-user"
@@ -117,14 +119,28 @@ def _uid(data: ConcurrentStableDict[str, object]) -> int:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def permission_engine(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """真实权限校验所需的最小租户库 + 内置系统管理员主体。
+async def permission_engine(
+    shared_tenant_engine: AsyncEngine, shared_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """真实权限校验所需的共享租户库（幂等建表）+ 内置系统管理员主体。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
+        shared_tenant_engine: 共享租户库引擎。
+        shared_tenant_db_url: 共享租户库连接串。
         monkeypatch: pytest 环境变量覆盖夹具。
     """
-    await setup_min_tenant(tmp_path_factory, monkeypatch)
+    tables = [
+        cast("Table", SysRole.__table__),
+        cast("Table", SysUserRole.__table__),
+        cast("Table", SysIcon.__table__),
+        cast("Table", SysIconI18n.__table__),
+    ]
+    async with shared_tenant_engine.begin() as conn:
+        await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=tables))
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
+    get_settings.cache_clear()
+    await assign_system_admin()
+    get_settings.cache_clear()
 
 
 class RecordingOutbox(NullOutboxStore):
@@ -244,8 +260,7 @@ class _Harness:
         self.idempotency = MemoryIdempotency()
 
     async def close(self) -> None:
-        """释放引擎。"""
-        await self.engine.dispose()
+        """结束用例（共享库引擎归会话级夹具管理，这里不 dispose）。"""
 
     async def grant_role(self, user_id: int, *, role_type: str = ROLE_TYPE_SYSTEM) -> int:
         """直插角色并分配给用户。
@@ -313,17 +328,19 @@ class _Harness:
             return ConcurrentStableList(rows.scalars().all())
 
 
-async def _harness(tmp_path: Path, service_app: FastAPI) -> _Harness:
-    """建文件级 SQLite 库 + 覆盖依赖（会话 / 发件箱 / 服务客户端 / 幂等）。
+async def _harness(engine: AsyncEngine, service_app: FastAPI) -> _Harness:
+    """共享平台库 + 覆盖依赖（会话 / 发件箱 / 服务客户端 / 幂等）。
+
+    单库叠加口径（04-6-2）：不再建每用例文件库；用户名 / 邮箱 / 电话带命名空间前缀，
+    列表断言按关键字限定到本用例用户。
 
     Args:
-        tmp_path: pytest 临时目录。
+        engine: 共享平台库引擎。
         service_app: 应用实例。
 
     Returns:
         _Harness: 用例夹具。
     """
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'users.db'}")
     tables = [
         cast("Table", SysUser.__table__),
         cast("Table", SysRole.__table__),
@@ -345,6 +362,30 @@ async def _harness(tmp_path: Path, service_app: FastAPI) -> _Harness:
     service_app.dependency_overrides[get_service_client] = lambda: harness.sessions
     service_app.dependency_overrides[get_idempotency_store] = lambda: harness.idempotency
     return harness
+
+
+def _phone(ns: Namespace) -> str:
+    """按命名空间派生 11 位手机号（`1` 开头的定长数字，叠加下不与他人用户相撞）。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        str: 手机号。
+    """
+    return f"1{int(ns.prefix[2:], 16) % 10**10:010d}"
+
+
+def _missing_id(ns: Namespace) -> int:
+    """本用例专属的「不存在」用户主键。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        int: 不存在的主键。
+    """
+    return int(ns.prefix[2:], 16) * 1000 + 999
 
 
 async def _create(
@@ -389,30 +430,36 @@ def test_user_error_codes_registered() -> None:
 
 
 @pytest.mark.kiwi_id(2270)
-async def test_create_list_detail_update(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_create_list_detail_update(
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
+) -> None:
     """新建（生成初始密码）/ 列表关键字四字段 / 详情 / 修改与乐观锁冲突 / 事件发射。"""
-    harness = await _harness(tmp_path, service_app)
+    harness = await _harness(shared_platform_engine, service_app)
+    username = ns.code("alice")
+    name = f"爱丽丝{ns.prefix}"
+    email = f"{ns.prefix}@example.com"
+    phone = _phone(ns)
 
-    created = await _create(client, password=None, email="alice@example.com", phone="13800000001")
+    created = await _create(client, username=username, name=name, password=None, email=email, phone=phone)
     user = _user_of(created)
     assert created["initial_password"]
-    assert user["username"] == "alice"
+    assert user["username"] == username
     assert user["status"] == "enabled"
     assert user["version"] == 1
     assert "password_hash" not in user
     user_id = _uid(created)
 
-    duplicated = await client.post(API, json={"username": "alice", "name": "重复", "password": PASSWORD})
+    duplicated = await client.post(API, json={"username": username, "name": "重复", "password": PASSWORD})
     assert _code(duplicated) == 30003
 
-    for keyword in ("ali", "爱丽丝", "alice@example.com", "13800000001"):
+    for keyword in (username, name, email, phone):
         listed = _data(await client.get(API, params={"kw": keyword}))
         assert listed["total"] == 1, keyword
         rows = cast("ConcurrentStableList[ConcurrentStableDict[str, object]]", listed["list"])
         assert rows[0]["last_login_at"] is None
 
     detail = _data(await client.get(f"{API}/{user_id}"))
-    assert detail["email"] == "alice@example.com"
+    assert detail["email"] == email
 
     updated = _data(await client.put(f"{API}/{user_id}", json={"name": "爱丽丝改", "version": 1}))
     assert updated["name"] == "爱丽丝改"
@@ -420,7 +467,7 @@ async def test_create_list_detail_update(client: AsyncClient, service_app: FastA
     stale = await client.put(f"{API}/{user_id}", json={"name": "过期版本", "version": 1})
     assert _code(stale) == 10004  # 乐观锁冲突（ConcurrentConflictError）
 
-    missing = await client.get(f"{API}/999999")
+    missing = await client.get(f"{API}/{_missing_id(ns)}")
     assert _code(missing) == 30002
 
     assert [event.event_type for event in harness.outbox.events] == ["sys.user.created", "sys.user.updated"]
@@ -431,10 +478,12 @@ async def test_create_list_detail_update(client: AsyncClient, service_app: FastA
 
 
 @pytest.mark.kiwi_id(2270)
-async def test_status_protection_and_session_revoke(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_status_protection_and_session_revoke(
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
+) -> None:
     """启停：会话失效调用、重复停用幂等、内置管理员与自身保护、会话不可达降级。"""
-    harness = await _harness(tmp_path, service_app)
-    created = await _create(client, username="bob")
+    harness = await _harness(shared_platform_engine, service_app)
+    created = await _create(client, username=ns.code("bob"))
     user_id = _uid(created)
 
     disabled = _data(await client.put(f"{API}/{user_id}/status", json={"status": "disabled"}))
@@ -452,7 +501,7 @@ async def test_status_protection_and_session_revoke(client: AsyncClient, service
     assert enabled["session_revoked"] is False  # 启用不失效会话
 
     # 会话撤销跨服务不可达：不阻断主流程（状态已改、session_revoked 显式暴露）
-    other = await _create(client, username="bob2")
+    other = await _create(client, username=ns.code("bob2"))
     other_id = _uid(other)
     harness.sessions.fail = True
     degraded = _data(await client.put(f"{API}/{other_id}/status", json={"status": "disabled"}))
@@ -469,10 +518,13 @@ async def test_status_protection_and_session_revoke(client: AsyncClient, service
 
 
 @pytest.mark.kiwi_id(2270)
-async def test_delete_reference_lock_and_reuse(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_delete_reference_lock_and_reuse(
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
+) -> None:
     """删除：引用校验 30011、关闭锁定记录、用户名可复用、会话失效与不可达降级。"""
-    harness = await _harness(tmp_path, service_app)
-    created = await _create(client, username="carol")
+    harness = await _harness(shared_platform_engine, service_app)
+    username = ns.code("carol")
+    created = await _create(client, username=username)
     user_id = _uid(created)
     await harness.grant_role(user_id, role_type="custom")
 
@@ -488,8 +540,8 @@ async def test_delete_reference_lock_and_reuse(client: AsyncClient, service_app:
     locks = await harness.lock_rows(user_id)
     assert locks and locks[0].unlock_at is not None and locks[0].unlock_mode == "auto"
 
-    recreated = await _create(client, username="carol", name="新卡罗尔")
-    assert _user_of(recreated)["username"] == "carol"
+    recreated = await _create(client, username=username, name="新卡罗尔")
+    assert _user_of(recreated)["username"] == username
     assert _uid(recreated) != user_id
 
     await harness.close()
@@ -497,11 +549,11 @@ async def test_delete_reference_lock_and_reuse(client: AsyncClient, service_app:
 
 @pytest.mark.kiwi_id(2270)
 async def test_password_reset_policy_history_and_revoke(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
 ) -> None:
     """重置密码：复杂度 30005、历史重复 30006、字段写入与会话失效。"""
-    harness = await _harness(tmp_path, service_app)
-    created = await _create(client, username="dave")
+    harness = await _harness(shared_platform_engine, service_app)
+    created = await _create(client, username=ns.code("dave"))
     user_id = _uid(created)
 
     weak = await client.put(f"{API}/{user_id}/password", json={"new_password": "weak", "force_change": True})
@@ -523,25 +575,28 @@ async def test_password_reset_policy_history_and_revoke(
     assert len(cast("ConcurrentStableList[str]", json.loads(row.pwd_history))) == 1
     assert row.password_hash != json.loads(row.pwd_history)[0]
 
-    missing = await client.put(f"{API}/999999/password", json={"new_password": "Zyxw9876!q"})
+    missing = await client.put(f"{API}/{_missing_id(ns)}/password", json={"new_password": "Zyxw9876!q"})
     assert _code(missing) == 30002
 
     await harness.close()
 
 
 @pytest.mark.kiwi_id(2270)
-async def test_create_idempotency_and_roles(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_create_idempotency_and_roles(
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
+) -> None:
     """幂等键重复不重复建号；`GET /users/{id}/roles` 返回角色码 / 名称 / 类型。"""
-    harness = await _harness(tmp_path, service_app)
+    harness = await _harness(shared_platform_engine, service_app)
+    username = ns.code("erin")
 
-    body = {"username": "erin", "name": "艾琳", "password": PASSWORD}
+    body = {"username": username, "name": "艾琳", "password": PASSWORD}
     first = _data(await client.post(API, json=body, headers={"Idempotency-Key": "k1"}))
     user_id = _uid(first)
 
     second = _data(await client.post(API, json=body, headers={"Idempotency-Key": "k1"}))
     assert _uid(second) == user_id
     assert second["initial_password"] is None
-    assert _data(await client.get(API))["total"] == 1
+    assert _data(await client.get(API, params={"kw": username}))["total"] == 1
 
     await harness.grant_role(user_id, role_type="custom")
     roles = _data(await client.get(f"{API}/{user_id}/roles"))
@@ -562,19 +617,19 @@ def test_read_cached_user_id_payload_shapes() -> None:
 
 
 async def test_create_idempotency_stale_payload_conflicts(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
 ) -> None:
     """幂等键已占用但首次结果不可解析（并发在途 / 脏载荷）→ 10003。"""
-    harness = await _harness(tmp_path, service_app)
+    harness = await _harness(shared_platform_engine, service_app)
 
-    first_body = {"username": "ivan", "name": "伊万", "password": PASSWORD}
+    first_body = {"username": ns.code("ivan"), "name": "伊万", "password": PASSWORD}
     _data(await client.post(API, json=first_body, headers={"Idempotency-Key": "ik1"}))
     key1 = next(iter(harness.idempotency.seen))
     harness.idempotency.seen.set(key1, cast("IDEMPOTENCY_PAYLOAD_TYPE", "text"))
     conflict = await client.post(API, json=first_body, headers={"Idempotency-Key": "ik1"})
     assert _code(conflict) == 10003
 
-    second_body = {"username": "judy", "name": "朱迪", "password": PASSWORD}
+    second_body = {"username": ns.code("judy"), "name": "朱迪", "password": PASSWORD}
     _data(await client.post(API, json=second_body, headers={"Idempotency-Key": "ik2"}))
     key2 = next(key for key in harness.idempotency.seen if key.endswith("ik2"))
     harness.idempotency.seen.set(key2, cast("IDEMPOTENCY_PAYLOAD_TYPE", json.loads('{"user_id": "x"}')))

@@ -2,6 +2,10 @@
 
 覆盖：全量上报（新增 / 幂等 / 覆盖 / 退役）、跨产品撞键拒绝、身份代注册拒绝、
 以及服务身份快照出口（八类要素下发）。
+
+`own_db` 白名单（04-6-2 决策 D）：被测对象是**产品声明注册通道的全量对账**（首次全新增计数 /
+同内容幂等 / 内容变更进 updated / 退役计数），需要「未注册任何声明」的空库状态；共享平台库
+已装载平台自身的声明与产品服务行，这些计数无法构造。
 """
 
 from collections.abc import Iterator
@@ -14,6 +18,10 @@ from httpx import AsyncClient
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import AuthError
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
+
+pytestmark = pytest.mark.own_db(
+    "被测对象是产品声明注册通道的全量对账（首次全新增 / 幂等 / 覆盖 / 退役计数），需未注册声明的空库状态"
+)
 
 API = "/api/v1/platform/internal/declarations"
 SNAPSHOT_API = f"{API}/snapshot"

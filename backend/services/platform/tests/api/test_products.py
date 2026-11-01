@@ -147,6 +147,7 @@ async def test_products_response_fields_whitelist(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(2250)
+@pytest.mark.own_db("被测对象是未播种空库的启动容错与空清单口径：需把库置成无任何产品档案的状态，共享库恒为已播种态")
 async def test_list_products_empty_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """未播种空库：清单空数组 + total=0；明细 404（与启动空目录容错口径一致）。"""
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", f"sqlite+aiosqlite:///{tmp_path / 'empty.db'}")
