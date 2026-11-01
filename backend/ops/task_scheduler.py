@@ -24,7 +24,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import contextlib
 import time
 from importlib import import_module
@@ -51,6 +50,7 @@ from bms_core.tasks.builtin import BUILTIN_TASK_SPECS
 from bms_core.tasks.scheduler import TASK_RUN_JOB_TYPE, TaskScheduler, TenantDbRef
 from bms_core.tasks.signal import TaskChangeSignal
 from bms_core.tenant.registry import tenant_refs
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -235,7 +235,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     if args.list:
         return _print_builtin_tasks()
     with contextlib.suppress(KeyboardInterrupt):
-        return asyncio.run(_run_beat(args))
+        return run_with_worker_id(lambda: _run_beat(args))
     return 0
 
 

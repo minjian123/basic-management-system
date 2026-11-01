@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import sys
 from datetime import datetime
 from importlib import import_module
@@ -31,6 +30,7 @@ from bms_core.metrics.base import BaseMetrics
 from bms_core.metrics.null import NullMetrics
 from bms_core.outbox.dispatcher import PollOutboxDispatcher
 from bms_core.outbox.store import SqlOutboxStore
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -163,8 +163,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         if args.command == "dispatch":
-            return asyncio.run(_dispatch(args))
-        return asyncio.run(_replay(args))
+            return run_with_worker_id(lambda: _dispatch(args))
+        return run_with_worker_id(lambda: _replay(args))
     except Exception as exc:
         print(f"发件箱命令失败：{exc!r}", file=sys.stderr)
         return 1

@@ -171,6 +171,9 @@ from bms_core.transaction.base import (
 from bms_core.transaction.xa import XA_PLUGIN_NAME, XaTransactionManagerFactory, XaTransactionParticipantFactory
 from bms_core.transfer.exporter import BaseExporter
 from bms_core.transfer.importer import BaseImporter
+from bms_core.workerid.base import WORKER_ID_PLUGIN_KEY, BaseWorkerIdRegistry
+from bms_core.workerid.null import NullWorkerIdRegistry
+from bms_core.workerid.redis import RedisWorkerIdRegistry
 from bms_core.workflow.base import BaseWorkflowEngine
 from bms_core.ws.base import BaseRealtimePublisher
 
@@ -244,6 +247,7 @@ _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.transaction.null",
         "bms_core.transfer.null",
         "bms_core.workflow.null",
+        "bms_core.workerid.null",
         "bms_core.ws.null",
     )
 )
@@ -273,6 +277,8 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("preference", BasePreferenceStore, "preference", "preference_store"),
         PluginWiring("masking", BaseMasker, "masking", "masker"),
         PluginWiring("redis_client", BaseRedisClient, "redis", "redis_client"),  # 基础能力：先于各 Redis 消费域装配
+        # 基础能力（03_06）：WorkerId 租约取号须在开库引导 / 建表之前生效，且依赖上面的共享 Redis 客户端
+        PluginWiring("worker_id_registry", BaseWorkerIdRegistry, "worker_id", "worker_id_registry"),
         PluginWiring("distributed_lock", BaseDistributedLock, "distributed_lock", "distributed_lock"),
         PluginWiring("edge", BaseEdgeTrust, "edge", "edge"),
         PluginWiring("data_ownership_guard", BaseDataOwnershipGuard, "data_ownership", "data_ownership_guard"),
@@ -394,6 +400,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("multipart_upload", "local", LocalMultipartUploadFactory(settings))
     register_plugin("multipart_upload", "minio", MinioMultipartUploadFactory(settings))
     register_plugin("redis_client", "redis", RedisRedisClientFactory(settings))
+    register_plugin("worker_id_registry", "redis", WorkerIdRegistryFactory(settings))
+    register_plugin("worker_id_registry", NULL_PLUGIN_NAME, WorkerIdNullFactory(settings))
     register_plugin("cache", "memory", MemoryCacheRegionFactory())
     register_plugin("cache", "redis", RedisCacheRegionFactory(settings))
     register_plugin("rate_limiter", "memory", MemoryRateLimiterFactory())
@@ -514,6 +522,64 @@ class RedisRedisClientFactory(BasePluginFactory[RedisRedisClient]):
             health_check_interval_s=section.health_check_interval_s,
             key_prefix=section.key_prefix,
         )
+
+
+class WorkerIdRegistryFactory(BasePluginFactory[BaseWorkerIdRegistry]):
+    """WorkerId 租约注册工厂（`redis`：取号 / 心跳 / 释放，参数全取 `[worker_id]` 与 `[app]`）。
+
+    `[worker_id].enabled=false` 时产出旁路实现（不访问 Redis，直接用 `[app].worker_id`）——单测公共
+    夹具据此关闭注册，无需改 `provider`，也不触达外部依赖。
+    """
+
+    plugin_key: str = "worker_id_registry"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[worker_id]` / `[app]` / `[redis]`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> BaseWorkerIdRegistry:
+        """构造注册实现（`setup()` 时取号；不建连）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            BaseWorkerIdRegistry: 注册实现（启用 → Redis 租约；关闭 → 旁路）。
+        """
+        if not self._settings.worker_id.enabled:
+            return NullWorkerIdRegistry(self._settings)
+        return RedisWorkerIdRegistry(self._settings)
+
+
+class WorkerIdNullFactory(BasePluginFactory[NullWorkerIdRegistry]):
+    """WorkerId 旁路实现工厂（`null`：应急旁路，直接用 `[app].worker_id`）。"""
+
+    plugin_key: str = "worker_id_registry"
+    plugin_name: str = NULL_PLUGIN_NAME
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[app].worker_id`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> NullWorkerIdRegistry:
+        """构造旁路实现。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            NullWorkerIdRegistry: 旁路实现实例。
+        """
+        return NullWorkerIdRegistry(self._settings)
 
 
 class PrometheusMetricsFactory(BasePluginFactory[PrometheusMetrics]):
@@ -1411,7 +1477,7 @@ class RedisConsistencyBarrierFactory(BasePluginFactory[RedisConsistencyBarrier])
         )
 
 
-BASE_PLUGIN_KEYS: ConcurrentStableList[str] = ConcurrentStableList((REDIS_CLIENT_PLUGIN_KEY,))
+BASE_PLUGIN_KEYS: ConcurrentStableList[str] = ConcurrentStableList((REDIS_CLIENT_PLUGIN_KEY, WORKER_ID_PLUGIN_KEY))
 """基础能力插件键（经 `assemble_base_plugins` 先于开库引导 / 接库校验装配）。
 
 开库引导（`ensure_service_schema`）与接库服务目录校验都要取数据库引擎，而 `EngineRegistry` 的
@@ -1419,6 +1485,9 @@ BASE_PLUGIN_KEYS: ConcurrentStableList[str] = ConcurrentStableList((REDIS_CLIENT
 （`RedisRedisClient`）在 `setup()` 期登记，未登记时 `shared_redis_client()` 回退 `null` 实现
 （fail-closed），引导期取锁即抛 `RedisUnavailableError` 而拒启。故该能力先行装配；其余能力仍在
 接库校验后装配（顺序口径不变）。扩展本清单时须同步确认消费方确实发生在装配之前。
+
+`worker_id_registry`（03_06）同列本清单：WorkerId 须在**任何雪花 ID 生成之前**生效（建表引导与
+`bootstrap_declarations` 都会写入行），其取号走上面的共享 Redis 客户端，故紧随 `redis_client` 装配。
 """
 
 

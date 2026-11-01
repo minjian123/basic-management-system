@@ -27,6 +27,7 @@ from bms_core.core.exceptions import ConfigError
 from bms_core.db.bootstrap import apply_domains_schema
 from bms_core.db.migration import DATASOURCE_TENANT
 from bms_core.tenant.seed.tenant import seed_tenants
+from bms_core.testing.sql_ids import sqlite_id, sqlite_int
 
 _SOURCE_DB = "bms_platform_demo.db"
 """源库文件名（`[app].service=platform` × 租户库名基 `demo`）。"""
@@ -61,14 +62,16 @@ async def _seed_source(tmp_path: Path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / _SOURCE_DB}")
     try:
         with engine.begin() as connection:
-            connection.exec_driver_sql(
-                "INSERT INTO sys_role (id, form_key, code, name, status, role_type, "
-                "created_at, updated_at, version) VALUES "
-                "(1, 'role', 'admin', '管理员', 'enabled', 'system', "
-                "'2026-10-30 00:00:00', '2026-10-30 00:00:00', 0),"
-                "(2, 'role', 'auditor', '审计员', 'enabled', 'custom', "
-                "'2026-10-30 00:00:00', '2026-10-30 00:00:00', 0)"
-            )
+            for row_id, code, name, role_type in (
+                (1, "admin", "管理员", "system"),
+                (2, "auditor", "审计员", "custom"),
+            ):
+                connection.exec_driver_sql(
+                    "INSERT INTO sys_role (id, form_key, code, name, status, role_type, "
+                    "created_at, updated_at, version) VALUES "
+                    "(?, 'role', ?, ?, 'enabled', ?, '2026-10-30 00:00:00', '2026-10-30 00:00:00', 0)",
+                    (sqlite_id(row_id), code, name, role_type),
+                )
     finally:
         engine.dispose()
 
@@ -86,22 +89,28 @@ async def _seed_platform(tmp_path: Path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path}/bms_platform.db")
     try:
         with engine.begin() as connection:
-            connection.exec_driver_sql(
-                "INSERT INTO sys_tenant_topology (id, tenant_id, domain_key, unit_key, topology_version, "
-                "status, created_at, updated_at, version) VALUES "
-                "(1, 0, 'role', 'platform', 1, 'enabled', '2026-10-30 00:00:00', '2026-10-30 00:00:00', 0),"
-                "(2, 0, 'user', 'identity', 1, 'enabled', '2026-10-30 00:00:00', '2026-10-30 00:00:00', 0),"
-                "(3, 0, 'permission_meta', 'platform', 1, 'enabled', "
-                "'2026-10-30 00:00:00', '2026-10-30 00:00:00', 0)"
-            )
-            connection.exec_driver_sql(
-                "INSERT INTO sys_capability_grant (id, capability_name, consumer_key, source, status, "
-                "created_at, updated_at, version) VALUES "
-                "(1, 'platform.role.list', 'biz', 'declared', 'enabled', "
-                "'2026-10-30 00:00:00', '2026-10-30 00:00:00', 0),"
-                "(2, 'platform.permission_meta.query', 'biz', 'declared', 'enabled', "
-                "'2026-10-30 00:00:00', '2026-10-30 00:00:00', 0)"
-            )
+            for row_id, domain_key, unit_key in (
+                (1, "role", "platform"),
+                (2, "user", "identity"),
+                (3, "permission_meta", "platform"),
+            ):
+                connection.exec_driver_sql(
+                    "INSERT INTO sys_tenant_topology (id, tenant_id, domain_key, unit_key, topology_version, "
+                    "status, created_at, updated_at, version) VALUES "
+                    "(?, ?, ?, ?, 1, 'enabled', '2026-10-30 00:00:00', '2026-10-30 00:00:00', 0)",
+                    (sqlite_id(row_id), sqlite_id(0), domain_key, unit_key),
+                )
+            for row_id, capability_name in (
+                (1, "platform.role.list"),
+                (2, "platform.permission_meta.query"),
+            ):
+                connection.exec_driver_sql(
+                    "INSERT INTO sys_capability_grant (id, capability_name, consumer_key, source, status, "
+                    "created_at, updated_at, version) VALUES "
+                    "(?, ?, 'biz', 'declared', 'enabled', "
+                    "'2026-10-30 00:00:00', '2026-10-30 00:00:00', 0)",
+                    (sqlite_id(row_id), capability_name),
+                )
     finally:
         engine.dispose()
 
@@ -234,7 +243,7 @@ def test_full_flow_p1_to_p4_copies_and_verifies(
             roles = connection.exec_driver_sql("SELECT id, code FROM sys_role ORDER BY id").all()
     finally:
         engine.dispose()
-    assert [tuple(row) for row in roles] == [(1, "admin"), (2, "auditor")]
+    assert [(sqlite_int(row[0]), row[1]) for row in roles] == [(1, "admin"), (2, "auditor")]
 
     assert migrate_topology.main(args) == 0, "重复执行幂等"
     assert "复制 2 行" in capsys.readouterr().out
@@ -839,8 +848,9 @@ def test_platform_reads_use_sync_gateway(
             connection.exec_driver_sql(
                 "INSERT INTO sys_tenant_topology (id, tenant_id, domain_key, unit_key, topology_version, "
                 "status, created_at, updated_at, version) VALUES "
-                "(1, 0, 'role', 'platform', 1, 'enabled', "
-                "'2026-10-30 00:00:00', '2026-10-30 00:00:00', 0)"
+                "(?, ?, 'role', 'platform', 1, 'enabled', "
+                "'2026-10-30 00:00:00', '2026-10-30 00:00:00', 0)",
+                (sqlite_id(1), sqlite_id(0)),
             )
     finally:
         engine.dispose()

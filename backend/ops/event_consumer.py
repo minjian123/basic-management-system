@@ -41,6 +41,7 @@ from bms_core.events.consumer_records import (
     merge_event_consumer_records,
     validate_event_consumer_records,
 )
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入具体服务实现，按 `--service` 动态取工厂）。"""
@@ -229,8 +230,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     if args.groups:
         return asyncio.run(_groups(args))
     if args.once:
-        return asyncio.run(_once(args))
-    return asyncio.run(_worker(args))
+        return run_with_worker_id(lambda: _once(args))
+    return run_with_worker_id(lambda: _worker(args))
 
 
 if __name__ == "__main__":

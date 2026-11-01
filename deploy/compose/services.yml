@@ -39,7 +39,10 @@ x-service-env: &service-env
   BMS_SECURITY__KEYS: ${BMS_SECURITY__KEYS:-}
   BMS_SECURITY__ACTIVE_KID: ${BMS_SECURITY__ACTIVE_KID:-}
   BMS_SECURITY__SECRET_KEY: ${BMS_SECURITY__SECRET_KEY:-}
-  # 雪花 WorkerId（每进程全局唯一；API 容器 11+ / 作业 worker 容器 101+，见各服务条目）
+  # 雪花 WorkerId（03_06）：各容器注入的 BMS_APP__WORKER_ID 是**显式偏好 / 兜底**，不再是唯一性来源——
+  # 启动期经 Redis 租约取号（键 {key_prefix}:{env}:{unit}:worker_id:v2:{id}），配到的号优先占、占不到
+  # 自动换号，`compose scale` 多副本天然错开；Redis 不可用时回落该值并告警，生产取不到号即拒启。
+  # 注意：作业 worker / ops 容器须与目标服务同 BMS_APP__UNIT（缺省回落 BMS_APP__SERVICE）才共用同一号池。
 
 x-service-base: &service-base
   restart: unless-stopped

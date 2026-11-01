@@ -18,9 +18,11 @@ platform 服务进程内（XA 分支需要应用装配提供的引擎注册表�
 """
 
 from bms_core.tenant.seed.cli import main
+from ops._worker import worker_id_lease_sync
 
 RUN_IMAGE = "platform"
 """需访问 platform 服务（编排端点），部署态在 platform 容器内运行。"""
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    with worker_id_lease_sync():
+        raise SystemExit(main())

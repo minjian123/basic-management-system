@@ -526,6 +526,48 @@ class RedisSettings(BaseSettings):
     """必需标志：为真时 `provider` 不得为空（启动期校验），缺省实现取客户端即报 `10012`。"""
 
 
+class WorkerIdLeaseSettings(BaseSettings):
+    """雪花 WorkerId 动态注册（`[worker_id]`；03_06 / 需求 03-7）。
+
+    - 键口径 `{key_prefix}:{env}:{unit|service|default}:worker_id:v2:{id}`（`key_prefix` 取 `[redis]`）；
+    - `[app].worker_id` 语义为「显式偏好 + 兜底」：非 0 优先占该号，占不到改由租约分配；
+      Redis 不可用 / 探测用尽回落该值并告警；生产环境仍为 0（未取到号）即拒启（`ConfigError`）；
+    - `enabled=false` 等价 `provider=null`：不访问 Redis，直接用 `[app].worker_id`（单测公共夹具置 false）。
+    """
+
+    enabled: bool = True
+    """注册开关（false = 不注册，直接用 `[app].worker_id`）。"""
+
+    provider: str = "redis"
+    """实现名：`redis`（Redis 租约，缺省）/ `null`（应急旁路）。"""
+
+    lease_ttl_seconds: int = Field(default=60, ge=5)
+    """租约 TTL（秒）：进程崩溃后经该时长可回收号。"""
+
+    heartbeat_seconds: int = Field(default=20, ge=1)
+    """心跳间隔（秒；须小于 `lease_ttl_seconds`）。"""
+
+    probe_limit: int = Field(default=256, ge=1, le=65535)
+    """单次占号探测上限（随机起点 + 回绕；用尽即按降级口径回落 `[app].worker_id`）。"""
+
+    @model_validator(mode="after")
+    def _validate_heartbeat(self) -> WorkerIdLeaseSettings:
+        """校验心跳间隔小于租约 TTL（否则续租永远赶不上过期）。
+
+        Returns:
+            WorkerIdLeaseSettings: 自身。
+
+        Raises:
+            ValueError: `heartbeat_seconds` 不小于 `lease_ttl_seconds`。
+        """
+        if self.heartbeat_seconds >= self.lease_ttl_seconds:
+            raise ValueError(
+                f"worker_id.heartbeat_seconds（{self.heartbeat_seconds}）必须小于 "
+                f"lease_ttl_seconds（{self.lease_ttl_seconds}）"
+            )
+        return self
+
+
 class MinioSettings(BaseSettings):
     """对象存储端点 / 凭据（桶名统一取 `[storage].options.bucket`）。"""
 
@@ -1417,6 +1459,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     database: DatabaseSettings
     registry: RegistrySettings = Field(default_factory=RegistrySettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
+    worker_id: WorkerIdLeaseSettings = Field(default_factory=WorkerIdLeaseSettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     cors: CorsSettings = Field(default_factory=CorsSettings)
@@ -1609,6 +1652,10 @@ def get_settings() -> Settings:
 def validate_startup(settings: Settings) -> None:
     """启动期补充校验与接线（lifespan 调用）。
 
+    WorkerId 接线分两段（03_06）：本函数先按 `[app].worker_id` 落地（保证「注册关闭」路径与
+    测试隔离仍按配置生效），随后由 `worker_id_registry` 装配取号覆盖；生产「未取到号（仍为 0）」
+    的拒启改由 `bms_core.workerid.ensure_worker_id_ready` 在注册完成后判定。
+
     Args:
         settings: 应用配置。
 
@@ -1617,10 +1664,6 @@ def validate_startup(settings: Settings) -> None:
     """
     if settings.app.env == "prod" and not settings.security.secret_key:
         raise ConfigError("生产环境必须提供 security.secret_key（BMS_SECURITY__SECRET_KEY）")
-    if settings.app.env == "prod" and settings.app.worker_id == 0:
-        raise ConfigError(
-            "生产环境必须为每个进程分配唯一的 app.worker_id（BMS_APP__WORKER_ID）：默认 0 会让多进程雪花 ID 撞号"
-        )
     from bms_core.core.id import id_generator
 
     id_generator.reconfigure(settings.app.worker_id)

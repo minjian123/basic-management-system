@@ -21,7 +21,6 @@ uv run python -m ops.db_admin drop --url "sqlite+aiosqlite:////tmp/bms_migrcheck
 """
 
 import argparse
-import asyncio
 
 from sqlalchemy.engine import make_url
 
@@ -34,6 +33,7 @@ from bms_core.db.admin import (
     drop_database,
     resolve_target,
 )
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -112,7 +112,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     try:
-        return asyncio.run(_run(args))
+        return run_with_worker_id(lambda: _run(args))
     except ConfigError as exc:
         print(f"[db_admin] 失败：{exc}")
         return 1

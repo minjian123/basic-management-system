@@ -106,6 +106,8 @@ from bms_core.tenant.db import register_db_tenant_self_service
 from bms_core.tenant.membership import build_tenant_membership_store
 from bms_core.tenant.membership_remote import register_remote_tenant_membership_store
 from bms_core.tracing.setup import setup_observability
+from bms_core.workerid.base import BaseWorkerIdRegistry
+from bms_core.workerid.lease import ensure_worker_id_ready
 
 __all__ = ["BaseServiceApplicationFactory", "service_lifespan"]
 
@@ -439,6 +441,9 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         # 基础能力先行（03_04）：开库引导与接库校验都会取数据库引擎，而引擎注册表的跨实例创建锁
         # 经分布式锁基座取共享 Redis 客户端；该客户端由插件装配期登记，故此处先装配基础能力。
         await assemble_base_plugins(app, settings, cast("ResourceManager", app.state.resources))
+        # WorkerId 就绪（03_06）：租约已取号并生效；生产未取到号（仍为 0）即拒启——须在建表与任何
+        # 引导写入之前判定，否则「先用 0 生成 ID、再换号」会留下撞号隐患。
+        ensure_worker_id_ready(cast("BaseWorkerIdRegistry", app.state.worker_id_registry))
         created = await ensure_unit_schema(
             settings,
             factory=cast("EngineFactory", app.state.engine_factory),

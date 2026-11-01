@@ -24,7 +24,6 @@ uv run python -m ops.init_schema --target tenant \
 """
 
 import argparse
-import asyncio
 from collections import Counter
 from dataclasses import dataclass
 
@@ -35,6 +34,7 @@ from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.migration import DATASOURCE_ARCHIVE, DATASOURCE_PLATFORM, DATASOURCE_TENANT
+from ops._worker import run_with_worker_id
 from ops.migrate_tenants import MigrationTask, build_task_parser, build_tasks
 
 RUN_IMAGE = "*"
@@ -189,7 +189,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     try:
-        return asyncio.run(run(args))
+        return run_with_worker_id(lambda: run(args))
     except ConfigError as exc:
         print(f"[init_schema] 失败：{exc}")
         return 1

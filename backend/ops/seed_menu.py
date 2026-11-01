@@ -29,6 +29,7 @@ from bms_core.tenant.seed.menu import (
     seed_menu,
     seed_menu_entry,
 )
+from ops._worker import worker_id_lease_sync
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -63,4 +64,5 @@ def __getattr__(name: str) -> Any:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    with worker_id_lease_sync():
+        raise SystemExit(main())

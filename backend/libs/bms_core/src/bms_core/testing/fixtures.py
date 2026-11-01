@@ -149,6 +149,9 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # 并行下 WorkerId 必须按 worker 错开（缺省 0 会让多进程同毫秒生成相同雪花 ID；见
     # `worker_id_for_snowflake`）。经配置注入，lifespan 的 `validate_startup` 会据此重设生成器。
     monkeypatch.setenv("BMS_APP__WORKER_ID", str(worker_id_for_snowflake()))
+    # WorkerId 动态注册（03_06）在单测里关闭：注册要连 Redis 并逐用例占号，会与上面的按 worker 注入
+    # 冲突（每用例一套 fakeredis，占号无意义）；注册路径由 `tests/workerid/` 专项用例显式开启覆盖。
+    monkeypatch.setenv("BMS_WORKER_ID__ENABLED", "false")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

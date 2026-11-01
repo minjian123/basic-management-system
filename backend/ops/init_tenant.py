@@ -27,7 +27,6 @@ uv run python -m ops.init_tenant --code acme \
 """
 
 import argparse
-import asyncio
 from dataclasses import dataclass
 
 from sqlalchemy.engine import make_url
@@ -46,6 +45,7 @@ from bms_core.db.keys import build_platform_db_key
 from bms_core.db.migration import DATASOURCE_TENANT
 from bms_core.db.tenant import build_tenant_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
+from ops._worker import run_with_worker_id
 from ops.migrate_tenants import tenant_refs
 
 RUN_IMAGE = "*"
@@ -218,7 +218,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
                 f"[init_tenant] 计划：建库（{target.describe()}）→ 建表（{service} 单元的租户库）→ 幂等种子（dry-run）"
             )
             return 0
-        asyncio.run(run(args))
+        run_with_worker_id(lambda: run(args))
     except ConfigError as exc:
         print(f"[init_tenant] 失败：{exc}")
         return 1

@@ -16,7 +16,6 @@ OIDC_DEMO_CLIENT_SECRET=my-secret uv run python -m ops.seed_oidc_client --redire
 """
 
 import argparse
-import asyncio
 import json
 import os
 from typing import cast
@@ -29,6 +28,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.models.identity.client import SysClient
 from bms_core.security.pbkdf2 import PBKDF2_ITERATIONS, Pbkdf2PasswordHasher
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -152,8 +152,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(f"[seed_oidc_client] 租户库：{make_url(url).render_as_string(hide_password=True)}")
         print(f"[seed_oidc_client] 客户端：{args.client_id}（redirect_uris={redirect_uris} scopes={scopes}）")
         return 0
-    created, updated = asyncio.run(
-        seed_client(
+    created, updated = run_with_worker_id(
+        lambda: seed_client(
             url,
             client_id=args.client_id,
             name=args.name,

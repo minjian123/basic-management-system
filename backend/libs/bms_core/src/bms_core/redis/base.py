@@ -30,6 +30,7 @@ __all__ = [
     "REDIS_CLIENT_PLUGIN_KEY",
     "BaseRedisClient",
     "clear_shared_redis_client",
+    "current_shared_redis_client",
     "set_shared_redis_client",
     "shared_async_client",
     "shared_redis_client",
@@ -113,6 +114,15 @@ def set_shared_redis_client(client: BaseRedisClient) -> None:
 def clear_shared_redis_client() -> None:
     """清除共享登记（测试隔离；应用生命周期结束时由实现自身清理）。"""
     _SHARED.get_and_remove(_SHARED_KEY)
+
+
+def current_shared_redis_client() -> BaseRedisClient | None:
+    """取已登记的共享客户端（未登记返回 None；不构造 `null` 实现）。
+
+    Returns:
+        BaseRedisClient | None: 已登记实例；未登记为 None。
+    """
+    return _SHARED.get(_SHARED_KEY)
 
 
 def shared_redis_client() -> BaseRedisClient:

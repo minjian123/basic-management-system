@@ -44,6 +44,7 @@ from bms_core.db.migration import (
     unit_series,
 )
 from bms_core.db.sync import is_sync_only_url
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入服务包），任意服务镜像均可运行。"""
@@ -378,7 +379,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     Returns:
         int: 退出码。
     """
-    return asyncio.run(run(build_parser().parse_args(argv)))
+    return run_with_worker_id(lambda: run(build_parser().parse_args(argv)))
 
 
 if __name__ == "__main__":

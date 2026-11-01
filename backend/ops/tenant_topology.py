@@ -15,7 +15,6 @@ uv run python -m ops.tenant_topology export --tenant-id 0   # 按租户导出当
 """
 
 import argparse
-import asyncio
 import json
 import sys
 from typing import cast
@@ -25,6 +24,7 @@ from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
 from bms_platform.main import ApplicationFactory
+from ops._worker import run_with_worker_id
 
 __all__ = ["build_parser", "main", "run"]
 
@@ -97,7 +97,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     tenant_id = cast("int", getattr(args, "tenant_id", 0))
     try:
-        result = asyncio.run(run(cast("str", args.command), tenant_id=tenant_id))
+        result = run_with_worker_id(lambda: run(cast("str", args.command), tenant_id=tenant_id))
     except Exception as exc:
         print(f"[tenant_topology] 失败：{type(exc).__name__}: {exc}", file=sys.stderr)
         return 1

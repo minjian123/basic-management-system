@@ -738,9 +738,11 @@ async def _copy_loop(
                 rows = await source.page(table, column, after, batch_size)
                 if not rows:
                     break
+                last = rows[-1][column]
+                _ensure_cursor_advanced(table, column, after, last)
                 await target.upsert(table, column, rows)
                 copied += len(rows)
-                after = rows[-1][column]
+                after = last
                 if progress is not None:
                     progress.mark(target_table.name, cursor=after)
                     progress.save()
@@ -863,6 +865,7 @@ async def _verify_table(
         if not rows:
             break
         keys = ConcurrentStableList(row[column] for row in rows)
+        _ensure_cursor_advanced(table, column, after, keys[-1])
         present = ConcurrentStableSet(row[column] for row in await target.fetch(table, column, keys))
         missing += sum(1 for key in keys if key not in present)
         for offset, row in enumerate(rows):
@@ -907,6 +910,7 @@ async def _count_extra(source: TableGateway, target: TableGateway, table: Table,
         if not rows:
             break
         keys = ConcurrentStableList(row[column] for row in rows)
+        _ensure_cursor_advanced(table, column, after, keys[-1])
         present = ConcurrentStableSet(row[column] for row in await source.fetch(table, column, keys))
         extra += sum(1 for key in keys if key not in present)
         after = keys[-1]
@@ -1031,6 +1035,29 @@ def _cursor_column(target_table: TableTarget) -> str:
             "按首列游标会跨批漏行；请先补单列主键或改为人工迁移"
         )
     return target_table.primary_key[0]
+
+
+def _ensure_cursor_advanced(table: Table, column: str, after: object | None, current: object) -> None:
+    """校验分页游标推进（未推进即源库该列取值不规范，避免无限分页）。
+
+    背景：游标按列类型绑定（雪花 ID 列在 SQLite 落 38 位补零 TEXT）；若库内同列混入未补零的
+    取值（原生 SQL 直插 int），`column > after` 会恒真、每批返回同一批，形成「死循环 + 反复写
+    journal」而非报错。此处把该类数据问题显式化。
+
+    Args:
+        table: 表定义。
+        column: 游标列名。
+        after: 本批起点（None 表示首页）。
+        current: 本批末值。
+
+    Raises:
+        ConfigError: 游标未推进（同批被反复取回）。
+    """
+    if after is not None and current == after:
+        raise ConfigError(
+            f"表 {table.name} 的游标列 {column} 未推进（末值仍为 {after!r}）：该列存在未按存储类型"
+            "规范写入的值（如雪花 ID 列在 SQLite 未按 38 位补零写入），请先规范化数据再迁移"
+        )
 
 
 def _select_page(table: Table, column: str, after: object | None, limit: int) -> Select[Any]:

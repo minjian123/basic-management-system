@@ -62,6 +62,7 @@ from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.tenant.registry import TenantRef
 from bms_core.tenant.registry import tenant_refs as tenant_refs_base
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -560,7 +561,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     try:
-        return asyncio.run(run(args))
+        return run_with_worker_id(lambda: run(args))
     except ConfigError as exc:
         print(f"[migrate_tenants] 失败：{exc}")
         return 1

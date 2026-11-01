@@ -21,7 +21,6 @@ uv run python -m ops.release list     --unit platform --limit 5             # �
 """
 
 import argparse
-import asyncio
 import json
 import sys
 from typing import cast
@@ -41,6 +40,7 @@ from bms_platform.domains.platform_registry.dto import (
 from bms_platform.domains.platform_registry.ports import ReleaseRevisionPort
 from bms_platform.domains.platform_registry.services.release import ReleaseService
 from bms_platform.main import ApplicationFactory
+from ops._worker import run_with_worker_id
 
 __all__ = ["DatabaseRevisions", "build_parser", "main", "run"]
 
@@ -383,7 +383,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     try:
-        result = asyncio.run(run(args))
+        result = run_with_worker_id(lambda: run(args))
     except Exception as exc:
         print(f"[release] 失败：{type(exc).__name__}: {exc}", file=sys.stderr)
         return 1

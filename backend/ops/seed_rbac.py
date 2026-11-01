@@ -13,11 +13,10 @@ uv run python -m ops.seed_rbac --tenant demo --assign-user admin          # 落�
 （`bms_core.tenant.seed.rbac`），避免运维包与基座两份实现漂移。
 """
 
-import asyncio
-
 from bms_core.tenant.seed.rbac import build_parser, main
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
 if __name__ == "__main__":
-    asyncio.run(main(build_parser().parse_args()))
+    run_with_worker_id(lambda: main(build_parser().parse_args()))

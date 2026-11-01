@@ -9,7 +9,9 @@ name = "BMS 基础管理系统"
 env = "dev"
 # 调试开关（dev 覆盖为 true）
 debug = false
-# 雪花 ID WorkerId（0~1099511627775，即 2^40-1；同环境多副本须全局唯一）
+# 雪花 ID WorkerId（0~1099511627775，即 2^40-1）
+# 语义：显式偏好 + 兜底（03_06）——配置非 0 时启动优先占该号，占不到改由 Redis 租约分配；
+# 注册失败 / Redis 不可用时回落本值并告警；保持 0 表示「未指定」，生产环境启动取不到号即拒启
 worker_id = 0
 # 服务标识（微服务名；空则取服务包声明，启动期回写解析结果）
 # 用于按服务的连接池覆盖与租户库连接串模板的 {service} 占位
@@ -181,6 +183,21 @@ health_check_interval_s = 30
 key_prefix = "bms"
 # 必需标志：为真时 provider 不得为空（启动期校验），缺省实现取客户端即报 10012
 required = true
+
+[worker_id]
+# 雪花 WorkerId 动态注册（03_06 / 需求 03-7）：启动期经 Redis 租约占号，心跳续租，退出释放
+# 键口径 {key_prefix}:{env}:{unit|service|default}:worker_id:v2:{id}（0 保留为「未注册」哨兵，不参与分配）
+# 注册失败 / Redis 不可用时回落 [app].worker_id 并告警；生产环境未取到号（仍为 0）即拒启
+# 注册开关（false = 不注册，直接用 [app].worker_id；单测公共夹具置 false）
+enabled = true
+# 实现选择：redis = Redis 租约真实实现（缺省）、null = 应急旁路（等价 enabled=false）
+provider = "redis"
+# 租约 TTL（秒）：进程崩溃后经该时长可回收号
+lease_ttl_seconds = 60
+# 心跳间隔（秒；须小于 lease_ttl_seconds，缺省 TTL/3）
+heartbeat_seconds = 20
+# 单次占号探测上限（随机起点 + 回绕；用尽即按降级口径回落 [app].worker_id）
+probe_limit = 256
 
 [minio]
 # 对象存储端点 / 凭据（密钥经 BMS_MINIO__* 环境变量注入；桶名统一取 [storage].options.bucket）

@@ -9,13 +9,13 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import contextlib
 from importlib import import_module
 from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.jobs.worker import JobWorker
+from ops._worker import run_with_worker_id
 
 __all__ = ["main"]
 
@@ -84,7 +84,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     parser.add_argument("--once", action="store_true", help="只跑一轮即退出（诊断 / 冒烟）")
     args = parser.parse_args(None if argv is None else list(argv))
     with contextlib.suppress(KeyboardInterrupt):
-        return asyncio.run(_run(args))
+        return run_with_worker_id(lambda: _run(args))
     return 0
 
 

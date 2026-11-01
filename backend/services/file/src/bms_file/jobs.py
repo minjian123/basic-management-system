@@ -24,6 +24,7 @@ from bms_core.jobs.runner import JobRunner
 from bms_core.jobs.signal import JobChangeSignal
 from bms_core.jobs.spec import JobTypeSpec
 from bms_core.jobs.worker import JobWorker
+from bms_core.workerid.lease import worker_id_lease_sync
 from bms_file.domains.file.jobs import CleanupOrphansJob
 
 __all__ = ["build_runner", "build_worker", "job_handlers", "job_specs", "main"]
@@ -155,7 +156,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="bms_file.jobs", description="文件服务作业 worker")
     parser.add_argument("--once", action="store_true", help="只跑一轮即退出（诊断 / 冒烟）")
     args = parser.parse_args(None if argv is None else list(argv))
-    with contextlib.suppress(KeyboardInterrupt):
+    # WorkerId 租约（03_06）：作业 worker 同样会写库生成雪花 ID，入口取号、退出释放
+    with contextlib.suppress(KeyboardInterrupt), worker_id_lease_sync():
         return asyncio.run(_run(args))
     return 0
 

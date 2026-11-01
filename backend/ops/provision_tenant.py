@@ -35,7 +35,6 @@ uv run python -m ops.provision_tenant --code demo \
 """
 
 import argparse
-import asyncio
 from dataclasses import dataclass
 
 from sqlalchemy.engine import make_url
@@ -57,6 +56,7 @@ from bms_core.db.keys import (
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import known_service_keys
+from ops._worker import run_with_worker_id
 from ops.migrate_tenants import TenantRef, enrich_refs, report, run_tasks, tenant_refs, unit_tasks
 
 RUN_IMAGE = "*"
@@ -295,7 +295,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     try:
-        return asyncio.run(run(args))
+        return run_with_worker_id(lambda: run(args))
     except ConfigError as exc:
         print(f"[provision_tenant] 失败：{exc}")
         return 1

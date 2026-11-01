@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import sys
 from typing import cast
 
@@ -43,6 +42,7 @@ from bms_txn.domains.txn.repositories.ledger import (
     GlobalTxnRepository,
 )
 from bms_txn.domains.txn.services.ledger_cleanup import DEFAULT_RETENTION_DAYS, LedgerCleanup
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "txn"
 """本脚本导入 `bms_txn.*`（TM 账本仓储与清理服务），只在 txn 镜像与运维机运行。"""
@@ -211,10 +211,10 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         if args.command == "list":
-            return asyncio.run(_list(args))
+            return run_with_worker_id(lambda: _list(args))
         if args.command == "cleanup":
-            return asyncio.run(_cleanup(args))
-        return asyncio.run(_drive(args, commit=args.command == "drive-commit"))
+            return run_with_worker_id(lambda: _cleanup(args))
+        return run_with_worker_id(lambda: _drive(args, commit=args.command == "drive-commit"))
     except Exception as exc:
         print(f"跨服务事务恢复命令失败：{exc!r}", file=sys.stderr)
         return 1

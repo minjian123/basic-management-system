@@ -74,10 +74,12 @@ from bms_core.db.topology_migration import (
     count_rows,
     verify_tables,
 )
+from bms_core.models.base import SQLITE_PADDED_WIDTH
 from bms_core.tenant.registry import TenantRef, tenant_refs
 from bms_platform.domains.platform_registry.services.release import ReleaseService
 from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService, TopologyRow
 from bms_platform.main import ApplicationFactory
+from ops._worker import run_with_worker_id
 from ops.release import DatabaseRevisions
 
 __all__ = ["MigrationPlan", "StepResult", "build_parser", "main", "run"]
@@ -250,6 +252,23 @@ def _platform_url() -> str:
     return _factory().resolved_url(PLATFORM_DB_KEY)
 
 
+def _id_param(value: int) -> object:
+    """原生 SQL 的雪花 ID 绑定值（按平台库方言归一）。
+
+    原生 SQL 绕过 `SnowflakeId` 类型层：SQLite 的雪花 ID 列落 38 位补零 `TEXT`，绑定值必须同格式
+    才能命中（且 > 2^63 的整数直接绑定会 `OverflowError`）；其它方言按整数绑定。
+
+    Args:
+        value: 雪花 ID（含 0 = 默认拓扑哨兵）。
+
+    Returns:
+        object: 绑定值（SQLite 为 38 位补零字符串，其余方言为整数）。
+    """
+    if make_url(_platform_url()).get_backend_name() != "sqlite":
+        return value
+    return str(int(value)).zfill(SQLITE_PADDED_WIDTH)
+
+
 def _tenant_url(unit: str, db_basis: str) -> str:
     """按「单元 × 租户库名基」派生服务租户库连接串。
 
@@ -382,7 +401,7 @@ async def _topology_rows(tenant_id: int) -> ConcurrentStableDict[str, str]:
         "WHERE tenant_id = :tenant_id AND deleted_at IS NULL "
         "AND topology_version = (SELECT MAX(topology_version) FROM sys_tenant_topology "
         "WHERE tenant_id = :tenant_id AND deleted_at IS NULL)",
-        ConcurrentStableDict({"tenant_id": tenant_id}),
+        ConcurrentStableDict({"tenant_id": _id_param(tenant_id)}),
     )
     return ConcurrentStableDict((str(row[0]), str(row[1])) for row in rows)
 
@@ -1072,7 +1091,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     try:
-        return asyncio.run(run(args))
+        return run_with_worker_id(lambda: run(args))
     except ConfigError as exc:
         print(f"[migrate_topology] 失败：{exc}", file=sys.stderr)
         return 1

@@ -15,7 +15,6 @@ uv run python -m ops.bootstrap_platform
 """
 
 import argparse
-import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -29,6 +28,7 @@ from bms_tenant.domains.tenant.services.platform_tenant import ensure_platform_t
 from bms_tenant.domains.tenant.services.tenant_admin import TenantAdminService
 from bms_tenant.domains.tenant.services.tenant_module import ModuleCatalog, TenantModuleService
 from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
+from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "tenant"
 """本脚本导入 `bms_tenant.services.*`（平台租户引导复用 tenant 服务实现），只有 tenant 镜像含该包。"""
@@ -97,7 +97,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(f"[bootstrap_platform] 平台租户 {settings.platform_tenant.code}（{settings.platform_tenant.name}）")
         print(f"[bootstrap_platform] 平台库：{PLATFORM_DB_KEY}")
         return 0
-    return asyncio.run(_run())
+    return run_with_worker_id(_run)
 
 
 if __name__ == "__main__":
