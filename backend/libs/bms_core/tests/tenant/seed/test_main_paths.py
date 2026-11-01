@@ -187,6 +187,8 @@ def test_sso_main_maps_user_when_both_args(tmp_path: Path, capsys: pytest.Captur
                     "11",
                     "--map-external-id",
                     "ext-11",
+                    "--tenant-id",
+                    "1000000000000000011",
                 ]
             )
         )

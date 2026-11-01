@@ -7,7 +7,7 @@ cd backend
 # IdP 行（identity 租户库；先建表，读配置解析）：
 uv run python -m ops.seed_sso
 # 追加用户映射（identity 平台库；02_02 起由管理面写入，本期仅联调用）：
-uv run python -m ops.seed_sso --map-user-id 1 --map-external-id <Keycloak 用户 UUID>
+uv run python -m ops.seed_sso --map-user-id 1 --map-external-id <Keycloak 用户 UUID> --tenant-id <租户雪花 ID>
 ```
 
 - URL 解析：租户库 `--url` > `BMS_MIGRATION_URL` > 配置租户库模板；平台库 `--platform-url` >
@@ -63,7 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--platform-url", default="", help="identity 平台库连接串（缺省读 BMS_PLATFORM_MIGRATION_URL / 配置）"
     )
-    parser.add_argument("--tenant", default="demo", help="映射归属租户码（缺省 demo）")
+    parser.add_argument("--tenant", default="demo", help="映射归属租户码（用于 idp_key 前缀，缺省 demo）")
+    parser.add_argument(
+        "--tenant-id",
+        default="",
+        help="映射归属租户 ID（雪花 ID 十进制串，写 sys_user_identity.tenant_id；--map-user-id 时必填）",
+    )
     parser.add_argument("--map-user-id", type=int, default=0, help="映射的 BMS 用户 ID（>0 时写平台库映射）")
     parser.add_argument("--map-external-id", default="", help="外部 IdP 用户标识（如 Keycloak subject）")
     parser.add_argument("--dry-run", action="store_true", help="仅输出目标库与种子清单")
@@ -175,19 +180,22 @@ async def seed_identity_provider(url: str, *, status: str = "enabled") -> tuple[
     return created, updated
 
 
-async def seed_user_mapping(url: str, *, tenant: str, user_id: int, external_id: str) -> tuple[int, int]:
+async def seed_user_mapping(
+    url: str, *, tenant_id: str, tenant_code: str, user_id: int, external_id: str
+) -> tuple[int, int]:
     """建表并按 `(idp_key, external_id)` 幂等写入用户映射（`user_id` 变化则更新）。
 
     Args:
         url: identity 平台库连接串。
-        tenant: 映射归属租户码。
+        tenant_id: 映射归属租户 ID（雪花 ID 十进制串，写 `sys_user_identity.tenant_id`）。
+        tenant_code: 映射归属租户码（拼 `idp_key` 前缀）。
         user_id: BMS 用户 ID。
         external_id: 外部 IdP 用户标识。
 
     Returns:
         tuple[int, int]: (新增行数, 更新行数)；重复执行为 (0, 0)。
     """
-    idp_key = f"{tenant}:{DEFAULT_IDP_KEY}"
+    idp_key = f"{tenant_code}:{DEFAULT_IDP_KEY}"
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     created = 0
@@ -204,7 +212,7 @@ async def seed_user_mapping(url: str, *, tenant: str, user_id: int, external_id:
             existing = (await session.execute(statement)).scalar_one_or_none()
             if existing is None:
                 session.add(
-                    SysUserIdentity(idp_key=idp_key, external_id=external_id, tenant_id=tenant, user_id=user_id)
+                    SysUserIdentity(idp_key=idp_key, external_id=external_id, tenant_id=tenant_id, user_id=user_id)
                 )
                 created = 1
             elif existing.user_id != user_id:
@@ -229,6 +237,9 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     if args.map_user_id > 0 and not args.map_external_id:
         print("[seed_sso] --map-user-id 需与 --map-external-id 同时提供")
         return 2
+    if args.map_user_id > 0 and not args.tenant_id:
+        print("[seed_sso] --map-user-id 需同时提供 --tenant-id（雪花 ID 十进制串）")
+        return 2
     tenant_url = _tenant_url(args.url)
     if args.dry_run:
         print(f"[seed_sso] 租户库：{make_url(tenant_url).render_as_string(hide_password=True)}")
@@ -247,7 +258,11 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         platform_url = _platform_url(args.platform_url)
         map_created, map_updated = asyncio.run(
             seed_user_mapping(
-                platform_url, tenant=args.tenant, user_id=args.map_user_id, external_id=args.map_external_id
+                platform_url,
+                tenant_id=args.tenant_id,
+                tenant_code=args.tenant,
+                user_id=args.map_user_id,
+                external_id=args.map_external_id,
             )
         )
         print(f"[seed_sso] 用户映射新增 {map_created} 行 / 更新 {map_updated} 行（幂等；重复执行输出 0 / 0）")

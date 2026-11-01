@@ -53,9 +53,16 @@ async def test_seed_identity_provider_updates_on_config_change(tmp_path: Path, m
 async def test_seed_user_mapping_creates_updates_and_skips(tmp_path: Path) -> None:
     """映射按 `(idp_key, external_id)` 幂等：新建 → 跳过 → `user_id` 变化更新。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'identity.db'}"
-    assert await sso_seed.seed_user_mapping(url, tenant="demo", user_id=1, external_id="ext-1") == (1, 0)
-    assert await sso_seed.seed_user_mapping(url, tenant="demo", user_id=1, external_id="ext-1") == (0, 0)
-    assert await sso_seed.seed_user_mapping(url, tenant="demo", user_id=2, external_id="ext-1") == (0, 1)
+
+    async def seed(user_id: int) -> tuple[int, int]:
+        """按固定租户 / 外部标识写映射，只变 `user_id`。"""
+        return await sso_seed.seed_user_mapping(
+            url, tenant_id="1000000000000000001", tenant_code="demo", user_id=user_id, external_id="ext-1"
+        )
+
+    assert await seed(1) == (1, 0)
+    assert await seed(1) == (0, 0)
+    assert await seed(2) == (0, 1)
 
     engine = create_async_engine(url)
     factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -64,6 +71,7 @@ async def test_seed_user_mapping_creates_updates_and_skips(tmp_path: Path) -> No
             rows = (await session.execute(select(SysUserIdentity))).scalars().all()
             assert len(rows) == 1
             assert rows[0].idp_key == f"demo:{sso_seed.DEFAULT_IDP_KEY}"
+            assert rows[0].tenant_id == 1000000000000000001
             assert rows[0].user_id == 2
     finally:
         await engine.dispose()
@@ -93,6 +101,13 @@ def test_main_rejects_map_user_id_without_external_id(capsys: pytest.CaptureFixt
 
 
 @pytest.mark.kiwi_id(2343)
+def test_main_rejects_map_user_id_without_tenant_id(capsys: pytest.CaptureFixture[str]) -> None:
+    """`--map-user-id` 缺 `--tenant-id`：拒绝执行（退出码 2），避免租户码写进雪花 ID 列。"""
+    assert sso_seed.main(ConcurrentStableList(["--map-user-id", "5", "--map-external-id", "ext-5"])) == 2
+    assert "--tenant-id" in capsys.readouterr().out
+
+
+@pytest.mark.kiwi_id(2343)
 def test_main_dry_run_prints_targets(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """`--dry-run` 打印租户库与种子清单；带映射时另打印平台库与映射目标。"""
     tenant_url = f"sqlite+aiosqlite:///{tmp_path / 'identity.db'}"
@@ -115,6 +130,8 @@ def test_main_dry_run_prints_targets(tmp_path: Path, capsys: pytest.CaptureFixtu
                     "7",
                     "--map-external-id",
                     "ext-7",
+                    "--tenant-id",
+                    "1000000000000000007",
                     "--dry-run",
                 ]
             )
@@ -143,6 +160,8 @@ def test_main_writes_rows(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
                     "9",
                     "--map-external-id",
                     "ext-9",
+                    "--tenant-id",
+                    "1000000000000000009",
                 ]
             )
         )
