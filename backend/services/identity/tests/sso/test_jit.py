@@ -43,12 +43,6 @@ from bms_identity.services.platform_client import PlatformCredentialClient
 from .conftest import SsoHarness
 from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID, FakeSsoPlatformClient
 
-pytestmark = pytest.mark.own_db(
-    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
-    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
-)
-
-CALLBACK = f"/api/v1/auth/sso/{IDP_KEY}/callback"
 IDENTITY = ExternalIdentity(
     subject="sub-1",
     username="Alice.Admin",
@@ -379,15 +373,31 @@ async def test_jit_endpoint_end_to_end(client: AsyncClient, sso: SsoHarness) -> 
     first = await _flow_callback(client, sso)
     assert first.status_code == 200 and first.json()["data"] == {"tenant": TENANT}
     async with sso.platform_scope() as session:
-        rows = (await session.execute(select(SysUserIdentity))).scalars().all()
-    assert len(rows) == 1 and rows[0].idp_key == f"{TENANT_ID}:{IDP_KEY}" and rows[0].external_id == "sub-1"
+        rows = (
+            (
+                await session.execute(
+                    select(SysUserIdentity).where(SysUserIdentity.idp_key == f"{TENANT_ID}:{sso.idp_key}")
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert len(rows) == 1 and rows[0].idp_key == f"{TENANT_ID}:{sso.idp_key}" and rows[0].external_id == "sub-1"
     assert len(sso.outbox.events) == 1
     assert sso.outbox.events[0].event_type == JIT_EVENT_TYPE
 
     second = await _flow_callback(client, sso)
     assert second.status_code == 200
     async with sso.platform_scope() as session:
-        again = (await session.execute(select(SysUserIdentity))).scalars().all()
+        again = (
+            (
+                await session.execute(
+                    select(SysUserIdentity).where(SysUserIdentity.idp_key == f"{TENANT_ID}:{sso.idp_key}")
+                )
+            )
+            .scalars()
+            .all()
+        )
     assert len(again) == 1
     assert len(sso.outbox.events) == 1
 
@@ -404,4 +414,5 @@ async def _flow_callback(client: AsyncClient, sso: SsoHarness):
     """
     state, _, payload = await sso.start_flow(client)
     sso.idp.make_id_token(nonce=cast("str", payload["nonce"]))
-    return await client.get(f"{CALLBACK}?state={state}&code=code-1", headers=TENANT_HEADERS)
+    callback = f"/api/v1/auth/sso/{sso.idp_key}/callback"
+    return await client.get(f"{callback}?state={state}&code=code-1", headers=TENANT_HEADERS)

@@ -14,7 +14,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
-from sqlalchemy import Table, delete, select
+from sqlalchemy import Table, select
 
 from bms_core.api.deps import (
     get_distributed_lock,
@@ -34,28 +34,24 @@ from bms_core.idp.state.base import build_idp_state_key
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.lock.memory import MemoryDistributedLock
 from bms_core.models.identity.identity_provider import SysIdentityProvider
-from bms_core.models.identity.session import SysSession
 from bms_core.models.identity.user_identity import SysUserIdentity
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
+from bms_core.testing.namespace import Namespace
 from bms_core.ws.null import NullRealtimePublisher
 from bms_identity.domains.identity_federation.api import sso as sso_api
 from bms_identity.domains.identity_federation.services.provider_registry import ProviderRegistry
 
 from .helpers import (
-    CAS_IDP_KEY,
     CAS_SERVER,
     CLIENT_ID,
     CLIENT_SECRET,
     DINGTALK_CLIENT_ID,
-    DINGTALK_IDP_KEY,
-    IDP_KEY,
     ISSUER,
     TENANT_HEADERS,
     TENANT_ID,
     WECOM_AGENT_ID,
     WECOM_CORP_ID,
-    WECOM_IDP_KEY,
     CasMock,
     DingtalkMock,
     FakeSsoPlatformClient,
@@ -68,16 +64,27 @@ from .helpers import (
 SECRET_ENV = "SSO_TEST_IDP_SECRET"
 WECOM_SECRET_ENV = "SSO_TEST_WECOM_SECRET"
 DINGTALK_SECRET_ENV = "SSO_TEST_DINGTALK_SECRET"
-USER_ID = 1001
-REDIRECT_URI = f"http://test/api/v1/auth/sso/{IDP_KEY}/callback"
-CAS_REDIRECT_URI = f"http://test/api/v1/auth/sso/{CAS_IDP_KEY}/callback"
-WECOM_REDIRECT_URI = f"http://test/api/v1/auth/sso/{WECOM_IDP_KEY}/callback"
-DINGTALK_REDIRECT_URI = f"http://test/api/v1/auth/sso/{DINGTALK_IDP_KEY}/callback"
+
+
+def _user_id(ns: Namespace) -> int:
+    """本用例的本地用户主键（会话行与身份映射都按它隔离）。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        int: 用户主键。
+    """
+    return int(ns.prefix[2:], 16) * 100
 
 
 @dataclass
 class SsoHarness:
-    """SSO 用例装配套件：替身、流程状态存储与播种工具。"""
+    """SSO 用例装配套件：替身、流程状态存储与播种工具。
+
+    单库叠加口径（04-6-2）：`idp_key` / `user_id` 按**用例命名空间**派生（见 `sso` 夹具），
+    播种与断言只认本用例的标识；目录内不再整表清场。
+    """
 
     app: FastAPI
     issuer: FakeUserTokenIssuer
@@ -91,6 +98,47 @@ class SsoHarness:
     cas: CasMock
     wecom: WecomMock
     dingtalk: DingtalkMock
+    idp_key: str
+    cas_key: str
+    wecom_key: str
+    dingtalk_key: str
+    user_id: int
+
+    @property
+    def redirect_uri(self) -> str:
+        """本用例 OIDC 提供方的回调地址（行配置与流程载荷同口径）。
+
+        Returns:
+            str: 回调地址。
+        """
+        return f"http://test/api/v1/auth/sso/{self.idp_key}/callback"
+
+    @property
+    def cas_redirect_uri(self) -> str:
+        """本用例 CAS 提供方的回调地址。
+
+        Returns:
+            str: 回调地址。
+        """
+        return f"http://test/api/v1/auth/sso/{self.cas_key}/callback"
+
+    @property
+    def wecom_redirect_uri(self) -> str:
+        """本用例企业微信提供方的回调地址。
+
+        Returns:
+            str: 回调地址。
+        """
+        return f"http://test/api/v1/auth/sso/{self.wecom_key}/callback"
+
+    @property
+    def dingtalk_redirect_uri(self) -> str:
+        """本用例钉钉提供方的回调地址。
+
+        Returns:
+            str: 回调地址。
+        """
+        return f"http://test/api/v1/auth/sso/{self.dingtalk_key}/callback"
 
     def tenant_scope(self) -> AbstractAsyncContextManager[DbSession]:
         """演示租户库会话上下文。
@@ -142,7 +190,7 @@ class SsoHarness:
                 "issuer": ISSUER,
                 "client_id": CLIENT_ID,
                 "client_secret_ref": f"env:{SECRET_ENV}",
-                "redirect_uri": REDIRECT_URI,
+                "redirect_uri": self.redirect_uri,
                 "scopes": ["openid", "profile", "email"],
             }
         )
@@ -161,7 +209,7 @@ class SsoHarness:
         config: ConcurrentStableDict[str, object] = ConcurrentStableDict(
             {
                 "cas_server_url": CAS_SERVER,
-                "redirect_uri": CAS_REDIRECT_URI,
+                "redirect_uri": self.cas_redirect_uri,
             }
         )
         config.update(overrides.items())
@@ -181,7 +229,7 @@ class SsoHarness:
                 "corp_id": WECOM_CORP_ID,
                 "agent_id": WECOM_AGENT_ID,
                 "secret_ref": f"env:{WECOM_SECRET_ENV}",
-                "redirect_uri": WECOM_REDIRECT_URI,
+                "redirect_uri": self.wecom_redirect_uri,
             }
         )
         config.update(overrides.items())
@@ -200,7 +248,7 @@ class SsoHarness:
             {
                 "client_id": DINGTALK_CLIENT_ID,
                 "client_secret_ref": f"env:{DINGTALK_SECRET_ENV}",
-                "redirect_uri": DINGTALK_REDIRECT_URI,
+                "redirect_uri": self.dingtalk_redirect_uri,
             }
         )
         config.update(overrides.items())
@@ -209,23 +257,24 @@ class SsoHarness:
     async def seed_provider(
         self,
         *,
-        idp_key: str = IDP_KEY,
+        idp_key: str | None = None,
         type: str = "oidc",
         status: str = "enabled",
         sort: int = 0,
         config: ConcurrentStableDict[str, object] | None = None,
         name: str = "Keycloak",
     ) -> None:
-        """播种一条 IdP 提供方行。
+        """播种一条 IdP 提供方行（标识缺省取本用例命名空间派生值）。
 
         Args:
-            idp_key: 身份源标识。
+            idp_key: 身份源标识（None 取 `self.idp_key`）。
             type: 协议类型（oidc / cas / wecom / dingtalk）。
             status: 状态（enabled/disabled）。
             sort: 排序值。
             config: 行配置（None 按类型取缺省 Mock 配置）。
             name: 展示名。
         """
+        idp_key = self.idp_key if idp_key is None else idp_key
         if config is not None:
             payload = config
         elif type == "cas":
@@ -250,70 +299,88 @@ class SsoHarness:
             )
             await session.commit()
 
-    async def set_provider_status(self, status: str, *, idp_key: str = IDP_KEY) -> None:
+    async def set_provider_status(self, status: str, *, idp_key: str | None = None) -> None:
         """变更提供方状态（覆盖回调期停用分支）。
 
         Args:
             status: 新状态。
-            idp_key: 身份源标识。
+            idp_key: 身份源标识（None 取 `self.idp_key`）。
         """
+        key = self.idp_key if idp_key is None else idp_key
         async with self.tenant_scope() as session:
             row = (
-                await session.execute(select(SysIdentityProvider).where(SysIdentityProvider.idp_key == idp_key))
+                await session.execute(select(SysIdentityProvider).where(SysIdentityProvider.idp_key == key))
             ).scalar_one()
             row.status = status
             await session.commit()
 
+    async def provider_row(self) -> SysIdentityProvider:
+        """取本用例的提供方行（叠加下按 `idp_key` 精确定位，不整表取数）。
+
+        Returns:
+            SysIdentityProvider: 提供方行。
+        """
+        async with self.tenant_scope() as session:
+            row = (
+                await session.execute(
+                    select(SysIdentityProvider).where(SysIdentityProvider.idp_key == self.idp_key)
+                )
+            ).scalar_one()
+            return row
+
     async def seed_mapping(
         self,
         *,
-        idp_key: str = IDP_KEY,
+        idp_key: str | None = None,
         external_id: str = "sub-1",
         tenant_id: str = TENANT_ID,
-        user_id: int = USER_ID,
+        user_id: int | None = None,
         duplicate: bool = False,
     ) -> None:
         """播种平台库身份映射行（duplicate=True 造冲突双行）。
 
         Args:
-            idp_key: 身份源标识。
+            idp_key: 身份源标识（None 取 `self.idp_key`）。
             external_id: 外部主体标识。
             tenant_id: 关联租户主键（雪花 id 字符串）。
-            user_id: 本地用户主键。
+            user_id: 本地用户主键（None 取 `self.user_id`）。
             duplicate: 是否追加相同映射（触发冲突分支）。
         """
+        key = self.idp_key if idp_key is None else idp_key
+        subject = self.user_id if user_id is None else user_id
         row = SysUserIdentity(
-            idp_key=f"{tenant_id}:{idp_key}",
+            idp_key=f"{tenant_id}:{key}",
             external_id=external_id,
             tenant_id=int(tenant_id),
-            user_id=user_id,
+            user_id=subject,
         )
         async with self.platform_scope() as session:
             session.add(row)
             if duplicate:
                 session.add(
                     SysUserIdentity(
-                        idp_key=f"{tenant_id}:{idp_key}",
+                        idp_key=f"{tenant_id}:{key}",
                         external_id=external_id,
                         tenant_id=int(tenant_id),
-                        user_id=user_id,
+                        user_id=subject,
                     )
                 )
             await session.commit()
 
     async def start_flow(
-        self, client: AsyncClient, *, idp_key: str = IDP_KEY, tenant_header: bool = True
+        self, client: AsyncClient, *, idp_key: str | None = None, tenant_header: bool = True
     ) -> tuple[str, str, ConcurrentStableDict[str, object]]:
         """发起授权跳转并返回 (state, Location, 流程载荷)。
 
         Args:
             client: 测试客户端。
-            idp_key: 身份源标识。
+            idp_key: 身份源标识（None 取 `self.idp_key`）。
             tenant_header: 是否带租户请求头。
 
         Returns:
             tuple[str, str, ConcurrentStableDict[str, object]]: (state, 跳转 URL, 流程载荷)。
         """
+        idp_key = self.idp_key if idp_key is None else idp_key
         response = await client.get(
             f"/api/v1/auth/sso/{idp_key}/authorize",
             headers=TENANT_HEADERS if tenant_header else {},
@@ -360,75 +427,46 @@ async def _ensure_schema(app: FastAPI) -> None:
         await conn.run_sync(cast("Table", SysUserIdentity.__table__).create, checkfirst=True)
 
 
-async def _clean_rows(app: FastAPI) -> None:
-    """清空用例涉及的数据行（会话 / 提供方 / 身份映射）。
+@pytest.fixture(autouse=True)
+def shared_tenant(tenant_db: None) -> None:  # pyright: ignore[reportUnusedFunction]
+    """本目录用例切到**共享租户库**（目录级接线，实现见套件 `conftest.tenant_db`）。
 
     Args:
-        app: 应用实例。
+        tenant_db: 共享租户库接线（`BMS_DATABASE__TENANTS__URL` → `.cache/test/tenant.db`）。
     """
-    async with session_scope(
-        app.state.engine_registry, db_key=DEMO_TENANT.db_key, factory=app.state.session_factory
-    ) as session:
-        await session.execute(delete(SysSession))
-        await session.execute(delete(SysIdentityProvider))
-        await session.commit()
-    async with session_scope(
-        app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=app.state.session_factory
-    ) as session:
-        await session.execute(delete(SysUserIdentity))
-        await session.commit()
 
 
 @pytest.fixture(autouse=True)
-def isolated_dbs(
-    platform_db: None,
-    isolated_platform_db_url: str,
-    isolated_tenant_db_url: str,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:  # pyright: ignore[reportUnusedFunction]
-    """SSO 用例的**独占库**（平台库 + 租户库各一份 tmp 库）。
+async def ensure_schema(shared_tenant: None, service_app: FastAPI) -> AsyncIterator[None]:
+    """兜底建表（`sys_identity_provider` / `sys_user_identity` 幂等），**不再整表清场**。
 
-    本目录用例每例整表清场（会话 / 提供方 / 身份映射），共享库上清场会删掉并行中他人用例的数据；
-    独占库既保证清场安全，也让「映射冲突 / 租户不符」这类状态断言有确定起点。
+    单库叠加口径（04-6-2）：提供方标识与身份映射均按用例命名空间派生（见 `sso` 夹具），
+    断言只查自己那几行；逐例整表删除会在并行下删掉他人用例正在断言的行。
 
     Args:
-        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
-        isolated_platform_db_url: 独占平台库连接串（每用例一份 tmp 库 + 播种）。
-        isolated_tenant_db_url: 独占租户库连接串（每用例一份 tmp 库 + 参数种子）。
-        monkeypatch: 环境变量覆盖。
-    """
-    from bms_core.core.config import get_settings
-
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
-    get_settings.cache_clear()
-
-
-@pytest.fixture(autouse=True)
-async def clean_sso(isolated_dbs: None, service_app: FastAPI) -> AsyncIterator[None]:
-    """用例前后清空 SSO 相关表并兜底建表。
-
-    Args:
-        isolated_dbs: 独占库覆盖（依赖顺序保证先于应用装配）。
+        shared_tenant: 共享租户库接线（**显式依赖保证先于应用装配**：引擎工厂在 app 创建时
+            固化连接串，接线晚了会照旧连到工作区 `database/bms/` 下的常驻库）。
         service_app: 应用实例。
 
     Yields:
         None: 用例运行期。
     """
     await _ensure_schema(service_app)
-    await _clean_rows(service_app)
     yield
-    await _clean_rows(service_app)
 
 
 @pytest.fixture
-def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> SsoHarness:
+def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock, ns: Namespace) -> SsoHarness:
     """装配 SSO 测试替身（依赖覆盖 + ProviderRegistry 传输注入）。
+
+    单库叠加口径（04-6-2）：各协议提供方标识与本地用户主键按用例命名空间派生，
+    用例之间互不相交（共享租户库 / 平台库上叠加执行）。
 
     Args:
         service_app: 应用实例。
         monkeypatch: pytest monkeypatch 夹具。
         idp: Mock IdP。
+        ns: 用例命名空间（提供方标识与用户主键的派生源头）。
 
     Returns:
         SsoHarness: 装配套件。
@@ -492,4 +530,9 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
         cas=cas,
         wecom=wecom,
         dingtalk=dingtalk,
+        idp_key=ns.code("keycloak"),
+        cas_key=ns.code("cas"),
+        wecom_key=ns.code("wecom"),
+        dingtalk_key=ns.code("dingtalk"),
+        user_id=_user_id(ns),
     )

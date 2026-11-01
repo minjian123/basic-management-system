@@ -1,4 +1,8 @@
-"""SSO 回调闭环端点测试（Kiwi 2197）：换码验签 + 映射定位 + 会话签发 + 分支语义。"""
+"""SSO 回调闭环端点测试（Kiwi 2197）：换码验签 + 映射定位 + 会话签发 + 分支语义。
+
+单库叠加口径（04-6-2）：提供方标识 / 本地用户主键按用例命名空间派生；身份映射、提供方行与会话
+断言一律按本用例标识过滤（不再整表取数 / 整表清场）。
+"""
 
 import hashlib
 import json
@@ -15,24 +19,22 @@ from bms_core.models.identity.session import SysSession
 from bms_core.models.identity.user_identity import SysUserIdentity
 
 from .conftest import SsoHarness
-from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
-
-pytestmark = pytest.mark.own_db(
-    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
-    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
-)
-
-CALLBACK = f"/api/v1/auth/sso/{IDP_KEY}/callback"
+from .helpers import TENANT, TENANT_HEADERS, TENANT_ID
 
 
-async def _drop_own_mappings(session: Any) -> None:
+async def _drop_own_mappings(session: Any, idp_key: str) -> None:
     """只删本用例身份映射（按 `idp_key` 逐行删除，单库叠加下不得整表删除）。
 
     Args:
         session: 平台库会话。
+        idp_key: 身份源标识。
     """
     rows = (
-        (await session.execute(select(SysUserIdentity).where(SysUserIdentity.idp_key == f"{TENANT_ID}:{IDP_KEY}")))
+        (
+            await session.execute(
+                select(SysUserIdentity).where(SysUserIdentity.idp_key == f"{TENANT_ID}:{idp_key}")
+            )
+        )
         .scalars()
         .all()
     )
@@ -40,7 +42,16 @@ async def _drop_own_mappings(session: Any) -> None:
         await session.delete(row)
 
 
-OTHER_CALLBACK = "/api/v1/auth/sso/azure/callback"
+def _callback(sso: SsoHarness) -> str:
+    """本用例 OIDC 回调地址。
+
+    Args:
+        sso: 装配套件。
+
+    Returns:
+        str: 回调地址。
+    """
+    return f"/api/v1/auth/sso/{sso.idp_key}/callback"
 
 
 async def _flow_callback(
@@ -69,7 +80,7 @@ async def _flow_callback(
     elif sign_nonce is not None:
         sso.idp.make_id_token(nonce=sign_nonce)
     return await client.get(
-        f"{CALLBACK}?state={state}&code={code}",
+        f"{_callback(sso)}?state={state}&code={code}",
         headers=headers if headers is not None else TENANT_HEADERS,
     )
 
@@ -77,7 +88,7 @@ async def _flow_callback(
 @pytest.mark.kiwi_id(2197)
 async def test_callback_success_issues_session_and_cookie(client: AsyncClient, sso: SsoHarness) -> None:
     """成功闭环：200 + 租户回执 + refresh cookie + 租户库会话落库 + PKCE 换码。"""
-    sso.platform_client.set_user(1001)
+    sso.platform_client.set_user(sso.user_id)
     await sso.seed_provider()
     await sso.seed_mapping()
 
@@ -92,17 +103,19 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
     assert "code_verifier=" in sso.idp.token_forms[-1]
     assert "code=code-1" in sso.idp.token_forms[-1]
     async with sso.tenant_scope() as session:
-        rows = (await session.execute(select(SysSession))).scalars().all()
+        rows = (
+            (await session.execute(select(SysSession).where(SysSession.user_id == sso.user_id))).scalars().all()
+        )
     assert len(rows) == 1
     row = rows[0]
-    assert row.user_id == 1001
+    assert row.user_id == sso.user_id
     assert row.refresh_token_hash == hashlib.sha256(cookie.encode()).hexdigest()
     assert sso.issuer.specs[-1].tenant_id == TENANT_ID
     assert sso.platform_client.login_states[-1]["success"] is True
     assert "profile" in sso.platform_client.calls and "login-state" in sso.platform_client.calls
 
     replay = await client.get(
-        f"{CALLBACK}?state=consumed-state&code=code-1",
+        f"{_callback(sso)}?state=consumed-state&code=code-1",
         headers=TENANT_HEADERS,
     )
     assert replay.status_code == 400 and replay.json()["code"] == 20052
@@ -111,7 +124,7 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
 @pytest.mark.kiwi_id(2197)
 async def test_callback_success_without_id_token_uses_userinfo(client: AsyncClient, sso: SsoHarness) -> None:
     """回退分支：IdP 未返 ID Token 时以 userinfo subject 定位映射并签发。"""
-    sso.platform_client.set_user(1001)
+    sso.platform_client.set_user(sso.user_id)
     await sso.seed_provider()
     await sso.seed_mapping()
     response = await _flow_callback(client, sso, sign_nonce=None)
@@ -121,7 +134,7 @@ async def test_callback_success_without_id_token_uses_userinfo(client: AsyncClie
 @pytest.mark.kiwi_id(2197)
 async def test_callback_redirect_responses(client: AsyncClient, sso: SsoHarness) -> None:
     """可配跳转：成功 / 失败均 302（带参数），失败含错误码与提示。"""
-    sso.platform_client.set_user(1001)
+    sso.platform_client.set_user(sso.user_id)
     await sso.seed_provider()
     await sso.seed_mapping()
     sso.app.state.settings.sso.success_redirect = "http://app.test/sso/ok"
@@ -132,7 +145,7 @@ async def test_callback_redirect_responses(client: AsyncClient, sso: SsoHarness)
     assert ok.headers["location"] == "http://app.test/sso/ok?tenant=demo"
     assert "bms_refresh_token" in ok.cookies
 
-    fail = await client.get(f"{CALLBACK}?state=missing&code=x", headers=TENANT_HEADERS)
+    fail = await client.get(f"{_callback(sso)}?state=missing&code=x", headers=TENANT_HEADERS)
     assert fail.status_code == 302
     location = fail.headers["location"]
     assert location.startswith("http://app.test/sso/fail?")
@@ -144,11 +157,12 @@ async def test_callback_state_failures(client: AsyncClient, sso: SsoHarness, mon
     """流程状态失败分支：未知 / 重放 / 身份源不符 / 租户不符 / IdP 错误 / 缺授权码。"""
     await sso.seed_provider()
 
-    unknown = await client.get(f"{CALLBACK}?state=none&code=x", headers=TENANT_HEADERS)
+    unknown = await client.get(f"{_callback(sso)}?state=none&code=x", headers=TENANT_HEADERS)
     assert unknown.status_code == 400 and unknown.json()["code"] == 20052
 
     state, _, _ = await sso.start_flow(client)
-    mismatch = await client.get(f"{OTHER_CALLBACK}?state={state}&code=x", headers=TENANT_HEADERS)
+    other = f"/api/v1/auth/sso/{sso.idp_key}-azure/callback"
+    mismatch = await client.get(f"{other}?state={state}&code=x", headers=TENANT_HEADERS)
     assert mismatch.status_code == 400 and mismatch.json()["code"] == 20052
     assert state not in sso.states._items  # pyright: ignore[reportPrivateUsage]
 
@@ -163,34 +177,34 @@ async def test_callback_state_failures(client: AsyncClient, sso: SsoHarness, mon
     monkeypatch.setattr(source, "by_code", fake_by_code)
     state, _, _ = await sso.start_flow(client)
     wrong_tenant = await client.get(
-        f"{CALLBACK}?state={state}&code=x",
+        f"{_callback(sso)}?state={state}&code=x",
         headers={"X-Tenant-ID": "other"},
     )
     assert wrong_tenant.status_code == 400 and wrong_tenant.json()["code"] == 20052
 
     state, _, _ = await sso.start_flow(client)
     denied = await client.get(
-        f"{CALLBACK}?state={state}&error=access_denied",
+        f"{_callback(sso)}?state={state}&error=access_denied",
         headers=TENANT_HEADERS,
     )
     assert denied.status_code == 400 and denied.json()["code"] == 20052
     assert "access_denied" in denied.json()["message"]
 
     state, _, _ = await sso.start_flow(client)
-    no_code = await client.get(f"{CALLBACK}?state={state}", headers=TENANT_HEADERS)
+    no_code = await client.get(f"{_callback(sso)}?state={state}", headers=TENANT_HEADERS)
     assert no_code.status_code == 400 and no_code.json()["code"] == 20052
 
 
 @pytest.mark.kiwi_id(2197)
 async def test_callback_provider_and_idp_failures(client: AsyncClient, sso: SsoHarness) -> None:
     """提供方 / IdP 失败分支：回调期停用 20051；换码 500 → 20053；nonce 与过期 → 20052。"""
-    sso.platform_client.set_user(1001)
+    sso.platform_client.set_user(sso.user_id)
     await sso.seed_provider()
     await sso.seed_mapping()
 
     state, _, _ = await sso.start_flow(client)
     await sso.set_provider_status("disabled")
-    disabled = await client.get(f"{CALLBACK}?state={state}&code=x", headers=TENANT_HEADERS)
+    disabled = await client.get(f"{_callback(sso)}?state={state}&code=x", headers=TENANT_HEADERS)
     assert disabled.status_code == 404 and disabled.json()["code"] == 20051
 
     await sso.set_provider_status("enabled")
@@ -205,7 +219,7 @@ async def test_callback_provider_and_idp_failures(client: AsyncClient, sso: SsoH
 
     state, _, payload = await sso.start_flow(client)
     sso.idp.make_id_token(nonce=cast("str", payload["nonce"]), exp_delta=-3600)
-    expired = await client.get(f"{CALLBACK}?state={state}&code=code-1", headers=TENANT_HEADERS)
+    expired = await client.get(f"{_callback(sso)}?state={state}&code=code-1", headers=TENANT_HEADERS)
     assert expired.status_code == 400 and expired.json()["code"] == 20052
 
     sso.idp.jwks_status = 500
@@ -217,27 +231,32 @@ async def test_callback_provider_and_idp_failures(client: AsyncClient, sso: SsoH
 async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, sso: SsoHarness) -> None:
     """映射与 platform_client 失败分支：未命中 / 租户不符 20054；双行冲突 20055；禁用 20004；platform 不可达 10007。"""
     await sso.seed_provider()
-    sso.platform_client.set_user(1001)
+    sso.platform_client.set_user(sso.user_id)
 
     unmatched = await _flow_callback(client, sso)
     assert unmatched.status_code == 403 and unmatched.json()["code"] == 20054
 
     async with sso.platform_scope() as session:
         session.add(
-            SysUserIdentity(idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id="2002", user_id=1001)
+            SysUserIdentity(
+                idp_key=f"{TENANT_ID}:{sso.idp_key}",
+                external_id="sub-1",
+                tenant_id="2002",
+                user_id=sso.user_id,
+            )
         )
         await session.commit()
     wrong_tenant = await _flow_callback(client, sso)
     assert wrong_tenant.status_code == 403 and wrong_tenant.json()["code"] == 20054
     async with sso.platform_scope() as session:
-        await _drop_own_mappings(session)
+        await _drop_own_mappings(session, sso.idp_key)
         await session.commit()
 
     await sso.seed_mapping(duplicate=True)
     conflict = await _flow_callback(client, sso)
     assert conflict.status_code == 409 and conflict.json()["code"] == 20055
     async with sso.platform_scope() as session:
-        await _drop_own_mappings(session)
+        await _drop_own_mappings(session, sso.idp_key)
         await session.commit()
 
     await sso.seed_mapping()
@@ -245,11 +264,11 @@ async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, s
     org_missing = await _flow_callback(client, sso)
     assert org_missing.status_code == 403 and org_missing.json()["code"] == 20054
 
-    sso.platform_client.set_user(1001, status="disabled")
+    sso.platform_client.set_user(sso.user_id, status="disabled")
     disabled = await _flow_callback(client, sso)
     assert disabled.status_code == 401 and disabled.json()["code"] == 20004
 
-    sso.platform_client.set_user(1001)
+    sso.platform_client.set_user(sso.user_id)
     sso.platform_client.fail_profile = True
     unavailable = await _flow_callback(client, sso)
     assert unavailable.status_code == 503 and unavailable.json()["code"] == 10007
@@ -258,33 +277,40 @@ async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, s
 @pytest.mark.kiwi_id(2197)
 async def test_callback_config_and_dependency_failures(client: AsyncClient, sso: SsoHarness) -> None:
     """回调期配置 / 依赖失败：行配置非法 / 换码契约非法 / 验签配置缺失 / userinfo 不可达（20053）。"""
-    sso.platform_client.set_user(1001)
+    sso.platform_client.set_user(sso.user_id)
     await sso.seed_provider()
     await sso.seed_mapping()
 
+    async def _patch_provider(**fields: object) -> None:
+        """只改本用例的提供方行（按 `idp_key` 定位）。
+
+        Args:
+            **fields: 待改字段。
+        """
+        async with sso.tenant_scope() as session:
+            row = (
+                await session.execute(
+                    select(SysIdentityProvider).where(SysIdentityProvider.idp_key == sso.idp_key)
+                )
+            ).scalar_one()
+            for name, value in fields.items():
+                setattr(row, name, value)
+            await session.commit()
+
     state, _, payload = await sso.start_flow(client)
     sso.idp.make_id_token(nonce=cast("str", payload["nonce"]))
-    async with sso.tenant_scope() as session:
-        row = (await session.execute(select(SysIdentityProvider))).scalars().one()
-        row.config = "{not-json"
-        await session.commit()
-    bad_config = await client.get(f"{CALLBACK}?state={state}&code=code-1", headers=TENANT_HEADERS)
+    await _patch_provider(config="{not-json")
+    bad_config = await client.get(f"{_callback(sso)}?state={state}&code=code-1", headers=TENANT_HEADERS)
     assert bad_config.status_code == 503 and bad_config.json()["code"] == 20053
 
-    async with sso.tenant_scope() as session:
-        row = (await session.execute(select(SysIdentityProvider))).scalars().one()
-        row.config = json.dumps(dict(sso.provider_config()))
-        await session.commit()
+    await _patch_provider(config=json.dumps(dict(sso.provider_config())))
 
     sso.idp.token_bad_json = True
     bad_token = await _flow_callback(client, sso)
     assert bad_token.status_code == 503 and bad_token.json()["code"] == 20053
     sso.idp.token_bad_json = False
 
-    async with sso.tenant_scope() as session:
-        row = (await session.execute(select(SysIdentityProvider))).scalars().one()
-        row.icon = "bump"
-        await session.commit()
+    await _patch_provider(icon="bump")
     sso.idp.discovery_drop = ConcurrentStableSet({"jwks_uri"})
     bad_verify = await _flow_callback(client, sso)
     assert bad_verify.status_code == 503 and bad_verify.json()["code"] == 20053

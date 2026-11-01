@@ -24,12 +24,37 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.kiwi_id(2197),
     pytest.mark.own_db(
-        "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
-        "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
+        "真机 Keycloak 联调：提供方标识与回调地址须与真实 Keycloak 客户端注册值一致（固定 keycloak），"
+        "不能按用例命名空间派生；同时需要空库起点，故走独占库"
     ),
 ]
 
 _ENV_FILE = Path(__file__).resolve().parents[5] / "deploy" / ".env"
+
+
+@pytest.fixture(autouse=True)
+def isolated_dbs(
+    tenant_db: None,
+    isolated_platform_db_url: str,
+    isolated_tenant_db_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """本文件（`own_db`）的独占库接线：平台库 + 租户库各一份 tmp 库。
+
+    真机联调需要「库里只有本用例的提供方与映射」这一确定起点，共享库上做不到。
+
+    Args:
+        tenant_db: 共享租户库接线（保证顺序：先公共、后独占）。
+        isolated_platform_db_url: 独占平台库连接串（每用例一份 tmp 库 + 播种）。
+        isolated_tenant_db_url: 独占租户库连接串（每用例一份 tmp 库 + 参数种子）。
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    from bms_core.core.config import get_settings
+
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
+    get_settings.cache_clear()
+
 _USERNAME = "bms-sso-e2e"
 _PASSWORD = "Bms-sso-e2e-2026!"
 _USER_ID = 1001
@@ -240,20 +265,21 @@ async def test_keycloak_end_to_end_login(
 
     sso.platform_client.set_user(_USER_ID, username=_USERNAME)
     await sso.seed_provider(
+        idp_key=IDP_KEY,
         config=sso.provider_config(
             issuer=f"{_BASE}/realms/bms",
             client_secret_ref="env:KEYCLOAK_CLIENT_SECRET",
             redirect_uri=_REGISTERED_REDIRECT,
-        )
+        ),
     )
 
     async with httpx.AsyncClient(timeout=15.0, follow_redirects=False) as realm:
         admin_token = await _admin_token(realm)
         await _ensure_redirect_uris(realm, admin_token)
         subject = await _ensure_user(realm, admin_token)
-        await sso.seed_mapping(external_id=subject)
+        await sso.seed_mapping(idp_key=IDP_KEY, external_id=subject, user_id=_USER_ID)
 
-        state, location, _ = await sso.start_flow(client)
+        state, location, _ = await sso.start_flow(client, idp_key=IDP_KEY)
         assert location.startswith(f"{_BASE}/realms/bms/protocol/openid-connect/auth")
         page = await realm.get(location)
         assert page.status_code == 200, page.text

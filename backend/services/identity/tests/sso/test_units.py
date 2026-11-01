@@ -1,4 +1,7 @@
-"""SSO 覆盖补口（Kiwi 2197）：私有分支直调（配置解析 / 派生回退 / 空值边界）。"""
+"""SSO 覆盖补口（Kiwi 2197）：私有分支直调（配置解析 / 派生回退 / 空值边界）。
+
+本文件是纯函数 / 私有分支直调，不落库（无自建库、无整表断言），随目录共享库口径一并执行。
+"""
 
 from __future__ import annotations
 
@@ -37,11 +40,6 @@ from bms_identity.domains.identity_federation.services.sso import (  # pyright: 
     _flow_from_payload,  # pyright: ignore[reportPrivateUsage]
 )
 from bms_identity.services.platform_client import PlatformCredentialClient
-
-pytestmark = pytest.mark.own_db(
-    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
-    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
-)
 
 
 @pytest.mark.kiwi_id(2199)

@@ -1,4 +1,7 @@
-"""SSO 授权跳转端点测试（Kiwi 2197）：state / nonce / PKCE 生成与失败分支。"""
+"""SSO 授权跳转端点测试（Kiwi 2197）：state / nonce / PKCE 生成与失败分支。
+
+单库叠加口径（04-6-2）：提供方标识按用例命名空间派生（`sso.idp_key`），URL 与断言同源。
+"""
 
 import base64
 import hashlib
@@ -7,15 +10,8 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from httpx import AsyncClient
 
-from .conftest import REDIRECT_URI, SsoHarness
-from .helpers import CLIENT_ID, IDP_KEY, ISSUER, TENANT_HEADERS, TENANT_ID
-
-pytestmark = pytest.mark.own_db(
-    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
-    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
-)
-
-AUTHORIZE = f"/api/v1/auth/sso/{IDP_KEY}/authorize"
+from .conftest import SsoHarness
+from .helpers import CLIENT_ID, ISSUER, TENANT_HEADERS, TENANT_ID
 
 
 def _challenge(verifier: str) -> str:
@@ -40,7 +36,7 @@ async def test_authorize_redirects_with_state_nonce_pkce(client: AsyncClient, ss
     assert location.startswith(f"{ISSUER}/protocol/openid-connect/auth")
     query = parse_qs(urlparse(location).query)
     assert query["client_id"] == [CLIENT_ID]
-    assert query["redirect_uri"] == [REDIRECT_URI]
+    assert query["redirect_uri"] == [sso.redirect_uri]
     assert query["response_type"] == ["code"]
     assert query["state"] == [state]
     assert query["code_challenge_method"] == ["S256"]
@@ -49,8 +45,8 @@ async def test_authorize_redirects_with_state_nonce_pkce(client: AsyncClient, ss
     assert len(verifier) > 0 and query["code_challenge"] == [_challenge(verifier)]
     assert payload["tenant_code"] == "demo"
     assert payload["tenant_id"] == TENANT_ID
-    assert payload["idp_key"] == IDP_KEY
-    assert payload["redirect_uri"] == REDIRECT_URI
+    assert payload["idp_key"] == sso.idp_key
+    assert payload["redirect_uri"] == sso.redirect_uri
 
 
 @pytest.mark.kiwi_id(2197)
@@ -62,7 +58,7 @@ async def test_authorize_derives_redirect_uri_and_disables_pkce(client: AsyncCli
 
     state, location, payload = await sso.start_flow(client)
     query = parse_qs(urlparse(location).query)
-    derived = f"http://cb.test/api/v1/auth/sso/{IDP_KEY}/callback"
+    derived = f"http://cb.test/api/v1/auth/sso/{sso.idp_key}/callback"
     assert query["redirect_uri"] == [derived]
     assert payload["redirect_uri"] == derived
     assert "code_challenge" not in query and "code_challenge_method" not in query
@@ -77,19 +73,20 @@ async def test_authorize_provider_errors(client: AsyncClient, sso: SsoHarness) -
     assert unknown.status_code == 404 and unknown.json()["code"] == 20051
 
     await sso.seed_provider(status="disabled")
-    disabled = await client.get(AUTHORIZE, headers=TENANT_HEADERS)
+    disabled = await client.get(f"/api/v1/auth/sso/{sso.idp_key}/authorize", headers=TENANT_HEADERS)
     assert disabled.status_code == 404 and disabled.json()["code"] == 20051
 
     await sso.set_provider_status("enabled")
+    broken_key = sso.idp_key.replace("keycloak", "broken")
     await sso.seed_provider(
-        idp_key="broken",
+        idp_key=broken_key,
         config=sso.provider_config(client_secret_ref="env:SSO_TEST_MISSING_SECRET"),
     )
-    broken = await client.get("/api/v1/auth/sso/broken/authorize", headers=TENANT_HEADERS)
+    broken = await client.get(f"/api/v1/auth/sso/{broken_key}/authorize", headers=TENANT_HEADERS)
     assert broken.status_code == 503 and broken.json()["code"] == 20053
 
     sso.idp.discovery_status = 500
-    unavailable = await client.get(AUTHORIZE, headers=TENANT_HEADERS)
+    unavailable = await client.get(f"/api/v1/auth/sso/{sso.idp_key}/authorize", headers=TENANT_HEADERS)
     assert unavailable.status_code == 503 and unavailable.json()["code"] == 20053
     assert sso.states._items == {}  # pyright: ignore[reportPrivateUsage]
 
@@ -100,9 +97,10 @@ async def test_authorize_rate_limited_by_provider_dimension(client: AsyncClient,
     """限流：provider 维度阈值 1 时第二次请求 429（10005）；限流键租户位为雪花 id。"""
     sso.app.state.settings.sso.provider_rate_limit = 1
     await sso.seed_provider()
-    first = await client.get(AUTHORIZE, headers=TENANT_HEADERS)
+    authorize = f"/api/v1/auth/sso/{sso.idp_key}/authorize"
+    first = await client.get(authorize, headers=TENANT_HEADERS)
     assert first.status_code == 302
-    second = await client.get(AUTHORIZE, headers=TENANT_HEADERS)
+    second = await client.get(authorize, headers=TENANT_HEADERS)
     assert second.status_code == 429 and second.json()["code"] == 10005
     keys = set(sso.limiter._windows)  # pyright: ignore[reportPrivateUsage]
-    assert any(key.startswith(f"bms:{TENANT_ID}:rate:client:{IDP_KEY}") for key in keys)
+    assert any(key.startswith(f"bms:{TENANT_ID}:rate:client:{sso.idp_key}") for key in keys)

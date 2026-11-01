@@ -1,37 +1,53 @@
-"""SSO 入口清单端点测试（Kiwi 2197）：按租户返回启用提供方 + 租户解析分支。"""
+"""SSO 入口清单端点测试（Kiwi 2197）：按租户返回启用提供方 + 租户解析分支。
+
+单库叠加口径（04-6-2）：入口清单是**整租户集合**口径（端点无编码前缀筛选），断言一律先按本用例
+命名空间前缀裁剪再比对（§6.3「集合先按前缀裁剪」），不假定库为空。
+"""
 
 import pytest
 from httpx import AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.tenant import TenantContext
+from bms_core.testing.namespace import Namespace
 
 from .conftest import SsoHarness
-
-pytestmark = pytest.mark.own_db(
-    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
-    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
-)
 
 API = "/api/v1/auth/sso/providers"
 TENANT_HEADERS: ConcurrentStableDict[str, str] = ConcurrentStableDict({"X-Tenant-ID": "demo"})
 
 
-@pytest.mark.kiwi_id(2197)
-async def test_list_providers_sorted_and_disabled_filtered(client: AsyncClient, sso: SsoHarness) -> None:
-    """入口清单：仅启用项，按 sort 升序；无可选项返回空列表。"""
-    empty = await client.get(API, headers=TENANT_HEADERS)
-    assert empty.status_code == 200 and empty.json()["data"]["items"] == []
+def _mine(items: list[dict[str, object]], ns: Namespace) -> list[dict[str, object]]:
+    """裁剪出本用例命名空间内的入口项。
 
-    await sso.seed_provider(idp_key="b", sort=2, name="B 身份源")
-    await sso.seed_provider(idp_key="a", sort=1, name="A 身份源")
-    await sso.seed_provider(idp_key="off", sort=0, name="停用身份源", status="disabled")
+    Args:
+        items: 端点返回的入口清单。
+        ns: 用例命名空间。
+
+    Returns:
+        list[dict[str, object]]: 仅本用例的行（保持端点给出的顺序）。
+    """
+    return [item for item in items if str(item.get("idp_key", "")).startswith(ns.prefix)]
+
+
+@pytest.mark.kiwi_id(2197)
+async def test_list_providers_sorted_and_disabled_filtered(
+    client: AsyncClient, sso: SsoHarness, ns: Namespace
+) -> None:
+    """入口清单：仅启用项，按 sort 升序；停用项不出现。"""
+    empty = await client.get(API, headers=TENANT_HEADERS)
+    assert empty.status_code == 200 and _mine(empty.json()["data"]["items"], ns) == []
+
+    keys = [ns.code("b"), ns.code("a"), ns.code("off")]
+    await sso.seed_provider(idp_key=keys[0], sort=2, name="B 身份源")
+    await sso.seed_provider(idp_key=keys[1], sort=1, name="A 身份源")
+    await sso.seed_provider(idp_key=keys[2], sort=0, name="停用身份源", status="disabled")
 
     response = await client.get(API, headers=TENANT_HEADERS)
     assert response.status_code == 200
-    items = response.json()["data"]["items"]
-    assert [item["idp_key"] for item in items] == ["a", "b"]
-    assert items[0] == {"idp_key": "a", "name": "A 身份源", "icon": "", "type": "oidc", "sort": 1}
+    items = _mine(response.json()["data"]["items"], ns)
+    assert [item["idp_key"] for item in items] == [keys[1], keys[0]]
+    assert items[0] == {"idp_key": keys[1], "name": "A 身份源", "icon": "", "type": "oidc", "sort": 1}
 
 
 @pytest.mark.kiwi_id(2197)
@@ -45,11 +61,12 @@ async def test_list_providers_no_tenant_returns_empty(client: AsyncClient, sso: 
 
 @pytest.mark.kiwi_id(2239)
 async def test_list_providers_single_active_fallback(
-    client: AsyncClient, sso: SsoHarness, monkeypatch: pytest.MonkeyPatch
+    client: AsyncClient, sso: SsoHarness, ns: Namespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """租户解析：无请求头且唯一启用租户 → 按该租户返回入口清单（免登录首访可见）。"""
     sso.app.state.settings.tenant.allow_demo_fallback = False
-    await sso.seed_provider(idp_key="a", sort=1, name="A 身份源")
+    key = ns.code("a")
+    await sso.seed_provider(idp_key=key, sort=1, name="A 身份源")
     source = sso.app.state.tenant_source
 
     async def fake_single_active() -> TenantContext:
@@ -59,7 +76,7 @@ async def test_list_providers_single_active_fallback(
 
     response = await client.get(API)
     assert response.status_code == 200
-    assert [item["idp_key"] for item in response.json()["data"]["items"]] == ["a"]
+    assert [item["idp_key"] for item in _mine(response.json()["data"]["items"], ns)] == [key]
 
 
 @pytest.mark.kiwi_id(2197)
