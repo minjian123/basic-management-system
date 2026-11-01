@@ -73,8 +73,13 @@ def pytest_configure(config: Any) -> None:
     _plugin.pytest_configure(config)
     from bms_core.testing import plugin as base_plugin
 
-    config.pluginmanager.register(base_plugin, "bms_testing_base_plugin")
-    base_plugin.pytest_configure(config)
+    # 幂等注册：子工程 `addopts` 也会 `-p bms_core.testing.plugin`（窄跑时 rootdir 落到服务子工程，
+    # 本模块不经 addopts 加载）。两条路径同时命中时同一模块会被注册成两个名字 → pluggy 直接抛错，
+    # 故先看它是否已以任一名字在册；已在册时钩子由 pytest 自己调，这里不再重复调。
+    manager = config.pluginmanager
+    if manager.get_plugin("bms_core.testing.plugin") is None and manager.get_plugin("bms_testing_base_plugin") is None:
+        manager.register(base_plugin, "bms_testing_base_plugin")
+        base_plugin.pytest_configure(config)
 
 
 def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
