@@ -380,10 +380,36 @@ async def _clean_rows(app: FastAPI) -> None:
 
 
 @pytest.fixture(autouse=True)
-async def clean_sso(service_app: FastAPI) -> AsyncIterator[None]:
+def isolated_dbs(
+    platform_db: None,
+    isolated_platform_db_url: str,
+    isolated_tenant_db_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # pyright: ignore[reportUnusedFunction]
+    """SSO 用例的**独占库**（平台库 + 租户库各一份 tmp 库）。
+
+    本目录用例每例整表清场（会话 / 提供方 / 身份映射），共享库上清场会删掉并行中他人用例的数据；
+    独占库既保证清场安全，也让「映射冲突 / 租户不符」这类状态断言有确定起点。
+
+    Args:
+        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
+        isolated_platform_db_url: 独占平台库连接串（每用例一份 tmp 库 + 播种）。
+        isolated_tenant_db_url: 独占租户库连接串（每用例一份 tmp 库 + 参数种子）。
+        monkeypatch: 环境变量覆盖。
+    """
+    from bms_core.core.config import get_settings
+
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
+    get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+async def clean_sso(isolated_dbs: None, service_app: FastAPI) -> AsyncIterator[None]:
     """用例前后清空 SSO 相关表并兜底建表。
 
     Args:
+        isolated_dbs: 独占库覆盖（依赖顺序保证先于应用装配）。
         service_app: 应用实例。
 
     Yields:

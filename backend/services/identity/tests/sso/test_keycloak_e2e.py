@@ -20,7 +20,14 @@ from bms_identity.domains.identity_federation.services.provider_registry import 
 from .conftest import SsoHarness
 from .helpers import IDP_KEY, TENANT_HEADERS
 
-pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(2197)]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.kiwi_id(2197),
+    pytest.mark.own_db(
+        "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
+        "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
+    ),
+]
 
 _ENV_FILE = Path(__file__).resolve().parents[5] / "deploy" / ".env"
 _USERNAME = "bms-sso-e2e"

@@ -1,7 +1,7 @@
 """pytest 公共夹具：ASGI 内存客户端（免启服务器）+ 配置环境隔离 + 平台库租户种子。"""
 
-import asyncio
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -23,7 +23,6 @@ from bms_core.testing.fixtures import (
 
 __all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
 from bms_identity.main import ApplicationFactory
-from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
 
 DEMO_TENANT_ID = "1001"
@@ -206,18 +205,75 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.fixture(scope="session")
-def platform_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
-    """会话级平台库：临时 `sys_tenant` 种子库（建库 / 播种整个测试会话只做一次）。
+def platform_db_prepare() -> Callable[[str], None]:
+    """共享平台库准备集回调（子工程自成 rootdir 时的薄壳，实现单源在 `tests_support.shared_db`）。
+
+    Returns:
+        Callable[[str], None]: 接受连接串的准备函数。
+    """
+    from tests_support.shared_db import prepare_platform
+
+    return prepare_platform
+
+
+@pytest.fixture(scope="session")
+def tenant_db_prepare() -> Callable[[str], None]:
+    """共享租户库准备集回调（同上）。
+
+    Returns:
+        Callable[[str], None]: 接受连接串的准备函数。
+    """
+    from tests_support.shared_db import prepare_tenant
+
+    return prepare_tenant
+
+
+@pytest.fixture(scope="session")
+def platform_db_url(shared_platform_db_url: str) -> str:
+    """会话级平台库：**共享平台库**（04-6-2 单库化；建库 / 播种由准备集一次性负责）。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
+        shared_platform_db_url: 共享平台库连接串（会话级）。
 
     Returns:
         str: 会话级平台库连接串。
     """
-    platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
-    asyncio.run(seed_tenants(platform_url))
-    return platform_url
+    return shared_platform_db_url
+
+
+@pytest.fixture
+def isolated_platform_db_url(tmp_path: Path, platform_db_prepare: Callable[[str], None]) -> str:
+    """白名单（`own_db`）用例专用**独占**平台库：每用例一份 tmp 库 + 播种。
+
+    用于「逐例整表清场」（SSO 会话 / 提供方 / 身份映射）的用例：共享库上清场会删掉并行中
+    他人用例的数据。
+
+    Args:
+        tmp_path: 用例级临时目录。
+        platform_db_prepare: 共享平台库准备集（保证种子租户与主键对齐同源）。
+
+    Returns:
+        str: 独占平台库连接串。
+    """
+    url = f"sqlite+aiosqlite:///{tmp_path / 'platform_isolated.db'}"
+    platform_db_prepare(url)
+    return url
+
+
+@pytest.fixture
+def isolated_tenant_db_url(tmp_path: Path, tenant_db_prepare: Callable[[str], None]) -> str:
+    """白名单（`own_db`）用例专用**独占**租户库：每用例一份 tmp 库 + 参数种子。
+
+    Args:
+        tmp_path: 用例级临时目录。
+        tenant_db_prepare: 共享租户库准备集。
+
+    Returns:
+        str: 独占租户库连接串。
+    """
+    url = f"sqlite+aiosqlite:///{tmp_path / 'tenant_isolated.db'}"
+    tenant_db_prepare(url)
+    return url
 
 
 @pytest.fixture

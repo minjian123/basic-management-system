@@ -8,6 +8,11 @@ from bms_core.db.tenant import TenantContext
 
 from .conftest import SsoHarness
 
+pytestmark = pytest.mark.own_db(
+    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
+    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
+)
+
 API = "/api/v1/auth/sso/providers"
 TENANT_HEADERS: ConcurrentStableDict[str, str] = ConcurrentStableDict({"X-Tenant-ID": "demo"})
 

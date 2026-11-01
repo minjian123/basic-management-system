@@ -18,6 +18,11 @@ from bms_core.models.identity.user_identity import SysUserIdentity
 from .conftest import WECOM_REDIRECT_URI, SsoHarness
 from .helpers import TENANT, TENANT_HEADERS, TENANT_ID, WECOM_AGENT_ID, WECOM_CORP_ID, WECOM_IDP_KEY
 
+pytestmark = pytest.mark.own_db(
+    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
+    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
+)
+
 AUTHORIZE_URL = f"/api/v1/auth/sso/{WECOM_IDP_KEY}/authorize-url"
 AUTHORIZE = f"/api/v1/auth/sso/{WECOM_IDP_KEY}/authorize"
 CALLBACK = f"/api/v1/auth/sso/{WECOM_IDP_KEY}/callback"

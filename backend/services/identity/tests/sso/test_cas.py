@@ -15,6 +15,11 @@ from bms_core.models.identity.user_identity import SysUserIdentity
 from .conftest import CAS_REDIRECT_URI, SsoHarness
 from .helpers import CAS_IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
 
+pytestmark = pytest.mark.own_db(
+    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
+    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
+)
+
 CALLBACK = f"/api/v1/auth/sso/{CAS_IDP_KEY}/callback"
 
 

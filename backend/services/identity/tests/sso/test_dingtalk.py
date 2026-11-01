@@ -17,6 +17,11 @@ from bms_core.models.identity.user_identity import SysUserIdentity
 from .conftest import SsoHarness
 from .helpers import DINGTALK_CLIENT_ID, DINGTALK_IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
 
+pytestmark = pytest.mark.own_db(
+    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
+    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
+)
+
 AUTHORIZE_URL = f"/api/v1/auth/sso/{DINGTALK_IDP_KEY}/authorize-url"
 CALLBACK = f"/api/v1/auth/sso/{DINGTALK_IDP_KEY}/callback"
 

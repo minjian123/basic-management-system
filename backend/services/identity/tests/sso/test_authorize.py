@@ -10,6 +10,11 @@ from httpx import AsyncClient
 from .conftest import REDIRECT_URI, SsoHarness
 from .helpers import CLIENT_ID, IDP_KEY, ISSUER, TENANT_HEADERS, TENANT_ID
 
+pytestmark = pytest.mark.own_db(
+    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
+    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
+)
+
 AUTHORIZE = f"/api/v1/auth/sso/{IDP_KEY}/authorize"
 
 

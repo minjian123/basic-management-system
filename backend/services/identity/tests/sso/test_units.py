@@ -38,6 +38,11 @@ from bms_identity.domains.identity_federation.services.sso import (  # pyright: 
 )
 from bms_identity.services.platform_client import PlatformCredentialClient
 
+pytestmark = pytest.mark.own_db(
+    "本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），"
+    "「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据"
+)
+
 
 @pytest.mark.kiwi_id(2199)
 def test_build_service_url_edge() -> None:
