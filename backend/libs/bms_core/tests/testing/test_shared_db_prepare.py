@@ -24,11 +24,10 @@ pytestmark = [pytest.mark.kiwi_id(2400), pytest.mark.own_db("被测对象就是�
 
 @pytest.fixture(autouse=True)
 def _restore_basetemp(tmp_path: Path) -> Iterator[None]:
-    """把测试产物基址钉到临时目录，并在用例结束后复位 basetemp 记录。"""
+    """把测试产物基址钉到临时目录，并在用例结束后复位工程根记录。"""
     fixtures.configure_project_root(str(tmp_path))
     yield
     fixtures.configure_project_root("")
-    fixtures.configure_sqlite_basetemp("")
 
 
 def _prepare(_url: str) -> None:
@@ -87,25 +86,16 @@ def test_isolation_false_values(monkeypatch: pytest.MonkeyPatch, value: str) -> 
     assert fixtures.isolation_enabled() is False
 
 
-def test_isolation_moves_db_dir_to_basetemp(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """开启后：库落 basetemp 下的独立目录，会话头提示含落点。"""
-    monkeypatch.chdir(tmp_path)
+def test_isolation_moves_db_dir_under_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """开启后：库落 `<工程根>/.cache/test-db-isolated`（不再依赖 basetemp），会话头提示含落点。"""
     monkeypatch.setenv(fixtures.ISOLATED_ENV, "1")
-    fixtures.configure_sqlite_basetemp(str(tmp_path / "base"))
-    assert fixtures.test_db_dir() == tmp_path / "base" / "test-db-isolated"
+    directory = fixtures.test_db_dir()
+    assert directory.name == "test-db-isolated"
+    assert directory.parent.name == ".cache"
+    assert directory != fixtures.project_root() / ".cache" / fixtures.TEST_DB_DIRNAME
     notice = fixtures.isolation_notice()
     assert "隔离调试模式" in notice
     assert "不代表 CI 口径" in notice
-
-
-def test_isolation_without_basetemp(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """开启但无 basetemp：落系统临时目录下的同名子目录（仍不污染仓内 `.cache/test`）。"""
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv(fixtures.ISOLATED_ENV, "1")
-    fixtures.configure_sqlite_basetemp("")
-    directory = fixtures.test_db_dir()
-    assert directory.name == "test-db-isolated"
-    assert directory != tmp_path / ".cache" / "test"
 
 
 def test_resolve_prepare_prefers_data_source_fixture() -> None:
@@ -149,14 +139,24 @@ def test_version_for_dynamic_and_anonymous_sources() -> None:
     assert fixtures.version_for(cast("Callable[[str], None]", module)) == "1"
 
 
-def test_root_conftest_exposes_prepare_fixtures(
-    platform_db_prepare: Callable[[str], None], tenant_db_prepare: Callable[[str], None]
-) -> None:
-    """工程根 conftest 暴露的准备夹具即 `tests_support.shared_db` 的单源实现（薄壳不复制逻辑）。"""
+def test_root_conftest_exposes_prepare_fixtures() -> None:
+    """工程根 conftest 暴露的准备夹具即 `tests_support.shared_db` 的单源实现（薄壳不复制逻辑）。
+
+    直接加载工程根 `conftest.py` 模块断言，而非经夹具注入：本目录自带 `pyproject.toml`，
+    自成 rootdir 时根级 conftest 不参与加载，注入式断言会随调用方式漂移。
+    """
+    import importlib.util
+
     from tests_support.shared_db import prepare_platform, prepare_tenant
 
-    assert platform_db_prepare is prepare_platform
-    assert tenant_db_prepare is prepare_tenant
+    root_conftest = Path(__file__).resolve().parents[4] / "conftest.py"
+    spec = importlib.util.spec_from_file_location("_root_conftest_probe", root_conftest)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module.platform_db_prepare.__wrapped__() is prepare_platform
+    assert module.tenant_db_prepare.__wrapped__() is prepare_tenant
 
 
 async def test_ensure_shared_db_async_awaits_coroutine_prepare(tmp_path: Path) -> None:

@@ -67,6 +67,7 @@ pythonpath = [
 markers = [
     "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",
     "integration: 需要真实外部服务的集成用例（未配置环境时跳过）",
+    "own_db: 用例自建库 / 自持库状态（单库化白名单，04-6-2）",
     "dialect_mysql: 三库真库用例的 MySQL 方言标记（与 CI 的 DB_DIALECT=mysql 同形）",
     "dialect_postgres: 三库真库用例的 PostgreSQL 方言标记（DB_DIALECT=postgres）",
     "dialect_dm8: 三库真库用例的达梦 DM8 方言标记（DB_DIALECT=dm8）",

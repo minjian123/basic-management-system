@@ -23,7 +23,6 @@ from bms_core.testing.fixtures import (
     clear_shared_db_files,
     clear_tenant_cache,
     configure_project_root,
-    configure_sqlite_basetemp,
     ensure_shared_db,
     isolate_settings,
     ns,
@@ -44,7 +43,6 @@ __all__ = (
     "clear_shared_db_files",
     "clear_tenant_cache",
     "configure_project_root",
-    "configure_sqlite_basetemp",
     "ensure_shared_db",
     "isolate_settings",
     "ns",
@@ -84,7 +82,6 @@ def pytest_configure(config: pytest.Config) -> None:
     if basetemp:
         # `abspath` 结果必然含父目录，无需再判空
         os.makedirs(os.path.dirname(os.path.abspath(os.fspath(basetemp))), exist_ok=True)
-    fixtures.configure_sqlite_basetemp(str(basetemp))
     notice = fixtures.isolation_notice()
     if notice:
         print(notice)

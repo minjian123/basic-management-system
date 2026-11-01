@@ -9,7 +9,6 @@ import asyncio
 import hashlib
 import inspect
 import os
-import tempfile
 import time
 from collections.abc import AsyncIterator, Callable, Generator, Iterator
 from contextlib import contextmanager, suppress
@@ -44,7 +43,6 @@ __all__ = (
     "clear_shared_db_files",
     "clear_tenant_cache",
     "configure_project_root",
-    "configure_sqlite_basetemp",
     "ensure_shared_db",
     "isolation_enabled",
     "isolation_notice",
@@ -63,7 +61,6 @@ __all__ = (
     "test_db_dir",
     "version_for",
     "worker_id_for_snowflake",
-    "worker_sqlite_dir",
 )
 
 
@@ -76,51 +73,6 @@ def clear_isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in list(os.environ):
         if key.startswith("BMS_") and not key.startswith("BMS_TEST_"):
             monkeypatch.delenv(key, raising=False)
-
-
-_sqlite_basetemp = ""
-"""pytest basetemp（xdist worker 下为 `<basetemp>/popen-gwN`）；由 `plugin.pytest_configure` 注入。
-
-`bms` 仓的 `-p` 入口是 `backend/bms_testing_plugin.py`（采集前置）；产品仓可直接用
-`bms_core.testing.plugin`，覆盖率采集时机由产品仓自管。
-"""
-
-_SQLITE_TEMP_SUBDIR = "bms-pytest-sqlite"
-"""无 basetemp 时的兜底目录（系统临时目录下，按 worker 再分一层）。"""
-
-
-def configure_sqlite_basetemp(value: str) -> None:
-    """记录 pytest basetemp，供 `worker_sqlite_dir` 派生 worker 目录。
-
-    Args:
-        value: pytest basetemp 路径（空串表示不介入）。
-    """
-    global _sqlite_basetemp
-    _sqlite_basetemp = value or ""
-
-
-def worker_sqlite_dir() -> str:
-    """并行执行（pytest-xdist）下本 worker 专属的 SQLite 文件目录。
-
-    SQLite 文件库在并行 worker 间共享同一路径会产生跨 worker 行级干扰（用例互相看到对方写入的行），
-    表现为随机的断言失败；按 worker 分配独立目录后每个 worker 拥有独立库文件。
-
-    目录 = `<basetemp>/sqlite-<worker>`（无 basetemp 时落系统临时目录下 `bms-pytest-sqlite/`），
-    首次解析自动建目录。
-
-    注：`pytest` 的 rootdir 落在子工程（如 `libs/bms_core/pyproject.toml`）时，该工程的 `addopts`
-    不含启动插件——覆盖率采集因此要由调用方显式 `-p bms_testing_plugin`（预检与 CI 均已显式注入）。
-
-    Returns:
-        str: 目录路径；串行执行（无 `PYTEST_XDIST_WORKER`）时返回空串（沿配置原值）。
-    """
-    worker = os.environ.get("PYTEST_XDIST_WORKER", "")
-    if not worker:
-        return ""
-    base = Path(_sqlite_basetemp) if _sqlite_basetemp else Path(tempfile.gettempdir()) / _SQLITE_TEMP_SUBDIR
-    directory = base / f"sqlite-{worker}"
-    directory.mkdir(parents=True, exist_ok=True)
-    return str(directory)
 
 
 def worker_id_for_snowflake() -> int:
@@ -153,11 +105,8 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         None: 用例运行期。
     """
     clear_isolated_env(monkeypatch)
-    # 并行执行：SQLite 文件库按 worker 隔离（串行时为空串，沿配置原值）
-    sqlite_dir = worker_sqlite_dir()
-    if sqlite_dir:
-        monkeypatch.setenv("BMS_DATABASE__SQLITE_DIR", sqlite_dir)
-    # 固定关闭库连接串模板（dev 默认启用「每服务每租户」模板，会让显式 URL 失效）
+    # 单库化（04-6-2）：库一律走共享测试库 / 白名单独占库的**显式 URL**，不再按 worker 派生 sqlite_dir；
+    # 连接串模板同样固定关闭（dev 默认启用「每服务每租户」模板，会让显式 URL 失效）
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL_TEMPLATE", "")
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL_TEMPLATE", "")
     monkeypatch.setitem(Settings.model_config, "env_file", None)
@@ -348,16 +297,13 @@ def test_db_dir() -> Path:
     """会话测试库目录。
 
     常规模式落 `<工程根>/.cache/test`（工程根由插件在会话起始钉定，缺省即当前工作目录）；
-    隔离调试模式（`BMS_TEST_ISOLATED_DB=1`）落 `<basetemp>/test-db-isolated`。
+    隔离调试模式（`BMS_TEST_ISOLATED_DB=1`）落 `<工程根>/.cache/test-db-isolated`。
 
     Returns:
         Path: 已创建的目录。
     """
-    if isolation_enabled():
-        base = Path(_sqlite_basetemp) if _sqlite_basetemp else Path(tempfile.gettempdir())
-        directory = base / _ISOLATED_DIRNAME
-    else:
-        directory = project_root() / ".cache" / TEST_DB_DIRNAME
+    subdir = _ISOLATED_DIRNAME if isolation_enabled() else TEST_DB_DIRNAME
+    directory = project_root() / ".cache" / subdir
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 

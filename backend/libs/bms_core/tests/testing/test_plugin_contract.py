@@ -162,23 +162,14 @@ def test_configure_creates_basetemp_parent(tmp_path: Path) -> None:
 
 
 @pytest.mark.kiwi_id(2317)
-def test_configure_without_basetemp_skips_makedirs(monkeypatch: pytest.MonkeyPatch) -> None:
-    """未设 `--basetemp` 时不建目录（仅把空基址交给测试基座）。"""
-    seen: ConcurrentStableList[str] = ConcurrentStableList()
-
-    def record(value: str) -> None:
-        """记录交给测试基座的基址。
-
-        Args:
-            value: basetemp 基址。
-        """
-        seen.append(value)
-
-    monkeypatch.setattr(plugin.fixtures, "configure_sqlite_basetemp", record)
+def test_configure_without_basetemp_does_not_touch_sqlite_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    """未设 `--basetemp`：不建目录、也不注入 `BMS_DATABASE__SQLITE_DIR`（旧 worker 目录派生已删除）。"""
+    monkeypatch.delenv("BMS_DATABASE__SQLITE_DIR", raising=False)
 
     plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
 
-    assert list(seen) == [""]
+    assert "BMS_DATABASE__SQLITE_DIR" not in os.environ
+    assert not hasattr(plugin.fixtures, "worker_sqlite_dir")
 
 
 @pytest.mark.kiwi_id(2399)
@@ -188,10 +179,6 @@ def test_configure_warns_when_shared_db_cleanup_fails(
     """会话开始清库失败（句柄占用）：打印告警并继续（本次改用新库）。"""
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
-    def _ignore_basetemp(value: str) -> None:
-        del value
-
-    monkeypatch.setattr(plugin.fixtures, "configure_sqlite_basetemp", _ignore_basetemp)
     monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", lambda: ConcurrentStableList(["platform.db"]))
     plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
     assert "共享测试库清理失败" in capsys.readouterr().out
@@ -210,10 +197,6 @@ def test_configure_skips_cleanup_in_worker(monkeypatch: pytest.MonkeyPatch) -> N
     """xdist worker 启动：不清库（只由 controller 清，避免与建库竞争）。"""
     monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw0")
 
-    def _ignore_basetemp(value: str) -> None:
-        del value
-
-    monkeypatch.setattr(plugin.fixtures, "configure_sqlite_basetemp", _ignore_basetemp)
     called: ConcurrentStableList[int] = ConcurrentStableList()
     monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", lambda: called.append(1) or ConcurrentStableList())
     plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))

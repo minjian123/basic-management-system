@@ -1,13 +1,12 @@
-"""并行 worker 的 SQLite 目录隔离（Kiwi 2359）：串行不介入、并行按 worker 建目录。
+"""测试基座的并行口径（Kiwi 2359）：旧「按 worker 派生 sqlite_dir」已删除，雪花 WorkerId 仍按 worker 派生。
 
-口径：SQLite 文件库在并行 worker 间共享同一路径会互相看到对方写入的行；隔离目录由
-`worker_sqlite_dir()` 按 `PYTEST_XDIST_WORKER` 派生，串行（无该变量）沿配置原值。
+单库化（04-6-2）后，库一律走共享测试库 / 白名单独占库的**显式 URL**：并行 worker 不再各持一套
+`sqlite-gwN/` 目录，`isolate_settings` 也不再注入 `BMS_DATABASE__SQLITE_DIR`。
 """
 
 import inspect
 import os
 from collections.abc import Callable, Generator
-from pathlib import Path
 from typing import cast
 
 import pytest
@@ -16,36 +15,17 @@ from bms_core.testing import fixtures
 
 
 @pytest.mark.kiwi_id(2359)
-def test_worker_sqlite_dir_serial_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    """串行执行（无 xdist worker）：返回空串，表示沿用配置原值。"""
-    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
-
-    assert fixtures.worker_sqlite_dir() == ""
+def test_worker_sqlite_dir_removed() -> None:
+    """旧夹具已删除：`worker_sqlite_dir` / `configure_sqlite_basetemp` 不再对外提供。"""
+    assert not hasattr(fixtures, "worker_sqlite_dir")
+    assert not hasattr(fixtures, "configure_sqlite_basetemp")
+    assert "worker_sqlite_dir" not in fixtures.__all__
 
 
 @pytest.mark.kiwi_id(2359)
-def test_worker_sqlite_dir_parallel_creates_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """并行执行：目录落在 `<basetemp>/sqlite-<worker>` 并自动创建；同一 worker 稳定复用。"""
-    original = fixtures._sqlite_basetemp  # pyright: ignore[reportPrivateUsage]
+def test_isolate_settings_never_injects_sqlite_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    """隔离夹具不再注入 `BMS_DATABASE__SQLITE_DIR`（并行下也不注入），连接串模板固定关闭。"""
     monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw9")
-    try:
-        fixtures.configure_sqlite_basetemp(str(tmp_path))
-        directory = fixtures.worker_sqlite_dir()
-        assert directory == str(tmp_path / "sqlite-gw9")
-        assert Path(directory).is_dir()
-
-        fixtures.configure_sqlite_basetemp("")
-        fallback = Path(fixtures.worker_sqlite_dir())
-        assert fallback.name == "sqlite-gw9"
-        assert fallback.parent.name == "bms-pytest-sqlite"
-    finally:
-        fixtures.configure_sqlite_basetemp(original)
-
-
-@pytest.mark.kiwi_id(2359)
-def test_isolate_settings_serial_keeps_sqlite_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    """串行隔离：不改写 `BMS_DATABASE__SQLITE_DIR`（沿用配置原值），其余隔离项照常生效。"""
-    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
     monkeypatch.delenv("BMS_DATABASE__SQLITE_DIR", raising=False)
     direct = cast(
         "Callable[[pytest.MonkeyPatch], Generator[None]]",
@@ -56,6 +36,7 @@ def test_isolate_settings_serial_keeps_sqlite_dir(monkeypatch: pytest.MonkeyPatc
     try:
         assert "BMS_DATABASE__SQLITE_DIR" not in os.environ
         assert os.environ["BMS_DATABASE__PLATFORM__URL_TEMPLATE"] == ""
+        assert os.environ["BMS_DATABASE__TENANTS__URL_TEMPLATE"] == ""
     finally:
         generator.close()
 
@@ -88,3 +69,11 @@ def test_isolate_settings_injects_worker_id(monkeypatch: pytest.MonkeyPatch) -> 
         assert os.environ["BMS_APP__WORKER_ID"] == "4"
     finally:
         generator.close()
+
+
+def test_test_db_dir_isolation_channel_under_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """隔离调试通道落 `<工程根>/.cache/test-db-isolated`（不再依赖 basetemp）。"""
+    monkeypatch.setenv(fixtures.ISOLATED_ENV, "1")
+    directory = fixtures.test_db_dir()
+    assert directory.parent.name == ".cache"
+    assert directory.name == fixtures._ISOLATED_DIRNAME  # pyright: ignore[reportPrivateUsage]
