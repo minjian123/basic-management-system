@@ -34,7 +34,7 @@
 
 ```bash
 cd backend
-uv run pytest -q
+# CI 全量（不在本地执行）：uv run pytest -q
 # 69 passed, 2 skipped（integration 未配置 BMS_TEST_REDIS_URL 时跳过）
 
 BMS_TEST_REDIS_URL="redis://<mjbk>:6379/0" uv run pytest tests/integration -q -m integration

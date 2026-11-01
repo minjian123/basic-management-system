@@ -232,7 +232,7 @@
       // 并行档位按执行规模选（《测试规范》「执行侧配套口径」）：单文件并行反而慢（worker 启动开销），
       // 故本任务显式关掉并行（`-n 0`），秒级出结果
       "label": "测试：后端当前文件（串行 · 秒级）",
-      "detail": "对当前打开的后端测试文件跑串行（uv run pytest <当前文件> -q -n 0）；当前文件不在 backend 下时请改用「后端全量」",
+      "detail": "对当前打开的后端测试文件跑串行（uv run pytest <当前文件> -q -n 0）；不在 backend 下时请先打开具体测试文件，或改用开发环",
       "type": "shell",
       "command": "uv run pytest \"${file}\" -q -n 0",
       "options": { "cwd": "${workspaceFolder}/backend" },
@@ -240,12 +240,12 @@
       "problemMatcher": []
     },
     {
-      // 全量走并行：各工程 addopts 已缺省 `-n auto`，此处不传参数，与预检 / CI 同口径
-      "label": "测试：后端全量（并行 · 缺省档）",
-      "detail": "backend 全量（uv run pytest -q）；并行档位由 pyproject 的 addopts 缺省提供，无需传参",
+      // 开发期间不提供全量测试入口：全量测试只由 CI 执行。推送前自查走推送入口（只预检、不推送）。
+      "label": "测试：推送前预检（push --check · 不推送）",
+      "detail": "按待推提交自动选档（全为文档 → 快速档；含代码 → 定向档）；全量测试只由 CI 执行",
       "type": "shell",
-      "command": "uv run pytest -q",
-      "options": { "cwd": "${workspaceFolder}/backend" },
+      "command": "python scripts/tools/preflight/推送.py --check",
+      "options": { "cwd": "${workspaceFolder}" },
       "group": "test",
       "problemMatcher": []
     }

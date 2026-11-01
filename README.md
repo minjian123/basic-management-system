@@ -76,7 +76,8 @@ pnpm --filter @bms/desktop dev
 cd backend
 uv sync
 uv run uvicorn bms_platform.asgi:app --port 8000
-uv run pytest          # 全量用例（含 Kiwi TCMS 用例编号标注）
+# 开发中改完即测（只跑改动相关）：cd .. && python3 scripts/tools/preflight/测试改动内容.py
+# 全量 pytest 只在 CI 执行；本地守卫会拒绝，没有 --full 逃生口
 ```
 
 **依赖外置维护**（`pnpm install` 前必须先还原，装完恢复外置态）：
@@ -88,16 +89,16 @@ bash scripts/tools/deps/外置依赖.sh          # 安装完成后恢复外置�
 
 **移动端 H5**（端口 5174）—— 随阶段十七交付，当前工程未建（命令预留）：`cd frontend/apps/mobile && pnpm run dev`。
 
-本地门禁（与 CI 同口径；先 `cd backend`）：
+本地门禁（与 CI 同口径；先 `cd backend`；**全量测试只由 CI 执行**）：
 
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run pyright   # 依赖外置态下 pyright 可能不可用，交 CI 兜底
 # 依赖外置态想本地跑类型检查：pyright 探测不到符号链接 venv，显式指向本工程解释器即可（实测全项目 0 错误）
 #   Linux / macOS：.venv/bin/pyright --pythonpath .venv/bin/python
 #   Windows：      .venv\Scripts\pyright.exe --pythonpath .venv\Scripts\python.exe
-uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=100   # 覆盖率门禁（门槛与维度见 bms文档/规范/AI开发规范.md「覆盖率要求」节）
+(cd .. && python3 scripts/tools/preflight/测试改动内容.py)   # 开发环：只跑改动相关（变更源文件覆盖率门禁随推送入口）
 uv run python -m ops.check_modules                             # 模块注册清单校验
-cd ../frontend/apps/desktop && pnpm run lint && pnpm run test:cov && pnpm run build && pnpm run budget   # 宿主（覆盖率门禁同上、体积预算门禁）
+cd ../frontend/apps/desktop && pnpm run lint && pnpm run build && pnpm run budget   # 宿主（体积预算门禁；单测走开发环 / 指定测试文件，全量只在 CI）
 cd ../../.. && python3 scripts/tools/base_check/check_base.py  # 基座自检（须在仓库根）
 python3 scripts/tools/base_check/check_links.py                # 链接自洽校验（本地手工跑，不挂 CI）
 python3 scripts/tools/check_docs/check_status.py --stage <阶段> --strict   # 需求 / 任务 / 计划状态一致性

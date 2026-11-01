@@ -13,7 +13,7 @@
 #   coverage_gate.py      覆盖率门禁：转发 `engkit coverage`
 #   parallel_jobs.py      `--jobs` 映射：转发 `engkit.preflight.jobs_args / describe`
 #   heavy_command_guard.py 重命令拦截：转发 `engkit.guard`（判定 / 提示 / pytest 插件入口）
-#   full_test_guard.py    全量测试守卫：转发 `engkit.guard`（`--full` / 显式声明 / CI 放行）
+#   full_test_guard.py    全量测试守卫：转发 `engkit.guard`（开发期间一律拒绝；仅推送入口内部授权 / CI 放行）
 #   heavy_guard_boot.py   `.pth` 启动钩子：转发 `engkit.guard`（旧钩子文件仍可加载）
 #   install_guard_hook.py 钩子安装 / 校验 / 卸载：转发 `engkit guard install-hook|check-hook|remove-hook`
 #   check_ci_config.py    本仓专属：CI / 编排 YAML 解析 + pytest 选项校验 + GitLab Lint + 门禁资产
@@ -23,13 +23,14 @@
 #   python3 scripts/tools/preflight/测试改动内容.py           # 开发环：只跑 git 改动相关（推荐改 bug 即测）
 #   python3 scripts/tools/preflight/推送.py                # 推送入口：预检通过即推送（档位按待推提交自动选）
 #   python3 scripts/tools/preflight/推送.py --check        # 只跑预检、不推送（唯一出口）
-#   python3 scripts/tools/preflight/推送.py --full         # 全量档（显式申请）
+#   python3 scripts/tools/preflight/推送.py --full         # 全量静态 + 全部自测 + 定向用例（不含全量测试；全量测试只在 CI）
 #   python3 scripts/tools/preflight/推送.py --jobs 4       # 并行档位（auto 缺省 / 正整数 / off）
 #
 # 场景闸门与档位（2026-10-29 二次拍板）：预检是**推送的内部步骤**，本地没有独立入口——
 # 手动调用 `engkit preflight` 一律拒绝（CI 环境除外）。工作树有未提交改动（含未跟踪文件）即拒绝；
 # 档位按**待推提交**自动选：全为文档 → 快速档（静态 + 护栏 + 自测，秒级）；含代码 → 定向档
-# （静态 + 定向用例 + 覆盖率门禁）。真跑 / 被拒两类事件记入 `.cache/preflight/audit.jsonl`（写盘失败 fail-open）。
+# （静态 + 定向用例 + 覆盖率门禁）。**全量测试只由 CI 执行**：本地 `--full` 只到全量静态 + 定向用例。
+# 真跑 / 被拒两类事件记入 `.cache/preflight/audit.jsonl`（写盘失败 fail-open）。
 #
 # 开发环口径（`测试改动内容.py`，等价 `engkit run-changed`）：依赖深度 direct（不做传递闭包、
 # 不退化工程级全量）、不采集覆盖率、只对改动文件跑 ruff、前端只跑直接命中包；间接依赖与覆盖率
@@ -53,3 +54,5 @@
 #   3. 预算护栏（单步 / 总体）与步骤清单在 `engkit.toml`；改预算即改配置，不要改代码。
 #   4. 覆盖率门禁口径见《AI开发规范》「覆盖率要求」节。
 #   5. 分钟级重命令一律经 `run_once.py` 包装；只为看报错时用定向命令，不得整轮重跑。
+#   6. **全量测试只由 CI 执行**：开发期间无目标 / 宽目录 / `--pyargs` 的 pytest 一律被全量守卫拒绝
+#      （`run_once` 包装不解除，也没有 `--full` / 环境变量逃生口）；前端 vitest 同口径。

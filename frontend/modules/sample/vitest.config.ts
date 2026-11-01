@@ -15,6 +15,8 @@ export default defineConfig({
   define: moduleVersionDefine(MODULE_VERSION),
   plugins: [vue()],
   test: {
+    // 全量测试守卫：开发期间无过滤全跑会被拒绝（实现唯一在 engkit，口径见《测试规范》）
+    globalSetup: ['../../../scripts/testing/vitest_guard.mjs'],
     environment: 'jsdom',
     include: ['tests/**/*.spec.ts'],
     server: {

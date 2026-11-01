@@ -189,7 +189,7 @@ doc_globs = ["*.md", "*.txt", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.svg", "*.w
 scoped = [300, 420]
 full = [900, 1800]
 
-# ---- 预检步骤（声明序即执行序；`--fast` 只跑 always，`--full` 追加 full ----）----
+# ---- 预检步骤（声明序即执行序；`--fast` 只跑 always，`--full` 追加 full + scoped；全量测试仅 CI ----）----
 [[preflight.steps]]
 label = "工作区卫生：临时 / 日志文件只许落在工作区根 tmp/ 与各仓 .cache/"
 cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
@@ -236,12 +236,12 @@ type = "scoped_tests"
 preset = "scoped"
 
 [[preflight.steps]]
-label = "后端测试：聚合全量（--full）"
+label = "后端测试：聚合全量（--full；仅 CI）"
 type = "full_tests"
 preset = "full"
 
 [[preflight.steps]]
-label = "后端测试：工程级范围（--full）"
+label = "后端测试：工程级范围（--full；仅 CI）"
 type = "project_tests"
 preset = "full"
 
@@ -402,6 +402,14 @@ window_seconds = 1800
 scripts = ["check_preflight.py", "check_base.py", "check_links.py", "check_docs_scope.py"]
 repo_dirs = ["libs", "services", "scripts", "deploy", "frontend"]
 dir_test_threshold = 20
+# 一律视为全量测试的目录前缀（相对 pytest 工作目录 backend；命中即拦，不受文件数阈值影响）
+full_test_dirs = [
+  "services/platform/tests/e2e",
+  "libs/bms_core/tests/integration",
+  "services/txn/tests/integration",
+  "services/platform/tests/integration",
+  "services/file/tests/integration",
+]
 
 [kiwi]
 env_file = "deploy/.env"

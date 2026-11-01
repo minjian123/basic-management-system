@@ -57,13 +57,14 @@ docker run --rm -p 8000:8000 bms-platform:dev        # 平台库需先建表（�
 
 # 本地门禁（与 CI 同口径）
 uv run ruff check . && uv run ruff format --check . && uv run pyright
-uv run pytest -q --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-fail-under=100   # 覆盖率门禁（门槛与维度见 bms文档/规范/AI开发规范.md「覆盖率要求」节）
+(cd .. && python3 scripts/tools/preflight/测试改动内容.py)   # 开发环：只跑改动相关（直接依赖用例 + 受影响前端包 + 改动文件 ruff）
+                                                              # 全量 pytest / 全量覆盖率只在 CI 执行（本地守卫会拒绝，无 --full 逃生口）
 uv run python -m ops.check_modules                            # 模块注册清单校验
 cd .. && python3 scripts/tools/base_check/check_base.py        # 基座自检（须在仓库根）
 python3 scripts/tools/base_check/check_service_boundaries.py  # 服务边界护栏（共享库 / 服务依赖、分层单向、表 / 表前缀跨服务唯一）
 python3 scripts/tools/check_docs/check_status.py              # 需求 / 任务 / 计划状态一致性
 python3 scripts/tools/preflight/推送.py     # 推送入口：预检（静态 + 基座/边界 + 受影响工程用例 + 变更源文件覆盖率门禁）通过才推送
-                                                              #   无参 = 快速档（只静态 + 护栏）；--full 才跑全量（全量交 CI）
+                                                              #   无参 = 快速档（只静态 + 护栏）；--full = 全量静态 + 定向用例（全量测试只在 CI）
                                                               #   场景闸门：工作树脏即拒（开发中用 scripts/tools/preflight/测试改动内容.py）
 ```
 

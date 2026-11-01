@@ -6,8 +6,8 @@
 1. **顶层**定位 engkit（先 `import engkit`，失败按 `ENGKIT_HOME` → 同级 `../engkit` 注入 `sys.path`），
    再 `import engkit.coverage_plugin` —— 采集必须早于**任何被测模块**（含 `bms_core`）导入，
    否则「导入期执行的行」永久漏计（历史实测：全仓 10 包行覆盖率长期停在 93.36%）；
-2. `pytest_addoption` / `pytest_configure` / `pytest_sessionfinish` 一律**转调** engkit 的钩子
-   （重命令守卫 → 全量守卫 → 落盘），本模块不含判定逻辑；
+2. `pytest_configure` / `pytest_sessionfinish` 一律**转调** engkit 的钩子
+   （全量守卫 / 重命令守卫 → 落盘），本模块不含判定逻辑；
 3. `pytest_configure` 里再注册 `bms_core.testing` 夹具（此时探针已启动，夹具导入行可被采集）。
 
 为什么不复用 `scripts/tools/preflight/engkit_boot.py`：它顶层就导入 `bms_core`（裸集合护栏要求用插入序
@@ -64,17 +64,8 @@ _plugin: Any = importlib.import_module("engkit.coverage_plugin")
 """跨仓工程化工具包的 pytest 入口插件（采集 + 守卫的唯一实现）。"""
 
 
-def pytest_addoption(parser: Any) -> None:
-    """注册守卫的 `--full` 选项（须在 collection 前完成）。
-
-    Args:
-        parser: pytest 的 Parser 对象。
-    """
-    _plugin.pytest_addoption(parser)
-
-
 def pytest_configure(config: Any) -> None:
-    """守卫（重命令 → 全量测试）→ 注册测试基座夹具。
+    """守卫（全量测试 / 重命令）→ 注册测试基座夹具。
 
     Args:
         config: pytest 配置对象。

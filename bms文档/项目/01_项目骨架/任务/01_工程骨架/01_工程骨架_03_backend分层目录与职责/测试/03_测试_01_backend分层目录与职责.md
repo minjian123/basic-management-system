@@ -45,7 +45,7 @@
 
 ```bash
 cd backend
-uv run pytest -q
+# CI 全量（不在本地执行）：uv run pytest -q
 # 10 passed in 0.08s
 ```
 

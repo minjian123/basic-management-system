@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """全量测试守卫（薄包装）：与重命令守卫统一在 engkit 内的一套实现（13_05）。
 
-本地非 CI 环境跑全量 pytest 且未显式声明（`--full` / `ENGKIT_ALLOW_FULL_TESTS=1`）时拒绝执行、
-零用例收集；CI 环境自动放行。
+本地非 CI 环境跑全量 pytest 一律拒绝（**没有** `--full` / 环境变量逃生口）；推送入口与 CI
+通过内部授权标记放行，开发中改完即测走开发环（`engkit run-changed`）。
 """
 
 from __future__ import annotations
@@ -19,27 +19,17 @@ from engkit_boot import ensure_engkit  # noqa: E402
 ensure_engkit()
 
 from engkit.guard import (  # noqa: E402
-    FULL_ENV,
-    FULL_FLAG,
-    allow_full,
     full_test_guidance,
     full_test_should_block,
     is_ci,
-    pytest_addoption,
+    is_full_authorized,
     pytest_configure,
 )
 
-ALLOW_ENV = FULL_ENV
-"""显式声明全量的环境变量（别名，保持既有调用面）。"""
-
 __all__ = [
-    "ALLOW_ENV",
-    "FULL_ENV",
-    "FULL_FLAG",
-    "allow_full",
     "full_test_guidance",
     "full_test_should_block",
     "is_ci",
-    "pytest_addoption",
+    "is_full_authorized",
     "pytest_configure",
 ]

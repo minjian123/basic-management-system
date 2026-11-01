@@ -165,7 +165,7 @@ $ cd backend && uv run pytest libs/bms_core/tests/crosscut/test_m7_closure.py -q
 5 passed
 
 # 2) 后端口径修复定向（含服务身份白名单 / 分配编排 / 种子与目录对账）
-$ python ../scripts/tools/preflight/run_once.py -- uv run pytest services/platform/tests libs/bms_core/tests/ops \
+# CI 全量（不在本地执行）：uv run pytest services/platform/tests libs/bms_core/tests/ops \
     --cov=bms_platform --cov=ops --cov-branch --cov-report=term-missing -q
 837 passed, 1 skipped in 179.40s
 services/platform/src/bms_platform/services/permission_subject.py     58      0     14      0   100%
