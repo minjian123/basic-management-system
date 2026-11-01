@@ -3342,10 +3342,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_capability_grants.py",
     "tests": 18,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（被测对象是能力授权声明对账（首次全新增 / 声明移除置撤销 / 回归恢复的计数）与「清空授权表后的受控起点」；共享库上整表清理会破坏并行中他人用例的数据）"
   },
   {
     "repo": "bms",
@@ -3369,10 +3369,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_dev_contract_endpoints.py",
     "tests": 2,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：142: 连接串字面量"
+    "evidence": "已有 own_db 白名单（被测对象是 dev 环境「每服务每租户」URL 模板下的库名派生与 IP Host 租户解析：需把模板库目录指到临时目录，共享库是固定单文件、无法表达派生库拓扑）"
   },
   {
     "repo": "bms",
@@ -3414,10 +3414,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_internal_declarations.py",
     "tests": 8,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：37: 连接串字面量；37: 临时库 declarations.db"
+    "evidence": "已有 own_db 白名单（被测对象是产品声明注册通道的全量对账（首次全新增 / 幂等 / 覆盖 / 退役计数），需未注册声明的空库状态）"
   },
   {
     "repo": "bms",
@@ -3459,19 +3459,19 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_menu_admin_api.py",
     "tests": 9,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：39: tmp_path_factory"
+    "evidence": "已有 own_db 白名单（本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_menu_metadata.py",
     "tests": 9,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：40: tmp_path_factory"
+    "evidence": "已有 own_db 白名单（本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据）"
   },
   {
     "repo": "bms",
@@ -3486,10 +3486,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_modules.py",
     "tests": 13,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：87: assert len(first.json()[\"data\"][\"list\"]) == 5"
+    "evidence": "已有 own_db 白名单（被测对象是未播种空库的启动容错与空清单口径：需把库置成无任何服务登记的状态，共享库恒为已播种态）"
   },
   {
     "repo": "bms",
@@ -3504,19 +3504,19 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_my_menu.py",
     "tests": 4,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：169: assert len(node[\"forms\"]) == 1"
+    "evidence": "已有 own_db 白名单（本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_outbox.py",
     "tests": 2,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "建库即被测候选（resolved_url），待人工确认"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3531,10 +3531,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_products.py",
     "tests": 6,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：152: 连接串字面量；152: 临时库 empty.db"
+    "evidence": "已有 own_db 白名单（被测对象是未播种空库的启动容错与空清单口径：需把库置成无任何产品档案的状态，共享库恒为已播种态）"
   },
   {
     "repo": "bms",
@@ -3549,10 +3549,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_role_api.py",
     "tests": 13,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：293: assert len(permissions.json()[\"data\"][\"items\"]) == 3；300: assert len(replayed_grant.json()[\"data\"][\"items\"]) == 3"
+    "evidence": "已有 own_db 白名单（被测对象是角色域 CRUD 与授权 / 字段 / 数据权限全链，需逐例清空的菜单元数据十二表与角色五表作起点；共享库上整表清场会破坏并行中他人用例的数据）"
   },
   {
     "repo": "bms",
@@ -3567,10 +3567,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_tasks_api.py",
     "tests": 19,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库：56: create_async_engine()；53: 连接串字面量"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3585,10 +3585,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_user_extensions.py",
     "tests": 2,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库：47: create_async_engine()；44: 连接串字面量"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3612,19 +3612,28 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/config/test_config_admin_api.py",
     "tests": 10,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：52: create_async_engine()；82: create_async_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是参数管理 API 的完整契约（新增派生 / 重复键 / 依赖双向 / 重置回填平台默认 / 删除保护 / 回收站），其前提是库中平台默认键尚无覆盖行；共享库已播种全部平台默认参数）"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/config/test_config_platform_defaults.py",
+    "tests": 5,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 2,
+    "evidence": "已有 own_db 白名单（断言语义绑定平台默认值表与硬编码依赖对，前提是「该键初始为未覆盖态」；共享租户库的默认参数被其他用例读写，且 SQLite 单写者下长事务叠加会互等）"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/config/test_config_service.py",
-    "tests": 15,
-    "class": "D",
-    "action": "own_db 白名单",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3702,10 +3711,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/crosscut/test_cross_phase_bases.py",
     "tests": 6,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：221: assert len(publisher.events) == 2"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3765,10 +3774,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/dict/test_dict_source_paths.py",
     "tests": 2,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3792,10 +3801,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/icon/test_icon_registry.py",
     "tests": 22,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：61: tmp_path_factory"
+    "evidence": "已有 own_db 白名单（本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据）"
   },
   {
     "repo": "bms",
@@ -3819,19 +3828,19 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/jobs/test_job_domain_units.py",
     "tests": 12,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：92: assert len(await service.list_all()) == 1"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/jobs/test_job_monitor.py",
     "tests": 3,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：93: assert len(rows) == 1"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3855,19 +3864,19 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/jobs/test_task_jobs_edges.py",
     "tests": 5,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库：29: create_async_engine()；29: 连接串字面量"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/jobs/test_task_migration.py",
     "tests": 2,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库：25: create_async_engine()；79: create_async_engine()"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3882,28 +3891,28 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/models/test_base_model.py",
     "tests": 11,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：156: assert len(set(ids)) == 3"
+    "evidence": "已有 own_db 白名单（被测对象是 ORM 基类在真实表结构上的行为：测试专用表 widget 的建表与软删唯一释放、乐观锁 version 条件更新需同步引擎与自建表）"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/models/test_type_mapping.py",
     "tests": 5,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：206: assert len(rows) == 2"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/permission/test_end_to_end.py",
     "tests": 3,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：274: assert len(snapshot.data_scopes) == 1；307: assert len(rows) == 1"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3918,10 +3927,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/permission/test_field_permission.py",
     "tests": 7,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：110: assert len(perms) == 1"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3936,10 +3945,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/permission/test_source.py",
     "tests": 11,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：300: assert len(data.role_ids) == 1；308: assert len(data.data_scope_rules) == 1"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3989,7 +3998,7 @@
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/registry/test_tenant_topology_bootstrap.py",
-    "tests": 7,
+    "tests": 8,
     "class": "A",
     "action": "不动",
     "batch": 2,
@@ -4146,7 +4155,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "建库即被测候选（seed_menu），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是菜单元数据播种编排：建表 + 播种 + 派生一致性校验行数 + 重跑幂等 + 改写主表后拒绝漂移，均需空库起步）"
   },
   {
     "repo": "bms",
@@ -4242,10 +4251,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/users/test_admin_api.py",
     "tests": 8,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库 + 整表断言：523: assert len(cast(\"ConcurrentStableList[str]\", json.loads(row.；549: assert len(items) == 1"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -4458,10 +4467,10 @@
     "repo": "bms",
     "path": "backend/services/file/tests/test_file_repository.py",
     "tests": 4,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "自建库 + 整表断言：86: assert len(lower_bound) == 2"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -4476,10 +4485,10 @@
     "repo": "bms",
     "path": "backend/services/file/tests/test_file_service_units.py",
     "tests": 10,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "自建库：70: create_async_engine()；70: 连接串字面量"
+    "evidence": "已有 own_db 白名单（被测对象是超期孤儿回收编排（整批扫描无过滤入参），共享库上会改写他人用例的行）"
   },
   {
     "repo": "bms",
@@ -4974,7 +4983,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "建库即被测候选（url_template, seed_tenants(, EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象就是**多库拓扑本身**（平台库单例 → 租户库模板派生 → 跨租户库物理隔离 → 引擎回收与连接预算），需要真实派生库文件与两套独立库；共享库是固定单文件、无法表达隔离）"
   },
   {
     "repo": "bms",
@@ -4983,43 +4992,43 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（`single_active()` 的唯一启用租户判定是**整表口径**（≥2 报错 / 恰 1 命中 / 0 返回空），并且要构造「停用 / 软删 / 改名兜底」的受控租户集合；共享平台库恒有种子租户与其他用例的租户）"
   },
   {
     "repo": "bms",
     "path": "backend/services/tenant/tests/tenant/test_platform_tenant.py",
     "tests": 3,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "自建库：51: create_async_engine()；50: 连接串字面量"
+    "evidence": "已有 own_db 白名单（被测对象是**默认平台租户引导**（库中尚无平台租户行 → 创建；已有 → 跳过；编码被占用 → 拒启；编排失败 → 清理），前提正是「该行存在与否」；共享平台库恒已播种平台租户）"
   },
   {
     "repo": "bms",
     "path": "backend/services/tenant/tests/tenant/test_tenant_admin.py",
     "tests": 11,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "自建库：133: create_async_engine()；174: create_async_engine()"
+    "evidence": "已有 own_db 白名单（每个用例都要构造「平台租户行 + 全表列表 total（排除平台租户）」的受控集合，并断言详情 / 配额 / 模块整组读写的初态为空；共享平台库恒有种子租户与平台租户行）"
   },
   {
     "repo": "bms",
     "path": "backend/services/tenant/tests/tenant/test_tenant_branch_fill.py",
     "tests": 7,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "自建库：93: create_async_engine()；92: 连接串字面量"
+    "evidence": "已有 own_db 白名单（用例围绕**平台租户注册行的状态机**（`platform_row()` 唯一行查询 / 名称与到期时间部分更新 / `provisioning` 状态补齐）与固定主键配额行构造，需受控租户集合；共享平台库恒已播种平台租户行）"
   },
   {
     "repo": "bms",
     "path": "backend/services/tenant/tests/tenant/test_tenant_extra_branches.py",
     "tests": 8,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "自建库：143: create_async_engine()；142: 连接串字面量"
+    "evidence": "已有 own_db 白名单（用例覆盖**平台租户引导的失败 / 重开分支**（已 suspended 重开通、基础模块开通失败容错、清理失败不掩盖原异常），前提是平台租户行的存在与状态可控；共享平台库恒为已就绪态）"
   },
   {
     "repo": "bms",
@@ -5034,19 +5043,19 @@
     "repo": "bms",
     "path": "backend/services/tenant/tests/tenant/test_tenant_quota_internal.py",
     "tests": 3,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 3,
-    "evidence": "自建库：43: create_async_engine()；42: 连接串字面量"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
     "path": "backend/services/tenant/tests/tenant/test_tenant_registry.py",
     "tests": 9,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "自建库：32: create_async_engine()；113: create_async_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是 `active-single` 唯一启用租户三态（恰 1 / ≥2 → 80004 / 0 → 404）与注册读写仓储，判定是**整表口径**，必须构造受控租户集合；共享平台库恒有种子租户）"
   },
   {
     "repo": "bms",
@@ -5277,10 +5286,10 @@
     "repo": "bms",
     "path": "backend/services/txn/tests/integration/test_end_to_end_2pc.py",
     "tests": 4,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 4,
-    "evidence": "自建库 + 整表断言：330: assert len(driver.committed) == 2；349: assert len(driver.rolled_back) == 2  # 含未 PREPARE 分支的幂等回滚"
+    "evidence": "已有 own_db 白名单（被测对象是**跨库两阶段提交**（MySQL / PG 真库分支 + 内存账本），需要按真库连接串建引擎与探针表；与批 1 `integration/*` 族同口径（真库拓扑即被测））"
   },
   {
     "repo": "bms",
