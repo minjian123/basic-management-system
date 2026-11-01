@@ -19,12 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.models.base import Base
 from bms_core.models.outbox import SysEventConsumed, SysEventDeadLetter, SysOutbox
 from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.task import SysTask, SysTaskLog
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from tests_support.permission_admin import assign_system_admin
 
 pytestmark = pytest.mark.kiwi_id(2371)
@@ -57,8 +57,7 @@ async def tenant_db(
         shared_tenant_db_url: 共享租户库连接串。
         monkeypatch: 环境变量覆盖夹具。
     """
-    async with shared_tenant_engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(TENANT_TABLES)))
+    await ensure_tables(shared_tenant_engine, list(TENANT_TABLES))
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()
     await assign_system_admin()

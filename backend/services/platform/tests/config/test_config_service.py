@@ -8,19 +8,17 @@
 """
 
 from collections.abc import AsyncIterator
-from datetime import datetime
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.config.cache import MemoryConfigCacheRegion
 from bms_core.config.models import SysConfig
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
-    ConcurrentConflictError,
     ConfigDefaultProtectedError,
     ConfigValueInvalidError,
 )
@@ -30,7 +28,7 @@ from bms_core.dict.cache import MemoryDictCacheRegion
 from bms_core.dict.invalidate import DictInvalidator
 from bms_core.events.base import EventEnvelope
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.schema import ensure_tables
 from bms_platform.domains.platform_config.repositories.config import ConfigRepository
 from bms_platform.domains.platform_config.schemas.config import ConfigCreateRequest, ConfigUpdateRequest
 from bms_platform.domains.platform_config.services.config import ConfigAdminService
@@ -129,17 +127,23 @@ class _RecordingAudit(AuditCapturer):
 
 @pytest_asyncio.fixture
 async def session(shared_tenant_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """共享租户库上的回滚会话（`sys_config` 表幂等补齐）。
+    """共享租户库上的普通会话（`sys_config` 表幂等补齐）。
+
+    为什么不用 `rollback_session`：服务层用例写密集（每次 `create/update/reset` 都落库），
+    回滚会话会把整例包成**一个长事务**；SQLite 单写者（rollback journal 下写者需独占）遇到
+    并行 worker 的另一个长事务会互等至超时。这里用短事务会话，写入按命名空间键隔离
+    （参数键 `<group>.<ns>`），用例之间不共享行；只有必须用平台默认键的用例走
+    `test_config_platform_defaults.py`（独占库）。
 
     Args:
         shared_tenant_engine: 共享租户库引擎。
 
     Yields:
-        AsyncSession: 回滚会话。
+        AsyncSession: 用例会话。
     """
-    async with shared_tenant_engine.begin() as connection:
-        await connection.run_sync(lambda conn: SysConfig.metadata.create_all(conn, tables=list(_TABLES)))
-    async with rollback_session(shared_tenant_engine) as db:
+    await ensure_tables(shared_tenant_engine, list(_TABLES))
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    async with factory() as db:
         yield db
 
 
@@ -238,27 +242,6 @@ async def test_update_records_field_level_diff(session: AsyncSession, ns: Namesp
     assert fields["is_overridden"].new is True
 
 
-async def test_reset_restores_default_and_clears_flag(session: AsyncSession) -> None:
-    """重置：值回落平台默认、覆盖标记清空、来源回到 platform。
-
-    单库叠加口径：重置的落点是**平台默认值表**里的参数键（`_PLATFORM_DEFAULTS`），故这里用
-    平台默认键并按需复位（共享库已播种同键行，重复插入会撞唯一键）。
-    """
-    key = "session.max_active"
-    await _seed_default(session, key, "5")
-    service = _service(session)
-    detail = await service.detail(key)
-    await service.update(detail.id, ConfigUpdateRequest(value="9", version=detail.version))
-
-    overridden = await service.detail(key)
-    reset = await service.reset(overridden.id)
-    assert reset.value == "5"
-    assert reset.source == "platform"
-
-    again = await service.reset(reset.id)
-    assert again.value == "5"
-
-
 async def test_delete_protects_platform_default(session: AsyncSession, ns: Namespace) -> None:
     """删除：未覆盖项拒绝（`40506`），覆盖项软删后可恢复。"""
     key = _key(ns, "role")
@@ -299,24 +282,6 @@ async def test_service_without_invalidator_and_audit(session: AsyncSession, ns: 
     assert detail.id == created.id
 
 
-class _AlwaysConflictingRepository(ConfigRepository):
-    """乐观锁恒失败的仓储替身（覆盖重置路径的并发冲突分支）。"""
-
-    async def update_checked(self, item_id: int, *, expected_version: int, now: datetime, **values: object) -> bool:
-        """恒返回失败。
-
-        Args:
-            item_id: 参数主键。
-            expected_version: 期望版本。
-            now: 当前时刻。
-            **values: 待更新字段。
-
-        Returns:
-            bool: 恒 False。
-        """
-        return False
-
-
 async def test_update_changes_name_remark_and_status(session: AsyncSession, ns: Namespace) -> None:
     """修改：名称 / 备注 / 状态一并更新，并进入审计变更集。"""
     key = _key(ns, "file")
@@ -351,67 +316,12 @@ async def test_update_rejects_invalid_status(session: AsyncSession, ns: Namespac
         await service.update(detail.id, ConfigUpdateRequest(status="archived", version=detail.version))
 
 
-async def test_reset_raises_conflict_when_version_stale(session: AsyncSession) -> None:
-    """重置：乐观锁失败时抛并发冲突（`10004`）。"""
-    await _seed_default(session, "account.inactive_lock_days", "180")
-    service = _service(session)
-    detail = await service.detail("account.inactive_lock_days")
-    await service.update(detail.id, ConfigUpdateRequest(value="90", version=detail.version))
-    overridden = await service.detail("account.inactive_lock_days")
-
-    conflicting = ConfigAdminService(
-        _AlwaysConflictingRepository(session),
-        DbUnitOfWork(session),
-        cache=MemoryConfigCacheRegion(),
-    )
-    with pytest.raises(ConcurrentConflictError):
-        await conflicting.reset(overridden.id)
-
-
-async def test_dependency_reverse_allows_close_when_dependent_off(session: AsyncSession) -> None:
-    """依赖反向校验：被依赖项可关闭（依赖项存在但未开启）。"""
-    execute = await _seed_default(session, "ai.auto_execute", "true")
-    await _seed_default(session, "ai.auto_approve", "false")
-    service = _service(session)
-    detail = await service.detail("ai.auto_execute")
-
-    updated = await service.update(detail.id, ConfigUpdateRequest(value="false", version=detail.version))
-    assert updated.value == "false"
-    assert int(execute.id) == detail.id
-
-
-async def test_dependency_reverse_passes_when_keeping_dependency_on(session: AsyncSession) -> None:
-    """依赖反向校验：被依赖项保持开启值时不拦截（只有关闭才拦）。"""
-    await _seed_default(session, "ai.auto_execute", "true")
-    await _seed_default(session, "ai.auto_approve", "true")
-    service = _service(session)
-    detail = await service.detail("ai.auto_execute")
-
-    updated = await service.update(detail.id, ConfigUpdateRequest(value="true", version=detail.version))
-    assert updated.value == "true"
-
-
-async def test_dependency_reverse_when_dependent_missing(session: AsyncSession) -> None:
-    """依赖反向校验：依赖项参数不存在时直接放行（不 phantom 拦截）。
-
-    单库叠加口径：共享库已播种被依赖项（`ai.auto_approve`），故显式软删该行构造「依赖项不存在」。
-    """
-    await _seed_default(session, "ai.auto_execute", "true")
-    dependent = await _seed_default(session, "ai.auto_approve", "false")
-    dependent.soft_delete()
-    await session.commit()
-    service = _service(session)
-    detail = await service.detail("ai.auto_execute")
-
-    updated = await service.update(detail.id, ConfigUpdateRequest(value="false", version=detail.version))
-    assert updated.value == "false"
-
-
-async def test_rename_keeps_platform_default_protection(session: AsyncSession) -> None:
+async def test_rename_keeps_platform_default_protection(session: AsyncSession, ns: Namespace) -> None:
     """只改名称 / 备注不转覆盖态：默认项仍受删除保护（避免误删唯一承载平台默认的行）。"""
-    await _seed_default(session, "menu.tree_cache_ttl", "300")
+    key = _key(ns, "menu")
+    await _seed_default(session, key, "300")
     service = _service(session)
-    detail = await service.detail("menu.tree_cache_ttl")
+    detail = await service.detail(key)
 
     updated = await service.update(detail.id, ConfigUpdateRequest(name="菜单树缓存 TTL", version=detail.version))
     assert updated.name == "菜单树缓存 TTL"

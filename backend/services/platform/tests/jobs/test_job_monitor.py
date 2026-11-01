@@ -19,9 +19,9 @@ from bms_core.jobs.events import (
     JOB_STARTED_EVENT,
     JOB_SUBMITTED_EVENT,
 )
-from bms_core.models.base import Base
 from bms_core.models.platform.job import SysJobMonitor
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.job.repositories.job import JobMonitorRepository
 from bms_platform.domains.job.services.monitor import JobMonitorService
@@ -66,10 +66,7 @@ def _event(event_type: str, at: datetime, job_id: int, **payload: object) -> Eve
 async def test_projection_follows_lifecycle(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
     """提交 → 开始 → 进度 → 完成：同一行持续更新，终态与错误摘要可见。"""
     job_id = _job_id(ns)
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(
-            lambda conn: Base.metadata.create_all(conn, tables=[cast("Table", SysJobMonitor.__table__)])
-        )
+    await ensure_tables(shared_platform_engine, [cast("Table", SysJobMonitor.__table__)])
     async with rollback_session(shared_platform_engine) as session:
         service = JobMonitorService(JobMonitorRepository(session))
         assert await service.apply(_event(JOB_SUBMITTED_EVENT, BASE, job_id, status="queued")) is True
@@ -106,10 +103,7 @@ async def test_projection_follows_lifecycle(shared_platform_engine: AsyncEngine,
 async def test_stale_event_is_dropped(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
     """旧事件（last_event_at 更早）：丢弃，不覆盖终态。"""
     job_id = _job_id(ns)
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(
-            lambda conn: Base.metadata.create_all(conn, tables=[cast("Table", SysJobMonitor.__table__)])
-        )
+    await ensure_tables(shared_platform_engine, [cast("Table", SysJobMonitor.__table__)])
     async with rollback_session(shared_platform_engine) as session:
         service = JobMonitorService(JobMonitorRepository(session))
         await service.apply(
@@ -123,10 +117,7 @@ async def test_stale_event_is_dropped(shared_platform_engine: AsyncEngine, ns: N
 
 async def test_event_without_job_id_is_ignored(shared_platform_engine: AsyncEngine) -> None:
     """缺作业号的事件：不落投影。"""
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(
-            lambda conn: Base.metadata.create_all(conn, tables=[cast("Table", SysJobMonitor.__table__)])
-        )
+    await ensure_tables(shared_platform_engine, [cast("Table", SysJobMonitor.__table__)])
     async with rollback_session(shared_platform_engine) as session:
         envelope = EventEnvelope(event_type=JOB_STARTED_EVENT, payload=ConcurrentStableDict(), occurred_at=BASE)
         applied = await JobMonitorService(JobMonitorRepository(session)).apply(envelope)

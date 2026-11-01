@@ -145,6 +145,21 @@ def _record(*, consumers: ConcurrentStableFrozenList[str] | None = None) -> Coll
 
 
 @pytest.fixture(autouse=True)
+def _isolated_platform(platform_db: None, isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """白名单文件的**独占平台库**：本文件逐例清空授权表，独占库使清场不影响并行中的其它 worker。
+
+    Args:
+        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
+        isolated_platform_db_url: 独占平台库连接串（每 worker 一份 tmp 库 + 播种）。
+        monkeypatch: 环境变量覆盖。
+    """
+    from bms_core.core.config import get_settings
+
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
+    get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def _null_permission(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """权限校验改用占位实现（恒放行）。
 
@@ -182,12 +197,13 @@ def _isolate_grant_state() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-async def _clean_grants(_null_permission: None, service_app: FastAPI) -> None:
-    """清空授权表（会话级平台库跨用例共享，逐例起点一致）。
+async def _clean_grants(_null_permission: None, _isolated_platform: None, service_app: FastAPI) -> None:
+    """清空授权表（独占平台库跨用例共享，逐例起点一致）。
 
     Args:
         service_app: 应用实例（启动钩子已执行，声明同步行随后清空）。
         _null_permission: 保证权限实现先于应用装配生效（依赖顺序）。
+        _isolated_platform: 保证库 URL 覆盖先于应用装配生效（依赖顺序）。
     """
     from bms_core.collaboration import reset_capability_grants
 

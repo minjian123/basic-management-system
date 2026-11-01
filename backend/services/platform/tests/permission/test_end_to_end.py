@@ -24,7 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import PermissionError
-from bms_core.models.base import Base
 from bms_core.models.platform.menu_form import SysField
 from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
@@ -57,6 +56,7 @@ from bms_core.permission.sources import (
 )
 from bms_core.permission.subject import PermissionSubjectService
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.role.permission.field_provider import StaticFieldPermissionProvider
 from bms_platform.domains.role.repositories.role import (
@@ -215,8 +215,7 @@ async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncI
     Yields:
         _Scenario: 回滚会话与本用例专属用户 / 角色主键。
     """
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    await ensure_tables(shared_platform_engine, list(_TABLES))
     async with rollback_session(shared_platform_engine) as session:
         user = await UserRepository(session).create(username=ns.code("reviewer"), password_hash="x", name="复核员")
         role = await _seed(session, ns, user.id)

@@ -23,6 +23,7 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.models.platform.role import SysRole
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.sources.dict_source import PlatformDictDataSource
 from bms_platform.wiring import role_reference
@@ -63,8 +64,7 @@ async def scenario(
     Yields:
         _Scenario: 数据源与本用例角色码。
     """
-    async with shared_tenant_engine.begin() as connection:
-        await connection.run_sync(lambda conn: SysRole.metadata.create_all(conn, tables=list(_TABLES)))
+    await ensure_tables(shared_tenant_engine, list(_TABLES))
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()
 

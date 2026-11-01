@@ -9,7 +9,9 @@
 - `fake_tenant_source` / `service_app` / `client`：服务专属（平台应用工厂 + 认证头）。
 """
 
+import asyncio
 from collections.abc import AsyncIterator, Callable, Iterator
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -43,6 +45,8 @@ from bms_core.testing.fixtures import (
 )
 from bms_platform.domains.permission_meta.permission.checker import register_platform_permission
 from bms_platform.main import ApplicationFactory
+from ops.seed_module import seed_modules
+from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
 from tests_support.tenant_source import install_fake_tenant_source
 
@@ -275,6 +279,32 @@ def platform_db_url(shared_platform_db_url: str) -> str:
         str: 会话级平台库连接串。
     """
     return shared_platform_db_url
+
+
+@pytest.fixture
+def isolated_platform_db_url(
+    tmp_path: Path,
+    pinned_product_manifests: ConcurrentStableList[str],
+) -> str:
+    """白名单（`own_db`）文件专用**独占**平台库：**每用例**一份 tmp 库 + 播种。
+
+    单库化后 `platform_db_url` 指向全 worker 共用的共享库；会**整表清场**（菜单元数据十二表 /
+    授权表）的 `own_db` 文件在共享库上会破坏并行中他人数据，故给它们一条独占通道：
+    每用例独立 tmp 库 + 同一套播种（种子租户 / 服务目录 / 产品档案），语义与单库化前一致。
+
+    按用例（而非会话 / worker）隔离：xdist 下同文件多用例可能落在同一 worker，会话级仍会互相清场。
+
+    Args:
+        tmp_path: 用例级临时目录。
+        pinned_product_manifests: 会话级固定的产品清单路径（保证播种与断言同源）。
+
+    Returns:
+        str: 独占平台库连接串。
+    """
+    url = f"sqlite+aiosqlite:///{tmp_path / 'platform_isolated.db'}"
+    asyncio.run(seed_tenants(url))
+    asyncio.run(seed_modules(url))
+    return url
 
 
 @pytest.fixture(autouse=True)

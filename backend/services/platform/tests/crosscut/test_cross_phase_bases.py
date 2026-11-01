@@ -21,6 +21,7 @@ from bms_core.sharding.base import ShardBinding, ShardingRouter
 from bms_core.sharding.null import NullShardingRouter
 from bms_core.tasks.base import BaseTask
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import rollback_session
 from bms_platform.repositories.demo_repository import DemoRepository
 
@@ -233,8 +234,7 @@ async def test_task_base_and_models(shared_platform_engine: AsyncEngine, ns: Nam
     assert task.queue == "default"
     assert task.run(1, key="v") == ((1,), {"key": "v"})
     assert {"sys_task", "sys_task_log"} <= set(Base.metadata.tables)
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    await ensure_tables(shared_platform_engine, list(_TABLES))
     async with rollback_session(shared_platform_engine) as session:
         sys_task = SysTask(
             code=ns.code("task"), name="demo_task", handler="bms_core.tasks.demo:DemoTask", cron=None, enabled=True

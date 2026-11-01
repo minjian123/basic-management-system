@@ -32,13 +32,13 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.events.base import EventEnvelope
 from bms_core.idempotency.base import DEFAULT_IDEMPOTENCY_TTL, IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
-from bms_core.models.base import Base
 from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.models.platform.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_core.models.platform.user import SysAccountLock, SysUser
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_platform.domains.user.api.users import _read_cached_user_id  # pyright: ignore[reportPrivateUsage]
 from tests_support.permission_admin import assign_system_admin
 
@@ -135,8 +135,7 @@ async def permission_engine(
         cast("Table", SysIcon.__table__),
         cast("Table", SysIconI18n.__table__),
     ]
-    async with shared_tenant_engine.begin() as conn:
-        await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=tables))
+    await ensure_tables(shared_tenant_engine, tables)
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()
     await assign_system_admin()
@@ -347,8 +346,7 @@ async def _harness(engine: AsyncEngine, service_app: FastAPI) -> _Harness:
         cast("Table", SysUserRole.__table__),
         cast("Table", SysAccountLock.__table__),
     ]
-    async with engine.begin() as conn:
-        await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=tables))
+    await ensure_tables(engine, tables)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     harness = _Harness(engine, factory)
 

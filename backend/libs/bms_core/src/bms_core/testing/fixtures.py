@@ -647,7 +647,7 @@ async def shared_platform_engine(shared_platform_db_url: str) -> AsyncIterator[A
     Yields:
         AsyncEngine: 指向共享平台库的引擎。
     """
-    engine = create_async_engine(shared_platform_db_url, poolclass=NullPool)
+    engine = create_async_engine(shared_platform_db_url, poolclass=NullPool, connect_args={"timeout": 30})
     try:
         yield engine
     finally:
@@ -664,7 +664,7 @@ async def shared_tenant_engine(shared_tenant_db_url: str) -> AsyncIterator[Async
     Yields:
         AsyncEngine: 指向共享租户库的引擎。
     """
-    engine = create_async_engine(shared_tenant_db_url, poolclass=NullPool)
+    engine = create_async_engine(shared_tenant_db_url, poolclass=NullPool, connect_args={"timeout": 30})
     try:
         yield engine
     finally:

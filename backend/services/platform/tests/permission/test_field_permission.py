@@ -18,7 +18,6 @@ from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
-from bms_core.models.base import Base
 from bms_core.models.platform.menu_form import SysField
 from bms_core.models.platform.role import SysRoleField
 from bms_core.permission.field import (
@@ -30,6 +29,7 @@ from bms_core.permission.field import (
 )
 from bms_core.permission.snapshot import TIER_STANDARD, TIER_SYSTEM_ADMIN, PermissionSnapshot
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.role.permission.field_provider import (
     StaticFieldPermissionProvider,
@@ -103,8 +103,7 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
     Yields:
         AsyncSession: 回滚会话（用例内直插种子数据，结束整体回滚）。
     """
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    await ensure_tables(shared_platform_engine, list(_TABLES))
     async with rollback_session(shared_platform_engine) as opened:
         yield opened
 

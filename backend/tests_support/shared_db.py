@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 
 from sqlalchemy import MetaData, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from bms_core.config.seed import seed_configs
@@ -63,6 +63,7 @@ async def _prepare_platform(url: str) -> None:
     try:
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
+        await _enable_concurrency(engine)
     finally:
         await engine.dispose()
     load_product_manifests(ConcurrentStableList())
@@ -141,9 +142,32 @@ async def _prepare_tenant(url: str) -> None:
     try:
         async with engine.begin() as connection:
             await connection.run_sync(metadata.create_all)
+        await _enable_concurrency(engine)
     finally:
         await engine.dispose()
     await _seed_configs(url)
+
+
+async def _enable_concurrency(engine: AsyncEngine) -> None:
+    """设置写锁等待上限（`busy_timeout`）。
+
+    单库叠加下多 worker 并发写同一份 SQLite 库，「写-写」必然短暂互斥：默认等待 5s、且只会
+    在获取锁时等待，调用方不重试就直接报 `database is locked`。这里把等待上限抬到 30s
+    （与共享引擎夹具的驱动侧 `timeout` 同值），把偶发冲突退化为短等待
+    （《测试规范》13「并行与隔离」）。
+
+    为什么不用 WAL：WAL 下「先读后写」的事务取快照后升级写会立即 `SQLITE_BUSY_SNAPSHOT`
+    （**不等待**），对「回滚会话里读-改-写」的用例反而更容易失败。
+
+    Args:
+        engine: 共享库引擎。
+    """
+    autocommit = engine.execution_options(isolation_level="AUTOCOMMIT")
+    try:
+        async with autocommit.connect() as connection:
+            await connection.exec_driver_sql("PRAGMA busy_timeout=30000")
+    finally:
+        await autocommit.dispose()
 
 
 def _tenant_metadata() -> MetaData:

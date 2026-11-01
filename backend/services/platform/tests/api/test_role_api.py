@@ -121,6 +121,19 @@ class _RecordingIdempotency:
 _IDEMPOTENCY = _RecordingIdempotency()
 
 
+@pytest.fixture(autouse=True)
+def isolated_platform(platform_db: None, isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """白名单文件的**独占平台库**：本文件逐例清空菜单元数据十二表，独占库使清场不影响并行中的其它 worker。
+
+    Args:
+        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
+        isolated_platform_db_url: 独占平台库连接串（每 worker 一份 tmp 库 + 播种）。
+        monkeypatch: 环境变量覆盖。
+    """
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
+    get_settings.cache_clear()
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def tenant_schema(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
     """建临时租户库（角色 / 用户 / 字典表）并指向服务租户库；清场平台库菜单元数据。
@@ -155,10 +168,13 @@ async def system_admin(tenant_schema: None) -> None:
 
 
 @pytest_asyncio.fixture
-async def role_client() -> AsyncIterator[AsyncClient]:
+async def role_client(isolated_platform: None) -> AsyncIterator[AsyncClient]:
     """角色域用例客户端：**本夹具内建应用**（确保在租户库环境注入之后才解析引擎）。
 
     注入内存幂等基座替身，使 `Idempotency-Key` 复用首次结果可断言。
+
+    Args:
+        isolated_platform: 独占平台库覆盖（依赖顺序保证先于应用装配）。
 
     Yields:
         AsyncClient: 携带测试登录态的 ASGI 客户端。

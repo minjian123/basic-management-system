@@ -16,11 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.events.base import EventEnvelope
-from bms_core.models.base import Base
 from bms_core.models.outbox import SysEventConsumed, SysEventDeadLetter, SysOutbox
 from bms_core.outbox.base import DEAD_LETTER_STATUS_PENDING, OUTBOX_STATUS_PENDING
 from bms_core.outbox.store import SqlOutboxStore
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
     [
@@ -65,8 +65,7 @@ async def outbox_schema(
         monkeypatch: 环境变量覆盖。
     """
     for engine in (shared_platform_engine, shared_tenant_engine):
-        async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+        await ensure_tables(engine, list(_TABLES))
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", shared_platform_db_url)
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()

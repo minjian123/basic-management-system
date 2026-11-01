@@ -17,10 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.models.base import Base
 from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysUserExtension
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from tests_support.permission_admin import assign_system_admin
 
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
@@ -59,8 +59,7 @@ async def tenant_schema(
         shared_tenant_db_url: 共享租户库连接串。
         monkeypatch: 环境变量覆盖。
     """
-    async with shared_tenant_engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    await ensure_tables(shared_tenant_engine, list(_TABLES))
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()
 

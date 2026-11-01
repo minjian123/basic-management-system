@@ -28,7 +28,6 @@ from bms_core.core.config import Settings
 from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.plugin import default_plugin_registry
 from bms_core.db.registry import EngineRegistry
-from bms_core.models.base import Base
 from bms_core.models.platform.menu_form import SysField
 from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
@@ -48,6 +47,7 @@ from bms_core.permission.rbac import RbacPermissionChecker
 from bms_core.permission.snapshot import set_current_permission_snapshot
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.permission_meta.permission.checker import (
     PLATFORM_DATA_SOURCE_KEY,
@@ -244,8 +244,7 @@ async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncI
     Yields:
         _Scenario: 引擎与两个本用例专属用户主键。
     """
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    await ensure_tables(shared_platform_engine, list(_TABLES))
     async with rollback_session(shared_platform_engine) as session:
         users = UserRepository(session)
         user = await users.create(username=ns.code("reviewer"), password_hash="x", name="复核员")
