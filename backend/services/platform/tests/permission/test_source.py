@@ -7,17 +7,20 @@
 - 空角色短路（不查授权 / 范围 / 字段）；
 - `build_platform_source`：按请求装配来源（含 `[permission].options` 读取）；
 - `register_platform_permission`：真实校验器 + 数据来源工厂 + 字段权限工厂登记（幂等）。
+
+单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）；
+主体换成**每次新建的命名空间用户**（`ns` 前缀），使 `len(role_ids) == 1` 一类断言在用例叠加下仍成立。
 """
 
 from collections.abc import AsyncIterator, Iterator
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any, cast
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI, Request
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -44,6 +47,8 @@ from bms_core.permission.field import current_field_permission_provider_factory
 from bms_core.permission.rbac import RbacPermissionChecker
 from bms_core.permission.snapshot import set_current_permission_snapshot
 from bms_core.servicecall.base import BaseServiceClient
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.permission_meta.permission.checker import (
     PLATFORM_DATA_SOURCE_KEY,
     build_platform_source,
@@ -57,13 +62,12 @@ from bms_platform.domains.role.permission.field_provider import build_static_fie
 from bms_platform.domains.role.public import RoleDataScopeEntry, RolePermissionEntry
 from bms_platform.domains.role.repositories.role import UserRoleRepository
 from bms_platform.domains.role.services.permission_subject import DirectRoleResolver
+from bms_platform.domains.user.public import SysUser, UserRepository
 from bms_platform.wiring import role_grant, role_resolvers
 
-_USER_ID = 1001
 _MENU_ID = 900
 _FORM_ID = 901
 _ACTION_ID = 902
-_ROLE_CODE = "reviewer"
 
 
 class _Registry:
@@ -200,44 +204,68 @@ def clean_context() -> Iterator[None]:
     current_tenant_id.set(None)
 
 
-@pytest_asyncio.fixture
-async def engine(tmp_path: Path) -> AsyncIterator[AsyncEngine]:
-    """建最小租户库（角色域五表 + `sys_field`）并播种。
-
-    Args:
-        tmp_path: pytest 临时目录。
-
-    Yields:
-        AsyncEngine: 已建表并播种的异步引擎。
-    """
-    created = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'source.db'}")
-    tables = [
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    (
         cast("Table", SysRole.__table__),
         cast("Table", SysUserRole.__table__),
         cast("Table", SysRolePermission.__table__),
         cast("Table", SysRoleField.__table__),
         cast("Table", SysDataScope.__table__),
         cast("Table", SysField.__table__),
-    ]
-    async with created.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
-    factory = async_sessionmaker(created, expire_on_commit=False)
-    async with factory() as opened:
-        await _seed(opened)
-    yield created
-    await created.dispose()
+        cast("Table", SysUser.__table__),
+    )
+)
+"""本文件涉及的表（共享平台库幂等补齐；其余表由准备集与各套件按需建）。"""
 
 
-async def _seed(session: AsyncSession) -> None:
+@dataclass(frozen=True)
+class _Scenario:
+    """用例场景：共享平台库引擎 + 本用例新建的命名空间用户。
+
+    Attributes:
+        engine: 共享平台库引擎（`_Registry` 替身按库键返回它）。
+        user_id: 已分配角色的用户主键（本用例专属）。
+        bare_user_id: 未分配任何角色的用户主键（空角色短路用）。
+    """
+
+    engine: AsyncEngine
+    user_id: int
+    bare_user_id: int
+
+
+@pytest_asyncio.fixture
+async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncIterator[_Scenario]:
+    """共享平台库 + 回滚会话：幂等建表、新建命名空间用户并播种（用例结束整体回滚）。
+
+    Args:
+        shared_platform_engine: 共享平台库引擎。
+        ns: 用例命名空间。
+
+    Yields:
+        _Scenario: 引擎与两个本用例专属用户主键。
+    """
+    async with shared_platform_engine.begin() as connection:
+        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    async with rollback_session(shared_platform_engine) as session:
+        users = UserRepository(session)
+        user = await users.create(username=ns.code("reviewer"), password_hash="x", name="复核员")
+        bare = await users.create(username=ns.code("bare"), password_hash="x", name="无角色")
+        await _seed(session, ns, user.id)
+        yield _Scenario(engine=shared_platform_engine, user_id=user.id, bare_user_id=bare.id)
+
+
+async def _seed(session: AsyncSession, ns: Namespace, user_id: int) -> None:
     """播种：自定义角色 + 用户分配 + 三类授权 + 字段收窄 + 数据范围规则。
 
     Args:
         session: 会话。
+        ns: 用例命名空间（角色码带前缀，避免叠加下按码查询读到他人角色）。
+        user_id: 被分配角色的用户主键。
     """
-    role = SysRole(code=_ROLE_CODE, name="复核员", status="enabled", role_type=ROLE_TYPE_CUSTOM)
+    role = SysRole(code=ns.code("reviewer"), name="复核员", status="enabled", role_type=ROLE_TYPE_CUSTOM)
     session.add(role)
     await session.flush()
-    session.add(SysUserRole(role_id=role.id, user_id=_USER_ID))
+    session.add(SysUserRole(role_id=role.id, user_id=user_id))
     session.add_all(
         [
             SysRolePermission(role_id=role.id, perm_type=PERM_TYPE_MENU, target_id=_MENU_ID),
@@ -294,9 +322,9 @@ def _source(
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_load_subject_maps_real_rows(engine: AsyncEngine) -> None:
+async def test_load_subject_maps_real_rows(scenario: _Scenario) -> None:
     """取数：真实仓储行映射为基座数据契约（角色类型 / 三类授权 / 范围规则 / 字段收窄）。"""
-    data = await _source(engine).load_subject(user_id=_USER_ID)
+    data = await _source(scenario.engine).load_subject(user_id=scenario.user_id)
     assert len(data.role_ids) == 1
     role_id = next(iter(data.role_ids))
     assert data.role_types.get(role_id) == ROLE_TYPE_CUSTOM
@@ -315,17 +343,20 @@ async def test_load_subject_maps_real_rows(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_load_subject_skips_field_provider_when_absent(engine: AsyncEngine) -> None:
+async def test_load_subject_skips_field_provider_when_absent(scenario: _Scenario) -> None:
     """取数：未注入字段权限工厂 → 字段收窄为空（全开）。"""
-    data = await _source(engine, with_field_provider=False).load_subject(user_id=_USER_ID)
+    data = await _source(scenario.engine, with_field_provider=False).load_subject(user_id=scenario.user_id)
     assert len(data.role_ids) == 1
     assert list(data.field_perms) == []
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_load_subject_short_circuits_without_roles(engine: AsyncEngine) -> None:
-    """取数：无角色用户 → 空契约（不查授权 / 范围 / 字段）。"""
-    data = await _source(engine).load_subject(user_id=999999)
+async def test_load_subject_short_circuits_without_roles(scenario: _Scenario) -> None:
+    """取数：无角色用户 → 空契约（不查授权 / 范围 / 字段）。
+
+    单库叠加口径：改用本用例新建的「未分配角色」用户（固定主键在叠加下可能被他人分配角色）。
+    """
+    data = await _source(scenario.engine).load_subject(user_id=scenario.bare_user_id)
     assert list(data.role_ids) == []
     assert list(data.grants) == []
     assert list(data.data_scope_rules) == []
@@ -333,7 +364,7 @@ async def test_load_subject_short_circuits_without_roles(engine: AsyncEngine) ->
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_load_subject_skips_unknown_perm_type(engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_load_subject_skips_unknown_perm_type(scenario: _Scenario, monkeypatch: pytest.MonkeyPatch) -> None:
     """取数：未登记授权类型的行跳过（不污染授权集合）。"""
     from bms_platform.domains.permission_meta.permission import source as source_module
 
@@ -395,12 +426,12 @@ async def test_load_subject_skips_unknown_perm_type(engine: AsyncEngine, monkeyp
         del session
         return _Grants()
 
-    data = await _source(engine, grants_factory=_grants_factory).load_subject(user_id=_USER_ID)
+    data = await _source(scenario.engine, grants_factory=_grants_factory).load_subject(user_id=scenario.user_id)
     assert [(item.perm_type, item.target_id) for item in data.grants] == [(PERM_TYPE_MENU, 900)]
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_load_metadata_indexes_menu_forms_and_codes(engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_load_metadata_indexes_menu_forms_and_codes(scenario: _Scenario, monkeypatch: pytest.MonkeyPatch) -> None:
     """元数据：菜单 → 表单索引（无表单菜单不入索引）、权限码 id → 权限码、版本透传。"""
     from bms_platform.domains.permission_meta.permission import source as source_module
 
@@ -418,7 +449,7 @@ async def test_load_metadata_indexes_menu_forms_and_codes(engine: AsyncEngine, m
         return _MetadataService()
 
     monkeypatch.setattr(source_module, "build_menu_metadata_service", _builder)
-    source = _source(engine)
+    source = _source(scenario.engine)
     metadata = await source.load_metadata(locale="zh-CN")
     assert metadata.version == 7
     assert list(metadata.menu_forms.get(_MENU_ID) or []) == [_FORM_ID]

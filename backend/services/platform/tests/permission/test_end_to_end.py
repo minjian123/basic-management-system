@@ -7,16 +7,19 @@
 
 数据来源以**本文件内的会话来源**实现（接缝可替换的直接演示）：取数与映射走真实仓储，算法走基座引擎
 `bms_core.permission.engine`——与生产装配（`bms_platform.domains.permission_meta.permission.source`）同一套口径。
+
+单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）；
+主体换成**每次新建的命名空间用户**、角色码带命名空间前缀，断言只看本用例自造的行。
 """
 
 from collections.abc import AsyncIterator, Iterator
-from pathlib import Path
+from dataclasses import dataclass
 from typing import cast
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -53,6 +56,8 @@ from bms_core.permission.sources import (
     PermissionSubjectData,
 )
 from bms_core.permission.subject import PermissionSubjectService
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.role.permission.field_provider import StaticFieldPermissionProvider
 from bms_platform.domains.role.repositories.role import (
     DataScopeRepository,
@@ -61,15 +66,27 @@ from bms_platform.domains.role.repositories.role import (
     UserRoleRepository,
 )
 from bms_platform.domains.role.services.permission_subject import DirectRoleResolver
+from bms_platform.domains.user.public import SysUser, UserRepository
 
-_USER_ID = 1001
 _MENU_ID = 900
 _FORM_ID = 901
 _ACTION_ID = 902
-_ROLE_CODE = "reviewer"
 _FORM_BUSINESS = "employee"
 _FORM_GRANT_ID = 999
 _MENU_UNGRANTED_ID = 899
+
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    (
+        cast("Table", SysRole.__table__),
+        cast("Table", SysUserRole.__table__),
+        cast("Table", SysRolePermission.__table__),
+        cast("Table", SysRoleField.__table__),
+        cast("Table", SysDataScope.__table__),
+        cast("Table", SysField.__table__),
+        cast("Table", SysUser.__table__),
+    )
+)
+"""本文件涉及的表（共享平台库幂等补齐）。"""
 
 
 def _metadata() -> PermissionMetadata:
@@ -160,6 +177,21 @@ class _SessionSource(BasePermissionDataSource):
         return StaticFieldPermissionProvider(self._session, self._session)
 
 
+@dataclass(frozen=True)
+class _Scenario:
+    """用例场景：回滚会话 + 本用例新建的命名空间主体。
+
+    Attributes:
+        session: 共享平台库上的回滚会话。
+        user_id: 已分配角色的用户主键（本用例专属）。
+        role_id: 本用例新建的角色主键。
+    """
+
+    session: AsyncSession
+    user_id: int
+    role_id: int
+
+
 @pytest.fixture(autouse=True)
 def clean_context() -> Iterator[None]:
     """每例前后清空快照（请求态隔离）。
@@ -173,43 +205,39 @@ def clean_context() -> Iterator[None]:
 
 
 @pytest_asyncio.fixture
-async def session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
-    """建最小租户库（角色域五表 + `sys_field`）并播种非豁免主体的授权数据。
+async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncIterator[_Scenario]:
+    """共享平台库 + 回滚会话：幂等建表，播种非豁免主体的授权数据（结束整体回滚）。
 
     Args:
-        tmp_path: pytest 临时目录。
+        shared_platform_engine: 共享平台库引擎。
+        ns: 用例命名空间。
 
     Yields:
-        AsyncSession: 会话。
+        _Scenario: 回滚会话与本用例专属用户 / 角色主键。
     """
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'engine.db'}")
-    tables = [
-        cast("Table", SysRole.__table__),
-        cast("Table", SysUserRole.__table__),
-        cast("Table", SysRolePermission.__table__),
-        cast("Table", SysRoleField.__table__),
-        cast("Table", SysDataScope.__table__),
-        cast("Table", SysField.__table__),
-    ]
-    async with engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as opened:
-        await _seed(opened)
-        yield opened
-    await engine.dispose()
+    async with shared_platform_engine.begin() as connection:
+        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    async with rollback_session(shared_platform_engine) as session:
+        user = await UserRepository(session).create(username=ns.code("reviewer"), password_hash="x", name="复核员")
+        role = await _seed(session, ns, user.id)
+        yield _Scenario(session=session, user_id=user.id, role_id=role.id)
 
 
-async def _seed(session: AsyncSession) -> None:
+async def _seed(session: AsyncSession, ns: Namespace, user_id: int) -> SysRole:
     """播种：自定义角色 + 用户分配 + 菜单/动作授权 + 字段收窄 + 数据范围规则。
 
     Args:
         session: 会话。
+        ns: 用例命名空间（角色码带前缀，避免叠加下按码查询读到他人角色）。
+        user_id: 被分配角色的用户主键。
+
+    Returns:
+        SysRole: 新建角色。
     """
-    role = SysRole(code=_ROLE_CODE, name="复核员", status="enabled", role_type=ROLE_TYPE_CUSTOM)
+    role = SysRole(code=ns.code("reviewer"), name="复核员", status="enabled", role_type=ROLE_TYPE_CUSTOM)
     session.add(role)
     await session.flush()
-    session.add(SysUserRole(role_id=role.id, user_id=_USER_ID))
+    session.add(SysUserRole(role_id=role.id, user_id=user_id))
     session.add_all(
         [
             SysRolePermission(role_id=role.id, perm_type=PERM_TYPE_MENU, target_id=_MENU_ID),
@@ -239,6 +267,7 @@ async def _seed(session: AsyncSession) -> None:
         SysDataScope(role_id=role.id, data_source_key="role", policy_type=POLICY_TYPE_SELECT, config=list(config))
     )
     await session.commit()
+    return role
 
 
 def _engine(session: AsyncSession, *, cache: MemoryCacheRegion | None = None) -> PermissionEngine:
@@ -260,9 +289,9 @@ def _engine(session: AsyncSession, *, cache: MemoryCacheRegion | None = None) ->
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_non_exempt_subject_snapshot_and_write_guard(session: AsyncSession) -> None:
+async def test_non_exempt_subject_snapshot_and_write_guard(scenario: _Scenario) -> None:
     """非豁免主体全链：菜单/表单 → 业务码、动作 → 动作码、字段收窄、数据范围规则与写拒绝。"""
-    snapshot = await _engine(session).snapshot_for(user_id=_USER_ID, tenant_id="1001")
+    snapshot = await _engine(scenario.session).snapshot_for(user_id=scenario.user_id, tenant_id="1001")
     assert snapshot.tier == TIER_STANDARD
     assert snapshot.exempt is False
     assert 900 in snapshot.granted_menu_ids  # 菜单授权计入入口集合
@@ -281,10 +310,10 @@ async def test_non_exempt_subject_snapshot_and_write_guard(session: AsyncSession
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_exempt_and_absent_snapshot_pass_write_guard(session: AsyncSession) -> None:
+async def test_exempt_and_absent_snapshot_pass_write_guard(scenario: _Scenario) -> None:
     """写拒绝接缝的放行分支：豁免层级与未预加载（占位实现 / 服务身份）不拦字段。"""
-    engine = _engine(session)
-    snapshot = await engine.snapshot_for(user_id=_USER_ID, tenant_id="1001")
+    engine = _engine(scenario.session)
+    snapshot = await engine.snapshot_for(user_id=scenario.user_id, tenant_id="1001")
     assert snapshot.field_state(_FORM_ID, "salary") == (False, False)
     set_current_permission_snapshot(PermissionSnapshot(tier=TIER_SYSTEM_ADMIN, field_perms=snapshot.field_perms))
     assert _write(form_id=_FORM_ID, salary=100) is None
@@ -293,24 +322,34 @@ async def test_exempt_and_absent_snapshot_pass_write_guard(session: AsyncSession
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_snapshot_cache_reuses_version_and_reflects_grant_removal(session: AsyncSession) -> None:
-    """快照缓存：同版本二次取用复用；授权移除 + 版本失效后重算出结果。"""
-    engine = _engine(session)
-    first = await engine.snapshot_for(user_id=_USER_ID, tenant_id="1001")
-    second = await engine.snapshot_for(user_id=_USER_ID, tenant_id="1001")
+async def test_snapshot_cache_reuses_version_and_reflects_grant_removal(scenario: _Scenario) -> None:
+    """快照缓存：同版本二次取用复用；授权移除 + 版本失效后重算出结果。
+
+    单库叠加口径：动作授权行按**本用例角色**过滤（`perm_type` 全表计数在叠加下会数到他人的行）。
+    """
+    engine = _engine(scenario.session)
+    first = await engine.snapshot_for(user_id=scenario.user_id, tenant_id="1001")
+    second = await engine.snapshot_for(user_id=scenario.user_id, tenant_id="1001")
     assert first.holds("employee:query") == second.holds("employee:query") is True
     rows = (
-        (await session.execute(select(SysRolePermission).where(SysRolePermission.perm_type == PERM_TYPE_PERMISSION)))
+        (
+            await scenario.session.execute(
+                select(SysRolePermission).where(
+                    SysRolePermission.role_id == scenario.role_id,
+                    SysRolePermission.perm_type == PERM_TYPE_PERMISSION,
+                )
+            )
+        )
         .scalars()
         .all()
     )
     assert len(rows) == 1
     for row in rows:
-        await session.delete(row)
-    await session.commit()
+        await scenario.session.delete(row)
+    await scenario.session.commit()
     version = await engine.invalidate(tenant_id="1001")
     assert version == 1
-    refreshed = await engine.snapshot_for(user_id=_USER_ID, tenant_id="1001")
+    refreshed = await engine.snapshot_for(user_id=scenario.user_id, tenant_id="1001")
     assert refreshed.holds("employee:query") is False
 
 
