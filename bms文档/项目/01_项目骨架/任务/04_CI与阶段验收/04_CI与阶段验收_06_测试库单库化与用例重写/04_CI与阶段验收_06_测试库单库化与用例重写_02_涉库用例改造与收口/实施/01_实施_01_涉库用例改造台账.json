@@ -1,0 +1,5672 @@
+[
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/alembic/test_alembic_env.py",
+    "tests": 4,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/alembic/test_alembic_series.py",
+    "tests": 8,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/alembic/test_auto_create_tables.py",
+    "tests": 11,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/alembic/test_migration_edges.py",
+    "tests": 17,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template, alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/alembic/test_service_model_package.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_errors_render.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_metrics_endpoint.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_middleware.py",
+    "tests": 13,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_request_domain_labels.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_require_auth.py",
+    "tests": 16,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_require_auth_or_service.py",
+    "tests": 16,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_require_capability.py",
+    "tests": 15,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_require_service.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/api/test_router_registry_helpers.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/archive/test_archive.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/audit/test_audit_dependency.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/audit/test_hashchain.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/boundary/test_boundary.py",
+    "tests": 18,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：142: assert len(entries) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/boundary/test_domain_boundary.py",
+    "tests": 23,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：452: assert len(entries) == 17；455: assert len(entry.public_api) == 1, entry.domain_key"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/boundary/test_permission_sink.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/cache/test_memory_region_paths.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/cache/test_redis_region.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/captcha/test_captcha_default.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/captcha/test_captcha_policy.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/captcha/test_captcha_slider.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/captcha/test_captcha_sms.py",
+    "tests": 13,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/captcha/test_mask_phone.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/circuit/test_circuit.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_address.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_dependency.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_grant.py",
+    "tests": 29,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_grant_bootstrap.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_guard.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_request.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_resolution.py",
+    "tests": 12,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_startup.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_capability_usage.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_domain_scope.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_topology_distribute.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_topology_mode.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_topology_resolver.py",
+    "tests": 16,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/collaboration/test_topology_templates.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/config/test_config_cache_version.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/config/test_config_edges.py",
+    "tests": 13,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：199: create_async_engine()；188: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/config/test_config_real.py",
+    "tests": 8,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（apply_unit_schema(, init_schema），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/config/test_config_rules.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/config/test_config_seed_refresh.py",
+    "tests": 3,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/consistency/test_barrier.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_application_factory.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_application_startup_paths.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_assembly_factories.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_base_inheritance.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_base_object_convert_sets.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_basic_protection.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_collections.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_collections_chain.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_collections_general.py",
+    "tests": 39,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_concurrent.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_concurrent_frozen.py",
+    "tests": 25,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_concurrent_stable.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_concurrent_strategy_paths.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_config.py",
+    "tests": 29,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_config_paths.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_context.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_exception_constructors_paths.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_exceptions.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_factory.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_locking.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_logging.py",
+    "tests": 18,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_model_stable_json.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_object_bases_roots.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_objects.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_options_contract_paths.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_paths.py",
+    "tests": 7,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_plugin.py",
+    "tests": 15,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_plugin_resolve.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_product_service_assembly.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_redis_collections.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_run.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_security.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_serialization.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_serialization_rebuild_paths.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_service_catalog_startup.py",
+    "tests": 11,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：123: create_async_engine()；145: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_service_endpoints.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_service_runtime.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_snowflake_id.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_sorted_collections_paths.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_task_provider.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_tenant_id_naming.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_value_object_hash_placement.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_value_object_roots.py",
+    "tests": 18,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（init_tenant, provision_tenant），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_version.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/core/test_workspace_layout.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_collab_closure.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_division_closure.py",
+    "tests": 9,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（migrate_topology），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_domain_public_exports.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_m2_closure.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_m3_closure.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_m5_closure.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_m6_closure.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_m7_closure.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_module_boundary.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/crosscut/test_null_migration.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dashboard/test_dashboard.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/datasource/test_base.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：72: 临时库 dict_table.db；74: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/datasource/test_data_source_startup.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/datasource/test_registry.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/datasource/test_registry_guard.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/datasource/test_table_columns.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：71: 临时库 narrow_dict.db；73: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_data_access.py",
+    "tests": 6,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：55: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_db_admin.py",
+    "tests": 10,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（create_database(, drop_database(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_db_inventory.py",
+    "tests": 3,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_degradation.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：19: 连接串字面量；31: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_dm_ssl.py",
+    "tests": 13,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：181: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_dm_xa.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_dm_xa_recover.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_engine_registry.py",
+    "tests": 9,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：19: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_engine_routing.py",
+    "tests": 10,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：27: 连接串字面量；44: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_keys.py",
+    "tests": 20,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_migration_guard.py",
+    "tests": 10,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：284: assert len(locked) == 2；289: assert len(unlocked) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_pool_config.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：66: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_readonly_middleware.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_session_scope.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：15: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_sqlite_dir.py",
+    "tests": 5,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_sync_facade.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：52: create_engine()；52: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_sync_session_bind.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：22: create_engine()；48: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_tenant.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_tenant_lookup_registry.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_tenant_middleware.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_tenant_remote.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_tenant_routing.py",
+    "tests": 5,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_tenant_snapshot_payload.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/db/test_unit_of_work.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：36: create_async_engine()；51: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_cache.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_dict_config.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_dict_invalidate.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_http_dict.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_http_dict_extra.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_null.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_outlet.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_outlet_cache_paths.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_outlet_empty_cache.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_outlet_translate_cache.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_providers.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_query.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/dict/test_table_i18n_scope.py",
+    "tests": 8,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：216: assert len(captured) == 1 and captured[0] is not None"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/edge/test_edge.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/edge/test_service_jwt.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_bus_branches.py",
+    "tests": 23,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_consumer_records.py",
+    "tests": 13,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_contracts.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_dead_letter.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_dedup.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_group.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_lane.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_null.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_event_topic.py",
+    "tests": 17,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_platform_events.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_product_events.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_rocketmq_consumer.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/events/test_rocketmq_publisher.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/fallback/test_fallback.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/fieldtype/fieldtype/test_fieldtype.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/fieldtype/test_local_registry.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/health/test_catalog_check.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/i18n/test_i18n.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idempotency/test_idempotency.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idempotency/test_idempotency_redis.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idp/test_cas.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idp/test_dingtalk.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idp/test_probe.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idp/test_registry.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idp/test_schema.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idp/test_ssrf.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idp/test_state_store.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/idp/test_wecom.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_captcha_integration.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_config_cache_real.py",
+    "tests": 2,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_cross_db_2pc.py",
+    "tests": 3,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：59: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_db_connectivity_integration.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：79: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_dict_cache_real.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_dm8_dialect_measure.py",
+    "tests": 4,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_dm_xa_integration.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：111: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_dm_xa_recover_integration.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_event_bus_rocketmq.py",
+    "tests": 4,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：284: assert len(rows) == 1；300: assert len(await _dead_letters(registry)) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_job_worker_real.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：110: create_async_engine()；110: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_minio_integration.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_redis_collections_integration.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/integration/test_three_db_integration.py",
+    "tests": 8,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_client.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_events.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_internal_api.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_keys.py",
+    "tests": 3,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：63: assert len(calls) == 2"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_limits.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_registry.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_runner.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_runner_edges.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_signal.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_spec.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_store.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_worker.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/jobs/test_job_worker_edges.py",
+    "tests": 15,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/listing/test_query_scheme_store.py",
+    "tests": 4,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（apply_unit_schema(, init_schema），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/lock/test_lock.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/lock/test_lock_memory.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/lock/test_lock_redis.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/masking/test_default_masker.py",
+    "tests": 15,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/masking/test_masking.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/masking/test_masking_wiring.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/metrics/test_metrics.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/metrics/test_prometheus_metrics.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/models/test_snowflake_id_type.py",
+    "tests": 7,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：91: create_engine()；120: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/oauth/test_oidc_provider.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/oauth/test_scopes.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_baseline_series.py",
+    "tests": 6,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_check_budget.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_check_contracts.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_check_modules.py",
+    "tests": 17,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：271: create_async_engine()；287: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_check_modules_registry.py",
+    "tests": 10,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：138: 连接串字面量；249: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_check_tables.py",
+    "tests": 7,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：72: create_engine()；81: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_ci_pipeline.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_compose_worker_ids.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_contract_gate.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_contract_smoke.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_contract_snapshot.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_deploy_config.py",
+    "tests": 6,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_event_consumer_cli.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_event_contracts_cli.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_export_errcodes.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_gateway_config.py",
+    "tests": 28,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：383: create_async_engine()；408: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_init_schema.py",
+    "tests": 5,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（init_schema），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_migrate_topology.py",
+    "tests": 26,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（migrate_topology, seed_tenants(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_migration_ops.py",
+    "tests": 12,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（init_tenant），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_module_ops.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：22: create_async_engine()；62: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_new_service.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_observability_config.py",
+    "tests": 13,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_ops_type_gate.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_outbox_cli.py",
+    "tests": 3,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：41: create_async_engine()；54: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_provision_tenant.py",
+    "tests": 8,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（provision_tenant, url_template, seed_tenants(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_release_cli.py",
+    "tests": 3,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_seed_menu.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_seed_tables.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：48: create_engine()；65: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_service_build_selfcheck.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_task_scheduler_cli.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_tenant_ops.py",
+    "tests": 3,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（seed_tenants(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_test_db.py",
+    "tests": 12,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：109: assert len(statements) == 3"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ops/test_topology_migration.py",
+    "tests": 14,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：156: assert len(_rows(target, \"demo_role\")) == 3, \"重复复制不新增行\""
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/optionset/test_optionset.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/outbound/test_outbound.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/outbox/test_consumed.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/outbox/test_outbox_dispatcher.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/outbox/test_outbox_store.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/password/test_password_policy.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/permission/test_cache.py",
+    "tests": 21,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/permission/test_engine.py",
+    "tests": 15,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/permission/test_permission.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/permission/test_permission_profile_paths.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/permission/test_permission_snapshot_payload.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/permission/test_role_resolver_registry.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/permission/test_sources.py",
+    "tests": 16,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/query/test_query.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ratelimit/test_peek.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ratelimit/test_rate_limiter.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/ratelimit/test_ratelimit.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/redis/test_client.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/registry/test_collaboration_records.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/registry/test_declarations.py",
+    "tests": 46,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/registry/test_error_codes.py",
+    "tests": 22,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/registry/test_form_catalog.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/registry/test_products_jobs.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/registry/test_products_manifest.py",
+    "tests": 46,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/registry/test_registry_boot.py",
+    "tests": 18,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/replay/test_replay.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/repositories/test_db_repository.py",
+    "tests": 17,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：170: assert await repo.count() == 1；267: assert await mapped.count() == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/repositories/test_ordering.py",
+    "tests": 14,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：46: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/repositories/test_scoped_repository.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_contract_collections.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_cursor.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_filters.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_pagination.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_schema_strict.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_serialization_schema.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_service_dto.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_snowflake_id_str.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/schemas/test_sorting.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/scope/test_policies_rbac.py",
+    "tests": 25,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/scope/test_rbac_scope_layer2.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/scope/test_rbac_scope_layer3.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/scope/test_scope_policy_registry.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/security/test_jwt.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/security/test_null.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/security/test_pbkdf2.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/security/test_providers.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/security/test_security_controls.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/security/test_session.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/servicecall/test_http_local.py",
+    "tests": 9,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/servicecall/test_servicecall.py",
+    "tests": 24,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（url_template），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/services/test_catalog_snapshot_client.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/services/test_gateway_catalog.py",
+    "tests": 36,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/services/test_module_registry.py",
+    "tests": 21,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：71: assert len(SERVICE_CATALOG) == 16；91: assert len(services) == 10"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/services/test_service_contract.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/services/test_service_contract_schemas.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/services/test_table_registry.py",
+    "tests": 19,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/session/test_session_store.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_builtin_cleanup.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_task_builtin.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_task_cron.py",
+    "tests": 20,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_task_handlers.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_task_scheduler.py",
+    "tests": 15,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_task_seed.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_task_signal.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_task_spec.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tasks/test_task_store.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_branches.py",
+    "tests": 7,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：38: create_async_engine()；73: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_cli_orchestrate.py",
+    "tests": 24,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_cli_shell.py",
+    "tests": 7,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：74: 连接串字面量；75: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_main_paths.py",
+    "tests": 8,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：53: create_async_engine()；95: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_orchestrator.py",
+    "tests": 34,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_orchestrator_edges.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_orchestrator_execute.py",
+    "tests": 18,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：356: assert len(failed) == 1；552: assert len(seen) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_precheck_conflicts.py",
+    "tests": 7,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：166: assert len(conflicts) == 1；267: assert len(conflicts) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_provisioning.py",
+    "tests": 10,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_rbac.py",
+    "tests": 10,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：346: assert len(BUILTIN_ADMIN_ROLES) == 3"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_registry.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：26: create_async_engine()；49: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_branch_tails.py",
+    "tests": 13,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：81: create_async_engine()；96: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_entries.py",
+    "tests": 17,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（seed_tenants(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_expected_rows.py",
+    "tests": 16,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（seed_tenants(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_final_paths.py",
+    "tests": 9,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：39: create_async_engine()；75: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_last_branches.py",
+    "tests": 6,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：37: create_async_engine()；74: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_misc_paths.py",
+    "tests": 12,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_platform.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：40: create_async_engine()；50: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_probe.py",
+    "tests": 9,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：179: assert len(registered[\"seed-module\"]._tables) == 2  # pyrigh"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_probe_declared.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_sso.py",
+    "tests": 8,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 1,
+    "evidence": "自建库 + 整表断言：32: assert len(rows) == 1；72: assert len(rows) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/seed/test_user.py",
+    "tests": 8,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：43: create_async_engine()；80: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant/test_membership_store.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant_module/test_gate.py",
+    "tests": 15,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tenant_module/test_quota_client.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/test_product_manifest_jobs.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_assertions.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_base.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_case_layers.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_fixtures_worker.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_logs.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_namespace.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_output.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_plugin_contract.py",
+    "tests": 13,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：122: 连接串字面量；121: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_shared_db.py",
+    "tests": 11,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "已有 own_db 白名单（被测对象是共享库夹具：需用临时库验证建库一次 / 版本戳 / 残留锁 / 清理）"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_shared_db_edges.py",
+    "tests": 6,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "已有 own_db 白名单（被测对象是共享库夹具：需用临时库验证选主 / 清理 / 就绪等待）"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_shared_db_prepare.py",
+    "tests": 12,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 1,
+    "evidence": "已有 own_db 白名单（被测对象就是共享库准备集：建表与种子本身）"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/testing/test_transaction.py",
+    "tests": 6,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 1,
+    "evidence": "自建库：28: create_async_engine()；83: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tracing/test_cross_service_trace.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tracing/test_otel_tracer.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tracing/test_tracing.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/tracing/test_tracing_setup.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/transaction/test_transaction_ports.py",
+    "tests": 15,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/transaction/test_transaction_xa.py",
+    "tests": 23,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/transaction/test_xa_branch_stats.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/transfer/test_masking.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/transfer/test_transfer.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/workerid/test_integration.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/workerid/test_registry.py",
+    "tests": 28,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/workerid/test_workerid_real_redis.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/libs/bms_core/tests/workflow/test_workflow.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 1,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/account_lock/test_endpoint.py",
+    "tests": 1,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：53: create_async_engine()；53: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/account_lock/test_endpoints.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：56: create_async_engine()；36: tmp_path_factory"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/account_lock/test_fail_limit.py",
+    "tests": 3,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：95: assert len(rows) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/account_lock/test_list.py",
+    "tests": 3,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：145: assert len(first_page) == 2 and len(second_page) == 2"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/account_lock/test_manual_lock.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：27: create_async_engine()；27: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/account_lock/test_scan.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：49: create_async_engine()；49: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/account_lock/test_unlock.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：30: create_async_engine()；46: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_capability_grants.py",
+    "tests": 18,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_data_sources_api.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_demo.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_dev_contract_endpoints.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：142: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_dict_api.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_errors.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_form_keys_api.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_health.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_internal_declarations.py",
+    "tests": 8,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：37: 连接串字面量；37: 临时库 declarations.db"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_internal_permission.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_internal_permission_mapping.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_internal_tenant_topologies.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_main.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_menu_admin_api.py",
+    "tests": 9,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：39: tmp_path_factory"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_menu_metadata.py",
+    "tests": 9,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：40: tmp_path_factory"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_menu_module_states.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_modules.py",
+    "tests": 13,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：87: assert len(first.json()[\"data\"][\"list\"]) == 5"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_modules_snapshot.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_my_menu.py",
+    "tests": 4,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：169: assert len(node[\"forms\"]) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_outbox.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：59: create_async_engine()；101: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_plugins.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_products.py",
+    "tests": 6,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：152: 连接串字面量；152: 临时库 empty.db"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_request_logging.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_role_api.py",
+    "tests": 13,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：293: assert len(permissions.json()[\"data\"][\"items\"]) == 3；300: assert len(replayed_grant.json()[\"data\"][\"items\"]) == 3"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_router_base.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_tasks_api.py",
+    "tests": 19,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：56: create_async_engine()；53: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_tenant_topologies.py",
+    "tests": 22,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/api/test_user_extensions.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：47: create_async_engine()；44: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/boundary/test_separation_guard.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/codecheck/test_code_validator.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/config/test_config_admin_api.py",
+    "tests": 10,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：52: create_async_engine()；82: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/config/test_config_service.py",
+    "tests": 15,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 2,
+    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/config/test_internal_config.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/contracts/test_domain_registry_contracts.py",
+    "tests": 16,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/contracts/test_plugin_contracts.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/core/test_base_object.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/core/test_capability.py",
+    "tests": 7,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：83: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/core/test_service_lifecycle.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/credentials/test_credentials.py",
+    "tests": 6,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：51: create_async_engine()；51: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/crosscut/test_capability_cleanup.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/crosscut/test_cross_phase_bases.py",
+    "tests": 6,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：221: assert len(publisher.events) == 2"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/crosscut/test_plugin_assembly.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/crosscut/test_plugin_providers.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/crosscut/test_plugin_registration.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/crosscut/test_plugin_validation.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/crosscut/test_provider_contracts.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/dict/test_dict_registry_guard.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/dict/test_dict_source_paths.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：41: create_async_engine()；37: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/health/test_checks.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：103: create_async_engine()；103: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/health/test_health_registry.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/icon/test_icon_registry.py",
+    "tests": 22,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：61: tmp_path_factory"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/integration/test_health_integration.py",
+    "tests": 1,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：21: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/jobs/test_job_api.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/jobs/test_job_domain_units.py",
+    "tests": 12,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：92: assert len(await service.list_all()) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/jobs/test_job_monitor.py",
+    "tests": 3,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：93: assert len(rows) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/jobs/test_jobs_entry.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/jobs/test_platform_job_bootstrap.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/jobs/test_task_jobs_edges.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：29: create_async_engine()；29: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/jobs/test_task_migration.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：25: create_async_engine()；79: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/listing/test_listing.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/models/test_base_model.py",
+    "tests": 11,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：156: assert len(set(ids)) == 3"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/models/test_type_mapping.py",
+    "tests": 5,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：206: assert len(rows) == 2"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/permission/test_end_to_end.py",
+    "tests": 3,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：274: assert len(snapshot.data_scopes) == 1；307: assert len(rows) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/permission/test_engine.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/permission/test_field_permission.py",
+    "tests": 7,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：110: assert len(perms) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/permission/test_scope.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/permission/test_source.py",
+    "tests": 11,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：300: assert len(data.role_ids) == 1；308: assert len(data.data_scope_rules) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/preference/test_preference.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/registry/test_assembly_without_manifests.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/registry/test_declaration_bootstrap.py",
+    "tests": 9,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：59: create_async_engine()；59: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/registry/test_declaration_repository.py",
+    "tests": 20,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：260: assert len(snapshot.of(\"collaborations\")) == 1；351: assert len(row.content_hash) == 64"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/registry/test_org_branch.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/registry/test_tenant_topology_bootstrap.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/release/test_release_service.py",
+    "tests": 24,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 2,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/repositories/test_base_repository.py",
+    "tests": 17,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/repositories/test_module_repository.py",
+    "tests": 5,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：28: create_async_engine()；28: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/repositories/test_product_repository.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：28: create_async_engine()；28: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/repositories/test_role_menu_repository_paths.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/role/test_role_assign.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/role/test_role_assignments.py",
+    "tests": 23,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/role/test_role_code_update.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/role/test_role_dto_ports.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/role/test_role_grant.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/role/test_role_service.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/role/test_separation_guard.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/schemas/test_base_schema.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/schemas/test_permission_meta_schema.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/seed/test_seed_endpoint.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/seed/test_seed_endpoint_call.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：140: create_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/seed/test_seed_menu_consistency.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：41: create_async_engine()；20: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/seed/test_seed_orchestration.py",
+    "tests": 22,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/seed/test_seed_rbac.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/services/test_base_service.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/services/test_base_transactional_service.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/services/test_branch_handlers.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/services/test_menu_metadata_service.py",
+    "tests": 13,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：469: assert len(menus) == 1；471: assert len(forms) == 2"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/services/test_my_menu_filter_paths.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/services/test_my_menu_module_filter.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/services/test_user_extension_service.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/test_platform_entrypoints.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_admin_api.py",
+    "tests": 8,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：523: assert len(cast(\"ConcurrentStableList[str]\", json.loads(row.；549: assert len(items) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_admin_service_paths.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_create.py",
+    "tests": 3,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：27: create_async_engine()；27: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_create_membership.py",
+    "tests": 3,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：140: assert len(store.calls) == 1；179: assert len(calls) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_internal_query.py",
+    "tests": 3,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：31: create_async_engine()；31: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_profile.py",
+    "tests": 2,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：25: create_async_engine()；25: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_reset_target.py",
+    "tests": 3,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 2,
+    "evidence": "自建库：27: create_async_engine()；27: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_user_assignments.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_user_assignments_writer.py",
+    "tests": 24,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 2,
+    "evidence": "自建库 + 整表断言：669: assert len(client.requests) == 1；920: assert len(client.requests) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/platform/tests/users/test_user_sessions_paths.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 2,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/integration/test_file_storage_real.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/jobs/test_file_cleanup_job.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/storage/test_multipart.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/storage/test_multipart_local.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/storage/test_multipart_minio.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/storage/test_multipart_session.py",
+    "tests": 11,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 3,
+    "evidence": "建库即被测候选（init_schema），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/storage/test_storage.py",
+    "tests": 16,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_dedup.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_download_api.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_entrypoints.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_failures.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_jobs_entry.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_limits.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_multipart_api.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_repository.py",
+    "tests": 4,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 3,
+    "evidence": "自建库 + 整表断言：86: assert len(lower_bound) == 2"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_rules.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_service_units.py",
+    "tests": 10,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 3,
+    "evidence": "自建库：70: create_async_engine()；70: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_file_upload_api.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_package_shape.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/file/tests/test_service_boot.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_auth_dependency.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_auth_security_special.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_change_password.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_cookie_policy.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_cookie_scope.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_introspect.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_login.py",
+    "tests": 19,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_logout.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_me.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_password_reset.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_password_reset_service.py",
+    "tests": 6,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 3,
+    "evidence": "自建库 + 整表断言：153: assert len(notifier.messages) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_platform_client.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_refresh.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_session_kick.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_session_limit.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_session_repo.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_session_service.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/auth/test_sessions.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/captcha/test_captcha.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/captcha/test_captcha_channel.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/idp/test_idp.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/idp/test_manage.py",
+    "tests": 14,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/idp/test_oidc.py",
+    "tests": 18,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/internal/test_revoke_tenant_sessions.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/internal/test_revoke_user_sessions.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oauth/test_oauth.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oauth/test_service_token.py",
+    "tests": 13,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oauth/test_token_verifier.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oauth/test_user_token.py",
+    "tests": 16,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oauth/test_wellknown_jwks.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oidc/test_authorize.py",
+    "tests": 13,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oidc/test_clients.py",
+    "tests": 13,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oidc/test_discovery.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oidc/test_e2e.py",
+    "tests": 8,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oidc/test_token.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/oidc/test_userinfo.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/password/test_password.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/permission/test_identity_checker.py",
+    "tests": 12,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_authorize.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_bind.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_callback.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_cas.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_dingtalk.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_jit.py",
+    "tests": 9,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 3,
+    "evidence": "自建库 + 整表断言：156: assert len(rows) == 1；162: assert len(events) == 1"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_keycloak_e2e.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_providers.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_units.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/sso/test_wecom.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/test_identity_entrypoints.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/test_package_shape.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/identity/tests/test_service_boot.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/sources/test_tenant_routing_integration.py",
+    "tests": 6,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 3,
+    "evidence": "建库即被测候选（url_template, seed_tenants(），待人工确认"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/sources/test_tenant_source.py",
+    "tests": 16,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 3,
+    "evidence": "自建库：34: create_async_engine()；186: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/tenant/test_platform_tenant.py",
+    "tests": 3,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 3,
+    "evidence": "自建库：51: create_async_engine()；50: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/tenant/test_tenant_admin.py",
+    "tests": 11,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 3,
+    "evidence": "自建库：133: create_async_engine()；174: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/tenant/test_tenant_branch_fill.py",
+    "tests": 7,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 3,
+    "evidence": "自建库：93: create_async_engine()；92: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/tenant/test_tenant_extra_branches.py",
+    "tests": 8,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 3,
+    "evidence": "自建库：143: create_async_engine()；142: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/tenant/test_tenant_membership.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/tenant/test_tenant_quota_internal.py",
+    "tests": 3,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 3,
+    "evidence": "自建库：43: create_async_engine()；42: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/tenant/test_tenant_registry.py",
+    "tests": 9,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 3,
+    "evidence": "自建库：32: create_async_engine()；113: create_async_engine()"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/tenant/test_tenant_self_service.py",
+    "tests": 17,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/test_package_shape.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/test_service_boot.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/tenant/tests/test_tenant_entrypoints.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 3,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/ai/tests/chat/test_chat.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/ai/tests/llm/test_llm.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/ai/tests/test_ai_entrypoints.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/ai/tests/test_package_shape.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/ai/tests/test_service_boot.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/notification/tests/notification/test_notification.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/notification/tests/notification/test_notification_model_fields.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/notification/tests/notify/test_notify.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/notification/tests/test_notification_entrypoints.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/notification/tests/test_package_shape.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/notification/tests/test_service_boot.py",
+    "tests": 1,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/notification/tests/ws/test_realtime.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/report/tests/print/test_print_exporter.py",
+    "tests": 19,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/report/tests/test_package_shape.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/report/tests/test_report_entrypoints.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/report/tests/test_service_boot.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/search/tests/globalsearch/test_global_search.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/search/tests/search/test_search.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/search/tests/test_package_shape.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/search/tests/test_search_entrypoints.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/search/tests/test_service_boot.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/txn/tests/integration/test_end_to_end_2pc.py",
+    "tests": 4,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 4,
+    "evidence": "自建库 + 整表断言：330: assert len(driver.committed) == 2；349: assert len(driver.rolled_back) == 2  # 含未 PREPARE 分支的幂等回滚"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/txn/tests/test_coordinator.py",
+    "tests": 21,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 4,
+    "evidence": "自建库：96: create_async_engine()；97: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/txn/tests/test_ledger_cleanup.py",
+    "tests": 9,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 4,
+    "evidence": "自建库：45: create_async_engine()；46: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/txn/tests/test_package_shape.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/txn/tests/test_recovery_poll.py",
+    "tests": 16,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 4,
+    "evidence": "自建库 + 整表断言：224: assert len(calls) == 1  # 启动即扫一轮；225: assert len(driver.committed) == 1  # 且已驱动提交（committing ⇒ com"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/txn/tests/test_service_boot.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/txn/tests/test_txn_api.py",
+    "tests": 7,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 4,
+    "evidence": "自建库：104: create_async_engine()；105: 连接串字面量"
+  },
+  {
+    "repo": "bms",
+    "path": "backend/services/txn/tests/test_txn_entrypoints.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 4,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/api/test_admin_routes.py",
+    "tests": 9,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 5,
+    "evidence": "自建库 + 整表断言：274: assert len(stores) == 4"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/assignment/test_assignments.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/assignment/test_dedupe_and_cover_shrink.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/assignment/test_user_depts.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/dept/test_dept_code.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/dept/test_dept_service.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/internal/test_branch_participant.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/internal/test_internal_api.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/internal/test_internal_auth.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/internal/test_internal_write_api.py",
+    "tests": 4,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 5,
+    "evidence": "自建库：90: create_async_engine()"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/open_read/test_org_dedupe_paths.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/open_read/test_org_open_read.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/open_read/test_org_open_read_api.py",
+    "tests": 10,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/open_read/test_org_source_guards.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/open_read/test_org_user_roles.py",
+    "tests": 5,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/post/test_post_service.py",
+    "tests": 6,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/repository/test_org_repositories.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/test_capabilities.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/test_config_and_entry.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/test_grant_bootstrap.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/test_seeds.py",
+    "tests": 6,
+    "class": "C",
+    "action": "语义重写",
+    "batch": 5,
+    "evidence": "自建库 + 整表断言：76: assert len(first) == 1"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/services/org/tests/test_service_boot.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_config_and_databases.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_contract_gate.py",
+    "tests": 24,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_domain_layout.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_error_code_declaration.py",
+    "tests": 4,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_event_contracts.py",
+    "tests": 9,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_form_registry.py",
+    "tests": 11,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_module_catalog.py",
+    "tests": 17,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_module_registry_guards.py",
+    "tests": 2,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_ops_cli.py",
+    "tests": 30,
+    "class": "B",
+    "action": "机械改造",
+    "batch": 5,
+    "evidence": "自建库：25: 连接串字面量；26: 连接串字面量"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_org_migration.py",
+    "tests": 5,
+    "class": "D",
+    "action": "own_db 白名单",
+    "batch": 5,
+    "evidence": "建库即被测候选（alembic），待人工确认"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_org_models.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_org_system_fields.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_service_identity_merge.py",
+    "tests": 7,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  },
+  {
+    "repo": "mdm",
+    "path": "backend/tests/test_table_registry.py",
+    "tests": 3,
+    "class": "A",
+    "action": "不动",
+    "batch": 5,
+    "evidence": "无自建库痕迹"
+  }
+]
