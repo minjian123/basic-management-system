@@ -12,6 +12,8 @@ import ops.gateway_config as gateway_config
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.services.gateway_catalog import render_apisix_yaml
 
+pytestmark = pytest.mark.own_db("被测对象是网关声明式配置 CLI：需按库与清单生成配置并核对零漂移")
+
 
 def _seed_body_size(
     root: Path,

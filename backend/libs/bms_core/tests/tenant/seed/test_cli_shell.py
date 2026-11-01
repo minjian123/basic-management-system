@@ -13,6 +13,8 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableList
 
+pytestmark = pytest.mark.own_db("被测对象是种子 CLI 入口（参数 / 退出码 / dry-run）")
+
 _REPO_ROOT = Path(__file__).resolve().parents[6]
 """仓库根（`backend/libs/bms_core/tests/tenant/seed/` 上溯 6 级）。"""
 

@@ -39,6 +39,8 @@ from bms_core.db.migration import (
     unit_series,
 )
 
+pytestmark = pytest.mark.own_db("被测对象是迁移清单边界与离线兜底（Alembic 配置 / head / 达梦模式）")
+
 
 def _clear_layout_caches(monkeypatch: pytest.MonkeyPatch) -> None:
     """清空布局 / 域模型的两张模块级缓存（布局替身用例前置）。

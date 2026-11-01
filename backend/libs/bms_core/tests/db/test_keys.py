@@ -32,6 +32,8 @@ from bms_core.db.keys import (
     tenant_database_name,
 )
 
+pytestmark = pytest.mark.own_db("被测对象是库键与库名单一来源：需按 sqlite_dir 落临时库验证派生与反解")
+
 
 def test_key_constants() -> None:
     """键形态常量：前缀与库名与架构「三库命名与建库标准」一致。"""

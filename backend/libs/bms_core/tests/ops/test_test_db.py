@@ -25,6 +25,8 @@ from ops.test_db import (
     resolve_test_url,
 )
 
+pytestmark = pytest.mark.own_db("被测对象是测试库流程脚本：建库 / 删库 / 建号语句就是产物")
+
 REPO_ROOT = Path(__file__).resolve().parents[5]
 CI_FILE = REPO_ROOT / ".gitlab-ci.yml"
 

@@ -33,6 +33,8 @@ from bms_core.tenant.seed import rbac as rbac_seed
 from bms_core.tenant.seed import tables as tables_seed
 from bms_core.tenant.seed.contract import ExpectedRow
 
+pytestmark = pytest.mark.own_db("被测对象是播种分支尾部路径（建库播种即被测）")
+
 _PLATFORM_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
     [
         cast("Table", SysBusiness.__table__),

@@ -12,6 +12,8 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import plugin
 from bms_core.testing.fixtures import clear_isolated_env, clear_tenant_cache
 
+pytestmark = pytest.mark.own_db("被测对象是测试基座插件本身：basetemp 父目录补齐与夹具导出口径")
+
 
 @pytest.fixture(autouse=True)
 def _no_session_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]

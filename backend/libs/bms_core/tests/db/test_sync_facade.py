@@ -22,6 +22,8 @@ from bms_core.db.session import DbSession, SessionFactory, get_db, get_read_db, 
 from bms_core.db.sync import SyncSession, is_sync_only_url, sync_session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
 
+pytestmark = pytest.mark.own_db("被测对象是达梦同步门面与会话分流：需同步方言连接串与注册表")
+
 _DM_URL = "dm+dmPython://SYSDBA:secret@192.0.2.10:5236/BMS_TEST_DM"
 """达梦连接串（不建连；仅用于方言判定与引擎构造）。"""
 

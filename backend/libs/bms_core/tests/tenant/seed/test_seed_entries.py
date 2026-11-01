@@ -37,6 +37,8 @@ from bms_core.tenant.seed import rbac as rbac_seed
 from bms_core.tenant.seed import tables as tables_seed
 from bms_core.tenant.seed import tenant as tenant_seed
 
+pytestmark = pytest.mark.own_db("被测对象是各域播种入口（幂等写入即被测）")
+
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(Base.metadata.sorted_tables)
 """建表清单：全量元数据表（种子入口会连带读写多张元数据表，逐表列举易漏）。"""
 

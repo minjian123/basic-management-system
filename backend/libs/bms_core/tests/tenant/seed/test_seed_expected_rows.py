@@ -22,6 +22,8 @@ from bms_core.tenant.seed import tables as tables_seed
 from bms_core.tenant.seed import tenant as tenant_seed
 from bms_core.tenant.seed.contract import ExpectedRow
 
+pytestmark = pytest.mark.own_db("被测对象是播种期望行数口径（需真实播种后对账）")
+
 _MODULES = (
     module_seed,
     tables_seed,

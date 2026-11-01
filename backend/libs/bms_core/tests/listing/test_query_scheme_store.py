@@ -23,6 +23,8 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.listing.base import QueryScheme, QuerySchemeScope, QuerySchemeTarget
 from bms_core.listing.store import SqlQuerySchemeStore, _to_scheme  # pyright: ignore[reportPrivateUsage]
 
+pytestmark = pytest.mark.own_db("被测对象是查询方案落库存储：需自造方案表结构验证三级默认与 owner 过滤")
+
 
 def _build_schema(url: str) -> None:
     """对目标库幂等建 `platform:tenant` 链表集（与启动期 / `ops.init_schema` 同一表集派生点）。

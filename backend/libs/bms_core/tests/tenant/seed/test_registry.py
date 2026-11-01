@@ -16,6 +16,8 @@ from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.tenant import registry
 
+pytestmark = pytest.mark.own_db("被测对象是租户注册库解析：需自造对照行与软删行，且被调方自建连接读不到回滚会话数据")
+
 
 async def _prepare(url: str) -> None:
     """建租户注册两表并写入样例数据（含软删租户与缺对照行的租户）。

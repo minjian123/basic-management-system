@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from bms_core.testing import rollback_session
 from bms_core.testing import transaction as transaction_module
 
+pytestmark = pytest.mark.own_db("被测对象是回滚事务夹具本身：需真实库验证 savepoint 与整体回滚")
+
 _TABLE = "_rb_probe"
 """探针表名（夹具外建表，用例只做 DML）。"""
 

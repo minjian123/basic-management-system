@@ -26,6 +26,8 @@ from bms_core.tenant.seed.probe import (
     register_seed_probes,
 )
 
+pytestmark = pytest.mark.own_db("被测对象是种子统计探针：需真实库取数前后求差")
+
 
 def _probe(
     table: str, *, keys: ConcurrentStableList[str], values: ConcurrentStableList[str] | None = None

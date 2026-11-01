@@ -18,7 +18,12 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 
-pytestmark = [pytest.mark.integration, pytest.mark.dialect_dm8, pytest.mark.kiwi_id(2245)]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.dialect_dm8,
+    pytest.mark.kiwi_id(2245),
+    pytest.mark.own_db("被测对象是达梦 XA 两阶段事务：需真达梦库"),
+]
 
 _PROBE = Table(
     f"bms_it_dm_xa_probe_{uuid.uuid4().hex[:8]}",

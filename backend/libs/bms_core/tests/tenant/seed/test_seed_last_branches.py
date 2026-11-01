@@ -27,6 +27,8 @@ from bms_core.tenant.seed import platform as platform_seed
 from bms_core.tenant.seed import rbac as rbac_seed
 from bms_core.tenant.seed import tables as tables_seed
 
+pytestmark = pytest.mark.own_db("被测对象是播种最后分支（建库播种即被测）")
+
 # ---- 表归属：入口更新分支 ----
 
 

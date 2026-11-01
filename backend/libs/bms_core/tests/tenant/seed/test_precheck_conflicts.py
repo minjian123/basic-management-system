@@ -10,11 +10,14 @@
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from sqlalchemy import Table, text
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.services.module_registry import SeedRecord
 from bms_core.tenant.seed import orchestrator
+
+pytestmark = pytest.mark.own_db("被测对象是播种前置冲突预检：需自造冲突数据并在真实库上只读比对")
 
 
 class _Engines:

@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 import ops.seed_tenant as seed_tenant
 from bms_core.core.concurrent import ConcurrentStableList
 
+pytestmark = pytest.mark.own_db("被测对象是租户运维脚本（租户注册种子）")
+
 
 @pytest.mark.kiwi_id(1019)
 def test_seed_tenant_resolve_url(monkeypatch: pytest.MonkeyPatch) -> None:

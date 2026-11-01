@@ -22,6 +22,8 @@ from bms_core.outbox.base import OUTBOX_STATUS_DELIVERED, OUTBOX_STATUS_PENDING
 from bms_core.outbox.store import SqlOutboxStore
 from ops.outbox import main
 
+pytestmark = pytest.mark.own_db("被测对象是发件箱 CLI：需建发件箱三表并验证投递 / 重放 / 退码")
+
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
     [
         cast("Table", SysOutbox.__table__),

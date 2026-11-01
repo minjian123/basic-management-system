@@ -11,6 +11,8 @@ from bms_core.models.ownership import SysTableOwnership
 from bms_core.services.table_registry import TABLE_OWNERSHIP
 from ops.seed_tables import seed_tables
 
+pytestmark = pytest.mark.own_db("被测对象是表归属种子脚本：建表与 upsert 幂等即被测")
+
 
 def _url(tmp_path: Path) -> str:
     """临时平台服务库连接串。

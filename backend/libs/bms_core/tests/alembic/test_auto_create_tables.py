@@ -30,6 +30,8 @@ from bms_core.db.migration import (
 )
 from bms_core.services.table_registry import infrastructure_tables, unit_tables
 
+pytestmark = pytest.mark.own_db("被测对象是启动期自动建表（表集并集 / 幂等 / 开关）")
+
 
 def _tables(path: Path) -> ConcurrentStableSet[str]:
     """取 SQLite 文件表名集合。

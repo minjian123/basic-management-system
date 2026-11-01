@@ -16,6 +16,8 @@ from bms_core.models.platform.user import SysUser
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasherFactory
 from bms_core.tenant.seed import user as user_seed
 
+pytestmark = pytest.mark.own_db("被测对象是账号种子：建号 / 重置口令的幂等写入即被测")
+
 
 def _verify(password: str, hashed: str) -> bool:
     """按 `[password_hasher]` 口径校验口令。

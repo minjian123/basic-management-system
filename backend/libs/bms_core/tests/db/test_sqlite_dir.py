@@ -9,6 +9,8 @@ from bms_core.core.config import Settings, resolve_sqlite_dir
 from bms_core.db.engine import EngineFactory
 from bms_core.db.migration import archive_series, default_series, series_url
 
+pytestmark = pytest.mark.own_db("被测对象是 sqlite_dir 基址解析与引擎 / 迁移接入：库文件落点即被测")
+
 _REL = "sqlite+aiosqlite:///./bms_x.db"
 
 

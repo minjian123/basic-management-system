@@ -10,6 +10,8 @@ import pytest
 import ops.release as release_ops
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
+pytestmark = pytest.mark.own_db("被测对象是发布清单运维入口：需读跨库 revision 与声明条目")
+
 
 @dataclass(frozen=True)
 class _Series:

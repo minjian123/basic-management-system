@@ -21,6 +21,8 @@ from bms_core.services.module_registry import enabled_service_keys
 from ops import provision_tenant
 from ops.seed_tenant import seed_tenants
 
+pytestmark = pytest.mark.own_db("被测对象是按「服务 × 租户」建库（平台与租户库矩阵）")
+
 
 def _use_templates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """把平台 / 租户连接串模板指向临时目录（每服务每租户库文件）。

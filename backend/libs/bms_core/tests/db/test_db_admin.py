@@ -20,6 +20,8 @@ from bms_core.db.admin import (
     run_statements,
 )
 
+pytestmark = pytest.mark.own_db("被测对象是库级建删能力：建库 / 删库就是产物")
+
 
 @pytest.mark.kiwi_id(1078)
 def test_resolve_target_and_admin_url() -> None:

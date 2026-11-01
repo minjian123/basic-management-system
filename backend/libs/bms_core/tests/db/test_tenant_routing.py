@@ -26,6 +26,8 @@ from bms_core.db.session import SessionFactory, get_db, get_read_db, get_uow, ge
 from bms_core.db.tenant import TenantContext
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
 
+pytestmark = pytest.mark.own_db("被测对象是租户数据拓扑（模板解析 / 按租户路由 / 物理隔离）：每租户派生库即被测")
+
 
 class _Source:
     """内存租户源替身（单演示租户）。"""

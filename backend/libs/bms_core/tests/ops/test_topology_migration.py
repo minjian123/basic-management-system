@@ -14,6 +14,8 @@ import bms_core.db.topology_migration as kernel
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 
+pytestmark = pytest.mark.own_db("被测对象是拓扑迁移搬运与对账内核（复制幂等 / 断点 / 四类对账）")
+
 
 def _metadata(*, composite: bool = False, with_key: bool = True) -> MetaData:
     """构造合成表集（父表 + 子表，列覆盖整型主键与文本列）。

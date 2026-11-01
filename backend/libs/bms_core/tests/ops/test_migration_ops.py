@@ -11,6 +11,8 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.migration import MigrationSeries
 
+pytestmark = pytest.mark.own_db("被测对象是批量迁移与新租户初始化（建库 / 建表 / 三步初始化）")
+
 
 def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """把服务库（按模板每服务每租户一文件）、平台服务库与归档库指向临时目录并刷新配置。

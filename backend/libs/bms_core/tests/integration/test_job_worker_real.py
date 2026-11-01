@@ -29,6 +29,7 @@ from bms_core.models.outbox import SysOutbox
 pytestmark = [
     pytest.mark.kiwi_id(2392),
     pytest.mark.skipif(not os.environ.get("BMS_REDIS__URL"), reason="未配置真 Redis（BMS_REDIS__URL）"),
+    pytest.mark.own_db("被测对象是真 Redis 跨进程作业唤醒：库只是作业落点，需与真 Redis 配合的独立库"),
 ]
 
 

@@ -4,6 +4,8 @@
 一致 / 缺声明 / 指纹漂移 / 库多出声明；另验「别的产品行不参与」「退役行不算缺失」。
 """
 
+import pytest
+
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenList,
@@ -18,6 +20,8 @@ from bms_core.registry.declarations import (
 )
 from bms_core.services.module_registry import CollaborationRecord
 from ops.check_modules import diff_platform_declarations
+
+pytestmark = pytest.mark.own_db("被测对象是 ops 接库对账脚本：需把库置成缺声明 / 指纹漂移 / 多出行等指定状态")
 
 
 def _capability(path: str = "/api/v1/platform/internal/users/query") -> CollaborationRecord:

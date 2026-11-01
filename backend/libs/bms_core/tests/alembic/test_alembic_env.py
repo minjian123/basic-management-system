@@ -20,6 +20,8 @@ from bms_core.db.migration import (
     upgrade_series,
 )
 
+pytestmark = pytest.mark.own_db("被测对象是迁移环境与版本记录表：每清单独立版本表的建表与升级即被测")
+
 
 def _make_db(path: Path, *tables: str) -> None:
     """建一个空 SQLite 库并可选建若干版本记录表。

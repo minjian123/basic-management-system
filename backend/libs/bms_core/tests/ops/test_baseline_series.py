@@ -13,6 +13,8 @@ import ops.baseline_series as baseline
 from bms_core.core.concurrent import ConcurrentStableFrozenSet, ConcurrentStableList
 from bms_core.db.migration import MigrationSeries
 
+pytestmark = pytest.mark.own_db("被测对象是存量库基线写入（只写版本行 / 差异即拒 / dry-run）")
+
 
 def _metadata(*names: str) -> MetaData:
     """构造含指定表的元数据（替代真实单元表集，聚焦对账与写入逻辑）。

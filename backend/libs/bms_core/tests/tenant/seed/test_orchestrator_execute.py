@@ -31,6 +31,8 @@ from bms_core.transaction.base import (
     GlobalTransaction,
 )
 
+pytestmark = pytest.mark.own_db("被测对象是播种编排执行（分支 / 失败汇总 / 快照）")
+
 
 def _record(
     name: str, *, after: ConcurrentStableFrozenList[str] | None = None, db_key: str = "platform_platform"

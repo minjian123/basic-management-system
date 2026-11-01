@@ -48,7 +48,11 @@ from bms_core.events.rocketmq_publisher import RocketMqEventPublisher
 from bms_core.models.base import Base
 from bms_core.models.outbox import SysEventDeadLetter
 
-pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(2370)]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.kiwi_id(2370),
+    pytest.mark.own_db("被测对象是真 RocketMQ 事件总线端到端：需真 MQ 与独立库"),
+]
 
 _ENDPOINTS = os.environ.get("BMS_ROCKETMQ__ENDPOINTS", "")
 """proxy 接入点；未配置则全部用例跳过（CI 无 broker）。"""

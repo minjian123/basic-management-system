@@ -18,6 +18,8 @@ from bms_core.core.config import (
 )
 from bms_core.core.exceptions import ConfigError
 
+pytestmark = pytest.mark.own_db("配置真实加载用例：需把库指向临时目录验证 sqlite_dir / 模板解析与引擎装配")
+
 _VALID_BASE = """
 [app]
 name = "BMS 基础管理系统"

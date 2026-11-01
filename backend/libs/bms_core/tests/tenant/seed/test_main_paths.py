@@ -25,6 +25,8 @@ from bms_core.tenant.seed import rbac as rbac_seed
 from bms_core.tenant.seed import sso as sso_seed
 from bms_core.tenant.seed import user as user_seed
 
+pytestmark = pytest.mark.own_db("被测对象是播种编排主路径（建库 → 建表 → 播种）")
+
 _BUSINESSES = ("sys", "tenant", "menu", "business", "action", "permission", "user-extension")
 _ACTIONS = ("query", "manage", "create", "update", "delete", "generate")
 

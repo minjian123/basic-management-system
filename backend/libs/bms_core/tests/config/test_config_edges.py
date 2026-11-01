@@ -32,6 +32,8 @@ from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, Service
 
 from .test_config_real import _build_schema, _engines  # pyright: ignore[reportPrivateUsage]
 
+pytestmark = pytest.mark.own_db("被测对象是 config 域缓存同步与跨服务降级：需独立库与临时缓存实例")
+
 
 @pytest.mark.kiwi_id(2207)
 def test_memory_cache_sync_methods() -> None:

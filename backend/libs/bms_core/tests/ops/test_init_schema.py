@@ -9,6 +9,8 @@ import ops.init_schema as init_schema
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import get_settings
 
+pytestmark = pytest.mark.own_db("被测对象是显式建表入口（批量 / 单库 / dry-run / 失败汇总）")
+
 
 def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """把平台服务库 / 服务租户库 / 归档库指向临时目录并刷新配置。

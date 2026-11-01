@@ -22,6 +22,8 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.dict.outlet import EmptyDictDataSource
 from bms_core.dict.table import DictColumnMapping, DictTableDataSource
 
+pytestmark = pytest.mark.own_db("被测对象是通用数据接口的三层实现：需自造字典表结构验证取数")
+
 _OPEN_ENGINES: ConcurrentStableList[EngineRegistry] = ConcurrentStableList()
 """用例内构造的引擎注册表（用例结束统一 `aclose`）。"""
 

@@ -12,6 +12,8 @@ from ops import check_tables
 from ops.check_tables import check_offline, check_table_db, main
 from ops.seed_tables import seed_tables
 
+pytestmark = pytest.mark.own_db("被测对象是表归属登记校验脚本：需按指定表集建表后再对账")
+
 
 def _url(tmp_path: Path) -> str:
     """临时平台服务库连接串。

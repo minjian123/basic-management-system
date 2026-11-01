@@ -27,6 +27,8 @@ from bms_core.tenant.seed import menu as menu_seed
 from bms_core.tenant.seed import platform as platform_seed
 from bms_core.tenant.seed import tables as tables_seed
 
+pytestmark = pytest.mark.own_db("被测对象是播种收尾路径（建库播种即被测）")
+
 # ---- 表归属：已存在且需更新（单步 seed_tables）----
 
 

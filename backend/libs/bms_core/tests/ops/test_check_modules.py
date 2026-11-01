@@ -22,6 +22,8 @@ from bms_core.models.platform.catalog import SysModule
 from bms_core.registry.declarations import DeclarationPayload
 from bms_core.services.module_registry import PRODUCT_CATALOG, SERVICE_CATALOG, ModuleRecord, ProductRecord
 
+pytestmark = pytest.mark.own_db("被测对象是目录与声明校验脚本的接库 / 跨仓三档：需把库置成指定状态")
+
 _PLATFORM_MANIFEST = """product_key = "platform"
 """
 

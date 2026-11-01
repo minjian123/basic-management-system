@@ -6,7 +6,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（alembic），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是迁移环境与版本记录表：每清单独立版本表的建表与升级即被测）"
   },
   {
     "repo": "bms",
@@ -24,7 +24,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(, topology, EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是启动期自动建表（表集并集 / 幂等 / 开关））"
   },
   {
     "repo": "bms",
@@ -33,7 +33,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template, alembic），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是迁移清单边界与离线兜底（Alembic 配置 / head / 达梦模式））"
   },
   {
     "repo": "bms",
@@ -393,7 +393,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_configs(），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是 config 域缓存同步与跨服务降级：需独立库与临时缓存实例）"
   },
   {
     "repo": "bms",
@@ -402,7 +402,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(, init_schema, seed_configs(, EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是 config 真实实现的建表 / 种子 / SQL 取数 / 写失效）"
   },
   {
     "repo": "bms",
@@ -420,7 +420,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(, seed_configs(），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是平台默认种子刷新：首刷全量 / 二次幂等 / 覆盖行不动）"
   },
   {
     "repo": "bms",
@@ -555,7 +555,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（topology, url_template, resolved_url），待人工确认"
+    "evidence": "已有 own_db 白名单（配置真实加载用例：需把库指向临时目录验证 sqlite_dir / 模板解析与引擎装配）"
   },
   {
     "repo": "bms",
@@ -942,7 +942,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是通用数据接口的三层实现：需自造字典表结构验证取数）"
   },
   {
     "repo": "bms",
@@ -978,7 +978,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是字典表列映射补齐：需自造缺列表结构）"
   },
   {
     "repo": "bms",
@@ -996,7 +996,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（create_database(, drop_database(, DatabaseTarget），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是库级建删能力：建库 / 删库就是产物）"
   },
   {
     "repo": "bms",
@@ -1014,7 +1014,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是主库故障只读降级：需能把库置成不可写状态）"
   },
   {
     "repo": "bms",
@@ -1059,7 +1059,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是引擎主 / 副本多绑定与选引擎：多库拓扑即被测）"
   },
   {
     "repo": "bms",
@@ -1068,16 +1068,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template, EngineFactory, build_platform_db_key, build_tenant_db_key, resolved_url），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是库键与库名单一来源：需按 sqlite_dir 落临时库验证派生与反解）"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_migration_guard.py",
     "tests": 10,
-    "class": "C",
-    "action": "语义重写",
+    "class": "A",
+    "action": "不动",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：284: assert len(locked) == 2；289: assert len(unlocked) == 1"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -1086,7 +1086,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是连接池按服务 / worker 的装配参数：引擎构造即被测）"
   },
   {
     "repo": "bms",
@@ -1113,7 +1113,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template, EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是 sqlite_dir 基址解析与引擎 / 迁移接入：库文件落点即被测）"
   },
   {
     "repo": "bms",
@@ -1122,7 +1122,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是达梦同步门面与会话分流：需同步方言连接串与注册表）"
   },
   {
     "repo": "bms",
@@ -1176,7 +1176,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template, EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是租户数据拓扑（模板解析 / 按租户路由 / 物理隔离）：每租户派生库即被测）"
   },
   {
     "repo": "bms",
@@ -1599,16 +1599,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(, seed_configs(, EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是真 Redis 跨实例参数缓存一致性：需两套实例与真 Redis）"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/integration/test_cross_db_2pc.py",
     "tests": 3,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：59: create_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是跨库 2PC：需 ≥2 个真实库（MySQL / PG / 达梦），共享 SQLite 库无法验证两阶段提交）"
   },
   {
     "repo": "bms",
@@ -1644,7 +1644,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是达梦 XA 两阶段事务：需真达梦库）"
   },
   {
     "repo": "bms",
@@ -1662,16 +1662,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是真 RocketMQ 事件总线端到端：需真 MQ 与独立库）"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/integration/test_job_worker_real.py",
     "tests": 2,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：110: create_async_engine()；110: 连接串字面量"
+    "evidence": "已有 own_db 白名单（被测对象是真 Redis 跨进程作业唤醒：库只是作业落点，需与真 Redis 配合的独立库）"
   },
   {
     "repo": "bms",
@@ -1824,7 +1824,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(, init_schema, EngineFactory），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是查询方案落库存储：需自造方案表结构验证三级默认与 owner 过滤）"
   },
   {
     "repo": "bms",
@@ -1932,7 +1932,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（alembic），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是存量库基线写入（只写版本行 / 差异即拒 / dry-run））"
   },
   {
     "repo": "bms",
@@ -1959,25 +1959,25 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_modules(），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是目录与声明校验脚本的接库 / 跨仓三档：需把库置成指定状态）"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_check_modules_registry.py",
     "tests": 10,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：138: 连接串字面量；249: 连接串字面量"
+    "evidence": "已有 own_db 白名单（被测对象是 ops 接库对账脚本：需把库置成缺声明 / 指纹漂移 / 多出行等指定状态）"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_check_tables.py",
     "tests": 7,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：72: create_engine()；81: create_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是表归属登记校验脚本：需按指定表集建表后再对账）"
   },
   {
     "repo": "bms",
@@ -2067,7 +2067,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（topology），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是网关声明式配置 CLI：需按库与清单生成配置并核对零漂移）"
   },
   {
     "repo": "bms",
@@ -2076,7 +2076,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（init_schema），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是显式建表入口（批量 / 单库 / dry-run / 失败汇总））"
   },
   {
     "repo": "bms",
@@ -2085,7 +2085,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（migrate_topology, topology, seed_tenants(），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是拓扑迁移运维入口（P1~P4 全程 / 断点 / 清理））"
   },
   {
     "repo": "bms",
@@ -2094,7 +2094,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（init_tenant），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是批量迁移与新租户初始化（建库 / 建表 / 三步初始化））"
   },
   {
     "repo": "bms",
@@ -2103,7 +2103,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_modules(），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是服务目录与产品档案种子脚本（幂等 upsert / 既有行补齐））"
   },
   {
     "repo": "bms",
@@ -2136,10 +2136,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_outbox_cli.py",
     "tests": 3,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：41: create_async_engine()；54: create_async_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是发件箱 CLI：需建发件箱三表并验证投递 / 重放 / 退码）"
   },
   {
     "repo": "bms",
@@ -2148,7 +2148,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（provision_tenant, url_template, seed_tenants(），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是按「服务 × 租户」建库（平台与租户库矩阵））"
   },
   {
     "repo": "bms",
@@ -2157,7 +2157,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（alembic），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是发布清单运维入口：需读跨库 revision 与声明条目）"
   },
   {
     "repo": "bms",
@@ -2172,10 +2172,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_seed_tables.py",
     "tests": 5,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：48: create_engine()；65: create_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是表归属种子脚本：建表与 upsert 幂等即被测）"
   },
   {
     "repo": "bms",
@@ -2202,16 +2202,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_tenants(），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是租户运维脚本（租户注册种子））"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_test_db.py",
     "tests": 12,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：109: assert len(statements) == 3"
+    "evidence": "已有 own_db 白名单（被测对象是测试库流程脚本：建库 / 删库 / 建号语句就是产物）"
   },
   {
     "repo": "bms",
@@ -2220,7 +2220,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（topology），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是拓扑迁移搬运与对账内核（复制幂等 / 断点 / 四类对账））"
   },
   {
     "repo": "bms",
@@ -2823,7 +2823,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_rbac, seed_sso），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是租户分支种子（建库播种即被测））"
   },
   {
     "repo": "bms",
@@ -2841,7 +2841,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_rbac, seed_sso），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是种子 CLI 入口（参数 / 退出码 / dry-run））"
   },
   {
     "repo": "bms",
@@ -2850,7 +2850,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_rbac, seed_sso），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是播种编排主路径（建库 → 建表 → 播种））"
   },
   {
     "repo": "bms",
@@ -2877,7 +2877,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_menu），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是播种编排执行（分支 / 失败汇总 / 快照））"
   },
   {
     "repo": "bms",
@@ -2886,7 +2886,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_menu），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是播种前置冲突预检：需自造冲突数据并在真实库上只读比对）"
   },
   {
     "repo": "bms",
@@ -2895,7 +2895,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是开通编排内核：建库 → 逐链建表 → 批量种子（含失败逆序删库））"
   },
   {
     "repo": "bms",
@@ -2904,16 +2904,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_rbac），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是平台 RBAC 种子（角色 / 授权 / 绑定幂等写入））"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_registry.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：26: create_async_engine()；49: 连接串字面量"
+    "evidence": "已有 own_db 白名单（被测对象是租户注册库解析：需自造对照行与软删行，且被调方自建连接读不到回滚会话数据）"
   },
   {
     "repo": "bms",
@@ -2922,7 +2922,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_rbac, seed_menu），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是播种分支尾部路径（建库播种即被测））"
   },
   {
     "repo": "bms",
@@ -2931,7 +2931,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_tenants(, seed_rbac, seed_menu），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是各域播种入口（幂等写入即被测））"
   },
   {
     "repo": "bms",
@@ -2940,7 +2940,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_tenants(, seed_rbac, seed_menu），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是播种期望行数口径（需真实播种后对账））"
   },
   {
     "repo": "bms",
@@ -2949,7 +2949,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_menu），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是播种收尾路径（建库播种即被测））"
   },
   {
     "repo": "bms",
@@ -2958,7 +2958,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_rbac, seed_menu），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是播种最后分支（建库播种即被测））"
   },
   {
     "repo": "bms",
@@ -2973,19 +2973,19 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_platform.py",
     "tests": 5,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：40: create_async_engine()；50: create_async_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是平台租户 RBAC 种子：幂等写入即被测）"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_probe.py",
     "tests": 9,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：179: assert len(registered[\"seed-module\"]._tables) == 2  # pyrigh"
+    "evidence": "已有 own_db 白名单（被测对象是种子统计探针：需真实库取数前后求差）"
   },
   {
     "repo": "bms",
@@ -3003,16 +3003,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_sso），待人工确认"
+    "evidence": "已有 own_db 白名单（被测对象是 SSO 种子（客户端 / 身份源写入即被测））"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_user.py",
     "tests": 8,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：43: create_async_engine()；80: create_async_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是账号种子：建号 / 重置口令的幂等写入即被测）"
   },
   {
     "repo": "bms",
@@ -3117,10 +3117,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/testing/test_plugin_contract.py",
     "tests": 13,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：122: 连接串字面量；121: 连接串字面量"
+    "evidence": "已有 own_db 白名单（被测对象是测试基座插件本身：basetemp 父目录补齐与夹具导出口径）"
   },
   {
     "repo": "bms",
@@ -3153,10 +3153,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/testing/test_transaction.py",
     "tests": 6,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：28: create_async_engine()；83: create_async_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是回滚事务夹具本身：需真实库验证 savepoint 与整体回滚）"
   },
   {
     "repo": "bms",

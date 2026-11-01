@@ -69,9 +69,13 @@ async def test_db_unit_of_work_commit_and_rollback(shared_platform_engine: Async
 
     async with factory() as session:
         rows = (
-            await session.execute(
-                text("SELECT value FROM uow_probe WHERE value LIKE :pattern ORDER BY id"),
-                {"pattern": f"{prefix}-%"},
+            (
+                await session.execute(
+                    text("SELECT value FROM uow_probe WHERE value LIKE :pattern ORDER BY id"),
+                    {"pattern": f"{prefix}-%"},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert list(rows) == [f"{prefix}-committed"]

@@ -42,7 +42,10 @@ from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 
-pytestmark = pytest.mark.kiwi_id(2373)
+pytestmark = [
+    pytest.mark.kiwi_id(2373),
+    pytest.mark.own_db("被测对象是真 Redis 跨实例参数缓存一致性：需两套实例与真 Redis"),
+]
 
 _REAL_REDIS_URL = os.environ.get("BMS_REDIS__URL", "")
 """真 Redis 连接串：**导入时**读取（autouse 的设置隔离夹具会清 `BMS_*` 环境变量）。"""

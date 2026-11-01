@@ -16,6 +16,8 @@ from bms_core.models.identity.identity_provider import SysIdentityProvider
 from bms_core.models.identity.user_identity import SysUserIdentity
 from bms_core.tenant.seed import sso as sso_seed
 
+pytestmark = pytest.mark.own_db("被测对象是 SSO 种子（客户端 / 身份源写入即被测）")
+
 
 @pytest.mark.kiwi_id(2343)
 async def test_seed_identity_provider_creates_then_updates(tmp_path: Path) -> None:

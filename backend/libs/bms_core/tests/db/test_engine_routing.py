@@ -24,6 +24,8 @@ from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, get_db, get_platform_read_db, get_read_db, get_write_db
 
+pytestmark = pytest.mark.own_db("被测对象是引擎主 / 副本多绑定与选引擎：多库拓扑即被测")
+
 _MEMORY = "sqlite+aiosqlite:///:memory:"
 
 

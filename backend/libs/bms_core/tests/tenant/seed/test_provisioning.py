@@ -23,6 +23,8 @@ from bms_core.services.module_registry import (
 )
 from bms_core.tenant import provisioning
 
+pytestmark = pytest.mark.own_db("被测对象是开通编排内核：建库 → 逐链建表 → 批量种子（含失败逆序删库）")
+
 
 def _use_templates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """把平台 / 租户连接串模板指向临时目录（每服务每租户库文件）。

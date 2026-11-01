@@ -17,7 +17,10 @@ from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.core.config import get_settings
 from bms_core.db.bootstrap import apply_unit_schema
 
-pytestmark = pytest.mark.kiwi_id(2373)
+pytestmark = [
+    pytest.mark.kiwi_id(2373),
+    pytest.mark.own_db("被测对象是平台默认种子刷新：首刷全量 / 二次幂等 / 覆盖行不动"),
+]
 
 
 @pytest.fixture

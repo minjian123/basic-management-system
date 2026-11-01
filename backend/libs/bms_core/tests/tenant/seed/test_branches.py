@@ -24,6 +24,8 @@ from bms_core.tenant.seed import rbac as rbac_seed
 from bms_core.tenant.seed import sso as sso_seed
 from bms_core.tenant.seed import user as user_seed
 
+pytestmark = pytest.mark.own_db("被测对象是租户分支种子（建库播种即被测）")
+
 
 async def _platform_db_with_dangling_permission(path: Path) -> str:
     """建平台库：含一条业务 / 动作悬空的权限码行（映射时被跳过）。

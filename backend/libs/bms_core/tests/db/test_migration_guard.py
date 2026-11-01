@@ -160,9 +160,12 @@ def test_guard_preflight_combines_checks(_versions_root: Path, monkeypatch: pyte
 
 
 @pytest.mark.kiwi_id(2354)
-def test_library_lock_passes_on_dialect_without_advisory_lock(tmp_path: Path) -> None:
-    """校验 7：无咨询锁方言（SQLite）直接放行（按部署串行，不阻塞）。"""
-    with guard.library_lock(f"sqlite:///{tmp_path / 'lock.db'}") as acquired:
+def test_library_lock_passes_on_dialect_without_advisory_lock() -> None:
+    """校验 7：无咨询锁方言（SQLite）直接放行（按部署串行，不阻塞）。
+
+    用内存库 DSN：本用例只验证「方言无咨询锁即放行」，不需要真实库文件。
+    """
+    with guard.library_lock("sqlite://") as acquired:
         assert acquired
 
 

@@ -26,6 +26,8 @@ from bms_core.dict.table import (
     _as_optional_int,  # pyright: ignore[reportPrivateUsage]
 )
 
+pytestmark = pytest.mark.own_db("被测对象是字典表列映射补齐：需自造缺列表结构")
+
 _OPEN_ENGINES: ConcurrentStableList[EngineRegistry] = ConcurrentStableList()
 
 

@@ -32,6 +32,8 @@ from bms_core.tenant.seed.rbac import (
     seed_rbac,
 )
 
+pytestmark = pytest.mark.own_db("被测对象是平台 RBAC 种子（角色 / 授权 / 绑定幂等写入）")
+
 _BUSINESSES = (("menu", "菜单管理"), ("role", "角色管理"))
 _PERMISSIONS = (("menu", "query"), ("menu", "create"), ("role", "query"), ("role", "grant"))
 

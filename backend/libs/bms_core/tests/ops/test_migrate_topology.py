@@ -29,6 +29,8 @@ from bms_core.db.migration import DATASOURCE_TENANT
 from bms_core.tenant.seed.tenant import seed_tenants
 from bms_core.testing.sql_ids import sqlite_id, sqlite_int
 
+pytestmark = pytest.mark.own_db("被测对象是拓扑迁移运维入口（P1~P4 全程 / 断点 / 清理）")
+
 _SOURCE_DB = "bms_platform_demo.db"
 """源库文件名（`[app].service=platform` × 租户库名基 `demo`）。"""
 

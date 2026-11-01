@@ -8,6 +8,8 @@ from bms_core.core.config import DbPoolSettings, Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import pool_budget_rows, pool_budget_warnings
 
+pytestmark = pytest.mark.own_db("被测对象是连接池按服务 / worker 的装配参数：引擎构造即被测")
+
 
 class _FakeEngine:
     """伪异步引擎：仅用于捕获建引擎参数。"""

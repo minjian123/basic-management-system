@@ -20,6 +20,8 @@ from bms_core.models.platform.role import SysRole, SysRolePermission, SysUserRol
 from bms_core.models.platform.user import SysUser
 from bms_core.tenant.seed import platform as platform_seed
 
+pytestmark = pytest.mark.own_db("被测对象是平台租户 RBAC 种子：幂等写入即被测")
+
 _BUSINESSES = ("sys", "tenant", "menu", "business", "action", "permission", "user-extension")
 _ACTIONS = ("query", "manage", "create", "update", "delete", "generate")
 

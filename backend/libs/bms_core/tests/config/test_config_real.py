@@ -34,6 +34,8 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
+pytestmark = pytest.mark.own_db("被测对象是 config 真实实现的建表 / 种子 / SQL 取数 / 写失效")
+
 EXPECTED_TABLES = {
     "sys_config",
 }

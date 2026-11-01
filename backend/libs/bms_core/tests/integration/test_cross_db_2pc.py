@@ -17,7 +17,11 @@ from sqlalchemy import Connection, Engine, TwoPhaseTransaction, create_engine, t
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.engine import _normalize_dialect_url  # pyright: ignore[reportPrivateUsage]
 
-pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(2246)]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.kiwi_id(2246),
+    pytest.mark.own_db("被测对象是跨库 2PC：需 ≥2 个真实库（MySQL / PG / 达梦），共享 SQLite 库无法验证两阶段提交"),
+]
 
 _TABLE = f"bms_it_2pc_probe_{uuid.uuid4().hex[:8]}"
 """2PC 探针表名（带进程随机后缀）：集成 job 用 xdist 并行且共用同一测试库，固定表名会互相建 / 删
