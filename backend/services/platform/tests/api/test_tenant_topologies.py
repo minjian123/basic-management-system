@@ -3,6 +3,7 @@
 覆盖设计 §5 用例 1、2（服务侧）、5、6、7、8、9、10、16，以及 §3.4 校验 1~7 的反例。
 """
 
+import sys
 from collections.abc import Iterator
 from typing import cast
 
@@ -19,6 +20,7 @@ from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.models.platform.tenant_topology import SysTenantTopology
 from bms_core.services.module_registry import domain_service_view
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.platform_registry.repositories.tenant_topology import (
     TenantTopologyRepository,
 )
@@ -32,10 +34,43 @@ pytestmark = pytest.mark.kiwi_id(2366)
 API = "/api/v1/tenant-topologies"
 
 WRITE_TENANT = 9001
+"""写入 / 改版本用例的租户主键（**每用例由 `_namespaced_tenants` 按命名空间重派生**）。"""
+
 REPLACE_TENANT = 9002
+"""整批替换用例的租户主键（同上，运行时重派生）。"""
+
 ROLLBACK_TENANT = 9003
+"""回滚用例的租户主键（同上）。"""
+
 DISABLED_TENANT = 9004
+"""停用项用例的租户主键（同上）。"""
+
 FALLBACK_TENANT = 9500
+"""导出回退用例的租户主键（同上）。"""
+
+
+@pytest.fixture(autouse=True)
+def _namespaced_tenants(ns: Namespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    """把本文件用到的租户主键按用例命名空间重派生（单库叠加口径）。
+
+    为什么需要：本文件以「该租户尚无拓扑记录 → 版本 1 / 导出回退默认」为断言起点，固定租户主键在
+    共享库里会读到前序用例写下的版本（`version` 变 2、导出行数被覆盖），表现为随机失败。
+    派生规则：`ns` 前缀（8 位十六进制）× 10 + 槽位，跨用例 / 跨 worker 互不相交。
+
+    Args:
+        ns: 用例命名空间。
+        monkeypatch: 属性覆盖夹具（用例结束后自动还原）。
+    """
+    base = int(ns.prefix[2:], 16) * 10
+    module = sys.modules[__name__]
+    for name, slot in (
+        ("WRITE_TENANT", 1),
+        ("REPLACE_TENANT", 2),
+        ("ROLLBACK_TENANT", 3),
+        ("DISABLED_TENANT", 4),
+        ("FALLBACK_TENANT", 5),
+    ):
+        monkeypatch.setattr(module, name, base + slot)
 
 
 @pytest.fixture(autouse=True)
