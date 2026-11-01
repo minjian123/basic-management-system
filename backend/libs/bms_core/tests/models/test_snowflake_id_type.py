@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import pytest
 from sqlalchemy import Column, MetaData, String, Table, create_engine, select, text
@@ -118,7 +119,7 @@ def test_orm_roundtrip_keeps_int() -> None:
 
     engine = create_engine("sqlite://")
     try:
-        SysUser.__table__.create(engine)
+        cast("Table", SysUser.__table__).create(engine)
         from sqlalchemy.orm import Session
 
         with Session(engine) as session:

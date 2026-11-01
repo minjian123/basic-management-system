@@ -1,6 +1,7 @@
 """部署编排护栏（Kiwi 2391）：每服务 / 每副本 worker_id 唯一 + 作业 worker 容器命令。"""
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 import yaml
@@ -17,7 +18,7 @@ def _services() -> dict[str, dict[str, object]]:
         dict[str, dict[str, object]]: 服务定义。
     """
     data = yaml.safe_load(_COMPOSE.read_text(encoding="utf-8"))
-    return data["services"]
+    return cast("dict[str, dict[str, object]]", data["services"])
 
 
 def test_every_service_has_unique_worker_id() -> None:
@@ -25,7 +26,7 @@ def test_every_service_has_unique_worker_id() -> None:
     services = _services()
     values: list[str] = []
     for name, service in services.items():
-        env = service.get("environment") or {}
+        env = cast("dict[str, object]", service.get("environment") or {})
         value = str(env.get("BMS_APP__WORKER_ID") or "")
         assert value, f"{name} 未注入 BMS_APP__WORKER_ID"
         assert value not in values, f"{name} 的 worker_id 与其他容器重复：{value}"

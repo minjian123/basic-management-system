@@ -1,5 +1,6 @@
 """文件服务孤儿回收作业护栏（Kiwi 2384）：进度上报 / 结果摘要 / 异常透传。"""
 
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -28,6 +29,41 @@ class _FakeService:
         return self.result
 
 
+class _Boom:
+    """FileService 替身：清理即抛异常。"""
+
+    async def cleanup_orphans(self) -> CleanupResult:
+        """抛异常以验证向上透传。
+
+        Raises:
+            RuntimeError: 固定错误。
+        """
+        raise RuntimeError("storage down")
+
+
+def _service_factory(result: CleanupResult) -> Callable[..., _FakeService]:
+    """构造 FileService 替身工厂（忽略注入的存储 / 分片 / 客户端参数）。
+
+    Args:
+        result: 预设清理结果。
+
+    Returns:
+        Callable[..., _FakeService]: 工厂（供 `monkeypatch.setattr` 替换类）。
+    """
+
+    def factory(**kwargs: Any) -> _FakeService:
+        del kwargs
+        return _FakeService(result)
+
+    return factory
+
+
+def _boom_factory(**kwargs: Any) -> _Boom:
+    """构造抛异常的 FileService 替身工厂（忽略注入参数）。"""
+    del kwargs
+    return _Boom()
+
+
 def _context(progress: list[tuple[int, int | None]]) -> JobContext:
     """构造执行上下文（会话开合口返回 None，服务已被替身绕过）。
 
@@ -39,7 +75,7 @@ def _context(progress: list[tuple[int, int | None]]) -> JobContext:
     """
 
     @asynccontextmanager
-    async def _session() -> Any:
+    async def _session() -> AsyncGenerator[Any]:
         yield object()
 
     async def _report(done: int, total: int | None) -> None:
@@ -58,10 +94,10 @@ def _context(progress: list[tuple[int, int | None]]) -> JobContext:
 
 async def test_run_reports_progress_and_result(monkeypatch: pytest.MonkeyPatch) -> None:
     """执行完成：进度为（回收数 / 扫描数），结果摘要含三项计数。"""
-    job = CleanupOrphansJob(storage=object(), multipart=object(), service_client=object())
+    job = CleanupOrphansJob()
     monkeypatch.setattr(
         "bms_file.domains.file.jobs.FileService",
-        lambda **kwargs: _FakeService(CleanupResult(scanned=3, orphaned=2, failed=1)),
+        _service_factory(CleanupResult(scanned=3, orphaned=2, failed=1)),
     )
     progress: list[tuple[int, int | None]] = []
     result = await job.run(_context(progress))
@@ -78,11 +114,7 @@ async def test_run_propagates_failure(monkeypatch: pytest.MonkeyPatch) -> None:
         RuntimeError: 期望抛出。
     """
 
-    class _Boom:
-        async def cleanup_orphans(self) -> CleanupResult:
-            raise RuntimeError("storage down")
-
-    job = CleanupOrphansJob(storage=object(), multipart=object(), service_client=object())
-    monkeypatch.setattr("bms_file.domains.file.jobs.FileService", lambda **kwargs: _Boom())
+    job = CleanupOrphansJob()
+    monkeypatch.setattr("bms_file.domains.file.jobs.FileService", _boom_factory)
     with pytest.raises(RuntimeError, match="storage down"):
         await job.run(_context([]))

@@ -5,8 +5,10 @@ from datetime import timedelta
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.db.registry import EngineRegistry
 from bms_core.jobs import store
 from bms_core.jobs.base import BaseJobHandler, JobContext, JobResult
 from bms_core.jobs.limits import JobLimits
@@ -40,7 +42,7 @@ async def _keys() -> ConcurrentStableList[str]:
     return ConcurrentStableList(["platform"])
 
 
-def _worker(registry, handler: _Counting, *, worker_id: str = "w1") -> JobWorker:
+def _worker(registry: EngineRegistry, handler: _Counting, *, worker_id: str = "w1") -> JobWorker:
     """构造单 handler worker。
 
     Args:
@@ -67,7 +69,7 @@ def _worker(registry, handler: _Counting, *, worker_id: str = "w1") -> JobWorker
     )
 
 
-async def _submit(session, *, key: str | None = None, max_attempts: int = 2) -> int:
+async def _submit(session: AsyncSession, *, key: str | None = None, max_attempts: int = 2) -> int:
     """提交一条作业。
 
     Args:
@@ -91,7 +93,7 @@ async def _submit(session, *, key: str | None = None, max_attempts: int = 2) -> 
         return int(record.id)
 
 
-async def test_tick_executes_and_emits_events(session, registry) -> None:
+async def test_tick_executes_and_emits_events(session: AsyncSession, registry: EngineRegistry) -> None:
     """单轮：抢占、执行、进度、终态与 started / progress / completed 事件。"""
     handler = _Counting()
     await _submit(session)
@@ -105,7 +107,7 @@ async def test_tick_executes_and_emits_events(session, registry) -> None:
     assert {"sys.job.started", "sys.job.progress", "sys.job.completed"} <= events
 
 
-async def test_two_workers_claim_once(session, registry) -> None:
+async def test_two_workers_claim_once(session: AsyncSession, registry: EngineRegistry) -> None:
     """两个 worker 同时 tick：同一作业只执行一次（条件 UPDATE CAS）。"""
     first_handler = _Counting()
     second_handler = _Counting()
@@ -116,7 +118,7 @@ async def test_two_workers_claim_once(session, registry) -> None:
     assert first_handler.calls + second_handler.calls == 1
 
 
-async def test_tick_reclaims_expired_lease(session, registry) -> None:
+async def test_tick_reclaims_expired_lease(session: AsyncSession, registry: EngineRegistry) -> None:
     """租约过期的运行中作业被回收并重新执行。"""
     handler = _Counting()
     job_id = await _submit(session)
@@ -131,7 +133,7 @@ async def test_tick_reclaims_expired_lease(session, registry) -> None:
     assert record is not None and record.status == "succeeded"
 
 
-async def test_aclose_waits_inflight(session, registry) -> None:
+async def test_aclose_waits_inflight(session: AsyncSession, registry: EngineRegistry) -> None:
     """停机：置标志并在在途完成后返回。"""
     handler = _Counting()
     worker = _worker(registry, handler)
@@ -141,7 +143,7 @@ async def test_aclose_waits_inflight(session, registry) -> None:
     assert report.claimed == 0
 
 
-async def test_worker_rejects_missing_handler(registry) -> None:
+async def test_worker_rejects_missing_handler(registry: EngineRegistry) -> None:
     """声明存在但代码侧 handler 缺失：构造即拒（71006）。
 
     Raises:

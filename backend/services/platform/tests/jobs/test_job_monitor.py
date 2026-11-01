@@ -2,9 +2,10 @@
 
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -36,7 +37,9 @@ async def _session(tmp_path: Path):
     """
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'monitor.db'}")
     async with engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=[SysJobMonitor.__table__]))
+        await connection.run_sync(
+            lambda conn: Base.metadata.create_all(conn, tables=[cast("Table", SysJobMonitor.__table__)])
+        )
     return engine, async_sessionmaker(engine, expire_on_commit=False)
 
 
@@ -51,7 +54,9 @@ def _event(event_type: str, at: datetime, **payload: object) -> EventEnvelope:
     Returns:
         EventEnvelope: 事件信封。
     """
-    body = ConcurrentStableDict({"job_id": "42", "job_type": "sys.task.run", "service_key": "platform"})
+    body: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {"job_id": "42", "job_type": "sys.task.run", "service_key": "platform"}
+    )
     for key, value in payload.items():
         body.set(key, value)
     return EventEnvelope(event_type=event_type, payload=body, occurred_at=at, aggregate_key="job:42")

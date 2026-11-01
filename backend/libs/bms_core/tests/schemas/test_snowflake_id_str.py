@@ -20,7 +20,7 @@ class _Sample(BaseSchema):
 @pytest.mark.kiwi_id(2395)
 def test_json_output_is_string() -> None:
     """JSON 输出：`id` / `tenant_id` / `created_by` 均为字符串（含 126 位上限值）。"""
-    sample = _Sample(id=MAX_ID, tenant_id=str(MAX_ID - 1), created_by=MAX_ID)
+    sample = _Sample(id=MAX_ID, tenant_id=MAX_ID - 1, created_by=MAX_ID)
     payload = json.loads(sample.model_dump_json())
     assert payload == {
         "id": str(MAX_ID),

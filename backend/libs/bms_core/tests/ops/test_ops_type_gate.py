@@ -80,7 +80,7 @@ def test_pyright_include_covers_ops() -> None:
 def test_ops_pyright_reports_zero_errors() -> None:
     """`pyright ops` 子进程零错（配置已接线但代码有错时本用例即红）。"""
     completed = subprocess.run(
-        [_pyright_executable(), "ops"],
+        [_pyright_executable(), "--pythonpath", sys.executable, "ops"],
         cwd=BACKEND_ROOT,
         capture_output=True,
         text=True,

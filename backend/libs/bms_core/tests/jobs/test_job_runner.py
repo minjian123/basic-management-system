@@ -2,6 +2,7 @@
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import JobTypeNotRegisteredError
@@ -72,7 +73,7 @@ def _runner() -> JobRunner:
     return JobRunner(registry=registry, specs=specs, limits=JobLimits())
 
 
-async def test_run_inline_success(session) -> None:
+async def test_run_inline_success(session: AsyncSession) -> None:
     """同步内联：同一记录、进度、行级错误与终态；事件覆盖提交 / 进度 / 完成。"""
     runner = _runner()
     async with session.begin():
@@ -91,7 +92,7 @@ async def test_run_inline_success(session) -> None:
     assert {"sys.job.submitted", "sys.job.progress", "sys.job.completed"} <= events
 
 
-async def test_run_inline_idempotent(session) -> None:
+async def test_run_inline_idempotent(session: AsyncSession) -> None:
     """同幂等键再次内联：返回既有作业，不重复执行。"""
     runner = _runner()
     submission = JobSubmission(job_type="demo.echo", payload=ConcurrentStableDict({"n": 1}), idempotency_key="same")
@@ -103,7 +104,7 @@ async def test_run_inline_idempotent(session) -> None:
     assert "幂等命中" in result.message
 
 
-async def test_run_inline_failed_not_retryable(session) -> None:
+async def test_run_inline_failed_not_retryable(session: AsyncSession) -> None:
     """不可重试失败：终态 failed。"""
     async with session.begin():
         record, result = await _runner().run_inline(session, JobSubmission(job_type="demo.fail"), db_key="platform")
@@ -111,7 +112,7 @@ async def test_run_inline_failed_not_retryable(session) -> None:
     assert record.status == "failed"
 
 
-async def test_run_inline_exception_exhausts_to_dead(session) -> None:
+async def test_run_inline_exception_exhausts_to_dead(session: AsyncSession) -> None:
     """异常按可重试处理；attempts 达上限即死信。"""
     async with session.begin():
         record, result = await _runner().run_inline(session, JobSubmission(job_type="demo.explode"), db_key="platform")
@@ -122,7 +123,7 @@ async def test_run_inline_exception_exhausts_to_dead(session) -> None:
     assert len(left) == 1
 
 
-async def test_run_inline_canceled(session) -> None:
+async def test_run_inline_canceled(session: AsyncSession) -> None:
     """handler 返回取消：终态 canceled。"""
     async with session.begin():
         record, result = await _runner().run_inline(session, JobSubmission(job_type="demo.cancel"), db_key="platform")
@@ -130,7 +131,7 @@ async def test_run_inline_canceled(session) -> None:
     assert record.status == "canceled"
 
 
-async def test_submit_unknown_type(session) -> None:
+async def test_submit_unknown_type(session: AsyncSession) -> None:
     """未声明类型：抛 71002。
 
     Raises:

@@ -1,12 +1,13 @@
 """任务执行作业迁移护栏（Kiwi 2383）：TaskJobHandler 回写 `sys_task_log` 并发完成事件。"""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import Table, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.session import DbSession
@@ -24,7 +25,9 @@ async def test_handler_writes_task_log_and_event(tmp_path: Path) -> None:
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'task.log.db'}")
     async with engine.begin() as connection:
         await connection.run_sync(
-            lambda conn: Base.metadata.create_all(conn, tables=[SysTaskLog.__table__, SysOutbox.__table__])
+            lambda conn: Base.metadata.create_all(
+                conn, tables=[cast("Table", SysTaskLog.__table__), cast("Table", SysOutbox.__table__)]
+            )
         )
     maker = async_sessionmaker(engine, expire_on_commit=False)
     async with maker() as session, session.begin():
@@ -34,7 +37,7 @@ async def test_handler_writes_task_log_and_event(tmp_path: Path) -> None:
         log_id = int(log.id)
 
     @asynccontextmanager
-    async def _open() -> Any:
+    async def _open() -> AsyncGenerator[AsyncSession]:
         async with maker() as session:
             yield session
 
@@ -76,7 +79,9 @@ async def test_handler_rejects_handler_outside_whitelist(tmp_path: Path) -> None
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'task.log2.db'}")
     async with engine.begin() as connection:
         await connection.run_sync(
-            lambda conn: Base.metadata.create_all(conn, tables=[SysTaskLog.__table__, SysOutbox.__table__])
+            lambda conn: Base.metadata.create_all(
+                conn, tables=[cast("Table", SysTaskLog.__table__), cast("Table", SysOutbox.__table__)]
+            )
         )
     maker = async_sessionmaker(engine, expire_on_commit=False)
     async with maker() as session, session.begin():
@@ -86,7 +91,7 @@ async def test_handler_rejects_handler_outside_whitelist(tmp_path: Path) -> None
         log_id = int(log.id)
 
     @asynccontextmanager
-    async def _open() -> Any:
+    async def _open() -> AsyncGenerator[AsyncSession]:
         async with maker() as session:
             yield session
 

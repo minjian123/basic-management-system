@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+from collections.abc import Awaitable, Callable
 from importlib import import_module
 from typing import cast
 
@@ -66,7 +67,7 @@ async def _run(args: argparse.Namespace) -> int:
     finally:
         await worker.aclose()
         if callable(closer):
-            await closer()
+            await cast("Callable[[], Awaitable[None]]", closer)()
     return 0
 
 

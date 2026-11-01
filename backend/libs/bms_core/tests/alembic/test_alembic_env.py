@@ -78,6 +78,8 @@ def test_series_metadata_intersects_models() -> None:
 @pytest.mark.kiwi_id(2353)
 def test_upgrade_series_passes_x_args(monkeypatch: pytest.MonkeyPatch) -> None:
     """升级时连接串与达梦模式经 `-x url=` / `-x schema=` 透传（不写死、不进日志）。"""
+    from alembic import command  # 局部导入：与实现同源，规避 isort 在不同 cwd 下的分组差异
+
     captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
     def fake_upgrade(config: object, revision: str) -> None:
@@ -89,7 +91,7 @@ def test_upgrade_series_passes_x_args(monkeypatch: pytest.MonkeyPatch) -> None:
         del series
         return type("C", (), {})()
 
-    monkeypatch.setattr(migration.command, "upgrade", fake_upgrade)
+    monkeypatch.setattr(command, "upgrade", fake_upgrade)
     monkeypatch.setattr(migration, "alembic_config", fake_config)
     upgrade_series(resolve_series("user:tenant"), "dm+dmPython://SYSDBA:p@127.0.0.1:5236", schema="BMS_X")
     assert captured["revision"] == "head"

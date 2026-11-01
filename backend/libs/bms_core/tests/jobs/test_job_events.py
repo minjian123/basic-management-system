@@ -2,6 +2,7 @@
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.jobs.events import (
@@ -61,7 +62,7 @@ def test_completed_envelope_carries_terminal_state() -> None:
     assert envelope.payload["error"] == "boom"
 
 
-async def test_enqueue_writes_outbox(session) -> None:
+async def test_enqueue_writes_outbox(session: AsyncSession) -> None:
     """事件与状态更新同事务写发件箱。"""
     envelope = started_envelope(job_id=3, job_type="t", service_key="s", attempt=1)
     async with session.begin():

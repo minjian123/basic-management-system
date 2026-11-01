@@ -1,5 +1,7 @@
 """孤儿回收内置任务迁移测试（Kiwi 2374）：由「触发型」改为「提交 file.cleanup_orphans 作业」."""
 
+from collections.abc import Callable
+
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -61,10 +63,27 @@ def _ctx(*, tenant_id: int | None = 9) -> TaskContext:
     )
 
 
+def _job_client_factory(fake: _FakeJobClient) -> Callable[[object], _FakeJobClient]:
+    """构造作业客户端替身工厂（忽略注入的底层客户端）。
+
+    Args:
+        fake: 预设替身。
+
+    Returns:
+        Callable[[object], _FakeJobClient]: 工厂。
+    """
+
+    def factory(client: object) -> _FakeJobClient:
+        del client
+        return fake
+
+    return factory
+
+
 async def test_task_submits_cleanup_job(monkeypatch: pytest.MonkeyPatch) -> None:
     """提交成功：返回成功态并带作业号；提交到 file 服务且带租户 / 幂等键。"""
     fake = _FakeJobClient(object())
-    monkeypatch.setattr(builtin, "JobInternalClient", lambda client: fake)
+    monkeypatch.setattr(builtin, "JobInternalClient", _job_client_factory(fake))
     monkeypatch.setattr(builtin, "build_service_client", lambda: object())
 
     result = await builtin.run_cleanup_orphan_parts(_ctx(tenant_id=9))
@@ -83,7 +102,7 @@ async def test_task_submits_cleanup_job(monkeypatch: pytest.MonkeyPatch) -> None
 async def test_task_fails_when_submit_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     """提交失败（下游不可用）：返回失败态（由调度器按策略重试提交），不抛异常。"""
     fake = _FakeJobClient(object(), error=ServiceUnavailableError("down"))
-    monkeypatch.setattr(builtin, "JobInternalClient", lambda client: fake)
+    monkeypatch.setattr(builtin, "JobInternalClient", _job_client_factory(fake))
     monkeypatch.setattr(builtin, "build_service_client", lambda: object())
 
     result = await builtin.run_cleanup_orphan_parts(_ctx())

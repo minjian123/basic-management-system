@@ -6,12 +6,12 @@
 import asyncio
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -87,7 +87,9 @@ async def _worker(engine: Any, handler: _Counting, worker_id: str) -> JobWorker:
 
 async def test_signal_roundtrip() -> None:
     """真 Redis：发布后订阅协程被唤醒。"""
-    client = Redis.from_url(os.environ["BMS_REDIS__URL"], decode_responses=False)
+    client: Redis = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis 桩的 **kwargs 未标注
+        os.environ["BMS_REDIS__URL"], decode_responses=False
+    )
     channel = f"bms:test:job:{uuid4().hex}"
     signal = JobChangeSignal(client=client, channel=channel)
     event = asyncio.Event()
@@ -109,7 +111,12 @@ async def test_two_workers_execute_once(tmp_path: Path) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(
             lambda conn: Base.metadata.create_all(
-                conn, tables=[SysJob.__table__, SysJobError.__table__, SysOutbox.__table__]
+                conn,
+                tables=[
+                    cast("Table", SysJob.__table__),
+                    cast("Table", SysJobError.__table__),
+                    cast("Table", SysOutbox.__table__),
+                ],
             )
         )
     maker = async_sessionmaker(engine, expire_on_commit=False)

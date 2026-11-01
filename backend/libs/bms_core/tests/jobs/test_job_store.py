@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.jobs import store
@@ -21,7 +22,7 @@ from bms_core.models.job import SysJob, SysJobError
 pytestmark = pytest.mark.kiwi_id(2375)
 
 
-async def _submit(session, *, key: str | None = None, max_attempts: int = 2) -> int:
+async def _submit(session: AsyncSession, *, key: str | None = None, max_attempts: int = 2) -> int:
     """提交一条测试作业。
 
     Args:
@@ -48,7 +49,7 @@ async def _submit(session, *, key: str | None = None, max_attempts: int = 2) -> 
     return job_id
 
 
-async def test_submit_and_idempotency(session) -> None:
+async def test_submit_and_idempotency(session: AsyncSession) -> None:
     """提交即持久；同幂等键返回既有作业，不重复插入。"""
     async with session.begin():
         first, created = await store.submit_job(
@@ -78,7 +79,7 @@ async def test_submit_and_idempotency(session) -> None:
     assert parse_job_payload(rows[0].payload) == {"n": 1}
 
 
-async def test_claim_is_cas(session) -> None:
+async def test_claim_is_cas(session: AsyncSession) -> None:
     """条件抢占：第一次成功，第二次（同状态）失败。"""
     job_id = await _submit(session)
     now = now_utc()
@@ -100,7 +101,7 @@ async def test_claim_is_cas(session) -> None:
     assert record.started_at is not None
 
 
-async def test_progress_and_finish(session) -> None:
+async def test_progress_and_finish(session: AsyncSession) -> None:
     """进度可查；终态落库且不可重复收敛。"""
     job_id = await _submit(session)
     now = now_utc()
@@ -119,7 +120,7 @@ async def test_progress_and_finish(session) -> None:
     assert record.finished_at is not None
 
 
-async def test_cancel_paths(session) -> None:
+async def test_cancel_paths(session: AsyncSession) -> None:
     """取消：队列直接取消；运行中置标记；终态拒绝；不存在返回 missing。"""
     queued_id = await _submit(session)
     now = now_utc()
@@ -139,7 +140,7 @@ async def test_cancel_paths(session) -> None:
     assert record is not None and record.cancel_requested is True
 
 
-async def test_retry_paths(session) -> None:
+async def test_retry_paths(session: AsyncSession) -> None:
     """人工重试：仅 dead / failed；重置尝试次数回队；其余拒绝。"""
     job_id = await _submit(session, max_attempts=1)
     now = now_utc()
@@ -157,7 +158,7 @@ async def test_retry_paths(session) -> None:
     assert record.attempts == 0
 
 
-async def test_reclaim_requeues_and_dead(session) -> None:
+async def test_reclaim_requeues_and_dead(session: AsyncSession) -> None:
     """租约过期：未达上限回队；达上限转死信。"""
     now = now_utc()
     requeue_id = await _submit(session, max_attempts=3)
@@ -177,7 +178,7 @@ async def test_reclaim_requeues_and_dead(session) -> None:
     assert dead is not None and dead.status == "dead"
 
 
-async def test_error_rows_and_cleanup(session) -> None:
+async def test_error_rows_and_cleanup(session: AsyncSession) -> None:
     """行级错误可查；保留期清理硬删作业与错误明细。"""
     job_id = await _submit(session)
     now = now_utc()
