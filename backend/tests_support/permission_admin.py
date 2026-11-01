@@ -12,15 +12,16 @@
 from __future__ import annotations
 
 import os
+from typing import cast
 
-import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import Table, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.config import get_settings
-from bms_core.models.base import Base
 from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.models.platform.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
+from bms_core.testing.schema import ensure_tables
 from tests_support.auth import TEST_SUBJECT
 
 SYSTEM_ADMIN_CODE = "bms_system_admin"
@@ -85,11 +86,7 @@ async def _grant_builtin(user_id: int, *, code: str, name: str, role_type: str) 
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
-            role = (await session.execute(select(SysRole).where(SysRole.code == code))).scalar_one_or_none()
-            if role is None:
-                role = SysRole(code=code, name=name, status="enabled", role_type=role_type)
-                session.add(role)
-                await session.flush()
+            role = await _role_row(session, code=code, name=name, role_type=role_type)
             assigned = (
                 await session.execute(
                     select(SysUserRole).where(
@@ -100,10 +97,41 @@ async def _grant_builtin(user_id: int, *, code: str, name: str, role_type: str) 
             ).scalar_one_or_none()
             if assigned is None:
                 session.add(SysUserRole(role_id=role.id, user_id=user_id))
-            await session.commit()
+                try:
+                    await session.commit()
+                except IntegrityError:
+                    # 并行 worker 同时绑定同一主体：已由他人写入，视为成功
+                    await session.rollback()
+            else:
+                await session.commit()
             return role.id
     finally:
         await engine.dispose()
+
+
+async def _role_row(session: AsyncSession, *, code: str, name: str, role_type: str) -> SysRole:
+    """取内置角色行（不存在则建；并行建同码时以先落库者为准）。
+
+    Args:
+        session: 租户库会话。
+        code: 角色码。
+        name: 角色名称。
+        role_type: 角色类型。
+
+    Returns:
+        SysRole: 角色行。
+    """
+    role = (await session.execute(select(SysRole).where(SysRole.code == code))).scalar_one_or_none()
+    if role is not None:
+        return role
+    role = SysRole(code=code, name=name, status="enabled", role_type=role_type)
+    session.add(role)
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        return (await session.execute(select(SysRole).where(SysRole.code == code))).scalar_one()
+    return role
 
 
 async def assign_system_admin() -> None:
@@ -129,22 +157,26 @@ async def assign_role_domain_operator() -> None:
     await assign_security_admin()
 
 
-async def setup_min_tenant(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """建最小临时租户库（权限引擎读表）并把测试主体置内置系统管理员。
+async def setup_min_tenant(tenant_url: str | None = None) -> None:
+    """在**共享租户库**上补齐权限引擎读表并把测试主体置内置系统管理员。
+
+    单库化（`04-6-2`）：不再为每个用例建临时租户库——权限引擎与图标 / 菜单元数据都落
+    `.cache/test/tenant.db`，全 worker 共用；建表走幂等 `ensure_tables`，角色绑定按
+    `(role_id, user_id)` 判存，重复执行无副作用。
 
     供**只测平台库**、原本不建租户库的用例文件调用（真实权限校验会读租户库角色表）。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
-        monkeypatch: pytest 环境变量覆盖夹具。
+        tenant_url: 租户库连接串（None 取夹具已注入的 `BMS_DATABASE__TENANTS__URL`）。
     """
-    url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('perm_engine_tenant') / 'tenant.db'}"
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
+    url = tenant_url or os.environ["BMS_DATABASE__TENANTS__URL"]
+    os.environ["BMS_DATABASE__TENANTS__URL"] = url
     get_settings.cache_clear()
     engine = create_async_engine(url)
-    tables = [SysRole.__table__, SysUserRole.__table__, SysIcon.__table__, SysIconI18n.__table__]
-    async with engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
-    await engine.dispose()
+    try:
+        tables = [SysRole.__table__, SysUserRole.__table__, SysIcon.__table__, SysIconI18n.__table__]
+        await ensure_tables(engine, [cast("Table", table) for table in tables])
+    finally:
+        await engine.dispose()
     await assign_system_admin()
     get_settings.cache_clear()

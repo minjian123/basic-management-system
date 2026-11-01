@@ -282,6 +282,22 @@ def platform_db_url(shared_platform_db_url: str) -> str:
 
 
 @pytest.fixture
+def tenant_db(shared_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> str:
+    """把租户库连接串指向**共享租户库**（单库化默认路径；权限引擎 / 图标 / 角色等读租户库的用例用）。
+
+    Args:
+        shared_tenant_db_url: 共享租户库连接串（会话级；建表与参数种子由准备集负责）。
+        monkeypatch: pytest monkeypatch 夹具。
+
+    Returns:
+        str: 共享租户库连接串。
+    """
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
+    get_settings.cache_clear()
+    return shared_tenant_db_url
+
+
+@pytest.fixture
 def isolated_platform_db_url(
     tmp_path: Path,
     pinned_product_manifests: ConcurrentStableList[str],

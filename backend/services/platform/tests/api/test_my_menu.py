@@ -13,53 +13,46 @@ from httpx import AsyncClient
 from bms_core.permission.cache import current_permission_cache_store
 from bms_core.permission.sources import PermissionMetadata
 from bms_core.permission.version import permission_version_key
+from bms_core.testing.namespace import Namespace
 from tests_support.auth import TEST_TENANT_ID
-from tests_support.menu_metadata import (
-    insert_form,
-    reset_menu_tables,
-    seed_business,
-    seed_permission,
-    set_business_status,
-)
+from tests_support.menu_metadata import insert_form, seed_business, seed_permission, set_business_status
 from tests_support.permission_admin import setup_min_tenant
 
-pytestmark = pytest.mark.own_db("本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据")
-
-
-@pytest.fixture(autouse=True)
-def isolated_platform(platform_db: None, isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
-    """白名单文件的**独占平台库**：本文件逐例清空菜单元数据表，独占库使清场不影响并行中的其它 worker。
-
-    Args:
-        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
-        isolated_platform_db_url: 独占平台库连接串（每用例一份 tmp 库 + 播种）。
-        monkeypatch: 环境变量覆盖。
-    """
-    from bms_core.core.config import get_settings
-
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
-    get_settings.cache_clear()
-
 
 @pytest_asyncio.fixture(autouse=True)
-async def clean_menu_tables(platform_db: None) -> None:
-    """菜单元数据表逐用例清场（会话级平台库共享）。
+async def permission_engine(tenant_db: str) -> None:
+    """真实权限校验所需的租户库（**共享租户库**）+ 内置系统管理员主体。
 
     Args:
-        platform_db: 平台库夹具（确保平台库连接串已注入）。
+        tenant_db: 共享租户库连接串（套件夹具已注入 `BMS_DATABASE__TENANTS__URL`）。
     """
-    await reset_menu_tables()
+    await setup_min_tenant(tenant_db)
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def permission_engine(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """真实权限校验所需的最小租户库（权限引擎读表）+ 内置系统管理员主体。
+def _path(ns: Namespace, suffix: str) -> str:
+    """本用例的菜单路径（叠加下不与他人路径相撞）。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
-        monkeypatch: pytest 环境变量覆盖夹具。
+        ns: 用例命名空间。
+        suffix: 路径后缀。
+
+    Returns:
+        str: 菜单路径。
     """
-    await setup_min_tenant(tmp_path_factory, monkeypatch)
+    return f"/{ns.prefix}/{suffix}"
+
+
+def _business(ns: Namespace, suffix: str) -> str:
+    """本用例的业务码。
+
+    Args:
+        ns: 用例命名空间。
+        suffix: 业务后缀。
+
+    Returns:
+        str: 业务码。
+    """
+    return ns.code(suffix).replace("-", "_")
 
 
 def _data_or_fail(response: Any, label: str) -> Any:
@@ -149,11 +142,13 @@ async def _create_page(client: AsyncClient, path: str, name: str, en: str, busin
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_my_menu_filters_marks_and_locale(client: AsyncClient) -> None:
+async def test_my_menu_filters_marks_and_locale(client: AsyncClient, ns: Namespace) -> None:
     """菜单树 + 表单 / 按钮 / 字段元数据 + 权限码集合；文案按 locale 本地化。"""
-    business_id = await seed_business("t_my", "我的业务")
+    business = _business(ns, "my")
+    path = _path(ns, "my")
+    business_id = await seed_business(business, "我的业务")
     permission_id = await seed_permission(business_id, "create", "新建")
-    menu = await _create_page(client, "/t-my", "我的页面", "My page", "t_my")
+    menu = await _create_page(client, path, "我的页面", "My page", business)
     menu_id = int(menu["id"])
 
     forms = (await client.get(_FORMS, params={"menu_id": menu_id})).json()["data"]["items"]
@@ -178,36 +173,37 @@ async def test_my_menu_filters_marks_and_locale(client: AsyncClient) -> None:
     data = response.json()["data"]
     assert data["locale"] == "zh-CN"
     assert isinstance(data["version"], int)
-    assert "t_my:create" in data["permissions"]
+    assert f"{business}:create" in data["permissions"]
 
-    node = _find(data["menus"], "/t-my")
+    node = _find(data["menus"], path)
     assert node is not None
     assert node["name"] == "我的页面"
     assert len(node["forms"]) == 1
-    assert node["forms"][0]["business_code"] == "t_my"
+    assert node["forms"][0]["business_code"] == business
     assert int(node["forms"][0]["menu_id"]) == menu_id
-    assert node["forms"][0]["buttons"][0]["permission_code"] == "t_my:create"
+    assert node["forms"][0]["buttons"][0]["permission_code"] == f"{business}:create"
     assert node["forms"][0]["buttons"][0]["visible"] is True
     assert node["forms"][0]["fields"][0]["name"] == "用户名"
     assert node["forms"][0]["fields"][0]["visible"] is True
     assert node["forms"][0]["fields"][0]["editable"] is True
 
     english = await client.get(_MY, headers={"accept-language": "en-US"})
-    english_node = _find(english.json()["data"]["menus"], "/t-my")
+    english_node = _find(english.json()["data"]["menus"], path)
     assert english_node is not None
     assert english_node["name"] == "My page"
     assert english_node["forms"][0]["fields"][0]["name"] == "Username"
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_my_menu_hides_broken_disabled_keeps_hidden(client: AsyncClient) -> None:
+async def test_my_menu_hides_broken_disabled_keeps_hidden(client: AsyncClient, ns: Namespace) -> None:
     """挂接链断裂 / 停用不可见；hidden 菜单仍下发（路由可直达）；缺省回退主表文案。"""
-    business_id = await seed_business("t_hide", "隐藏业务")
+    hidden_path = _path(ns, "hidden")
+    business_id = await seed_business(_business(ns, "hide"), "隐藏业务")
     hidden_menu = await client.post(
         _MENUS,
         json={
             "parent_id": 0,
-            "path": "/t-hidden",
+            "path": hidden_path,
             "component": None,
             "icon": None,
             "sort": 1,
@@ -219,56 +215,63 @@ async def test_my_menu_hides_broken_disabled_keeps_hidden(client: AsyncClient) -
     hidden_id = int(hidden_menu.json()["data"]["id"])
     await client.post(_FORMS, json={"menu_ids": [hidden_id], "business_id": business_id, "status": "enabled"})
 
-    disabled_business = await seed_business("t_disabled", "停用业务")
-    await _create_page(client, "/t-disabled", "停用页", "Disabled page", "t_disabled")
+    disabled_path = _path(ns, "disabled")
+    disabled_business = await seed_business(_business(ns, "disabled"), "停用业务")
+    await _create_page(client, disabled_path, "停用页", "Disabled page", _business(ns, "disabled"))
     await set_business_status(disabled_business, "disabled")
 
     # 挂接链断裂：表单指向不存在的业务码（直插绕过校验）
+    broken_path = _path(ns, "broken")
     broken_menu = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-broken2", "status": "enabled", "i18n": {"zh-CN": "断裂页"}}
+        _MENUS, json={"parent_id": 0, "path": broken_path, "status": "enabled", "i18n": {"zh-CN": "断裂页"}}
     )
     await insert_form(int(broken_menu.json()["data"]["id"]), 999999999)
 
     # 菜单自身停用
+    off_path = _path(ns, "off")
     off_menu = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-off", "status": "disabled", "i18n": {"zh-CN": "停用菜单"}}
+        _MENUS, json={"parent_id": 0, "path": off_path, "status": "disabled", "i18n": {"zh-CN": "停用菜单"}}
     )
     assert off_menu.json()["code"] == 0
 
     data = (await client.get(_MY)).json()["data"]
-    hidden_node = _find(data["menus"], "/t-hidden")
+    hidden_node = _find(data["menus"], hidden_path)
     assert hidden_node is not None
     assert hidden_node["name"] == "隐藏页"
     assert hidden_node["hidden"] is True
-    assert _find(data["menus"], "/t-disabled") is None
-    assert _find(data["menus"], "/t-broken2") is None
-    assert _find(data["menus"], "/t-off") is None
+    assert _find(data["menus"], disabled_path) is None
+    assert _find(data["menus"], broken_path) is None
+    assert _find(data["menus"], off_path) is None
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_my_menu_version_bump_invalidates_cache(client: AsyncClient) -> None:
+async def test_my_menu_version_bump_invalidates_cache(client: AsyncClient, ns: Namespace) -> None:
     """元数据写操作后版本号递增，新增菜单即时可见（缓存按版本键失效）。"""
-    await seed_business("t_cache_a", "缓存业务A")
-    await seed_business("t_cache_b", "缓存业务B")
-    await _create_page(client, "/t-cache-a", "缓存页A", "Cache A", "t_cache_a")
+    await seed_business(_business(ns, "cache_a"), "缓存业务A")
+    await seed_business(_business(ns, "cache_b"), "缓存业务B")
+    path_a = _path(ns, "cache-a")
+    path_b = _path(ns, "cache-b")
+    await _create_page(client, path_a, "缓存页A", "Cache A", _business(ns, "cache_a"))
 
     first = (await client.get(_MY)).json()["data"]
-    assert _find(first["menus"], "/t-cache-a") is not None
-    assert _find(first["menus"], "/t-cache-b") is None
+    assert _find(first["menus"], path_a) is not None
+    assert _find(first["menus"], path_b) is None
 
-    await _create_page(client, "/t-cache-b", "缓存页B", "Cache B", "t_cache_b")
+    await _create_page(client, path_b, "缓存页B", "Cache B", _business(ns, "cache_b"))
 
     second = (await client.get(_MY)).json()["data"]
     assert second["version"] > first["version"]
-    assert _find(second["menus"], "/t-cache-b") is not None
+    assert _find(second["menus"], path_b) is not None
 
 
 @pytest.mark.kiwi_id(2321)
-async def test_metadata_write_also_invalidates_permission_snapshot(client: AsyncClient, service_app: Any) -> None:
+async def test_metadata_write_also_invalidates_permission_snapshot(
+    client: AsyncClient, service_app: Any, ns: Namespace
+) -> None:
     """元数据写路径同步递增权限版本并清层1 元数据（`04_2`：码集 / 入口集与服务端权限同源失效）。"""
-    await seed_business("t_perm_a", "权限同步业务A")
-    await seed_business("t_perm_b", "权限同步业务B")
-    await _create_page(client, "/t-perm-a", "权限同步页A", "Perm A", "t_perm_a")
+    await seed_business(_business(ns, "perm_a"), "权限同步业务A")
+    await seed_business(_business(ns, "perm_b"), "权限同步业务B")
+    await _create_page(client, _path(ns, "perm-a"), "权限同步页A", "Perm A", _business(ns, "perm_a"))
 
     cache = service_app.state.cache
     before = cache.get(permission_version_key(TEST_TENANT_ID))
@@ -276,7 +279,7 @@ async def test_metadata_write_also_invalidates_permission_snapshot(client: Async
     store.set_metadata(source="probe", locale="zh-CN", version=0, value=PermissionMetadata())
     assert store.stats()["metadata_items"] == 1
 
-    await _create_page(client, "/t-perm-b", "权限同步页B", "Perm B", "t_perm_b")
+    await _create_page(client, _path(ns, "perm-b"), "权限同步页B", "Perm B", _business(ns, "perm_b"))
 
     after = cache.get(permission_version_key(TEST_TENANT_ID))
     assert isinstance(after, int)

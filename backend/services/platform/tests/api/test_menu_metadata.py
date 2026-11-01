@@ -13,48 +13,47 @@ from fastapi import Request
 from httpx import AsyncClient
 
 from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL
+from bms_core.testing.namespace import Namespace
 from bms_platform.api.locale import accept_locale
 from bms_platform.domains.menu_form.api.menu import _tree_ttl  # pyright: ignore[reportPrivateUsage]
-from tests_support.menu_metadata import outbox_types, reset_menu_tables, seed_business, seed_permission
+from tests_support.menu_metadata import outbox_types, seed_business, seed_permission
 from tests_support.permission_admin import setup_min_tenant
 
-pytestmark = pytest.mark.own_db("本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据")
-
-
-@pytest.fixture(autouse=True)
-def isolated_platform(platform_db: None, isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
-    """白名单文件的**独占平台库**：本文件逐例清空菜单元数据表，独占库使清场不影响并行中的其它 worker。
-
-    Args:
-        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
-        isolated_platform_db_url: 独占平台库连接串（每用例一份 tmp 库 + 播种）。
-        monkeypatch: 环境变量覆盖。
-    """
-    from bms_core.core.config import get_settings
-
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
-    get_settings.cache_clear()
-
 
 @pytest_asyncio.fixture(autouse=True)
-async def clean_menu_tables(platform_db: None) -> None:
-    """菜单元数据表逐用例清场（会话级平台库共享）。
+async def permission_engine(tenant_db: str) -> None:
+    """真实权限校验所需的租户库（**共享租户库**）+ 内置系统管理员主体。
 
     Args:
-        platform_db: 平台库夹具（确保平台库连接串已注入）。
+        tenant_db: 共享租户库连接串（套件夹具已注入 `BMS_DATABASE__TENANTS__URL`）。
     """
-    await reset_menu_tables()
+    await setup_min_tenant(tenant_db)
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def permission_engine(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """真实权限校验所需的最小租户库（权限引擎读表）+ 内置系统管理员主体。
+def _path(ns: Namespace, suffix: str) -> str:
+    """本用例的菜单路径（叠加下不与他人路径相撞）。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
-        monkeypatch: pytest 环境变量覆盖夹具。
+        ns: 用例命名空间。
+        suffix: 路径后缀。
+
+    Returns:
+        str: 菜单路径。
     """
-    await setup_min_tenant(tmp_path_factory, monkeypatch)
+    return f"/{ns.prefix}/{suffix}"
+
+
+def _business(ns: Namespace, suffix: str) -> str:
+    """本用例的业务码。
+
+    Args:
+        ns: 用例命名空间。
+        suffix: 业务后缀。
+
+    Returns:
+        str: 业务码。
+    """
+    return f"{ns.prefix}_{suffix}"
 
 
 _MENUS = "/api/v1/menus"
@@ -67,13 +66,14 @@ _PERMISSIONS = "/api/v1/permissions"
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_menu_create_update_delete_and_conflicts(client: AsyncClient) -> None:
+async def test_menu_create_update_delete_and_conflicts(client: AsyncClient, ns: Namespace) -> None:
     """菜单增改删：路径冲突（40203）、父菜单不存在（40201）、被表单引用禁删（40206）。"""
+    path = _path(ns, "dir")
     created = await client.post(
         _MENUS,
         json={
             "parent_id": 0,
-            "path": "/t-dir",
+            "path": path,
             "component": None,
             "icon": None,
             "sort": 1,
@@ -84,15 +84,16 @@ async def test_menu_create_update_delete_and_conflicts(client: AsyncClient) -> N
     )
     assert created.json()["code"] == 0
     menu_id = int(created.json()["data"]["id"])
-    assert created.json()["data"]["path"] == "/t-dir"
+    assert created.json()["data"]["path"] == path
 
     duplicated = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-dir", "status": "enabled", "i18n": {"zh-CN": "冲突"}}
+        _MENUS, json={"parent_id": 0, "path": path, "status": "enabled", "i18n": {"zh-CN": "冲突"}}
     )
     assert duplicated.json()["code"] == 40203
 
     bad_parent = await client.post(
-        _MENUS, json={"parent_id": 999999999, "path": "/t-orphan", "status": "enabled", "i18n": {"zh-CN": "孤儿"}}
+        _MENUS,
+        json={"parent_id": 999999999, "path": _path(ns, "orphan"), "status": "enabled", "i18n": {"zh-CN": "孤儿"}},
     )
     assert bad_parent.status_code == 404
     assert bad_parent.json()["code"] == 40201
@@ -101,7 +102,7 @@ async def test_menu_create_update_delete_and_conflicts(client: AsyncClient) -> N
         f"{_MENUS}/{menu_id}",
         json={
             "parent_id": 0,
-            "path": "/t-dir",
+            "path": path,
             "component": None,
             "icon": "el:setting",
             "sort": 2,
@@ -116,12 +117,12 @@ async def test_menu_create_update_delete_and_conflicts(client: AsyncClient) -> N
 
     missing = await client.put(
         f"{_MENUS}/999999999",
-        json={"parent_id": 0, "path": "/t-none", "status": "enabled", "i18n": {"zh-CN": "无"}},
+        json={"parent_id": 0, "path": _path(ns, "none"), "status": "enabled", "i18n": {"zh-CN": "无"}},
     )
     assert missing.status_code == 404
     assert missing.json()["code"] == 40201
 
-    business_id = await seed_business("t_menu")
+    business_id = await seed_business(_business(ns, "menu"))
     linked = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": business_id, "status": "enabled"})
     assert linked.json()["code"] == 0
 
@@ -132,17 +133,17 @@ async def test_menu_create_update_delete_and_conflicts(client: AsyncClient) -> N
     assert (await client.delete(f"{_MENUS}/{menu_id}")).json()["code"] == 0
 
     tree = await client.get(_MENUS)
-    assert all(node["path"] != "/t-dir" for node in tree.json()["data"]["items"])
+    assert all(node["path"] != path for node in tree.json()["data"]["items"])
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_form_button_field_link_rules(client: AsyncClient) -> None:
+async def test_form_button_field_link_rules(client: AsyncClient, ns: Namespace) -> None:
     """表单 1:1、按钮同动作唯一、字段键唯一（40205）、被引用禁删（40206）。"""
-    business_id = await seed_business("t_link")
+    business_id = await seed_business(_business(ns, "link"))
     permission_id = await seed_permission(business_id, "create", "新建")
 
     menu = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-link", "status": "enabled", "i18n": {"zh-CN": "挂接页"}}
+        _MENUS, json={"parent_id": 0, "path": _path(ns, "link"), "status": "enabled", "i18n": {"zh-CN": "挂接页"}}
     )
     menu_id = int(menu.json()["data"]["id"])
 
@@ -160,7 +161,7 @@ async def test_form_button_field_link_rules(client: AsyncClient) -> None:
 
     # 多对多：同一表单关联两个菜单入口
     second_menu = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-link-2", "status": "enabled", "i18n": {"zh-CN": "挂接页二"}}
+        _MENUS, json={"parent_id": 0, "path": _path(ns, "link-2"), "status": "enabled", "i18n": {"zh-CN": "挂接页二"}}
     )
     second_menu_id = int(second_menu.json()["data"]["id"])
     form = await client.post(
@@ -179,7 +180,7 @@ async def test_form_button_field_link_rules(client: AsyncClient) -> None:
     assert duplicate_form.json()["code"] == 10003
 
     # 孤儿表单：无菜单入口，仅出现在全量列表
-    orphan_business = await seed_business("t_link_orphan")
+    orphan_business = await seed_business(_business(ns, "link_orphan"))
     orphan = await client.post(_FORMS, json={"menu_ids": [], "business_id": orphan_business, "status": "enabled"})
     assert orphan.json()["code"] == 0
     assert orphan.json()["data"]["menu_ids"] == []
@@ -235,31 +236,36 @@ async def test_form_button_field_link_rules(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_business_action_permission_read_lists(client: AsyncClient) -> None:
+async def test_business_action_permission_read_lists(client: AsyncClient, ns: Namespace) -> None:
     """业务 / 动作 / 权限码只读列示：业务清单含直插业务码、动作码为全局字典、权限码按业务过滤。"""
-    business_id = await seed_business("t_read", "只读业务")
+    code = _business(ns, "read")
+    business_id = await seed_business(code, "只读业务")
     await seed_permission(business_id, "query", "查询")
     await seed_permission(business_id, "manage", "管理")
 
     businesses = await client.get(_BUSINESSES)
     assert businesses.json()["code"] == 0
-    assert "t_read" in [item["code"] for item in businesses.json()["data"]["items"]]
+    assert code in [item["code"] for item in businesses.json()["data"]["items"]]
 
     actions = await client.get(_ACTIONS)
-    assert sorted(item["code"] for item in actions.json()["data"]["items"]) == ["manage", "query"]
+    action_codes = {item["code"] for item in actions.json()["data"]["items"]}
+    assert {"manage", "query"} <= action_codes
 
     permissions = await client.get(_PERMISSIONS, params={"business_id": business_id})
-    assert sorted(item["code"] for item in permissions.json()["data"]["items"]) == ["t_read:manage", "t_read:query"]
+    assert sorted(item["code"] for item in permissions.json()["data"]["items"]) == [
+        f"{code}:manage",
+        f"{code}:query",
+    ]
 
     others = await client.get(_PERMISSIONS, params={"business_id": business_id + 1})
     assert others.json()["data"]["items"] == []
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_form_updated_event_published(client: AsyncClient) -> None:
+async def test_form_updated_event_published(client: AsyncClient, ns: Namespace) -> None:
     """元数据变更在同一事务内经发件箱发布 `sys.form.updated`（只做发布侧，无消费者）。"""
     menu = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-event", "status": "enabled", "i18n": {"zh-CN": "事件页"}}
+        _MENUS, json={"parent_id": 0, "path": _path(ns, "event"), "status": "enabled", "i18n": {"zh-CN": "事件页"}}
     )
     menu_id = int(menu.json()["data"]["id"])
 
@@ -267,17 +273,23 @@ async def test_form_updated_event_published(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_menu_i18n_required_and_default_name_derivation(client: AsyncClient) -> None:
+async def test_menu_i18n_required_and_default_name_derivation(client: AsyncClient, ns: Namespace) -> None:
     """多语言文案口径：缺请求语言文案拒绝（40208）；主表默认文案按「系统默认语言 → 请求语言 → 首个有值语言」派生。"""
+    en_path = _path(ns, "i18n-en")
     missing = await client.post(
         _MENUS,
-        json={"parent_id": 0, "path": "/t-i18n-missing", "status": "enabled", "i18n": {"en-US": "Only English"}},
+        json={
+            "parent_id": 0,
+            "path": _path(ns, "i18n-missing"),
+            "status": "enabled",
+            "i18n": {"en-US": "Only English"},
+        },
     )
     assert missing.json()["code"] == 40208
 
     en_only = await client.post(
         _MENUS,
-        json={"parent_id": 0, "path": "/t-i18n-en", "status": "enabled", "i18n": {"en-US": "English only"}},
+        json={"parent_id": 0, "path": en_path, "status": "enabled", "i18n": {"en-US": "English only"}},
         headers={"accept-language": "en-US"},
     )
     assert en_only.json()["code"] == 0
@@ -288,7 +300,7 @@ async def test_menu_i18n_required_and_default_name_derivation(client: AsyncClien
         _MENUS,
         json={
             "parent_id": 0,
-            "path": "/t-i18n-both",
+            "path": _path(ns, "i18n-both"),
             "status": "enabled",
             "i18n": {"zh-CN": "中文名", "en-US": "English name"},
         },
@@ -299,19 +311,19 @@ async def test_menu_i18n_required_and_default_name_derivation(client: AsyncClien
     assert both.json()["data"]["i18n"] == {"zh-CN": "中文名", "en-US": "English name"}
 
     tree = (await client.get(_MENUS)).json()["data"]["items"]
-    node = next(item for item in tree if item["path"] == "/t-i18n-en")
+    node = next(item for item in tree if item["path"] == en_path)
     assert node["name"] == "English only"
     assert node["i18n"] == {"en-US": "English only", "zh-CN": "English only"}
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_menu_and_field_views_return_full_i18n(client: AsyncClient) -> None:
+async def test_menu_and_field_views_return_full_i18n(client: AsyncClient, ns: Namespace) -> None:
     """维护视图出参含完整多语言映射（菜单 / 字段 / 业务码）；必填语言缺文案时以主表默认文案回填。"""
     menu = await client.post(
         _MENUS,
         json={
             "parent_id": 0,
-            "path": "/t-full-i18n",
+            "path": _path(ns, "full-i18n"),
             "status": "enabled",
             "i18n": {"zh-CN": "完整页", "en-US": "Full page"},
         },
@@ -321,7 +333,7 @@ async def test_menu_and_field_views_return_full_i18n(client: AsyncClient) -> Non
     node = next(item for item in tree if int(item["id"]) == menu_id)
     assert node["i18n"] == {"zh-CN": "完整页", "en-US": "Full page"}
 
-    business_id = await seed_business("t_full_i18n")
+    business_id = await seed_business(_business(ns, "full_i18n"))
     form = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": business_id, "status": "enabled"})
     form_id = int(form.json()["data"]["id"])
     created_field = await client.post(
@@ -341,7 +353,8 @@ async def test_menu_and_field_views_return_full_i18n(client: AsyncClient) -> Non
 
     # 必填语言缺文案（仅 zh-CN）：以 en-US 读树时由主表默认文案回填，不出现空格
     legacy = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-legacy-i18n", "status": "enabled", "i18n": {"zh-CN": "仅中文"}}
+        _MENUS,
+        json={"parent_id": 0, "path": _path(ns, "legacy-i18n"), "status": "enabled", "i18n": {"zh-CN": "仅中文"}},
     )
     legacy_id = int(legacy.json()["data"]["id"])
     english_tree = (await client.get(_MENUS, headers={"accept-language": "en-US"})).json()["data"]["items"]
@@ -350,23 +363,23 @@ async def test_menu_and_field_views_return_full_i18n(client: AsyncClient) -> Non
     assert legacy_node["i18n"]["en-US"] == "仅中文"
 
     businesses = (await client.get(_BUSINESSES)).json()["data"]["items"]
-    seeded_business = next(item for item in businesses if item["code"] == "t_full_i18n")
+    seeded_business = next(item for item in businesses if item["code"] == _business(ns, "full_i18n"))
     assert seeded_business["i18n"]["zh-CN"] == "测试业务"
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_metadata_update_endpoints(client: AsyncClient) -> None:
+async def test_metadata_update_endpoints(client: AsyncClient, ns: Namespace) -> None:
     """表单 / 按钮 / 字段更新端点：挂接全量替换与文案 / 形态 / 排序更新。"""
-    business_id = await seed_business("t_update")
+    business_id = await seed_business(_business(ns, "update"))
     menu = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-update", "status": "enabled", "i18n": {"zh-CN": "更新页"}}
+        _MENUS, json={"parent_id": 0, "path": _path(ns, "update"), "status": "enabled", "i18n": {"zh-CN": "更新页"}}
     )
     menu_id = int(menu.json()["data"]["id"])
     form = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": business_id, "status": "enabled"})
     form_id = int(form.json()["data"]["id"])
 
     second_menu = await client.post(
-        _MENUS, json={"parent_id": 0, "path": "/t-update-2", "status": "enabled", "i18n": {"zh-CN": "更新页二"}}
+        _MENUS, json={"parent_id": 0, "path": _path(ns, "update-2"), "status": "enabled", "i18n": {"zh-CN": "更新页二"}}
     )
     second_menu_id = int(second_menu.json()["data"]["id"])
     updated_form = await client.put(
