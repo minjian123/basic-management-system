@@ -21,10 +21,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import JobNotFoundError
 from bms_core.events.base import EventEnvelope
-from bms_core.models.base import Base
 from bms_core.models.platform.job import JOB_TYPE_STATUS_RETIRED, SysJobMonitor, SysJobType
 from bms_core.schemas.pagination import BasePageQuery
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.job.api import job as job_api
 from bms_platform.domains.job.repositories.job import JobMonitorRepository, JobTypeRepository
@@ -68,9 +68,12 @@ def _number(ns: Namespace, slot: int) -> int:
 
 @pytest.fixture
 async def session(shared_platform_engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
-    """共享平台库上的回滚会话（作业目录 / 监控两表幂等补齐）。"""
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    """共享平台库上的回滚会话（作业目录 / 监控两表幂等补齐）。
+
+    建表走 `ensure_tables`（逐表、吞「已存在」）：并发 worker 同时 `create_all` 时，先 SELECT 判不存在
+    再 CREATE 的两方会有一方撞 `table ... already exists`（服务子流水线实测 ERROR）。
+    """
+    await ensure_tables(shared_platform_engine, _TABLES)
     async with rollback_session(shared_platform_engine) as opened:
         yield opened
 
