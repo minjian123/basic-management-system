@@ -17,6 +17,7 @@ from typing import Any, cast
 import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.context import (
     current_client_ip,
@@ -302,18 +303,18 @@ def shared_db_url(name: str) -> str:
     return f"sqlite+aiosqlite:///{(test_db_dir() / f'{name}.db').as_posix()}"
 
 
-def clear_shared_db_files() -> list[str]:
+def clear_shared_db_files() -> ConcurrentStableList[str]:
     """清空会话测试库目录下的库文件与就绪标记（会话开始调用）。
 
     删除失败（Windows 句柄未释放）时跳过并返回失败清单，由调用方告警，不中断整轮。
 
     Returns:
-        list[str]: 未能删除的文件名清单。
+        ConcurrentStableList[str]: 未能删除的文件名清单。
     """
     directory = Path.cwd() / ".cache" / TEST_DB_DIRNAME
     if not directory.exists():
-        return []
-    failed: list[str] = []
+        return ConcurrentStableList()
+    failed: ConcurrentStableList[str] = ConcurrentStableList()
     for path in sorted(directory.glob("*")):
         name = path.name
         if name == "namespace-map.jsonl":

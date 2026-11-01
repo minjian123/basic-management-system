@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import namespace as ns_module
 from bms_core.testing.namespace import Namespace, assert_delta, assert_scoped, prefix_for, scoped
 
@@ -52,7 +53,7 @@ def test_scoped_appends_filter() -> None:
 
     class _Column:
         def __init__(self) -> None:
-            self.patterns: list[str] = []
+            self.patterns: ConcurrentStableList[str] = ConcurrentStableList()
 
         def like(self, pattern: str) -> str:
             self.patterns.append(pattern)
@@ -60,7 +61,7 @@ def test_scoped_appends_filter() -> None:
 
     class _Statement:
         def __init__(self) -> None:
-            self.wheres: list[str] = []
+            self.wheres: ConcurrentStableList[str] = ConcurrentStableList()
 
         def where(self, condition: str) -> _Statement:
             self.wheres.append(condition)
@@ -126,4 +127,4 @@ def test_record_swallows_oserror(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         raise OSError("disk full")
 
     monkeypatch.setattr(ns_module, "map_path", _boom)
-    ns_module._record("w0a1b2c3d4", "tests/test_demo.py::test_x")
+    ns_module._record("w0a1b2c3d4", "tests/test_demo.py::test_x")  # pyright: ignore[reportPrivateUsage]

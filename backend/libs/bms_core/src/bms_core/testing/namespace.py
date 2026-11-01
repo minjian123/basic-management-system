@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, cast
 
@@ -167,7 +167,7 @@ def _field_value(row: Any, field: str) -> object:
     return getattr(row, field, None)
 
 
-def assert_scoped(rows: Sequence[Any], namespace: Namespace, *, field: str = "code") -> None:
+def assert_scoped(rows: Iterable[Any], namespace: Namespace, *, field: str = "code") -> None:
     """断言集合内的数据全部属于本命名空间。
 
     Args:

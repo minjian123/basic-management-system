@@ -5,9 +5,11 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import fixtures
 from bms_core.testing.namespace import Namespace
 
@@ -17,7 +19,7 @@ pytestmark = pytest.mark.kiwi_id(2399)
 def test_shared_db_created_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """同一逻辑数据源只建一次；连接串指向 `.cache/test/`；版本戳落 `.ready`。"""
     monkeypatch.chdir(tmp_path)
-    calls: list[str] = []
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
 
     def prepare(url: str) -> None:
         calls.append(url)
@@ -34,7 +36,7 @@ def test_shared_db_created_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 def test_shared_db_version_mismatch_rebuilds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """`.ready` 版本戳不一致即重建（schema 变更后的自愈路径）。"""
     monkeypatch.chdir(tmp_path)
-    calls: list[str] = []
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
 
     def prepare(url: str) -> None:
         calls.append(url)
@@ -95,7 +97,7 @@ def test_default_prepare_creates_tables(tmp_path: Path, monkeypatch: pytest.Monk
     """缺省建库回调按已导入模型的并集建表（套件未提供 `shared_db_prepare` 时的兜底）。"""
     monkeypatch.chdir(tmp_path)
     url = fixtures.shared_db_url("platform")
-    fixtures._default_prepare(url)
+    fixtures._default_prepare(url)  # pyright: ignore[reportPrivateUsage]
     assert (tmp_path / ".cache/test/platform.db").exists()
 
 
@@ -108,13 +110,24 @@ def test_resolve_prepare_branches(monkeypatch: pytest.MonkeyPatch) -> None:
     def prepare(url: str) -> None:
         del url
 
-    monkeypatch.setattr(fixtures, "resolve_fixture", lambda request, name: None)
+    def no_fixture(request: Any, name: str) -> None:
+        del request, name
+
+    def non_callable(request: Any, name: str) -> int:
+        del request, name
+        return 42
+
+    monkeypatch.setattr(fixtures, "resolve_fixture", no_fixture)
     assert fixtures.resolve_prepare(_Request(), "platform") is None  # type: ignore[arg-type]
 
-    monkeypatch.setattr(fixtures, "resolve_fixture", lambda request, name: 42)
+    monkeypatch.setattr(fixtures, "resolve_fixture", non_callable)
     assert fixtures.resolve_prepare(_Request(), "platform") is None  # type: ignore[arg-type]
 
-    monkeypatch.setattr(fixtures, "resolve_fixture", lambda request, name: prepare)
+    def with_fixture(request: Any, name: str) -> Any:
+        del request, name
+        return prepare
+
+    monkeypatch.setattr(fixtures, "resolve_fixture", with_fixture)
     assert fixtures.resolve_prepare(_Request(), "platform") is prepare  # type: ignore[arg-type]
 
 
