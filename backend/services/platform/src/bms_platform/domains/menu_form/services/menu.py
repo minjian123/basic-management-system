@@ -528,7 +528,7 @@ class MenuFormService(BaseFrameworkObject):
         items = ConcurrentStableList(
             FormItem(
                 id=row.id,
-                menu_ids=ConcurrentStableList(str(item) for item in (menu_ids_by_form.get(row.id) or ())),
+                menu_ids=ConcurrentStableList(menu_ids_by_form.get(row.id) or ()),
                 business_id=row.business_id,
                 component=row.component,
                 status=row.status,

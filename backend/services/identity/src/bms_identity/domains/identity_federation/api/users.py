@@ -44,6 +44,6 @@ async def list_identities(request: Request, user_id: UserIdPath) -> ApiResponse[
     async with session_scope(registry, db_key=PLATFORM_DB_KEY, read_only=True, factory=factory) as session:
         rows = await UserIdentityRepository(session).list_by_user(user_id)
     items = ConcurrentStableList(
-        SsoIdentityItem(idp_key=row.idp_key, external_id=row.external_id, tenant_id=str(row.tenant_id)) for row in rows
+        SsoIdentityItem(idp_key=row.idp_key, external_id=row.external_id, tenant_id=row.tenant_id) for row in rows
     )
     return ApiResponse.ok(SsoIdentityList(items=items))

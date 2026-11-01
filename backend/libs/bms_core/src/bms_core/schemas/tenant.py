@@ -18,7 +18,6 @@ from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
     CONTRACT_STABLE_LIST,
     BaseSchema,
-    SnowflakeIdStr,
 )
 
 __all__ = [
@@ -33,7 +32,7 @@ __all__ = [
 class TenantSummaryResponse(BaseSchema):
     """租户摘要响应。"""
 
-    id: SnowflakeIdStr = Field(description="租户标识（字符串）")
+    id: str = Field(description="租户标识（字符串；占位实现以租户编码充当，故非数值主键）")
     name: str = Field(description="租户名称")
     code: str | None = Field(default=None, description="租户编码")
     logo: str | None = Field(default=None, description="租户 Logo 地址")
