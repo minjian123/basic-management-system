@@ -502,7 +502,11 @@ backend-test:
     # 选测 + 覆盖率门禁 + 扩圈（13_01）：与本地预检共用 scripts/tools/preflight/run_selected.py，
     # 推导规则只在 test_selection.py 一处维护；基准不可解析（全 0 / 浅克隆取不到 base SHA）即显式退化全量，
     # 绝不静默跳过（空选测会被 run_selected 视为「无后端变更」直接成功）。
-    # 并行（13_02）：--jobs auto 与本地预检同口径（按逻辑核数；资源紧张时改这里是唯一开关）。
+    # 并行（13_02）：资源紧张时改这里是唯一开关。
+    # 单库化（04-6-2）后全量用例共用 2 个 SQLite 文件；`auto`（16+ worker）下每个文件同时有 10+ 写者，
+    # 实测「先读后写」的读→写升级冲突每 5000 例出现 1~2 例 `database is locked`（busy_timeout 对升级
+    # 死锁不等待）。`--jobs 6` 下连续多轮全绿（本地预检同档一致），故 CI 与本地预检统一取 6
+    # （《测试规范》13「并行与隔离」/ 04-6-2 设计 §13 风险 3「必要时调 -n 档位」）。
     - |
       BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
       case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="" ;; esac
@@ -513,7 +517,7 @@ backend-test:
       fi
       python scripts/tools/preflight/run_selected.py --root . ${BASE:+--changed-from "$BASE"} $FORCE \
         --pytest-cwd backend --pytest-cmd "uv run pytest" --cov --cov-fail-under 100 \
-        --max-rounds 2 --cov-json backend/coverage.json --jobs auto
+        --max-rounds 2 --cov-json backend/coverage.json --jobs 6
   coverage: '/\[coverage\].*percent=(\d+(?:\.\d+)?)/'
   # 覆盖率快照归档（04_04）：coverage.json 供域七阶段测试报告引用（证据留痕）
   artifacts:

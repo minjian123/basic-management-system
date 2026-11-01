@@ -96,7 +96,11 @@ async def rollback_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     if needs_explicit_begin(connection.dialect.name):
         # SQLite（pysqlite / aiosqlite legacy 隔离模式）延迟到首条 DML 才真正 BEGIN；
         # 此时会话的 savepoint 会成为最外层事务并被 commit 提交。显式 BEGIN 保证外层事务真实存在。
-        await connection.exec_driver_sql("BEGIN")
+        #
+        # 用 `BEGIN IMMEDIATE` 而非 `BEGIN`（04-6-2 并发收口）：回滚会话普遍是「先读后写」，
+        # 延迟事务的读锁升级写锁时若他人持写锁会**立即** `database is locked`（busy_timeout 对升级
+        # 死锁不等待）。开头就拿写锁，冲突退化为 `busy_timeout` 下的短等待（共享引擎 30s）。
+        await connection.exec_driver_sql("BEGIN IMMEDIATE")
     session = AsyncSession(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
     try:
         with _patch_session_factory(session):
