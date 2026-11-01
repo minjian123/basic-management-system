@@ -911,3 +911,17 @@ async def test_topology_units_falls_back_to_default(tmp_path: Path, monkeypatch:
     assert not raw, f"42 号租户不应有拓扑行：{dict(raw)}"
     units = await migrate_topology._topology_units(42)  # pyright: ignore[reportPrivateUsage]
     assert dict(units) == {"role": "platform", "user": "identity", "permission_meta": "platform"}
+
+
+def test_cursor_not_advanced_raises() -> None:
+    """分页游标未推进：显式报配置错误（防死循环反复写 journal）。"""
+    from sqlalchemy import Column, Integer, MetaData, Table
+
+    from bms_core.core.exceptions import ConfigError
+    from bms_core.db import topology_migration
+
+    table = Table("demo", MetaData(), Column("id", Integer))
+    topology_migration._ensure_cursor_advanced(table, "id", None, 1)  # pyright: ignore[reportPrivateUsage]
+    topology_migration._ensure_cursor_advanced(table, "id", 1, 2)  # pyright: ignore[reportPrivateUsage]
+    with pytest.raises(ConfigError, match="游标列 id 未推进"):
+        topology_migration._ensure_cursor_advanced(table, "id", 1, 1)  # pyright: ignore[reportPrivateUsage]

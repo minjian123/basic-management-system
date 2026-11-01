@@ -72,7 +72,7 @@ def test_sequence_wrap_waits_next_millisecond(monkeypatch: pytest.MonkeyPatch) -
     start = 2_000_000_000.0
     monkeypatch.setattr(
         "bms_core.core.id.time",
-        _fake_time_module(ConcurrentStableList([start, start, start + 0.001])),
+        _fake_time_module(ConcurrentStableList([start, start, start, start + 0.001])),
     )
     generator = SnowflakeGenerator(worker_id=0)
     first = generator.next_id()
@@ -81,6 +81,14 @@ def test_sequence_wrap_waits_next_millisecond(monkeypatch: pytest.MonkeyPatch) -
     assert len({first, second, third}) == 3
     assert third > second > first
     assert (third >> (SEQ_BITS + WORKER_BITS)) == (first >> (SEQ_BITS + WORKER_BITS)) + 1
+
+
+def test_reconfigure_validates_worker_id() -> None:
+    """重设 WorkerId：越界直接拒绝（保持生成器实例身份不变）。"""
+    generator = SnowflakeGenerator(worker_id=1)
+    generator.reconfigure(2)
+    with pytest.raises(ValueError, match="worker_id 必须在"):
+        generator.reconfigure(MAX_WORKER_ID + 1)
 
 
 @pytest.mark.kiwi_id(2393)

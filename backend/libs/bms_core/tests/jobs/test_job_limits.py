@@ -49,3 +49,14 @@ def test_progress_interval_allows_zero() -> None:
     """进度节流间隔允许 0（每次更新都发）。"""
     limits = JobLimits(JobSettings(progress_interval_seconds=0))
     assert limits.progress_interval_seconds == 0.0
+
+
+def test_bool_and_non_numeric_fall_back() -> None:
+    """bool / 非数字：按非法处理回落默认（bool 不当 0 / 1）。"""
+    settings = JobSettings()
+    object.__setattr__(settings, "backoff_seconds_default", True)
+    object.__setattr__(settings, "progress_interval_seconds", "0.5")
+    limits = JobLimits(settings)
+    assert limits.backoff_seconds_default == DEFAULT_LIMITS["backoff_seconds_default"]
+    assert limits.progress_interval_seconds == DEFAULT_LIMITS["progress_interval_seconds"]
+    assert any("backoff_seconds_default" in item for item in limits.warnings)

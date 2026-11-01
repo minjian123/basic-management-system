@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.jobs import store
 from bms_core.jobs.spec import JobSubmission, now_utc, parse_job_payload
 from bms_core.jobs.store import (
@@ -161,16 +161,17 @@ async def test_retry_paths(session: AsyncSession) -> None:
 async def test_reclaim_requeues_and_dead(session: AsyncSession) -> None:
     """租约过期：未达上限回队；达上限转死信。"""
     now = now_utc()
+    dead_tail_id = await _submit(session, max_attempts=1)
     requeue_id = await _submit(session, max_attempts=3)
     dead_id = await _submit(session, max_attempts=1)
     async with session.begin():
-        for job_id in (requeue_id, dead_id):
+        for job_id in (requeue_id, dead_id, dead_tail_id):
             await store.claim_job(
                 session, job_id=job_id, worker_id="w", lease_until=now - timedelta(seconds=1), now=now
             )
         result = await store.reclaim_expired(session, now=now)
     assert result.requeued == 1
-    assert result.dead == 1
+    assert result.dead == 2
     async with session.begin():
         requeued = await store.get_job(session, requeue_id)
         dead = await store.get_job(session, dead_id)
@@ -196,3 +197,75 @@ async def test_error_rows_and_cleanup(session: AsyncSession) -> None:
     async with session.begin():
         left = (await session.execute(select(SysJobError))).scalars().all()
     assert left == []
+
+
+async def test_heartbeat_only_owner(session: AsyncSession) -> None:
+    """续租：只有持租约的实例能续；转手 / 非运行态返回 False。"""
+    job_id = await _submit(session)
+    now = now_utc()
+    async with session.begin():
+        await store.claim_job(session, job_id=job_id, worker_id="w1", lease_until=now + timedelta(seconds=60), now=now)
+        assert await store.heartbeat(
+            session, job_id=job_id, worker_id="w1", lease_until=now + timedelta(seconds=120), now=now
+        )
+        assert not await store.heartbeat(
+            session, job_id=job_id, worker_id="w2", lease_until=now + timedelta(seconds=120), now=now
+        )
+
+
+async def test_finish_rejects_non_terminal(session: AsyncSession) -> None:
+    """落终态：非终态值直接拒绝（防误把运行中当终态）。"""
+    job_id = await _submit(session)
+    now = now_utc()
+    async with session.begin():
+        await store.claim_job(session, job_id=job_id, worker_id="w1", lease_until=now + timedelta(seconds=60), now=now)
+        with pytest.raises(ValueError, match="非终态"):
+            await store.finish_job(session, job_id=job_id, status="running", finished_at=now)
+
+
+async def test_claim_candidates_filters_job_types(session: AsyncSession) -> None:
+    """候选：可按作业类型过滤（None 取全部）。"""
+    await _submit(session)
+    now = now_utc()
+    async with session.begin():
+        all_claims = await store.claim_candidates(session, now=now, limit=10)
+        filtered = await store.claim_candidates(
+            session, now=now, limit=10, job_types=ConcurrentStableList(["demo.echo"])
+        )
+        empty = await store.claim_candidates(session, now=now, limit=10, job_types=ConcurrentStableList(["absent"]))
+    assert len(all_claims) == 1
+    assert len(filtered) == 1
+    assert empty == []
+
+
+async def test_snapshot_of_record(session: AsyncSession) -> None:
+    """快照：ORM 行转只读快照，负载重新解析为插入序集合。"""
+    job_id = await _submit(session)
+    async with session.begin():
+        record = await store.get_job(session, job_id)
+    assert record is not None
+    snapshot = store.snapshot_of(record)
+    assert snapshot.id == job_id
+    assert snapshot.payload["n"] == 1
+
+
+async def test_reclaim_skips_rows_taken_by_others(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
+    """回收：并发下已被他人处理的行（mark_dead / requeue 返回 False）跳过，不计数。"""
+    dead_id = await _submit(session, max_attempts=1)
+    requeue_id = await _submit(session, max_attempts=3)
+    now = now_utc()
+    async with session.begin():
+        for job_id in (dead_id, requeue_id):
+            await store.claim_job(
+                session, job_id=job_id, worker_id="w", lease_until=now - timedelta(seconds=1), now=now
+            )
+
+    async def _false(*args: object, **kwargs: object) -> bool:
+        del args, kwargs
+        return False
+
+    monkeypatch.setattr(store, "mark_dead", _false)
+    monkeypatch.setattr(store, "requeue_job", _false)
+    async with session.begin():
+        result = await store.reclaim_expired(session, now=now)
+    assert result.requeued == 0 and result.dead == 0

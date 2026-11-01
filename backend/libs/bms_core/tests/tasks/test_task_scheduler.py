@@ -8,7 +8,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import select
@@ -389,3 +389,28 @@ async def test_tick_uses_real_clock_by_default(registry: EngineRegistry, session
     )
     report = await scheduler.tick()
     assert report.dispatched == 1
+
+
+async def test_run_forever_cancels_wake_task(registry: EngineRegistry) -> None:
+    """长驻循环：注入唤醒信号时启动订阅协程，退出时取消并回收。"""
+    from bms_core.tasks.scheduler import TaskScheduler
+
+    class _Signal:
+        async def wake_loop(self, event: asyncio.Event) -> None:
+            event.set()
+
+    settings = TaskSchedulerSettings(poll_interval_seconds=0.01)
+    scheduler = TaskScheduler(
+        settings=settings,
+        registry=registry,
+        runner=_runner(),
+        lock=_StubLock(),
+        tenant_keys=_keys("platform"),
+        signal=cast("Any", _Signal()),
+        session_factory=SessionFactory(),
+        clock=lambda: NOW,
+    )
+    task = asyncio.create_task(scheduler.run_forever())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)

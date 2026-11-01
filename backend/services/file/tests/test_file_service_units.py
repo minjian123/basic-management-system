@@ -218,3 +218,96 @@ async def test_orphan_cleanup_handles_row_without_upload_id(harness: _Harness) -
     assert result.orphaned >= 1
     assert expired.status == "orphan"
     assert expired.remark == "超期未完成，已回收"
+
+
+async def test_orphan_cleanup_counts_single_failure(harness: _Harness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """单条回收失败：计入 failed 并继续整批（不中断）。"""
+    await harness.files.create(
+        name="stale.pdf",
+        ext="pdf",
+        bucket="bms-files",
+        object_key="demo/files/2026/10/stale2",
+        size=10,
+        mime_type="application/pdf",
+        sha256="e" * 64,
+        source="upload",
+        status="uploading",
+        upload_id=None,
+        total_parts=2,
+        part_size=5,
+        expires_at=_now() - timedelta(hours=1),
+    )
+    await harness.session.commit()
+
+    async def _boom(row: Any) -> None:
+        del row
+        raise RuntimeError("mark failed")
+
+    monkeypatch.setattr(harness.service, "_mark_orphan", _boom)
+    result = await harness.service.cleanup_orphans()
+    assert result.failed >= 1
+
+
+async def test_orphan_cleanup_records_metrics(harness: _Harness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """回收成功：指标记孤儿清理计数。"""
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    class _Metrics:
+        async def counter(self, name: str, *, value: float = 1.0, labels: Any = None) -> None:
+            del value, labels
+            calls.append(name)
+
+    await harness.files.create(
+        name="stale.pdf",
+        ext="pdf",
+        bucket="bms-files",
+        object_key="demo/files/2026/10/stale3",
+        size=10,
+        mime_type="application/pdf",
+        sha256="f" * 64,
+        source="upload",
+        status="uploading",
+        upload_id=None,
+        total_parts=2,
+        part_size=5,
+        expires_at=_now() - timedelta(hours=1),
+    )
+    await harness.session.commit()
+    monkeypatch.setattr(harness.service, "_metrics", _Metrics())
+    result = await harness.service.cleanup_orphans()
+    assert result.orphaned >= 1
+    assert "bms_file_orphan_cleaned_total" in calls
+
+
+async def test_orphan_cleanup_tolerates_missing_upload_session(
+    harness: _Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """分片会话已丢失：中止失败只告警，仍清分片行并置 `orphan`。"""
+    from bms_core.core.exceptions import NotFoundError
+
+    expired = await harness.files.create(
+        name="stale.pdf",
+        ext="pdf",
+        bucket="bms-files",
+        object_key="demo/files/2026/10/stale4",
+        size=10,
+        mime_type="application/pdf",
+        sha256="g" * 64,
+        source="upload",
+        status="uploading",
+        upload_id="lost-upload",
+        total_parts=2,
+        part_size=5,
+        expires_at=_now() - timedelta(hours=1),
+    )
+    await harness.session.commit()
+
+    async def _missing(upload_id: str) -> None:
+        del upload_id
+        raise NotFoundError("gone")
+
+    monkeypatch.setattr(harness.service._multipart, "abort", _missing)  # pyright: ignore[reportPrivateUsage]
+    result = await harness.service.cleanup_orphans()
+    await harness.session.refresh(expired)
+    assert result.orphaned >= 1
+    assert expired.status == "orphan"
