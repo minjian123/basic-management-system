@@ -1,4 +1,7 @@
-"""OIDC 令牌端点测试（Kiwi 2202）。"""
+"""OIDC 令牌端点测试（Kiwi 2202）。
+
+单库叠加口径（04-6-2）：客户端标识按用例命名空间派生（`oidc.client_id`），换码请求与断言同源。
+"""
 
 import pytest
 from httpx import AsyncClient
@@ -6,23 +9,26 @@ from joserfc import jwt
 from joserfc.jwk import KeySet
 
 from .conftest import OidcHarness
-from .helpers import CLIENT_ID, CLIENT_SECRET, ISSUER, REDIRECT_URI, TENANT_HEADERS, authorize_code, pkce
+from .helpers import CLIENT_SECRET, ISSUER, REDIRECT_URI, TENANT_HEADERS, authorize_code, pkce
 
 _TOKEN = "/api/v1/oidc/token"
 
 
-async def _issue_code(client: AsyncClient, *, public: bool = False) -> tuple[str, str]:
+async def _issue_code(client: AsyncClient, oidc: OidcHarness, *, public: bool = False) -> tuple[str, str]:
     """发起授权并返回 (code, code_verifier)。
 
     Args:
         client: 测试客户端。
+        oidc: 装配套件（取本用例客户端标识）。
         public: 是否公共客户端（强制 PKCE）。
 
     Returns:
         tuple[str, str]: (授权码, code_verifier)。
     """
     verifier, challenge = pkce()
-    code, _ = await authorize_code(client, code_challenge=challenge, code_challenge_method="S256")
+    code, _ = await authorize_code(
+        client, client_id=oidc.client_id, code_challenge=challenge, code_challenge_method="S256"
+    )
     return code, verifier
 
 
@@ -30,7 +36,7 @@ async def _issue_code(client: AsyncClient, *, public: bool = False) -> tuple[str
 async def test_token_happy_path_basic(client: AsyncClient, oidc: OidcHarness) -> None:
     """授权码换码（basic）：返回 id_token + access_token，无 refresh_token。"""
     await oidc.seed_client()
-    code, verifier = await _issue_code(client)
+    code, verifier = await _issue_code(client, oidc)
     response = await client.post(
         _TOKEN,
         data={
@@ -39,7 +45,7 @@ async def test_token_happy_path_basic(client: AsyncClient, oidc: OidcHarness) ->
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
         },
-        auth=(CLIENT_ID, CLIENT_SECRET),
+        auth=(oidc.client_id, CLIENT_SECRET),
         headers=TENANT_HEADERS,
     )
     assert response.status_code == 200, response.text
@@ -53,7 +59,7 @@ async def test_token_happy_path_basic(client: AsyncClient, oidc: OidcHarness) ->
     jwks = (await client.get("/api/v1/oidc/jwks", headers=TENANT_HEADERS)).json()
     id_claims = jwt.decode(body["id_token"], KeySet.import_key_set(jwks)).claims
     assert id_claims["iss"] == ISSUER
-    assert id_claims["aud"] == CLIENT_ID
+    assert id_claims["aud"] == oidc.client_id
     assert id_claims["sub"] == "1001"
     assert id_claims["nonce"] == "nonce-1"
     assert id_claims["preferred_username"] == "alice"
@@ -63,7 +69,7 @@ async def test_token_happy_path_basic(client: AsyncClient, oidc: OidcHarness) ->
 async def test_token_client_secret_post(client: AsyncClient, oidc: OidcHarness) -> None:
     """授权码换码（表单 client_secret_post）：成功。"""
     await oidc.seed_client()
-    code, verifier = await _issue_code(client)
+    code, verifier = await _issue_code(client, oidc)
     response = await client.post(
         _TOKEN,
         data={
@@ -71,7 +77,7 @@ async def test_token_client_secret_post(client: AsyncClient, oidc: OidcHarness) 
             "code": code,
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
-            "client_id": CLIENT_ID,
+            "client_id": oidc.client_id,
             "client_secret": CLIENT_SECRET,
         },
         headers=TENANT_HEADERS,
@@ -83,7 +89,7 @@ async def test_token_client_secret_post(client: AsyncClient, oidc: OidcHarness) 
 async def test_token_public_client_pkce(client: AsyncClient, oidc: OidcHarness) -> None:
     """公共客户端（无密钥）+ PKCE：成功。"""
     await oidc.seed_client(public=True)
-    code, verifier = await _issue_code(client, public=True)
+    code, verifier = await _issue_code(client, oidc, public=True)
     response = await client.post(
         _TOKEN,
         data={
@@ -91,7 +97,7 @@ async def test_token_public_client_pkce(client: AsyncClient, oidc: OidcHarness) 
             "code": code,
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
-            "client_id": CLIENT_ID,
+            "client_id": oidc.client_id,
         },
         headers=TENANT_HEADERS,
     )
@@ -102,16 +108,17 @@ async def test_token_public_client_pkce(client: AsyncClient, oidc: OidcHarness) 
 async def test_token_code_replay(client: AsyncClient, oidc: OidcHarness) -> None:
     """授权码重放：二次换码 invalid_grant。"""
     await oidc.seed_client()
-    code, verifier = await _issue_code(client)
+    code, verifier = await _issue_code(client, oidc)
     data = {
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": REDIRECT_URI,
         "code_verifier": verifier,
     }
-    first = await client.post(_TOKEN, data=data, auth=(CLIENT_ID, CLIENT_SECRET), headers=TENANT_HEADERS)
+    auth = (oidc.client_id, CLIENT_SECRET)
+    first = await client.post(_TOKEN, data=data, auth=auth, headers=TENANT_HEADERS)
     assert first.status_code == 200
-    second = await client.post(_TOKEN, data=data, auth=(CLIENT_ID, CLIENT_SECRET), headers=TENANT_HEADERS)
+    second = await client.post(_TOKEN, data=data, auth=auth, headers=TENANT_HEADERS)
     assert second.status_code == 400
     assert second.json()["error"] == "invalid_grant"
 
@@ -120,7 +127,7 @@ async def test_token_code_replay(client: AsyncClient, oidc: OidcHarness) -> None
 async def test_token_redirect_mismatch(client: AsyncClient, oidc: OidcHarness) -> None:
     """redirect_uri 与授权时不一致：invalid_grant。"""
     await oidc.seed_client()
-    code, verifier = await _issue_code(client)
+    code, verifier = await _issue_code(client, oidc)
     response = await client.post(
         _TOKEN,
         data={
@@ -129,7 +136,7 @@ async def test_token_redirect_mismatch(client: AsyncClient, oidc: OidcHarness) -
             "redirect_uri": "http://rp.test/other",
             "code_verifier": verifier,
         },
-        auth=(CLIENT_ID, CLIENT_SECRET),
+        auth=(oidc.client_id, CLIENT_SECRET),
         headers=TENANT_HEADERS,
     )
     assert response.status_code == 400
@@ -140,7 +147,7 @@ async def test_token_redirect_mismatch(client: AsyncClient, oidc: OidcHarness) -
 async def test_token_pkce_mismatch(client: AsyncClient, oidc: OidcHarness) -> None:
     """PKCE verifier 不符：invalid_grant。"""
     await oidc.seed_client()
-    code, _ = await _issue_code(client)
+    code, _ = await _issue_code(client, oidc)
     response = await client.post(
         _TOKEN,
         data={
@@ -149,7 +156,7 @@ async def test_token_pkce_mismatch(client: AsyncClient, oidc: OidcHarness) -> No
             "redirect_uri": REDIRECT_URI,
             "code_verifier": "wrong-verifier",
         },
-        auth=(CLIENT_ID, CLIENT_SECRET),
+        auth=(oidc.client_id, CLIENT_SECRET),
         headers=TENANT_HEADERS,
     )
     assert response.status_code == 400
@@ -160,7 +167,7 @@ async def test_token_pkce_mismatch(client: AsyncClient, oidc: OidcHarness) -> No
 async def test_token_unknown_client_and_bad_secret(client: AsyncClient, oidc: OidcHarness) -> None:
     """未知客户端 / 错密钥：401 invalid_client。"""
     await oidc.seed_client()
-    code, verifier = await _issue_code(client)
+    code, verifier = await _issue_code(client, oidc)
     data = {
         "grant_type": "authorization_code",
         "code": code,
@@ -171,7 +178,7 @@ async def test_token_unknown_client_and_bad_secret(client: AsyncClient, oidc: Oi
     assert unknown.status_code == 401
     assert unknown.json()["error"] == "invalid_client"
 
-    code2, verifier2 = await _issue_code(client)
+    code2, verifier2 = await _issue_code(client, oidc)
     bad = await client.post(
         _TOKEN,
         data={
@@ -180,7 +187,7 @@ async def test_token_unknown_client_and_bad_secret(client: AsyncClient, oidc: Oi
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier2,
         },
-        auth=(CLIENT_ID, "wrong-secret"),
+        auth=(oidc.client_id, "wrong-secret"),
         headers=TENANT_HEADERS,
     )
     assert bad.status_code == 401
@@ -194,13 +201,13 @@ async def test_token_missing_params_and_user_missing(client: AsyncClient, oidc: 
     missing = await client.post(
         _TOKEN,
         data={"grant_type": "authorization_code", "redirect_uri": REDIRECT_URI},
-        auth=(CLIENT_ID, CLIENT_SECRET),
+        auth=(oidc.client_id, CLIENT_SECRET),
         headers=TENANT_HEADERS,
     )
     assert missing.status_code == 400
     assert missing.json()["error"] == "invalid_grant"
 
-    code, verifier = await _issue_code(client)
+    code, verifier = await _issue_code(client, oidc)
     oidc.platform_client.remove_user(1001)
     gone = await client.post(
         _TOKEN,
@@ -210,7 +217,7 @@ async def test_token_missing_params_and_user_missing(client: AsyncClient, oidc: 
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
         },
-        auth=(CLIENT_ID, CLIENT_SECRET),
+        auth=(oidc.client_id, CLIENT_SECRET),
         headers=TENANT_HEADERS,
     )
     assert gone.status_code == 400
@@ -221,7 +228,7 @@ async def test_token_missing_params_and_user_missing(client: AsyncClient, oidc: 
 async def test_token_public_client_rejects_secret(client: AsyncClient, oidc: OidcHarness) -> None:
     """公共客户端携带密钥：invalid_client。"""
     await oidc.seed_client(public=True)
-    code, verifier = await _issue_code(client, public=True)
+    code, verifier = await _issue_code(client, oidc, public=True)
     response = await client.post(
         _TOKEN,
         data={
@@ -229,7 +236,7 @@ async def test_token_public_client_rejects_secret(client: AsyncClient, oidc: Oid
             "code": code,
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
-            "client_id": CLIENT_ID,
+            "client_id": oidc.client_id,
             "client_secret": "should-not-send",
         },
         headers=TENANT_HEADERS,
@@ -244,7 +251,11 @@ async def test_token_unsupported_grant(client: AsyncClient, oidc: OidcHarness) -
     await oidc.seed_client()
     response = await client.post(
         _TOKEN,
-        data={"grant_type": "client_credentials", "client_id": CLIENT_ID, "client_secret": CLIENT_SECRET},
+        data={
+            "grant_type": "client_credentials",
+            "client_id": oidc.client_id,
+            "client_secret": CLIENT_SECRET,
+        },
         headers=TENANT_HEADERS,
     )
     assert response.status_code == 400

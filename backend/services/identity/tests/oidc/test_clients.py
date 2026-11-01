@@ -1,9 +1,16 @@
-"""客户端注册与管理接口测试（Kiwi 2202）。"""
+"""客户端注册与管理接口测试（Kiwi 2202）。
+
+单库叠加口径（04-6-2）：`sys_client` 落共享租户库，注册返回的 `client_id` 是本次创建的标识，
+列表断言一律按该标识 / 本用例名称前缀裁剪（不再用「全表 total == 1 / list[0]」这种叠加下会失效的写法）。
+"""
+
+from typing import cast
 
 import pytest
 from httpx import AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.testing.namespace import Namespace
 
 from .conftest import OidcHarness
 from .helpers import TENANT_HEADERS, authorize_code, pkce
@@ -11,11 +18,12 @@ from .helpers import TENANT_HEADERS, authorize_code, pkce
 _CLIENTS = "/api/v1/open/clients"
 
 
-async def _create(client: AsyncClient, **overrides: object) -> ConcurrentStableDict[str, object]:
-    """调注册接口创建客户端。
+async def _create(client: AsyncClient, ns: Namespace, **overrides: object) -> ConcurrentStableDict[str, object]:
+    """调注册接口创建客户端（名称带本用例命名空间前缀，便于列表筛选）。
 
     Args:
         client: 测试客户端。
+        ns: 用例命名空间。
         **overrides: 覆盖请求体字段。
 
     Returns:
@@ -23,7 +31,7 @@ async def _create(client: AsyncClient, **overrides: object) -> ConcurrentStableD
     """
     body: ConcurrentStableDict[str, object] = ConcurrentStableDict(
         {
-            "name": "RP App",
+            "name": ns.code("rp-app"),
             "redirect_uris": ["http://rp.test/created"],
             "grant_types": ["authorization_code"],
             "scopes": ["openid", "profile"],
@@ -35,10 +43,44 @@ async def _create(client: AsyncClient, **overrides: object) -> ConcurrentStableD
     return response.json()["data"]
 
 
+async def _page(client: AsyncClient, ns: Namespace, **params: str) -> ConcurrentStableDict[str, object]:
+    """取本用例命名空间内的客户端列表页（名称前缀筛选 + 大页，避开他人数据与分页）。
+
+    Args:
+        client: 测试客户端。
+        ns: 用例命名空间。
+        **params: 附加查询参数。
+
+    Returns:
+        ConcurrentStableDict[str, object]: 列表响应 data。
+    """
+    query: ConcurrentStableDict[str, str] = ConcurrentStableDict({"name": ns.prefix, "size": "100"})
+    query.update(params)
+    response = await client.get(_CLIENTS, params=dict(query), headers=TENANT_HEADERS)
+    assert response.status_code == 200, response.text
+    return ConcurrentStableDict(response.json()["data"])
+
+
+def _pick(page: ConcurrentStableDict[str, object], client_id: object) -> ConcurrentStableDict[str, object]:
+    """从列表页里挑出本用例的客户端行（按 `client_id` 精确匹配）。
+
+    Args:
+        page: 列表响应 data。
+        client_id: 客户端标识。
+
+    Returns:
+        ConcurrentStableDict[str, object]: 命中的行。
+    """
+    rows = cast("list[dict[str, object]]", page["list"])
+    matched = [row for row in rows if row.get("client_id") == client_id]
+    assert len(matched) == 1, f"本用例客户端未唯一命中：{client_id}"
+    return ConcurrentStableDict(matched[0])
+
+
 @pytest.mark.kiwi_id(2202)
-async def test_create_and_use_client(client: AsyncClient, oidc: OidcHarness) -> None:
+async def test_create_and_use_client(client: AsyncClient, oidc: OidcHarness, ns: Namespace) -> None:
     """注册返回 client_id + 明文 secret 一次，并可用于完整换码。"""
-    created = await _create(client)
+    created = await _create(client, ns)
     client_id = str(created["client_id"])
     secret = str(created["client_secret"])
     assert client_id.startswith("bms_")
@@ -62,14 +104,13 @@ async def test_create_and_use_client(client: AsyncClient, oidc: OidcHarness) -> 
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_list_and_detail_never_expose_secret(client: AsyncClient, oidc: OidcHarness) -> None:
+async def test_list_and_detail_never_expose_secret(
+    client: AsyncClient, oidc: OidcHarness, ns: Namespace
+) -> None:
     """列表 / 详情不含 secret 与哈希。"""
-    created = await _create(client)
-    listing = await client.get(_CLIENTS, headers=TENANT_HEADERS)
-    assert listing.status_code == 200
-    page = listing.json()["data"]
-    assert page["total"] == 1
-    item = page["list"][0]
+    created = await _create(client, ns)
+    page = await _page(client, ns)
+    item = _pick(page, created["client_id"])
     assert "client_secret" not in item
     assert "client_secret_hash" not in item
     assert item["client_id"] == created["client_id"]
@@ -81,11 +122,11 @@ async def test_list_and_detail_never_expose_secret(client: AsyncClient, oidc: Oi
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_status_disable_blocks_authorize(client: AsyncClient, oidc: OidcHarness) -> None:
+async def test_status_disable_blocks_authorize(client: AsyncClient, oidc: OidcHarness, ns: Namespace) -> None:
     """停用后授权被拒（400 标准错误）。"""
-    created = await _create(client)
-    page = (await client.get(_CLIENTS, headers=TENANT_HEADERS)).json()["data"]
-    item_id = page["list"][0]["id"]
+    created = await _create(client, ns)
+    page = await _page(client, ns)
+    item_id = _pick(page, created["client_id"])["id"]
     disabled = await client.post(f"{_CLIENTS}/{item_id}/status", json={"status": "disabled"}, headers=TENANT_HEADERS)
     assert disabled.status_code == 200
     response = await client.get(
@@ -102,13 +143,13 @@ async def test_status_disable_blocks_authorize(client: AsyncClient, oidc: OidcHa
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_reset_secret_invalidates_old(client: AsyncClient, oidc: OidcHarness) -> None:
+async def test_reset_secret_invalidates_old(client: AsyncClient, oidc: OidcHarness, ns: Namespace) -> None:
     """重置密钥：旧密钥失效、新密钥可换码。"""
-    created = await _create(client)
+    created = await _create(client, ns)
     client_id = str(created["client_id"])
     old_secret = str(created["client_secret"])
-    page = (await client.get(_CLIENTS, headers=TENANT_HEADERS)).json()["data"]
-    item_id = page["list"][0]["id"]
+    page = await _page(client, ns)
+    item_id = _pick(page, created["client_id"])["id"]
     reset = await client.post(f"{_CLIENTS}/{item_id}/reset-secret", headers=TENANT_HEADERS)
     assert reset.status_code == 200
     new_secret = reset.json()["data"]["client_secret"]
@@ -150,12 +191,14 @@ async def test_reset_secret_invalidates_old(client: AsyncClient, oidc: OidcHarne
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_create_public_client_and_reset_rejected(client: AsyncClient, oidc: OidcHarness) -> None:
+async def test_create_public_client_and_reset_rejected(
+    client: AsyncClient, oidc: OidcHarness, ns: Namespace
+) -> None:
     """公共客户端：secret 为空；重置密钥被拒（80112）。"""
-    created = await _create(client, public=True, redirect_uris=["http://rp.test/pub"])
+    created = await _create(client, ns, public=True, redirect_uris=["http://rp.test/pub"])
     assert created["client_secret"] == ""
-    page = (await client.get(_CLIENTS, headers=TENANT_HEADERS)).json()["data"]
-    item_id = page["list"][0]["id"]
+    page = await _page(client, ns)
+    item_id = _pick(page, created["client_id"])["id"]
     reset = await client.post(f"{_CLIENTS}/{item_id}/reset-secret", headers=TENANT_HEADERS)
     assert reset.status_code == 400
     assert reset.json()["code"] == 80112
@@ -203,24 +246,28 @@ async def test_get_missing_client(client: AsyncClient, oidc: OidcHarness) -> Non
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_list_filters(client: AsyncClient, oidc: OidcHarness) -> None:
-    """列表筛选：status 精确 + name 模糊。"""
-    await _create(client, name="Alpha One", redirect_uris=["http://rp.test/a"])
-    await _create(client, name="Beta Two", redirect_uris=["http://rp.test/b"])
-    both = await client.get(_CLIENTS, params={"name": "Alpha"}, headers=TENANT_HEADERS)
-    assert both.json()["data"]["total"] == 1
-    enabled = await client.get(_CLIENTS, params={"status": "enabled"}, headers=TENANT_HEADERS)
-    assert enabled.json()["data"]["total"] == 2
-    none = await client.get(_CLIENTS, params={"status": "disabled"}, headers=TENANT_HEADERS)
-    assert none.json()["data"]["total"] == 0
+async def test_list_filters(client: AsyncClient, oidc: OidcHarness, ns: Namespace) -> None:
+    """列表筛选：status 精确 + name 模糊（按本用例名称前缀裁剪，不假定库为空）。"""
+    alpha = await _create(client, ns, name=ns.code("alpha-one"), redirect_uris=["http://rp.test/a"])
+    beta = await _create(client, ns, name=ns.code("beta-two"), redirect_uris=["http://rp.test/b"])
+    both = await client.get(_CLIENTS, params={"name": ns.code("alpha-one")}, headers=TENANT_HEADERS)
+    assert [row["client_id"] for row in both.json()["data"]["list"]] == [alpha["client_id"]]
+
+    enabled = await _page(client, ns, status="enabled")
+    enabled_rows = cast("list[dict[str, object]]", enabled["list"])
+    enabled_ids = {row["client_id"] for row in enabled_rows}
+    assert {alpha["client_id"], beta["client_id"]} <= enabled_ids
+
+    disabled = await _page(client, ns, status="disabled")
+    assert disabled["total"] == 0
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_status_invalid_and_missing(client: AsyncClient, oidc: OidcHarness) -> None:
+async def test_status_invalid_and_missing(client: AsyncClient, oidc: OidcHarness, ns: Namespace) -> None:
     """启停：非法状态 80112；不存在 80111。"""
-    created = await _create(client)
-    page = (await client.get(_CLIENTS, headers=TENANT_HEADERS)).json()["data"]
-    item_id = page["list"][0]["id"]
+    created = await _create(client, ns)
+    page = await _page(client, ns)
+    item_id = _pick(page, created["client_id"])["id"]
     invalid = await client.post(f"{_CLIENTS}/{item_id}/status", json={"status": "bogus"}, headers=TENANT_HEADERS)
     assert invalid.status_code == 400
     assert invalid.json()["code"] == 80112
@@ -299,10 +346,13 @@ async def test_create_scope_outside_registry_rejected(client: AsyncClient, oidc:
 
 
 @pytest.mark.kiwi_id(2202)
-async def test_create_dedupes_and_drops_blank_entries(client: AsyncClient, oidc: OidcHarness) -> None:
+async def test_create_dedupes_and_drops_blank_entries(
+    client: AsyncClient, oidc: OidcHarness, ns: Namespace
+) -> None:
     """字段归一化：重复值去重、空白项丢弃（`_dedupe` 假分支）。"""
     created = await _create(
         client,
+        ns,
         redirect_uris=["http://rp.test/dup", " http://rp.test/dup ", "   "],
         ip_whitelist=["10.0.0.1", "10.0.0.1", "  ", "10.0.0.2"],
     )

@@ -28,7 +28,7 @@ from bms_identity.domains.identity_federation.services.oidc_provider import (
 from bms_identity.services.platform_client import PlatformCredentialClient
 
 from .conftest import OidcHarness
-from .helpers import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TENANT_HEADERS, authorize_code, pkce
+from .helpers import CLIENT_SECRET, REDIRECT_URI, TENANT_HEADERS, authorize_code, pkce
 
 
 @pytest.mark.kiwi_id(2202)
@@ -36,7 +36,9 @@ async def test_end_to_end_flow(client: AsyncClient, oidc: OidcHarness) -> None:
     """端到端：授权 → 换码 → userinfo。"""
     await oidc.seed_client()
     verifier, challenge = pkce()
-    code, _ = await authorize_code(client, code_challenge=challenge, code_challenge_method="S256")
+    code, _ = await authorize_code(
+        client, client_id=oidc.client_id, code_challenge=challenge, code_challenge_method="S256"
+    )
     token = await client.post(
         "/api/v1/oidc/token",
         data={
@@ -45,7 +47,7 @@ async def test_end_to_end_flow(client: AsyncClient, oidc: OidcHarness) -> None:
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
         },
-        auth=(CLIENT_ID, CLIENT_SECRET),
+        auth=(oidc.client_id, CLIENT_SECRET),
         headers=TENANT_HEADERS,
     )
     assert token.status_code == 200
@@ -194,7 +196,9 @@ async def test_token_ignores_malformed_basic_header_and_uses_form(client: AsyncC
     """Basic 头非法（解码失败）时回落表单客户端认证，换码仍成功。"""
     await oidc.seed_client()
     verifier, challenge = pkce()
-    code, _ = await authorize_code(client, code_challenge=challenge, code_challenge_method="S256")
+    code, _ = await authorize_code(
+        client, client_id=oidc.client_id, code_challenge=challenge, code_challenge_method="S256"
+    )
     response = await client.post(
         "/api/v1/oidc/token",
         data={
@@ -202,7 +206,7 @@ async def test_token_ignores_malformed_basic_header_and_uses_form(client: AsyncC
             "code": code,
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
-            "client_id": CLIENT_ID,
+            "client_id": oidc.client_id,
             "client_secret": CLIENT_SECRET,
         },
         headers={**TENANT_HEADERS, "Authorization": "Basic !!!"},
