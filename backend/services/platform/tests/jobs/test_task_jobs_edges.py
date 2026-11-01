@@ -1,43 +1,43 @@
-"""任务执行作业边缘用例：执行体异常 / 成功 / 失败态与负载解析。"""
+"""任务执行作业边缘用例：执行体异常 / 成功 / 失败态与负载解析。
+
+单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）。
+"""
 
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.jobs.base import JobContext
 from bms_core.models.base import Base
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.platform.task import TASK_RUN_RUNNING, SysTaskLog
 from bms_core.tasks.spec import TaskResult
+from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.task import jobs as task_jobs
 from bms_platform.domains.task.jobs import TaskJobHandler
 
 pytestmark = pytest.mark.kiwi_id(2383)
 
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    (cast("Table", SysTaskLog.__table__), cast("Table", SysOutbox.__table__))
+)
+"""本文件涉及的表（共享平台库幂等补齐）。"""
+
 
 @pytest.fixture
-async def session(tmp_path: Path) -> AsyncGenerator[AsyncSession]:
-    """建任务日志与发件箱两表并开会话。"""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'taskjobs.db'}")
-    async with engine.begin() as connection:
-        await connection.run_sync(
-            lambda conn: Base.metadata.create_all(
-                conn,
-                tables=[cast("Table", SysTaskLog.__table__), cast("Table", SysOutbox.__table__)],
-            )
-        )
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as opened:
+async def session(shared_platform_engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
+    """共享平台库上的回滚会话（任务日志 / 发件箱两表幂等补齐）。"""
+    async with shared_platform_engine.begin() as connection:
+        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    async with rollback_session(shared_platform_engine) as opened:
         yield opened
-    await engine.dispose()
 
 
 async def _context(session: AsyncSession, *, task_id: int = 1) -> tuple[JobContext, int]:

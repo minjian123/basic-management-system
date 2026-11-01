@@ -9,7 +9,6 @@
 ——差异与兜底归口见 01_05 测试记录与《数据库设计 · 方言特性 · 达梦 DM8》。
 """
 
-from pathlib import Path
 from typing import cast
 
 import pytest
@@ -25,20 +24,22 @@ from sqlalchemy import (
     String,
     Table,
     Text,
-    create_engine,
     inspect,
+    make_url,
     select,
     text,
 )
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.engine import Dialect
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.schema import CreateTable
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.models.base import SnowflakeId
 from bms_core.models.platform.catalog import SysModule
 from bms_core.models.platform.task import SysTask
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 
 _SYS_MODULE_TABLE = cast("Table", SysModule.__table__)
 
@@ -121,7 +122,7 @@ _EXPECTED_TYPES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = Con
 
 
 def _dialect(name: str) -> Dialect:
-    """取方言实例（达梦经 `dmSQLAlchemy` 注册的 `dm+dmPython` 方言，不建连）。
+    """取方言实例（达梦经 `dmSQLAlchemy` 注册的 `dm+dmPython` 方言，不建连 / 不建引擎）。
 
     Args:
         name: sqlite / mysql / postgresql / dm。
@@ -135,7 +136,7 @@ def _dialect(name: str) -> Dialect:
         return mysql.dialect()
     if name == "postgresql":
         return postgresql.dialect()
-    return create_engine("dm+dmPython://user:password@localhost:5236").dialect
+    return make_url("dm+dmPython://user:password@localhost:5236").get_dialect()()
 
 
 def _module(code: str, segment: str) -> SysModule:
@@ -185,39 +186,45 @@ def test_index_naming_convention() -> None:
 
 
 @pytest.mark.kiwi_id(1050)
-def test_sqlite_soft_delete_unique_semantics(tmp_path: Path) -> None:
-    """SQLite 真库：未删行（NULL deleted_at）共存、删除后同键复用、DDL 索引名对齐。"""
-    engine = create_engine(f"sqlite:///{tmp_path / 'module.db'}")
-    try:
-        _SYS_MODULE_TABLE.create(engine)
-        assert {index["name"] for index in inspect(engine).get_indexes("sys_module")} == {"idx_sys_module_deleted_at"}
-        with Session(engine) as session:
-            session.add(_module("sys", "01"))
-            session.add(_module("wf", "02"))
-            session.commit()
+async def test_sqlite_soft_delete_unique_semantics(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
+    """SQLite 真库：未删行（NULL deleted_at）共存、删除后同键复用、DDL 索引名对齐。
 
-            first = session.execute(select(SysModule).where(SysModule.module_key == "sys")).scalar_one()
-            first.soft_delete()
-            session.commit()
+    单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚）；
+    模块键带命名空间前缀，行数断言只看本用例的键。
+    """
+    async with shared_platform_engine.begin() as connection:
+        await connection.run_sync(lambda conn: _SYS_MODULE_TABLE.create(conn, checkfirst=True))
+        indexes = await connection.run_sync(
+            lambda conn: {index["name"] for index in inspect(conn).get_indexes("sys_module")}
+        )
+    assert indexes == {"idx_sys_module_deleted_at"}
+    key = ns.code("sys")
+    async with rollback_session(shared_platform_engine) as session:
+        session.add(_module(key, "01"))
+        session.add(_module(ns.code("wf"), "02"))
+        await session.commit()
 
-            session.add(_module("sys", "11"))
-            session.commit()
-            rows = session.execute(select(SysModule).where(SysModule.module_key == "sys")).scalars().all()
-            assert len(rows) == 2
-            assert sorted(row.deleted_at is None for row in rows) == [False, True]
-    finally:
-        engine.dispose()
+        first = (await session.execute(select(SysModule).where(SysModule.module_key == key))).scalar_one()
+        first.soft_delete()
+        await session.commit()
+
+        session.add(_module(key, "11"))
+        await session.commit()
+        rows = (await session.execute(select(SysModule).where(SysModule.module_key == key))).scalars().all()
+        assert len(rows) == 2
+        assert sorted(row.deleted_at is None for row in rows) == [False, True]
 
 
 @pytest.mark.kiwi_id(1050)
-def test_boolean_storage_roundtrip(tmp_path: Path) -> None:
-    """布尔字段 SQLite 真库按小整数 1/0 落库。"""
-    engine = create_engine(f"sqlite:///{tmp_path / 'task.db'}")
-    try:
-        cast("Table", SysTask.__table__).create(engine)
-        with Session(engine) as session:
-            session.add(SysTask(code="demo_task", name="demo", handler="bms_core.tasks.demo"))
-            session.commit()
-            assert session.execute(text("SELECT enabled FROM sys_task")).scalar_one() == 1
-    finally:
-        engine.dispose()
+async def test_boolean_storage_roundtrip(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
+    """布尔字段 SQLite 真库按小整数 1/0 落库（按本用例任务码精确取行）。"""
+    code = ns.code("task")
+    async with shared_platform_engine.begin() as connection:
+        await connection.run_sync(lambda conn: cast("Table", SysTask.__table__).create(conn, checkfirst=True))
+    async with rollback_session(shared_platform_engine) as session:
+        session.add(SysTask(code=code, name="demo", handler="bms_core.tasks.demo"))
+        await session.commit()
+        enabled = (
+            await session.execute(text("SELECT enabled FROM sys_task WHERE code = :code"), {"code": code})
+        ).scalar_one()
+        assert enabled == 1

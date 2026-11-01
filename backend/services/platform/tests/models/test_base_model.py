@@ -1,4 +1,10 @@
-"""ORM 模型基类测试（Kiwi 19）：SQLite 临时库验证字段 / 审计 / 软删除 / 乐观锁。"""
+"""ORM 模型基类测试（Kiwi 19）：SQLite 临时库验证字段 / 审计 / 软删除 / 乐观锁。
+
+`own_db` 白名单（04-6-2 决策 D）：被测对象是 **ORM 基类在真实表结构上的行为**——
+测试专用模型 `Widget` 的建表（`(name, deleted_at)` 复合唯一）、软删释放唯一键、
+乐观锁 `version` 条件更新与 `StaleDataError`，都需要同步 `Engine` / `Session` 与自建测试专用表；
+共享平台库为异步引擎且不承载测试专用模型，故保留独立库并写明理由。
+"""
 
 import types
 from collections.abc import Iterator
@@ -16,6 +22,11 @@ from bms_core.core.context import current_user_id
 from bms_core.core.id import MAX_WORKER_ID, SnowflakeGenerator, id_generator
 from bms_core.models.base import Base, BaseModel
 from bms_core.models.platform.demo import Demo
+
+pytestmark = pytest.mark.own_db(
+    "被测对象是 ORM 基类在真实表结构上的行为：测试专用表 widget 的建表与软删唯一释放、"
+    "乐观锁 version 条件更新需同步引擎与自建表"
+)
 
 
 class Widget(BaseModel):
