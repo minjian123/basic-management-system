@@ -2,6 +2,10 @@
 
 覆盖：播种回报派生一致性校验行数、重复执行幂等、主表默认文案被单独改写时重跑即失败
 （暴露「同一文案两处编辑」的漂移，而不是静默留不一致数据）。
+
+`own_db` 白名单（04-6-2 决策 D）：被测对象就是**播种编排本身**（建表 → 播种 → 派生一致性
+校验行数 → 幂等 → 漂移拒绝），需要在空库起步的可控库上跑；共享库永远处于已播种态，
+「首次播种行数」「重跑幂等」「改写主表后拒绝」这些状态无法构造。
 """
 
 from pathlib import Path
@@ -12,6 +16,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.models.platform.menu_form import SysMenu
 from ops.seed_menu import ACTION_SEEDS, BUSINESS_SEEDS, FIELD_SEEDS, MENU_SEEDS, seed_menu
+
+pytestmark = pytest.mark.own_db(
+    "被测对象是菜单元数据播种编排：建表 + 播种 + 派生一致性校验行数 + 重跑幂等 + 改写主表后拒绝漂移，均需空库起步"
+)
 
 
 @pytest.mark.kiwi_id(2242)

@@ -1,11 +1,13 @@
-"""跨阶段基座契约骨架测试（Kiwi 24）。"""
+"""跨阶段基座契约骨架测试（Kiwi 24）。
 
-from collections.abc import Iterator
-from pathlib import Path
+单库叠加口径（04-6-2）：涉及库写入的用例改用共享平台库 + `rollback_session`（整体回滚不残留）。
+"""
+
+from typing import cast
 
 import pytest
-from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy import Table
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.cache.base import CacheRegion, build_cache_key
@@ -18,7 +20,14 @@ from bms_core.scope.null import NullDataScope
 from bms_core.sharding.base import ShardBinding, ShardingRouter
 from bms_core.sharding.null import NullShardingRouter
 from bms_core.tasks.base import BaseTask
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 from bms_platform.repositories.demo_repository import DemoRepository
+
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    (cast("Table", SysTask.__table__), cast("Table", SysTaskLog.__table__))
+)
+"""本文件涉及的表（共享平台库幂等补齐）。"""
 
 
 class StubRegion(CacheRegion):
@@ -151,15 +160,6 @@ class StubCapturer(AuditCapturer):
         )
 
 
-@pytest.fixture
-def engine(tmp_path: Path) -> Iterator[Engine]:
-    """SQLite 临时库（建表）。"""
-    eng = create_engine(f"sqlite:///{tmp_path / 'crosscut.db'}")
-    Base.metadata.create_all(eng)
-    yield eng
-    eng.dispose()
-
-
 @pytest.mark.kiwi_id(35)
 def test_cache_region() -> None:
     """缓存基座：key 规范 / 收写 / 版本陈旧判定。"""
@@ -226,22 +226,24 @@ async def test_event_base() -> None:
 
 
 @pytest.mark.kiwi_id(35)
-def test_task_base_and_models(engine: Engine) -> None:
-    """任务基座：契约 + 模型骨架建表与写入。"""
+async def test_task_base_and_models(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
+    """任务基座：契约 + 模型骨架建表与写入（共享平台库 + 回滚会话）。"""
     task = StubTask()
     assert task.name == "demo_task"
     assert task.queue == "default"
     assert task.run(1, key="v") == ((1,), {"key": "v"})
     assert {"sys_task", "sys_task_log"} <= set(Base.metadata.tables)
-    with Session(engine) as session:
+    async with shared_platform_engine.begin() as connection:
+        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    async with rollback_session(shared_platform_engine) as session:
         sys_task = SysTask(
-            code="demo_task", name="demo_task", handler="bms_core.tasks.demo:DemoTask", cron=None, enabled=True
+            code=ns.code("task"), name="demo_task", handler="bms_core.tasks.demo:DemoTask", cron=None, enabled=True
         )
         session.add(sys_task)
-        session.commit()
+        await session.commit()
         log = SysTaskLog(task_id=sys_task.id, status="success", result="ok")
         session.add(log)
-        session.commit()
+        await session.commit()
         assert isinstance(sys_task, BaseModel)
         assert log.id > 0
 
