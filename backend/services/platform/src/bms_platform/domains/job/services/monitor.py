@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.events.base import EventEnvelope
 from bms_core.jobs.events import (
     JOB_COMPLETED_EVENT,
@@ -41,7 +42,7 @@ def _int_of(value: object, default: int | None = None) -> int | None:
     return int(str(value))
 
 
-class JobMonitorService:
+class JobMonitorService(BaseFrameworkObject):
     """监控投影写入（事务边界由调用方开启）。"""
 
     def __init__(self, repository: JobMonitorRepository) -> None:

@@ -59,10 +59,13 @@ def _scrape_targets(
 
 @pytest.mark.kiwi_id(2185)
 def test_services_compose_covers_enabled_services() -> None:
-    """编排服务集合 == 服务目录；服务名 / 镜像名 / 标签变量一致；禁 latest。"""
+    """编排覆盖服务目录（允许 `<服务>-jobs` 派生部署单元）；服务名 / 镜像名 / 标签变量一致；禁 latest。"""
     compose = _load(_SERVICES_YML)
     services = compose["services"]
-    assert set(services) == set(enabled_service_keys())
+    catalog = set(enabled_service_keys())
+    actual = set(services)
+    assert catalog <= actual
+    assert actual - catalog <= {f"{key}-jobs" for key in catalog}, f"未登记的派生部署单元：{sorted(actual - catalog)}"
     for key in enabled_service_keys():
         image = str(services[key]["image"])
         assert image.endswith(f"/bms-{key}:${{BMS_TAG_{key.upper()}:?BMS_TAG_{key.upper()} required}}")

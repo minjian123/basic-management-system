@@ -12,6 +12,7 @@ import json
 from dataclasses import dataclass
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.roots import BaseValueObject
 from bms_core.jobs.spec import now_utc
 from bms_core.registry.products import JobDeclaration
@@ -63,7 +64,7 @@ def declaration_hash(declaration: JobDeclaration) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-class JobCatalogService:
+class JobCatalogService(BaseFrameworkObject):
     """作业类型目录读写（事务边界由调用方开启）。"""
 
     def __init__(self, repository: JobTypeRepository) -> None:
