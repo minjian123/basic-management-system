@@ -15,7 +15,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（alembic），待人工确认"
+    "evidence": "建库即被测候选（topology, alembic），待人工确认"
   },
   {
     "repo": "bms",
@@ -24,7 +24,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+    "evidence": "建库即被测候选（apply_unit_schema(, topology, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -102,10 +102,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/api/test_require_capability.py",
     "tests": 15,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -255,10 +255,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/collaboration/test_capability_address.py",
     "tests": 9,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -312,16 +312,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template），待人工确认"
+    "evidence": "建库即被测候选（topology, url_template），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/collaboration/test_capability_startup.py",
     "tests": 4,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -336,37 +336,37 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/collaboration/test_domain_scope.py",
     "tests": 12,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/collaboration/test_topology_distribute.py",
     "tests": 12,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/collaboration/test_topology_mode.py",
     "tests": 10,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology, build_platform_db_key），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/collaboration/test_topology_resolver.py",
     "tests": 16,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology, build_platform_db_key），待人工确认"
   },
   {
     "repo": "bms",
@@ -390,10 +390,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/config/test_config_edges.py",
     "tests": 13,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：199: create_async_engine()；188: 连接串字面量"
+    "evidence": "建库即被测候选（seed_configs(），待人工确认"
   },
   {
     "repo": "bms",
@@ -402,7 +402,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(, init_schema），待人工确认"
+    "evidence": "建库即被测候选（apply_unit_schema(, init_schema, seed_configs(, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -420,7 +420,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+    "evidence": "建库即被测候选（apply_unit_schema(, seed_configs(），待人工确认"
   },
   {
     "repo": "bms",
@@ -555,7 +555,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template），待人工确认"
+    "evidence": "建库即被测候选（topology, url_template, resolved_url），待人工确认"
   },
   {
     "repo": "bms",
@@ -597,10 +597,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/core/test_factory.py",
     "tests": 6,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -816,7 +816,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（init_tenant, provision_tenant），待人工确认"
+    "evidence": "建库即被测候选（init_tenant, provision_tenant, DatabaseTarget），待人工确认"
   },
   {
     "repo": "bms",
@@ -852,7 +852,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（migrate_topology），待人工确认"
+    "evidence": "建库即被测候选（migrate_topology, topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -939,10 +939,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/datasource/test_base.py",
     "tests": 5,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：72: 临时库 dict_table.db；74: create_engine()"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -975,19 +975,19 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/datasource/test_table_columns.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：71: 临时库 narrow_dict.db；73: create_engine()"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_data_access.py",
     "tests": 6,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：55: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -996,7 +996,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（create_database(, drop_database(），待人工确认"
+    "evidence": "建库即被测候选（create_database(, drop_database(, DatabaseTarget），待人工确认"
   },
   {
     "repo": "bms",
@@ -1005,25 +1005,25 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template），待人工确认"
+    "evidence": "建库即被测候选（url_template, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_degradation.py",
     "tests": 5,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：19: 连接串字面量；31: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_dm_ssl.py",
     "tests": 13,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：181: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1047,19 +1047,19 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_engine_registry.py",
     "tests": 9,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：19: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_engine_routing.py",
     "tests": 10,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：27: 连接串字面量；44: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1068,7 +1068,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template），待人工确认"
+    "evidence": "建库即被测候选（url_template, EngineFactory, build_platform_db_key, build_tenant_db_key, resolved_url），待人工确认"
   },
   {
     "repo": "bms",
@@ -1083,10 +1083,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_pool_config.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：66: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1101,10 +1101,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_session_scope.py",
     "tests": 2,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：15: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1113,16 +1113,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template），待人工确认"
+    "evidence": "建库即被测候选（url_template, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_sync_facade.py",
     "tests": 5,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：52: create_engine()；52: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1137,10 +1137,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_tenant.py",
     "tests": 9,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（build_tenant_db_key），待人工确认"
   },
   {
     "repo": "bms",
@@ -1176,7 +1176,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template），待人工确认"
+    "evidence": "建库即被测候选（url_template, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1308,10 +1308,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/dict/test_table_i18n_scope.py",
     "tests": 8,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：216: assert len(captured) == 1 and captured[0] is not None"
+    "evidence": "建库即被测候选（build_platform_db_key），待人工确认"
   },
   {
     "repo": "bms",
@@ -1335,10 +1335,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/events/test_event_bus_branches.py",
     "tests": 23,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1599,7 +1599,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(），待人工确认"
+    "evidence": "建库即被测候选（apply_unit_schema(, seed_configs(, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1614,10 +1614,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/integration/test_db_connectivity_integration.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：79: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1635,34 +1635,34 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（alembic），待人工确认"
+    "evidence": "建库即被测候选（alembic, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/integration/test_dm_xa_integration.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：111: create_engine()"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/integration/test_dm_xa_recover_integration.py",
     "tests": 2,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/integration/test_event_bus_rocketmq.py",
     "tests": 4,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：284: assert len(rows) == 1；300: assert len(await _dead_letters(registry)) == 1"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1698,7 +1698,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（url_template），待人工确认"
+    "evidence": "建库即被测候选（url_template, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1731,10 +1731,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/jobs/test_job_keys.py",
     "tests": 3,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：63: assert len(calls) == 2"
+    "evidence": "建库即被测候选（resolved_url），待人工确认"
   },
   {
     "repo": "bms",
@@ -1824,7 +1824,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（apply_unit_schema(, init_schema），待人工确认"
+    "evidence": "建库即被测候选（apply_unit_schema(, init_schema, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -1956,10 +1956,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_check_modules.py",
     "tests": 17,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：271: create_async_engine()；287: create_async_engine()"
+    "evidence": "建库即被测候选（seed_modules(），待人工确认"
   },
   {
     "repo": "bms",
@@ -2064,10 +2064,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_gateway_config.py",
     "tests": 28,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：383: create_async_engine()；408: create_async_engine()"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -2085,7 +2085,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（migrate_topology, seed_tenants(），待人工确认"
+    "evidence": "建库即被测候选（migrate_topology, topology, seed_tenants(），待人工确认"
   },
   {
     "repo": "bms",
@@ -2100,10 +2100,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_module_ops.py",
     "tests": 5,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：22: create_async_engine()；62: create_async_engine()"
+    "evidence": "建库即被测候选（seed_modules(），待人工确认"
   },
   {
     "repo": "bms",
@@ -2163,10 +2163,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_seed_menu.py",
     "tests": 4,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
@@ -2217,10 +2217,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/ops/test_topology_migration.py",
     "tests": 14,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：156: assert len(_rows(target, \"demo_role\")) == 3, \"重复复制不新增行\""
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -2469,10 +2469,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/repositories/test_ordering.py",
     "tests": 14,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 1,
-    "evidence": "自建库：46: create_engine()"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -2685,10 +2685,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/services/test_gateway_catalog.py",
     "tests": 36,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -2721,10 +2721,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/services/test_table_registry.py",
     "tests": 19,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -2820,73 +2820,73 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_branches.py",
     "tests": 7,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：38: create_async_engine()；73: create_async_engine()"
+    "evidence": "建库即被测候选（seed_rbac, seed_sso），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_cli_orchestrate.py",
     "tests": 24,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_cli_shell.py",
     "tests": 7,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：74: 连接串字面量；75: 连接串字面量"
+    "evidence": "建库即被测候选（seed_rbac, seed_sso），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_main_paths.py",
     "tests": 8,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：53: create_async_engine()；95: create_async_engine()"
+    "evidence": "建库即被测候选（seed_rbac, seed_sso），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_orchestrator.py",
     "tests": 34,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_orchestrator_edges.py",
     "tests": 10,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_orchestrator_execute.py",
     "tests": 18,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：356: assert len(failed) == 1；552: assert len(seen) == 1"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_precheck_conflicts.py",
     "tests": 7,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：166: assert len(conflicts) == 1；267: assert len(conflicts) == 1"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
@@ -2901,10 +2901,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_rbac.py",
     "tests": 10,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：346: assert len(BUILTIN_ADMIN_ROLES) == 3"
+    "evidence": "建库即被测候选（seed_rbac），待人工确认"
   },
   {
     "repo": "bms",
@@ -2919,10 +2919,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_branch_tails.py",
     "tests": 13,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：81: create_async_engine()；96: create_engine()"
+    "evidence": "建库即被测候选（seed_rbac, seed_menu），待人工确认"
   },
   {
     "repo": "bms",
@@ -2931,7 +2931,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_tenants(），待人工确认"
+    "evidence": "建库即被测候选（seed_tenants(, seed_rbac, seed_menu），待人工确认"
   },
   {
     "repo": "bms",
@@ -2940,25 +2940,25 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "建库即被测候选（seed_tenants(），待人工确认"
+    "evidence": "建库即被测候选（seed_tenants(, seed_rbac, seed_menu），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_final_paths.py",
     "tests": 9,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：39: create_async_engine()；75: create_async_engine()"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_seed_last_branches.py",
     "tests": 6,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：37: create_async_engine()；74: create_async_engine()"
+    "evidence": "建库即被测候选（seed_rbac, seed_menu），待人工确认"
   },
   {
     "repo": "bms",
@@ -3000,10 +3000,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/tenant/seed/test_sso.py",
     "tests": 8,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库 + 整表断言：32: assert len(rows) == 1；72: assert len(rows) == 1"
+    "evidence": "建库即被测候选（seed_sso），待人工确认"
   },
   {
     "repo": "bms",
@@ -3441,10 +3441,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_internal_tenant_topologies.py",
     "tests": 4,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -3513,10 +3513,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_outbox.py",
     "tests": 2,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：59: create_async_engine()；101: create_async_engine()"
+    "evidence": "建库即被测候选（resolved_url），待人工确认"
   },
   {
     "repo": "bms",
@@ -3576,10 +3576,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_tenant_topologies.py",
     "tests": 22,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -3666,10 +3666,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/core/test_capability.py",
     "tests": 7,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：83: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -3765,10 +3765,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/dict/test_dict_source_paths.py",
     "tests": 2,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：41: create_async_engine()；37: 连接串字面量"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -3981,19 +3981,19 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/registry/test_org_branch.py",
     "tests": 7,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（build_tenant_db_key），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/services/platform/tests/registry/test_tenant_topology_bootstrap.py",
     "tests": 7,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（topology），待人工确认"
   },
   {
     "repo": "bms",
@@ -4002,7 +4002,7 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "建库即被测候选（alembic），待人工确认"
+    "evidence": "建库即被测候选（topology, alembic），待人工确认"
   },
   {
     "repo": "bms",
@@ -4053,10 +4053,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/role/test_role_assignments.py",
     "tests": 23,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（build_tenant_db_key），待人工确认"
   },
   {
     "repo": "bms",
@@ -4143,10 +4143,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/seed/test_seed_menu_consistency.py",
     "tests": 2,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "自建库：41: create_async_engine()；20: 连接串字面量"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
@@ -4161,10 +4161,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/seed/test_seed_rbac.py",
     "tests": 1,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 2,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（seed_menu），待人工确认"
   },
   {
     "repo": "bms",
@@ -4974,16 +4974,16 @@
     "class": "D",
     "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "建库即被测候选（url_template, seed_tenants(），待人工确认"
+    "evidence": "建库即被测候选（url_template, seed_tenants(, EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
     "path": "backend/services/tenant/tests/sources/test_tenant_source.py",
     "tests": 16,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "自建库：34: create_async_engine()；186: create_async_engine()"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",
@@ -5052,10 +5052,10 @@
     "repo": "bms",
     "path": "backend/services/tenant/tests/tenant/test_tenant_self_service.py",
     "tests": 17,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "建库即被测候选（build_tenant_db_key），待人工确认"
   },
   {
     "repo": "bms",
@@ -5313,10 +5313,10 @@
     "repo": "bms",
     "path": "backend/services/txn/tests/test_recovery_poll.py",
     "tests": 16,
-    "class": "C",
-    "action": "语义重写",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 4,
-    "evidence": "自建库 + 整表断言：224: assert len(calls) == 1  # 启动即扫一轮；225: assert len(driver.committed) == 1  # 且已驱动提交（committing ⇒ com"
+    "evidence": "建库即被测候选（EngineFactory），待人工确认"
   },
   {
     "repo": "bms",

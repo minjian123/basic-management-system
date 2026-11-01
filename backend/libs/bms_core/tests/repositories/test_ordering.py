@@ -3,9 +3,10 @@
 from dataclasses import dataclass
 
 import pytest
-from sqlalchemy import BigInteger, Column, Integer, MetaData, Table, create_engine, select
+from sqlalchemy import BigInteger, Column, Integer, MetaData, Table, select
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.engine import Dialect
+from sqlalchemy.engine.url import make_url
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError
@@ -29,7 +30,7 @@ _PROBE = Table(
 
 
 def _dialect(name: str) -> Dialect:
-    """取方言实例（达梦经 `dmSQLAlchemy` 注册，不建连）。
+    """取方言实例（达梦经 `dmSQLAlchemy` 注册；只解析连接串，**不建引擎、不建连**）。
 
     Args:
         name: sqlite / mysql / postgresql / dm。
@@ -43,7 +44,7 @@ def _dialect(name: str) -> Dialect:
         return mysql.dialect()
     if name == "postgresql":
         return postgresql.dialect()
-    return create_engine("dm+dmPython://user:password@localhost:5236").dialect
+    return make_url("dm+dmPython://user:password@localhost:5236").get_dialect()()
 
 
 def _resolve(field: str) -> object:
