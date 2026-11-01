@@ -50,6 +50,24 @@ API = "/api/v1/icons"
 _ICON_BODY = {"code": "purchase_order", "name": "采购订单", "category": "menu", "tags": ["order"], "svg": "<svg/>"}
 
 
+pytestmark = pytest.mark.own_db("本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据")
+
+
+@pytest.fixture(autouse=True)
+def isolated_platform(platform_db: None, isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """白名单文件的**独占平台库**：本文件逐例清空菜单元数据表，独占库使清场不影响并行中的其它 worker。
+
+    Args:
+        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
+        isolated_platform_db_url: 独占平台库连接串（每用例一份 tmp 库 + 播种）。
+        monkeypatch: 环境变量覆盖。
+    """
+    from bms_core.core.config import get_settings
+
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
+    get_settings.cache_clear()
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def icon_tenant_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
     """图标落库用例所需的最小租户库（含 `sys_icon` / `sys_icon_i18n` 与管理员主体）。

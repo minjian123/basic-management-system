@@ -25,7 +25,7 @@ from bms_core.collaboration.topology import (
     register_topology_snapshot,
 )
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import CatalogError
+from bms_core.core.exceptions import CatalogError, ConflictError
 from bms_core.core.logging import get_logger
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db.keys import PLATFORM_DB_KEY
@@ -54,6 +54,20 @@ async def bootstrap_tenant_topologies(app: FastAPI) -> None:
         resolve_plugin("audit", settings.audit.provider, expected_version=AuditCapturer.contract_version),
     )
     try:
+        async with session_scope(
+            app.state.engine_registry,
+            db_key=PLATFORM_DB_KEY,
+            factory=app.state.session_factory,
+        ) as session:
+            service = TenantTopologyService(session, audit=audit)
+            version = await service.ensure_default()
+            await DbUnitOfWork(session).commit()
+            snapshots = await service.snapshot()
+    except ConflictError:
+        # 并发启动幂等收敛：多个实例（或并行 worker）同时读到「无版本」后各写版本 1，后提交者撞版本校验。
+        # 目标是「默认拓扑存在且覆盖全部域」，谁写的不影响结果——换新事务重跑一次 `ensure_default`
+        # （此时要么读到对方已提交的版本直接返回，要么对方已回滚、本次正常自举）。
+        _LOGGER.info("tenant_topology_bootstrap_converged")
         async with session_scope(
             app.state.engine_registry,
             db_key=PLATFORM_DB_KEY,

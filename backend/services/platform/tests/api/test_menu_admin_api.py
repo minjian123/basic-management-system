@@ -18,6 +18,24 @@ _FORMS = "/api/v1/forms"
 _BUTTONS = "/api/v1/buttons"
 
 
+pytestmark = pytest.mark.own_db("本文件逐例清空菜单元数据十二表，需独占库；共享库上清场会破坏并行中其它 worker 的数据")
+
+
+@pytest.fixture(autouse=True)
+def isolated_platform(platform_db: None, isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """白名单文件的**独占平台库**：本文件逐例清空菜单元数据表，独占库使清场不影响并行中的其它 worker。
+
+    Args:
+        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
+        isolated_platform_db_url: 独占平台库连接串（每用例一份 tmp 库 + 播种）。
+        monkeypatch: 环境变量覆盖。
+    """
+    from bms_core.core.config import get_settings
+
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
+    get_settings.cache_clear()
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def clean_tables(platform_db: None) -> None:
     """菜单元数据表逐用例清场（会话级平台库共享）。

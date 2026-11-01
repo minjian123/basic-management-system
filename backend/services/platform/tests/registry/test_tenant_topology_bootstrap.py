@@ -62,6 +62,28 @@ async def test_startup_registers_resolver_and_snapshot(service_app: FastAPI) -> 
     assert isinstance(resolve_topology(), TenantTopologyResolver)
 
 
+async def test_bootstrap_converges_on_concurrent_version_conflict(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """并发启动：首个 `ensure_default` 撞版本冲突 → 换新事务重跑并成功（幂等收敛，不拒启）。"""
+    from bms_core.core.exceptions import ConflictError
+
+    calls = {"count": 0}
+    original = TenantTopologyService.ensure_default
+
+    async def _conflict_once(self: TenantTopologyService, *, actor: int | None = None) -> int:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ConflictError("拓扑版本须递增：当前 1，请求 1")
+        return await original(self, actor=actor)
+
+    monkeypatch.setattr(TenantTopologyService, "ensure_default", _conflict_once)
+    await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
+
+    assert calls["count"] == 2
+    assert isinstance(resolve_topology(), TenantTopologyResolver)
+
+
 async def test_bootstrap_is_idempotent(service_app: FastAPI) -> None:
     """自举幂等：已有默认拓扑时再跑不改数据（版本与行数不变）。"""
     async with session_scope(
