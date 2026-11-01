@@ -2,11 +2,11 @@
 
 import hashlib
 import json
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.db.tenant import TenantContext
@@ -18,6 +18,23 @@ from .conftest import SsoHarness
 from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
 
 CALLBACK = f"/api/v1/auth/sso/{IDP_KEY}/callback"
+
+
+async def _drop_own_mappings(session: Any) -> None:
+    """只删本用例身份映射（按 `idp_key` 逐行删除，单库叠加下不得整表删除）。
+
+    Args:
+        session: 平台库会话。
+    """
+    rows = (
+        (await session.execute(select(SysUserIdentity).where(SysUserIdentity.idp_key == f"{TENANT_ID}:{IDP_KEY}")))
+        .scalars()
+        .all()
+    )
+    for row in rows:
+        await session.delete(row)
+
+
 OTHER_CALLBACK = "/api/v1/auth/sso/azure/callback"
 
 
@@ -208,14 +225,14 @@ async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, s
     wrong_tenant = await _flow_callback(client, sso)
     assert wrong_tenant.status_code == 403 and wrong_tenant.json()["code"] == 20054
     async with sso.platform_scope() as session:
-        await session.execute(delete(SysUserIdentity))
+        await _drop_own_mappings(session)
         await session.commit()
 
     await sso.seed_mapping(duplicate=True)
     conflict = await _flow_callback(client, sso)
     assert conflict.status_code == 409 and conflict.json()["code"] == 20055
     async with sso.platform_scope() as session:
-        await session.execute(delete(SysUserIdentity))
+        await _drop_own_mappings(session)
         await session.commit()
 
     await sso.seed_mapping()

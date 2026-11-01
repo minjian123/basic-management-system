@@ -2,6 +2,10 @@
 
 与接口用例的分工：这里直接构造 `FileService`，覆盖**接口路径走不到**的分支
 （审计 / 指标为空、请求有效期非正、无 `upload_id` 的遗留记录、会话快照已丢失）。
+
+`own_db` 白名单（04-6-2 决策 D）：被测对象是**超期孤儿回收编排**（整批扫描 → 逐条中止会话 /
+清分片 / 置 `orphan` / 计指标，`cleanup_orphans` 无过滤入参）；共享库上整批扫描会改写他人
+用例的行，且「扫描量 / 失败计数」只有在受控起点下才有意义。
 """
 
 from collections.abc import AsyncIterator
@@ -24,7 +28,10 @@ from bms_file.domains.file.repositories.file import FileRepository
 from bms_file.domains.file.rules import object_key_for
 from bms_file.domains.file.services.file import FileService
 
-pytestmark = pytest.mark.kiwi_id(2374)
+pytestmark = [
+    pytest.mark.kiwi_id(2374),
+    pytest.mark.own_db("被测对象是超期孤儿回收编排（整批扫描无过滤入参），共享库上会改写他人用例的行"),
+]
 
 
 def _now() -> datetime:

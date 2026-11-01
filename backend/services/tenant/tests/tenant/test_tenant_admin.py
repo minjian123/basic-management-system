@@ -24,7 +24,13 @@ from bms_core.models.tenant.tenant_quota import SysTenantQuota
 from bms_core.tenant.provisioning import ProvisionOutcome
 from bms_tenant.domains.tenant.services.provisioning import TenantProvisionService
 
-pytestmark = pytest.mark.kiwi_id(2325)
+pytestmark = [
+    pytest.mark.kiwi_id(2325),
+    pytest.mark.own_db(
+        "每个用例都要构造「平台租户行 + 全表列表 total（排除平台租户）」的受控集合，"
+        "并断言详情 / 配额 / 模块整组读写的初态为空；共享平台库恒有种子租户与平台租户行"
+    ),
+]
 
 API = "/api/v1/tenants"
 _TABLES = [

@@ -35,7 +35,13 @@ from bms_tenant.domains.tenant.services.tenant_admin import TenantAdminService
 from bms_tenant.domains.tenant.services.tenant_module import ModuleCatalog, TenantModuleService
 from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
-pytestmark = pytest.mark.kiwi_id(2325)
+pytestmark = [
+    pytest.mark.kiwi_id(2325),
+    pytest.mark.own_db(
+        "用例围绕**平台租户注册行的状态机**（`platform_row()` 唯一行查询 / 名称与到期时间部分更新 / "
+        "`provisioning` 状态补齐）与固定主键配额行构造，需受控租户集合；共享平台库恒已播种平台租户行"
+    ),
+]
 
 _TABLES = [
     cast("Table", SysTenant.__table__),

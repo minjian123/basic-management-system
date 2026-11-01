@@ -17,6 +17,11 @@ from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_tenant.domains.tenant.repositories.tenant_registry import TenantRegistryRepository
 
+pytestmark = pytest.mark.own_db(
+    "被测对象是 `active-single` 唯一启用租户三态（恰 1 / ≥2 → 80004 / 0 → 404）与注册读写仓储，"
+    "判定是**整表口径**，必须构造受控租户集合；共享平台库恒有种子租户"
+)
+
 API = "/api/v1/tenant-registry/active-single"
 REGISTRY_API = "/api/v1/tenant-registry"
 _TABLES = [cast("Table", SysTenant.__table__), cast("Table", SysTenantDatabase.__table__)]

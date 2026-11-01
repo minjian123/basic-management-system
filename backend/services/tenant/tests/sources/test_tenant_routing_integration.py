@@ -20,7 +20,14 @@ from bms_tenant.domains.tenant.sources.tenant_source import LocalTenantSource
 from ops.seed_tenant import seed_tenants
 from ops.test_db import FLOW_STEPS, TEST_DATABASES, main
 
-pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(1019)]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.kiwi_id(1019),
+    pytest.mark.own_db(
+        "被测对象就是**多库拓扑本身**（平台库单例 → 租户库模板派生 → 跨租户库物理隔离 → "
+        "引擎回收与连接预算），需要真实派生库文件与两套独立库；共享库是固定单文件、无法表达隔离"
+    ),
+]
 
 
 @pytest.fixture

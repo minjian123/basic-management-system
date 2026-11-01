@@ -34,7 +34,13 @@ from bms_tenant.domains.tenant.services.tenant_module import (
 )
 from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
-pytestmark = pytest.mark.kiwi_id(2325)
+pytestmark = [
+    pytest.mark.kiwi_id(2325),
+    pytest.mark.own_db(
+        "用例覆盖**平台租户引导的失败 / 重开分支**（已 suspended 重开通、基础模块开通失败容错、"
+        "清理失败不掩盖原异常），前提是平台租户行的存在与状态可控；共享平台库恒为已就绪态"
+    ),
+]
 
 _TABLES = [
     cast("Table", SysTenant.__table__),

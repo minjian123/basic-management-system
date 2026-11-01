@@ -52,7 +52,14 @@ from bms_txn.domains.txn.services.coordinator import TransactionCoordinator
 from bms_txn.domains.txn.services.driver import BranchDriver
 from bms_txn.domains.txn.services.recovery import TransactionRecovery
 
-pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(2271)]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.kiwi_id(2271),
+    pytest.mark.own_db(
+        "被测对象是**跨库两阶段提交**（MySQL / PG 真库分支 + 内存账本），需要按真库连接串建引擎与探针表；"
+        "与批 1 `integration/*` 族同口径（真库拓扑即被测）"
+    ),
+]
 
 _PROBE_TABLE = f"bms_it_tm_probe_{uuid.uuid4().hex[:8]}"
 """跨服务两阶段探针表（两库各建删一次；带进程随机后缀，避免 xdist 并行同库撞表）。"""

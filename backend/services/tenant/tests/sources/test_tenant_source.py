@@ -26,6 +26,11 @@ from bms_tenant.domains.tenant.sources.tenant_source import (
     register_local_tenant_source,
 )
 
+pytestmark = pytest.mark.own_db(
+    "`single_active()` 的唯一启用租户判定是**整表口径**（≥2 报错 / 恰 1 命中 / 0 返回空），"
+    "并且要构造「停用 / 软删 / 改名兜底」的受控租户集合；共享平台库恒有种子租户与其他用例的租户"
+)
+
 
 @pytest.fixture
 async def platform_url(tmp_path: Path) -> AsyncIterator[str]:

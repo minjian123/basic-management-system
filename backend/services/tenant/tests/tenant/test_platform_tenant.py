@@ -25,8 +25,13 @@ from bms_tenant.domains.tenant.services.tenant_admin import TenantAdminService
 from bms_tenant.domains.tenant.services.tenant_module import TenantModuleService
 from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
-pytestmark = pytest.mark.kiwi_id(2325)
-
+pytestmark = [
+    pytest.mark.kiwi_id(2325),
+    pytest.mark.own_db(
+        "被测对象是**默认平台租户引导**（库中尚无平台租户行 → 创建；已有 → 跳过；"
+        "编码被占用 → 拒启；编排失败 → 清理），前提正是「该行存在与否」；共享平台库恒已播种平台租户"
+    ),
+]
 _TABLES = [
     cast("Table", SysTenant.__table__),
     cast("Table", SysTenantDatabase.__table__),
