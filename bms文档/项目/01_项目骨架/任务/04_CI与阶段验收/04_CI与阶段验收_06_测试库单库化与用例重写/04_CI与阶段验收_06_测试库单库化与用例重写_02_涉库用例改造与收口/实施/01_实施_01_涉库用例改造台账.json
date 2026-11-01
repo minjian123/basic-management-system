@@ -4863,91 +4863,91 @@
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_authorize.py",
     "tests": 4,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_bind.py",
     "tests": 2,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_callback.py",
     "tests": 7,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_cas.py",
     "tests": 4,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_dingtalk.py",
     "tests": 2,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_jit.py",
     "tests": 9,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_keycloak_e2e.py",
     "tests": 1,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_providers.py",
     "tests": 4,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_units.py",
     "tests": 6,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
     "path": "backend/services/identity/tests/sso/test_wecom.py",
     "tests": 3,
-    "class": "A",
-    "action": "不动",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 3,
-    "evidence": "无自建库痕迹"
+    "evidence": "已有 own_db 白名单（本目录用例每例整表清场（SSO 会话 / 提供方 / 身份映射），「映射冲突 / 租户不符」断言需要确定起点；共享库上清场会删掉并行中他人用例的数据）"
   },
   {
     "repo": "bms",
