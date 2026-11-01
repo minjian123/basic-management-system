@@ -233,7 +233,7 @@ CodeArts、CodeBuddy、WorkBuddy、Qoder、TRAE、Cline 等账号渠道，并提
 
 | 项 | 值 |
 | --- | --- |
-| 包名 / 版本 | `dsh-our-free-model`，当前 2.5.4 |
+| 包名 / 版本 | `dsh-our-free-model`，当前 2.8.0 |
 | 仓库 | <https://github.com/Ebony-Vinyl/dsh-our-free-model>（MIT） |
 | 安装形态 | **本地链接**：`profiles\desktop\vendor\dsh-our-free-model`，`dependencies` 记 `link:vendor/dsh-our-free-model` |
 | 界面入口 | 设置页分区「Our Free Model」（`settings.section` id `our-free-model`），含「插件升级」小节 |
