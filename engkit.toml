@@ -208,6 +208,12 @@ label = "CI 配置自检（YAML / pytest 选项 / GitLab Lint / 门禁资产）"
 cmd = ["{python}", "scripts/tools/preflight/check_ci_config.py", "{root}"]
 
 [[preflight.steps]]
+label = "护栏：测试库隔离（全量）"
+# 单库化收口（04-6-2）：默认路径统一到共享测试库后，把护栏从 devloop 的「增量」升到预检「全量」；
+# 新增自建 SQLite / 裸 int ID / 整表清理会被这一档拦住（白名单文件以 `own_db` 标记豁免，理由写在文件内）。
+cmd = ["{python}", "scripts/tools/base_check/check_test_db_isolation.py", "{root}"]
+
+[[preflight.steps]]
 label = "后端静态：ruff check"
 cmd = ["uv", "run", "ruff", "check", "."]
 cwd = "backend"

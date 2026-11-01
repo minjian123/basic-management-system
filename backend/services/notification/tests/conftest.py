@@ -5,8 +5,7 @@
 租户源替身与应用 / 客户端夹具。
 """
 
-import asyncio
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 
 import pytest
 from fastapi import FastAPI
@@ -25,7 +24,6 @@ from bms_core.testing.fixtures import (
 
 __all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
 from bms_notification.main import ApplicationFactory
-from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
 from tests_support.tenant_source import install_fake_tenant_source
 
@@ -62,18 +60,40 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.fixture(scope="session")
-def platform_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
-    """会话级平台库：临时 `sys_tenant` 种子库（整个测试会话只建一次）。
+def platform_db_prepare() -> Callable[[str], None]:
+    """共享平台库准备集回调（子工程自成 rootdir 时的薄壳，实现单源在 `tests_support.shared_db`）。
+
+    Returns:
+        Callable[[str], None]: 接受连接串的准备函数。
+    """
+    from tests_support.shared_db import prepare_platform
+
+    return prepare_platform
+
+
+@pytest.fixture(scope="session")
+def tenant_db_prepare() -> Callable[[str], None]:
+    """共享租户库准备集回调（同上）。
+
+    Returns:
+        Callable[[str], None]: 接受连接串的准备函数。
+    """
+    from tests_support.shared_db import prepare_tenant
+
+    return prepare_tenant
+
+
+@pytest.fixture(scope="session")
+def platform_db_url(shared_platform_db_url: str) -> str:
+    """会话级平台库：**共享平台库**（04-6-2 单库化；建库 / 播种由准备集一次性负责）。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
+        shared_platform_db_url: 共享平台库连接串（会话级）。
 
     Returns:
         str: 会话级平台库连接串。
     """
-    platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
-    asyncio.run(seed_tenants(platform_url))
-    return platform_url
+    return shared_platform_db_url
 
 
 @pytest.fixture(autouse=True)
