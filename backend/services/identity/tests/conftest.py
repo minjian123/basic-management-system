@@ -242,6 +242,39 @@ def platform_db_url(shared_platform_db_url: str) -> str:
     return shared_platform_db_url
 
 
+@pytest.fixture(scope="session")
+def tenant_db_url(shared_tenant_db_url: str) -> str:
+    """会话级租户库：**共享租户库**（04-6-2 单库化；建表 / 参数种子由准备集一次性负责）。
+
+    Args:
+        shared_tenant_db_url: 共享租户库连接串（会话级）。
+
+    Returns:
+        str: 会话级租户库连接串。
+    """
+    return shared_tenant_db_url
+
+
+@pytest.fixture
+def tenant_db(tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """把租户库连接串指向**共享租户库**（单库化默认路径）。
+
+    为什么必须显式注入：`[database.tenants]` 的缺省 url 是 `./bms_tenant_demo.db`（相对 cwd），
+    不注入就会把会话行写到工作区 `database/bms/` 下的常驻文件，跨会话残留、也不在
+    `.cache/test/` 之下——既违背「一次会话只有 platform / tenant 两个库文件」，也让用例结果
+    依赖历史残留。
+
+    接线方式：目录级 conftest 用一条 autouse 薄壳启用（`def shared_tenant(tenant_db: None)`），
+    逐目录切换——未改造完的目录仍走旧库，主分支任何时刻可回归（设计 §3「可回退」）。
+
+    Args:
+        tenant_db_url: 会话级共享租户库连接串。
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", tenant_db_url)
+    get_settings.cache_clear()
+
+
 @pytest.fixture
 def isolated_platform_db_url(tmp_path: Path, platform_db_prepare: Callable[[str], None]) -> str:
     """白名单（`own_db`）用例专用**独占**平台库：每用例一份 tmp 库 + 播种。
@@ -275,6 +308,23 @@ def isolated_tenant_db_url(tmp_path: Path, tenant_db_prepare: Callable[[str], No
     url = f"sqlite+aiosqlite:///{tmp_path / 'tenant_isolated.db'}"
     tenant_db_prepare(url)
     return url
+
+
+@pytest.fixture
+def isolated_tenant(tenant_db: None, isolated_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`own_db` 用例的**独占**租户库接线（每用例一份 tmp 库 + 参数种子）。
+
+    只给「整租户库口径即被测」的文件 / 用例用（如按租户批量撤销全部在线会话：共享库上会把
+    并行 worker 的在线会话一并撤销）。用法：在用例签名里**排在 `client` 之前**声明，
+    保证应用装配前环境已切库。
+
+    Args:
+        tenant_db: 共享租户库接线（保证顺序：先公共、后独占）。
+        isolated_tenant_db_url: 独占租户库连接串（每用例一份 tmp 库 + 参数种子）。
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
+    get_settings.cache_clear()
 
 
 @pytest.fixture

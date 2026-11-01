@@ -20,6 +20,7 @@ from httpx import AsyncClient
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
+from bms_core.testing.namespace import Namespace
 from bms_identity.domains.auth.services.session_issuer import hash_refresh_token
 
 from .helpers import (
@@ -29,7 +30,16 @@ from .helpers import (
     FakeUserTokenIssuer,
     wire_auth,
 )
-from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, seed_session, utc_now, wire_login
+from .session_helpers import (
+    API_SESSIONS,
+    TENANT_HEADERS,
+    login,
+    seed_session,
+    sid,
+    uid,
+    utc_now,
+    wire_login,
+)
 
 API_LOGIN = "/api/v1/auth/login"
 API_REFRESH = "/api/v1/auth/refresh"
@@ -101,7 +111,9 @@ async def test_login_failure_escalates_to_captcha_within_ip_window(client: Async
 
 
 @pytest.mark.kiwi_id(2235)
-async def test_session_hijack_forged_and_expired_refresh_rejected(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_session_hijack_forged_and_expired_refresh_rejected(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """会话劫持：伪造 refresh 串与过期会话记录均 401/20001（不是仅靠前端拦截）。"""
     issuer, platform_client, store, limiter = (
         FakeUserTokenIssuer(),
@@ -109,30 +121,39 @@ async def test_session_hijack_forged_and_expired_refresh_rejected(client: AsyncC
         MemorySessionStore(),
         MemoryRateLimiter(),
     )
-    platform_client.set_user("admin", password="secret", user_id=7)
+    subject = uid(ns)
+    expired_id = sid(ns, 7)
+    platform_client.set_user("admin", password="secret", user_id=subject)
     wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     client.cookies.clear()
     forged = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-forged"})
     assert forged.status_code == 401 and forged.json()["code"] == 20001
 
-    issuer.mint("ref-expired", sub="7", jti="7001", tenant_id=TENANT_ID)
+    issuer.mint("ref-expired", sub=str(subject), jti=expired_id, tenant_id=TENANT_ID)
     await seed_session(
         service_app,
-        session_id="7001",
-        user_id=7,
+        session_id=expired_id,
+        user_id=subject,
         expires_at=utc_now() - timedelta(minutes=1),
         refresh_token_hash=hash_refresh_token("ref-expired"),
     )
-    await store.save("7001", ConcurrentStableDict({"user_id": 7, "tenant": TENANT_ID}), tenant=TENANT_ID, ttl=600)
+    await store.save(
+        expired_id,
+        ConcurrentStableDict({"user_id": subject, "tenant": TENANT_ID}),
+        tenant=TENANT_ID,
+        ttl=600,
+    )
     expired = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-expired"})
     assert expired.status_code == 401 and expired.json()["code"] == 20001
 
 
 @pytest.mark.kiwi_id(2235)
-async def test_session_hijack_replay_after_kick_rejected(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_session_hijack_replay_after_kick_rejected(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """会话劫持：强制踢出后，被踢会话的旧 refresh 重放即 401（即时生效，不等自然过期）。"""
-    issuer, _store, _recorder = await wire_login(service_app)
+    issuer, _store, _recorder = await wire_login(service_app, ns=ns)
     assert (await login(client)).status_code == 200
     session_id = issuer.specs[-1].session_id
     old_refresh = client.cookies.get(COOKIE)
@@ -147,30 +168,34 @@ async def test_session_hijack_replay_after_kick_rejected(client: AsyncClient, se
 
 
 @pytest.mark.kiwi_id(2235)
-async def test_cross_tenant_access_rejected(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_cross_tenant_access_rejected(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """越权（跨租户）：显式租户头与令牌租户不一致即拒（401/20001，不落到数据层）。"""
-    await wire_login(service_app)
+    await wire_login(service_app, ns=ns)
     mismatch = await client.get(API_SESSIONS, headers={"X-Tenant-ID": "acme"})
     assert mismatch.status_code == 401 and mismatch.json()["code"] == 20001
 
 
 @pytest.mark.kiwi_id(2235)
-async def test_cross_user_session_scope_is_platform_admin_pre_rbac(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_cross_user_session_scope_is_platform_admin_pre_rbac(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """越权（跨用户）口径固化：RBAC 就绪前为平台超管口径。
 
     `require_permission` 当前为 Null 恒定通过，会话 `list/get/kick` 无 actor 归属校验——同租户内
     凭会话 id 可查看 / 踢出他人会话。本用例**固化该现状**（防口径漂移），归属校验归阶段七 RBAC
     （登记于阶段计划「后续阶段待办」）。
     """
-    _issuer, _store, _recorder = await wire_login(service_app)
-    await seed_session(service_app, session_id="8101", user_id=2002, device="UA-Other")
+    _issuer, _store, _recorder = await wire_login(service_app, ns=ns)
+    other_user = uid(ns, 1)
+    other_session = sid(ns, 1)
+    await seed_session(service_app, session_id=other_session, user_id=other_user, device="UA-Other")
 
-    listing = await client.get(API_SESSIONS, params={"user_id": 2002}, headers=TENANT_HEADERS)
+    listing = await client.get(API_SESSIONS, params={"user_id": other_user}, headers=TENANT_HEADERS)
     assert listing.status_code == 200
     assert listing.json()["data"]["total"] == 1
-    assert listing.json()["data"]["list"][0]["session_id"] == "8101"
+    assert listing.json()["data"]["list"][0]["session_id"] == other_session
 
-    kicked = await client.post(f"{API_SESSIONS}/8101/kick", headers=TENANT_HEADERS)
+    kicked = await client.post(f"{API_SESSIONS}/{other_session}/kick", headers=TENANT_HEADERS)
     assert kicked.status_code == 200
 
 

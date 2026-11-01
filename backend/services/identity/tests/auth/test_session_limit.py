@@ -1,12 +1,17 @@
-"""多端会话上限测试（Kiwi 2195）：超限作废最旧、上限可配、未超限不作废。"""
+"""多端会话上限测试（Kiwi 2195）：超限作废最旧、上限可配、未超限不作废。
+
+单库叠加口径（04-6-2）：上限按**用户**统计，用户主键按用例命名空间派生；列表断言带 `user_id`
+筛选，不再依赖「整表 total」。
+"""
 
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
 from bms_core.security.session import DefaultSessionSecurity
+from bms_core.testing.namespace import Namespace
 
-from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, wire_login
+from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, uid, wire_login
 
 
 def _blacklist_key(session_id: str) -> str:
@@ -22,9 +27,9 @@ def _blacklist_key(session_id: str) -> str:
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_max_active_revokes_oldest(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_max_active_revokes_oldest(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """上限 2：第 3 次登录作废最旧会话（标记删除 + 黑名单）。"""
-    issuer, store, _recorder = await wire_login(service_app, max_active=2)
+    issuer, store, _recorder = await wire_login(service_app, ns=ns, max_active=2)
     for _ in range(3):
         assert (await login(client)).status_code == 200
     oldest, second, newest = issuer.specs[-3].session_id, issuer.specs[-2].session_id, issuer.specs[-1].session_id
@@ -34,31 +39,31 @@ async def test_max_active_revokes_oldest(client: AsyncClient, service_app: FastA
     assert await store.load(second, tenant="demo") is not None
     assert await store.load(newest, tenant="demo") is not None
 
-    listing = await client.get(API_SESSIONS, headers=TENANT_HEADERS)
+    listing = await client.get(API_SESSIONS, params={"user_id": uid(ns)}, headers=TENANT_HEADERS)
     assert listing.json()["data"]["total"] == 2
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_max_active_default_five(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_max_active_default_five(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """默认上限 5：第 6 次登录作废最旧，在线数保持 5。"""
-    issuer, store, _recorder = await wire_login(service_app)
+    issuer, store, _recorder = await wire_login(service_app, ns=ns)
     for _ in range(6):
         assert (await login(client)).status_code == 200
 
     assert await store.load(issuer.specs[-6].session_id, tenant="demo") is None
     assert await store.load(issuer.specs[-1].session_id, tenant="demo") is not None
-    listing = await client.get(API_SESSIONS, headers=TENANT_HEADERS)
+    listing = await client.get(API_SESSIONS, params={"user_id": uid(ns)}, headers=TENANT_HEADERS)
     assert listing.json()["data"]["total"] == 5
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_below_max_active_keeps_all(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_below_max_active_keeps_all(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """未达上限不作废：上限 3、登录 2 次两会话均保留。"""
-    issuer, store, _recorder = await wire_login(service_app, max_active=3)
+    issuer, store, _recorder = await wire_login(service_app, ns=ns, max_active=3)
     for _ in range(2):
         assert (await login(client)).status_code == 200
 
     assert await store.load(issuer.specs[-2].session_id, tenant="demo") is not None
     assert await store.load(issuer.specs[-1].session_id, tenant="demo") is not None
-    listing = await client.get(API_SESSIONS, headers=TENANT_HEADERS)
+    listing = await client.get(API_SESSIONS, params={"user_id": uid(ns)}, headers=TENANT_HEADERS)
     assert listing.json()["data"]["total"] == 2

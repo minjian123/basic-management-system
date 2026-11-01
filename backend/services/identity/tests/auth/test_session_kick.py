@@ -1,4 +1,7 @@
-"""强制踢出端点测试（Kiwi 2195）：即时生效、refresh 失效、幂等与错误分支、广播占位。"""
+"""强制踢出端点测试（Kiwi 2195）：即时生效、refresh 失效、幂等与错误分支、广播占位。
+
+单库叠加口径（04-6-2）：用户主键按用例命名空间派生，列表断言带 `user_id` 筛选。
+"""
 
 import pytest
 from fastapi import FastAPI
@@ -6,8 +9,9 @@ from httpx import AsyncClient
 
 from bms_core.api.deps import get_tenant
 from bms_core.security.session import DefaultSessionSecurity
+from bms_core.testing.namespace import Namespace
 
-from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, wire_login
+from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, sid, uid, wire_login
 
 API_REFRESH = "/api/v1/auth/refresh"
 
@@ -25,9 +29,9 @@ def _blacklist_key(session_id: str) -> str:
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_kick_immediate_and_broadcast(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_kick_immediate_and_broadcast(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """踢出：返回撤销结果 + 标记删除 + 黑名单 + 广播占位 + 详情可见 revoked_at。"""
-    issuer, store, recorder = await wire_login(service_app)
+    issuer, store, recorder = await wire_login(service_app, ns=ns)
     assert (await login(client)).status_code == 200
     session_id = issuer.specs[-1].session_id
 
@@ -46,9 +50,9 @@ async def test_kick_immediate_and_broadcast(client: AsyncClient, service_app: Fa
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_kick_invalidates_refresh(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_kick_invalidates_refresh(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """踢出后目标会话 refresh 随即 401（不等 access 自然过期）。"""
-    issuer, _store, _recorder = await wire_login(service_app)
+    issuer, _store, _recorder = await wire_login(service_app, ns=ns)
     assert (await login(client)).status_code == 200
     session_id = issuer.specs[-1].session_id
 
@@ -58,9 +62,9 @@ async def test_kick_invalidates_refresh(client: AsyncClient, service_app: FastAP
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_kick_is_idempotent(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_kick_is_idempotent(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """重复踢出已撤销会话 → 20013（幂等，不重复写）。"""
-    issuer, _store, _recorder = await wire_login(service_app)
+    issuer, _store, _recorder = await wire_login(service_app, ns=ns)
     assert (await login(client)).status_code == 200
     session_id = issuer.specs[-1].session_id
 
@@ -70,32 +74,32 @@ async def test_kick_is_idempotent(client: AsyncClient, service_app: FastAPI) -> 
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_kick_not_found(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_kick_not_found(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """踢出不存在的会话 → 20011 / 404。"""
-    await wire_login(service_app)
-    resp = await client.post(f"{API_SESSIONS}/ghost/kick", headers=TENANT_HEADERS)
+    await wire_login(service_app, ns=ns)
+    resp = await client.post(f"{API_SESSIONS}/{sid(ns, 9)}/kick", headers=TENANT_HEADERS)
     assert resp.status_code == 404 and resp.json()["code"] == 20011
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_kick_only_target_session(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_kick_only_target_session(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """踢出一个会话不影响同用户其余在线会话。"""
-    issuer, _store, _recorder = await wire_login(service_app)
+    issuer, _store, _recorder = await wire_login(service_app, ns=ns)
     assert (await login(client)).status_code == 200
     first = issuer.specs[-1].session_id
     assert (await login(client)).status_code == 200
     second = issuer.specs[-1].session_id
 
     assert (await client.post(f"{API_SESSIONS}/{first}/kick", headers=TENANT_HEADERS)).status_code == 200
-    listing = await client.get(API_SESSIONS, headers=TENANT_HEADERS)
+    listing = await client.get(API_SESSIONS, params={"user_id": uid(ns)}, headers=TENANT_HEADERS)
     assert listing.json()["data"]["total"] == 1
     assert listing.json()["data"]["list"][0]["session_id"] == second
 
 
 @pytest.mark.kiwi_id(2195)
-async def test_kick_requires_tenant_context(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_kick_requires_tenant_context(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """无租户上下文踢出 → 认证错误（20001 / 401）。"""
-    issuer, _store, _recorder = await wire_login(service_app)
+    issuer, _store, _recorder = await wire_login(service_app, ns=ns)
     assert (await login(client)).status_code == 200
     service_app.dependency_overrides[get_tenant] = lambda: None
     resp = await client.post(f"{API_SESSIONS}/{issuer.specs[-1].session_id}/kick")

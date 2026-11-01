@@ -8,6 +8,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
+from bms_core.testing.namespace import Namespace
 from tests_support.auth import issue_access_token
 
 from .session_helpers import API_SESSIONS, TENANT_HEADERS, TENANT_ID, login, wire_login
@@ -25,9 +26,11 @@ async def test_protected_route_requires_valid_login(client: AsyncClient) -> None
     assert invalid.json()["code"] == 20001
 
 
-async def test_kicked_session_rejected_on_next_request(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_kicked_session_rejected_on_next_request(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """踢出即时性：被踢会话的 access 在下一请求即 401（20012，不依赖广播 / 自然过期）。"""
-    issuer, _store, _recorder = await wire_login(service_app)
+    issuer, _store, _recorder = await wire_login(service_app, ns=ns)
     assert (await login(client, headers=TENANT_HEADERS)).status_code == 200
     session_id = issuer.specs[-1].session_id
 

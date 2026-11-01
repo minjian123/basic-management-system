@@ -1,4 +1,14 @@
-"""会话管理测试共用夹具：登录建会话 + 直连租户库播种 + 依赖替身装配（Kiwi 2195）。"""
+"""会话管理测试共用夹具：登录建会话 + 直连租户库播种 + 依赖替身装配（Kiwi 2195）。
+
+单库叠加口径（04-6-2）：`sys_session` 落**共享租户库**，全 worker 共用。本模块因此提供
+`uid()` / `sid()` 两个命名空间派生助手——会话行的用户主键与会话主键一律按用例派生，
+查询与断言（列表 `user_id` 筛选、仓储 `count_active(user_id=…)`）只认本用例的行；
+**不再整表清空**（`auth/conftest.py` 已取消逐例 `delete(SysSession)`，它会在并行下删掉
+他人用例正在断言的会话）。
+
+账号（`FakePlatformClient.set_user("admin", …)`）保持固定：它是**每用例一份的内存替身键**，
+不落任何库表；落库的只有 `user_id`，故派生点是 `user_id`。
+"""
 
 from __future__ import annotations
 
@@ -14,6 +24,7 @@ from bms_core.db.tenant import DEMO_TENANT
 from bms_core.models.identity.session import SysSession
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
+from bms_core.testing.namespace import Namespace
 from tests_support.auth import TEST_SESSION_ID
 
 from .helpers import (
@@ -39,10 +50,37 @@ def utc_now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def uid(ns: Namespace, slot: int = 0) -> int:
+    """本用例的用户主键（会话行按它划命名空间，叠加下不与他人行相撞）。
+
+    Args:
+        ns: 用例命名空间。
+        slot: 同用例内的用户序号（同一用例需要多个用户时区分）。
+
+    Returns:
+        int: 用户主键（雪花量级，落 `sys_session.user_id`）。
+    """
+    return int(ns.prefix[2:], 16) * 100 + slot
+
+
+def sid(ns: Namespace, slot: int = 0) -> str:
+    """本用例的会话主键（= 会话 id，十进制字符串；`id` 与 `session_id` 同值）。
+
+    Args:
+        ns: 用例命名空间。
+        slot: 同用例内的会话序号。
+
+    Returns:
+        str: 会话 id（可 `int()`，且与他人会话不撞主键）。
+    """
+    return str(int(ns.prefix[2:], 16) * 100 + slot)
+
+
 async def wire_login(
     app: FastAPI,
     *,
-    user_id: int = 1001,
+    ns: Namespace,
+    user_id: int | None = None,
     max_active: int | None = None,
     publisher: RecordingRealtimePublisher | None = None,
 ) -> tuple[FakeUserTokenIssuer, MemorySessionStore, RecordingRealtimePublisher]:
@@ -53,23 +91,25 @@ async def wire_login(
 
     Args:
         app: 应用实例。
-        user_id: 演示用户 ID。
+        ns: 用例命名空间（缺省用户主键由它派生）。
+        user_id: 演示用户 ID（缺省 `uid(ns)`；须与断言口径一致）。
         max_active: 活跃会话上限（None 不改配置）。
         publisher: 广播记录替身（None 新建）。
 
     Returns:
         tuple: (签发者替身, 会话存储替身, 广播记录替身)。
     """
+    subject = uid(ns) if user_id is None else user_id
     issuer, platform_client, store, limiter = (
         FakeUserTokenIssuer(),
         FakePlatformClient(),
         MemorySessionStore(),
         MemoryRateLimiter(),
     )
-    platform_client.set_user("admin", password="secret", user_id=user_id, name="管理员")
+    platform_client.set_user("admin", password="secret", user_id=subject, name="管理员")
     await store.save(
         TEST_SESSION_ID,
-        ConcurrentStableDict({"user_id": user_id, "tenant": TENANT_ID}),
+        ConcurrentStableDict({"user_id": subject, "tenant": TENANT_ID}),
         tenant=TENANT_ID,
     )
     wire_auth(app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
@@ -113,7 +153,7 @@ async def seed_session(
     app: FastAPI,
     *,
     session_id: str,
-    user_id: int = 1001,
+    user_id: int,
     expires_at: datetime | None = None,
     revoked_at: datetime | None = None,
     device: str | None = None,
@@ -124,10 +164,13 @@ async def seed_session(
 ) -> None:
     """直连租户库播种一条会话记录（覆盖过期 / 已撤销等分支）。
 
+    `session_id` / `user_id` 必须来自本用例命名空间（`sid()` / `uid()`）：共享租户库上固定值
+    会与他人用例撞主键或串行断言。
+
     Args:
         app: 应用实例。
-        session_id: 会话 id（十进制字符串，须可转 int）。
-        user_id: 用户 ID。
+        session_id: 会话 id（十进制字符串，须可转 int；取 `sid(ns, n)`）。
+        user_id: 用户 ID（取 `uid(ns, n)`）。
         expires_at: 过期时间（None 取 14 天后）。
         revoked_at: 撤销时间（None 表示有效）。
         device: 设备标识。

@@ -1,29 +1,18 @@
-"""认证测试包公共夹具：会话表按用例清空（租户库为落盘 SQLite，防跨用例 / 跨次运行累积）。"""
+"""认证测试包公共夹具入口（04-6-2 单库叠加口径）。
 
-from collections.abc import AsyncIterator
+**不再逐例清空 `sys_session`**：会话表落共享租户库、全 worker 共用，整表 `delete` 会删掉并行
+worker 正在断言的会话（历史现象：踢出 404、登出后存储标记仍在、列表 total 偏小）。
+改由用例自己划命名空间——用户主键 / 会话主键按 `session_helpers.uid()` / `sid()` 派生，
+断言按 `user_id` 精确筛选（见 `session_helpers` 模块 docstring）。
+"""
 
 import pytest
-from fastapi import FastAPI
-from sqlalchemy import delete
-
-from bms_core.db.session import session_scope
-from bms_core.db.tenant import DEMO_TENANT
-from bms_core.models.identity.session import SysSession
 
 
 @pytest.fixture(autouse=True)
-async def clean_sessions(service_app: FastAPI) -> AsyncIterator[None]:
-    """用例前清空演示租户库 `sys_session`（会话断言确定性）。
+def shared_tenant(tenant_db: None) -> None:  # pyright: ignore[reportUnusedFunction]
+    """本目录用例切到**共享租户库**（目录级接线，逐目录推进；实现见套件 `conftest.tenant_db`）。
 
     Args:
-        service_app: 本服务应用实例。
-
-    Yields:
-        None: 用例运行期。
+        tenant_db: 共享租户库接线（把 `BMS_DATABASE__TENANTS__URL` 指向 `.cache/test/tenant.db`）。
     """
-    async with session_scope(
-        service_app.state.engine_registry, db_key=DEMO_TENANT.db_key, factory=service_app.state.session_factory
-    ) as session:
-        await session.execute(delete(SysSession))
-        await session.commit()
-    yield
