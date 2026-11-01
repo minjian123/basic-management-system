@@ -39,6 +39,8 @@ from bms_platform.domains.platform_registry.sources.catalog_source import read_c
 # 这里显式登记同一读取器（幂等，后登记者为准），保证用例独立可跑、不依赖全量运行的导入顺序。
 register_catalog_reader("platform", read_catalog)
 
+pytestmark = pytest.mark.own_db("被测对象是启动期接库目录对账：需把库置成缺行 / 错行 / 不可读等不完整状态")
+
 _FIELDS = (
     "module_key",
     "service_key",
@@ -158,6 +160,9 @@ async def _snapshot(url: str) -> ConcurrentStableList[ConcurrentStableList[objec
 @pytest.fixture
 def catalog_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     """独立平台库：覆盖平台库连接串（用例内自行播种）。
+
+    本文件被测对象是**启动期接库对账**——要能把库置成「缺行 / 错行 / 多行」等不完整状态，
+    共享库永远是完整播种态，因此这里必须保留独立库（`own_db` 白名单，理由见模块级 marker）。
 
     Returns:
         str: 平台库连接串（指向临时 SQLite 文件）。

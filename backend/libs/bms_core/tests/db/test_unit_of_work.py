@@ -1,14 +1,13 @@
 """工作单元实现测试（Kiwi 12 / 25 / 984）：空实现与数据库实现。"""
 
-from pathlib import Path
-
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.base import BaseObject
 from bms_core.db.null import NullUnitOfWork
 from bms_core.db.unit_of_work import DbUnitOfWork, UnitOfWork
+from bms_core.testing.namespace import Namespace
 
 
 @pytest.mark.kiwi_id(12)
@@ -46,23 +45,33 @@ async def test_db_unit_of_work_uses_session() -> None:
 
 
 @pytest.mark.kiwi_id(984)
-async def test_db_unit_of_work_commit_and_rollback(tmp_path: Path) -> None:
-    """数据库工作单元事务：`begin` 上下文提交生效，`rollback` 回滚未提交写入。"""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'uow.db'}")
-    async with engine.begin() as connection:
-        await connection.execute(text("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)"))
-    factory = async_sessionmaker(engine, expire_on_commit=False)
+async def test_db_unit_of_work_commit_and_rollback(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
+    """数据库工作单元事务：`begin` 上下文提交生效，`rollback` 回滚未提交写入。
+
+    单库叠加口径：探针表建在共享平台库（幂等），行值带命名空间前缀并限定查询，
+    断言只看本用例自己的行；提交 / 回滚语义不受共享库影响。
+    """
+    factory = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    prefix = ns.code("uow")
+    async with shared_platform_engine.begin() as connection:
+        await connection.execute(text("CREATE TABLE IF NOT EXISTS uow_probe (id INTEGER PRIMARY KEY, value TEXT)"))
 
     async with factory() as session:
         uow = DbUnitOfWork(session)
         async with uow.begin():
-            await session.execute(text("INSERT INTO t (value) VALUES ('committed')"))
+            await session.execute(
+                text("INSERT INTO uow_probe (value) VALUES (:value)"), {"value": f"{prefix}-committed"}
+            )
     async with factory() as session:
         uow = DbUnitOfWork(session)
-        await session.execute(text("INSERT INTO t (value) VALUES ('rolled-back')"))
+        await session.execute(text("INSERT INTO uow_probe (value) VALUES (:value)"), {"value": f"{prefix}-rolled"})
         await uow.rollback()
 
     async with factory() as session:
-        rows = (await session.execute(text("SELECT value FROM t"))).scalars().all()
-    assert list(rows) == ["committed"]
-    await engine.dispose()
+        rows = (
+            await session.execute(
+                text("SELECT value FROM uow_probe WHERE value LIKE :pattern ORDER BY id"),
+                {"pattern": f"{prefix}-%"},
+            )
+        ).scalars().all()
+    assert list(rows) == [f"{prefix}-committed"]

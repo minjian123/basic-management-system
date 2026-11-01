@@ -741,10 +741,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/core/test_service_catalog_startup.py",
     "tests": 11,
-    "class": "B",
-    "action": "机械改造",
+    "class": "D",
+    "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "自建库：123: create_async_engine()；145: create_async_engine()"
+    "evidence": "已有 own_db 白名单（被测对象是启动期接库目录对账：需把库置成缺行 / 错行 / 不可读等不完整状态）"
   },
   {
     "repo": "bms",
@@ -1191,10 +1191,10 @@
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/db/test_unit_of_work.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 1,
-    "evidence": "自建库：51: create_async_engine()；51: 连接串字面量"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
