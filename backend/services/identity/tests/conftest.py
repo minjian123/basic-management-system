@@ -13,6 +13,7 @@ from bms_core.core.exceptions import MultipleActiveTenantsError
 from bms_core.db.tenant import DEMO_TENANT, TenantContext, TenantNotFoundError
 from bms_core.testing.fixtures import (
     clear_tenant_cache,
+    ns,
     platform_db,
     reset_plugin_registry,
     reset_request_context,
@@ -21,7 +22,7 @@ from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
 
-__all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
+__all__ = ("bms_isolate_settings", "ns", "platform_db", "reset_plugin_registry", "reset_request_context")
 from bms_identity.main import ApplicationFactory
 from tests_support.auth import auth_headers, configure_token_env
 

@@ -12,7 +12,7 @@ from typing import cast
 import httpx
 import pytest
 from fastapi import FastAPI
-from sqlalchemy import Table, delete
+from sqlalchemy import Table
 
 from bms_core.api.deps import get_rate_limiter
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -142,22 +142,13 @@ async def _ensure_schema(app: FastAPI) -> None:
         await conn.run_sync(cast("Table", SysIdentityProvider.__table__).create, checkfirst=True)
 
 
-async def _clean_rows(app: FastAPI) -> None:
-    """清空 IdP 配置行。
-
-    Args:
-        app: 应用实例。
-    """
-    async with session_scope(
-        app.state.engine_registry, db_key=DEMO_TENANT.db_key, factory=app.state.session_factory
-    ) as session:
-        await session.execute(delete(SysIdentityProvider))
-        await session.commit()
-
-
 @pytest.fixture(autouse=True)
-async def clean_manage(service_app: FastAPI) -> AsyncIterator[None]:
-    """用例前后清空 IdP 配置表并兜底建表。
+async def ensure_schema(service_app: FastAPI) -> AsyncIterator[None]:
+    """兜底建表（`sys_identity_provider` 幂等），**不再整表清场**。
+
+    单库叠加口径（04-6-2）：本包用例的 IdP 标识与显示名按命名空间派生（见 `test_manage`），
+    断言只查自己的行；逐例清空 `sys_identity_provider` 会删掉并行 worker 正在断言的行
+    （表现为「刚建的行列表查不到」「标识冲突」）。
 
     Args:
         service_app: 应用实例。
@@ -166,9 +157,7 @@ async def clean_manage(service_app: FastAPI) -> AsyncIterator[None]:
         None: 用例运行期。
     """
     await _ensure_schema(service_app)
-    await _clean_rows(service_app)
     yield
-    await _clean_rows(service_app)
 
 
 @pytest.fixture

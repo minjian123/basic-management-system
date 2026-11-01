@@ -1,4 +1,8 @@
-"""外部 IdP 配置管理面测试（Kiwi 2203）：CRUD / 启停 / 两形态连通性 / 脱敏 / 限流 / 鉴权。"""
+"""外部 IdP 配置管理面测试（Kiwi 2203）：CRUD / 启停 / 两形态连通性 / 脱敏 / 限流 / 鉴权。
+
+单库叠加口径（04-6-2）：统一用**共享租户库**；IdP 标识与显示名按用例命名空间派生，
+列表断言一律按本用例显示名过滤（禁止「全表 total == 1」「list[0]」这类叠加下会被他人行命中的断言）。
+"""
 
 from __future__ import annotations
 
@@ -11,12 +15,49 @@ from bms_core.core.exceptions import AuthError, PermissionError
 from bms_core.core.serialization import normalize_collections
 from bms_core.db.tenant import TenantContext
 from bms_core.permission import base as permission_base
+from bms_core.testing.namespace import Namespace
 from bms_identity.domains.identity_federation.api import identity_providers as idp_api
 
 from .conftest import ISSUER, TENANT_HEADERS, TENANT_ID, ManageHarness
 
 _BASE = "/api/v1/idp/providers"
 _SSO_PROVIDERS = "/api/v1/auth/sso/providers"
+
+
+def _key(ns: Namespace) -> str:
+    """本用例的 IdP 标识（叠加下不与他人行相撞）。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        str: IdP 标识。
+    """
+    return ns.code("keycloak")
+
+
+def _name(ns: Namespace) -> str:
+    """本用例的 IdP 显示名（列表按它精确过滤）。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        str: 显示名。
+    """
+    return f"Keycloak-{ns.prefix}"
+
+
+def _missing_id(ns: Namespace) -> int:
+    """本用例专属的「不存在」主键。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        int: 不存在的主键。
+    """
+    return int(ns.prefix[2:], 16) * 1000 + 999
 
 
 def _oidc_config(**overrides: object) -> ConcurrentStableDict[str, object]:
@@ -33,12 +74,12 @@ def _oidc_config(**overrides: object) -> ConcurrentStableDict[str, object]:
     return config
 
 
-async def _create(client: AsyncClient, **overrides: object) -> ConcurrentStableDict[str, object]:
-    """调新建接口。"""
+async def _create(client: AsyncClient, ns: Namespace, **overrides: object) -> ConcurrentStableDict[str, object]:
+    """调新建接口（标识与显示名按命名空间派生）。"""
     body: ConcurrentStableDict[str, object] = ConcurrentStableDict(
         {
-            "name": "Keycloak",
-            "idp_key": "keycloak",
+            "name": _name(ns),
+            "idp_key": _key(ns),
             "type": "oidc",
             "config": _oidc_config(),
         }
@@ -50,19 +91,22 @@ async def _create(client: AsyncClient, **overrides: object) -> ConcurrentStableD
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_crud_and_soft_delete_reuse(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_crud_and_soft_delete_reuse(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """新建 / 列表 / 详情 / 修改 / 独立启停 / 软删后标识可复用。"""
-    created = await _create(client)
+    created = await _create(client, ns)
     provider_id = created["id"]
     assert created["status"] == "enabled"
+    assert created["idp_key"] == _key(ns)
 
-    listing = await client.get(_BASE, params={"status": "enabled", "type": "oidc"}, headers=TENANT_HEADERS)
+    listing = await client.get(
+        _BASE, params={"status": "enabled", "type": "oidc", "name": _name(ns)}, headers=TENANT_HEADERS
+    )
     page = listing.json()["data"]
     assert page["total"] == 1
-    assert page["list"][0]["idp_key"] == "keycloak"
-    by_name = await client.get(_BASE, params={"name": "Key"}, headers=TENANT_HEADERS)
+    assert page["list"][0]["idp_key"] == _key(ns)
+    by_name = await client.get(_BASE, params={"name": _name(ns)}, headers=TENANT_HEADERS)
     assert by_name.json()["data"]["total"] == 1
-    no_name = await client.get(_BASE, params={"name": "Nope"}, headers=TENANT_HEADERS)
+    no_name = await client.get(_BASE, params={"name": ns.code("nope")}, headers=TENANT_HEADERS)
     assert no_name.json()["data"]["total"] == 0
 
     detail = await client.get(f"{_BASE}/{provider_id}", headers=TENANT_HEADERS)
@@ -86,15 +130,16 @@ async def test_crud_and_soft_delete_reuse(client: AsyncClient, manage: ManageHar
     after = await client.get(f"{_BASE}/{provider_id}", headers=TENANT_HEADERS)
     assert after.status_code == 404 and after.json()["code"] == 20063
 
-    again = await _create(client)
-    assert again["idp_key"] == "keycloak"
+    again = await _create(client, ns)
+    assert again["idp_key"] == _key(ns)
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_config_secret_masked(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_config_secret_masked(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """列表 / 详情 `config` 敏感键脱敏、无明文；`secret_configured` 为真。"""
-    await _create(client)
-    page = (await client.get(_BASE, headers=TENANT_HEADERS)).json()["data"]
+    await _create(client, ns)
+    page = (await client.get(_BASE, params={"name": _name(ns)}, headers=TENANT_HEADERS)).json()["data"]
+    assert page["total"] == 1
     item = page["list"][0]
     assert item["config"]["client_secret_ref"] == "env:***"
     assert item["config"]["client_id"] == "bms-backend"
@@ -103,26 +148,26 @@ async def test_config_secret_masked(client: AsyncClient, manage: ManageHarness) 
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_write_validation_and_conflict(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_write_validation_and_conflict(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """字段 / 配置非法 20064；标识冲突 20065；SSRF 拒绝。"""
-    await _create(client)
+    await _create(client, ns)
     conflict = await client.post(
         _BASE,
-        json={"name": "Dup", "idp_key": "keycloak", "type": "oidc", "config": dict(_oidc_config())},
+        json={"name": ns.code("dup"), "idp_key": _key(ns), "type": "oidc", "config": dict(_oidc_config())},
         headers=TENANT_HEADERS,
     )
     assert conflict.status_code == 409 and conflict.json()["code"] == 20065
 
     missing = await client.post(
         _BASE,
-        json={"name": "Bad", "idp_key": "bad1", "type": "oidc", "config": {"issuer": ISSUER}},
+        json={"name": "Bad", "idp_key": ns.code("bad1"), "type": "oidc", "config": {"issuer": ISSUER}},
         headers=TENANT_HEADERS,
     )
     assert missing.status_code == 400 and missing.json()["code"] == 20064
 
     unknown = await client.post(
         _BASE,
-        json={"name": "Bad", "idp_key": "bad2", "type": "oidc", "config": dict(_oidc_config(bogus=1))},
+        json={"name": "Bad", "idp_key": ns.code("bad2"), "type": "oidc", "config": dict(_oidc_config(bogus=1))},
         headers=TENANT_HEADERS,
     )
     assert unknown.status_code == 400 and unknown.json()["code"] == 20064
@@ -131,7 +176,7 @@ async def test_write_validation_and_conflict(client: AsyncClient, manage: Manage
         _BASE,
         json={
             "name": "Bad",
-            "idp_key": "bad3",
+            "idp_key": ns.code("bad3"),
             "type": "oidc",
             "config": dict(_oidc_config(client_secret_ref="plain-secret")),
         },
@@ -141,28 +186,30 @@ async def test_write_validation_and_conflict(client: AsyncClient, manage: Manage
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_not_found_branches(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_not_found_branches(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """不存在：详情 / 启停 / 删除 / 已存行测试均 20063。"""
+    missing = _missing_id(ns)
     for method in ("GET", "DELETE"):
-        response = await client.request(method, f"{_BASE}/999999", headers=TENANT_HEADERS)
+        response = await client.request(method, f"{_BASE}/{missing}", headers=TENANT_HEADERS)
         assert response.status_code == 404 and response.json()["code"] == 20063, (method, response.text)
-    put = await client.put(f"{_BASE}/999999", json={}, headers=TENANT_HEADERS)
+    put = await client.put(f"{_BASE}/{missing}", json={}, headers=TENANT_HEADERS)
     assert put.status_code == 404 and put.json()["code"] == 20063
-    response = await client.get(f"{_BASE}/999999/test", headers=TENANT_HEADERS)
+    response = await client.get(f"{_BASE}/{missing}/test", headers=TENANT_HEADERS)
     assert response.status_code == 404 and response.json()["code"] == 20063
-    status = await client.post(f"{_BASE}/999999/status", json={"status": "enabled"}, headers=TENANT_HEADERS)
+    status = await client.post(f"{_BASE}/{missing}/status", json={"status": "enabled"}, headers=TENANT_HEADERS)
     assert status.status_code == 404 and status.json()["code"] == 20063
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_update_partial_fields_skip_absent(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_update_partial_fields_skip_absent(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """局部更新：未携带字段（None）不写入，逐字段单独更新均生效（四个可选分支假路径）。"""
-    created = await _create(client)
+    name = _name(ns)
+    created = await _create(client, ns)
     provider_id = created["id"]
 
     empty = await client.put(f"{_BASE}/{provider_id}", json={}, headers=TENANT_HEADERS)
     assert empty.status_code == 200
-    assert empty.json()["data"]["name"] == "Keycloak"
+    assert empty.json()["data"]["name"] == name
     assert empty.json()["data"]["sort"] == 0
 
     by_name = await client.put(f"{_BASE}/{provider_id}", json={"name": "OnlyName"}, headers=TENANT_HEADERS)
@@ -187,15 +234,15 @@ async def test_update_partial_fields_skip_absent(client: AsyncClient, manage: Ma
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_status_invalid(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_status_invalid(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """启停状态非法 20064。"""
-    created = await _create(client)
+    created = await _create(client, ns)
     response = await client.post(f"{_BASE}/{created['id']}/status", json={"status": "bogus"}, headers=TENANT_HEADERS)
     assert response.status_code == 400 and response.json()["code"] == 20064
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_draft_and_saved_connectivity(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_draft_and_saved_connectivity(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """草稿测试与已存行测试：成功 200、失败 20066（data 携结果）。"""
     draft = await client.post(
         f"{_BASE}/test", json={"type": "oidc", "config": dict(_oidc_config())}, headers=TENANT_HEADERS
@@ -203,7 +250,7 @@ async def test_draft_and_saved_connectivity(client: AsyncClient, manage: ManageH
     assert draft.status_code == 200
     assert draft.json()["data"]["reachable"] is True
 
-    created = await _create(client)
+    created = await _create(client, ns)
     saved = await client.get(f"{_BASE}/{created['id']}/test", headers=TENANT_HEADERS)
     assert saved.status_code == 200 and saved.json()["data"]["reachable"] is True
 
@@ -230,11 +277,11 @@ async def test_wecom_draft_credentials_failure(client: AsyncClient, manage: Mana
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_saved_row_invalid_config(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_saved_row_invalid_config(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """已存行脏配置（非法 JSON / 非对象）：列表容错、已存行测试前置复校拦截 20064。"""
-    await manage.seed_provider(idp_key="dirty", raw_config="{not-json")
-    await manage.seed_provider(idp_key="listy", raw_config="[]")
-    page = (await client.get(_BASE, headers=TENANT_HEADERS)).json()["data"]
+    await manage.seed_provider(idp_key=ns.code("dirty"), raw_config="{not-json", name=ns.prefix)
+    await manage.seed_provider(idp_key=ns.code("listy"), raw_config="[]", name=ns.prefix)
+    page = (await client.get(_BASE, params={"name": ns.prefix}, headers=TENANT_HEADERS)).json()["data"]
     assert page["total"] == 2
     for item in page["list"]:
         assert item["config"] == {}
@@ -296,13 +343,14 @@ async def test_requires_auth(service_app: FastAPI, manage: ManageHarness) -> Non
 
 
 @pytest.mark.kiwi_id(2203)
-async def test_sso_providers_no_config(client: AsyncClient, manage: ManageHarness) -> None:
+async def test_sso_providers_no_config(client: AsyncClient, manage: ManageHarness, ns: Namespace) -> None:
     """登录页入口清单不返回 config / 密钥。"""
-    await _create(client)
+    await _create(client, ns)
     response = await client.get(_SSO_PROVIDERS, headers=TENANT_HEADERS)
     assert response.status_code == 200, response.text
     items = response.json()["data"]["items"]
-    assert items and "config" not in items[0]
+    assert any(item["idp_key"] == _key(ns) for item in items)
+    assert all("config" not in item for item in items)
     assert "s3cr3t" not in str(items)
 
 
