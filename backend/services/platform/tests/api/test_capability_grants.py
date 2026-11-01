@@ -271,6 +271,46 @@ async def test_temporary_grant_requires_expire_and_note(client: AsyncClient) -> 
 
 
 @pytest.mark.anyio
+async def test_temporary_grant_expire_at_read_back_is_utc(client: AsyncClient, service_app: FastAPI) -> None:
+    """临时授权从库读回：naive datetime 补齐 UTC（`_to_grant` 的时区归一分支）。
+
+    为什么要「读回」：授予响应由同一会话的 ORM 对象序列化，`expire_at` 仍带写入时的 tzinfo，
+    归一分支走不到；SQLite 不存时区，重新查询得到 naive datetime 才会进入归一。
+
+    Args:
+        client: 测试客户端。
+        service_app: 应用实例（取平台库引擎与会话工厂）。
+    """
+    future = datetime.now(UTC) + timedelta(hours=2)
+    created = await client.post(
+        API,
+        json={
+            "capability_name": CAPABILITY,
+            "consumer_key": CONSUMER,
+            "expire_at": future.isoformat(),
+            "note": "排障",
+        },
+    )
+    assert created.status_code == 200
+
+    async with session_scope(
+        service_app.state.engine_registry,
+        db_key=PLATFORM_DB_KEY,
+        factory=service_app.state.session_factory,
+    ) as session:
+        grants = await CapabilityGrantService(session)._current_grants()  # pyright: ignore[reportPrivateUsage]
+
+    target = [
+        grant
+        for grant in grants
+        if grant.capability_name == CAPABILITY and grant.consumer_key == CONSUMER and grant.expire_at is not None
+    ]
+    assert len(target) == 1
+    assert target[0].expire_at is not None
+    assert target[0].expire_at.tzinfo is not None
+
+
+@pytest.mark.anyio
 async def test_revoke_is_soft_and_idempotent(client: AsyncClient) -> None:
     """撤销：软撤销保留行（`disabled` + `revoked_at`）、重复撤销幂等、不存在 10002。"""
     created = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": CONSUMER})

@@ -18,7 +18,7 @@ import os
 
 import pytest
 
-from bms_core.testing import fixtures
+from bms_core.testing import ddl, fixtures
 from bms_core.testing.fixtures import (
     clear_shared_db_files,
     clear_tenant_cache,
@@ -78,6 +78,9 @@ def pytest_configure(config: pytest.Config) -> None:
     # 共享测试库基址钉在会话起始的工程根：用例 `chdir` 后解析夹具也不会把库落到临时目录
     # （否则表现为随机的「no such table」；见 `fixtures.configure_project_root`）。
     fixtures.configure_project_root(os.getcwd())
+    # 单库叠加：DDL 串行化。并发 worker 同时首次建同一张表时，`create_all(checkfirst=True)` 的存在性
+    # 判断看不到他人未提交的建表事务，后提交方撞 `table ... already exists`（服务子流水线实测）。
+    ddl.serialize_ddl()
     basetemp = getattr(config.option, "basetemp", "") or ""
     if basetemp:
         # `abspath` 结果必然含父目录，无需再判空
