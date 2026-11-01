@@ -3,37 +3,61 @@
 覆盖：`GET /api/v1/account-locks`、`GET /api/v1/account-locks/{id}`、`POST /api/v1/account-locks`、
 `PUT /api/v1/account-locks/{id}/unlock`；有效登录态放行（permission Null）；无效票据 401；`lock_type` 非法 10001；
 手动锁定 → 账号被拒 → 解锁恢复的端到端链路。
+
+单库叠加口径（04-6-2）：平台库与租户库都用共享库（不再建临时库）；用户主键由命名空间派生，
+列表断言按 `user_id` 精确过滤。
 """
 
 from collections.abc import AsyncIterator
+from typing import cast
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
+from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.api.deps import get_uow
+from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import AccountLockNotFoundError
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.models.platform.icon import SysIcon, SysIconI18n
+from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysUser
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.schema import ensure_tables
 from bms_platform.domains.user.repositories.user import UserRepository
-from tests_support.permission_admin import setup_min_tenant
+from tests_support.permission_admin import assign_system_admin
 
 API = "/api/v1/account-locks"
 
+_TENANT_TABLES: tuple[Table, ...] = (
+    cast("Table", SysRole.__table__),
+    cast("Table", SysUserRole.__table__),
+    cast("Table", SysIcon.__table__),
+    cast("Table", SysIconI18n.__table__),
+)
+"""权限引擎读的租户库表（共享租户库幂等补齐）。"""
+
 
 @pytest_asyncio.fixture(autouse=True)
-async def permission_engine(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
-    """真实权限校验所需的最小租户库（权限引擎读表）+ 内置系统管理员主体。
+async def permission_engine(
+    shared_tenant_engine: AsyncEngine, shared_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """共享租户库（权限引擎读表幂等补齐）+ 内置系统管理员主体。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
-        monkeypatch: pytest 环境变量覆盖夹具。
+        shared_tenant_engine: 共享租户库引擎。
+        shared_tenant_db_url: 共享租户库连接串。
+        monkeypatch: 环境变量覆盖夹具。
     """
-    await setup_min_tenant(tmp_path_factory, monkeypatch)
+    await ensure_tables(shared_tenant_engine, list(_TENANT_TABLES))
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
+    get_settings.cache_clear()
+    await assign_system_admin()
+    get_settings.cache_clear()
 
 
 def test_lock_error_code_registered() -> None:
@@ -48,7 +72,7 @@ async def _shared_app(
 ) -> tuple[async_sessionmaker[AsyncSession], int]:
     """共享平台库 + 每请求新会话的 `get_uow` 覆盖；播种一个命名空间用户。
 
-    单库叠加口径：不再建临时库，表由 `create_all` 幂等补齐；用户名带命名空间前缀，
+    单库叠加口径：不再建临时库，表由 `ensure_tables` 幂等补齐；用户名带命名空间前缀，
     列表断言一律按 `user_id` 精确过滤，不看全表总数。
 
     Args:
@@ -59,8 +83,7 @@ async def _shared_app(
     Returns:
         tuple[async_sessionmaker[AsyncSession], int]: (会话工厂, 用户主键)。
     """
-    async with engine.begin() as conn:
-        await conn.run_sync(SysUser.metadata.create_all)
+    await ensure_tables(engine, [cast("Table", SysUser.__table__)])
     factory = async_sessionmaker(engine, expire_on_commit=False)
     seed = factory()
     try:
