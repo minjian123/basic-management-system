@@ -74,6 +74,9 @@ def pytest_configure(config: pytest.Config) -> None:
         # `abspath` 结果必然含父目录，无需再判空
         os.makedirs(os.path.dirname(os.path.abspath(os.fspath(basetemp))), exist_ok=True)
     fixtures.configure_sqlite_basetemp(str(basetemp))
+    notice = fixtures.isolation_notice()
+    if notice:
+        print(notice)
     if not os.environ.get("PYTEST_XDIST_WORKER"):
         # 会话开始清空共享测试库（controller 先于 xdist worker 启动，不与 worker 建库竞争）
         failed = fixtures.clear_shared_db_files()

@@ -10,7 +10,6 @@
 本套件只覆盖 `bms_core`（不依赖平台服务应用），故不提供 `client` 夹具。
 """
 
-import asyncio
 from collections.abc import Iterator
 
 import pytest
@@ -26,7 +25,6 @@ from bms_core.testing.fixtures import (
 )
 
 __all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
-from ops.seed_tenant import seed_tenants
 from tests_support.auth import configure_token_env
 
 
@@ -104,15 +102,17 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.fixture(scope="session")
-def platform_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
-    """会话级平台库：临时 `sys_tenant` 种子库（建库 / 播种整个测试会话只做一次）。
+def platform_db_url(shared_platform_db_url: str) -> str:
+    """会话级平台库：切到共享库（04-6-2 单库叠加口径）。
+
+    本套件不再自建 `tmp_path_factory` 库，改由 `tests_support.shared_db` 的准备集一次性建库
+    与播种（种子租户 + 主键对齐 + 服务目录）；`platform_db`（公共 autouse）照旧把连接串注入
+    `BMS_DATABASE__PLATFORM__URL`，故用例侧零改动。
 
     Args:
-        tmp_path_factory: pytest 临时目录工厂。
+        shared_platform_db_url: 共享平台库连接串（会话级、全 worker 共用）。
 
     Returns:
         str: 会话级平台库连接串。
     """
-    platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
-    asyncio.run(seed_tenants(platform_url))
-    return platform_url
+    return shared_platform_db_url

@@ -13,7 +13,10 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import fixtures
 from bms_core.testing.namespace import Namespace
 
-pytestmark = pytest.mark.kiwi_id(2399)
+pytestmark = [
+    pytest.mark.kiwi_id(2399),
+    pytest.mark.own_db("被测对象是共享库夹具：需用临时库验证建库一次 / 版本戳 / 残留锁 / 清理"),
+]
 
 
 def test_shared_db_created_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

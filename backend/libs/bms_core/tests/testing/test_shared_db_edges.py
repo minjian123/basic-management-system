@@ -10,7 +10,10 @@ import pytest
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import fixtures
 
-pytestmark = pytest.mark.kiwi_id(2399)
+pytestmark = [
+    pytest.mark.kiwi_id(2399),
+    pytest.mark.own_db("被测对象是共享库夹具：需用临时库验证选主 / 清理 / 就绪等待"),
+]
 
 
 def test_clear_shared_db_files_reports_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -108,11 +111,13 @@ def test_ready_wait_times_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_shared_db_url_fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """夹具入口：平台 / 租户各取对应逻辑数据源连接串。"""
+    """夹具入口：平台 / 租户各取对应逻辑数据源连接串，并把准备集版本戳透传下去。"""
     monkeypatch.chdir(tmp_path)
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
 
-    def _ensure(name: str, prepare: object) -> str:
+    def _ensure(name: str, prepare: object, *, version: str = "1") -> str:
         del prepare
+        calls.append(f"{name}:{version}")
         return f"url-{name}"
 
     def _no_prepare(request: object, name: str) -> None:
@@ -129,6 +134,7 @@ def test_shared_db_url_fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     tenant_fixture = cast("Any", fixtures.shared_tenant_db_url)
     assert platform_fixture.__wrapped__(request) == "url-platform"
     assert tenant_fixture.__wrapped__(request) == "url-tenant"
+    assert list(calls) == ["platform:1", "tenant:1"]
 
 
 def test_init_lock_acquires_and_releases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

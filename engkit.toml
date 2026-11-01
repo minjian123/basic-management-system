@@ -626,6 +626,8 @@ db_file_suffixes = [".db"]
 id_columns = ["id"]
 cleanup_calls = ["drop_all"]
 exclude_parts = ["__pycache__", ".venv", "node_modules", ".git"]
+# 共享测试基座：职责就是建库（04-6-2 单源准备集），不参与「用例自建库」判定
+base_modules = ["backend/tests_support/shared_db.py"]
 
 [rules.system_fields]
 table_dir = "bms文档/设计/数据库设计/数据表设计"

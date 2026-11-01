@@ -6,6 +6,8 @@
 """
 
 import asyncio
+import hashlib
+import inspect
 import os
 import tempfile
 import time
@@ -270,6 +272,37 @@ def clear_tenant_cache(app: object) -> None:
 TEST_DB_DIRNAME = "test"
 """会话测试库子目录名（落 `<仓内>/.cache/test/`，与覆盖率产物 `.cache/coverage/` 同区）。"""
 
+ISOLATED_ENV = "BMS_TEST_ISOLATED_DB"
+"""隔离调试开关（需求 04-6 第 3 条）：置 `1` 时共享库改落 basetemp 下的独立目录。"""
+
+_ISOLATED_DIRNAME = "test-db-isolated"
+"""隔离调试库目录名（`<basetemp>/test-db-isolated/`，仅单例调 bug 时使用）。"""
+
+_FALSE_VALUES = frozenset({"", "0", "false", "no"})
+
+
+def isolation_enabled() -> bool:
+    """是否处于隔离调试模式（`BMS_TEST_ISOLATED_DB=1`）。
+
+    仅用于单例调特定 bug 时拿一套干净库；默认关闭，单文件 / 单用例调试与 CI 同口径。
+
+    Returns:
+        bool: 开关是否打开。
+    """
+    return os.environ.get(ISOLATED_ENV, "").strip().lower() not in _FALSE_VALUES
+
+
+def isolation_notice() -> str:
+    """隔离调试模式的会话头提示（未开启时返回空串）。
+
+    Returns:
+        str: 空串或一行醒目提示。
+    """
+    if not isolation_enabled():
+        return ""
+    return f"[bms_testing_plugin] 当前为隔离调试模式（{ISOLATED_ENV}=1）：测试库落 {test_db_dir()}，结果不代表 CI 口径"
+
+
 _INIT_TIMEOUT = 120.0
 """共享库初始化等待上限（秒）；超时即红，不做无限等待。"""
 
@@ -281,12 +314,19 @@ _READY_POLL = 0.2
 
 
 def test_db_dir() -> Path:
-    """会话测试库目录（`<当前工作目录>/.cache/test`）。
+    """会话测试库目录。
+
+    常规模式落 `<当前工作目录>/.cache/test`（pytest 的工作目录是 `backend/`，即仓内缓存区）；
+    隔离调试模式（`BMS_TEST_ISOLATED_DB=1`）落 `<basetemp>/test-db-isolated`。
 
     Returns:
-        Path: 已创建的目录（pytest 的工作目录是 `backend/`，即仓内缓存区）。
+        Path: 已创建的目录。
     """
-    directory = Path.cwd() / ".cache" / TEST_DB_DIRNAME
+    if isolation_enabled():
+        base = Path(_sqlite_basetemp) if _sqlite_basetemp else Path(tempfile.gettempdir())
+        directory = base / _ISOLATED_DIRNAME
+    else:
+        directory = Path.cwd() / ".cache" / TEST_DB_DIRNAME
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
@@ -311,9 +351,7 @@ def clear_shared_db_files() -> ConcurrentStableList[str]:
     Returns:
         ConcurrentStableList[str]: 未能删除的文件名清单。
     """
-    directory = Path.cwd() / ".cache" / TEST_DB_DIRNAME
-    if not directory.exists():
-        return ConcurrentStableList()
+    directory = test_db_dir()
     failed: ConcurrentStableList[str] = ConcurrentStableList()
     for path in sorted(directory.glob("*")):
         name = path.name
@@ -413,16 +451,25 @@ def ensure_shared_db(
     """
     url = shared_db_url(name)
     ready = test_db_dir() / f"{name}.ready"
-    if ready.exists() and ready.read_text(encoding="utf-8").strip() == version:
+
+    def _is_ready() -> bool:
+        """就绪判据：标记存在且版本戳一致。
+
+        刻意**不**校验库文件大小：就绪标记代表「准备集已执行完毕」，准备集允许只写标记
+        （部分用例以假回调验证选主与等待逻辑）；库文件是否完整由准备集自身负责。
+        """
+        return ready.exists() and ready.read_text(encoding="utf-8").strip() == version
+
+    if _is_ready():
         return url
     with _init_lock(name):
         # 抢到锁后再判一次：可能上一个持锁者已经建好
-        if ready.exists() and ready.read_text(encoding="utf-8").strip() == version:
+        if _is_ready():
             return url
         (prepare or _default_prepare)(url)
         ready.write_text(version, encoding="utf-8")
     deadline = time.monotonic() + _INIT_TIMEOUT
-    while not (ready.exists() and ready.read_text(encoding="utf-8").strip() == version):
+    while not _is_ready():
         if time.monotonic() > deadline:
             listing = sorted(p.name for p in test_db_dir().glob("*"))
             raise TimeoutError(f"共享库就绪标记未出现：{ready}（目录内容 {listing}）") from None
@@ -431,21 +478,52 @@ def ensure_shared_db(
 
 
 def resolve_prepare(request: pytest.FixtureRequest, name: str) -> Callable[[str], None] | None:
-    """解析套件自定义的建库回调（夹具名 `shared_db_prepare`）。
+    """解析套件自定义的建库回调。
+
+    解析顺序（04-6-2 决策 15）：`{name}_db_prepare` → `shared_db_prepare`（兼容回退）。
+    platform / tenant 的准备内容不同（建表集与种子各异），故按数据源分别取名，
+    避免共用单一回调后靠库文件名猜数据源。
 
     Args:
         request: pytest 夹具请求。
-        name: 逻辑数据源名。
+        name: 逻辑数据源名（`platform` / `tenant`）。
 
     Returns:
         Callable[[str], None] | None: 回调；套件未提供时为 `None`（走缺省建表）。
     """
-    candidate = resolve_fixture(request, "shared_db_prepare")
-    if candidate is None:
-        return None
-    if callable(candidate):
-        return cast("Callable[[str], None]", candidate)
+    for fixture_name in (f"{name}_db_prepare", "shared_db_prepare"):
+        candidate = resolve_fixture(request, fixture_name)
+        if candidate is not None and callable(candidate):
+            return cast("Callable[[str], None]", candidate)
     return None
+
+
+def version_for(prepare: Callable[[str], None] | None) -> str:
+    """由准备集所在模块的源码派生 `.ready` 版本戳（准备内容一改即变）。
+
+    为什么自动派生：手写常量需要人记得改，忘了就是「改了种子但旧库沿用」——
+    现象是诡异的断言失败而非明确报错。取准备回调所在文件的摘要，改注释也会触发一次
+    重建（只影响下一次会话，可忽略）。
+
+    Args:
+        prepare: 建库回调；`None` 表示走缺省建表（版本戳固定 `1`）。
+
+    Returns:
+        str: 12 位十六进制摘要；无法定位源文件时返回 `1`。
+    """
+    if prepare is None:
+        return "1"
+    try:
+        source = inspect.getsourcefile(prepare)
+    except OSError, TypeError:
+        # 内置函数 / `exec` 动态编译的函数取不到源文件：退回缺省版本戳
+        return "1"
+    if not source:
+        return "1"
+    try:
+        return hashlib.sha256(Path(source).read_bytes()).hexdigest()[:12]
+    except OSError:
+        return "1"
 
 
 @pytest.fixture(scope="session")
@@ -458,7 +536,8 @@ def shared_platform_db_url(request: pytest.FixtureRequest) -> str:
     Returns:
         str: 平台库连接串。
     """
-    return ensure_shared_db("platform", resolve_prepare(request, "platform"))
+    prepare = resolve_prepare(request, "platform")
+    return ensure_shared_db("platform", prepare, version=version_for(prepare))
 
 
 @pytest.fixture(scope="session")
@@ -471,7 +550,8 @@ def shared_tenant_db_url(request: pytest.FixtureRequest) -> str:
     Returns:
         str: 租户库连接串。
     """
-    return ensure_shared_db("tenant", resolve_prepare(request, "tenant"))
+    prepare = resolve_prepare(request, "tenant")
+    return ensure_shared_db("tenant", prepare, version=version_for(prepare))
 
 
 @pytest.fixture
