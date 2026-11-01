@@ -3143,7 +3143,7 @@
   {
     "repo": "bms",
     "path": "backend/libs/bms_core/tests/testing/test_shared_db_prepare.py",
-    "tests": 12,
+    "tests": 17,
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
@@ -3291,7 +3291,7 @@
     "class": "B",
     "action": "机械改造",
     "batch": 2,
-    "evidence": "自建库：56: create_async_engine()；36: tmp_path_factory"
+    "evidence": "自建库：36: tmp_path_factory"
   },
   {
     "repo": "bms",
@@ -3333,10 +3333,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/account_lock/test_unlock.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库：46: create_async_engine()；46: 连接串字面量"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -4026,10 +4026,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/repositories/test_product_repository.py",
     "tests": 4,
-    "class": "B",
-    "action": "机械改造",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "自建库：28: create_async_engine()；28: 连接串字面量"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",

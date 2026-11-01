@@ -6,19 +6,19 @@
 """
 
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.api.deps import get_uow
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import AccountLockNotFoundError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.user import SysUser
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.user.repositories.user import UserRepository
 from tests_support.permission_admin import setup_min_tenant
 
@@ -43,23 +43,28 @@ def test_lock_error_code_registered() -> None:
     assert error.code == 30007 and error.http_status == 200
 
 
-async def _file_app(tmp_path: Path, service_app: FastAPI) -> tuple[AsyncEngine, async_sessionmaker[AsyncSession], int]:
-    """建文件级 SQLite 库 + 每请求新会话的 `get_uow` 覆盖；播种一个用户。
+async def _shared_app(
+    engine: AsyncEngine, service_app: FastAPI, ns: Namespace
+) -> tuple[async_sessionmaker[AsyncSession], int]:
+    """共享平台库 + 每请求新会话的 `get_uow` 覆盖；播种一个命名空间用户。
+
+    单库叠加口径：不再建临时库，表由 `create_all` 幂等补齐；用户名带命名空间前缀，
+    列表断言一律按 `user_id` 精确过滤，不看全表总数。
 
     Args:
-        tmp_path: pytest 临时目录。
+        engine: 共享平台库引擎。
         service_app: 应用实例。
+        ns: 用例命名空间。
 
     Returns:
-        tuple[AsyncEngine, async_sessionmaker[AsyncSession], int]: (引擎, 会话工厂, 用户主键)。
+        tuple[async_sessionmaker[AsyncSession], int]: (会话工厂, 用户主键)。
     """
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'locks.db'}")
     async with engine.begin() as conn:
         await conn.run_sync(SysUser.metadata.create_all)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     seed = factory()
     try:
-        user = await UserRepository(seed).create(username="u", password_hash="x", name="U")
+        user = await UserRepository(seed).create(username=ns.code("u"), password_hash="x", name="U")
         await seed.commit()
         user_id = user.id
     finally:
@@ -71,13 +76,15 @@ async def _file_app(tmp_path: Path, service_app: FastAPI) -> tuple[AsyncEngine, 
             yield DbUnitOfWork(session)
 
     service_app.dependency_overrides[get_uow] = override_uow
-    return engine, factory, user_id
+    return factory, user_id
 
 
 @pytest.mark.kiwi_id(2211)
-async def test_lock_endpoints_flow(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_lock_endpoints_flow(
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
+) -> None:
     """手动锁定 → 被锁 → 解锁恢复；列表 / 详情；非法筛选 10001。"""
-    engine, factory, user_id = await _file_app(tmp_path, service_app)
+    factory, user_id = await _shared_app(shared_platform_engine, service_app, ns)
 
     created = await client.post(API, json={"user_id": user_id, "reason": "违规处置"})
     assert created.status_code == 200
@@ -89,7 +96,7 @@ async def test_lock_endpoints_flow(client: AsyncClient, service_app: FastAPI, tm
     await check.close()
     assert locked_until is not None
 
-    listed = await client.get(API, params={"active": True})
+    listed = await client.get(API, params={"active": True, "user_id": user_id})
     assert listed.status_code == 200 and listed.json()["data"]["total"] == 1
 
     detailed = await client.get(f"{API}/{data['id']}")
@@ -111,27 +118,28 @@ async def test_lock_endpoints_flow(client: AsyncClient, service_app: FastAPI, tm
     missing = await client.put(f"{API}/9999/unlock")
     assert missing.status_code == 200 and missing.json()["code"] == 30007
 
-    await engine.dispose()
-
 
 @pytest.mark.kiwi_id(2211)
-async def test_lock_endpoints_reject_invalid_token(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_lock_endpoints_reject_invalid_token(
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
+) -> None:
     """无有效登录票据 → 401。"""
-    engine, _, _ = await _file_app(tmp_path, service_app)
+    await _shared_app(shared_platform_engine, service_app, ns)
 
     denied = await client.get(API, headers={"Authorization": "Bearer bogus"})
     assert denied.status_code == 401
 
-    await engine.dispose()
-
 
 @pytest.mark.kiwi_id(2211)
-async def test_list_locks_empty_skips_user_batch(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
-    """空清单：无锁定记录时用户批量取数短路（空集合直接返回空映射，不查用户表）。"""
-    engine, _, _ = await _file_app(tmp_path, service_app)
+async def test_list_locks_empty_skips_user_batch(
+    client: AsyncClient, service_app: FastAPI, shared_platform_engine: AsyncEngine, ns: Namespace
+) -> None:
+    """空清单：无锁定记录时用户批量取数短路（空集合直接返回空映射，不查用户表）。
 
-    listed = await client.get(API)
+    单库叠加口径：按本用例新建用户（无任何锁定记录）精确过滤，断言「该用户的清单为空」。
+    """
+    _, user_id = await _shared_app(shared_platform_engine, service_app, ns)
+
+    listed = await client.get(API, params={"user_id": user_id})
     assert listed.status_code == 200
     assert listed.json()["data"] == {"list": [], "total": 0, "page": 1, "size": 20}
-
-    await engine.dispose()

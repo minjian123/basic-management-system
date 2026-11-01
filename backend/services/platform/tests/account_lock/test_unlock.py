@@ -5,7 +5,6 @@
 """
 
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -14,6 +13,7 @@ from bms_core.config.null import NullConfigSource
 from bms_core.core.exceptions import AccountLockNotFoundError, ConcurrentConflictError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.user import LOCK_TYPE_MANUAL, UNLOCK_MODE_MANUAL, SysUser
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.user.repositories.account_lock import AccountLockRepository
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.services.account_lock import MANUAL_LOCK_SENTINEL, AccountLockService
@@ -34,20 +34,22 @@ async def _memory_session() -> tuple[AsyncSession, AsyncEngine]:
     return factory(), engine
 
 
-async def _file_sessions(tmp_path: Path) -> tuple[AsyncSession, AsyncSession, AsyncEngine]:
-    """建共享文件的 SQLite 两个会话（用于并发乐观锁用例）。
+async def _shared_sessions(engine: AsyncEngine) -> tuple[AsyncSession, AsyncSession]:
+    """在共享平台库上开两个会话（并发乐观锁用例用）。
+
+    单库叠加口径：不再建临时库；表由 `create_all` 幂等补齐，用例数据按命名空间前缀写入，
+    断言只看自己创建的行。
 
     Args:
-        tmp_path: pytest 临时目录。
+        engine: 共享平台库引擎。
 
     Returns:
-        tuple[AsyncSession, AsyncSession, AsyncEngine]: (会话 A, 会话 B, 引擎)。
+        tuple[AsyncSession, AsyncSession]: (会话 A, 会话 B)。
     """
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'lock.db'}")
     async with engine.begin() as conn:
         await conn.run_sync(SysUser.metadata.create_all)
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    return factory(), factory(), engine
+    return factory(), factory()
 
 
 def _service(session: AsyncSession) -> AccountLockService:
@@ -123,10 +125,10 @@ async def test_unlock_skips_missing_account() -> None:
 
 
 @pytest.mark.kiwi_id(2211)
-async def test_unlock_concurrent_optimistic_conflict(tmp_path: Path) -> None:
+async def test_unlock_concurrent_optimistic_conflict(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
     """并发解锁：后到者乐观锁冲突 → `ConcurrentConflictError`（10004）。"""
-    session_a, session_b, engine = await _file_sessions(tmp_path)
-    user = await UserRepository(session_a).create(username="u", password_hash="x", name="U")
+    session_a, session_b = await _shared_sessions(shared_platform_engine)
+    user = await UserRepository(session_a).create(username=ns.code("u"), password_hash="x", name="U")
     lock = await AccountLockRepository(session_a).create(
         user_id=user.id, lock_type=LOCK_TYPE_MANUAL, reason="r", locked_at=_LOCKED_AT
     )
@@ -150,4 +152,3 @@ async def test_unlock_concurrent_optimistic_conflict(tmp_path: Path) -> None:
 
     await session_a.close()
     await session_b.close()
-    await engine.dispose()
