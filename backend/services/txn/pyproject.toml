@@ -28,4 +28,5 @@ pythonpath = ["../.."]
 markers = [
     "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",
     "integration: 需要真实外部服务的集成用例（未配置环境时跳过）",
+    "own_db: 用例自建库 / 自持库状态（单库化白名单，04-6-2）",
 ]
