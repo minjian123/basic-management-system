@@ -3549,10 +3549,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/api/test_role_api.py",
     "tests": 13,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "已有 own_db 白名单（被测对象是角色域 CRUD 与授权 / 字段 / 数据权限全链，需逐例清空的菜单元数据十二表与角色五表作起点；共享库上整表清场会破坏并行中他人用例的数据）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
@@ -3612,10 +3612,10 @@
     "repo": "bms",
     "path": "backend/services/platform/tests/config/test_config_admin_api.py",
     "tests": 10,
-    "class": "D",
-    "action": "own_db 白名单",
+    "class": "A",
+    "action": "不动",
     "batch": 2,
-    "evidence": "已有 own_db 白名单（被测对象是参数管理 API 的完整契约（新增派生 / 重复键 / 依赖双向 / 重置回填平台默认 / 删除保护 / 回收站），其前提是库中平台默认键尚无覆盖行；共享库已播种全部平台默认参数）"
+    "evidence": "无自建库痕迹"
   },
   {
     "repo": "bms",
