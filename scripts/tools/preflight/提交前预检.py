@@ -8,13 +8,17 @@
 
 - `scoped_tests` → 定向执行器（选测 + 覆盖率门禁 100% + 扩圈），只跑改动触及的用例；
 - `ruff` / `pyright` → 只跑改动文件（按步骤作用域筛 `backend/` 与 `scripts/`）；
-- 支持 `--files-from` 的护栏（集合声明 / 雪花 ID / 测试库隔离 / 产品字面量 / 服务边界）→ 追加改动清单，
-  由 `[[devloop.steps]]` 自动识别（零白名单维护）；
-- 其余步骤（基座完整性、契约快照、域布局、跨仓对账等**零漂移 / 一致性判定**）→ 原样执行：
-  这类判定的语义是「全仓口径一致」，无法只判改动文件，但都是秒级；
-- **执行范围会覆盖未改动文件的步骤**（如前端 `tsc`/`vue-tsc`：检查单元是整个工程，还会按依赖闭包
-  把未改动的下游工程一起验）→ 登记进 `FULL_SCAN_STEPS`：本次改动不触及则不跑，触及则**立即报错**
-  拒绝提交，需 `--allow-full-steps` 显式放行；
+- 支持 `--files-from` 的步骤 → 追加改动清单，清单经**标准输入管道**喂给子进程（不落临时文件）：
+  - 脚本级 12 个（`check_base` / `check_system_fields` / `check_backend_base` / `check_env_example` /
+    `boundary_metrics` / `check_docs_scope` / `check_status` / 集合声明 / 雪花 ID / 测试库隔离 /
+    产品字面量 / 服务边界），由 `[[devloop.steps]]` 带 `--files-from` 自动识别（零白名单维护）；
+  - 模块级 6 个（`ops.check_contracts` / `ops.contract_snapshot` / `ops.event_contracts` /
+    `ops.gateway_config` / `ops.check_modules` / `api-types`），登记在 `MODULE_INCREMENTAL`；
+  - `check_ci_config.py`：步骤命令在 `engkit.toml` 里不带 `--files-from`（推送环走全量），
+    由 `SCRIPT_INCREMENTAL` 显式登记；
+- **执行范围会覆盖未改动文件的步骤**（`tsc` / `vue-tsc` 的检查单元是整个工程，还会按依赖闭包
+  把未改动的下游工程一起验）→ 登记进 `FULL_SCAN_STEPS`（目前只有「前端类型」一项）：
+  本次改动不触及则不跑，触及则**立即报错**拒绝提交，需 `--allow-full-steps` 显式放行；
 - `full_tests` / `project_tests`（仅 CI）→ 跳过并注明。
 
 用法::

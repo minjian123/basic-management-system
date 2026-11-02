@@ -6,6 +6,8 @@
 # 目录内容
 #   engkit_boot.py        engkit 定位：先 import，失败按 ENGKIT_HOME → 同级 ../engkit 注入 sys.path
 #   推送.py               推送入口：转发 `engkit push`（先预检、通过才推送；位置根 → --root）
+#   提交前预检.py          提交前门禁：跑 `[[preflight.steps]]` 全部步骤、范围收敛到改动文件（`.git/hooks/pre-commit` 调用）
+#   install_precommit_hook.py 提交前钩子安装 / 校验 / 卸载（`--check` / `--remove`；重装后再校验）
 #   run_selected.py       定向执行器：转发 `engkit run_selected`
 #   测试改动内容.py        开发环：转发 `engkit run-changed`（只跑改动相关：直接依赖测试 + 前端受影响包 + 改动文件 ruff）
 #   test_selection.py     选测器：转发 `engkit selection`
@@ -17,6 +19,7 @@
 #   install_guard_hook.py 钩子安装 / 校验 / 卸载：转发 `engkit guard install-hook|check-hook|remove-hook`
 #   check_ci_config.py    本仓专属：CI / 编排 YAML 解析 + pytest 选项校验 + GitLab Lint + 门禁资产
 #   check_frontend_types.py 本仓专属：按变更逐包 typecheck / build
+#   check_workspace_hygiene.py 本仓专属：工作区卫生（临时 / 日志落点自查；`--clean` 隔离到 `tmp/_quarantine/`）
 #
 # 用法（在 bms 仓库根）
 #   python3 scripts/tools/preflight/测试改动内容.py           # 开发环：只跑 git 改动相关（推荐改 bug 即测）
@@ -37,6 +40,18 @@
 #
 # 预检步骤不再写在本目录：**步骤清单在仓根 `engkit.toml` 的 `[[preflight.steps]]`**，改步骤即改配置；
 # 逐条口径（静态 / 测试段 / 基座与边界 / 契约 / 前端 / 自测按需）见该文件注释与 engkit 文档。
+#
+# 提交前门禁（`提交前预检.py`，装为 `.git/hooks/pre-commit`）：**步骤表与推送预检同源**（同一份
+# `[[preflight.steps]]`，一步不少），范围按「能增量就增量」——
+#   · 选测 → 定向执行器（选测 + 覆盖率门禁 + 扩圈），只跑改动触及的用例；
+#   · `ruff` / `pyright` → 只跑改动文件；
+#   · 脚本级 12 个 + 模块级 6 个步骤 → 追加 `--files-from -`，清单经**标准输入管道**喂入（不落盘，
+#     回避 Windows 命令行长度上限）；是否增量由 `[[devloop.steps]]` 带 `--files-from` 自动识别；
+#   · 本次改动不触及的步骤 → 记「本次改动不触及」，不跑；
+#   · **只剩「前端类型」一项**因 `tsc` / `vue-tsc` 的检查单元是整个工程（还按依赖闭包带上未改动的
+#     下游工程）而登记于 `FULL_SCAN_STEPS`：触及即**报错拒绝提交**，需 `--allow-full-steps` 显式放行。
+# 新增预检步骤若未登记进 `RUNNABLE_STEPS` / `FULL_SCAN_STEPS`，门禁 **fail-closed 直接拒绝**——
+# 不允许出现「新加一步、提交前悄悄扫全仓」。
 #
 # 运行前提（13_07 起）
 #   本地：`uv sync` 按 git 源依赖装好 engkit 包（`backend/pyproject.toml` 的 `[tool.uv.sources]`），
