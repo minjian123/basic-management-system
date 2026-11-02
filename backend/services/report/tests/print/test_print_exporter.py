@@ -378,3 +378,102 @@ async def test_templates_mapping_with_stub_provider(service_app: FastAPI) -> Non
             assert detail.json()["data"]["biz_type"] == "sale"
     finally:
         service_app.dependency_overrides.pop(get_print_template_provider, None)
+
+
+@pytest.mark.kiwi_id(906)
+async def test_export_and_batch_accept_render_options(service_app: FastAPI) -> None:
+    """渲染选项透传：纸张 / 方向 / 色调 / 水印 / 打印人全部进能力域选项。"""
+    storage = LocalObjectStorage(root=_storage_root())
+    service_app.dependency_overrides[get_print_exporter] = lambda: _real_exporter(storage)
+    options = {
+        "paper": "A4",
+        "orientation": "landscape",
+        "tone": "mono",
+        "watermark": "内部资料",
+        "printed_by": "张三",
+    }
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
+            exported = await client.post(
+                f"{API}/exports",
+                json={
+                    "template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY,
+                    "document": {"biz_key": "SO-OPT"},
+                    "options": options,
+                },  # pyright: ignore[reportUnknownArgumentType]
+            )
+            assert exported.status_code == 200, exported.text
+            assert exported.json()["data"]["object_key"]
+
+            batched = await client.post(
+                f"{API}/batch",
+                json={
+                    "template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY,
+                    "keys": ["A"],
+                    "options": options,
+                },  # pyright: ignore[reportUnknownArgumentType]
+            )
+            assert batched.status_code == 200, batched.text
+            assert batched.json()["data"]["succeeded"] == 1
+    finally:
+        service_app.dependency_overrides.pop(get_print_exporter, None)
+
+
+@pytest.mark.kiwi_id(906)
+async def test_export_idempotency_without_cached_payload_renders(service_app: FastAPI) -> None:
+    """幂等键已占位但首次结果缺失：照常渲染（不返回空响应）。"""
+    storage = LocalObjectStorage(root=_storage_root())
+    service_app.dependency_overrides[get_print_exporter] = lambda: _real_exporter(storage)
+
+    class _LostPayloadIdempotency(_RecordingIdempotency):
+        """`begin` 恒 False（键已存在）、`load` 恒 None（结果未落）。"""
+
+        async def begin(self, key: str, *, ttl: int | None = None) -> bool:
+            """恒视为非首次。"""
+            del ttl
+            self.keys.add(key)
+            return False
+
+        async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
+            """首次结果缺失。"""
+            del key
+            return None
+
+    service_app.dependency_overrides[get_idempotency_store] = lambda: _LostPayloadIdempotency()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
+            response = await client.post(
+                f"{API}/exports",
+                json={"template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY, "document": {"biz_key": "SO-2"}},
+                headers={"Idempotency-Key": "print-lost"},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["data"]["object_key"]
+    finally:
+        service_app.dependency_overrides.pop(get_print_exporter, None)
+        service_app.dependency_overrides.pop(get_idempotency_store, None)
+
+
+@pytest.mark.kiwi_id(906)
+async def test_batch_idempotency_reuses_first_result(service_app: FastAPI) -> None:
+    """批量打印按幂等键复用首次结果（第二次不再渲染）。"""
+    storage = LocalObjectStorage(root=_storage_root())
+    idempotency = _RecordingIdempotency()
+    service_app.dependency_overrides[get_print_exporter] = lambda: _real_exporter(storage)
+    service_app.dependency_overrides[get_idempotency_store] = lambda: idempotency
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
+            body = {"template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY, "keys": ["A", "B"]}
+            headers = {"Idempotency-Key": "batch-1"}
+            first = await client.post(f"{API}/batch", json=body, headers=headers)  # pyright: ignore[reportUnknownArgumentType]
+            second = await client.post(f"{API}/batch", json=body, headers=headers)  # pyright: ignore[reportUnknownArgumentType]
+            assert first.status_code == 200, first.text
+            assert second.status_code == 200, second.text
+            assert first.json()["data"]["total"] == second.json()["data"]["total"] == 2
+            assert len(set(idempotency.keys)) == 1
+    finally:
+        service_app.dependency_overrides.pop(get_print_exporter, None)
+        service_app.dependency_overrides.pop(get_idempotency_store, None)

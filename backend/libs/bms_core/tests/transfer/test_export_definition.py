@@ -70,6 +70,8 @@ def test_parse_ids_ok_and_dedup() -> None:
     assert tuple(parse_ids(None)) == ()
     assert tuple(parse_ids("  ")) == ()
     assert tuple(parse_ids(" 3, 1 ,3,2 ")) == (3, 1, 2)
+    # 连续 / 尾随逗号产生的空段跳过（不当作非法主键）
+    assert tuple(parse_ids("1,,2,")) == (1, 2)
 
 
 @pytest.mark.parametrize("raw", ["abc", "1,-2", "0", "1.5"])

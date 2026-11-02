@@ -256,3 +256,100 @@ async def test_batch_over_threshold_submits_job(app_with_stubs: FastAPI) -> None
     assert payload["template_key"] == "generic_document"
     assert len(cast("ConcurrentStableList[object]", payload["keys"])) == 2
     assert len(cast("ConcurrentStableList[object]", payload["documents"])) == 1
+
+
+class _PartialFailExporter(_FakeExporter):
+    """打印导出替身：整批部分失败（验证失败汇总与告警分支）。"""
+
+    async def batch_print(
+        self,
+        keys: ConcurrentStableList[str],
+        *,
+        template_key: str,
+        mode: str = "separate",
+        options: PrintOptions | None = None,
+        documents: ConcurrentStableList[PrintDocument] | None = None,
+    ) -> PrintBatchResult:
+        """批量打印：成功 1 / 失败 1。"""
+        del mode, options, documents
+        item = PrintExportResult(
+            object_key=f"demo/prints/{template_key}/{keys[0]}.pdf",
+            file_name="a.pdf",
+            size=10,
+            content_type=PRINT_CONTENT_TYPE,
+            url="file://a.pdf",
+            expires_in=60,
+        )
+        return PrintBatchResult(
+            total=len(keys),
+            succeeded=1,
+            failed=1,
+            items=ConcurrentStableList((item,)),
+            message="部分单据渲染失败",
+        )
+
+
+async def test_batch_job_reports_partial_failure() -> None:
+    """作业体：部分失败仍回成功终态，汇总带失败计数。"""
+    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {"template_key": "generic_document", "keys": ConcurrentStableList(("A", "B"))}
+    )
+    result = await PrintBatchJob(exporter=_PartialFailExporter()).run(_context(payload))
+    output = cast("ConcurrentStableDict[str, object]", result.output)
+    assert result.status == "succeeded"
+    assert output["succeeded"] == 1
+    assert output["failed"] == 1
+
+
+class _TolerantExporter(_FakeExporter):
+    """打印导出替身：不索引键集合（空集合也回空汇总）。"""
+
+    async def batch_print(
+        self,
+        keys: ConcurrentStableList[str],
+        *,
+        template_key: str,
+        mode: str = "separate",
+        options: PrintOptions | None = None,
+        documents: ConcurrentStableList[PrintDocument] | None = None,
+    ) -> PrintBatchResult:
+        """批量打印：按入参回汇总（空集合回零）。"""
+        self.calls.add(
+            ConcurrentStableDict(
+                {"keys": len(keys), "mode": mode, "documents": 0 if documents is None else len(documents)}
+            )
+        )
+        return PrintBatchResult(total=len(keys), succeeded=len(keys), failed=0, items=ConcurrentStableList())
+
+
+async def test_batch_job_tolerates_broken_payload_items() -> None:
+    """作业体：键集合非可迭代 / 单据数据含非映射项 / 明细行含非映射项均按空处理。"""
+    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "template_key": "generic_document",
+            "keys": "not-a-list",
+            "documents": ConcurrentStableList(
+                ("bad", {"biz_key": None, "rows": ConcurrentStableList(("x", {"项": "值"}))})
+            ),
+        }
+    )
+    # 键集合非可迭代 → 空集合；单据数据里的非映射项 / 非映射明细行按空处理
+    result = await PrintBatchJob(exporter=_TolerantExporter()).run(_context(payload))
+    assert result.status == "succeeded"
+    assert cast("ConcurrentStableDict[str, object]", result.output)["total"] == 0
+
+
+def test_module_exporter_resolves_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """模块级导出器解析：按配置项经插件注册表取实现。"""
+    from bms_report.domains.report import jobs as report_jobs
+
+    stub = object()
+    seen: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _resolve(plugin_key: str, plugin_name: str, *, expected_version: str | None = None) -> object:
+        seen.add(f"{plugin_key}:{plugin_name}")
+        return stub
+
+    monkeypatch.setattr(report_jobs, "resolve_plugin", _resolve)
+    assert report_jobs._exporter() is stub  # pyright: ignore[reportPrivateUsage]
+    assert list(seen) == ["print_exporter:reportlab"]

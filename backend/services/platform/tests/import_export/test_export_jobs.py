@@ -30,7 +30,7 @@ from bms_core.print.exporter import StoragePrintExporter
 from bms_core.print.templates import BuiltinPrintTemplateProvider
 from bms_core.storage.local import LocalObjectStorage
 from bms_core.testing.schema import ensure_tables
-from bms_core.transfer.artifacts import ObjectStorageExportArtifactStore
+from bms_core.transfer.artifacts import ExportArtifactStore, ObjectStorageExportArtifactStore
 from bms_core.transfer.export_limits import ExportLimits
 from bms_core.transfer.openpyxl_exporter import OpenpyxlExporter
 from bms_platform.domains.import_export.export_jobs import ExportCleanupJob, ExportExecuteJob
@@ -219,5 +219,223 @@ async def test_cleanup_job_deletes_expired_artifact_only(env: _Env) -> None:
 
     async with env.factory() as session:
         jobs = (await session.execute(SysJob.__table__.select())).all()
-    expired_rows = [row for row in jobs if row.result and "expired_at" in row.result]
-    assert len(expired_rows) == 1
+    # 共享库带其他用例的作业：只判本用例两条的标记结果
+    own = [row for row in jobs if row.result and ("old.xlsx" in row.result or "new.xlsx" in row.result)]
+    assert len([row for row in own if "expired_at" in row.result]) == 1
+    assert len([row for row in own if "expired_at" not in row.result]) == 1
+
+
+def _canceled_context(env: _Env, payload: ExportPayload) -> JobContext:
+    """构造「已请求取消」的作业上下文。"""
+
+    @asynccontextmanager
+    async def _open() -> AsyncGenerator[AsyncSession]:
+        async with env.factory() as session:
+            yield session
+
+    async def _report(done: int, total: int | None) -> None:
+        return None
+
+    async def _cancelled() -> bool:
+        return True
+
+    return JobContext(
+        job_id=2,
+        job_type=JOB_TYPE,
+        service_key="platform",
+        db_key="tenant_demo",
+        payload=payload.to_job_payload(),
+        tenant_id=None,
+        max_attempts=1,
+        open_session=_open,
+        progress_reporter=_report,
+        cancel_checker=_cancelled,
+    )
+
+
+async def test_execute_job_canceled_before_store(env: _Env) -> None:
+    """进度回调处发现已取消：作业回取消终态（不落产物）。"""
+    result = await _job(env).run(_canceled_context(env, _payload()))
+    assert result.status == "canceled"
+
+
+async def test_cleanup_job_skips_marked_and_missing_key(env: _Env) -> None:
+    """清理：已标记跳过、无产物键只标记不删、删除失败计 failed 且不中断。"""
+    await env.storage.put("demo/exports/users/ok.xlsx", b"PK", content_type="application/octet-stream")
+    expired_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=30)
+    async with env.factory() as session:
+        session.add_all(
+            [
+                SysJob(
+                    job_type=JOB_TYPE,
+                    service_key="platform",
+                    domain_key="import_export",
+                    status=JOB_STATUS_SUCCEEDED,
+                    payload="{}",
+                    result='{"object_key": "demo/exports/users/ok.xlsx", "expired_at": "2026-01-01T00:00:00Z"}',
+                    finished_at=expired_at,
+                ),
+                SysJob(
+                    job_type=JOB_TYPE,
+                    service_key="platform",
+                    domain_key="import_export",
+                    status=JOB_STATUS_SUCCEEDED,
+                    payload="{}",
+                    result='{"file_name": "no-key.xlsx"}',
+                    finished_at=expired_at,
+                ),
+                SysJob(
+                    job_type=JOB_TYPE,
+                    service_key="platform",
+                    domain_key="import_export",
+                    status=JOB_STATUS_SUCCEEDED,
+                    payload="{}",
+                    result='{"object_key": "demo/exports/users/missing.xlsx"}',
+                    finished_at=expired_at,
+                ),
+            ]
+        )
+        await session.commit()
+
+    result = await ExportCleanupJob(
+        artifacts=cast("ExportArtifactStore", _FailingDeleteStore(env.artifacts)),
+        limits=ExportLimits(),
+    ).run(_context(env, _payload()))
+    output = cast("ConcurrentStableDict[str, object]", result.output)
+    # 已标记的那条不计入扫描；无键与删除失败两条计入
+    assert int(cast("int", output["scanned"])) >= 2
+    assert int(cast("int", output["failed"])) >= 1
+    # 已标记记录的产物未被删除
+    assert await env.storage.exists("demo/exports/users/ok.xlsx")
+
+
+async def test_cleanup_job_canceled_stops_loop(env: _Env) -> None:
+    """清理：批间发现取消即停止，仍回成功汇总。"""
+    expired_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=30)
+    async with env.factory() as session:
+        session.add(
+            SysJob(
+                job_type=JOB_TYPE,
+                service_key="platform",
+                domain_key="import_export",
+                status=JOB_STATUS_SUCCEEDED,
+                payload="{}",
+                result='{"file_name": "cancel.xlsx"}',
+                finished_at=expired_at,
+            )
+        )
+        await session.commit()
+
+    result = await ExportCleanupJob(artifacts=env.artifacts, limits=ExportLimits()).run(
+        _canceled_context(env, _payload())
+    )
+    assert result.status == "succeeded"
+
+
+def test_result_helpers_tolerate_missing_and_broken_json() -> None:
+    """结果读写助手：空值 / 非法 JSON 按「无标记」处理，已标记的原样保留。"""
+    from bms_platform.domains.import_export import export_jobs
+
+    _is_expired = export_jobs._is_expired
+    _with_expired = export_jobs._with_expired
+
+    assert _is_expired(None) is False
+    assert _is_expired("not-json") is False
+    assert _is_expired('{"expired_at": "2026-01-01T00:00:00Z"}') is True  # pyright: ignore[reportPrivateUsage]
+
+    assert "expired_at" in _with_expired(None)
+    assert "expired_at" in _with_expired("not-json")
+    assert "expired_at" in _with_expired('{"object_key": "k"}')
+    assert _with_expired('{"expired_at": "keep"}') == '{"expired_at": "keep"}'  # pyright: ignore[reportPrivateUsage]
+
+
+def test_worker_dependency_resolvers_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """worker 依赖解析：服务间客户端不可用时回落空实现，参数源 / 插件按实现解析。"""
+    from bms_core.config.null import NullConfigSource
+    from bms_core.core.exceptions import ServiceUnavailableError
+    from bms_core.servicecall.null import NullServiceClient
+    from bms_platform.domains.import_export import export_jobs
+
+    def _unavailable() -> object:
+        raise ServiceUnavailableError("未启用")
+
+    monkeypatch.setattr(export_jobs, "build_service_client", _unavailable)
+    client = export_jobs._service_client()  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(client, NullServiceClient)
+    assert isinstance(export_jobs._config_source(), NullConfigSource)  # pyright: ignore[reportPrivateUsage]
+
+    plugins: ConcurrentStableList[str] = ConcurrentStableList()
+    stub = object()
+
+    def _resolve(plugin_key: str, plugin_name: str, *, expected_version: str | None = None) -> object:
+        plugins.add(f"{plugin_key}:{plugin_name}")
+        return stub
+
+    monkeypatch.setattr(export_jobs, "resolve_plugin", _resolve)
+    settings = get_settings()
+    assert export_jobs._artifacts(settings) is not None  # pyright: ignore[reportPrivateUsage]
+    assert export_jobs._excel_exporter(settings) is stub  # pyright: ignore[reportPrivateUsage]
+    assert export_jobs._print_exporter(settings) is stub  # pyright: ignore[reportPrivateUsage]
+    assert list(plugins) == ["object_storage:local", "exporter:openpyxl", "print_exporter:reportlab"]
+
+    # 服务间客户端可用时参数源走 HTTP 实现
+    monkeypatch.setattr(export_jobs, "build_service_client", lambda: object())
+    assert export_jobs._config_source() is not None  # pyright: ignore[reportPrivateUsage]
+
+
+class _FailingDeleteStore:
+    """产物端口替身：删除恒抛（验证单条失败不阻断整批）。"""
+
+    def __init__(self, inner: ObjectStorageExportArtifactStore) -> None:
+        """初始化。
+
+        Args:
+            inner: 真实端口（预签名走真实实现）。
+        """
+        self._inner = inner
+
+    async def delete(self, key: str) -> None:
+        """删除恒失败。
+
+        Args:
+            key: 产物对象 key。
+
+        Raises:
+            RuntimeError: 恒抛（模拟存储不可用）。
+        """
+        raise RuntimeError(f"存储不可用：{key}")
+
+    async def presign(self, key: str, *, expires_in: int = 60) -> object:
+        """预签名委托真实实现。"""
+        return await self._inner.presign(key, expires_in=expires_in)
+
+
+async def test_cleanup_job_with_all_marked_skips_marking(env: _Env) -> None:
+    """清理：批内作业全部已标记 ⇒ 不重复写标记（空集合直接返回）。"""
+    expired_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=30)
+    async with env.factory() as session:
+        session.add(
+            SysJob(
+                job_type=JOB_TYPE,
+                service_key="platform",
+                domain_key="import_export",
+                status=JOB_STATUS_SUCCEEDED,
+                payload="{}",
+                result='{"object_key": "demo/exports/users/marked.xlsx", "expired_at": "2026-01-01T00:00:00Z"}',
+                finished_at=expired_at,
+            )
+        )
+        await session.commit()
+
+    result = await ExportCleanupJob(artifacts=env.artifacts, limits=ExportLimits()).run(_context(env, _payload()))
+    output = cast("ConcurrentStableDict[str, object]", result.output)
+    assert int(cast("int", output["scanned"])) == 0
+    assert int(cast("int", output["cleaned"])) == 0
+
+
+async def test_mark_expired_skips_missing_job(env: _Env) -> None:
+    """标记过期：作业主键不存在时跳过（不抛错、不写脏数据）。"""
+    from bms_platform.domains.import_export import export_jobs
+
+    _mark_expired = export_jobs._mark_expired
+    await _mark_expired(_context(env, _payload()), ConcurrentStableList((999999,)))

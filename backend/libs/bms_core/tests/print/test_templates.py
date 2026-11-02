@@ -58,3 +58,17 @@ def test_registry_add_and_get() -> None:
     assert [item.key for item in registry.all()] == sorted(
         [DEFAULT_DOCUMENT_TEMPLATE_KEY, DEFAULT_LIST_TEMPLATE_KEY, "demo_template"]
     )
+
+
+def test_register_builtin_template_extends_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """扩展入口：新模板登记进注册表并可被来源取到（重名即拒）。"""
+    from bms_core.print import templates as templates_module
+
+    isolated = BuiltinTemplateRegistry()
+    monkeypatch.setattr(templates_module, "_REGISTRY", isolated)
+
+    added = templates_module.register_builtin_template(PrintTemplateInfo(key="demo_template", name="演示模板"))
+    assert added.key == "demo_template"
+    assert isolated.get("demo_template").name == "演示模板"
+    with pytest.raises(ValueError, match="重复"):
+        templates_module.register_builtin_template(PrintTemplateInfo(key="demo_template", name="重复"))

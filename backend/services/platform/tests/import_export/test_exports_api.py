@@ -399,3 +399,53 @@ async def test_export_rate_limited(env: _Env) -> None:
     assert first.status_code == 200
     second = await env.client.get(f"{API}/users")
     assert second.status_code == 429
+
+
+async def test_export_status_filter(env: _Env) -> None:
+    """状态筛选参数透传导出取数（与列表同口径）。"""
+    response = await env.client.get(f"{API}/users", params={"status": "enabled"})
+    assert response.status_code == 200
+    rows = _sheet_rows(response.content)
+    body = _body_rows(rows)
+    assert body
+    assert all(str(row[4]) == "启用" for row in body)
+
+
+async def test_export_roles_ids_selection(env: _Env) -> None:
+    """角色导出按 ids 选中（仓储 ids 条件）。"""
+    listed = await env.client.get("/api/v1/roles", params={"size": 1})
+    target = _first_id(listed)
+    response = await env.client.get(f"{API}/roles", params={"ids": target})
+    rows = _sheet_rows(response.content)
+    assert len(rows) == 2
+
+
+async def test_export_job_status_success(env: _Env) -> None:
+    """异步导出后查状态：回作业状态与进度（产物未生成时 artifact 为空）。"""
+    env.config.override("export.sync_max_rows", "1")
+    accepted = await env.client.get(f"{API}/users")
+    job_id = int(cast("int", _data(accepted)["job_id"]))
+    response = await env.client.get(f"{API}/jobs/{job_id}")
+    assert response.status_code == 200, response.text
+    data = _data(response)
+    assert int(cast("int", data["job_id"])) == job_id
+    assert str(data["status"])
+    assert str(data["kind"]) == "excel"
+    assert data["artifact"] is None
+
+
+async def test_export_list_pdf_empty(env: _Env) -> None:
+    """列表 PDF 0 行：回空结果，不落产物。"""
+    response = await env.client.get(f"{API}/users/pdf", params={"kw": "not-exists-user"})
+    assert response.status_code == 200
+    assert _data(response)["empty"] is True
+
+
+async def test_export_list_pdf_async(env: _Env) -> None:
+    """列表 PDF 超同步上限：转后台作业并回受理。"""
+    env.config.override("export.pdf.sync_max_docs", "1")
+    response = await env.client.get(f"{API}/users/pdf")
+    assert response.status_code == 200, response.text
+    data = _data(response)
+    assert data["async"] is True
+    assert int(cast("int", data["job_id"])) > 0

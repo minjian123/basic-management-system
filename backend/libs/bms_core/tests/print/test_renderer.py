@@ -126,3 +126,46 @@ def test_font_path_invalid_raises() -> None:
     """TTF 路径不存在时注册失败（渲染器构造即报错，不静默降级）。"""
     with pytest.raises(TTFError):
         ReportPdfRenderer(config=PdfRenderConfig(font_path="missing-font.ttf"))
+
+
+def test_render_document_without_biz_key_and_null_field() -> None:
+    """单据键为空不渲染编号行；字段值为空输出空串（不落 `None`）。"""
+    renderer = ReportPdfRenderer()
+    document = PrintDocument(
+        biz_key=None,
+        fields=ConcurrentStableDict({"客户": None, "金额": 100}),
+        rows=ConcurrentStableList(),
+    )
+    data = renderer.render_document(_TEMPLATE, document)
+    assert data.startswith(b"%PDF")
+    # 与带单据键的同字段单据产出不同（编号行确实未渲染）
+    assert data != renderer.render_document(_TEMPLATE, _document(rows=0))
+
+
+def test_footer_renders_printed_by() -> None:
+    """页脚含打印人（左）/ UTC 时间（中）/ 页码（右）。"""
+    renderer = ReportPdfRenderer()
+    data = renderer.render_list(
+        "t",
+        _COLUMNS,
+        ConcurrentStableList(),
+        PrintOptions(printed_by="张三"),
+    )
+    assert data.startswith(b"%PDF")
+    assert _page_count(data) >= 1
+
+
+def test_font_path_registers_and_reuses_ttf() -> None:
+    """TTF 路径有效时按配置名注册；同名二次构造直接复用（不重复注册）。"""
+    from pathlib import Path
+
+    import reportlab
+
+    vera = Path(reportlab.__file__).resolve().parent / "fonts" / "Vera.ttf"
+    assert vera.is_file()
+    config = PdfRenderConfig(font_path=str(vera), font_name="BMS-TEST-TTF", footer_enabled=False)
+
+    first = ReportPdfRenderer(config=config)
+    second = ReportPdfRenderer(config=config)
+    assert first.render_list("t", _COLUMNS, ConcurrentStableList()).startswith(b"%PDF")
+    assert second.render_list("t", _COLUMNS, ConcurrentStableList()).startswith(b"%PDF")
