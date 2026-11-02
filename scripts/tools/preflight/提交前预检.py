@@ -590,13 +590,16 @@ def test_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStab
 
 
 def _module_of(relative: str) -> str:
-    """把改动文件映射为可导入的模块名（只认包内源码与 `backend/ops` 顶层脚本）。
+    """把改动文件映射为可导入的模块名（只认包内 `src/` 下的运行时代码）。
+
+    `backend/ops/` 这类门禁工具**不在口径内**：它们的正确性由自身运行与 self-test 保证，
+    再要求 100% 覆盖只会逼出「给 `__main__` 凑数」这类无价值用例。
 
     Args:
         relative: 相对仓根的路径。
 
     Returns:
-        str: 点分模块名；不属于可导入源码返回空串。
+        str: 点分模块名；不属于可导入的运行时代码返回空串。
     """
     if "/src/" in relative:
         _head, tail = relative.split("/src/", 1)
@@ -604,8 +607,6 @@ def _module_of(relative: str) -> str:
         if len(segments) < 2 or not segments[-1].endswith(".py"):
             return ""
         return ".".join([*segments[:-1], segments[-1][: -len(".py")]])
-    if relative.startswith("backend/ops/") and relative.endswith(".py"):
-        return f"ops.{relative.rsplit('/', 1)[-1][: -len('.py')]}"
     return ""
 
 
