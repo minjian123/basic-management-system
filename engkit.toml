@@ -102,6 +102,11 @@ label = "护栏：环境变量模板（增量）"
 cmd = ["{python}", "scripts/tools/base_check/check_env_example.py", "{root}", "--files-from", "{changed}"]
 
 [[devloop.steps]]
+label = "度量：服务边界与跨库（增量）"
+# 只采清单内文件的逐文件判据；跨服务表名 / 归属对账等全局判据恒全量
+cmd = ["{python}", "scripts/tools/governance/boundary_metrics.py", "--root", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
 label = "护栏：工作区卫生"
 cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
 
