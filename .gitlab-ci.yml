@@ -770,11 +770,13 @@ dependency-scan:
           - deploy/**/*
           - .gitlab-ci.yml
   script:
-    - docker run --rm -v "$CI_PROJECT_DIR:/src:ro" -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=public.ecr.aws/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 fs --timeout 10m --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --skip-dirs .git --skip-dirs node_modules /src
-  # 漏洞库源改 `public.ecr.aws`（AWS 公开 ECR）：2026-11-02 实测 mjbk runner 上 `ghcr.nju.edu.cn`
-  # 掉到 ~35 KiB/s（131 MiB 需约 1 小时，必然撞 10m 超时，且中途报 HTTP 500），而同机 `public.ecr.aws`
-  # 稳定 5~6 MiB/s（27s 下完）。`trivy-cache` 卷内 DB 未过期时不触发下载——实测整 job 1.4s，
-  # 故换源不增加日常开销；到期更新（每日一次）也只需约半分钟。
+    - docker run --rm -v "$CI_PROJECT_DIR:/src:ro" -v trivy-db:/tmp/tc/db:ro aquasec/trivy:0.74.0 fs --cache-dir /tmp/tc --skip-db-update --timeout 10m --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --skip-dirs .git --skip-dirs node_modules /src
+  # 漏洞库：共享只读卷 `trivy-db`（挂 `/tmp/tc/db:ro`）+ 每 job 独立 cache + `--skip-db-update`。
+  # 为什么不能直接共享可写卷：Trivy 对整个 cache 目录加独占锁，并发扫描报
+  # `unable to initialize fs cache: cache may be in use by another process`（2026-11-02 实测 5 并发全失败）；
+  # 拆成「只读 DB + 独立 cache」后 5 并发全通过（单次 0.6s），且全部服务共用同一份库、结论一致。
+  # 库内 DB 由 runner 侧 `/usr/local/bin/trivy-db-refresh.sh` 每日刷新（源 `public.ecr.aws`：mjbk 实测
+  # 5~6 MiB/s，131 MiB 约 27s；原 `ghcr.nju.edu.cn` 仅 ~35 KiB/s，必撞 10m 超时并报 HTTP 500）。
   # 此类失败与代码无关，保留一次 script_failure 重试兜底网络抖动。
   retry:
     max: 1

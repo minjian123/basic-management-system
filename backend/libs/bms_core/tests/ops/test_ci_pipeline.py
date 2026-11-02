@@ -206,8 +206,10 @@ def test_service_build_and_release_jobs() -> None:
     assert "docker push" in release_script
     assert "aquasec/trivy:0.74.0" in release_script
     assert ":latest" not in release_script
-    assert "TRIVY_DB_REPOSITORY=public.ecr.aws/aquasecurity/trivy-db:2" in release_script
-    assert "trivy-cache-$SERVICE:/root/.cache/trivy" in release_script
+    # 漏洞库：共享只读卷 + 独立 cache + 跳过更新（Trivy cache 独占锁，共享可写卷并发会锁超时）
+    assert "trivy-db:/tmp/tc/db:ro" in release_script
+    assert "--cache-dir /tmp/tc" in release_script
+    assert "--skip-db-update" in release_script
     assert "--provenance=false" in build_script
     assert "--severity CRITICAL,HIGH" in release_script
     # SBOM 挂点（04_03）
