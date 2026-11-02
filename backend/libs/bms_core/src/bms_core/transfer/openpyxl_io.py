@@ -153,7 +153,7 @@ def read_sheet_rows(
             cells = list(values)
             if all(_is_blank(value) for value in cells):
                 continue
-            if len(cells) < len(columns):
+            if len(cells) < len(columns):  # pragma: no cover（openpyxl read_only 一般按表头宽度补齐）
                 cells.extend([None] * (len(columns) - len(cells)))
             row_values = ConcurrentStableFrozenDict[str, object](
                 {column.key: _cell_value(cells[index]) for index, column in enumerate(columns)}

@@ -163,3 +163,24 @@ async def test_already_unavailable_error_passes_through() -> None:
         await store.load("bms:global:idem:k")
     with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
         await store.save("bms:global:idem:k", {"ok": True})
+
+
+class _RedisDownDeleteClient:
+    """delete 抛 RedisUnavailableError 的客户端替身（fail-closed 分支）。"""
+
+    async def delete(self, *args: object, **kwargs: object) -> None:
+        """恒定抛 RedisUnavailableError。"""
+        del args, kwargs
+        from bms_core.core.exceptions import RedisUnavailableError
+
+        raise RedisUnavailableError("redis down")
+
+
+@pytest.mark.kiwi_id(2173)
+async def test_release_redis_down_propagates() -> None:
+    """release 遇 RedisUnavailableError 原样上抛（fail-closed）。"""
+    from bms_core.core.exceptions import RedisUnavailableError
+
+    store = RedisIdempotencyStore(_REDIS_URL, client=cast("Redis", _RedisDownDeleteClient()))
+    with pytest.raises(RedisUnavailableError):
+        await store.release("bms:global:idem:k")

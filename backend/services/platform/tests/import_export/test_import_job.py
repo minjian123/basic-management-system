@@ -13,15 +13,19 @@ from openpyxl import Workbook
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
-from bms_core.core.exceptions import NotFoundError
+from bms_core.core.exceptions import ImportFileTooLargeError, NotFoundError
 from bms_core.db.session import DbSession
+from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
 from bms_core.jobs.base import JobContext
+from bms_core.jobs.runner import JobRunner
 from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysAccountLock, SysUser
 from bms_core.outbox.null import NullOutboxStore
@@ -41,6 +45,7 @@ from bms_core.transfer.limits import ImportLimits
 from bms_core.transfer.openpyxl import OpenpyxlImporter
 from bms_core.transfer.source import ImportSourceStore
 from bms_platform.domains.import_export.jobs import ImportExecuteJob
+from bms_platform.domains.import_export.services.imports import ImportExecutor, ImportService
 from bms_platform.domains.user.imports import UserImportDefinition
 from bms_platform.domains.user.services.users_admin import UserAdminService
 from bms_platform.imports import build_import_definitions
@@ -221,11 +226,11 @@ def _context(
     )
 
 
-def _payload(key: str) -> ConcurrentStableDict[str, object]:
+def _payload(key: str, *, biz: str = "users") -> ConcurrentStableDict[str, object]:
     """构造作业负载。"""
     return ConcurrentStableDict[str, object](
         {
-            "biz": "users",
+            "biz": biz,
             "source_key": key,
             "actor": 1001,
             "tenant_code": "demo",
@@ -450,7 +455,7 @@ def test_summary_from_record_terminal_and_running() -> None:
 
 async def test_safe_helpers_swallow_failures() -> None:
     """源文件删除 / 幂等释放失败不抛错（只 warning）。"""
-    from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
+    from bms_core.idempotency.base import IdempotencyStore
     from bms_platform.domains.import_export.services.imports import (  # pyright: ignore[reportPrivateUsage]
         _safe_delete,  # pyright: ignore[reportPrivateUsage]
         _safe_release,  # pyright: ignore[reportPrivateUsage]
@@ -486,3 +491,105 @@ def test_parse_job_result_edges() -> None:
     assert not parse_job_result("not-json")
     assert not parse_job_result("[]")
     assert parse_job_result('{"total": 1}')["total"] == 1
+
+
+def _role_xlsx(rows: Sequence[Sequence[object]]) -> bytes:  # bare-collections:allow（测试数据构造）
+    """构造角色导入 xlsx。"""
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet.title = "数据"
+    sheet.append(["角色码", "角色名称", "状态"])
+    for row in rows:
+        sheet.append(list(row))
+    output = BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return output.getvalue()
+
+
+async def test_job_role_success_without_audit(job_env: JobEnv) -> None:
+    """角色导入成功（审计为 None，覆盖角色写路径与无审计分支）。"""
+    make_job, session_context, source = job_env
+    key = "demo/imports/source/job-role.xlsx"
+    source.data[key] = _role_xlsx([["jobrole1", "作业角色", "启用"]])
+    job, captured = make_job()
+    result = await job.run(_context(captured, session_context, _payload(key, biz="roles")))
+    assert result.status == "succeeded"
+    assert result.output is not None
+    assert result.output["committed"] is True
+
+
+class _NoPermDefinition(BaseImportDefinition):
+    """无业务写权限的测试定义（验证 SaaS 导入入口仅校验入口权限的分支）。"""
+
+    biz = "demo"
+    title = "示例"
+    write_permission = None
+
+    @property
+    def columns(self) -> ConcurrentStableFrozenList[ColumnSpec]:
+        return ConcurrentStableFrozenList((ColumnSpec(key="x", title="值"),))
+
+    async def validate_row(
+        self, row: ParsedRow, preloaded: object, *, config: BaseConfigSource | None
+    ) -> ConcurrentStableFrozenList[RowError]:
+        del row, preloaded, config
+        return ConcurrentStableFrozenList()
+
+
+class _FirstIdempotencyStore(IdempotencyStore):
+    """恒首次、无结果的幂等存储。"""
+
+    plugin_name = ""
+
+    async def begin(self, key: str, *, ttl: int = 86400) -> bool:
+        del key, ttl
+        return True
+
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
+        del key
+        return None
+
+    async def save(self, key: str, payload: IDEMPOTENCY_PAYLOAD_TYPE, *, ttl: int = 86400) -> None:
+        del key, payload, ttl
+
+
+async def test_service_definition_without_write_permission() -> None:
+    """定义无业务写权限且未注入 checker → 跳过二次校验，进入文件大小检查。"""
+    registry = ImportDefinitionRegistry()
+    registry.register(_NoPermDefinition())
+    limits = ImportLimits(max_size=0)
+    executor = ImportExecutor(
+        definitions=registry,
+        importer=OpenpyxlImporter(),
+        limits=limits,
+        config=None,
+        audit=None,
+        quota=None,
+    )
+
+    def runner_factory() -> JobRunner:
+        raise AssertionError("不应提交作业")
+
+    service = ImportService(
+        executor=executor,
+        source_store=_SourceStore(),
+        idempotency=_FirstIdempotencyStore(),
+        runner_factory=runner_factory,
+        cache=MemoryCacheRegion(),
+        limits=limits,
+        checker=None,
+    )
+    with pytest.raises(ImportFileTooLargeError):
+        await service.execute(
+            biz="demo",
+            data=b"x",
+            file_name="demo.xlsx",
+            idem_key="k",
+            uow=cast("UnitOfWork", None),
+            tenant_id=None,
+            tenant_code=None,
+            actor=None,
+            db_key="tenant_demo",
+        )

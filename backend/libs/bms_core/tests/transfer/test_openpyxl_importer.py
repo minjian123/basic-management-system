@@ -184,6 +184,10 @@ async def test_value_types_and_errors() -> None:
                     }
                 ),
             ),
+            ParsedRow(
+                row_no=5,
+                values=ConcurrentStableFrozenDict[str, object]({"n": "abc"}),
+            ),
         )
     )
     result = await validate_rows_common(rows, columns=columns)
@@ -203,6 +207,7 @@ async def test_value_types_and_errors() -> None:
         (4, "d"),
         (4, "dt"),
         (4, "bad"),
+        (5, "n"),
     }
 
 
@@ -399,3 +404,12 @@ def test_from_limits_and_defensive_active() -> None:
             build_template(_COLUMNS)
     finally:
         monkeypatch.undo()
+
+
+def test_cell_value_date_branch() -> None:
+    """裸 `date` 单元格转 ISO 日期（openpyxl 通常返回 datetime，此处锁分支）。"""
+    from datetime import date
+
+    import bms_core.transfer.openpyxl_io as io
+
+    assert io._cell_value(date(2026, 1, 2)) == "2026-01-02"  # pyright: ignore[reportPrivateUsage]
