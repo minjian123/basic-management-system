@@ -1286,6 +1286,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/{biz}/error-report/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Error Report
+         * @description 下载错误明细 xlsx（按首次结果生成，限时有效）。
+         *
+         *     Args:
+         *         biz: 业务标识。
+         *         token: 错误明细 token。
+         *         deps: 请求依赖。
+         *
+         *     Returns:
+         *         Response: xlsx 文件流。
+         */
+        get: operations["download_error_report_api_v1_imports__biz__error_report__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{biz}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute Import
+         * @description 执行导入（multipart xlsx + Idempotency-Key）。
+         *
+         *     Args:
+         *         biz: 业务标识。
+         *         deps: 请求依赖。
+         *         file: 上传文件。
+         *         idem_key: 幂等键请求头。
+         *
+         *     Returns:
+         *         ApiResponse: 执行结果（同步汇总 / 异步 job_id / 幂等命中）。
+         */
+        post: operations["execute_import_api_v1_imports__biz__execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{biz}/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Import Job
+         * @description 异步导入状态 / 进度 / 汇总 / 前 N 条错误。
+         *
+         *     Args:
+         *         biz: 业务标识。
+         *         job_id: 作业主键。
+         *         deps: 请求依赖。
+         *
+         *     Returns:
+         *         ApiResponse: 状态。
+         */
+        get: operations["get_import_job_api_v1_imports__biz__jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{biz}/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Template
+         * @description 下载导入模板（xlsx 文件流）。
+         *
+         *     Args:
+         *         biz: 业务标识（users / roles）。
+         *         deps: 请求依赖。
+         *
+         *     Returns:
+         *         Response: xlsx 文件流。
+         */
+        get: operations["download_template_api_v1_imports__biz__template_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs": {
         parameters: {
             query?: never;
@@ -4574,6 +4686,34 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[ImportExecuteResult] */
+        ApiResponse_ImportExecuteResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ImportExecuteResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ImportJobStatus] */
+        ApiResponse_ImportJobStatus_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ImportJobStatus"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[InactiveScanResult] */
         ApiResponse_InactiveScanResult_: {
             /**
@@ -5118,6 +5258,14 @@ export interface components {
             size: number;
             /** Total */
             total: number;
+        };
+        /** Body_execute_import_api_v1_imports__biz__execute_post */
+        Body_execute_import_api_v1_imports__biz__execute_post: {
+            /**
+             * File
+             * @description Excel 文件（表单字段 file）
+             */
+            file: string;
         };
         /**
          * BranchExecuteRequest
@@ -6646,6 +6794,158 @@ export interface components {
              * @description 标签（搜索用）
              */
             tags?: string[] | null;
+        };
+        /**
+         * ImportErrorItem
+         * @description 行错误项（`row` 为 Excel 行号；`column` 为字段键）。
+         */
+        ImportErrorItem: {
+            /**
+             * Column
+             * @description 出错字段键（可空）
+             */
+            column?: string | null;
+            /**
+             * Message
+             * @description 错误原因
+             */
+            message: string;
+            /**
+             * Row
+             * @description Excel 行号（数据行，从 2 起）
+             */
+            row: number;
+        };
+        /**
+         * ImportExecuteResult
+         * @description 执行导入结果（同步 / 异步 / 幂等命中共用）。
+         */
+        ImportExecuteResult: {
+            /**
+             * Async
+             * @description 是否已转异步作业
+             * @default false
+             */
+            async: boolean;
+            /**
+             * Blocked Count
+             * @description 合法但因整批拒绝未落库的行数
+             * @default 0
+             */
+            blocked_count: number;
+            /**
+             * Committed
+             * @description 是否已落库
+             * @default false
+             */
+            committed: boolean;
+            /**
+             * Duplicate
+             * @description 是否命中幂等键、返回首次结果
+             * @default false
+             */
+            duplicate: boolean;
+            /**
+             * Errors
+             * @description 错误项（同步响应最多前 200 条）
+             */
+            errors?: components["schemas"]["ImportErrorItem"][];
+            /**
+             * Fail Count
+             * @description 有错误的行数（按行去重）
+             * @default 0
+             */
+            fail_count: number;
+            /**
+             * Job Id
+             * @description 作业主键（异步 / 幂等命中）
+             */
+            job_id?: string | null;
+            /**
+             * Report Token
+             * @description 错误明细 token（有错误时返回）
+             */
+            report_token?: string | null;
+            /**
+             * Success Count
+             * @description 实际落库行数
+             * @default 0
+             */
+            success_count: number;
+            /**
+             * Total
+             * @description 数据行数
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * ImportJobStatus
+         * @description 异步导入状态。
+         */
+        ImportJobStatus: {
+            /**
+             * Blocked Count
+             * @description 合法但未落库的行数
+             */
+            blocked_count?: number | null;
+            /**
+             * Committed
+             * @description 是否已落库
+             * @default false
+             */
+            committed: boolean;
+            /**
+             * Errors
+             * @description 前 N 条错误（默认 20，上限 200）
+             */
+            errors?: components["schemas"]["ImportErrorItem"][];
+            /**
+             * Fail Count
+             * @description 有错误的行数
+             */
+            fail_count?: number | null;
+            /**
+             * Job Id
+             * @description 作业主键
+             */
+            job_id: string;
+            /**
+             * Message
+             * @description 失败 / 取消原因或结果说明
+             */
+            message?: string | null;
+            /**
+             * Progress Done
+             * @description 已完成量
+             * @default 0
+             */
+            progress_done: number;
+            /**
+             * Progress Total
+             * @description 总量（未知为 null）
+             */
+            progress_total?: number | null;
+            /**
+             * Report Token
+             * @description 错误明细 token（有错误时返回）
+             */
+            report_token?: string | null;
+            /**
+             * Status
+             * @description 作业状态（queued/running/succeeded/failed/canceled/dead）
+             */
+            status: string;
+            /**
+             * Success Count
+             * @description 实际落库行数
+             */
+            success_count?: number | null;
+            /**
+             * Total
+             * @description 数据行数（未终态为 null）
+             */
+            total?: number | null;
         };
         /**
          * InactiveScanRequest
@@ -13261,6 +13561,320 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    download_error_report_api_v1_imports__biz__error_report__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                biz: string;
+                /** @description 错误明细 token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    execute_import_api_v1_imports__biz__execute_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                biz: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_execute_import_api_v1_imports__biz__execute_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ImportExecuteResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_import_job_api_v1_imports__biz__jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                biz: string;
+                /** @description 导入作业主键 */
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ImportJobStatus_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    download_template_api_v1_imports__biz__template_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                biz: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description 未认证 */

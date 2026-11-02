@@ -263,7 +263,7 @@ async def test_job_canceled(job_env: JobEnv) -> None:
     """批次边界检查取消 → canceled，整批回滚。"""
     make_job, session_context, source = job_env
     key = "demo/imports/source/job-cancel.xlsx"
-    source.data[key] = _xlsx([["lisi", "李四", "", "", "启用", ""]])
+    source.data[key] = _xlsx([["jobcanceluser", "李四", "", "", "启用", ""]])
     job, captured = make_job(batch_size=1, cancel=True)
     result = await job.run(_context(captured, session_context, _payload(key)))
     assert result.status == "canceled"
