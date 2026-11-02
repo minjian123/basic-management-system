@@ -972,6 +972,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/exports/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Export Job
+         * @description 异步导出状态 / 进度 / 产物限时取址。
+         *
+         *     Args:
+         *         job_id: 作业主键。
+         *         deps: 请求依赖。
+         *
+         *     Returns:
+         *         ApiResponse: 状态。
+         */
+        get: operations["get_export_job_api_v1_exports_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/{biz}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Excel
+         * @description 按当前筛选导出 Excel（同步文件流 / 异步受理 / 空结果）。
+         *
+         *     Args:
+         *         biz: 业务标识。
+         *         deps: 请求依赖。
+         *         masker: 请求期掩码器（明文判定）。
+         *         kw: 关键字。
+         *         status: 状态筛选。
+         *         ids: 选中集合。
+         *         order_by: 排序字段。
+         *         order: 排序方向。
+         *
+         *     Returns:
+         *         Response: xlsx 文件流或 JSON（异步 / 空）。
+         */
+        get: operations["export_excel_api_v1_exports__biz__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/{biz}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export List Pdf
+         * @description 按当前筛选导出列表 PDF（同步产物取址 / 异步受理 / 空结果）。
+         *
+         *     Args:
+         *         biz: 业务标识。
+         *         deps: 请求依赖。
+         *         masker: 请求期掩码器。
+         *         kw: 关键字。
+         *         status: 状态筛选。
+         *         ids: 选中集合。
+         *         order_by: 排序字段。
+         *         order: 排序方向。
+         *         paper: 纸张。
+         *         orientation: 纸张方向。
+         *         watermark: 水印。
+         *         title: 标题。
+         *
+         *     Returns:
+         *         Response: JSON（同步产物 / 异步 / 空）。
+         */
+        get: operations["export_list_pdf_api_v1_exports__biz__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fields": {
         parameters: {
             query?: never;
@@ -4616,6 +4713,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[ExportJobStatus] */
+        ApiResponse_ExportJobStatus_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ExportJobStatus"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[FieldItem] */
         ApiResponse_FieldItem_: {
             /**
@@ -6376,6 +6487,88 @@ export interface components {
              * @default 0
              */
             version: number;
+        };
+        /**
+         * ExportArtifact
+         * @description 导出产物（对象 key + 限时取址）。
+         */
+        ExportArtifact: {
+            /**
+             * Content Type
+             * @description 内容类型
+             */
+            content_type: string;
+            /**
+             * Expires In
+             * @description 取址有效期（秒）
+             * @default 0
+             */
+            expires_in: number;
+            /**
+             * File Name
+             * @description 文件名（含扩展名）
+             */
+            file_name: string;
+            /**
+             * Object Key
+             * @description 产物对象 key（路径风格）
+             */
+            object_key: string;
+            /**
+             * Size
+             * @description 产物字节数
+             */
+            size: number;
+            /**
+             * Url
+             * @description 限时取址（预签名失败时为空）
+             */
+            url?: string | null;
+        };
+        /**
+         * ExportJobStatus
+         * @description 异步导出作业状态（终态含产物取址；产物过期时 artifact 为空）。
+         */
+        ExportJobStatus: {
+            /** @description 产物（终态成功且未过期时非空） */
+            artifact?: components["schemas"]["ExportArtifact"] | null;
+            /**
+             * Biz
+             * @description 业务标识
+             */
+            biz: string;
+            /**
+             * Done
+             * @description 已完成条数（进度）
+             * @default 0
+             */
+            done: number;
+            /**
+             * Job Id
+             * @description 作业主键
+             */
+            job_id: string;
+            /**
+             * Kind
+             * @description 导出类型（excel/pdf）
+             */
+            kind: string;
+            /**
+             * Message
+             * @description 提示 / 失败原因摘要
+             */
+            message?: string | null;
+            /**
+             * Status
+             * @description 作业状态（pending/running/success/failed/cancelled）
+             */
+            status: string;
+            /**
+             * Total
+             * @description 总条数
+             * @default 0
+             */
+            total: number;
         };
         /**
          * ExpressionContextPayload
@@ -12459,6 +12652,267 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_DictAttrListResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_export_job_api_v1_exports_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 导出作业主键 */
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ExportJobStatus_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    export_excel_api_v1_exports__biz__get: {
+        parameters: {
+            query?: {
+                /** @description 关键字（与列表接口同名同义） */
+                kw?: string | null;
+                /** @description 状态筛选（enabled / disabled） */
+                status?: string | null;
+                /** @description 选中行导出（逗号分隔雪花 ID；空 = 按筛选全量） */
+                ids?: string | null;
+                /** @description 排序字段（各定义白名单） */
+                order_by?: string | null;
+                /** @description 排序方向（asc / desc） */
+                order?: string;
+            };
+            header?: never;
+            path: {
+                /** @description 业务标识（users / roles） */
+                biz: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    export_list_pdf_api_v1_exports__biz__pdf_get: {
+        parameters: {
+            query?: {
+                /** @description 关键字（与列表接口同名同义） */
+                kw?: string | null;
+                /** @description 状态筛选（enabled / disabled） */
+                status?: string | null;
+                /** @description 选中行导出（逗号分隔雪花 ID；空 = 按筛选全量） */
+                ids?: string | null;
+                /** @description 排序字段（各定义白名单） */
+                order_by?: string | null;
+                /** @description 排序方向（asc / desc） */
+                order?: string;
+                /** @description 纸张（A4 / A5 / custom） */
+                paper?: string;
+                /** @description 纸张方向（portrait / landscape） */
+                orientation?: string;
+                /** @description 水印文案 */
+                watermark?: string;
+                /** @description PDF 标题（缺省取定义标题） */
+                title?: string;
+            };
+            header?: never;
+            path: {
+                /** @description 业务标识（users / roles） */
+                biz: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description 未认证 */

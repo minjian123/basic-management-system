@@ -40,17 +40,19 @@ export interface paths {
         put?: never;
         /**
          * Batch Print
-         * @description 批量打印多单据（可按幂等键复用首次结果）。
+         * @description 批量打印多单据（逐份 / 合并；超阈值转后台作业；可按幂等键复用首次结果）。
          *
          *     Args:
          *         exporter: 打印导出基座。
          *         idempotency: 幂等基座（首次结果复用）。
-         *         tenant: 解析链租户上下文（幂等键作用域位）。
-         *         req: 批量请求（模板键 / 单据键集合 / 批量模式 / 渲染选项）。
+         *         tenant: 解析链租户上下文（幂等键作用域位 / 作业租户位）。
+         *         uow: 请求级工作单元（提交后台作业）。
+         *         config: 系统参数取数（同步份数阈值）。
+         *         req: 批量请求（模板键 / 单据键集合 / 单据数据 / 批量模式 / 渲染选项）。
          *         idempotency_key: 幂等键请求头（可选）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为批量结果（`PrintBatchResponse`）。
+         *         ApiResponse: 统一响应，data 为批量结果（`PrintBatchResponse`；转后台时 `task_id` 非空）。
          */
         post: operations["batch_print_api_v1_prints_batch_post"];
         delete?: never;
@@ -228,9 +230,14 @@ export interface components {
         };
         /**
          * PrintBatchRequest
-         * @description 批量打印请求：`{template_key, keys, mode?, options?}`。
+         * @description 批量打印请求：`{template_key, keys, mode?, options?, documents?}`。
          */
         PrintBatchRequest: {
+            /**
+             * Documents
+             * @description 单据数据（与 keys 同序等长；缺省渲染简版页）
+             */
+            documents?: components["schemas"]["PrintDocumentPayload"][];
             /**
              * Keys
              * @description 单据键集合（至少一条）
