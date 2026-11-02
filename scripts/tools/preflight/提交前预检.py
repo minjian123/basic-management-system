@@ -10,8 +10,11 @@
 - `ruff` / `pyright` → 只跑改动文件（按步骤作用域筛 `backend/` 与 `scripts/`）；
 - 支持 `--files-from` 的护栏（集合声明 / 雪花 ID / 测试库隔离 / 产品字面量 / 服务边界）→ 追加改动清单，
   由 `[[devloop.steps]]` 自动识别（零白名单维护）；
-- 其余步骤（基座完整性、契约快照、域布局、跨仓对账、前端类型等**零漂移 / 一致性判定**）→ 原样执行：
+- 其余步骤（基座完整性、契约快照、域布局、跨仓对账等**零漂移 / 一致性判定**）→ 原样执行：
   这类判定的语义是「全仓口径一致」，无法只判改动文件，但都是秒级；
+- **执行范围会覆盖未改动文件的步骤**（如前端 `tsc`/`vue-tsc`：检查单元是整个工程，还会按依赖闭包
+  把未改动的下游工程一起验）→ 登记进 `FULL_SCAN_STEPS`：本次改动不触及则不跑，触及则**立即报错**
+  拒绝提交，需 `--allow-full-steps` 显式放行；
 - `full_tests` / `project_tests`（仅 CI）→ 跳过并注明。
 
 用法::
@@ -145,7 +148,23 @@ STEP_EXCLUDED_SUFFIXES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenLi
 )
 """步骤的「无关后缀」：命中作用域但这些后缀的改动与该步骤判据无关，不触发（避免白跑）。"""
 
-FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet()
+STEP_EXCLUDED_SEGMENTS: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenDict(
+    {
+        # 前端类型检查的判据是「类型源」；用例与构建脚本不参与类型导出，
+        # 改了它们不该把整条前端链（含未改动的下游工程）拉起来
+        "check_frontend_types.py": ConcurrentStableFrozenList(("/tests/", "/test/", "/__tests__/", "/scripts/")),
+    }
+)
+"""步骤的「无关路径段」：路径里含这些目录段即与该步骤判据无关（后缀排除不够用）。"""
+
+FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
+    (
+        # 前端类型：`tsc` / `vue-tsc` 的检查单元是**整个工程**，且改了某包类型源还会按依赖闭包
+        # 把未改动的下游工程一起验——执行范围必然覆盖未改动文件，与「只判改动文件」不相容。
+        # 因此不进提交前门禁：本次改动不触及则不跑；触及则立即报错，需 `--allow-full-steps` 放行。
+        "check_frontend_types.py",
+    )
+)
 """语义为「全仓口径一致 / 零漂移」的步骤：默认命令只能全仓判定，无法只判改动文件。
 
 这类步骤**不会被跳过**：本次改动触及它时必须执行；若执行前校验发现命令无法限定到改动文件，
@@ -398,10 +417,13 @@ def _step_applies(key: str, files: ConcurrentStableList[str], *, force_all: bool
     if not scopes:
         return True
     excluded = STEP_EXCLUDED_SUFFIXES.get(key, ConcurrentStableFrozenList())
+    segments = STEP_EXCLUDED_SEGMENTS.get(key, ConcurrentStableFrozenList())
     for rel in files:
         if not rel.startswith(tuple(scopes)):
             continue
         if excluded and rel.endswith(tuple(excluded)):
+            continue
+        if segments and any(segment in f"/{rel}" for segment in segments):
             continue
         return True
     return False
