@@ -35,7 +35,7 @@ from datetime import datetime
 BASE_DIR = "/mnt/data/backup"
 ENV_FILE = os.path.join(os.path.expanduser("~"), "deploy", ".env")
 KEEP_DAYS = 7
-CLOUD_KEEP_DAYS = 30
+CLOUD_KEEP_DAYS = 7
 DM_HOME = "/opt/dmdbms"
 
 LOG_PATH = os.path.join(BASE_DIR, "cron.log")
@@ -173,11 +173,16 @@ def dump_dameng():
 
 
 def backup_gitlab():
-    """GitLab 数据包（容器内 gitlab-backup + docker cp）与配置打包（secrets/ssl/gitlab.rb 不在数据备份内）。"""
+    """GitLab 数据包（容器内 gitlab-backup + docker cp）与配置打包（secrets/ssl/gitlab.rb 不在数据备份内）。
+
+    数据包排除 registry（`SKIP=registry`）：内置镜像仓库占备份体积 90% 以上（2026-11 实测单份
+    11~13G 中 registry.tar.gz 约 12G），且镜像层可由 CI 重新构建、原始数据在 GitLab 数据卷中，
+    不进入每日备份。恢复时用 `gitlab-backup restore SKIP=registry`。
+    """
     # 1) 容器内 gitlab-backup（产物落挂载盘 /mnt/ssd2t/gitlab/data/backups/）
     try:
         subprocess.run(
-            ["docker", "exec", "bms-gitlab", "gitlab-backup", "create"],
+            ["docker", "exec", "bms-gitlab", "gitlab-backup", "create", "SKIP=registry"],
             stdout=subprocess.DEVNULL,
             stderr=LOG,
             check=True,
@@ -215,8 +220,17 @@ def backup_gitlab():
         ["docker", "exec", "bms-gitlab", "rm", "-f", latest], stdout=subprocess.DEVNULL, stderr=LOG, check=False
     )
     # 2) 配置备份（secrets/ssl/gitlab.rb 不在数据备份内）
+    #    /mnt/ssd2t/gitlab/config 属主为 root，宿主用户直接 tar 会漏掉 ssh_host_*_key、gitlab.rb、
+    #    gitlab-secrets.json（2026-10 日志「权限不够」）；改由容器内 root 读取 /etc/gitlab
+    #    （同一绑定目录）打包，经 stdout 落盘。
     config_tar = os.path.join(BASE_DIR, "gitlab", f"gitlab-config_{TS}.tar.gz")
-    subprocess.run(["tar", "czf", config_tar, "-C", "/mnt/ssd2t/gitlab", "config"], stdout=LOG, stderr=LOG, check=False)
+    with open(config_tar, "wb") as target:
+        subprocess.run(
+            ["docker", "exec", "bms-gitlab", "tar", "czf", "-", "-C", "/etc/gitlab", "config"],
+            stdout=target,
+            stderr=LOG,
+            check=False,
+        )
     return nonempty(os.path.join(BASE_DIR, "gitlab", fname)) and nonempty(config_tar)
 
 
@@ -249,11 +263,15 @@ def backup_kiwi_uploads():
 
 
 def _baidu_ls_ok(path):
-    """`BaiduPCS-Go ls <path> >/dev/null 2>&1`：仅看退出码（前置校验目录是否真实存在）。"""
-    result = subprocess.run(
-        ["BaiduPCS-Go", "ls", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False
-    )
-    return result.returncode == 0
+    """判断网盘目录是否真实存在。
+
+    BaiduPCS-Go v4.0.2 对**不存在的目录也返回退出码 0**（错误信息写在 stdout），只看退出码会把
+    不存在的月度目录误判为存在，随后 upload 到该目录静默失败（2026-11 实测，9 月以来云端无新备份）。
+    故同时要求输出含「当前目录:」且不含「遇到错误」。
+    """
+    result = subprocess.run(["BaiduPCS-Go", "ls", path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+    output = result.stdout.decode("utf-8", "replace")
+    return result.returncode == 0 and "当前目录:" in output and "遇到错误" not in output
 
 
 def _baidu_ls_output(path):
