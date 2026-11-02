@@ -32,7 +32,6 @@ import argparse
 import json
 import os
 import sys
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -46,7 +45,7 @@ _SRC_ROOT = ROOT / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
 ENV_FILE = ROOT / "deploy" / ".env"
 """凭据文件（gitignore；键位见 `deploy/.env.example`）。"""
@@ -62,7 +61,9 @@ REPO_NAMES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
 )
 """`--project` 短名 → GitLab 项目路径（与实际 GitLab 项目路径一致；新仓在此登记，也可直接传路径）。"""
 
-TERMINAL_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(["success", "failed", "canceled", "skipped"])
+TERMINAL_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(
+    ["success", "failed", "canceled", "skipped"]
+)
 """流水线终态集合。"""
 
 
@@ -141,7 +142,9 @@ def request(
     return ConcurrentStableDict(cast("dict[str, object]", parsed))
 
 
-def resolve_project_id(api: str, token: str, project: str, env: ConcurrentStableDict[str, str]) -> str:
+def resolve_project_id(
+    api: str, token: str, project: str, env: ConcurrentStableDict[str, str]
+) -> str:
     """解析项目 ID：本仓（缺省）用 `CI_PROJECT_ID`，其他仓按项目路径查。
 
     Args:
@@ -167,7 +170,9 @@ def resolve_project_id(api: str, token: str, project: str, env: ConcurrentStable
     return str(raw)
 
 
-def trigger(api: str, token: str, project_id: str, ref: str) -> ConcurrentStableDict[str, object]:
+def trigger(
+    api: str, token: str, project_id: str, ref: str
+) -> ConcurrentStableDict[str, object]:
     """创建流水线（`POST /projects/:id/pipeline`）。
 
     Args:
@@ -179,32 +184,43 @@ def trigger(api: str, token: str, project_id: str, ref: str) -> ConcurrentStable
     Returns:
         ConcurrentStableDict[str, object]: 流水线对象（含 `id` / `web_url` / `status`）。
     """
-    return request(api, token, f"projects/{project_id}/pipeline", ConcurrentStableDict({"ref": ref}))
+    return request(
+        api,
+        token,
+        f"projects/{project_id}/pipeline",
+        ConcurrentStableDict({"ref": ref}),
+    )
 
 
-def watch(api: str, token: str, project_id: str, pipeline_id: int, interval: int) -> str:
-    """轮询到流水线终态。
+def watch(project: str, pipeline_id: int, interval: int) -> int:
+    """盯守到终态（委托 `watch_pipeline`，job 级实时播报 + 失败当场给原因）。
+
+    为什么委托：本脚本原先是「每轮打一行流水线状态」的空转，卡住时看不到任何 job 级信息。
+    盯守逻辑统一收在 `watch_pipeline.py`（job 变化播报 / 失败摘要 / 子流水线回溯），此处只做转发。
 
     Args:
-        api: API 基址。
-        token: 访问令牌。
-        project_id: 项目 ID。
+        project: 仓短名（bms / mdm / engkit）。
         pipeline_id: 流水线 ID。
         interval: 轮询间隔（秒）。
 
     Returns:
-        str: 终态状态。
+        int: 盯守退出码（0 全部 success；1 存在非 success 或超时；2 用法 / 凭据问题）。
     """
-    status = "created"
-    while status not in TERMINAL_STATUSES:
-        time.sleep(interval)
-        current = request(api, token, f"projects/{project_id}/pipelines/{pipeline_id}")
-        raw = current.get("status")
-        status = raw if isinstance(raw, str) else "unknown"
-        print(f"[trigger] 流水线 #{pipeline_id} 状态：{status}", flush=True)
-        if status in TERMINAL_STATUSES:
-            break
-    return status
+    # 延迟导入：`watch_pipeline` 顶层反向依赖本模块（凭据与终态常量），顶层互相导入会成环。
+    from watch_pipeline import main as watch_main
+
+    return watch_main(
+        ConcurrentStableList(
+            (
+                "--project",
+                project,
+                "--pipeline",
+                str(pipeline_id),
+                "--interval",
+                str(interval),
+            )
+        )
+    )
 
 
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
@@ -216,19 +232,30 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     Returns:
         int: 退出码（0 已受理 / 1 请求或终态失败 / 2 用法或凭据缺失）。
     """
-    parser = argparse.ArgumentParser(description="手工触发 CI 流水线（推送不再触发，CI 按需全量跑）")
-    parser.add_argument("--project", default="bms", help="仓短名（bms / mdm / engkit）或 GitLab 项目路径")
+    parser = argparse.ArgumentParser(
+        description="手工触发 CI 流水线（推送不再触发，CI 按需全量跑）"
+    )
+    parser.add_argument(
+        "--project",
+        default="bms",
+        help="仓短名（bms / mdm / engkit）或 GitLab 项目路径",
+    )
     parser.add_argument("--ref", default="main", help="分支名或 tag 名（缺省 main）")
     parser.add_argument("--dry-run", action="store_true", help="只打印请求，不发")
     parser.add_argument("--watch", action="store_true", help="触发后轮询到终态")
-    parser.add_argument("--interval", type=int, default=20, help="--watch 的轮询间隔秒数（缺省 20）")
+    parser.add_argument(
+        "--interval", type=int, default=20, help="--watch 的轮询间隔秒数（缺省 20）"
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     env = load_env(ENV_FILE)
     api = resolve("GITLAB_API_URL", env)
     token = resolve("GITLAB_API_TOKEN", env)
     if not api or not token:
-        print(f"[trigger] 缺少 GITLAB_API_URL / GITLAB_API_TOKEN（读 {ENV_FILE} 或同名环境变量）", file=sys.stderr)
+        print(
+            f"[trigger] 缺少 GITLAB_API_URL / GITLAB_API_TOKEN（读 {ENV_FILE} 或同名环境变量）",
+            file=sys.stderr,
+        )
         return 2
 
     try:
@@ -238,7 +265,9 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         return 1
     url = f"{api.rstrip('/')}/projects/{project_id}/pipeline"
     if args.dry_run:
-        print(f"[trigger] 将 POST {url} 载荷 {{'ref': {args.ref!r}}}（dry-run，未发送）")
+        print(
+            f"[trigger] 将 POST {url} 载荷 {{'ref': {args.ref!r}}}（dry-run，未发送）"
+        )
         return 0
 
     try:
@@ -259,9 +288,12 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(f"[trigger] 地址：{web_url}")
     if not args.watch:
         return 0
-    status = watch(api, token, project_id, pipeline_id, max(5, int(args.interval)))
-    print(f"[trigger] 流水线 #{pipeline_id} 终态：{status}")
-    return 0 if status == "success" else 1
+    project = str(args.project)
+    short = next(
+        (name for name, path in REPO_NAMES.items() if path == project),
+        project.rsplit("/", 1)[-1],
+    )
+    return watch(short, pipeline_id, max(5, int(args.interval)))
 
 
 if __name__ == "__main__":
