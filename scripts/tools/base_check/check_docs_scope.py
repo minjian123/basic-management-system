@@ -25,6 +25,9 @@ for _entry in (_SCRIPT_DIR, _PREFLIGHT_DIR):
 
 from engkit_boot import config_path, forward, pop_root  # noqa: E402
 
+_VALUE_OPTIONS = ("--files-from",)
+"""带取值的选项名（其取值不算位置参数）。"""
+
 
 def main() -> int:
     """入口。
@@ -32,7 +35,7 @@ def main() -> int:
     Returns:
         int: 退出码。
     """
-    kept, root = pop_root(sys.argv[1:])
+    kept, root = pop_root(sys.argv[1:], _VALUE_OPTIONS)
     args = ["docs-scope", "--config", config_path()]
     if root:
         args.extend(["--root", root])

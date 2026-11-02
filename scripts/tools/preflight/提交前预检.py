@@ -71,6 +71,7 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "check_backend_base.py",
         "check_env_example.py",
         "boundary_metrics.py",
+        "check_docs_scope.py",
         "engkit eol",
         "check_ci_config.py",
         "check_test_db_isolation.py",
