@@ -11,7 +11,7 @@ from bms_core.print.templates import (
     DEFAULT_DOCUMENT_TEMPLATE_KEY,
     DEFAULT_LIST_TEMPLATE_KEY,
     BuiltinPrintTemplateProvider,
-    _BuiltinRegistry,
+    BuiltinTemplateRegistry,
 )
 
 pytestmark = pytest.mark.kiwi_id(2402)
@@ -43,7 +43,7 @@ async def test_builtin_get_and_miss() -> None:
 
 def test_registry_rejects_duplicate_and_empty_key() -> None:
     """注册表拒绝重名与空键。"""
-    registry = _BuiltinRegistry()
+    registry = BuiltinTemplateRegistry()
     with pytest.raises(ValueError, match="重复"):
         registry.add(PrintTemplateInfo(key=DEFAULT_LIST_TEMPLATE_KEY, name="重复"))
     with pytest.raises(ValueError, match="为空"):
@@ -52,7 +52,7 @@ def test_registry_rejects_duplicate_and_empty_key() -> None:
 
 def test_registry_add_and_get() -> None:
     """扩展登记后可取。"""
-    registry = _BuiltinRegistry()
+    registry = BuiltinTemplateRegistry()
     registry.add(PrintTemplateInfo(key="demo_template", name="演示模板", biz_type="demo"))
     assert registry.get("demo_template").name == "演示模板"
     assert [item.key for item in registry.all()] == sorted(

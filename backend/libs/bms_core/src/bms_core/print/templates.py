@@ -2,6 +2,7 @@
 
 - `BuiltinPrintTemplateProvider`（插件名 `builtin`，由 `core/assembly.py` 的显式工厂登记）：模板清单与
   单模板定义来自**进程内注册表**，不读库、不渲染；表单定制（10_01）落地后换 provider 即可。
+- `BuiltinTemplateRegistry`：进程内模板注册表（可独立实例化，便于测试与产品扩展）。
 - `register_builtin_template`：扩展入口（产品仓 / 后续阶段追加模板；重名即拒）。
 
 口径：内置模板只声明模板键 / 名称 / 单据类型；**变量清单为空**——单据字段由调用方随
@@ -25,6 +26,7 @@ __all__ = [
     "DEFAULT_DOCUMENT_TEMPLATE_KEY",
     "DEFAULT_LIST_TEMPLATE_KEY",
     "BuiltinPrintTemplateProvider",
+    "BuiltinTemplateRegistry",
     "register_builtin_template",
 ]
 
@@ -35,7 +37,7 @@ DEFAULT_LIST_TEMPLATE_KEY = "generic_list"
 """通用列表模板键（列表 PDF 缺省）。"""
 
 
-class _BuiltinRegistry(BaseFrameworkObject):
+class BuiltinTemplateRegistry(BaseFrameworkObject):
     """内置模板注册表（进程内、导入期登记、运行期只读）。"""
 
     def __init__(self) -> None:
@@ -101,7 +103,7 @@ class _BuiltinRegistry(BaseFrameworkObject):
         return info
 
 
-_REGISTRY = _BuiltinRegistry()
+_REGISTRY = BuiltinTemplateRegistry()
 
 BUILTIN_PRINT_TEMPLATES: ConcurrentStableFrozenList[PrintTemplateInfo] = _REGISTRY.all()
 """内置模板清单（两条：通用单据 / 通用列表）。"""
