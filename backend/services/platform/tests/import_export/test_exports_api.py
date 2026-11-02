@@ -29,7 +29,12 @@ from bms_core.api.deps import (
 )
 from bms_core.audit.null import NullAuditCapturer
 from bms_core.config.base import BaseConfigSource
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.config import get_settings
 from bms_core.db.session import DbUnitOfWork
 from bms_core.masking.default import DefaultMasker
@@ -66,6 +71,15 @@ class _Config(BaseConfigSource):
     async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         return ConcurrentStableDict({key: self._values[key] for key in keys if key in self._values})
 
+    def override(self, key: str, value: str) -> None:
+        """覆盖一个参数值（测试用）。
+
+        Args:
+            key: 参数键。
+            value: 参数值。
+        """
+        self._values.set(key, value)
+
 
 class _PlainAllowed(BasePermissionChecker):
     """放行全部权限码（含 `data:plain`；非占位实现，`check_plain` 不 fail-closed）。"""
@@ -74,15 +88,6 @@ class _PlainAllowed(BasePermissionChecker):
 
     def check(self, code: str) -> bool:
         return True
-
-
-class _DenyExport(BasePermissionChecker):
-    """仅拒绝导出权限码（验证端点级权限）。"""
-
-    plugin_name = ""
-
-    def check(self, code: str) -> bool:
-        return code != "export:download"
 
 
 def _data(response: object) -> ConcurrentStableDict[str, object]:
@@ -98,11 +103,14 @@ def _code(response: object) -> int:
     return int(cast("int", payload["code"]))
 
 
-def _sheet_rows(content: bytes) -> list[tuple[object, ...]]:
+def _sheet_rows(content: bytes) -> ConcurrentStableList[ConcurrentStableFrozenList[object]]:
     """读取导出 xlsx 的全部行。"""
     workbook = load_workbook(BytesIO(content), read_only=True, data_only=True)
     try:
-        return list(workbook["数据"].iter_rows(values_only=True))
+        rows: ConcurrentStableList[ConcurrentStableFrozenList[object]] = ConcurrentStableList()
+        for row in workbook["数据"].iter_rows(values_only=True):
+            rows.add(ConcurrentStableFrozenList(row))
+        return rows
     finally:
         workbook.close()
 
@@ -116,6 +124,38 @@ class _Env:
     config: _Config
     limiter: MemoryRateLimiter
     factory: async_sessionmaker[AsyncSession]
+
+
+def _body_rows(
+    rows: ConcurrentStableList[ConcurrentStableFrozenList[object]],
+) -> ConcurrentStableList[ConcurrentStableFrozenList[object]]:
+    """去掉表头后的数据行。
+
+    Args:
+        rows: 含表头的全部行。
+
+    Returns:
+        ConcurrentStableList[ConcurrentStableFrozenList[object]]: 数据行。
+    """
+    body: ConcurrentStableList[ConcurrentStableFrozenList[object]] = ConcurrentStableList()
+    for index, row in enumerate(rows):
+        if index:
+            body.add(row)
+    return body
+
+
+def _first_id(response: object) -> str:
+    """取列表响应首行主键。
+
+    Args:
+        response: 列表接口响应。
+
+    Returns:
+        str: 首行主键字符串。
+    """
+    data = _data(response)
+    items = cast("ConcurrentStableList[ConcurrentStableDict[str, object]]", data["list"])
+    return str(items[0]["id"])
 
 
 def _masker(allow_plain: bool) -> DefaultMasker:
@@ -209,7 +249,7 @@ async def test_export_excel_stream_and_rows(env: _Env) -> None:
     )
     assert "filename*=UTF-8''" in response.headers["content-disposition"]
     rows = _sheet_rows(response.content)
-    assert rows[0] == ("登录账号", "姓名", "手机号", "邮箱", "状态", "最近登录")
+    assert tuple(rows[0]) == ("登录账号", "姓名", "手机号", "邮箱", "状态", "最近登录")
     listed = await env.client.get("/api/v1/users", params={"size": 1})
     total = int(cast("int", _data(listed)["total"]))
     assert len(rows) == total + 1
@@ -219,7 +259,8 @@ async def test_export_masks_sensitive_columns(env: _Env) -> None:
     """无 `data:plain`：手机号 / 邮箱掩码，其余列原样。"""
     response = await env.client.get(f"{API}/users")
     rows = _sheet_rows(response.content)
-    masked = [row for row in rows[1:] if isinstance(row[2], str) and row[2]]
+    body = _body_rows(rows)
+    masked = [row for row in body if isinstance(row[2], str) and row[2]]
     assert masked
     phone, email = masked[0][2], masked[0][3]
     assert isinstance(phone, str) and "*" in phone
@@ -231,16 +272,17 @@ async def test_export_plain_with_data_plain(env: _Env) -> None:
     env.app.dependency_overrides[get_masker] = lambda: _masker(True)
     response = await env.client.get(f"{API}/users")
     rows = _sheet_rows(response.content)
-    phones = [row[2] for row in rows[1:] if isinstance(row[2], str) and row[2]]
-    emails = [row[3] for row in rows[1:] if isinstance(row[3], str) and row[3]]
-    assert phones and all("*" not in phone for phone in phones)
-    assert emails and all("*" not in email for email in emails)
+    body = _body_rows(rows)
+    phones = [row[2] for row in body if isinstance(row[2], str) and row[2]]
+    emails = [row[3] for row in body if isinstance(row[3], str) and row[3]]
+    assert phones and all("*" not in str(phone) for phone in phones)
+    assert emails and all("*" not in str(email) for email in emails)
 
 
 async def test_export_ids_selection(env: _Env) -> None:
     """ids 选中导出：只含选中行。"""
     listed = await env.client.get("/api/v1/users", params={"size": 1})
-    target = str(_data(listed)["list"][0]["id"])
+    target = _first_id(listed)
     response = await env.client.get(f"{API}/users", params={"ids": target})
     rows = _sheet_rows(response.content)
     assert len(rows) == 2
@@ -251,7 +293,8 @@ async def test_export_order_desc(env: _Env) -> None:
     response = await env.client.get(f"{API}/users", params={"order_by": "username", "order": "desc"})
     rows = _sheet_rows(response.content)
     listed = await env.client.get("/api/v1/users", params={"size": 1, "order_by": "username", "order": "desc"})
-    assert rows[1][0] == _data(listed)["list"][0]["username"]
+    listed_body = cast("ConcurrentStableList[ConcurrentStableDict[str, object]]", _data(listed)["list"])
+    assert _body_rows(rows)[0][0] == listed_body[0]["username"]
 
 
 async def test_export_empty(env: _Env) -> None:
@@ -278,13 +321,13 @@ async def test_export_ids_invalid(env: _Env) -> None:
 
 async def test_export_async_over_threshold(env: _Env) -> None:
     """超同步阈值：回异步受理 + 建作业。"""
-    env.config._values.set("export.sync_max_rows", "1")
+    env.config.override("export.sync_max_rows", "1")
     response = await env.client.get(f"{API}/users")
     assert response.status_code == 200
     data = _data(response)
     assert data["async"] is True
     assert int(cast("int", data["job_id"])) > 0
-    assert data["status_url"].startswith("/api/v1/exports/jobs/")
+    assert str(data["status_url"]).startswith("/api/v1/exports/jobs/")
     async with env.factory() as session:
         statement = SysJob.__table__.select().where(SysJob.job_type == "platform.export.execute")
         jobs = (await session.execute(statement)).all()
@@ -293,7 +336,7 @@ async def test_export_async_over_threshold(env: _Env) -> None:
 
 async def test_export_over_max_rows(env: _Env) -> None:
     """超过单次行数上限：50404。"""
-    env.config._values.set("export.max_rows", "2")
+    env.config.override("export.max_rows", "2")
     response = await env.client.get(f"{API}/users")
     assert response.status_code == 400
     assert _code(response) == 50404
@@ -309,7 +352,7 @@ async def test_export_job_status_missing(env: _Env) -> None:
 async def test_export_list_pdf(env: _Env) -> None:
     """列表 PDF 同步：返回产物限时取址。"""
     listed = await env.client.get("/api/v1/users", params={"size": 1})
-    target = str(_data(listed)["list"][0]["id"])
+    target = _first_id(listed)
     response = await env.client.get(f"{API}/users/pdf", params={"ids": target, "paper": "A4", "watermark": "内部资料"})
     assert response.status_code == 200, response.text
     data = _data(response)
@@ -323,7 +366,7 @@ async def test_export_list_pdf(env: _Env) -> None:
 async def test_export_list_pdf_bad_paper(env: _Env) -> None:
     """纸张非法：10001。"""
     listed = await env.client.get("/api/v1/users", params={"size": 1})
-    target = str(_data(listed)["list"][0]["id"])
+    target = _first_id(listed)
     response = await env.client.get(f"{API}/users/pdf", params={"ids": target, "paper": "B5"})
     assert response.status_code == 200
     assert _code(response) == 10001
@@ -334,10 +377,11 @@ async def test_export_roles_no_masking(env: _Env) -> None:
     """roles 无敏感列：无 `data:plain` 也原样。"""
     response = await env.client.get(f"{API}/roles")
     rows = _sheet_rows(response.content)
-    assert rows[0] == ("角色编码", "角色名称", "角色类型", "状态", "创建时间")
-    codes = {row[0] for row in rows[1:]}
+    assert tuple(rows[0]) == ("角色编码", "角色名称", "角色类型", "状态", "创建时间")
+    body = _body_rows(rows)
+    codes: ConcurrentStableSet[object] = ConcurrentStableSet(row[0] for row in body)
     assert "r_demo" in codes
-    demo = next(row for row in rows[1:] if row[0] == "r_demo")
+    demo = next(row for row in body if row[0] == "r_demo")
     assert demo[2] == "自定义"
 
 
@@ -350,7 +394,7 @@ async def test_export_requires_auth(env: _Env) -> None:
 
 async def test_export_rate_limited(env: _Env) -> None:
     """超限流阈值：429。"""
-    env.config._values.set("export.rate_limit.limit", "1")
+    env.config.override("export.rate_limit.limit", "1")
     first = await env.client.get(f"{API}/users")
     assert first.status_code == 200
     second = await env.client.get(f"{API}/users")

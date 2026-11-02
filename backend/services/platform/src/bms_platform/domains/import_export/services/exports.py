@@ -817,18 +817,21 @@ def _parse_json_object(raw: str) -> ConcurrentStableDict[str, object]:
     return ConcurrentStableDict(cast("dict[str, object]", parsed))
 
 
-def _items(raw: object) -> list[object]:
+def _items(raw: object) -> ConcurrentStableList[object]:
     """把可迭代负载（JSON 数组 / 集合容器）统一为列表（字符串与映射不算）。
 
     Args:
         raw: 原始负载值。
 
     Returns:
-        list[object]: 元素列表（不可迭代为空）。
+        ConcurrentStableList[object]: 元素列表（不可迭代为空）。
     """
+    items: ConcurrentStableList[object] = ConcurrentStableList()
     if isinstance(raw, str | bytes | dict) or not isinstance(raw, Iterable):
-        return []
-    return [cast("object", item) for item in raw]
+        return items
+    for item in cast("Iterable[object]", raw):
+        items.add(item)
+    return items
 
 
 def as_int(value: object, default: int = 0) -> int:

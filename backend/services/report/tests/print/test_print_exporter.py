@@ -17,7 +17,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.api.deps import get_idempotency_store, get_print_exporter
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import (
     BizError,
@@ -254,7 +254,7 @@ async def test_dependency_provider_resolves() -> None:
 @pytest.mark.kiwi_id(906)
 def test_route_paths_registered() -> None:
     """打印路由路径登记齐全。"""
-    paths: set[str] = {cast("APIRoute", route).path for route in print_router.routes}
+    paths: ConcurrentStableSet[str] = ConcurrentStableSet(cast("APIRoute", route).path for route in print_router.routes)
     assert "/prints/exports" in paths
     assert "/prints/batch" in paths
     assert "/prints/templates" in paths

@@ -12,16 +12,18 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from bms_core.config.base import BaseConfigSource
 from bms_core.config.http import HttpConfigSource
 from bms_core.config.null import NullConfigSource
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db.session import DbSession
 from bms_core.jobs.base import BaseJobHandler, JobContext, JobResult
@@ -49,6 +51,21 @@ from bms_platform.exports import build_export_definitions
 __all__ = ["ExportCleanupJob", "ExportExecuteJob"]
 
 _LOGGER = get_logger("bms")
+
+
+@dataclass(frozen=True)
+class _ExpiredJob(BaseValueObject):
+    """过期作业清理项（作业主键 + 产物 key + 是否已标记）。"""
+
+    job_id: int
+    """作业主键。"""
+
+    object_key: str | None
+    """产物对象 key（None 表示该作业未记产物）。"""
+
+    expired: bool
+    """是否已标记 `expired_at`（已标记只跳过，不重复删对象）。"""
+
 
 _EXPIRED_FIELD = "expired_at"
 """`sys_job.result` 里表示「产物已清理」的时间字段。"""
@@ -177,20 +194,20 @@ class ExportCleanupJob(BaseJobHandler):
             if not batch:
                 break
             offset += batch_size
-            marked: list[int] = []
-            for job_id, key, expired in batch:
-                if expired:
+            marked: ConcurrentStableList[int] = ConcurrentStableList()
+            for item in batch:
+                if item.expired:
                     continue
                 scanned += 1
-                if key:
+                if item.object_key:
                     try:
-                        await artifacts.delete(key)
+                        await artifacts.delete(item.object_key)
                         cleaned += 1
                     except Exception as exc:  # 单条失败不阻断整批（幂等，下轮再试）
                         failed += 1
-                        _LOGGER.warning("导出产物清理失败", object_key=key, error=str(exc))
+                        _LOGGER.warning("导出产物清理失败", object_key=item.object_key, error=str(exc))
                         continue
-                marked.append(job_id)
+                marked.add(item.job_id)
             await _mark_expired(ctx, marked)
             await ctx.report_progress(scanned, None)
             if await ctx.should_cancel():
@@ -207,7 +224,7 @@ async def _expired_batch(
     *,
     limit: int,
     offset: int,
-) -> list[tuple[int, str | None, bool]]:
+) -> ConcurrentStableList[_ExpiredJob]:
     """取一批过期导出作业的 `(主键, 产物 key, 是否已标记)`（事务内取值到局部，避免事务后读 ORM 属性）。
 
     Args:
@@ -217,7 +234,7 @@ async def _expired_batch(
         offset: 偏移。
 
     Returns:
-        list[tuple[int, str | None, bool]]: 批内作业、产物 key 与已标记状态。
+        ConcurrentStableList[_ExpiredJob]: 批内作业、产物 key 与已标记状态。
     """
     async with ctx.session() as raw:
         session = cast("DbSession", raw)
@@ -225,10 +242,19 @@ async def _expired_batch(
             rows = await ImportJobRepository(session).list_succeeded_before(
                 JOB_TYPE, before, limit=limit, offset=offset
             )
-            return [(int(row.id), cleanup_targets(row.result), _is_expired(row.result)) for row in rows]
+            batch: ConcurrentStableList[_ExpiredJob] = ConcurrentStableList()
+            for row in rows:
+                batch.add(
+                    _ExpiredJob(
+                        job_id=int(row.id),
+                        object_key=cleanup_targets(row.result),
+                        expired=_is_expired(row.result),
+                    )
+                )
+            return batch
 
 
-async def _mark_expired(ctx: JobContext, job_ids: list[int]) -> None:
+async def _mark_expired(ctx: JobContext, job_ids: ConcurrentStableList[int]) -> None:
     """把 `expired_at` 写入作业结果（保留原 key 便于审计；已标记的跳过）。
 
     Args:
@@ -275,18 +301,19 @@ def _with_expired(raw: str | None) -> str:
     Returns:
         str: 新结果文本。
     """
-    parsed: dict[str, object] = {}
+    parsed: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     if raw:
         try:
             loaded = json.loads(raw)
         except json.JSONDecodeError:
             loaded = None
         if isinstance(loaded, dict):
-            parsed = cast("dict[str, object]", loaded)
+            for key, value in cast("dict[str, object]", loaded).items():
+                parsed.set(key, value)
     if parsed.get(_EXPIRED_FIELD):
         return raw or "{}"
-    parsed[_EXPIRED_FIELD] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return json.dumps(parsed, ensure_ascii=False)
+    parsed.set(_EXPIRED_FIELD, datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    return json.dumps(dict(parsed), ensure_ascii=False)
 
 
 def _service_client() -> BaseServiceClient:

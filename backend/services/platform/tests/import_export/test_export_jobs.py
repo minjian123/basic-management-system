@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -16,7 +16,11 @@ from openpyxl import load_workbook
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ExportBizNotRegisteredError
 from bms_core.jobs.base import JobContext
@@ -85,7 +89,7 @@ def _context(env: _Env, payload: ExportPayload) -> JobContext:
     """构造作业上下文（会话由 factory 开合）。"""
 
     @asynccontextmanager
-    async def _open() -> AsyncIterator[AsyncSession]:
+    async def _open() -> AsyncGenerator[AsyncSession]:
         async with env.factory() as session:
             yield session
 
@@ -134,11 +138,14 @@ def _payload(*, plain: bool = False, biz: str = "users") -> ExportPayload:
     )
 
 
-def _rows(content: bytes) -> list[tuple[object, ...]]:
+def _rows(content: bytes) -> ConcurrentStableList[ConcurrentStableFrozenList[object]]:
     """读取 xlsx 行。"""
     workbook = load_workbook(BytesIO(content), read_only=True, data_only=True)
     try:
-        return list(workbook["数据"].iter_rows(values_only=True))
+        rows: ConcurrentStableList[ConcurrentStableFrozenList[object]] = ConcurrentStableList()
+        for row in workbook["数据"].iter_rows(values_only=True):
+            rows.add(ConcurrentStableFrozenList(row))
+        return rows
     finally:
         workbook.close()
 
@@ -153,7 +160,7 @@ async def test_execute_job_stores_masked_artifact(env: _Env) -> None:
     assert int(cast("int", output["total"])) >= 2
     content = await env.storage.get(key)
     rows = _rows(content)
-    phone = next(row[2] for row in rows[1:] if row[0] == "jobuser1")
+    phone = next(row[2] for row in rows if row[0] == "jobuser1")
     assert isinstance(phone, str) and "*" in phone
 
 
@@ -162,7 +169,7 @@ async def test_execute_job_plain(env: _Env) -> None:
     result = await _job(env).run(_context(env, _payload(plain=True)))
     output = cast("ConcurrentStableDict[str, object]", result.output)
     rows = _rows(await env.storage.get(str(output["object_key"])))
-    phone = next(row[2] for row in rows[1:] if row[0] == "jobuser1")
+    phone = next(row[2] for row in rows if row[0] == "jobuser1")
     assert phone == "13900000001"
 
 
