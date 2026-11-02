@@ -33,7 +33,9 @@ def test_real_manifest_declares_platform_jobs() -> None:
     path = next(item for item in local_manifest_paths() if item.name == "platform.toml")
     manifest = load_product_manifest(path)
     kinds = {job.job_type: job for job in manifest.jobs}
-    assert set(kinds) == {"sys.task.run", "file.cleanup_orphans"}
+    assert set(kinds) == {"sys.task.run", "file.cleanup_orphans", "platform.import.execute"}
+    assert kinds["platform.import.execute"].service == "platform"
+    assert kinds["platform.import.execute"].max_attempts == 1
     assert kinds["sys.task.run"].service == "platform"
     assert kinds["sys.task.run"].domain == "task"
     assert kinds["file.cleanup_orphans"].service == "file"

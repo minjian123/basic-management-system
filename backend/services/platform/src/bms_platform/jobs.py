@@ -25,6 +25,7 @@ from bms_core.jobs.signal import JobChangeSignal
 from bms_core.jobs.spec import JobTypeSpec
 from bms_core.jobs.worker import JobWorker
 from bms_core.workerid.lease import worker_id_lease_sync
+from bms_platform.domains.import_export.jobs import ImportExecuteJob
 from bms_platform.domains.task.jobs import TaskJobHandler
 
 __all__ = ["build_runner", "build_worker", "job_handlers", "job_specs", "main"]
@@ -39,7 +40,12 @@ def job_handlers() -> ConcurrentStableDict[str, BaseJobHandler]:
     Returns:
         ConcurrentStableDict[str, BaseJobHandler]: 作业类型 → 处理器。
     """
-    return ConcurrentStableDict({TaskJobHandler.job_type: TaskJobHandler()})
+    return ConcurrentStableDict(
+        {
+            TaskJobHandler.job_type: TaskJobHandler(),
+            ImportExecuteJob.job_type: ImportExecuteJob(),
+        }
+    )
 
 
 def job_specs() -> ConcurrentStableDict[str, JobTypeSpec]:
@@ -60,7 +66,18 @@ def job_specs() -> ConcurrentStableDict[str, JobTypeSpec]:
                 max_attempts=3,
                 backoff_seconds=30,
                 concurrency=4,
-            )
+            ),
+            "platform.import.execute": JobTypeSpec(
+                job_type="platform.import.execute",
+                service_key=SERVICE_KEY,
+                domain_key="import_export",
+                handler="bms_platform.domains.import_export.jobs:ImportExecuteJob",
+                description="执行 Excel 批量导入（全量原子；错误明细写 sys_job_error）",
+                timeout_seconds=1800,
+                max_attempts=1,
+                backoff_seconds=0,
+                concurrency=1,
+            ),
         }
     )
 

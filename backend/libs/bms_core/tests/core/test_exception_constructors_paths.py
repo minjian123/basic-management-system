@@ -1,13 +1,13 @@
 """异常构造路径补齐用例（`bms_core/core/exceptions.py`）。
 
-口径：**不做抽样**。`_EXCEPTIONS` 覆盖「可用缺省参数直接构造」的**全部** `BizError` 子类
-（114 个），并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内
-所有子类做完整性自校验——将来新增可缺省构造的异常类而未登记本表，用例直接失败，
-不会像抽样清单那样静默留下覆盖率缺口。
+口径：**不做抽样**。`_EXCEPTIONS` 覆盖「可用缺省参数直接构造」的**全部** `BizError` 子类，
+并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内所有子类做完整性自校验——
+将来新增可缺省构造的异常类而未登记本表，用例直接失败，不会像抽样清单那样静默留下覆盖率缺口。
 
-无法无参构造的 12 个段位基类（`UserOrgError` / `RoleError` / `MenuError` / `ConfigParamError` /
-`OidcError` / `FileError` / `PrintError` / `ClientError` / `OpenTenantError` / `AccountLockError` /
-`GeneralError` / `TaskError`）不在此表：它们的 `__init__` 只做透传，覆盖由各自子类完成。
+无法无参构造的段位基类（`UserOrgError` / `RoleError` / `MenuError` / `ConfigParamError` /
+`OidcError` / `FileError` / `ImportError` / `PrintError` / `ClientError` / `OpenTenantError` /
+`AccountLockError` / `GeneralError` / `TaskError`）不在此表：它们的 `__init__` 只做透传，
+覆盖由各自子类完成。
 """
 
 from __future__ import annotations
@@ -63,6 +63,16 @@ _EXCEPTIONS: ConcurrentStableList[tuple[type[BizError], int, int]] = ConcurrentS
         (exceptions.IdpManageError, 20001, 401),
         (exceptions.IdpNotFoundError, 20063, 404),
         (exceptions.IdpTestFailedError, 20066, 502),
+        (exceptions.ImportBizNotRegisteredError, 50307, 404),
+        (exceptions.ImportCommitFailedError, 50310, 500),
+        (exceptions.ImportFileInvalidError, 50302, 400),
+        (exceptions.ImportFileTooLargeError, 50303, 413),
+        (exceptions.ImportIdempotencyRequiredError, 50305, 400),
+        (exceptions.ImportReportNotFoundError, 50306, 404),
+        (exceptions.ImportReportNotReadyError, 50308, 409),
+        (exceptions.ImportRowLimitExceededError, 50304, 400),
+        (exceptions.ImportSourceMissingError, 50309, 500),
+        (exceptions.ImportTemplateMismatchError, 50301, 400),
         (exceptions.InternalError, 10000, 500),
         (exceptions.LocalLoginGuardError, 20056, 429),
         (exceptions.LoginFailedError, 20002, 401),

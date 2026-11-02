@@ -43,6 +43,21 @@ class UserRepository(BaseDbRepository[SysUser]):
         statement = self._select().where(self._column("username") == username)
         return (await self._session.execute(statement)).scalar_one_or_none()
 
+    async def list_existing_usernames(self, usernames: ConcurrentStableList[str]) -> ConcurrentStableSet[str]:
+        """按账号集合查询已存在的账号（不含软删除；导入预检用）。
+
+        Args:
+            usernames: 登录账号集合（空集返回空集合）。
+
+        Returns:
+            ConcurrentStableSet[str]: 已存在的账号集合。
+        """
+        if not usernames:
+            return ConcurrentStableSet()
+        statement = self._select().where(self._column("username").in_(tuple(usernames)))
+        rows = (await self._session.execute(statement)).scalars().all()
+        return ConcurrentStableSet(row.username for row in rows)
+
     async def list_by_ids(self, user_ids: ConcurrentStableList[int]) -> ConcurrentStableList[SysUser]:
         """按主键集合批量取用户（不含软删除）。
 

@@ -211,6 +211,17 @@
       "public_api": [
         "bms_platform.domains.job.public"
       ]
+    },
+    {
+      "domain_key": "import_export",
+      "service_key": "platform",
+      "status": "placement",
+      "paths": [
+        "backend/services/platform/src/bms_platform/domains/import_export/**/*.py"
+      ],
+      "public_api": [
+        "bms_platform.domains.import_export.public"
+      ]
     }
   ],
   "shared_paths": [

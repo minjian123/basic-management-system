@@ -17,6 +17,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError, ConflictError, NotFoundError, ParamError
 from bms_core.db.keys import PLATFORM_DB_KEY
+from bms_core.db.migration import domain_series
 from bms_core.db.session import session_scope
 from bms_core.models.platform.release_manifest import (
     RELEASE_STATUS_FAILED,
@@ -278,7 +279,7 @@ async def test_structure_not_ready_rejects(client: AsyncClient, service_app: Fas
     """用例 6：某域结构记录表未初始化——拒绝并提示先执行清单。"""
     scope = 9106
     del client
-    domain = _platform_domains()[0]
+    domain = next(domain for domain in _platform_domains() if any(series.tables for series in domain_series(domain)))
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:

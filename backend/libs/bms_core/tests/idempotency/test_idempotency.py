@@ -51,6 +51,7 @@ async def test_null_store_always_first() -> None:
     assert await store.begin(key) is True
     assert await store.load(key) is None
     assert await store.save(key, {"ok": True}) is None
+    assert await store.release(key) is None
 
 
 @pytest.mark.kiwi_id(43)

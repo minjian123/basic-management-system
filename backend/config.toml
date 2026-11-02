@@ -218,6 +218,11 @@ options = {}
 provider = "local"
 options = {}
 
+[importer]
+# Excel 导入实现选择（插件化配置；openpyxl = 真实读写（缺省）、空串 = null 占位）
+provider = "openpyxl"
+options = {}
+
 [file]
 # 文件管理进程级参数（03_01）：分片粒度 / 校验强度 / 回收批量；大小上限与白名单走 sys_config 参数
 part_size = 5242880            # 分片缺省大小（字节，5MB；MinIO 组合下限，末片除外）

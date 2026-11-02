@@ -8,7 +8,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFroze
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.exporter import BaseExporter
-from bms_core.transfer.importer import BaseImporter, ImportResult
+from bms_core.transfer.importer import BaseImporter, ImportResult, ParsedRow
 
 __all__ = [
     "NullExporter",
@@ -60,9 +60,9 @@ class NullExporter(BaseExporter, BaseNullObject):
 class NullImporter(BaseImporter, BaseNullObject):
     """占位导入器：空行 / 空结果（不读写文件，未接入真实实现时使用）。"""
 
-    async def parse(
+    async def parse_rows(
         self, data: bytes, *, columns: ConcurrentStableList[ColumnSpec]
-    ) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+    ) -> ConcurrentStableList[ParsedRow]:
         """返回空行。
 
         Args:
@@ -70,13 +70,14 @@ class NullImporter(BaseImporter, BaseNullObject):
             columns: 列定义（占位忽略）。
 
         Returns:
-            ConcurrentStableList[ConcurrentStableDict[str, object]]: 空集合。
+            ConcurrentStableList[ParsedRow]: 空集合。
         """
+        del data, columns
         return ConcurrentStableList()
 
-    async def validate(
+    async def validate_rows(
         self,
-        rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
+        rows: ConcurrentStableList[ParsedRow],
         *,
         columns: ConcurrentStableList[ColumnSpec],
     ) -> ImportResult:
@@ -89,4 +90,9 @@ class NullImporter(BaseImporter, BaseNullObject):
         Returns:
             ImportResult: 空结果（无有效行 / 无错误）。
         """
-        return ImportResult(rows=ConcurrentStableFrozenList(()), errors=ConcurrentStableFrozenList(()))
+        del rows, columns
+        return ImportResult(
+            rows=ConcurrentStableFrozenList(()),
+            errors=ConcurrentStableFrozenList(()),
+            valid_rows=ConcurrentStableFrozenList(()),
+        )

@@ -61,6 +61,21 @@ class RoleRepository(BaseDbRepository[SysRole]):
         statement = self._select().where(self._column("code") == code)
         return (await self._session.execute(statement)).scalar_one_or_none()
 
+    async def list_existing_codes(self, codes: ConcurrentStableList[str]) -> ConcurrentStableSet[str]:
+        """按角色码集合查询已存在的角色码（不含软删除；导入预检用）。
+
+        Args:
+            codes: 角色码集合（空集返回空集合）。
+
+        Returns:
+            ConcurrentStableSet[str]: 已存在的角色码集合。
+        """
+        if not codes:
+            return ConcurrentStableSet()
+        statement = self._select().where(self._column("code").in_(tuple(codes)))
+        rows = (await self._session.execute(statement)).scalars().all()
+        return ConcurrentStableSet(row.code for row in rows)
+
     async def list_enabled(self) -> ConcurrentStableList[SysRole]:
         """取启用状态的角色（按主键升序；字典数据源用）。
 

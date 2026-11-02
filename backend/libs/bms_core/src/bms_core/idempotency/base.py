@@ -90,6 +90,13 @@ class IdempotencyStore(BasePluggable, ABC):
             ttl: 键有效期（秒）。
         """
 
+    async def release(self, key: str) -> None:
+        """释放幂等键（首次请求内部失败时调用；默认空实现，保持契约兼容）。
+
+        Args:
+            key: 幂等 key。
+        """
+
 
 def get_idempotency_store(request: Request) -> IdempotencyStore:
     """取应用级幂等存储（依赖注入提供者）。

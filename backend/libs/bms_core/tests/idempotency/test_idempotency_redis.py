@@ -71,6 +71,24 @@ async def test_setnx_first_and_result_reuse() -> None:
 
 
 @pytest.mark.kiwi_id(2173)
+async def test_release_allows_retry() -> None:
+    """释放后同键可再次占用；Redis 不可用 fail-closed。"""
+    client = FakeRedis(decode_responses=True)
+    store = RedisIdempotencyStore(_REDIS_URL, client=client)
+    key = build_idempotency_key(key="release-1", tenant="t1")
+    assert await store.begin(key) is True
+    await store.release(key)
+    assert await store.begin(key) is True
+    await client.aclose()
+
+    from bms_core.core.exceptions import RedisUnavailableError
+
+    broken = RedisIdempotencyStore(_REDIS_URL, client=cast("Redis", _BrokenClient()))
+    with pytest.raises(RedisUnavailableError):
+        await broken.release("bms:global:idem:k")
+
+
+@pytest.mark.kiwi_id(2173)
 async def test_load_deserialization_edges() -> None:
     """反序列化边界：字节 / 非字符串 / 非法 JSON / 非对象 → 按未命中。"""
     cases: ConcurrentStableList[tuple[object, object]] = ConcurrentStableList(

@@ -55,10 +55,11 @@ class _Registry:
 
 def test_job_handlers_and_specs_are_declared() -> None:
     """handler 与类型声明齐备（代码侧唯一登记点）。"""
-    assert list(jobs.job_handlers()) == ["sys.task.run"]
+    assert list(jobs.job_handlers()) == ["sys.task.run", "platform.import.execute"]
     specs = jobs.job_specs()
-    assert list(specs) == ["sys.task.run"]
+    assert list(specs) == ["sys.task.run", "platform.import.execute"]
     assert specs["sys.task.run"].service_key == "platform"
+    assert specs["platform.import.execute"].max_attempts == 1
 
 
 def test_build_runner_uses_declared_handlers() -> None:

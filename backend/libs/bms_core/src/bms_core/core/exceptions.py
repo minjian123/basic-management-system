@@ -1257,6 +1257,140 @@ class FileObjectMissingError(FileError):
         BizError.__init__(self, ErrorCode.FILE_OBJECT_MISSING, message, http_status=404, data=data)
 
 
+class ImportError(FileError):
+    """Excel 批量导入子段（文件段内 `503xx`）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class ImportTemplateMismatchError(ImportError):
+    """模板不匹配（缺 sheet / 表头列数、列序、列头文本不一致，`50301` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化模板不匹配异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_TEMPLATE_MISMATCH, message, http_status=400, data=data)
+
+
+class ImportFileInvalidError(ImportError):
+    """文件非法（非 xlsx / 容器损坏 / zip 超限 / 无数据行，`50302` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化文件非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_FILE_INVALID, message, http_status=400, data=data)
+
+
+class ImportFileTooLargeError(ImportError):
+    """文件超限（`50303` / 413）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化文件超限异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_FILE_TOO_LARGE, message, http_status=413, data=data)
+
+
+class ImportRowLimitExceededError(ImportError):
+    """数据行数超限（`50304` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化行数超限异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_ROW_LIMIT_EXCEEDED, message, http_status=400, data=data)
+
+
+class ImportIdempotencyRequiredError(ImportError):
+    """缺少 / 非法幂等键（`50305` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化幂等键缺失异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_IDEMPOTENCY_REQUIRED, message, http_status=400, data=data)
+
+
+class ImportReportNotFoundError(ImportError):
+    """错误明细不存在 / 过期 / 无错误（`50306` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化错误明细不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_REPORT_NOT_FOUND, message, http_status=404, data=data)
+
+
+class ImportBizNotRegisteredError(ImportError):
+    """导入业务未注册 / 作业不属于该业务（`50307` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化业务未注册异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_BIZ_NOT_REGISTERED, message, http_status=404, data=data)
+
+
+class ImportReportNotReadyError(ImportError):
+    """作业未终态，错误明细尚未生成（`50308` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化错误明细未就绪异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_REPORT_NOT_READY, message, http_status=409, data=data)
+
+
+class ImportSourceMissingError(ImportError):
+    """源文件对象丢失（`50309` / 500；作业不可重试）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化源文件丢失异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_SOURCE_MISSING, message, http_status=500, data=data)
+
+
+class ImportCommitFailedError(ImportError):
+    """整批写入失败（`50310` / 500；已回滚，未落库）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化整批写入失败异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.IMPORT_COMMIT_FAILED, message, http_status=500, data=data)
+
+
 class PrintError(FileError):
     """打印与导出 PDF 子段（文件段内 `502xx`）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

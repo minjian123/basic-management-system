@@ -160,3 +160,20 @@ class RedisIdempotencyStore(IdempotencyStore):
         except Exception as exc:  # Redis 不可用：fail-closed（结果不落缓存即报错）
             _LOGGER.warning("redis_unavailable", op="idempotency_save", error=repr(exc))
             raise RedisUnavailableError("幂等结果写入失败：Redis 不可用", data={"op": "save"}) from exc
+
+    async def release(self, key: str) -> None:
+        """释放幂等键（内部失败后允许同键重试）。
+
+        Args:
+            key: 幂等 key。
+
+        Raises:
+            RedisUnavailableError: Redis 不可用（fail-closed）。
+        """
+        try:
+            await self.client.delete(key)
+        except RedisUnavailableError:
+            raise
+        except Exception as exc:  # Redis 不可用：fail-closed（不静默当作已释放）
+            _LOGGER.warning("redis_unavailable", op="idempotency_release", error=repr(exc))
+            raise RedisUnavailableError("幂等键释放失败：Redis 不可用", data={"op": "release"}) from exc

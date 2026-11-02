@@ -394,6 +394,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_rbac_data_scope(settings)
     register_plugin("masking", NULL_PLUGIN_NAME, PlaceholderMaskerFactory(settings))
     register_plugin("masking", "default", DefaultMaskerFactory(settings))
+    register_plugin("importer", "openpyxl", OpenpyxlImporterFactory())
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
     register_plugin("object_storage", "local", LocalObjectStorageFactory(settings))
     register_plugin("object_storage", "minio", MinioObjectStorageFactory(settings))
@@ -606,6 +607,27 @@ class PrometheusMetricsFactory(BasePluginFactory[PrometheusMetrics]):
             PrometheusMetrics: 指标实现实例。
         """
         return PrometheusMetrics(self._settings.app.service)
+
+
+class OpenpyxlImporterFactory(BasePluginFactory[BaseImporter]):
+    """openpyxl 真实导入器工厂（04_01；零参构造，无外部依赖）。"""
+
+    plugin_key: str = "importer"
+    # 由 `register_platform_plugins` 显式登记为 `importer:openpyxl`；置空避免自动登记把工厂类当实现。
+    plugin_name: str = ""
+
+    def create(self, options: None = None) -> BaseImporter:
+        """构造 openpyxl 导入器。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            BaseImporter: openpyxl 导入器实例。
+        """
+        from bms_core.transfer.openpyxl import OpenpyxlImporter
+
+        return OpenpyxlImporter()
 
 
 class LocalObjectStorageFactory(BasePluginFactory[BaseObjectStorage]):

@@ -487,6 +487,17 @@ public_api = [
   "bms_platform.domains.job.public",
 ]
 
+[[domains]]
+domain_key = "import_export"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/import_export/**/*.py",
+]
+public_api = [
+  "bms_platform.domains.import_export.public",
+]
+
 
 # 域外路径（装配面 / 基座横切面 / 基础设施与不归域文件；随生成物一并渲染）
 
@@ -514,6 +525,19 @@ description = "回收超期上传分片与孤儿记录（file 域）"
 timeout_seconds = 1800
 max_attempts = 3
 backoff_seconds = 30
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
+job_type = "platform.import.execute"
+service = "platform"
+domain = "import_export"
+handler = "bms_platform.domains.import_export.jobs:ImportExecuteJob"
+description = "执行 Excel 批量导入（全量原子；错误明细写 sys_job_error）"
+timeout_seconds = 1800
+max_attempts = 1
+backoff_seconds = 0
 concurrency = 1
 payload_version = "1.0.0"
 status = "enabled"

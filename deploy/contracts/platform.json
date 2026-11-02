@@ -937,6 +937,60 @@
         "title": "ApiResponse[FormList]",
         "type": "object"
       },
+      "ApiResponse_ImportExecuteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportExecuteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ImportExecuteResult]",
+        "type": "object"
+      },
+      "ApiResponse_ImportJobStatus_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportJobStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ImportJobStatus]",
+        "type": "object"
+      },
       "ApiResponse_InactiveScanResult_": {
         "additionalProperties": false,
         "properties": {
@@ -2018,6 +2072,21 @@
           "size"
         ],
         "title": "BasePageResponse[UserItem]",
+        "type": "object"
+      },
+      "Body_execute_import_api_v1_imports__biz__execute_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Excel 文件（表单字段 file）",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_execute_import_api_v1_imports__biz__execute_post",
         "type": "object"
       },
       "BranchExecuteRequest": {
@@ -4404,6 +4473,258 @@
           }
         },
         "title": "IconUpdateRequest",
+        "type": "object"
+      },
+      "ImportErrorItem": {
+        "additionalProperties": false,
+        "description": "行错误项（`row` 为 Excel 行号；`column` 为字段键）。",
+        "properties": {
+          "column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "出错字段键（可空）",
+            "title": "Column"
+          },
+          "message": {
+            "description": "错误原因",
+            "title": "Message",
+            "type": "string"
+          },
+          "row": {
+            "description": "Excel 行号（数据行，从 2 起）",
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "message"
+        ],
+        "title": "ImportErrorItem",
+        "type": "object"
+      },
+      "ImportExecuteResult": {
+        "additionalProperties": false,
+        "description": "执行导入结果（同步 / 异步 / 幂等命中共用）。",
+        "properties": {
+          "async": {
+            "default": false,
+            "description": "是否已转异步作业",
+            "title": "Async",
+            "type": "boolean"
+          },
+          "blocked_count": {
+            "default": 0,
+            "description": "合法但因整批拒绝未落库的行数",
+            "minimum": 0.0,
+            "title": "Blocked Count",
+            "type": "integer"
+          },
+          "committed": {
+            "default": false,
+            "description": "是否已落库",
+            "title": "Committed",
+            "type": "boolean"
+          },
+          "duplicate": {
+            "default": false,
+            "description": "是否命中幂等键、返回首次结果",
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "errors": {
+            "description": "错误项（同步响应最多前 200 条）",
+            "items": {
+              "$ref": "#/components/schemas/ImportErrorItem"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "fail_count": {
+            "default": 0,
+            "description": "有错误的行数（按行去重）",
+            "minimum": 0.0,
+            "title": "Fail Count",
+            "type": "integer"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "作业主键（异步 / 幂等命中）",
+            "title": "Job Id"
+          },
+          "report_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误明细 token（有错误时返回）",
+            "title": "Report Token"
+          },
+          "success_count": {
+            "default": 0,
+            "description": "实际落库行数",
+            "minimum": 0.0,
+            "title": "Success Count",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "description": "数据行数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "ImportExecuteResult",
+        "type": "object"
+      },
+      "ImportJobStatus": {
+        "additionalProperties": false,
+        "description": "异步导入状态。",
+        "properties": {
+          "blocked_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "合法但未落库的行数",
+            "title": "Blocked Count"
+          },
+          "committed": {
+            "default": false,
+            "description": "是否已落库",
+            "title": "Committed",
+            "type": "boolean"
+          },
+          "errors": {
+            "description": "前 N 条错误（默认 20，上限 200）",
+            "items": {
+              "$ref": "#/components/schemas/ImportErrorItem"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "fail_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "有错误的行数",
+            "title": "Fail Count"
+          },
+          "job_id": {
+            "description": "作业主键",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败 / 取消原因或结果说明",
+            "title": "Message"
+          },
+          "progress_done": {
+            "default": 0,
+            "description": "已完成量",
+            "minimum": 0.0,
+            "title": "Progress Done",
+            "type": "integer"
+          },
+          "progress_total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "总量（未知为 null）",
+            "title": "Progress Total"
+          },
+          "report_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误明细 token（有错误时返回）",
+            "title": "Report Token"
+          },
+          "status": {
+            "description": "作业状态（queued/running/succeeded/failed/canceled/dead）",
+            "title": "Status",
+            "type": "string"
+          },
+          "success_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "实际落库行数",
+            "title": "Success Count"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "数据行数（未终态为 null）",
+            "title": "Total"
+          }
+        },
+        "required": [
+          "job_id",
+          "status"
+        ],
+        "title": "ImportJobStatus",
         "type": "object"
       },
       "InactiveScanRequest": {
@@ -14082,6 +14403,424 @@
         "summary": "Update Icon",
         "tags": [
           "icon"
+        ]
+      }
+    },
+    "/api/v1/imports/{biz}/error-report/{token}": {
+      "get": {
+        "description": "下载错误明细 xlsx（按首次结果生成，限时有效）。\n\nArgs:\n    biz: 业务标识。\n    token: 错误明细 token。\n    deps: 请求依赖。\n\nReturns:\n    Response: xlsx 文件流。",
+        "operationId": "download_error_report_api_v1_imports__biz__error_report__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "错误明细 token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "错误明细 token",
+              "minLength": 1,
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Download Error Report",
+        "tags": [
+          "import"
+        ]
+      }
+    },
+    "/api/v1/imports/{biz}/execute": {
+      "post": {
+        "description": "执行导入（multipart xlsx + Idempotency-Key）。\n\nArgs:\n    biz: 业务标识。\n    deps: 请求依赖。\n    file: 上传文件。\n    idem_key: 幂等键请求头。\n\nReturns:\n    ApiResponse: 执行结果（同步汇总 / 异步 job_id / 幂等命中）。",
+        "operationId": "execute_import_api_v1_imports__biz__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_execute_import_api_v1_imports__biz__execute_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ImportExecuteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Execute Import",
+        "tags": [
+          "import"
+        ]
+      }
+    },
+    "/api/v1/imports/{biz}/jobs/{job_id}": {
+      "get": {
+        "description": "异步导入状态 / 进度 / 汇总 / 前 N 条错误。\n\nArgs:\n    biz: 业务标识。\n    job_id: 作业主键。\n    deps: 请求依赖。\n\nReturns:\n    ApiResponse: 状态。",
+        "operationId": "get_import_job_api_v1_imports__biz__jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "导入作业主键",
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "description": "导入作业主键",
+              "exclusiveMinimum": 0,
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ImportJobStatus_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Import Job",
+        "tags": [
+          "import"
+        ]
+      }
+    },
+    "/api/v1/imports/{biz}/template": {
+      "get": {
+        "description": "下载导入模板（xlsx 文件流）。\n\nArgs:\n    biz: 业务标识（users / roles）。\n    deps: 请求依赖。\n\nReturns:\n    Response: xlsx 文件流。",
+        "operationId": "download_template_api_v1_imports__biz__template_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "title": "Biz",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Download Template",
+        "tags": [
+          "import"
         ]
       }
     },

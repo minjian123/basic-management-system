@@ -304,10 +304,22 @@ class JobExecutor(BaseFrameworkObject):
             return
         error_text = truncate_text(result.message or "执行失败", self._limits.error_max_chars)
         if not result.retryable:
-            await self._finish(snapshot, JOB_STATUS_FAILED, now, error_text=error_text)
+            await self._finish(
+                snapshot,
+                JOB_STATUS_FAILED,
+                now,
+                error_text=error_text,
+                result_text=_result_text(result, self._limits.result_max_chars),
+            )
             return
         if snapshot.attempts >= snapshot.max_attempts:
-            await self._finish(snapshot, JOB_STATUS_DEAD, now, error_text=error_text)
+            await self._finish(
+                snapshot,
+                JOB_STATUS_DEAD,
+                now,
+                error_text=error_text,
+                result_text=_result_text(result, self._limits.result_max_chars),
+            )
             return
         delay = min(
             backoff_seconds * (2 ** max(0, snapshot.attempts - 1)),
@@ -536,6 +548,13 @@ class JobRunner(BaseFrameworkObject):
         )
         await session.refresh(record)
         return record, result
+
+
+def _result_text(result: JobResult, limit: int) -> str | None:
+    """失败 / 死信作业的结果摘要（有 output 才落库；按上限截断）。"""
+    if result.output is None:
+        return None
+    return truncate_text(dump_payload(result.output), limit)
 
 
 def _with_runtime(snapshot: JobSnapshot, *, db_key: str, lease_owner: str) -> JobSnapshot:

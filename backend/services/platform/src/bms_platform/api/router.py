@@ -12,6 +12,7 @@ from bms_platform.api import (
     outbox,
     plugins,
 )
+from bms_platform.domains.import_export.api.imports import build_import_router
 from bms_platform.domains.job.api import internal_job as internal_job_api
 from bms_platform.domains.job.api import job as job_api
 from bms_platform.domains.menu_form.api import form_key, menu
@@ -41,6 +42,8 @@ from bms_platform.domains.user.api import (
     user_extensions,
     users,
 )
+from bms_platform.imports import build_import_definitions
+from bms_platform.jobs import build_runner
 
 api_router = mount_service_routers(
     ConcurrentStableList(
@@ -97,6 +100,11 @@ api_router = mount_service_routers(
             internal_job_api.router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
+            # Excel 批量导入（04_01）：模板 / 执行 / 异步状态 / 错误明细
+            build_import_router(
+                definitions_factory=build_import_definitions,
+                runner_factory=build_runner,
+            ),
         ]
     )
 )
