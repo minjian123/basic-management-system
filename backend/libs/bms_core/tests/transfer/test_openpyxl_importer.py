@@ -282,11 +282,13 @@ def test_zip_inspect_rejects_encrypted(monkeypatch: pytest.MonkeyPatch) -> None:
         def __exit__(self, *_args: object) -> None:
             return None
 
-        def infolist(self) -> list[SimpleNamespace]:
-            return [
-                SimpleNamespace(filename="[Content_Types].xml", flag_bits=0, file_size=1),
-                SimpleNamespace(filename="xl/workbook.xml", flag_bits=1, file_size=1),
-            ]
+        def infolist(self) -> ConcurrentStableList[SimpleNamespace]:
+            return ConcurrentStableList(
+                (
+                    SimpleNamespace(filename="[Content_Types].xml", flag_bits=0, file_size=1),
+                    SimpleNamespace(filename="xl/workbook.xml", flag_bits=1, file_size=1),
+                )
+            )
 
     def _fake_zip(*_args: object, **_kwargs: object) -> _Archive:
         return _Archive()

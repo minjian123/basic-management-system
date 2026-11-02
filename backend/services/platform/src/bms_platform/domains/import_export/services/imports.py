@@ -214,10 +214,10 @@ class ImportExecutor(BaseFrameworkObject):
             await self._quota.consume(quota_key, len(rows), ref=f"import:{definition.biz}")
         try:
             for index, row in enumerate(rows, start=1):
+                if job_ctx is not None and (index - 1) % self._limits.batch_size == 0 and await job_ctx.should_cancel():
+                    raise asyncio.CancelledError()
                 await definition.write_row(row, ctx)
                 if job_ctx is not None and index % self._limits.batch_size == 0:
-                    if await job_ctx.should_cancel():
-                        raise asyncio.CancelledError()
                     await job_ctx.report_progress(index, len(rows))
         except BaseException:
             if quota_key is not None and self._quota is not None:
