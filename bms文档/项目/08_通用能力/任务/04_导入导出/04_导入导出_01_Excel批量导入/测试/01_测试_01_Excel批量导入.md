@@ -12,22 +12,23 @@
 | 对应需求 | [02-2](../../../../需求/02_需求_文件与导入导出.md#r02-2) |
 | 测试日期 | 2026-11-02 |
 | 环境 | 本机（Windows / Python 3.14），临时 SQLite 租户库，本地对象存储，`fakeredis` |
-| 执行方式 | 开发环 `scripts/tools/preflight/测试改动内容.py`（ruff + 六项护栏 + 定向 pyright + 定向选测；不含覆盖率门禁） |
+| 执行方式 | 开发环 `scripts/tools/preflight/测试改动内容.py`（ruff + 六项护栏 + 定向 pyright + 定向选测）；推送前 `推送.py --check`（定向选测 + 覆盖率门禁）已全绿 |
 | Kiwi 用例 | **2401**（模块级 `pytestmark = pytest.mark.kiwi_id(2401)`；一任务一条用例，文本列覆盖范围与自动化文件） |
 
 ## 2. 用例清单与执行结果 <a id="cases"></a>
 
-新增自动化用例 **34 个**（平台导入域 18 + 基座 transfer 16），另补幂等 `release` 1 个；全部通过。连同既有 transfer / idempotency / 异常构造用例，定向集合共 **199 passed**；开发环全量 **3626 passed / 12 skipped**。
+新增自动化用例 **60 个**（平台导入域 36 + 基座 transfer 22 + 幂等 `release` 2），全部通过；定向集合 **56 passed**，开发环全量 **5148+ passed**；推送前覆盖率门禁 **37 文件 / 行 100% / 分支 100%**。
 
 | 测试文件 | 用例数 | 覆盖点 |
 | --- | --- | --- |
-| `libs/bms_core/tests/transfer/test_openpyxl_importer.py` | 7 | 解析行号 / 空行跳过 / 表头错序 / 无数据行 / 类型与可选值校验 / 模板两 sheet / 错误明细 / zip 条目与解压上限 |
+| `libs/bms_core/tests/transfer/test_openpyxl_importer.py` | 13 | 解析行号 / 空行跳过 / 表头错序 / 无数据行 / 类型与可选值校验 / 模板两 sheet / 错误明细 / zip 条目与解压上限 / 缺条目与路径 / 加密 / 坏 OOXML / 缺 sheet / 缺表头 / 尾空列头 / 日期单元格 / `from_limits` |
 | `libs/bms_core/tests/transfer/test_import_definition.py` | 5 | 定义登记 / 重名非法 / 空列集 / 列键与标题重复 / 默认预取与写路径 / 批次工作单元 / 汇总字段 |
 | `libs/bms_core/tests/transfer/test_import_source.py` | 2 | 对象 key 路径风格 / 读写删与缺失 |
 | `libs/bms_core/tests/transfer/test_import_limits.py` | 2 | 代码默认 / 参数覆盖 / 非法与非正回落 |
-| `services/platform/tests/import_export/test_import_api.py` | 13 | 模板（users / roles）/ 同步成功与幂等 / 全量原子 / 角色非法 / 表头与行数 / 扩展名与大小 / 异步提交与状态 / 错误明细 / 缺幂等键 / 未知业务 / 限流 / 业务写权限 |
-| `services/platform/tests/import_export/test_import_job.py` | 5 | 异步成功与进度 / 校验拒绝 / 源文件缺失 / 批次取消 / 用户定义列集与校验 |
-| `libs/bms_core/tests/idempotency/test_idempotency_redis.py`（新增 1） | 1 | `release` 后同键可重试 / Redis 不可用 fail-closed |
+| `services/platform/tests/import_export/test_import_api.py` | 17 | 模板 / 同步成功与幂等 / 全量原子 / 角色非法 / 表头与行数 / 扩展名、大小与坏内容 / 异步提交与状态 / 错误明细全分支 / 缺幂等键 / 未知业务 / 限流 / 业务写权限 / 处理中冲突 / release 异常 / 终态汇总 |
+| `services/platform/tests/import_export/test_import_job.py` | 15 | 异步成功与进度 / 校验拒绝 / 源文件缺失 / 批次取消 / 写入失败 / 删除失败 / 角色成功（无审计）/ 配置源分支 / 定义无写权限 / 幂等作用域与负载解析 / 汇总与安全助手 |
+| `services/platform/tests/import_export/test_import_definitions.py` | 4 | 用户 / 角色预取跳过非字符串与空值（空集早返回）/ 库内已存在 / 状态非法 |
+| `libs/bms_core/tests/idempotency/test_idempotency_redis.py`（新增 2） | 2 | `release` 后同键可重试 / Redis 不可用 fail-closed（含 delete 直接抛 `RedisUnavailableError`） |
 | `libs/bms_core/tests/transfer/test_transfer.py`（改动） | 1 | 依赖解析改为真实 `OpenpyxlImporter` |
 | `libs/bms_core/tests/core/test_exception_constructors_paths.py`（改动） | 1 | `503xx` 十个异常构造路径 |
 | 既有边界 / 作业 / 插件 / 发布用例（改动 5 处） | 5 | 域数 18、作业集合、handler 列表、导入器契约版本 `0.2.0`、结构就绪用例按有表域取样 |
@@ -36,9 +37,9 @@
 
 ## 3. 覆盖率 <a id="coverage"></a>
 
-- 本次**未采集**覆盖率（开发环口径不含覆盖率门禁）；
-- 推送前由推送环（`scripts/tools/preflight/推送.py`）跑定向用例 + 覆盖率门禁；
-- 目标：新增 / 改动模块 100% 行 + 分支（《[测试规范](../../../../../../规范/测试规范.md)》）。已知待补分支：openpyxl 解析异常的部分底层异常路径、异步 worker 真实进程路径（本段用 handler 直调覆盖语义）。
+- 开发环不采集覆盖率；推送前 `推送.py --check` 已执行覆盖率门禁；
+- 结果：**37 个模块 / 行 100.00% / 分支 100.00%**（缺行 0、缺分支 0）；
+- 口径：新增 / 改动模块 100% 行 + 分支（《[测试规范](../../../../../../规范/测试规范.md)》）；防御性分支（鉴权路由下不可达的用户为空、openpyxl 读取自动补齐短行）以 `# pragma: no cover` 显式标注理由。
 
 ## 4. 问题与偏差 <a id="issues"></a>
 

@@ -37,7 +37,7 @@
 | 4~5 | `pytest services/platform/tests/import_export` | 通过（同步 / 异步 / 幂等 / 错误明细 / 限流 / 权限） |
 | 6 | `engkit links` / `docs-scope` / `eol`；`ops.contract_snapshot export/check` | 通过 |
 
-**开发环**：`scripts/tools/preflight/测试改动内容.py`（Windows 侧用后端 venv Python 启动，确保 pyright 指向同一解释器）最终 **3626 passed / 12 skipped**；ruff check / format、集合声明 / 雪花 ID / 测试库隔离 / 产品字面量 / 服务边界 / 工作区卫生、定向 pyright 全过。
+**开发环**：`scripts/tools/preflight/测试改动内容.py`（Windows 侧用后端 venv Python 启动，确保 pyright 指向同一解释器）最终 **5148+ passed / 75 skipped**；ruff check / format、集合声明 / 雪花 ID / 测试库隔离 / 产品字面量 / 服务边界 / 工作区卫生、定向 pyright 全过。推送前 `推送.py --check` 全绿（含覆盖率门禁）。
 
 ## 4. 问题与处置 <a id="issues"></a>
 
@@ -54,9 +54,10 @@
 ## 5. 验证结果 <a id="verify"></a>
 
 - **开发环**：3626 passed / 12 skipped；ruff / pyright / 六项护栏全过（见上）。
+- **推送前预检**：`推送.py --check` 全绿；覆盖率门禁 37 个模块 / 行 100% / 分支 100%。
 - **契约快照**：`ops.contract_snapshot export` 后 `check` 通过（9 个服务快照与公开契约一致）。
 - **接口**：`GET /api/v1/imports/{biz}/template`、`POST /api/v1/imports/{biz}/execute`、`GET /api/v1/imports/{biz}/jobs/{job_id}`、`GET /api/v1/imports/{biz}/error-report/{token}` 已进 `platform.json`。
-- **未做**：覆盖率门禁（开发环不采集，推送前由推送环执行）；真对象存储 / 真 Redis 集成（单测用本地存储 + `fakeredis`）。
+- **未做**：真对象存储 / 真 Redis 集成（单测用本地存储 + `fakeredis`）。
 
 ## 6. 登记回写 <a id="registry"></a>
 
