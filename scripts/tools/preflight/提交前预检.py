@@ -84,7 +84,7 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
 不允许出现「新加一步、提交前悄悄扫全仓」的情况。
 """
 
-PUSH_ONLY_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
+FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
     (
         "check_base.py",
         "check_system_fields.py",
@@ -103,9 +103,10 @@ PUSH_ONLY_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "api-types",
     )
 )
-"""**仅推送环**执行的步骤：语义是「全仓口径一致 / 零漂移」，无法只判改动文件。
+"""语义为「全仓口径一致 / 零漂移」的步骤：默认命令只能全仓判定，无法只判改动文件。
 
-提交前不跑，但在输出里逐项列出（不静默丢弃），让人清楚知道提交前的覆盖边界。
+这类步骤**不会被跳过**：本次改动触及它时必须执行；若执行前校验发现命令无法限定到改动文件，
+门禁**立即报错**（提示该步需改造为文件级判据），只有显式 `--allow-full-steps` 才放行全仓执行。
 """
 
 STEP_SCOPES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenDict(
@@ -432,6 +433,7 @@ def plan_steps(
     jobs: str,
     only_lint: bool,
     all_steps: bool,
+    allow_full: bool,
 ) -> tuple[ConcurrentStableList[PlannedStep], ConcurrentStableList[str], ConcurrentStableList[str]]:
     """把预检步骤表换算成本次可执行的计划。
 
@@ -444,6 +446,7 @@ def plan_steps(
         jobs: 选测并行档位。
         only_lint: 只跑静态与护栏（不含选测 / 覆盖率）。
         all_steps: 强制跑全部步骤（不按改动面裁剪）。
+        allow_full: 放行「只能全仓判定」的步骤（默认遇到即报错）。
 
     Returns:
         tuple[ConcurrentStableList[PlannedStep], ConcurrentStableList[str], ConcurrentStableList[str]]:
@@ -467,17 +470,17 @@ def plan_steps(
             key = "run_selected"
         else:
             key = _step_key(ConcurrentStableFrozenList(step.cmd), step.label) if step.cmd else step.label
-        if key in PUSH_ONLY_STEPS and not all_steps:
-            deferred.add(f"{step.label}")
-            continue
-        if key not in RUNNABLE_STEPS and not all_steps:
-            raise StepScopeError(
-                f"步骤「{step.label}」（键 {key}）未登记提交前范围：请在 RUNNABLE_STEPS / PUSH_ONLY_STEPS 中明确登记，"
-                "不允许提交前跑未界定范围的检查"
-            )
         if not _step_applies(key, files, force_all=all_steps):
             skipped.add(f"{step.label}（本次改动不触及）")
             continue
+        if key in FULL_SCAN_STEPS and not (all_steps or allow_full):
+            deferred.add(f"{step.label}（命令只能全仓判定，需改造为文件级判据）")
+            continue
+        if key not in RUNNABLE_STEPS and not all_steps:
+            raise StepScopeError(
+                f"步骤「{step.label}」（键 {key}）未登记提交前执行方式："
+                "请在 RUNNABLE_STEPS / FULL_SCAN_STEPS 中明确登记"
+            )
         cwd = step.cwd or cfg.preflight.cwd
         if step.type == "scoped_tests":
             if only_lint:
@@ -572,6 +575,11 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     parser.add_argument("--only-lint", action="store_true", help="只跑静态与护栏（不含选测 / 覆盖率）")
     parser.add_argument("--dry-run", action="store_true", help="只打印步骤计划，不执行")
     parser.add_argument("--all-steps", action="store_true", help="强制跑全部预检步骤（不按改动面裁剪）")
+    parser.add_argument(
+        "--allow-full-steps",
+        action="store_true",
+        help="放行「只能全仓判定」的步骤（默认遇到即报错，要求改造为文件级判据）",
+    )
     args = parser.parse_args(None if argv is None else list(argv))
 
     root = Path(args.root).resolve()
@@ -593,20 +601,27 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
             jobs=str(args.jobs),
             only_lint=bool(args.only_lint),
             all_steps=bool(args.all_steps),
+            allow_full=bool(args.allow_full_steps),
         )
     except StepScopeError as exc:
         print(f"[precommit] 拒绝执行：{exc}", file=sys.stderr)
         return 1
 
+    if deferred:
+        print(f"[precommit] 拒绝提交：{len(deferred)} 个步骤只能全仓判定，无法限定到改动文件：", file=sys.stderr)
+        for note in deferred:
+            print(f"[precommit]   - {note}", file=sys.stderr)
+        print(
+            "[precommit] 这几项必须改造为文件级判据（支持 --files-from）后才能进提交前门禁；"
+            "确认本次可由推送环兜底时用 --allow-full-steps 显式放行。",
+            file=sys.stderr,
+        )
+        return 1
     print(f"[precommit] 改动 {len(files)} 个文件（需门禁），提交前执行 {len(planned)} 项：")
     for item in files:
         print(f"[precommit]   · {item}")
     for note in skipped:
         print(f"[precommit]   跳过 {note}")
-    if deferred:
-        print(f"[precommit]   仅推送环（全仓一致性判定，提交前不查）{len(deferred)} 项：")
-        for note in deferred:
-            print(f"[precommit]     · {note}")
     if args.dry_run:
         for step in planned:
             print(f"[precommit]   ▷ {step.label}｜{' '.join(step.cmd)}")
