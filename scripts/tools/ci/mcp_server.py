@@ -301,7 +301,6 @@ def tool_ci_status(args: Any) -> str:
         "failed": failed,
         "running": grouped.get("running", []),
         "pending": grouped.get("pending", []),
-        "created": grouped.get("created", []),
     }
     lines = [
         f"{project}#{pipeline_id} 状态={brief['status']} 时长={brief['duration']}s "
