@@ -395,6 +395,9 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("masking", NULL_PLUGIN_NAME, PlaceholderMaskerFactory(settings))
     register_plugin("masking", "default", DefaultMaskerFactory(settings))
     register_plugin("importer", "openpyxl", OpenpyxlImporterFactory())
+    register_plugin("exporter", "openpyxl", OpenpyxlExporterFactory())
+    register_plugin("print_template", "builtin", BuiltinPrintTemplateProviderFactory())
+    register_plugin("print_exporter", "reportlab", StoragePrintExporterFactory(settings))
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
     register_plugin("object_storage", "local", LocalObjectStorageFactory(settings))
     register_plugin("object_storage", "minio", MinioObjectStorageFactory(settings))
@@ -628,6 +631,108 @@ class OpenpyxlImporterFactory(BasePluginFactory[BaseImporter]):
         from bms_core.transfer.openpyxl import OpenpyxlImporter
 
         return OpenpyxlImporter()
+
+
+class OpenpyxlExporterFactory(BasePluginFactory[BaseExporter]):
+    """openpyxl 真实导出器工厂（04_02；零参构造，无外部依赖）。"""
+
+    plugin_key: str = "exporter"
+    # 由 `register_platform_plugins` 显式登记为 `exporter:openpyxl`；置空避免自动登记把工厂类当实现。
+    plugin_name: str = ""
+
+    def create(self, options: None = None) -> BaseExporter:
+        """构造 openpyxl 导出器。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            BaseExporter: openpyxl 导出器实例。
+        """
+        from bms_core.transfer.openpyxl_exporter import OpenpyxlExporter
+
+        return OpenpyxlExporter()
+
+
+class BuiltinPrintTemplateProviderFactory(BasePluginFactory[BasePrintTemplateProvider]):
+    """内置打印模板来源工厂（04_02；零参构造，模板来自进程内注册表）。"""
+
+    plugin_key: str = "print_template"
+    # 由 `register_platform_plugins` 显式登记为 `print_template:builtin`；置空避免自动登记。
+    plugin_name: str = ""
+
+    def create(self, options: None = None) -> BasePrintTemplateProvider:
+        """构造内置模板来源。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            BasePrintTemplateProvider: 内置模板来源实例。
+        """
+        from bms_core.print.templates import BuiltinPrintTemplateProvider
+
+        return BuiltinPrintTemplateProvider()
+
+
+class StoragePrintExporterFactory(BasePluginFactory[BasePrintExporter]):
+    """reportlab 真实打印导出工厂（04_02）：渲染器按 `[print]` 配置，产物落对象存储。"""
+
+    plugin_key: str = "print_exporter"
+    # 由 `register_platform_plugins` 显式登记为 `print_exporter:reportlab`；置空避免自动登记。
+    plugin_name: str = ""
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取渲染参数、对象存储与模板来源选择）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> BasePrintExporter:
+        """构造真实打印导出（对象存储 + 模板来源 + reportlab 渲染器）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            BasePrintExporter: 真实打印导出实例。
+        """
+        from bms_core.print.exporter import StoragePrintExporter
+        from bms_core.print.renderer import PdfRenderConfig, ReportPdfRenderer
+        from bms_core.print.templates import BuiltinPrintTemplateProvider
+
+        render_settings = self._settings.print_render
+        storage = resolve_plugin(
+            "object_storage",
+            self._settings.storage.provider,
+            expected_version=BaseObjectStorage.contract_version,
+        )
+        template_provider = self._settings.print_template.provider or "builtin"
+        templates: BasePrintTemplateProvider = BuiltinPrintTemplateProvider()
+        if template_provider != "builtin":
+            templates = cast(
+                "BasePrintTemplateProvider",
+                resolve_plugin(
+                    "print_template",
+                    template_provider,
+                    expected_version=BasePrintTemplateProvider.contract_version,
+                ),
+            )
+        renderer = ReportPdfRenderer(
+            PdfRenderConfig(
+                font_path=render_settings.font_path,
+                font_size=render_settings.font_size,
+                margin_mm=render_settings.margin_mm,
+                footer_enabled=render_settings.footer_enabled,
+            )
+        )
+        return StoragePrintExporter(
+            storage=cast("BaseObjectStorage", storage),
+            templates=templates,
+            renderer=renderer,
+        )
 
 
 class LocalObjectStorageFactory(BasePluginFactory[BaseObjectStorage]):

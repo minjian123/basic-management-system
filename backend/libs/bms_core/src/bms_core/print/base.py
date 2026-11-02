@@ -1,28 +1,30 @@
-"""打印模板与导出 PDF 能力域：模板来源与导出两契约（真实渲染 / 模板来源 / 产物落存储随对应阶段回补）。
+"""打印模板与导出 PDF 能力域：模板来源与导出两契约（契约 0.2.0，04_02 补齐真实实现）。
 
 - 取值集合：纸张 `PRINT_PAPERS`（A4 / A5 / 自定义）、方向 `PRINT_ORIENTATIONS`（纵向 / 横向）、
   色调 `PRINT_TONES`（彩色 / 黑白）、批量模式 `PRINT_BATCH_MODES`（逐份 / 合并）、
   模板状态 `PRINT_TEMPLATE_STATUSES`（启用 / 停用）。
 - 产物口径：内容类型 `PRINT_CONTENT_TYPE`（高保真 PDF）、缺省纸张 `DEFAULT_PAPER`、对象 key 域段
-  `PRINT_OBJECT_DOMAIN`；对象 key 一律由 `build_print_object_key` 派生（租户缺省位复用全局租户位常量）。
+  `PRINT_OBJECT_DOMAIN`；对象 key 一律由 `build_print_object_key` 派生（路径风格，跨平台可写）。
 - 占位常量：`PRINT_PLACEHOLDER_MESSAGE`（占位提示文案）、`NULL_PRINT_URL`（占位取址）、
   `NULL_PRINT_BIZ_KEY`（单据键缺省位）。
 - 数据契约：`PrintVariable`（模板变量）/ `PrintTemplateInfo`（模板定义）/ `PrintDocument`（单据数据）/
   `PrintOptions`（渲染选项）/ `PrintExportResult`（导出产物）/ `PrintBatchResult`（批量结果）。
 - `BasePrintTemplateProvider`（`key = "print_template"`）：异步 `list` / `get`——模板定义来源
   （模板键 / 变量清单），只输出模板元数据、不含渲染结构。
-- `BasePrintExporter`（`key = "print_exporter"`）：异步 `export_pdf` / `batch_print`——按模板键与单据数据
-  产出产物；产物经对象存储出口落库并以限时取址下发，后端不代理文件流。
+- `BasePrintExporter`（`key = "print_exporter"`）：异步 `export_pdf` / `batch_print` / `export_list`——
+  按模板键与单据数据产出产物，列表导出按列定义与行集产出表格 PDF；产物经对象存储出口落库并以限时
+  取址下发，后端不代理文件流。
 - 提供者 `get_print_template_provider` / `get_print_exporter`（应用级单例；公共依赖经
   `app/api/deps.py` 统一导出）。
 
 口径：打印与导出**只经本能力域出口**——业务与前端不得自接 PDF 引擎、自建模板来源或自拼产物 key；
 模板来源与渲染分层（来源只出模板元数据，导出只按模板键 + 单据数据产出，不反向读取渲染定义）；
-批量超阈值转后台任务（任务标识 + 完成后限时下载）归后续阶段。错误码落文件段（`5xxxx`）打印子段
-（`502xx`，见 `app/core/error_codes.py`）。真实渲染引擎 / 模板落库来源 / 产物落存储与取址随通用能力、
-表单定制与文件管理阶段回补。
+批量超阈值转后台任务（任务标识 + 完成后限时下载）归调用方路由层判定。错误码落文件段（`5xxxx`）打印
+子段（`502xx`，见 `core/error_codes.py`）。真实渲染引擎（reportlab）、内置模板来源与产物落存储实现
+随 04_02 落地；模板落库来源待表单定制（10_01）接入后换 provider。
 """
 
+import re
 from abc import ABC, abstractmethod
 from typing import Annotated, cast
 
@@ -39,6 +41,7 @@ from bms_core.schemas.base import (
     CONTRACT_STABLE_LIST,
     BaseSchema,
 )
+from bms_core.transfer.base import ColumnSpec
 
 __all__ = [
     "DEFAULT_PAPER",
@@ -46,6 +49,7 @@ __all__ = [
     "NULL_PRINT_URL",
     "PRINT_BATCH_MODES",
     "PRINT_CONTENT_TYPE",
+    "PRINT_CONTRACT_VERSION",
     "PRINT_OBJECT_DOMAIN",
     "PRINT_ORIENTATIONS",
     "PRINT_PAPERS",
@@ -64,6 +68,12 @@ __all__ = [
     "get_print_exporter",
     "get_print_template_provider",
 ]
+
+PRINT_CONTRACT_VERSION = "0.2.0"
+"""打印导出契约版本（0.2.0：`batch_print` 增可选 `documents`、新增 `export_list`；04_02）。"""
+
+_UNSAFE_SEGMENT_CHARS = re.compile(r"[^A-Za-z0-9_.-]")
+"""对象 key 分段非法字符（除字母 / 数字 / 下划线 / 点 / 连字符外一律替换）。"""
 
 PRINT_PAPERS: ConcurrentStableList[str] = ConcurrentStableList(("A4", "A5", "custom"))
 """纸张取值集合（A4 / A5 / 自定义，对齐前端纸张名三取值）。"""
@@ -100,7 +110,10 @@ PRINT_OBJECT_DOMAIN = "prints"
 
 
 def build_print_object_key(*, template_key: str, biz_key: str, tenant: str | None = None) -> str:
-    """构建产物对象 key（格式 `bms:{租户|global}:prints:{模板键}:{单据键}`）。
+    """构建产物对象 key（路径风格 `{租户|global}/prints/{模板键}/{单据键}.pdf`）。
+
+    路径风格而非冒号分隔：本地对象存储实现把 key 直接映射为文件路径，冒号在 Windows 非法
+    （04_01 导入源文件已因同类问题改过一次）；分段经 `_sanitize_segment` 清洗，保证跨平台可写。
 
     Args:
         template_key: 打印模板键。
@@ -110,7 +123,21 @@ def build_print_object_key(*, template_key: str, biz_key: str, tenant: str | Non
     Returns:
         str: 产物对象 key（业务与前端不得自拼）。
     """
-    return f"bms:{tenant or GLOBAL_TENANT}:{PRINT_OBJECT_DOMAIN}:{template_key}:{biz_key}"
+    scope = _sanitize_segment(tenant) if tenant else GLOBAL_TENANT
+    return f"{scope}/{PRINT_OBJECT_DOMAIN}/{_sanitize_segment(template_key)}/{_sanitize_segment(biz_key)}.pdf"
+
+
+def _sanitize_segment(raw: str) -> str:
+    """清洗对象 key 分段（仅保留字母 / 数字 / 下划线 / 点 / 连字符，截断 64 字符）。
+
+    Args:
+        raw: 原始分段。
+
+    Returns:
+        str: 可安全落盘的段（空值回落 `_`）。
+    """
+    cleaned = _UNSAFE_SEGMENT_CHARS.sub("_", raw.strip())[:64]
+    return cleaned.strip(".") or "_"
 
 
 class PrintVariable(BaseSchema):
@@ -215,12 +242,12 @@ class BasePrintTemplateProvider(BasePluggable, ABC):
 
 
 class BasePrintExporter(BasePluggable, ABC):
-    """打印导出契约：单条导出 PDF 与批量打印（产物经对象存储、限时取址）。"""
+    """打印导出契约：单条导出 PDF、批量打印（逐份 / 合并）与列表导出 PDF（产物经对象存储、限时取址）。"""
 
     key: str = "print_exporter"
     plugin_key: str = "print_exporter"
     plugin_name: str = NULL_PLUGIN_NAME
-    contract_version: str = DEFAULT_CONTRACT_VERSION
+    contract_version: str = PRINT_CONTRACT_VERSION
 
     @abstractmethod
     async def export_pdf(
@@ -249,6 +276,7 @@ class BasePrintExporter(BasePluggable, ABC):
         template_key: str,
         mode: str = "separate",
         options: PrintOptions | None = None,
+        documents: ConcurrentStableList[PrintDocument] | None = None,
     ) -> PrintBatchResult:
         """批量打印多单据（逐份 / 合并）。
 
@@ -257,9 +285,34 @@ class BasePrintExporter(BasePluggable, ABC):
             template_key: 打印模板键。
             mode: 批量模式（separate 逐份 / merged 合并；取值 ∈ `PRINT_BATCH_MODES`）。
             options: 渲染选项（None 表示按平台缺省）。
+            documents: 单据数据（与 `keys` 同序等长；None 表示只按单据键渲染简版页，不臆造业务字段）。
 
         Returns:
             PrintBatchResult: 批量结果（任务标识 / 汇总计数 / 产物明细）。
+
+        Raises:
+            ParamError: `mode` 非法或 `documents` 与 `keys` 长度不符（`10001`）。
+        """
+
+    @abstractmethod
+    async def export_list(
+        self,
+        title: str,
+        columns: ConcurrentStableList[ColumnSpec],
+        rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
+        *,
+        options: PrintOptions | None = None,
+    ) -> PrintExportResult:
+        """导出列表 PDF（当前筛选结果按列定义渲染成表格）。
+
+        Args:
+            title: 报表标题（页首标题与文件名前缀）。
+            columns: 列定义（列序与表头，与导出 Excel 同列集）。
+            rows: 数据行（列键 → 已脱敏值）。
+            options: 渲染选项（None 表示按平台缺省）。
+
+        Returns:
+            PrintExportResult: 导出产物（对象 key / 限时取址 / 提示）。
         """
 
 

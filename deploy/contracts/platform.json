@@ -802,6 +802,33 @@
         "title": "ApiResponse[DictTypeResult]",
         "type": "object"
       },
+      "ApiResponse_ExportJobStatus_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportJobStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ExportJobStatus]",
+        "type": "object"
+      },
       "ApiResponse_FieldItem_": {
         "additionalProperties": false,
         "properties": {
@@ -3812,6 +3839,131 @@
           }
         },
         "title": "DictTypeResult",
+        "type": "object"
+      },
+      "ExportArtifact": {
+        "additionalProperties": false,
+        "description": "导出产物（对象 key + 限时取址）。",
+        "properties": {
+          "content_type": {
+            "description": "内容类型",
+            "title": "Content Type",
+            "type": "string"
+          },
+          "expires_in": {
+            "default": 0,
+            "description": "取址有效期（秒）",
+            "minimum": 0.0,
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "file_name": {
+            "description": "文件名（含扩展名）",
+            "title": "File Name",
+            "type": "string"
+          },
+          "object_key": {
+            "description": "产物对象 key（路径风格）",
+            "title": "Object Key",
+            "type": "string"
+          },
+          "size": {
+            "description": "产物字节数",
+            "minimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "限时取址（预签名失败时为空）",
+            "title": "Url"
+          }
+        },
+        "required": [
+          "object_key",
+          "file_name",
+          "size",
+          "content_type"
+        ],
+        "title": "ExportArtifact",
+        "type": "object"
+      },
+      "ExportJobStatus": {
+        "additionalProperties": false,
+        "description": "异步导出作业状态（终态含产物取址；产物过期时 artifact 为空）。",
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "产物（终态成功且未过期时非空）"
+          },
+          "biz": {
+            "description": "业务标识",
+            "title": "Biz",
+            "type": "string"
+          },
+          "done": {
+            "default": 0,
+            "description": "已完成条数（进度）",
+            "minimum": 0.0,
+            "title": "Done",
+            "type": "integer"
+          },
+          "job_id": {
+            "description": "作业主键",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "导出类型（excel/pdf）",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "提示 / 失败原因摘要",
+            "title": "Message"
+          },
+          "status": {
+            "description": "作业状态（pending/running/success/failed/cancelled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "description": "总条数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "kind",
+          "biz"
+        ],
+        "title": "ExportJobStatus",
         "type": "object"
       },
       "ExpressionContextPayload": {
@@ -12946,6 +13098,516 @@
         "summary": "Get Dict Attrs",
         "tags": [
           "dict"
+        ]
+      }
+    },
+    "/api/v1/exports/jobs/{job_id}": {
+      "get": {
+        "description": "异步导出状态 / 进度 / 产物限时取址。\n\nArgs:\n    job_id: 作业主键。\n    deps: 请求依赖。\n\nReturns:\n    ApiResponse: 状态。",
+        "operationId": "get_export_job_api_v1_exports_jobs__job_id__get",
+        "parameters": [
+          {
+            "description": "导出作业主键",
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "description": "导出作业主键",
+              "exclusiveMinimum": 0,
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExportJobStatus_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Export Job",
+        "tags": [
+          "export"
+        ]
+      }
+    },
+    "/api/v1/exports/{biz}": {
+      "get": {
+        "description": "按当前筛选导出 Excel（同步文件流 / 异步受理 / 空结果）。\n\nArgs:\n    biz: 业务标识。\n    deps: 请求依赖。\n    masker: 请求期掩码器（明文判定）。\n    kw: 关键字。\n    status: 状态筛选。\n    ids: 选中集合。\n    order_by: 排序字段。\n    order: 排序方向。\n\nReturns:\n    Response: xlsx 文件流或 JSON（异步 / 空）。",
+        "operationId": "export_excel_api_v1_exports__biz__get",
+        "parameters": [
+          {
+            "description": "业务标识（users / roles）",
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "description": "业务标识（users / roles）",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "关键字（与列表接口同名同义）",
+            "in": "query",
+            "name": "kw",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（与列表接口同名同义）",
+              "title": "Kw"
+            }
+          },
+          {
+            "description": "状态筛选（enabled / disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（enabled / disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "选中行导出（逗号分隔雪花 ID；空 = 按筛选全量）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "选中行导出（逗号分隔雪花 ID；空 = 按筛选全量）",
+              "title": "Ids"
+            }
+          },
+          {
+            "description": "排序字段（各定义白名单）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段（各定义白名单）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向（asc / desc）",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "排序方向（asc / desc）",
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Export Excel",
+        "tags": [
+          "export"
+        ]
+      }
+    },
+    "/api/v1/exports/{biz}/pdf": {
+      "get": {
+        "description": "按当前筛选导出列表 PDF（同步产物取址 / 异步受理 / 空结果）。\n\nArgs:\n    biz: 业务标识。\n    deps: 请求依赖。\n    masker: 请求期掩码器。\n    kw: 关键字。\n    status: 状态筛选。\n    ids: 选中集合。\n    order_by: 排序字段。\n    order: 排序方向。\n    paper: 纸张。\n    orientation: 纸张方向。\n    watermark: 水印。\n    title: 标题。\n\nReturns:\n    Response: JSON（同步产物 / 异步 / 空）。",
+        "operationId": "export_list_pdf_api_v1_exports__biz__pdf_get",
+        "parameters": [
+          {
+            "description": "业务标识（users / roles）",
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "description": "业务标识（users / roles）",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "关键字（与列表接口同名同义）",
+            "in": "query",
+            "name": "kw",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（与列表接口同名同义）",
+              "title": "Kw"
+            }
+          },
+          {
+            "description": "状态筛选（enabled / disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（enabled / disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "选中行导出（逗号分隔雪花 ID；空 = 按筛选全量）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "选中行导出（逗号分隔雪花 ID；空 = 按筛选全量）",
+              "title": "Ids"
+            }
+          },
+          {
+            "description": "排序字段（各定义白名单）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段（各定义白名单）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向（asc / desc）",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "排序方向（asc / desc）",
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "description": "纸张（A4 / A5 / custom）",
+            "in": "query",
+            "name": "paper",
+            "required": false,
+            "schema": {
+              "default": "A4",
+              "description": "纸张（A4 / A5 / custom）",
+              "title": "Paper",
+              "type": "string"
+            }
+          },
+          {
+            "description": "纸张方向（portrait / landscape）",
+            "in": "query",
+            "name": "orientation",
+            "required": false,
+            "schema": {
+              "default": "portrait",
+              "description": "纸张方向（portrait / landscape）",
+              "title": "Orientation",
+              "type": "string"
+            }
+          },
+          {
+            "description": "水印文案",
+            "in": "query",
+            "name": "watermark",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "水印文案",
+              "maxLength": 64,
+              "title": "Watermark",
+              "type": "string"
+            }
+          },
+          {
+            "description": "PDF 标题（缺省取定义标题）",
+            "in": "query",
+            "name": "title",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "PDF 标题（缺省取定义标题）",
+              "maxLength": 64,
+              "title": "Title",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Export List Pdf",
+        "tags": [
+          "export"
         ]
       }
     },

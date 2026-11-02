@@ -8,6 +8,7 @@ from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.platform.user import SysUser
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
+from bms_core.schemas.sorting import BaseSortQuery
 
 
 class UserRepository(BaseDbRepository[SysUser]):
@@ -151,6 +152,48 @@ class UserRepository(BaseDbRepository[SysUser]):
             .where(*self._scope_where(), *self._filter_conditions(keyword=keyword, status=status, ids=ids))
         )
         return int((await self._session.execute(statement)).scalar_one())
+
+    async def list_export_chunk(
+        self,
+        *,
+        keyword: str | None = None,
+        status: str | None = None,
+        ids: ConcurrentStableList[int] | None = None,
+        order_by: str | None = None,
+        order: str = "asc",
+        offset: int = 0,
+        limit: int = 500,
+    ) -> ConcurrentStableList[SysUser]:
+        """导出取数分批查询（与列表同过滤 / 同排序，不受页码深度限制）。
+
+        与 `list_filtered` 共用 `_filter_conditions` / `_apply_sort` / `_scope_where`，仅把页码换成显式
+        offset：导出需要一次拉取远超 `[pagination].max_page` 的数据，走页码会撞参数上限。末尾追加主键
+        升序作为稳定次序，避免多列排序（非唯一）时翻页重复或漏行。
+
+        Args:
+            keyword: 关键字（匹配账号 / 姓名 / 邮箱 / 手机号）。
+            status: 状态（精确）。
+            ids: 限定集合（非空时只在该集合内筛选）。
+            order_by: 排序字段（白名单外忽略）。
+            order: 排序方向（asc / desc）。
+            offset: 起始偏移（自 0 起）。
+            limit: 本批上限。
+
+        Returns:
+            ConcurrentStableList[SysUser]: 本批记录。
+        """
+        sort_query = BaseSortQuery(
+            order_by=order_by,
+            order=None if order_by is None else ConcurrentStableList((order,)),
+        )
+        statement = (
+            self._apply_sort(self._select(), self._resolve_sort(sort_query))
+            .where(*self._filter_conditions(keyword=keyword, status=status, ids=ids))
+            .order_by(self._column("id").asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     def _filter_conditions(
         self,

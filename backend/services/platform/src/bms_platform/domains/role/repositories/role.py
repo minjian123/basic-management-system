@@ -13,6 +13,7 @@ from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.platform.role import SysDataScope, SysRole, SysRoleField, SysRolePermission, SysUserRole
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
+from bms_core.schemas.sorting import BaseSortQuery
 from bms_platform.domains.user.public import SysUser
 
 
@@ -110,12 +111,19 @@ class RoleRepository(BaseDbRepository[SysRole]):
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
-    async def count_filtered(self, *, keyword: str | None = None, status: str | None = None) -> int:
-        """按筛选条件统计角色数（与 `list_filtered` 同口径）。
+    async def count_filtered(
+        self,
+        *,
+        keyword: str | None = None,
+        status: str | None = None,
+        ids: ConcurrentStableList[int] | None = None,
+    ) -> int:
+        """按筛选条件统计角色数（与 `list_filtered` / `list_export_chunk` 同口径）。
 
         Args:
             keyword: 关键字（匹配角色码 / 名称）。
             status: 状态（精确）。
+            ids: 限定集合（非空时只在该集合内筛选）。
 
         Returns:
             int: 记录条数。
@@ -123,18 +131,64 @@ class RoleRepository(BaseDbRepository[SysRole]):
         statement = (
             select(func.count())
             .select_from(self.model)
-            .where(*self._scope_where(), *self._filter_conditions(keyword=keyword, status=status))
+            .where(*self._scope_where(), *self._filter_conditions(keyword=keyword, status=status, ids=ids))
         )
         return int((await self._session.execute(statement)).scalar_one())
 
+    async def list_export_chunk(
+        self,
+        *,
+        keyword: str | None = None,
+        status: str | None = None,
+        ids: ConcurrentStableList[int] | None = None,
+        order_by: str | None = None,
+        order: str = "asc",
+        offset: int = 0,
+        limit: int = 500,
+    ) -> ConcurrentStableList[SysRole]:
+        """导出取数分批查询（与列表同过滤 / 同排序，不受页码深度限制）。
+
+        与 `list_filtered` 共用 `_filter_conditions` / `_apply_sort` / `_scope_where`，仅把页码换成显式
+        offset；末尾追加主键升序作为稳定次序。
+
+        Args:
+            keyword: 关键字（匹配角色码 / 名称）。
+            status: 状态（精确）。
+            ids: 限定集合（非空时只在该集合内筛选）。
+            order_by: 排序字段（白名单外忽略）。
+            order: 排序方向（asc / desc）。
+            offset: 起始偏移（自 0 起）。
+            limit: 本批上限。
+
+        Returns:
+            ConcurrentStableList[SysRole]: 本批记录。
+        """
+        sort_query = BaseSortQuery(
+            order_by=order_by,
+            order=None if order_by is None else ConcurrentStableList((order,)),
+        )
+        statement = (
+            self._apply_sort(self._select(), self._resolve_sort(sort_query))
+            .where(*self._filter_conditions(keyword=keyword, status=status, ids=ids))
+            .order_by(self._column("id").asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     def _filter_conditions(
-        self, *, keyword: str | None, status: str | None
+        self,
+        *,
+        keyword: str | None,
+        status: str | None,
+        ids: ConcurrentStableList[int] | None = None,
     ) -> ConcurrentStableList[ColumnElement[bool]]:
-        """组装列表 / 统计筛选条件。
+        """组装列表 / 统计 / 导出筛选条件。
 
         Args:
             keyword: 关键字（角色码 / 名称模糊）。
             status: 状态（精确）。
+            ids: 限定集合（非空时只在该集合内筛选）。
 
         Returns:
             ConcurrentStableList[ColumnElement[bool]]: SQL 条件列表。
@@ -150,6 +204,8 @@ class RoleRepository(BaseDbRepository[SysRole]):
             )
         if status is not None:
             conditions.add(self._column("status") == status)
+        if ids:
+            conditions.add(self._column("id").in_(tuple(ids)))
         return conditions
 
 

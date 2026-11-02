@@ -43,6 +43,8 @@ dependencies = [
     "pillow>=11",
     # Excel 批量导入 / 模板 / 错误明细（04_01）：openpyxl 真实读写，导入导出的唯一 xlsx 引擎
     "openpyxl>=3.1.5",
+    # PDF 单据 / 列表产物（04_02）：reportlab 纯 Python 渲染（无系统库依赖，支持 Python 3.14）
+    "reportlab>=4.4",
 ]
 
 [project.optional-dependencies]

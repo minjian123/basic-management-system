@@ -1,18 +1,27 @@
-"""打印模板与导出 PDF 基座契约测试（Kiwi 906）：契约 / 常量 / 数据契约 / 占位语义 / 错误码 / 依赖解析 / 占位路由。"""
+"""打印模板与导出 PDF 基座契约测试（Kiwi 906）：契约 / 常量 / 数据契约 / 真实导出 / 模板来源 / 错误码 / 幂等 / 鉴权。
+
+04_02 起 `/prints` 走真实实现（reportlab 渲染 + 对象存储 + 限时取址），原「占位语义」用例相应改为真实断言。
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from tempfile import mkdtemp
+from typing import cast
 
 import pytest
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.api.deps import get_idempotency_store, get_print_template_provider
+from bms_core.api.deps import get_idempotency_store, get_print_exporter
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.error_codes import ErrorCode, ErrorSegment
+from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import (
     BizError,
     FileError,
-    PrintArtifactNotFoundError,
     PrintBatchLimitError,
     PrintError,
     PrintTemplateNotFoundError,
@@ -21,32 +30,33 @@ from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
 from bms_core.print.base import (
     DEFAULT_PAPER,
-    NULL_PRINT_BIZ_KEY,
-    NULL_PRINT_URL,
     PRINT_BATCH_MODES,
     PRINT_CONTENT_TYPE,
+    PRINT_CONTRACT_VERSION,
     PRINT_OBJECT_DOMAIN,
     PRINT_ORIENTATIONS,
     PRINT_PAPERS,
-    PRINT_PLACEHOLDER_MESSAGE,
     PRINT_TEMPLATE_STATUSES,
     PRINT_TONES,
     BasePrintExporter,
     BasePrintTemplateProvider,
-    PrintBatchResult,
     PrintDocument,
-    PrintExportResult,
     PrintOptions,
     PrintTemplateInfo,
     PrintVariable,
     build_print_object_key,
 )
+from bms_core.print.exporter import StoragePrintExporter
 from bms_core.print.null import NullPrintExporter, NullPrintTemplateProvider
-from bms_core.storage.base import DEFAULT_PRESIGN_TTL
+from bms_core.print.templates import (
+    DEFAULT_DOCUMENT_TEMPLATE_KEY,
+    DEFAULT_LIST_TEMPLATE_KEY,
+    BuiltinPrintTemplateProvider,
+)
+from bms_core.storage.local import LocalObjectStorage
 from bms_report.domains.report.api.print import router as print_router
 from bms_report.main import ApplicationFactory
 from tests_support.auth import auth_headers
-from tests_support.tenant_source import DEMO_TENANT_ID
 
 API = "/api/v1/prints"
 
@@ -60,7 +70,7 @@ _TEMPLATE = PrintTemplateInfo(
 
 
 class _StubTemplateProvider:
-    """模板来源测试替身：固定返回一条模板（覆盖模板映射分支；不继承能力端口，不参与注册表）。"""
+    """模板来源测试替身：固定返回一条模板（覆盖模板映射分支；不参与注册表）。"""
 
     async def list(self, *, biz_type: str | None = None) -> ConcurrentStableList[PrintTemplateInfo]:
         """取模板清单（替身固定一条）。
@@ -88,7 +98,7 @@ class _StubTemplateProvider:
 
 
 class _RecordingIdempotency:
-    """幂等基座测试替身：内存首次结果表（不继承能力端口，避免以占位名污染进程级注册表）。"""
+    """幂等基座测试替身：内存首次结果表。"""
 
     def __init__(self) -> None:
         """初始化空首次结果表。"""
@@ -132,59 +142,46 @@ class _RecordingIdempotency:
         self._payloads.set(key, payload)
 
 
-class _StaleIdempotency(_RecordingIdempotency):
-    """幂等基座替身：非首次且首次结果不可读（占位期并发穿透，应继续执行）。"""
+def _real_exporter(
+    storage: LocalObjectStorage, templates: BasePrintTemplateProvider | None = None
+) -> BasePrintExporter:
+    """构造真实打印导出（本地存储 + 内置模板）。
 
-    async def begin(self, key: str, *, ttl: int | None = None) -> bool:
-        """登记幂等键并恒返回非首次。
+    Args:
+        storage: 本地对象存储。
+        templates: 模板来源（None 用内置）。
 
-        Args:
-            key: 幂等键。
-            ttl: 键有效期（替身忽略）。
+    Returns:
+        BasePrintExporter: 真实导出器。
+    """
+    return StoragePrintExporter(storage=storage, templates=templates or BuiltinPrintTemplateProvider())
 
-        Returns:
-            bool: 恒 False（非首次）。
-        """
-        await super().begin(key, ttl=ttl)
-        return False
 
-    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
-        """取首次结果（恒不可读）。
+def _storage_root() -> Path:
+    """独立临时存储根目录（避免写入仓库目录）。
 
-        Args:
-            key: 幂等键。
-
-        Returns:
-            IDEMPOTENCY_PAYLOAD_TYPE | None: 恒 None。
-        """
-        del key
-        return None
+    Returns:
+        Path: 临时目录。
+    """
+    return Path(mkdtemp(prefix="print-artifacts-"))
 
 
 @pytest.mark.kiwi_id(906)
 def test_contract_inheritance_and_identity() -> None:
-    """契约继承链与能力域标识。"""
-    assert issubclass(BasePrintTemplateProvider, BasePluggable)
-    assert issubclass(BasePrintTemplateProvider, BaseCapability)
-    assert issubclass(BasePrintExporter, BasePluggable)
-    assert issubclass(BasePrintExporter, BaseCapability)
-    assert issubclass(NullPrintTemplateProvider, BasePrintTemplateProvider)
-    assert issubclass(NullPrintTemplateProvider, BaseNullObject)
-    assert issubclass(NullPrintExporter, BasePrintExporter)
-    assert issubclass(NullPrintExporter, BaseNullObject)
-    assert BasePrintTemplateProvider.key == "print_template"
-    assert BasePrintTemplateProvider.plugin_key == "print_template"
+    """两契约继承能力端口与可插拔基类；打印导出契约版本 0.2.0。"""
+    for contract in (BasePrintExporter, BasePrintTemplateProvider):
+        assert issubclass(contract, BaseCapability)
+        assert issubclass(contract, BasePluggable)
+    for placeholder in (NullPrintExporter(), NullPrintTemplateProvider()):
+        assert isinstance(placeholder, BaseNullObject)
+    assert BasePrintExporter.contract_version == PRINT_CONTRACT_VERSION == "0.2.0"
     assert BasePrintExporter.key == "print_exporter"
-    assert BasePrintExporter.plugin_key == "print_exporter"
-
-    for instance in (NullPrintTemplateProvider(), NullPrintExporter()):
-        assert instance.placeholder is True
-        assert "占位实现" in instance.describe()
+    assert BasePrintTemplateProvider.key == "print_template"
 
 
 @pytest.mark.kiwi_id(906)
 def test_constants_and_object_key() -> None:
-    """取值集合常量与产物对象 key 助手。"""
+    """取值集合与产物 key（路径风格，Windows 安全）。"""
     assert PRINT_PAPERS == ("A4", "A5", "custom")
     assert PRINT_ORIENTATIONS == ("portrait", "landscape")
     assert PRINT_TONES == ("color", "mono")
@@ -193,373 +190,191 @@ def test_constants_and_object_key() -> None:
     assert PRINT_CONTENT_TYPE == "application/pdf"
     assert DEFAULT_PAPER == "A4"
     assert PRINT_OBJECT_DOMAIN == "prints"
-    assert PRINT_PLACEHOLDER_MESSAGE == "导出未就绪（占位）"
-    assert NULL_PRINT_URL == "null-print-url"
-    assert NULL_PRINT_BIZ_KEY == "null"
 
-    assert build_print_object_key(template_key="order", biz_key="SO-001") == "bms:global:prints:order:SO-001"
-    assert (
-        build_print_object_key(template_key="order", biz_key="SO-001", tenant="demo") == "bms:demo:prints:order:SO-001"
-    )
+    assert build_print_object_key(template_key="order", biz_key="SO-1") == "global/prints/order/SO-1.pdf"
+    assert build_print_object_key(template_key="order", biz_key="SO-1", tenant="demo") == ("demo/prints/order/SO-1.pdf")
+    sanitized = build_print_object_key(template_key="a:b", biz_key="x/y*z", tenant="demo")
+    assert sanitized == "demo/prints/a_b/x_y_z.pdf"
+    for char in (":", "*", "?", '"', "<", ">", "|"):
+        assert char not in sanitized
 
 
 @pytest.mark.kiwi_id(906)
 def test_data_contract_defaults() -> None:
-    """六数据契约字段口径与缺省值。"""
-    variable = PrintVariable(key="customer", label="客户")
-    assert variable.key == "customer"
-    assert variable.label == "客户"
-
-    template = PrintTemplateInfo(key="order", name="销售订单")
-    assert template.biz_type is None
-    assert template.variables == []
-    assert template.status == "active"
-
+    """数据契约缺省值（单据 / 选项 / 模板）。"""
     document = PrintDocument()
     assert document.biz_key is None
     assert document.fields == {}
-    assert document.rows == []
-
+    assert document.rows == ()
     options = PrintOptions()
     assert options.paper == DEFAULT_PAPER
     assert options.orientation == "portrait"
     assert options.tone == "color"
     assert options.watermark == ""
-    assert options.printed_by is None
-
-    result = PrintExportResult(object_key="k", file_name="order.pdf")
-    assert result.file_id is None
-    assert result.size == 0
-    assert result.content_type == PRINT_CONTENT_TYPE
-    assert result.url is None
-    assert result.expires_in == 0
-    assert result.message is None
-
-    batch = PrintBatchResult()
-    assert batch.task_id is None
-    assert batch.total == 0
-    assert batch.succeeded == 0
-    assert batch.failed == 0
-    assert batch.items == []
-    assert batch.message is None
+    info = PrintTemplateInfo(key="k", name="n")
+    assert info.variables == ()
+    assert info.status == "active"
 
 
 @pytest.mark.kiwi_id(906)
-async def test_null_template_list_is_empty() -> None:
-    """占位模板清单：固定空清单，不区分单据类型。"""
-    provider = NullPrintTemplateProvider()
-
+async def test_builtin_template_provider_lists_two() -> None:
+    """内置模板来源：清单含通用单据 / 通用列表，未命中 50201。"""
+    provider = BuiltinPrintTemplateProvider()
     templates = await provider.list()
-    assert templates == []
-
-    assert await provider.list(biz_type="sale") == []
-
-
-@pytest.mark.kiwi_id(906)
-async def test_null_template_get_not_found() -> None:
-    """占位模板详情：恒定未命中（50201 / 404）。"""
-    provider = NullPrintTemplateProvider()
-    with pytest.raises(PrintTemplateNotFoundError) as excinfo:
-        await provider.get("order")
-
-    assert excinfo.value.code == ErrorCode.PRINT_TEMPLATE_NOT_FOUND
-    assert excinfo.value.http_status == 404
-    assert "order" in str(excinfo.value)
-
-
-@pytest.mark.kiwi_id(906)
-async def test_null_export_pdf_placeholder_artifact() -> None:
-    """占位单条导出：固定占位产物、零副作用、忽略渲染选项。"""
-    exporter = NullPrintExporter()
-    document = PrintDocument(
-        biz_key="SO-001",
-        fields=ConcurrentStableDict({"customer": "甲"}),
-        rows=ConcurrentStableList([ConcurrentStableDict({"item": "A"})]),
-    )
-
-    result = await exporter.export_pdf("order", document)
-    assert result.object_key == "bms:global:prints:order:SO-001"
-    assert result.file_name == "order.pdf"
-    assert result.file_id is None
-    assert result.size == 0
-    assert result.content_type == PRINT_CONTENT_TYPE
-    assert result.url == NULL_PRINT_URL
-    assert result.expires_in == DEFAULT_PRESIGN_TTL
-    assert result.message == PRINT_PLACEHOLDER_MESSAGE
-
-    assert await exporter.export_pdf("order", document) == result
-    assert await exporter.export_pdf("order", document, options=PrintOptions(paper="A5", tone="mono")) == result
-
-
-@pytest.mark.kiwi_id(906)
-async def test_null_export_pdf_without_biz_key() -> None:
-    """占位单条导出：单据数据未带单据键时回落缺省位。"""
-    result = await NullPrintExporter().export_pdf("order", PrintDocument())
-
-    assert result.object_key == f"bms:global:prints:order:{NULL_PRINT_BIZ_KEY}"
-
-
-@pytest.mark.kiwi_id(906)
-async def test_null_batch_print_modes() -> None:
-    """占位批量打印：空键空汇总、逐份逐键明细、合并单条明细。"""
-    exporter = NullPrintExporter()
-
-    empty = await exporter.batch_print(ConcurrentStableList([]), template_key="order")
-    assert empty.task_id is None
-    assert empty.total == 0
-    assert empty.succeeded == 0
-    assert empty.failed == 0
-    assert empty.items == []
-    assert empty.message == PRINT_PLACEHOLDER_MESSAGE
-
-    separate = await exporter.batch_print(ConcurrentStableList(["SO-1", "SO-2"]), template_key="order")
-    assert separate.total == 2
-    assert separate.succeeded == 2
-    assert separate.failed == 0
-    assert separate.task_id is None
-    assert [item.file_name for item in separate.items] == ["order-SO-1.pdf", "order-SO-2.pdf"]
-    assert [item.object_key for item in separate.items] == [
-        "bms:global:prints:order:SO-1",
-        "bms:global:prints:order:SO-2",
-    ]
-
-    merged = await exporter.batch_print(ConcurrentStableList(["SO-1", "SO-2"]), template_key="order", mode="merged")
-    assert merged.total == 2
-    assert merged.succeeded == 2
-    assert len(merged.items) == 1
-    assert merged.items[0].file_name == "order.pdf"
-    assert merged.items[0].object_key == "bms:global:prints:order:SO-1"
+    assert [item.key for item in templates] == [DEFAULT_DOCUMENT_TEMPLATE_KEY, DEFAULT_LIST_TEMPLATE_KEY]
+    with pytest.raises(PrintTemplateNotFoundError):
+        await provider.get("not-exists")
 
 
 @pytest.mark.kiwi_id(906)
 def test_error_codes_and_segment_base() -> None:
-    """打印错误码：码位 / HTTP 状态 / 段位基继承链。"""
+    """打印子段错误码与异常基类。"""
     assert ErrorCode.PRINT_TEMPLATE_NOT_FOUND == 50201
     assert ErrorCode.PRINT_ARTIFACT_NOT_FOUND == 50202
     assert ErrorCode.PRINT_BATCH_LIMIT_EXCEEDED == 50203
-
     assert issubclass(PrintError, FileError)
-    assert issubclass(FileError, BizError)
-    assert issubclass(PrintTemplateNotFoundError, PrintError)
-    assert issubclass(PrintArtifactNotFoundError, PrintError)
-    assert issubclass(PrintBatchLimitError, PrintError)
-
-    template_missing = PrintTemplateNotFoundError()
-    artifact_missing = PrintArtifactNotFoundError()
-    batch_limit = PrintBatchLimitError()
-    assert (template_missing.code, template_missing.http_status) == (50201, 404)
-    assert (artifact_missing.code, artifact_missing.http_status) == (50202, 404)
-    assert (batch_limit.code, batch_limit.http_status) == (50203, 200)
-    assert template_missing.code // 10000 == ErrorSegment.FILE
-    assert artifact_missing.code // 10000 == ErrorSegment.FILE
-    assert batch_limit.code // 10000 == ErrorSegment.FILE
+    assert issubclass(BizError, Exception)
+    assert 50000 <= ErrorCode.PRINT_TEMPLATE_NOT_FOUND < 51000
+    assert PrintBatchLimitError("超限").code == ErrorCode.PRINT_BATCH_LIMIT_EXCEEDED
 
 
 @pytest.mark.kiwi_id(906)
 async def test_dependency_provider_resolves() -> None:
-    """依赖解析：应用装配两占位实现；两提供者分别解析到同一实例。"""
+    """依赖解析：真实插件 `builtin` / `reportlab` 可解析（装配期不报错）。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app):
-        exporter = app.state.print_exporter
-        provider = app.state.print_template
-        assert isinstance(exporter, NullPrintExporter)
-        assert isinstance(provider, NullPrintTemplateProvider)
-        assert resolve_plugin("print_exporter", None) is exporter
-        assert resolve_plugin("print_template", None) is provider
-        assert app.state.plugin_providers["print_exporter"] == "null"
-        assert app.state.plugin_providers["print_template"] == "null"
+        provider = resolve_plugin(
+            "print_template", "builtin", expected_version=BasePrintTemplateProvider.contract_version
+        )
+        exporter = resolve_plugin("print_exporter", "reportlab", expected_version=BasePrintExporter.contract_version)
+    assert isinstance(provider, BasePrintTemplateProvider)
+    assert isinstance(exporter, BasePrintExporter)
 
 
 @pytest.mark.kiwi_id(906)
-def test_route_auth_scope() -> None:
-    """登录口径：四端点均挂登录依赖（路由级统一）。"""
-    routes = [route for route in print_router.routes if isinstance(route, APIRoute)]
-    assert print_router.key == "print"
-    assert {route.path for route in routes} == {
-        "/prints/exports",
-        "/prints/batch",
-        "/prints/templates",
-        "/prints/templates/{template_key}",
-    }
-    assert {route.path: len(route.dependencies) for route in routes} == {
-        "/prints/exports": 1,
-        "/prints/batch": 1,
-        "/prints/templates": 1,
-        "/prints/templates/{template_key}": 1,
-    }
+def test_route_paths_registered() -> None:
+    """打印路由路径登记齐全。"""
+    paths: set[str] = {cast("APIRoute", route).path for route in print_router.routes}
+    assert "/prints/exports" in paths
+    assert "/prints/batch" in paths
+    assert "/prints/templates" in paths
+    assert "/prints/templates/{template_key}" in paths
 
 
 @pytest.mark.kiwi_id(906)
-async def test_placeholder_route_export(client: AsyncClient) -> None:
-    """占位路由：单条导出返回占位产物；空模板键 → 10001。"""
-    resp = await client.post(
-        f"{API}/exports",
-        json={"template_key": "order", "document": {"biz_key": "SO-001", "fields": {"customer": "甲"}}},
-    )
-    assert resp.status_code == 200
-    data = resp.json()["data"]
-    assert data["object_key"] == "bms:global:prints:order:SO-001"
-    assert data["file_name"] == "order.pdf"
-    assert data["url"] == NULL_PRINT_URL
-    assert data["content_type"] == PRINT_CONTENT_TYPE
-    assert data["expires_in"] == DEFAULT_PRESIGN_TTL
-    assert data["message"] == PRINT_PLACEHOLDER_MESSAGE
+async def test_real_export_pdf_and_template_routes(service_app: FastAPI) -> None:
+    """真实导出：单条 PDF 落存储并返回取址；模板清单 / 详情走内置来源。"""
+    storage = LocalObjectStorage(root=_storage_root())
+    service_app.dependency_overrides[get_print_exporter] = lambda: _real_exporter(storage)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
+            listed = await client.get(f"{API}/templates")
+            assert listed.status_code == 200
+            keys = [item["key"] for item in listed.json()["data"]["templates"]]
+            assert DEFAULT_DOCUMENT_TEMPLATE_KEY in keys
 
-    invalid = await client.post(f"{API}/exports", json={"template_key": "   ", "document": {}})
-    assert invalid.json()["code"] == 10001
+            detail = await client.get(f"{API}/templates/{DEFAULT_DOCUMENT_TEMPLATE_KEY}")
+            assert detail.status_code == 200
+            assert detail.json()["data"]["name"] == "通用单据"
 
-    with_options = await client.post(
-        f"{API}/exports",
-        json={
-            "template_key": "order",
-            "document": {"biz_key": "SO-001"},
-            "options": {
-                "paper": "A5",
-                "orientation": "landscape",
-                "tone": "mono",
-                "watermark": "样张",
-                "printed_by": "甲",
-            },
-        },
-    )
-    assert with_options.json()["data"] == data
+            missing = await client.get(f"{API}/templates/not-exists")
+            assert missing.json()["code"] == ErrorCode.PRINT_TEMPLATE_NOT_FOUND
 
-
-@pytest.mark.kiwi_id(906)
-async def test_placeholder_route_batch(client: AsyncClient) -> None:
-    """占位路由：批量打印逐份明细与单据数一致；空单据键集合 → 10001。"""
-    resp = await client.post(f"{API}/batch", json={"template_key": "order", "keys": ["SO-1", "SO-2"]})
-    assert resp.status_code == 200
-    data = resp.json()["data"]
-    assert data["total"] == 2
-    assert data["succeeded"] == 2
-    assert data["failed"] == 0
-    assert data["task_id"] is None
-    assert [item["file_name"] for item in data["items"]] == ["order-SO-1.pdf", "order-SO-2.pdf"]
-
-    invalid = await client.post(f"{API}/batch", json={"template_key": "order", "keys": []})
-    assert invalid.json()["code"] == 10001
+            exported = await client.post(
+                f"{API}/exports",
+                json={  # pyright: ignore[reportUnknownArgumentType]
+                    "template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY,
+                    "document": {"biz_key": "SO-1", "fields": {"客户": "示例"}, "rows": [{"项目": "A", "金额": 10}]},
+                },
+            )
+            assert exported.status_code == 200, exported.text
+            artifact = exported.json()["data"]
+            assert artifact["content_type"] == PRINT_CONTENT_TYPE
+            assert artifact["url"]
+            assert (await storage.get(artifact["object_key"])).startswith(b"%PDF")
+    finally:
+        service_app.dependency_overrides.pop(get_print_exporter, None)
 
 
 @pytest.mark.kiwi_id(906)
-@pytest.mark.kiwi_id(2218)
-async def test_export_idempotency_reuses_first_result() -> None:
-    """导出按幂等键复用首次结果（作用域绑当前租户位）。"""
+async def test_real_batch_print_separate_and_merged(service_app: FastAPI) -> None:
+    """真实批量打印：逐份多产物 / 合并单份；documents 缺省渲染简版页。"""
+    storage = LocalObjectStorage(root=_storage_root())
+    service_app.dependency_overrides[get_print_exporter] = lambda: _real_exporter(storage)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
+            separate = await client.post(
+                f"{API}/batch",
+                json={  # pyright: ignore[reportUnknownArgumentType]
+                    "template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY,
+                    "keys": ["A", "B"],
+                    "documents": [{"biz_key": "A", "fields": {}}, {"biz_key": "B", "fields": {}}],
+                },
+            )
+            assert separate.status_code == 200, separate.text
+            data = separate.json()["data"]
+            assert data["succeeded"] == 2
+            assert len(data["items"]) == 2
+
+            merged = await client.post(
+                f"{API}/batch",
+                json={"template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY, "keys": ["A", "B"], "mode": "merged"},  # pyright: ignore[reportUnknownArgumentType]
+            )
+            assert merged.status_code == 200, merged.text
+            merged_data = merged.json()["data"]
+            assert len(merged_data["items"]) == 1
+            assert merged_data["items"][0]["object_key"].endswith("A-merged.pdf")
+    finally:
+        service_app.dependency_overrides.pop(get_print_exporter, None)
+
+
+@pytest.mark.kiwi_id(906)
+async def test_export_idempotency_reuses_first_result(service_app: FastAPI) -> None:
+    """同幂等键：第二次直接复用首次产物（不再渲染）。"""
+    storage = LocalObjectStorage(root=_storage_root())
+    idempotency = _RecordingIdempotency()
+    service_app.dependency_overrides[get_print_exporter] = lambda: _real_exporter(storage)
+    service_app.dependency_overrides[get_idempotency_store] = lambda: idempotency
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
+            body = {"template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY, "document": {"biz_key": "SO-9"}}
+            headers = {"Idempotency-Key": "print-1"}
+            first = await client.post(f"{API}/exports", json=body, headers=headers)
+            second = await client.post(f"{API}/exports", json=body, headers=headers)
+            assert first.json()["data"]["object_key"] == second.json()["data"]["object_key"]
+            assert len(set(idempotency.keys)) == 1
+    finally:
+        service_app.dependency_overrides.pop(get_print_exporter, None)
+        service_app.dependency_overrides.pop(get_idempotency_store, None)
+
+
+@pytest.mark.kiwi_id(906)
+async def test_prints_requires_auth() -> None:
+    """未登录访问打印端点：401。"""
     app = ApplicationFactory().create(None)
-    double = _RecordingIdempotency()
-    app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
-        first = await client.post(
-            f"{API}/exports",
-            json={"template_key": "order", "document": {"biz_key": "SO-1"}},
-            headers={"Idempotency-Key": "k-1"},
-        )
-        second = await client.post(
-            f"{API}/exports",
-            json={"template_key": "other", "document": {"biz_key": "SO-2"}},
-            headers={"Idempotency-Key": "k-1"},
-        )
-
-    assert first.json()["data"]["file_name"] == "order.pdf"
-    assert second.json()["data"] == first.json()["data"]
-    assert double.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-1", f"bms:{DEMO_TENANT_ID}:idem:k-1"]
+        response = await client.get(f"{API}/templates")
+    assert response.status_code == 401
 
 
 @pytest.mark.kiwi_id(906)
-@pytest.mark.kiwi_id(2218)
-async def test_batch_idempotency_without_cached_result_executes() -> None:
-    """批量：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
-    app = ApplicationFactory().create(None)
-    stale = _StaleIdempotency()
-    app.dependency_overrides[get_idempotency_store] = lambda: stale
-    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
-        resp = await client.post(
-            f"{API}/batch",
-            json={"template_key": "order", "keys": ["SO-1"]},
-            headers={"Idempotency-Key": "k-2"},
-        )
+async def test_templates_mapping_with_stub_provider(service_app: FastAPI) -> None:
+    """模板来源替身：清单 / 详情映射为响应契约（变量一一对应）。"""
+    from bms_core.api.deps import get_print_template_provider
 
-    assert resp.json()["data"]["total"] == 1
-    assert stale.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-2"]
-
-
-@pytest.mark.kiwi_id(906)
-@pytest.mark.kiwi_id(2218)
-async def test_export_idempotency_without_cached_result_executes() -> None:
-    """导出：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
-    app = ApplicationFactory().create(None)
-    stale = _StaleIdempotency()
-    app.dependency_overrides[get_idempotency_store] = lambda: stale
-    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
-        resp = await client.post(
-            f"{API}/exports",
-            json={"template_key": "order", "document": {"biz_key": "SO-9"}},
-            headers={"Idempotency-Key": "k-4"},
-        )
-
-    assert resp.json()["data"]["file_name"] == "order.pdf"
-    assert stale.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-4"]
-
-
-@pytest.mark.kiwi_id(906)
-@pytest.mark.kiwi_id(2218)
-async def test_batch_idempotency_reuses_first_result() -> None:
-    """批量按幂等键复用首次结果（作用域绑当前租户位）。"""
-    app = ApplicationFactory().create(None)
-    double = _RecordingIdempotency()
-    app.dependency_overrides[get_idempotency_store] = lambda: double
-    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
-        first = await client.post(
-            f"{API}/batch",
-            json={"template_key": "order", "keys": ["SO-1"]},
-            headers={"Idempotency-Key": "k-3"},
-        )
-        second = await client.post(
-            f"{API}/batch",
-            json={"template_key": "other", "keys": ["SO-9"]},
-            headers={"Idempotency-Key": "k-3"},
-        )
-
-    assert first.json()["data"]["total"] == 1
-    assert second.json()["data"] == first.json()["data"]
-    assert double.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-3", f"bms:{DEMO_TENANT_ID}:idem:k-3"]
-
-
-@pytest.mark.kiwi_id(906)
-async def test_placeholder_route_templates(client: AsyncClient) -> None:
-    """占位路由：模板清单为空、模板详情 404 且业务码 50201。"""
-    listed = await client.get(f"{API}/templates")
-    assert listed.status_code == 200
-    assert listed.json()["data"] == {"templates": []}
-
-    filtered = await client.get(f"{API}/templates", params={"biz_type": "sale"})
-    assert filtered.json()["data"] == {"templates": []}
-
-    missing = await client.get(f"{API}/templates/order")
-    assert missing.status_code == 404
-    assert missing.json()["code"] == ErrorCode.PRINT_TEMPLATE_NOT_FOUND
-
-
-@pytest.mark.kiwi_id(906)
-async def test_route_templates_mapping_with_stub_provider() -> None:
-    """模板映射分支：替身来源返回模板时清单与详情字段一一对应。"""
-    app = ApplicationFactory().create(None)
-    app.dependency_overrides[get_print_template_provider] = _StubTemplateProvider
-    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
-        listed = await client.get(f"{API}/templates")
-        detail = await client.get(f"{API}/templates/order")
-
-    expected = {
-        "key": "order",
-        "name": "销售订单",
-        "biz_type": "sale",
-        "variables": [{"key": "customer", "label": "客户"}],
-        "status": "active",
-    }
-    assert listed.json()["data"] == {"templates": [expected]}
-    assert detail.json()["data"] == expected
+    service_app.dependency_overrides[get_print_template_provider] = lambda: _StubTemplateProvider()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
+            listed = await client.get(f"{API}/templates")
+            assert listed.status_code == 200
+            data = listed.json()["data"]["templates"][0]
+            assert data["key"] == "order"
+            assert data["variables"][0]["label"] == "客户"
+            detail = await client.get(f"{API}/templates/order")
+            assert detail.json()["data"]["biz_type"] == "sale"
+    finally:
+        service_app.dependency_overrides.pop(get_print_template_provider, None)

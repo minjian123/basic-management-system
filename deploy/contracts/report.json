@@ -43,8 +43,16 @@
       },
       "PrintBatchRequest": {
         "additionalProperties": false,
-        "description": "批量打印请求：`{template_key, keys, mode?, options?}`。",
+        "description": "批量打印请求：`{template_key, keys, mode?, options?, documents?}`。",
         "properties": {
+          "documents": {
+            "description": "单据数据（与 keys 同序等长；缺省渲染简版页）",
+            "items": {
+              "$ref": "#/components/schemas/PrintDocumentPayload"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
           "keys": {
             "description": "单据键集合（至少一条）",
             "items": {
@@ -266,7 +274,7 @@
     },
     "/api/v1/prints/batch": {
       "post": {
-        "description": "批量打印多单据（可按幂等键复用首次结果）。\n\nArgs:\n    exporter: 打印导出基座。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    req: 批量请求（模板键 / 单据键集合 / 批量模式 / 渲染选项）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为批量结果（`PrintBatchResponse`）。",
+        "description": "批量打印多单据（逐份 / 合并；超阈值转后台作业；可按幂等键复用首次结果）。\n\nArgs:\n    exporter: 打印导出基座。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位 / 作业租户位）。\n    uow: 请求级工作单元（提交后台作业）。\n    config: 系统参数取数（同步份数阈值）。\n    req: 批量请求（模板键 / 单据键集合 / 单据数据 / 批量模式 / 渲染选项）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为批量结果（`PrintBatchResponse`；转后台时 `task_id` 非空）。",
         "operationId": "batch_print_api_v1_prints_batch_post",
         "parameters": [
           {

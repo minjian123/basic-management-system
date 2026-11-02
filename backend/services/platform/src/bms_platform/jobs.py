@@ -25,6 +25,7 @@ from bms_core.jobs.signal import JobChangeSignal
 from bms_core.jobs.spec import JobTypeSpec
 from bms_core.jobs.worker import JobWorker
 from bms_core.workerid.lease import worker_id_lease_sync
+from bms_platform.domains.import_export.export_jobs import ExportCleanupJob, ExportExecuteJob
 from bms_platform.domains.import_export.jobs import ImportExecuteJob
 from bms_platform.domains.task.jobs import TaskJobHandler
 
@@ -44,6 +45,8 @@ def job_handlers() -> ConcurrentStableDict[str, BaseJobHandler]:
         {
             TaskJobHandler.job_type: TaskJobHandler(),
             ImportExecuteJob.job_type: ImportExecuteJob(),
+            ExportExecuteJob.job_type: ExportExecuteJob(),
+            ExportCleanupJob.job_type: ExportCleanupJob(),
         }
     )
 
@@ -76,6 +79,28 @@ def job_specs() -> ConcurrentStableDict[str, JobTypeSpec]:
                 timeout_seconds=1800,
                 max_attempts=1,
                 backoff_seconds=0,
+                concurrency=1,
+            ),
+            "platform.export.execute": JobTypeSpec(
+                job_type="platform.export.execute",
+                service_key=SERVICE_KEY,
+                domain_key="import_export",
+                handler="bms_platform.domains.import_export.export_jobs:ExportExecuteJob",
+                description="执行列表导出（Excel / 列表 PDF），产物落对象存储并记入作业结果",
+                timeout_seconds=1800,
+                max_attempts=1,
+                backoff_seconds=0,
+                concurrency=2,
+            ),
+            "platform.export.cleanup": JobTypeSpec(
+                job_type="platform.export.cleanup",
+                service_key=SERVICE_KEY,
+                domain_key="import_export",
+                handler="bms_platform.domains.import_export.export_jobs:ExportCleanupJob",
+                description="清理过期导出产物（按 export.artifact_ttl 与作业结果里的对象 key）",
+                timeout_seconds=1800,
+                max_attempts=3,
+                backoff_seconds=30,
                 concurrency=1,
             ),
         }

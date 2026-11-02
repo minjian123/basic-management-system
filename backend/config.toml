@@ -223,6 +223,29 @@ options = {}
 provider = "openpyxl"
 options = {}
 
+[exporter]
+# Excel 导出实现选择（插件化配置；openpyxl = 真实写出（缺省）、空串 = null 占位）
+provider = "openpyxl"
+options = {}
+
+[print]
+# 打印 / 导出 PDF 渲染参数（04_02）：font_path 为空时用内置 CID 字体 STSong-Light（零字体文件）
+font_path = ""
+font_size = 10.0
+margin_mm = 15.0
+footer_enabled = true
+
+[print_template]
+# 打印模板来源选择（插件化配置；builtin = 内置模板注册表（缺省）、空串 = null 占位）
+# 表单定制（10_01）落地后改为其 provider，导出侧与渲染器不改
+provider = "builtin"
+options = {}
+
+[print_exporter]
+# 打印导出实现选择（插件化配置；reportlab = 真实渲染 + 对象存储落库 + 限时取址、空串 = null 占位）
+provider = "reportlab"
+options = {}
+
 [file]
 # 文件管理进程级参数（03_01）：分片粒度 / 校验强度 / 回收批量；大小上限与白名单走 sys_config 参数
 part_size = 5242880            # 分片缺省大小（字节，5MB；MinIO 组合下限，末片除外）

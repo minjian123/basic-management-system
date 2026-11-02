@@ -21,6 +21,7 @@ from bms_core.transfer.exporter import BaseExporter
 from bms_core.transfer.importer import BaseImporter, ImportResult, RowError
 from bms_core.transfer.null import NullExporter, NullImporter
 from bms_core.transfer.openpyxl import OpenpyxlImporter
+from bms_core.transfer.openpyxl_exporter import OpenpyxlExporter
 
 _COLUMNS = ConcurrentStableList([ColumnSpec(key="name", title="姓名", required=True)])
 
@@ -90,11 +91,11 @@ async def test_null_exporter_empty_stream() -> None:
 
 @pytest.mark.kiwi_id(56)
 async def test_dependency_providers_resolve() -> None:
-    """依赖解析：应用装配两占位单例；路由经两提供者取到同一实例。"""
+    """依赖解析：应用装配真实导入 / 导出单例；路由经两提供者取到同一实例。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.importer, OpenpyxlImporter)
-        assert isinstance(app.state.exporter, NullExporter)
+        assert isinstance(app.state.exporter, OpenpyxlExporter)
 
         @app.get("/transfer-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
@@ -113,4 +114,8 @@ async def test_dependency_providers_resolve() -> None:
             resp = await client.get("/transfer-probe")
 
         assert resp.status_code == 200
-        assert resp.json() == {"importer_key": "importer", "rows": 0, "exporter_key": "exporter", "chunks": 0}
+        body = resp.json()
+        assert body["importer_key"] == "importer"
+        assert body["rows"] == 0
+        assert body["exporter_key"] == "exporter"
+        assert body["chunks"] >= 1

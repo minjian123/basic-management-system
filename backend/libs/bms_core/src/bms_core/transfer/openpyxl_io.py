@@ -17,11 +17,17 @@ from io import BytesIO
 from zipfile import BadZipFile, ZipFile
 
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font
+from openpyxl.cell import WriteOnlyCell
+from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import ImportFileInvalidError, ImportTemplateMismatchError
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.importer import ParsedRow
@@ -33,6 +39,7 @@ __all__ = [
     "XlsxInvalidFileError",
     "XlsxTemplateMismatchError",
     "build_error_report",
+    "build_export_workbook",
     "build_template",
     "inspect_xlsx",
     "read_sheet_rows",
@@ -58,6 +65,12 @@ _TYPE_LABELS = {
     "date": "日期",
     "datetime": "日期时间",
 }
+
+_HEADER_FONT = Font(bold=True)
+"""导出表头字体（加粗）。"""
+
+_HEADER_FILL = PatternFill("solid", fgColor="F2F2F2")
+"""导出表头底色（浅灰）。"""
 """列值类型中文说明（只进填写说明 sheet）。"""
 
 
@@ -242,6 +255,57 @@ def build_error_report(
     output = BytesIO()
     workbook.save(output)
     return output.getvalue()
+
+
+def build_export_workbook(
+    columns: ConcurrentStableList[ColumnSpec] | ConcurrentStableFrozenList[ColumnSpec],
+    rows: Iterable[ConcurrentStableDict[str, object]],
+) -> bytes:
+    """生成导出工作表（单 sheet「数据」，write_only 低内存）。
+
+    Args:
+        columns: 列定义（决定列序与表头）。
+        rows: 数据行（列键 → 值；缺失列按空单元格）。
+
+    Returns:
+        bytes: xlsx 字节。
+    """
+    workbook = Workbook(write_only=True)
+    sheet = workbook.create_sheet(DATA_SHEET_NAME)
+    header: ConcurrentStableList[object] = ConcurrentStableList()
+    for column in columns:
+        cell = WriteOnlyCell(sheet, value=column.title)
+        cell.font = _HEADER_FONT
+        cell.fill = _HEADER_FILL
+        header.add(cell)
+    sheet.append(list(header))
+    for index, column in enumerate(columns, start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = min(40, max(12, len(column.title) * 2 + 4))
+    for row in rows:
+        sheet.append([_export_cell(row.get(column.key)) for column in columns])
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
+def _export_cell(value: object) -> object:
+    """导出单元格值兜底转换（业务格式化已在定义侧完成）。
+
+    Args:
+        value: 行值。
+
+    Returns:
+        object: 可写入单元格的值（空 / 布尔 / 日期时间在此兜底）。
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "是" if value else "否"
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    return value
 
 
 def _is_blank(value: object) -> bool:

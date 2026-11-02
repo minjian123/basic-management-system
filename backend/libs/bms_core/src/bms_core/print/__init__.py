@@ -1,1 +1,63 @@
-"""打印模板与导出 PDF 能力域（模板来源与导出两契约与占位实现；真实渲染与模板来源随对应阶段回补）。"""
+"""打印模板与导出 PDF 能力域：模板来源与导出两契约、内置模板、reportlab 渲染与真实导出实现（04_02）。"""
+
+from bms_core.print.base import (
+    PRINT_BATCH_MODES,
+    PRINT_CONTENT_TYPE,
+    PRINT_CONTRACT_VERSION,
+    PRINT_OBJECT_DOMAIN,
+    PRINT_ORIENTATIONS,
+    PRINT_PAPERS,
+    PRINT_TEMPLATE_STATUSES,
+    PRINT_TONES,
+    BasePrintExporter,
+    BasePrintTemplateProvider,
+    PrintBatchResult,
+    PrintDocument,
+    PrintExportResult,
+    PrintOptions,
+    PrintTemplateInfo,
+    PrintVariable,
+    build_print_object_key,
+    get_print_exporter,
+    get_print_template_provider,
+)
+from bms_core.print.exporter import StoragePrintExporter
+from bms_core.print.renderer import BUILTIN_CID_FONT, PdfRenderConfig, ReportPdfRenderer
+from bms_core.print.templates import (
+    BUILTIN_PRINT_TEMPLATES,
+    DEFAULT_DOCUMENT_TEMPLATE_KEY,
+    DEFAULT_LIST_TEMPLATE_KEY,
+    BuiltinPrintTemplateProvider,
+    register_builtin_template,
+)
+
+__all__ = [
+    "BUILTIN_CID_FONT",
+    "BUILTIN_PRINT_TEMPLATES",
+    "DEFAULT_DOCUMENT_TEMPLATE_KEY",
+    "DEFAULT_LIST_TEMPLATE_KEY",
+    "PRINT_BATCH_MODES",
+    "PRINT_CONTENT_TYPE",
+    "PRINT_CONTRACT_VERSION",
+    "PRINT_OBJECT_DOMAIN",
+    "PRINT_ORIENTATIONS",
+    "PRINT_PAPERS",
+    "PRINT_TEMPLATE_STATUSES",
+    "PRINT_TONES",
+    "BasePrintExporter",
+    "BasePrintTemplateProvider",
+    "BuiltinPrintTemplateProvider",
+    "PdfRenderConfig",
+    "PrintBatchResult",
+    "PrintDocument",
+    "PrintExportResult",
+    "PrintOptions",
+    "PrintTemplateInfo",
+    "PrintVariable",
+    "ReportPdfRenderer",
+    "StoragePrintExporter",
+    "build_print_object_key",
+    "get_print_exporter",
+    "get_print_template_provider",
+    "register_builtin_template",
+]

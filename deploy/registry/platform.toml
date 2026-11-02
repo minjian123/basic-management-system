@@ -530,6 +530,45 @@ payload_version = "1.0.0"
 status = "enabled"
 
 [[jobs]]
+job_type = "platform.export.execute"
+service = "platform"
+domain = "import_export"
+handler = "bms_platform.domains.import_export.export_jobs:ExportExecuteJob"
+description = "执行列表导出（Excel / 列表 PDF），产物落对象存储并记入作业结果"
+timeout_seconds = 1800
+max_attempts = 1
+backoff_seconds = 0
+concurrency = 2
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
+job_type = "platform.export.cleanup"
+service = "platform"
+domain = "import_export"
+handler = "bms_platform.domains.import_export.export_jobs:ExportCleanupJob"
+description = "清理过期导出产物（按 export.artifact_ttl 与作业结果里的对象 key）"
+timeout_seconds = 1800
+max_attempts = 3
+backoff_seconds = 30
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
+job_type = "print.batch.execute"
+service = "report"
+domain = "report"
+handler = "bms_report.domains.report.jobs:PrintBatchJob"
+description = "批量打印（逐份 / 合并）超阈值转后台：渲染产物并落对象存储"
+timeout_seconds = 1800
+max_attempts = 1
+backoff_seconds = 0
+concurrency = 2
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
 job_type = "platform.import.execute"
 service = "platform"
 domain = "import_export"

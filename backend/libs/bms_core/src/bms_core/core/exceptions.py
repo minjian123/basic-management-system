@@ -1713,3 +1713,72 @@ class JobHandlerNotRegisteredError(JobError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.JOB_HANDLER_NOT_REGISTERED, message, http_status=500, data=data)
+
+
+class ExportError(FileError):
+    """列表导出子段（文件段内 `504xx`）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class ExportBizNotRegisteredError(ExportError):
+    """导出业务未注册（`50401` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化导出业务未注册异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.EXPORT_BIZ_NOT_REGISTERED, message, http_status=400, data=data)
+
+
+class ExportJobNotFoundError(ExportError):
+    """导出作业不存在 / 不属于当前租户（`50402` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化导出作业不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.EXPORT_JOB_NOT_FOUND, message, http_status=404, data=data)
+
+
+class ExportArtifactMissingError(ExportError):
+    """产物对象不存在（已过期清理或写入失败，`50403` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化产物缺失异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.EXPORT_ARTIFACT_MISSING, message, http_status=404, data=data)
+
+
+class ExportRowLimitExceededError(ExportError):
+    """导出行数超过 `export.max_rows`（`50404` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化行数超限异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.EXPORT_ROW_LIMIT_EXCEEDED, message, http_status=400, data=data)
+
+
+class ExportJobFailedError(ExportError):
+    """导出执行失败（取数 / 渲染 / 落存储异常，`50405` / 409；整批未产出或产物已清）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化导出失败异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.EXPORT_JOB_FAILED, message, http_status=409, data=data)

@@ -65,7 +65,7 @@ class PrintExportRequest(BaseSchema):
 
 
 class PrintBatchRequest(BaseSchema):
-    """批量打印请求：`{template_key, keys, mode?, options?}`。"""
+    """批量打印请求：`{template_key, keys, mode?, options?, documents?}`。"""
 
     template_key: str = Field(min_length=1, description="打印模板键")
     keys: Annotated[
@@ -73,6 +73,11 @@ class PrintBatchRequest(BaseSchema):
     ]
     mode: str = Field(default="separate", description="批量模式（separate 逐份 / merged 合并）")
     options: PrintOptionsPayload | None = Field(default=None, description="渲染选项（缺省取平台缺省）")
+    documents: Annotated[
+        ConcurrentStableList[PrintDocumentPayload],
+        CONTRACT_COLLECTION,
+        Field(default_factory=CONTRACT_STABLE_LIST, description="单据数据（与 keys 同序等长；缺省渲染简版页）"),
+    ]
 
 
 class PrintExportResponse(BaseSchema):

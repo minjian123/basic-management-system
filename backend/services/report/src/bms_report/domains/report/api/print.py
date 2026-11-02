@@ -9,21 +9,26 @@
   本路由只做参数校验与委托。
 """
 
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import Depends, Header, Path, Query
 
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import (
     current_tenant_id_of,
+    get_config_source,
     get_idempotency_store,
     get_print_exporter,
     get_print_template_provider,
     get_tenant,
+    get_uow,
 )
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.config.base import BaseConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.tenant import TenantContext
+from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
+from bms_core.jobs.spec import JobSubmission
 from bms_core.print.base import (
     BasePrintExporter,
     BasePrintTemplateProvider,
@@ -45,6 +50,7 @@ from bms_core.schemas.print import (
     PrintTemplateListResponse,
     PrintVariableResponse,
 )
+from bms_core.transfer.export_limits import ExportLimits
 
 router = BaseRouter(
     key="print",
@@ -56,6 +62,8 @@ router = BaseRouter(
 ExporterDep = Annotated[BasePrintExporter, Depends(get_print_exporter)]
 TemplateDep = Annotated[BasePrintTemplateProvider, Depends(get_print_template_provider)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
+UowDep = Annotated[UnitOfWork, Depends(get_uow)]
+ConfigDep = Annotated[BaseConfigSource, Depends(get_config_source)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 TemplateKeyPath = Annotated[str, Path(description="打印模板键")]
 BizTypeQuery = Annotated[str | None, Query(description="单据类型（缺省全部）")]
@@ -196,26 +204,50 @@ async def batch_print(
     exporter: ExporterDep,
     idempotency: IdempotencyDep,
     tenant: TenantDep,
+    uow: UowDep,
+    config: ConfigDep,
     req: PrintBatchRequest,
     idempotency_key: IdempotencyKeyHeader = None,
 ) -> ApiResponse:
-    """批量打印多单据（可按幂等键复用首次结果）。
+    """批量打印多单据（逐份 / 合并；超阈值转后台作业；可按幂等键复用首次结果）。
 
     Args:
         exporter: 打印导出基座。
         idempotency: 幂等基座（首次结果复用）。
-        tenant: 解析链租户上下文（幂等键作用域位）。
-        req: 批量请求（模板键 / 单据键集合 / 批量模式 / 渲染选项）。
+        tenant: 解析链租户上下文（幂等键作用域位 / 作业租户位）。
+        uow: 请求级工作单元（提交后台作业）。
+        config: 系统参数取数（同步份数阈值）。
+        req: 批量请求（模板键 / 单据键集合 / 单据数据 / 批量模式 / 渲染选项）。
         idempotency_key: 幂等键请求头（可选）。
 
     Returns:
-        ApiResponse: 统一响应，data 为批量结果（`PrintBatchResponse`）。
+        ApiResponse: 统一响应，data 为批量结果（`PrintBatchResponse`；转后台时 `task_id` 非空）。
     """
     options = _to_options(req.options)
+    documents: ConcurrentStableList[PrintDocument] = ConcurrentStableList(_to_document(item) for item in req.documents)
+    limits = await ExportLimits.load(config)
+    if len(req.keys) > limits.pdf_sync_max_docs:
+        job_id = await _submit_batch(uow=uow, tenant=tenant, req=req)
+        return ApiResponse.ok(
+            PrintBatchResponse(
+                task_id=str(job_id),
+                total=len(req.keys),
+                succeeded=0,
+                failed=0,
+                items=ConcurrentStableList(),
+                message="数据量较大，已转后台打印",
+            )
+        )
     if not idempotency_key:
         return ApiResponse.ok(
             _batch_response(
-                await exporter.batch_print(req.keys, template_key=req.template_key, mode=req.mode, options=options)
+                await exporter.batch_print(
+                    req.keys,
+                    template_key=req.template_key,
+                    mode=req.mode,
+                    options=options,
+                    documents=documents or None,
+                )
             )
         )
     key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_id_of(tenant))
@@ -223,9 +255,49 @@ async def batch_print(
         payload = await idempotency.load(key)
         if payload is not None:
             return ApiResponse.ok(PrintBatchResponse.model_validate(payload))
-    result = await exporter.batch_print(req.keys, template_key=req.template_key, mode=req.mode, options=options)
+    result = await exporter.batch_print(
+        req.keys,
+        template_key=req.template_key,
+        mode=req.mode,
+        options=options,
+        documents=documents or None,
+    )
     await idempotency.save(key, result.model_dump(mode="json"))
     return ApiResponse.ok(_batch_response(result))
+
+
+async def _submit_batch(*, uow: UnitOfWork, tenant: TenantContext | None, req: PrintBatchRequest) -> int:
+    """提交批量打印后台作业。
+
+    Args:
+        uow: 请求级工作单元。
+        tenant: 租户上下文（作业租户位）。
+        req: 批量请求。
+
+    Returns:
+        int: 作业主键。
+    """
+    from bms_core.db.session import DbSession
+    from bms_report.jobs import build_runner
+
+    documents: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList(
+        ConcurrentStableDict(item.model_dump(mode="json")) for item in req.documents
+    )
+    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "template_key": req.template_key,
+            "keys": ConcurrentStableList(req.keys),
+            "documents": documents,
+            "mode": req.mode,
+            "options": None if req.options is None else ConcurrentStableDict(req.options.model_dump(mode="json")),
+        }
+    )
+    submission = JobSubmission(job_type="print.batch.execute", payload=payload, max_attempts=1)
+    async with uow.begin():
+        record = await build_runner().submit(
+            cast("DbSession", uow.session), submission, tenant_id=None if tenant is None else tenant.tenant_id
+        )
+    return int(record.id)
 
 
 @router.get("/templates")

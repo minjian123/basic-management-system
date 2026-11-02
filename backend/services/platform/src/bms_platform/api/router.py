@@ -12,6 +12,7 @@ from bms_platform.api import (
     outbox,
     plugins,
 )
+from bms_platform.domains.import_export.api.exports import build_export_router
 from bms_platform.domains.import_export.api.imports import build_import_router
 from bms_platform.domains.job.api import internal_job as internal_job_api
 from bms_platform.domains.job.api import job as job_api
@@ -42,6 +43,7 @@ from bms_platform.domains.user.api import (
     user_extensions,
     users,
 )
+from bms_platform.exports import build_export_definitions
 from bms_platform.imports import build_import_definitions
 from bms_platform.jobs import build_runner
 
@@ -103,6 +105,11 @@ api_router = mount_service_routers(
             # Excel 批量导入（04_01）：模板 / 执行 / 异步状态 / 错误明细
             build_import_router(
                 definitions_factory=build_import_definitions,
+                runner_factory=build_runner,
+            ),
+            # 列表导出（04_02）：Excel / 列表 PDF / 异步作业状态
+            build_export_router(
+                definitions_factory=build_export_definitions,
                 runner_factory=build_runner,
             ),
         ]

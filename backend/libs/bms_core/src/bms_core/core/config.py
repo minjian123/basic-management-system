@@ -201,6 +201,26 @@ class PaginationSettings(BaseSettings):
     """页码分页最大深度（`BasePageQuery.page` 上限；超限按参数非法 10001）。"""
 
 
+class PrintRenderSettings(BaseSettings):
+    """打印渲染参数（段 `[print]`；04_02）。
+
+    只承载渲染器自身参数；模板定义来源与编排参数分别经 `[print_template]` / `[print_exporter]` 与
+    系统参数 `export.pdf.*` 表达。
+    """
+
+    font_path: str = ""
+    """TTF 中文字体路径；空表示用 reportlab 内置 CID 字体（`STSong-Light`，零字体文件）。"""
+
+    font_size: float = Field(default=10.0, gt=0)
+    """正文字号（磅）。"""
+
+    margin_mm: float = Field(default=15.0, gt=0)
+    """页边距（毫米）。"""
+
+    footer_enabled: bool = True
+    """是否渲染页脚（打印人 / 打印时间 / 页码）。"""
+
+
 class DictSettings(BaseSettings):
     """字典取数缓存与三防参数（段 `[dict]`；02_01）。"""
 
@@ -1529,6 +1549,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     permission: PermissionSettings = Field(default_factory=PermissionSettings)
     preference: PluginSelection = Field(default_factory=PluginSelection)
     print_exporter: PluginSelection = Field(default_factory=PluginSelection)
+    print_render: PrintRenderSettings = Field(default_factory=PrintRenderSettings, validation_alias="print")
     print_template: PluginSelection = Field(default_factory=PluginSelection)
     query_provider_registry: PluginSelection = Field(default_factory=PluginSelection)
     query_scheme_store: PluginSelection = Field(default_factory=PluginSelection)

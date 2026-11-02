@@ -1,12 +1,12 @@
 """print_template / print_exporter 能力域缺省实现（Null Object）：固定返回，不触对象存储、不写库、不渲染。
 
 - `NullPrintTemplateProvider`：模板清单固定为空（不臆造模板定义）；取模板恒定未命中（`50201` / 404）。
-- `NullPrintExporter`：单条导出与批量打印固定返回占位产物（对象 key 经统一助手派生、占位取址与占位文案）；
-  产物有效期复用对象存储缺省预签名有效期，不新建平行常量。
+- `NullPrintExporter`：单条导出 / 批量打印 / 列表导出固定返回占位产物（对象 key 经统一助手派生、占位取址与
+  占位文案）；产物有效期复用对象存储缺省预签名有效期，不新建平行常量。
 """
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import PrintTemplateNotFoundError
 from bms_core.print.base import (
     NULL_PRINT_BIZ_KEY,
@@ -24,6 +24,7 @@ from bms_core.print.base import (
     build_print_object_key,
 )
 from bms_core.storage.base import DEFAULT_PRESIGN_TTL
+from bms_core.transfer.base import ColumnSpec
 
 __all__ = ["NullPrintExporter", "NullPrintTemplateProvider"]
 
@@ -84,6 +85,7 @@ class NullPrintExporter(BasePrintExporter, BaseNullObject):
         template_key: str,
         mode: str = "separate",
         options: PrintOptions | None = None,
+        documents: ConcurrentStableList[PrintDocument] | None = None,
     ) -> PrintBatchResult:
         """批量打印多单据（占位固定返回占位产物汇总）。
 
@@ -92,16 +94,21 @@ class NullPrintExporter(BasePrintExporter, BaseNullObject):
             template_key: 打印模板键。
             mode: 批量模式（separate 逐份出多份产物 / merged 合并出单份产物）。
             options: 渲染选项（占位不消费）。
+            documents: 单据数据（占位不消费；仅按其中单据键命名产物）。
 
         Returns:
             PrintBatchResult: 占位批量结果（汇总计数为单据数、任务标识为空）。
         """
         if not keys:
             return PrintBatchResult(message=PRINT_PLACEHOLDER_MESSAGE)
+        biz_keys: ConcurrentStableList[str] = ConcurrentStableList(
+            (documents[index].biz_key or key if documents is not None and index < len(documents) else key)
+            for index, key in enumerate(keys)
+        )
         if mode == PRINT_BATCH_MODES[1]:  # merged：合并单份产物，以批内首个单据键为标识
-            items = [self._artifact(template_key, keys[0], f"{template_key}.pdf")]
+            items = [self._artifact(template_key, biz_keys[0], f"{template_key}.pdf")]
         else:  # separate：逐份产物，逐键命名
-            items = [self._artifact(template_key, key, f"{template_key}-{key}.pdf") for key in keys]
+            items = [self._artifact(template_key, key, f"{template_key}-{key}.pdf") for key in biz_keys]
         return PrintBatchResult(
             total=len(keys),
             succeeded=len(keys),
@@ -109,6 +116,28 @@ class NullPrintExporter(BasePrintExporter, BaseNullObject):
             items=ConcurrentStableList(items),
             message=PRINT_PLACEHOLDER_MESSAGE,
         )
+
+    async def export_list(
+        self,
+        title: str,
+        columns: ConcurrentStableList[ColumnSpec],
+        rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
+        *,
+        options: PrintOptions | None = None,
+    ) -> PrintExportResult:
+        """导出列表 PDF（占位固定返回占位产物）。
+
+        Args:
+            title: 报表标题（占位用作产物标识）。
+            columns: 列定义（占位不消费）。
+            rows: 数据行（占位不消费）。
+            options: 渲染选项（占位不消费）。
+
+        Returns:
+            PrintExportResult: 占位产物。
+        """
+        del columns, rows, options
+        return self._artifact("list", title or "list", f"{title or 'list'}.pdf")
 
     @staticmethod
     def _artifact(template_key: str, biz_key: str, file_name: str) -> PrintExportResult:

@@ -144,6 +144,16 @@ services:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_REPORT:-18}
 
+  report-jobs:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-report:${BMS_TAG_REPORT:?BMS_TAG_REPORT required}
+    container_name: bms-report-jobs
+    command: ["python", "-m", "bms_report.jobs"]
+    expose: []
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_REPORT_JOBS:-103}
+
   txn:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-txn:${BMS_TAG_TXN:?BMS_TAG_TXN required}
