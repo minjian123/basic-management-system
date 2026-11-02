@@ -1517,5 +1517,5 @@ defect-capture:
         --engine mysql --db-name "${BMS_TEST_DB_NAME:-bms_test_mysql}" \
         --db-host 192.168.0.107 --db-port 3306 \
         --db-user root --db-password "$MYSQL_ROOT_PASSWORD" \
-        --summary "main pipeline failure @ ${CI_COMMIT_SHORT_SHA:-local} (${CI_PIPELINE_URL:-})" \
+        --collect-pipeline-failures \
         --env test --test-command "main pipeline"

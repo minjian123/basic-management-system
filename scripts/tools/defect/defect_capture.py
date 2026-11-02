@@ -34,6 +34,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -41,7 +42,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date
+
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+# GitLab JSON / 命令行参数是动态结构（`json.loads` 结果无法静态表达），与 scripts/tools/ci/mcp_server.py 同口径：
+# 只放宽「未知类型」三条，其余检查照常。
 from pathlib import Path
+from typing import Any
 
 DEFAULT_ARCHIVE_ROOT = "/mnt/data/backup/defects"
 
@@ -70,7 +76,7 @@ def load_env(path: Path) -> ConcurrentStableDict[str, str]:
     return env
 
 
-def run(cmd: ConcurrentStableList[str]) -> subprocess.CompletedProcess | None:
+def run(cmd: ConcurrentStableList[str]) -> subprocess.CompletedProcess[str] | None:
     """执行命令；失败或工具缺失返回 `None`（现场捕获尽力而为，不阻断归档）。"""
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -83,7 +89,7 @@ def run(cmd: ConcurrentStableList[str]) -> subprocess.CompletedProcess | None:
     return result
 
 
-def dump_mysql(args) -> Path | None:
+def dump_mysql(args: Any) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.sql"
     # --ssl=0：内网自签证书环境（mariadb 客户端默认尝试 TLS 会握手失败）
     result = run(
@@ -108,7 +114,7 @@ def dump_mysql(args) -> Path | None:
     return out if result is not None else None
 
 
-def dump_postgres(args) -> Path | None:
+def dump_postgres(args: Any) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.dump"
     env = dict(os.environ, PGPASSWORD=args.db_password)
     try:
@@ -135,7 +141,7 @@ def dump_postgres(args) -> Path | None:
     return out
 
 
-def dump_dm8(args) -> Path | None:
+def dump_dm8(args: Any) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.dmp"
     result = run(
         ConcurrentStableList(
@@ -152,9 +158,163 @@ def dump_dm8(args) -> Path | None:
     return out if result is not None else None
 
 
+_VOLATILE = re.compile(
+    r"https?://\S+"  # 流水线 / 作业地址
+    r"|@\s*[0-9a-f]{7,40}"  # commit 短号 / 全号
+    r"|0x[0-9a-f]{6,}"  # 内存地址
+    r"|\b\d{4,}\b"  # 长数字（ID / 计数 / sha 片段）
+)
+"""指纹归一化时剥掉的易变片段。
+
+留着这些会让「同一根因」每次流水线都算出新指纹——实测积压 113 张单对应 113 个指纹，
+全部无法聚类，也就无法判断「这张是不是已经修过」。
+"""
+
+_FAILED_CASE = re.compile(r"FAILED\s+(\S+?::\S+)")
+"""pytest 失败清单行里的 `文件::用例`。"""
+
+_EXC_LINE = re.compile(r"((?:[A-Za-z_][\w.]*\.)?[A-Za-z_]\w*(?:Error|Exception|Failure))(?::\s*(.*))?")
+"""异常类型行（`ModuleNotFoundError: ...` / `AssertionError` / `sqlalchemy.exc.XxxError`）。"""
+
+
 def fingerprint(case_id: str, summary: str) -> str:
+    """计算缺陷指纹（同根因同指纹，供去重）。
+
+    归一化剥掉 commit / URL / 长数字后取 sha256 前 12 位。摘要里带「失败 job | 用例 | 异常类型」
+    时聚类最准；只有流水线级描述时也能把「同一 job 的同一异常」归到一起。
+
+    Args:
+        case_id: 用例 ID（无则传 `n/a`）。
+        summary: 失败摘要。
+
+    Returns:
+        str: 12 位十六进制指纹。
+    """
     norm = " ".join(summary.split()).lower()
+    norm = _VOLATILE.sub("<x>", norm)
     return hashlib.sha256(f"{case_id}|{norm}".encode()).hexdigest()[:12]
+
+
+def _api_json(path: str, *, raw: bool = False) -> Any:
+    """GET GitLab 接口（CI 内运行：用 CI_API_V4_URL + GITLAB_API_TOKEN）。
+
+    Args:
+        path: 相对 API 根路径。
+        raw: True 返回原文（job trace 是纯文本）。
+
+    Returns:
+        Any: 解析后的 JSON / 文本；无内容返回 None / 空串。
+    """
+    base = (os.environ.get("CI_API_V4_URL") or os.environ.get("GITLAB_API_URL", "")).rstrip("/")
+    url = f"{base}/{path.lstrip('/')}"
+    req = urllib.request.Request(
+        url,
+        headers={"PRIVATE-TOKEN": os.environ.get("GITLAB_API_TOKEN", "")},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        payload = resp.read()
+    if raw:
+        return payload.decode("utf-8", errors="replace")
+    return json.loads(payload) if payload else None
+
+
+_PRIMARY_HINTS = (
+    "[contract_gate]",
+    "破坏性变更",
+    "未达标",
+    "FAILED ",
+    "AssertionError",
+    "Traceback (most recent call last)",
+)
+"""失败日志里优先提取的结论行关键字（先命中先返回）。"""
+
+_LOG_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s+\S+\s+")
+"""日志行前缀（ISO 时间戳 + 01O 之类的流标记）：同一条结论每次前缀都不同，进指纹前须剥掉。"""
+
+_NOISE_HINTS = ("instrumentation_skipped", "warning  ]", "WARNING ", "Job failed: exit code")
+"""已知噪音（初始化告警 / 收尾行），不得冒充失败原因。"""
+
+
+def _digest(lines: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
+    """从日志尾部提取「失败结论行」。
+
+    先按 `_PRIMARY_HINTS` 找门禁结论 / pytest 失败清单 / 异常栈头；都没命中时兜底抓异常行，
+    但**跳过噪音**——否则会把 `instrumentation_skipped` 这类初始化告警当成根因。
+
+    Args:
+        lines: 日志行（尾部片段）。
+
+    Returns:
+        ConcurrentStableList[str]: 结论行（最多 3 行）。
+    """
+    for hint in _PRIMARY_HINTS:
+        hits = ConcurrentStableList(ln for ln in lines if hint in ln)
+        if hits:
+            return ConcurrentStableList(_LOG_PREFIX.sub("", ln).strip() for ln in list(hits)[-3:])
+    fallback = ConcurrentStableList(
+        ln for ln in lines if not any(noise in ln for noise in _NOISE_HINTS) and ("Error" in ln or "Exception" in ln)
+    )
+    return ConcurrentStableList(_LOG_PREFIX.sub("", ln).strip() for ln in list(fallback)[-3:])
+
+
+def collect_pipeline_failures() -> ConcurrentStableDict[str, str]:
+    """从当前流水线提取失败 job、首个失败用例与异常类型。
+
+    为什么需要：原上报只写 `main pipeline failure @ <sha> (<url>)`——含 sha 导致指纹每次都变，
+    且没有 job / 用例信息，缺陷单既无法聚类也无法定位（「测试文件：未知」即由此而来）。
+
+    Returns:
+        ConcurrentStableDict[str, str]: `summary` / `stacktrace` / `test_file`；取不到时各为空串。
+    """
+    out: ConcurrentStableDict[str, str] = ConcurrentStableDict({"summary": "", "stacktrace": "", "test_file": ""})
+    project = os.environ.get("CI_PROJECT_ID", "")
+    pipeline = os.environ.get("CI_PIPELINE_ID", "")
+    if not (project and pipeline and (os.environ.get("CI_API_V4_URL") or os.environ.get("GITLAB_API_URL"))):
+        return out
+    try:
+        jobs = _api_json(f"projects/{project}/pipelines/{pipeline}/jobs?per_page=100")
+    except urllib.error.URLError, ValueError:
+        return out
+    if not isinstance(jobs, list):
+        return out
+
+    failed = [job for job in jobs if job.get("status") == "failed" and job.get("allow_failure") is not True]
+    if not failed:
+        return out
+
+    names: ConcurrentStableList[str] = ConcurrentStableList()
+    details: ConcurrentStableList[str] = ConcurrentStableList()
+    cases: ConcurrentStableList[str] = ConcurrentStableList()
+    first_exc = ""
+    for job in failed:
+        name = str(job.get("name", ""))
+        names.add(name)
+        try:
+            trace = str(_api_json(f"projects/{project}/jobs/{job.get('id')}/trace", raw=True))
+        except urllib.error.URLError, ValueError:
+            continue
+        tail = trace.splitlines()[-400:]
+        for line in tail:
+            matched = _FAILED_CASE.search(line)
+            if matched and matched.group(1) not in cases:
+                cases.add(matched.group(1))
+            if not first_exc:
+                digest = _digest(ConcurrentStableList(tail))
+                if digest:
+                    first_exc = str(digest[0]).strip()[:160]
+        details.add(
+            f"\n### {name}\n```\n"
+            + "\n".join([ln for ln in tail if _FAILED_CASE.search(ln) or "Error" in ln][-6:])
+            + "\n```"
+        )
+
+    if not names:
+        return out
+    out.set("summary", f"pipeline failure: {','.join(names)} | {(cases[0] if cases else '-')} | {first_exc or '-'}")
+    out.set("stacktrace", "\n".join(details))
+    if cases:
+        out.set("test_file", cases[0].split("::")[0])
+    return out
 
 
 def collect_logs(log_dir: str | None, out_dir: Path) -> ConcurrentStableList[str]:
@@ -174,7 +334,7 @@ def collect_logs(log_dir: str | None, out_dir: Path) -> ConcurrentStableList[str
     return names
 
 
-def write_repro(args, fp: str, dump_path: Path | None) -> Path:
+def write_repro(args: Any, fp: str, dump_path: Path | None) -> Path:
     stack = ""
     st = args.out_dir / "stacktrace.txt"
     if args.stacktrace:
@@ -224,7 +384,7 @@ def write_repro(args, fp: str, dump_path: Path | None) -> Path:
     return md
 
 
-def build_description(args, fp: str, dump_path: Path, repro_md: Path) -> str:
+def build_description(args: Any, fp: str, dump_path: Path | None, repro_md: Path) -> str:
     return (
         f"**自动缺陷上报**（指纹 `{fp}`）\n\n"
         f"- 缺陷指纹：`{fp}`\n"
@@ -246,7 +406,7 @@ def api(
     path: str,
     method: str = "GET",
     body: ConcurrentStableDict[str, object] | None = None,
-) -> ConcurrentStableDict[str, object] | ConcurrentStableList[object] | None:
+) -> Any:
     url = f"{os.environ['GITLAB_API_URL'].rstrip('/')}/{path.lstrip('/')}"
     data = json.dumps(dict(body)).encode("utf-8") if body is not None else None
     req = urllib.request.Request(
@@ -290,7 +450,12 @@ def main() -> int:
     parser.add_argument("--db-user", default="root")
     parser.add_argument("--db-password", default="")
     parser.add_argument("--case-id", default="", help="Kiwi TCMS 用例 ID")
-    parser.add_argument("--summary", required=True, help="失败摘要（用于标题与指纹）")
+    parser.add_argument("--summary", default="", help="失败摘要（用于标题与指纹；留空则由采集开关自动生成）")
+    parser.add_argument(
+        "--collect-pipeline-failures",
+        action="store_true",
+        help="从当前流水线采集失败 job / 失败用例 / 异常类型，补全 summary 与 stacktrace（CI on_failure 用）",
+    )
     parser.add_argument("--env", default="CI", help="环境标记")
     parser.add_argument("--defect-id", default="", help="缺陷号（缺省自动生成 commit 短号）")
     parser.add_argument("--test-file", default="", help="失败测试文件路径（写入 REPRO 包）")
@@ -314,6 +479,18 @@ def main() -> int:
         print(f"[完成] 现场 dump: {dump}")
     else:
         print("[跳过] 现场数据 dump 不可用（库不存在 / 客户端缺失）；继续归档 REPRO 包")
+
+    if args.collect_pipeline_failures:
+        collected = collect_pipeline_failures()
+        if collected.get("summary"):
+            args.summary = collected["summary"]
+            args.stacktrace = args.stacktrace or collected["stacktrace"]
+            args.test_file = args.test_file or collected["test_file"]
+            print(f"[采集] 失败摘要: {args.summary}")
+        else:
+            print("[采集] 未能从流水线取得失败 job（退回流水线级摘要）")
+    if not args.summary:
+        args.summary = f"main pipeline failure @ {commit[:8]}"
 
     fp = fingerprint(args.case_id or "n/a", args.summary)
     repro_md = write_repro(args, fp, dump)
