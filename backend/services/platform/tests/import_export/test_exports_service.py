@@ -303,9 +303,9 @@ def _masker() -> BaseMasker:
 def _payload(kind: str = KIND_EXCEL, **overrides: object) -> ExportPayload:
     """构造导出意图。"""
     params = ConcurrentStableDict({"order": "asc"})
-    base: dict[str, object] = {"biz": "demo", "kind": kind, "params": params}
+    base: ConcurrentStableDict[str, object] = ConcurrentStableDict({"biz": "demo", "kind": kind, "params": params})
     base.update(overrides)
-    return ExportPayload(**base)  # pyright: ignore[reportArgumentType]
+    return ExportPayload(**dict(base))  # pyright: ignore[reportArgumentType]
 
 
 def test_masker_applies_configured_rules() -> None:
