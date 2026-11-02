@@ -16,27 +16,65 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 _SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+from bms_core.core.concurrent import (  # noqa: E402
+    ConcurrentStableDict,
+    ConcurrentStableFrozenSet,
+    ConcurrentStableList,
+)
 
 _ROOT = Path(__file__).resolve().parents[3]
 """bms 仓库根（本文件位于 `scripts/tools/preflight/`）。"""
 
+STDIN_LIST = "-"
+"""`--files-from` 取标准输入的标记（门禁通过管道传清单，不落临时文件）。"""
 
-def _yaml_parse(root: Path, failures: ConcurrentStableList[str]) -> None:
+CI_ENTRY = ".gitlab-ci.yml"
+"""CI 主配置：pytest 选项校验与 GitLab Lint 只对它生效。"""
+
+
+def read_listed(source: str) -> ConcurrentStableFrozenSet[str] | None:
+    """读取改动清单（一行一个仓根相对路径）。
+
+    Args:
+        source: 清单来源（文件路径或 `-`）；空串表示全量模式。
+
+    Returns:
+        ConcurrentStableFrozenSet[str] | None: 改动文件集合；全量模式返回 None。
+    """
+    if not source:
+        return None
+    text = sys.stdin.read() if source == STDIN_LIST else Path(source).read_text(encoding="utf-8")
+    return ConcurrentStableFrozenSet(
+        {
+            line.strip().replace("\\", "/")
+            for line in text.splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        }
+    )
+
+
+def _yaml_parse(
+    root: Path,
+    failures: ConcurrentStableList[str],
+    listed: ConcurrentStableFrozenSet[str] | None = None,
+) -> None:
     """解析 CI / 编排 YAML 并核对关键资产。
 
     Args:
         root: 仓库根。
         failures: 失败收集列表。
+        listed: 改动文件集合；None 表示全量模式。
     """
     try:
         import yaml  # type: ignore[import-not-found]
@@ -48,6 +86,10 @@ def _yaml_parse(root: Path, failures: ConcurrentStableList[str]) -> None:
         *sorted((root / "deploy" / "ci" / "templates").glob("*.yml")),
         *sorted((root / "deploy" / "compose").glob("*.yml")),
     ]
+    if listed is not None:
+        targets = [path for path in targets if path.relative_to(root).as_posix() in listed]
+    if not targets:
+        return
     print("\n[preflight] CI 配置自检：CI / 编排 YAML 解析")
     for path in targets:
         rel = path.relative_to(root)
@@ -57,6 +99,9 @@ def _yaml_parse(root: Path, failures: ConcurrentStableList[str]) -> None:
         except Exception as exc:
             print(f"  失败（{rel}）：{exc}")
             failures.append(f"CI YAML 解析（{rel}）")
+    if listed is not None:
+        # 增量模式只解析改动的 YAML；「门禁资产就位」是全仓口径，交推送环与 CI
+        return
     assets = [
         root / "scripts" / "tools" / "deploy" / "release.py",
         root / "deploy" / "ci" / "verify" / "contract-gate",
@@ -87,8 +132,12 @@ def _pytest_flags(root: Path, backend: Path, failures: ConcurrentStableList[str]
     except ModuleNotFoundError:
         print("  跳过（本机无 pyyaml）")
         return
-    data = yaml.safe_load((root / ".gitlab-ci.yml").read_text(encoding="utf-8"))
-    script = [str(line) for line in (data.get("backend-test", {}) or {}).get("script", [])]
+    loaded = yaml.safe_load((root / ".gitlab-ci.yml").read_text(encoding="utf-8"))
+    stages = cast("dict[str, object]", loaded) if isinstance(loaded, dict) else {}
+    backend_test = stages.get("backend-test", {})
+    jobs = cast("dict[str, object]", backend_test) if isinstance(backend_test, dict) else {}
+    raw_script = jobs.get("script", [])
+    script = [str(line) for line in cast("list[object]", raw_script)] if isinstance(raw_script, list) else []
     joined = "\n".join(script)
     flags: ConcurrentStableList[str] = ConcurrentStableList()
     collecting = False
@@ -150,7 +199,9 @@ def _gitlab_lint(root: Path, failures: ConcurrentStableList[str]) -> None:
     print("\n[preflight] CI 配置自检：GitLab CI Lint API")
     body = json.dumps({"content": (root / ".gitlab-ci.yml").read_text(encoding="utf-8")}).encode()
     request = urllib.request.Request(
-        f"{api}/projects/2/ci/lint", data=body, headers={"PRIVATE-TOKEN": token, "Content-Type": "application/json"}
+        f"{api}/projects/2/ci/lint",
+        data=body,
+        headers={"PRIVATE-TOKEN": token, "Content-Type": "application/json"},
     )
     try:
         with urllib.request.urlopen(request, timeout=15) as resp:
@@ -173,13 +224,22 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     Returns:
         int: 退出码（0 通过 / 1 有问题）。
     """
-    args = ConcurrentStableList(sys.argv[1:] if argv is None else argv)
-    paths = [item for item in args if not item.startswith("-")]
-    root = Path(paths[0]).resolve() if paths else _ROOT
+    parser = argparse.ArgumentParser(prog="check_ci_config", description="CI 配置自检（只判改动的配置文件）")
+    parser.add_argument("root", nargs="?", default=str(_ROOT), help="仓库根（缺省为脚本所在仓）")
+    parser.add_argument(
+        "--files-from",
+        default="",
+        help="改动清单（一行一个相对仓根路径；`-` 读标准输入；缺省全量）",
+    )
+    args = parser.parse_args(None if argv is None else list(argv))
+    root = Path(str(args.root)).resolve()
+    listed = read_listed(str(args.files_from))
     failures: ConcurrentStableList[str] = ConcurrentStableList()
-    _yaml_parse(root, failures)
-    _pytest_flags(root, root / "backend", failures)
-    _gitlab_lint(root, failures)
+    _yaml_parse(root, failures, listed)
+    # pytest 选项校验与 GitLab Lint 都以 `.gitlab-ci.yml` 为输入：它没改就一次都不该发
+    if listed is None or CI_ENTRY in listed:
+        _pytest_flags(root, root / "backend", failures)
+        _gitlab_lint(root, failures)
     if failures:
         print(f"\n[check_ci_config] 失败 {len(failures)} 项：{'、'.join(failures)}")
         return 1

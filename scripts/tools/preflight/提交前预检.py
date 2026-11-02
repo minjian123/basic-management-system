@@ -45,7 +45,9 @@ from engkit_boot import REPO_ROOT, config_path, ensure_engkit  # noqa: E402
 
 ensure_engkit()
 
+from engkit import coverage as engkit_coverage  # noqa: E402
 from engkit.config import Config, load_for  # noqa: E402
+from engkit.preflight import gate_command  # noqa: E402
 
 from bms_core.core.concurrent import (  # noqa: E402
     ConcurrentStableFrozenDict,
@@ -157,6 +159,15 @@ STEP_EXCLUDED_SEGMENTS: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenLi
 )
 """步骤的「无关路径段」：路径里含这些目录段即与该步骤判据无关（后缀排除不够用）。"""
 
+SCRIPT_INCREMENTAL: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
+    (
+        # CI 自检：脚本自己能按清单裁剪（只解析改动的 YAML；`.gitlab-ci.yml` 没改就不发 Lint），
+        # 但它的步骤命令在 `engkit.toml` 里没带 `--files-from`（推送环走全量），故在此显式登记
+        "check_ci_config.py",
+    )
+)
+"""仅提交环追加清单的脚本（不在 `[[devloop.steps]]` 里，无法被自动识别）。"""
+
 FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
     (
         # 前端类型：`tsc` / `vue-tsc` 的检查单元是**整个工程**，且改了某包类型源还会按依赖闭包
@@ -176,7 +187,8 @@ STEP_SCOPES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = 
         # —— 轻量全局项（秒级）：总跑 ——
         "check_workspace_hygiene.py": ConcurrentStableFrozenList(),
         "engkit eol": ConcurrentStableFrozenList(),
-        "check_ci_config.py": ConcurrentStableFrozenList(),
+        # CI 自检只判 CI / 编排配置本身：未改这些文件时不该跑（其中含一次 GitLab Lint 网络调用）
+        "check_ci_config.py": ConcurrentStableFrozenList((".gitlab-ci.yml", "deploy/ci/", "deploy/compose/")),
         "check_test_db_isolation.py": ConcurrentStableFrozenList(),
         "check_bare_collections.py": ConcurrentStableFrozenList(),
         "check_snowflake_ids.py": ConcurrentStableFrozenList(),
@@ -241,12 +253,16 @@ class PlannedStep:
         cmd: 渲染完成、可直接执行的命令。
         cwd: 工作目录（相对仓根；空串取仓根）。
         stdin_text: 从标准输入喂给子进程的改动清单（空串表示该步骤不需要清单）。
+        env: 追加给子进程的环境变量（缺省继承当前环境）。
+        cov_reset: 执行前要清空的覆盖率数据基址（避免上一轮采集残留污染判定）。
     """
 
     label: str
     cmd: ConcurrentStableList[str]
     cwd: str
     stdin_text: str = ""
+    env: ConcurrentStableFrozenDict[str, str] | None = None
+    cov_reset: Path | None = None
 
 
 def _git(root: Path, *args: str) -> str:
@@ -573,6 +589,71 @@ def test_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStab
     return picked
 
 
+def _module_of(relative: str) -> str:
+    """把改动文件映射为可导入的模块名（只认包内源码与 `backend/ops` 顶层脚本）。
+
+    Args:
+        relative: 相对仓根的路径。
+
+    Returns:
+        str: 点分模块名；不属于可导入源码返回空串。
+    """
+    if "/src/" in relative:
+        _head, tail = relative.split("/src/", 1)
+        segments = tail.split("/")
+        if len(segments) < 2 or not segments[-1].endswith(".py"):
+            return ""
+        return ".".join([*segments[:-1], segments[-1][: -len(".py")]])
+    if relative.startswith("backend/ops/") and relative.endswith(".py"):
+        return f"ops.{relative.rsplit('/', 1)[-1][: -len('.py')]}"
+    return ""
+
+
+def cov_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
+    """从改动文件推出覆盖率门禁的目标模块（只含本次真正改动的可导入源码）。
+
+    覆盖判定必须落在**改动文件**上：改了却没被测到就是缺口，未被改动的模块一律不进判据。
+
+    Args:
+        root: 仓库根。
+        files: 改动文件。
+
+    Returns:
+        ConcurrentStableList[str]: 模块名清单（去重保序）。
+    """
+    picked: ConcurrentStableList[str] = ConcurrentStableList()
+    for relative in files:
+        if not relative.endswith(".py") or "/tests/" in f"/{relative}":
+            continue
+        module = _module_of(relative)
+        if module and (root / relative).is_file() and module not in picked:
+            picked.add(module)
+    return picked
+
+
+def coverage_env(cfg: Config, modules: ConcurrentStableList[str], cwd: Path) -> ConcurrentStableFrozenDict[str, str]:
+    """构造覆盖率采集所需的环境变量（与选测执行器同口径）。
+
+    Args:
+        cfg: 仓配置。
+        modules: 覆盖率目标模块。
+        cwd: 子进程工作目录（并入 `PYTHONPATH`，保证模块可导入）。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, str]: 追加给子进程的环境变量。
+    """
+    source = ",".join(sorted({module.split(".", 1)[0] for module in modules}))
+    extra = [str(cfg.root / item) for item in cfg.coverage.pythonpath]
+    pythonpath = os.pathsep.join(filter(None, [*extra, str(cwd), os.environ.get("PYTHONPATH", "")]))
+    return ConcurrentStableFrozenDict(
+        {
+            cfg.coverage.data_env: str((cfg.root / cfg.coverage.data_file).resolve()),
+            cfg.coverage.source_env: source,
+            "PYTHONPATH": pythonpath,
+        }
+    )
+
+
 def plan_steps(
     cfg: Config,
     *,
@@ -643,10 +724,33 @@ def plan_steps(
             if not targets:
                 skipped.add(f"{step.label}（本次改动无对应测试文件）")
                 continue
+            modules = cov_targets(root, files)
+            if not modules:
+                planned.add(
+                    PlannedStep(
+                        label=f"{step.label}（改动文件对应测试 {len(targets)} 个；本次改动无覆盖率目标）",
+                        cmd=ConcurrentStableList((python, "-m", "pytest", "-q", *targets)),
+                        cwd="backend",
+                    )
+                )
+                continue
+            data_file = (root / cfg.coverage.data_file).resolve()
+            report = Path(f"{data_file}.json")
             planned.add(
                 PlannedStep(
-                    label=f"{step.label}（改动文件对应测试 {len(targets)} 个）",
+                    label=f"{step.label}（改动文件对应测试 {len(targets)} 个，采集覆盖率）",
                     cmd=ConcurrentStableList((python, "-m", "pytest", "-q", *targets)),
+                    cwd="backend",
+                    env=coverage_env(cfg, modules, root / "backend"),
+                    cov_reset=data_file,
+                )
+            )
+            planned.add(
+                PlannedStep(
+                    label=(f"覆盖率门禁（改动文件 {len(modules)} 个模块，行 + 分支 {cfg.coverage.fail_under:g}%）"),
+                    cmd=ConcurrentStableList(
+                        gate_command(cfg, data_file, report, list(modules), cfg.coverage.fail_under)
+                    ),
                     cwd="backend",
                 )
             )
@@ -670,7 +774,8 @@ def plan_steps(
                 continue
             planned.add(PlannedStep(label=step.label, cmd=adapted, cwd=cwd))
             continue
-        if _script_name(ConcurrentStableFrozenList(step.cmd)) in incremental and "--files-from" not in cmd:
+        script = _script_name(ConcurrentStableFrozenList(step.cmd))
+        if (script in incremental or script in SCRIPT_INCREMENTAL) and "--files-from" not in cmd:
             cmd.add("--files-from")
             cmd.add(CHANGED_LIST_SOURCE)
         if key in MODULE_INCREMENTAL and "--files-from" not in cmd:
@@ -717,12 +822,16 @@ def run_step(step: PlannedStep, *, root: Path) -> tuple[bool, float]:
     """
     print(f"[precommit] ▶ {step.label}", flush=True)
     started = time.perf_counter()
+    if step.cov_reset is not None:
+        engkit_coverage.cleanup(step.cov_reset)
+    env = {**os.environ, **dict(step.env.items())} if step.env else None
     completed = subprocess.run(
         list(step.cmd),
         cwd=(root / step.cwd) if step.cwd else root,
         check=False,
         input=step.stdin_text or None,
         text=True,
+        env=env,
     )
     elapsed = time.perf_counter() - started
     if completed.returncode != 0:
