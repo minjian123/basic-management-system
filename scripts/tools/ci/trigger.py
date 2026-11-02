@@ -45,7 +45,7 @@ _SRC_ROOT = ROOT / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
 
 ENV_FILE = ROOT / "deploy" / ".env"
 """凭据文件（gitignore；键位见 `deploy/.env.example`）。"""
@@ -61,9 +61,7 @@ REPO_NAMES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
 )
 """`--project` 短名 → GitLab 项目路径（与实际 GitLab 项目路径一致；新仓在此登记，也可直接传路径）。"""
 
-TERMINAL_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(
-    ["success", "failed", "canceled", "skipped"]
-)
+TERMINAL_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(["success", "failed", "canceled", "skipped"])
 """流水线终态集合。"""
 
 
@@ -142,9 +140,7 @@ def request(
     return ConcurrentStableDict(cast("dict[str, object]", parsed))
 
 
-def resolve_project_id(
-    api: str, token: str, project: str, env: ConcurrentStableDict[str, str]
-) -> str:
+def resolve_project_id(api: str, token: str, project: str, env: ConcurrentStableDict[str, str]) -> str:
     """解析项目 ID：本仓（缺省）用 `CI_PROJECT_ID`，其他仓按项目路径查。
 
     Args:
@@ -170,9 +166,7 @@ def resolve_project_id(
     return str(raw)
 
 
-def trigger(
-    api: str, token: str, project_id: str, ref: str
-) -> ConcurrentStableDict[str, object]:
+def trigger(api: str, token: str, project_id: str, ref: str) -> ConcurrentStableDict[str, object]:
     """创建流水线（`POST /projects/:id/pipeline`）。
 
     Args:
@@ -232,9 +226,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     Returns:
         int: 退出码（0 已受理 / 1 请求或终态失败 / 2 用法或凭据缺失）。
     """
-    parser = argparse.ArgumentParser(
-        description="手工触发 CI 流水线（推送不再触发，CI 按需全量跑）"
-    )
+    parser = argparse.ArgumentParser(description="手工触发 CI 流水线（推送不再触发，CI 按需全量跑）")
     parser.add_argument(
         "--project",
         default="bms",
@@ -243,9 +235,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     parser.add_argument("--ref", default="main", help="分支名或 tag 名（缺省 main）")
     parser.add_argument("--dry-run", action="store_true", help="只打印请求，不发")
     parser.add_argument("--watch", action="store_true", help="触发后轮询到终态")
-    parser.add_argument(
-        "--interval", type=int, default=20, help="--watch 的轮询间隔秒数（缺省 20）"
-    )
+    parser.add_argument("--interval", type=int, default=20, help="--watch 的轮询间隔秒数（缺省 20）")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     env = load_env(ENV_FILE)
@@ -265,9 +255,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         return 1
     url = f"{api.rstrip('/')}/projects/{project_id}/pipeline"
     if args.dry_run:
-        print(
-            f"[trigger] 将 POST {url} 载荷 {{'ref': {args.ref!r}}}（dry-run，未发送）"
-        )
+        print(f"[trigger] 将 POST {url} 载荷 {{'ref': {args.ref!r}}}（dry-run，未发送）")
         return 0
 
     try:

@@ -54,17 +54,16 @@ _SRC_ROOT = ROOT / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from ci_common import clean_trace_lines
-from ci_common import tail as tail_lines
-from trigger import ENV_FILE, REPO_NAMES, TERMINAL_STATUSES, load_env, resolve
+from ci_common import clean_trace_lines  # noqa: E402
+from ci_common import tail as tail_lines  # noqa: E402
+from trigger import ENV_FILE, REPO_NAMES, TERMINAL_STATUSES, load_env, resolve  # noqa: E402
+
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
 
 API_TIMEOUT_SECONDS = 30
 """单次 GitLab API 调用超时（秒）。"""
 
-FAILED_JOB_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(
-    ("failed", "canceled")
-)
+FAILED_JOB_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("failed", "canceled"))
 """判为「失败 job」的状态（其余终态 success / skipped 只计入统计）。"""
 
 PAGE_SIZE = 100
@@ -115,9 +114,7 @@ def _wrap(value: object) -> object:
         object: 递归替换后的结构（映射 → ConcurrentStableDict、数组 → ConcurrentStableList）。
     """
     if isinstance(value, dict):
-        return ConcurrentStableDict(
-            (str(key), _wrap(item)) for key, item in value.items()
-        )
+        return ConcurrentStableDict((str(key), _wrap(item)) for key, item in value.items())
     if isinstance(value, list):
         return ConcurrentStableList(_wrap(item) for item in value)
     return value
@@ -189,9 +186,7 @@ def _split(values: ConcurrentStableList[str] | None) -> ConcurrentStableList[str
     return flattened
 
 
-def _parse_pipeline_arg(
-    raw: str, projects: ConcurrentStableList[str]
-) -> tuple[str, int]:
+def _parse_pipeline_arg(raw: str, projects: ConcurrentStableList[str]) -> tuple[str, int]:
     """解析单个 `--pipeline` 取值（`<ID>` 或 `<仓名>:<ID>`）。
 
     Args:
@@ -228,9 +223,7 @@ def _latest_pipeline_id(api: str, token: str, path: str) -> int:
     Returns:
         int: 流水线 ID。
     """
-    data = _get_json(
-        api, token, f"projects/{_quoted(path)}/pipelines?per_page=1&order_by=id"
-    )
+    data = _get_json(api, token, f"projects/{_quoted(path)}/pipelines?per_page=1&order_by=id")
     if not isinstance(data, ConcurrentStableList) or not data:
         raise ValueError(f"{path} 没有流水线记录（先手动触发一次）")
     first: object = data[0]
@@ -263,17 +256,13 @@ def resolve_targets(
     if pipelines:
         for raw in pipelines:
             name, pipeline_id = _parse_pipeline_arg(raw, projects)
-            target = Target(
-                project=name, path=REPO_NAMES.get(name, name), pipeline_id=pipeline_id
-            )
+            target = Target(project=name, path=REPO_NAMES.get(name, name), pipeline_id=pipeline_id)
             if target not in targets:
                 targets.append(target)
         return targets
     for name in projects or ("bms",):
         path = REPO_NAMES.get(name, name)
-        target = Target(
-            project=name, path=path, pipeline_id=_latest_pipeline_id(api, token, path)
-        )
+        target = Target(project=name, path=path, pipeline_id=_latest_pipeline_id(api, token, path))
         if target not in targets:
             targets.append(target)
     return targets
@@ -290,9 +279,7 @@ def pipeline_status(api: str, token: str, target: Target) -> str:
     Returns:
         str: GitLab 状态值（`created` / `running` / `failed` / `success` …）。
     """
-    data = _get_json(
-        api, token, f"projects/{_quoted(target.path)}/pipelines/{target.pipeline_id}"
-    )
+    data = _get_json(api, token, f"projects/{_quoted(target.path)}/pipelines/{target.pipeline_id}")
     if not isinstance(data, ConcurrentStableDict):
         raise CiApiError(f"{target.project}#{target.pipeline_id} 流水线响应非法")
     raw = data.get("status")
@@ -314,19 +301,15 @@ def pipeline_jobs(
     Returns:
         ConcurrentStableList[ConcurrentStableDict[str, object]]: job 对象序列（按 GitLab 返回顺序）。
     """
-    jobs: ConcurrentStableList[ConcurrentStableDict[str, object]] = (
-        ConcurrentStableList()
-    )
+    jobs: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     page = 1
     while True:
         path = f"projects/{_quoted(target.path)}/pipelines/{target.pipeline_id}/jobs?per_page={PAGE_SIZE}&page={page}"
         data = _get_json(api, token, path)
         if not isinstance(data, ConcurrentStableList):
             raise CiApiError(f"{target.project}#{target.pipeline_id} job 列表响应非法")
-        items: ConcurrentStableList[ConcurrentStableDict[str, object]] = (
-            ConcurrentStableList(
-                item for item in data if isinstance(item, ConcurrentStableDict)
-            )
+        items: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList(
+            item for item in data if isinstance(item, ConcurrentStableDict)
         )
         jobs.extend(items)
         if len(data) < PAGE_SIZE:
@@ -334,9 +317,7 @@ def pipeline_jobs(
         page += 1
 
 
-def _job_field(
-    job: ConcurrentStableDict[str, object], key: str, default: object
-) -> object:
+def _job_field(job: ConcurrentStableDict[str, object], key: str, default: object) -> object:
     """取 job 字段（缺失回落缺省值）。
 
     Args:
@@ -350,9 +331,7 @@ def _job_field(
     return job.get(key, default)
 
 
-def job_trace_tail(
-    api: str, token: str, target: Target, job_id: int, tail: int
-) -> ConcurrentStableList[str]:
+def job_trace_tail(api: str, token: str, target: Target, job_id: int, tail: int) -> ConcurrentStableList[str]:
     """取 job 日志尾部若干有效行（日志已过期时返回提示行）。
 
     Args:
@@ -368,9 +347,7 @@ def job_trace_tail(
     if tail <= 0:
         return ConcurrentStableList()
     try:
-        text = _get_text(
-            api, token, f"projects/{_quoted(target.path)}/jobs/{job_id}/trace"
-        )
+        text = _get_text(api, token, f"projects/{_quoted(target.path)}/jobs/{job_id}/trace")
     except urllib.error.HTTPError as exc:
         return ConcurrentStableList((f"（日志不可取：HTTP {exc.code}）",))
     return tail_lines(clean_trace_lines(text), tail)
@@ -393,20 +370,26 @@ def _counts(jobs: ConcurrentStableList[ConcurrentStableDict[str, object]]) -> st
     return " / ".join(f"{name} {count}" for name, count in counts.items())
 
 
-_PRIMARY_HINTS: tuple[str, ...] = (
-    "[contract_gate]",
-    "破坏性变更",
-    "未达标",
-    "FAILED ",
-    "AssertionError",
-    "Traceback (most recent call last)",
+_PRIMARY_HINTS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "[contract_gate]",
+        "破坏性变更",
+        "未达标",
+        "FAILED ",
+        "AssertionError",
+        "Traceback (most recent call last)",
+    )
 )
 """先按这些关键字找「失败结论行」（门禁 / pytest 清单 / 异常栈头）。"""
 
-_SECONDARY_HINTS: tuple[str, ...] = ("error", "Error", "ERROR", "Exception", "assert", "failed")
+_SECONDARY_HINTS: ConcurrentStableList[str] = ConcurrentStableList(
+    ("error", "Error", "ERROR", "Exception", "assert", "failed")
+)
 """主关键字都没命中时的兜底关键字。"""
 
-_NOISE_HINTS: tuple[str, ...] = ("Job failed: exit code", "warning", "WARNING", "instrumentation_skipped")
+_NOISE_HINTS: ConcurrentStableList[str] = ConcurrentStableList(
+    ("Job failed: exit code", "warning", "WARNING", "instrumentation_skipped")
+)
 """已知噪音（初始化告警 / 收尾行），不该冒充失败原因。"""
 
 
@@ -504,9 +487,7 @@ def startup_overview(
     Returns:
         ConcurrentStableList[str]: 概览行（仅非空状态）。
     """
-    groups: ConcurrentStableDict[str, ConcurrentStableList[str]] = (
-        ConcurrentStableDict()
-    )
+    groups: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
     for job in jobs:
         status = _job_field(job, "status", "unknown")
         key = status if isinstance(status, str) else "unknown"
@@ -525,9 +506,7 @@ def startup_overview(
     return lines
 
 
-def bridges_of(
-    api: str, token: str, target: Target
-) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+def bridges_of(api: str, token: str, target: Target) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """取流水线的 bridge job（子流水线触发点）。
 
     Args:
@@ -545,9 +524,7 @@ def bridges_of(
     )
     if not isinstance(data, ConcurrentStableList):
         return ConcurrentStableList()
-    return ConcurrentStableList(
-        item for item in data if isinstance(item, ConcurrentStableDict)
-    )
+    return ConcurrentStableList(item for item in data if isinstance(item, ConcurrentStableDict))
 
 
 def report(
@@ -571,9 +548,7 @@ def report(
     Returns:
         bool: 是否 success。
     """
-    print(
-        f"[watch] {target.project}#{target.pipeline_id} 终态 {status}（job {len(jobs)} 个：{_counts(jobs)}）"
-    )
+    print(f"[watch] {target.project}#{target.pipeline_id} 终态 {status}（job {len(jobs)} 个：{_counts(jobs)}）")
     # `/jobs` 不含 bridge：流水线失败但 job 全绿时，问题在子流水线
     bridges = bridges_of(api, token, target)
     troubled: ConcurrentStableList[str] = ConcurrentStableList()
@@ -583,11 +558,7 @@ def report(
             continue
         name = str(_job_field(bridge, "name", "?"))
         downstream = _job_field(bridge, "downstream_pipeline", None)
-        child = (
-            downstream.get("id")
-            if isinstance(downstream, ConcurrentStableDict)
-            else "?"
-        )
+        child = downstream.get("id") if isinstance(downstream, ConcurrentStableDict) else "?"
         troubled.append(f"{name} {bridge_status} → 子流水线 #{child}")
     if troubled:
         print(f"[watch]   子流水线（bridge，`/jobs` 不含）：{len(troubled)} 个未成功")
@@ -619,9 +590,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     Returns:
         int: 退出码（0 全 success / 1 存在非 success 或超时 / 2 用法或凭据缺失）。
     """
-    parser = argparse.ArgumentParser(
-        description="盯守 CI 流水线到终态（手工触发后的配套入口）"
-    )
+    parser = argparse.ArgumentParser(description="盯守 CI 流水线到终态（手工触发后的配套入口）")
     parser.add_argument(
         "--project",
         action="append",
@@ -657,12 +626,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         default=DEFAULT_LOG_TAIL_LINES,
         help=f"失败 job 日志尾部行数（缺省 {DEFAULT_LOG_TAIL_LINES}，0 不打日志）",
     )
-    parser.add_argument(
-        "--once", action="store_true", help="只查一次现状即返回（秒查，不阻塞）"
-    )
-    parser.add_argument(
-        "--json", action="store_true", help="终态时额外输出机器可读汇总"
-    )
+    parser.add_argument("--once", action="store_true", help="只查一次现状即返回（秒查，不阻塞）")
+    parser.add_argument("--json", action="store_true", help="终态时额外输出机器可读汇总")
     args = parser.parse_args(argv.to_list() if argv is not None else None)
 
     env = load_env(ENV_FILE)
@@ -707,10 +672,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
                 jobs = ConcurrentStableList()
             states.set(target.pipeline_id, status)
             counts = _counts(jobs)
-            line_parts.append(
-                f"{target.project}#{target.pipeline_id}={status}"
-                + (f"（{counts}）" if counts else "")
-            )
+            line_parts.append(f"{target.project}#{target.pipeline_id}={status}" + (f"（{counts}）" if counts else ""))
             if first:
                 for line in startup_overview(target, jobs):
                     detail.add(line)
@@ -723,32 +685,24 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
                 previous = seen.get(job_id)
                 seen.set(job_id, state)
                 if not first and previous is not None and previous != state:
-                    detail.add(
-                        f"  {target.project} {_job_name(job)}：{previous} → {state}（{_job_duration(job)}）"
-                    )
+                    detail.add(f"  {target.project} {_job_name(job)}：{previous} → {state}（{_job_duration(job)}）")
                 if state == "failed" and announced.get(job_id) is None:
                     announced.set(job_id, state)
                     detail.add(f"  {target.project} {_job_name(job)} 失败要点：")
-                    for line in failure_excerpt(
-                        api, token, target, job_id, int(args.log_tail)
-                    ):
+                    for line in failure_excerpt(api, token, target, job_id, int(args.log_tail)):
                         detail.add(f"    │ {line}")
                     detail.add(
                         "    取详情：uv run --project backend python "
                         f"scripts/tools/ci/job_log.py {target.project}:{job_id} --tail 60"
                     )
-        print(
-            f"[watch] {time.strftime('%H:%M:%S')} " + " | ".join(line_parts), flush=True
-        )
+        print(f"[watch] {time.strftime('%H:%M:%S')} " + " | ".join(line_parts), flush=True)
         for line in detail:
             print(line, flush=True)
         first = False
 
         if args.once:
             return 0
-        if all(
-            states.get(target.pipeline_id) in TERMINAL_STATUSES for target in targets
-        ):
+        if all(states.get(target.pipeline_id) in TERMINAL_STATUSES for target in targets):
             break
         if deadline is not None and time.monotonic() >= deadline:
             print(
@@ -759,9 +713,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         time.sleep(interval)
 
     ok = True
-    summary: ConcurrentStableList[ConcurrentStableDict[str, object]] = (
-        ConcurrentStableList()
-    )
+    summary: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     for target in targets:
         status = states.get(target.pipeline_id) or "unknown"
         try:
@@ -785,9 +737,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
                             {
                                 "name": _job_field(job, "name", ""),
                                 "status": _job_field(job, "status", ""),
-                                "allow_failure": _job_field(
-                                    job, "allow_failure", False
-                                ),
+                                "allow_failure": _job_field(job, "allow_failure", False),
                                 "web_url": _job_field(job, "web_url", ""),
                             },
                         )
