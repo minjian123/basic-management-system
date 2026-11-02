@@ -66,6 +66,7 @@ CI_ONLY_TYPES = ConcurrentStableFrozenSet(("full_tests", "project_tests"))
 RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
     (
         "check_workspace_hygiene.py",
+        "check_base.py",
         "engkit eol",
         "check_ci_config.py",
         "check_test_db_isolation.py",
@@ -86,7 +87,6 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
 
 FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
     (
-        "check_base.py",
         "check_system_fields.py",
         "check_env_example.py",
         "check_backend_base.py",
