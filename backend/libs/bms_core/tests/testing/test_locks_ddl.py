@@ -18,12 +18,15 @@
 from __future__ import annotations
 
 import hashlib
+import sqlite3
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 from sqlalchemy import MetaData, Table
 from sqlalchemy.engine import URL
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.config.models import SysConfig
@@ -127,21 +130,118 @@ def test_sqlite_database_branches() -> None:
     assert ddl._sqlite_database(object()) is None  # pyright: ignore[reportPrivateUsage]
 
 
+class _FakeInspector:
+    """`inspect(bind).has_table` 替身：按给定既有表集回答，并记录被问到的表名。"""
+
+    def __init__(self, existing: ConcurrentStableList[str]) -> None:
+        self.existing = existing
+        self.asked: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def has_table(self, name: str) -> bool:
+        """表是否已存在。
+
+        Args:
+            name: 表名。
+
+        Returns:
+            bool: 在既有表集内返回 True。
+        """
+        self.asked.add(name)
+        return name in self.existing
+
+
+def _make_inspect(inspector: _FakeInspector) -> Callable[[Any], _FakeInspector]:
+    """构造 `inspect` 替身（忽略入参，恒返回给定 inspector）。
+
+    Args:
+        inspector: 假 inspector。
+
+    Returns:
+        Callable[[Any], _FakeInspector]: 入参被忽略的 inspect 替身。
+    """
+
+    def _inspect(bind: Any) -> _FakeInspector:
+        del bind
+        return inspector
+
+    return _inspect
+
+
 @pytest.mark.kiwi_id(2317)
-def test_create_all_takes_lock_for_file_library(monkeypatch: pytest.MonkeyPatch) -> None:
-    """文件库：建表在原函数执行时**已持有**该库的锁。"""
-    database = "C:/tmp/ddl-lock-probe.db"
+def test_create_all_skips_existing_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    """表已存在（他人已建并提交）：不再发 CREATE。
+
+    这条是并发收口的关键：服务启动的自动建表在锁外算缺失集，锁内必须重判，
+    否则第二个 worker 仍按旧清单发 `CREATE` 撞 `already exists`。
+    """
+    database = "C:/tmp/ddl-skip-probe.db"
+    built: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _fake_create_all(self: MetaData, bind: Any, tables: Any = None, checkfirst: bool = True) -> None:
+        del self, bind, checkfirst
+        for table in tables or ():
+            built.add(str(table.name))
+
+    inspector = _FakeInspector(ConcurrentStableList((SysConfig.__tablename__,)))
+    monkeypatch.setattr(ddl, "inspect", _make_inspect(inspector))
+    monkeypatch.setattr(ddl, "_ORIGINAL_CREATE_ALL", _fake_create_all)
+    bind = SimpleNamespace(engine=SimpleNamespace(url=URL.create("sqlite+aiosqlite", database=database)))
+    ddl._locked_create_all(SysConfig.metadata, bind, tables=_TABLES)  # pyright: ignore[reportPrivateUsage]
+    assert list(built) == [], "已存在的表不该再建"
+    assert list(inspector.asked) == [SysConfig.__tablename__]
+
+
+@pytest.mark.kiwi_id(2317)
+def test_create_all_builds_missing_table_under_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """表不存在：在**持锁**状态下建表，退出后释放。"""
+    database = "C:/tmp/ddl-build-probe.db"
     held: ConcurrentStableList[bool] = ConcurrentStableList()
 
     def _fake_create_all(self: MetaData, bind: Any, tables: Any = None, checkfirst: bool = True) -> None:
         del self, bind, tables, checkfirst
         held.add(_ddl_lock_path(database).is_file())
 
+    monkeypatch.setattr(ddl, "inspect", _make_inspect(_FakeInspector(ConcurrentStableList())))
     monkeypatch.setattr(ddl, "_ORIGINAL_CREATE_ALL", _fake_create_all)
     bind = SimpleNamespace(engine=SimpleNamespace(url=URL.create("sqlite+aiosqlite", database=database)))
-    ddl._locked_create_all(MetaData(), bind)  # pyright: ignore[reportPrivateUsage]
-    assert list(held) == [True]
+    ddl._locked_create_all(SysConfig.metadata, bind, tables=_TABLES)  # pyright: ignore[reportPrivateUsage]
+    assert list(held) == [True], "建表必须发生在锁内"
     assert not _ddl_lock_path(database).exists(), "退出后必须释放"
+
+
+@pytest.mark.kiwi_id(2317)
+def test_create_all_tolerates_concurrent_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    """并发下另一方抢先建好：吞掉 `already exists`（等价于成功），不炸整个建表流程。"""
+    database = "C:/tmp/ddl-exists-probe.db"
+
+    def _boom(self: MetaData, bind: Any, tables: Any = None, checkfirst: bool = True) -> None:
+        del self, bind, tables, checkfirst
+        raise OperationalError(
+            "CREATE TABLE sys_config (...)",
+            {},
+            sqlite3.OperationalError("table sys_config already exists"),
+        )
+
+    monkeypatch.setattr(ddl, "inspect", _make_inspect(_FakeInspector(ConcurrentStableList())))
+    monkeypatch.setattr(ddl, "_ORIGINAL_CREATE_ALL", _boom)
+    bind = SimpleNamespace(engine=SimpleNamespace(url=URL.create("sqlite+aiosqlite", database=database)))
+    ddl._locked_create_all(SysConfig.metadata, bind, tables=_TABLES)  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2317)
+def test_create_all_propagates_other_operational_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """其它 `OperationalError`（如 database is locked）必须照抛，不掩盖真问题。"""
+    database = "C:/tmp/ddl-locked-probe.db"
+
+    def _boom(self: MetaData, bind: Any, tables: Any = None, checkfirst: bool = True) -> None:
+        del self, bind, tables, checkfirst
+        raise OperationalError("CREATE TABLE sys_config (...)", {}, sqlite3.OperationalError("database is locked"))
+
+    monkeypatch.setattr(ddl, "inspect", _make_inspect(_FakeInspector(ConcurrentStableList())))
+    monkeypatch.setattr(ddl, "_ORIGINAL_CREATE_ALL", _boom)
+    bind = SimpleNamespace(engine=SimpleNamespace(url=URL.create("sqlite+aiosqlite", database=database)))
+    with pytest.raises(OperationalError):
+        ddl._locked_create_all(SysConfig.metadata, bind, tables=_TABLES)  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2317)
@@ -155,7 +255,7 @@ def test_create_all_passes_through_for_memory_library(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(ddl, "_ORIGINAL_CREATE_ALL", _fake_create_all)
     bind = SimpleNamespace(url=URL.create("sqlite+aiosqlite", database=":memory:"))
-    ddl._locked_create_all(MetaData(), bind)  # pyright: ignore[reportPrivateUsage]
+    ddl._locked_create_all(MetaData(), bind, tables=_TABLES)  # pyright: ignore[reportPrivateUsage]
     assert list(seen) == [True]
 
 

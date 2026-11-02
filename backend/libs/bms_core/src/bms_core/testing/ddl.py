@@ -16,9 +16,13 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, inspect
+from sqlalchemy.exc import OperationalError
 
 from bms_core.testing.locks import file_lock
+
+_ALREADY_EXISTS = "already exists"
+"""并发建表的幂等信号（`table ... already exists`）。"""
 
 DDL_LOCK_TIMEOUT = 300.0
 """建表等锁上限（秒）：建表含全表 DDL，比普通写锁给得更宽。"""
@@ -56,15 +60,28 @@ def _locked_create_all(
         self: 元数据。
         bind: 连接或引擎。
         tables: 建表集（None 表示全部）。
-        checkfirst: 是否先判存在（保持调用方原语义）。
+        checkfirst: 调用方原语义；**在锁内一律按存在性重判**（见下）。
     """
     database = _sqlite_database(bind)
+    targets = list(tables) if tables is not None else list(self.sorted_tables)
     if database is None:
         _ORIGINAL_CREATE_ALL(self, bind, tables=tables, checkfirst=checkfirst)
         return
     digest = hashlib.sha1(database.encode("utf-8")).hexdigest()[:12]
     with file_lock(f"ddl-{digest}", timeout=DDL_LOCK_TIMEOUT):
-        _ORIGINAL_CREATE_ALL(self, bind, tables=tables, checkfirst=checkfirst)
+        # 为什么不能把 `tables` / `checkfirst` 直接透传：服务启动的自动建表
+        # （`bms_core.db.bootstrap`）会**在锁外先算出缺失集**，再以 `checkfirst=False` 建表；
+        # 锁只能让两个 worker 排队，第二方手里仍是进锁前算好的清单，照样发 `CREATE` 撞
+        # `already exists`。故锁内逐表重判存在性，并对并发下的同名建表做幂等容错。
+        inspector = inspect(bind)
+        for table in targets:
+            if inspector.has_table(table.name):
+                continue
+            try:
+                _ORIGINAL_CREATE_ALL(self, bind, tables=[table], checkfirst=False)
+            except OperationalError as exc:
+                if _ALREADY_EXISTS not in str(exc.orig):
+                    raise
 
 
 def serialize_ddl() -> None:
