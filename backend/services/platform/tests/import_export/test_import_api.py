@@ -59,7 +59,7 @@ from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
 from tests_support.permission_admin import setup_min_tenant
 
-pytestmark = pytest.mark.kiwi_id(2401)
+pytestmark = [pytest.mark.kiwi_id(2401), pytest.mark.usefixtures("serial_db_write")]
 
 API = "/api/v1/imports"
 _USER_HEADERS = ["登录账号", "姓名", "邮箱", "手机号", "状态", "初始密码"]

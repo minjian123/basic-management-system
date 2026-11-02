@@ -45,7 +45,7 @@ from bms_platform.domains.user.imports import UserImportDefinition
 from bms_platform.domains.user.services.users_admin import UserAdminService
 from bms_platform.imports import build_import_definitions
 
-pytestmark = pytest.mark.kiwi_id(2401)
+pytestmark = [pytest.mark.kiwi_id(2401), pytest.mark.usefixtures("serial_db_write")]
 
 _USER_HEADERS = ["登录账号", "姓名", "邮箱", "手机号", "状态", "初始密码"]
 
