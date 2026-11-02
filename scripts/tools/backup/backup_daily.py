@@ -223,10 +223,25 @@ def backup_gitlab():
     #    /mnt/ssd2t/gitlab/config 属主为 root，宿主用户直接 tar 会漏掉 ssh_host_*_key、gitlab.rb、
     #    gitlab-secrets.json（2026-10 日志「权限不够」）；改由容器内 root 读取 /etc/gitlab
     #    （同一绑定目录）打包，经 stdout 落盘。
+    #    容器内 /etc/gitlab 本身就是原宿主 config 目录的内容（没有 config 子层），故用 `-C
+    #    /etc/gitlab .` 并以 --transform 还原 `config/` 前缀，保持与旧包一致的解压口径
+    #    （`tar xzf … -C /mnt/ssd2t/gitlab`）。
     config_tar = os.path.join(BASE_DIR, "gitlab", f"gitlab-config_{TS}.tar.gz")
     with open(config_tar, "wb") as target:
         subprocess.run(
-            ["docker", "exec", "bms-gitlab", "tar", "czf", "-", "-C", "/etc/gitlab", "config"],
+            [
+                "docker",
+                "exec",
+                "bms-gitlab",
+                "tar",
+                "czf",
+                "-",
+                "-C",
+                "/etc/gitlab",
+                "--transform",
+                r"s,^\.,config,",
+                ".",
+            ],
             stdout=target,
             stderr=LOG,
             check=False,
