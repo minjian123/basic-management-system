@@ -13,7 +13,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
 )
 from bms_core.transfer.base import ColumnSpec
-from bms_core.transfer.importer import ParsedRow
+from bms_core.transfer.importer import ParsedRow, validate_rows_common
 from bms_core.transfer.openpyxl import OpenpyxlImporter
 from bms_core.transfer.openpyxl_io import (
     DATA_SHEET_NAME,
@@ -128,6 +128,84 @@ async def test_generic_validation_errors() -> None:
     assert (4, "name") in fields
 
 
+async def test_value_types_and_errors() -> None:
+    """文本 / 整数 / 数字 / 布尔 / 日期 / 日期时间的转换与非法值。"""
+    from datetime import date, datetime
+
+    columns = ConcurrentStableList(
+        (
+            ColumnSpec(key="t", title="文本"),
+            ColumnSpec(key="i", title="整数", value_type="int"),
+            ColumnSpec(key="n", title="数字", value_type="number"),
+            ColumnSpec(key="b", title="布尔", value_type="bool"),
+            ColumnSpec(key="d", title="日期", value_type="date"),
+            ColumnSpec(key="dt", title="日期时间", value_type="datetime"),
+            ColumnSpec(key="bad", title="坏类型", value_type="bad"),
+        )
+    )
+    rows = ConcurrentStableList(
+        (
+            ParsedRow(
+                row_no=2,
+                values=ConcurrentStableFrozenDict[str, object](
+                    {
+                        "t": datetime(2026, 1, 2, 3, 4, 5),
+                        "i": "5",
+                        "n": "1.5",
+                        "b": "yes",
+                        "d": datetime(2026, 1, 2, 3, 4, 5),
+                        "dt": date(2026, 1, 2),
+                    }
+                ),
+            ),
+            ParsedRow(
+                row_no=3,
+                values=ConcurrentStableFrozenDict[str, object](
+                    {
+                        "t": date(2026, 1, 2),
+                        "i": 6,
+                        "n": 2.5,
+                        "b": "false",
+                        "d": "2026-01-02",
+                        "dt": "2026-01-02T03:04:05",
+                    }
+                ),
+            ),
+            ParsedRow(
+                row_no=4,
+                values=ConcurrentStableFrozenDict[str, object](
+                    {
+                        "i": True,
+                        "n": True,
+                        "b": "maybe",
+                        "d": "not-date",
+                        "dt": "not-date",
+                        "bad": "x",
+                    }
+                ),
+            ),
+        )
+    )
+    result = await validate_rows_common(rows, columns=columns)
+    assert result.valid_rows[0].values["i"] == 5
+    assert result.valid_rows[0].values["n"] == 1.5
+    assert result.valid_rows[0].values["b"] is True
+    assert result.valid_rows[0].values["d"] == date(2026, 1, 2)
+    assert result.valid_rows[0].values["dt"] == datetime(2026, 1, 2, 0, 0)
+    assert result.valid_rows[0].values["t"] == "2026-01-02 03:04:05"
+    assert result.valid_rows[1].values["d"] == date(2026, 1, 2)
+    assert result.valid_rows[1].values["dt"] == datetime(2026, 1, 2, 3, 4, 5)
+    fields = {(error.row, error.field) for error in result.errors}
+    assert fields == {
+        (4, "i"),
+        (4, "n"),
+        (4, "b"),
+        (4, "d"),
+        (4, "dt"),
+        (4, "bad"),
+    }
+
+
 def test_template_structure_and_choices() -> None:
     """模板含「数据」+「填写说明」两 sheet，数据 sheet 只有列头。"""
     data = build_template(_COLUMNS)
@@ -172,3 +250,150 @@ def test_zip_security_limits() -> None:
         inspect_xlsx(b"not-a-zip", max_uncompressed_bytes=1024, max_zip_entries=1)
     with pytest.raises(XlsxInvalidFileError):
         inspect_xlsx(b"", max_uncompressed_bytes=1024, max_zip_entries=1)
+
+
+def test_zip_inspect_rejects_missing_parts_and_bad_paths() -> None:
+    """zip 缺少 OOXML 条目 / 条目路径非法。"""
+    from zipfile import ZipFile
+
+    missing = BytesIO()
+    with ZipFile(missing, "w") as archive:
+        archive.writestr("foo.txt", b"x")
+    with pytest.raises(XlsxInvalidFileError):
+        inspect_xlsx(missing.getvalue(), max_uncompressed_bytes=1024, max_zip_entries=10)
+
+    bad_path = BytesIO()
+    with ZipFile(bad_path, "w") as archive:
+        archive.writestr("../evil", b"x")
+        archive.writestr("[Content_Types].xml", b"x")
+        archive.writestr("xl/workbook.xml", b"x")
+    with pytest.raises(XlsxInvalidFileError):
+        inspect_xlsx(bad_path.getvalue(), max_uncompressed_bytes=1024, max_zip_entries=10)
+
+
+def test_zip_inspect_rejects_encrypted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """加密标记的 zip 条目整体拒绝。"""
+    from types import SimpleNamespace
+
+    class _Archive:
+        def __enter__(self) -> _Archive:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def infolist(self) -> list[SimpleNamespace]:
+            return [
+                SimpleNamespace(filename="[Content_Types].xml", flag_bits=0, file_size=1),
+                SimpleNamespace(filename="xl/workbook.xml", flag_bits=1, file_size=1),
+            ]
+
+    def _fake_zip(*_args: object, **_kwargs: object) -> _Archive:
+        return _Archive()
+
+    monkeypatch.setattr("bms_core.transfer.openpyxl_io.ZipFile", _fake_zip)
+    with pytest.raises(XlsxInvalidFileError, match="加密"):
+        inspect_xlsx(b"x", max_uncompressed_bytes=1024, max_zip_entries=10)
+
+
+def test_read_sheet_rows_error_paths() -> None:
+    """解析异常 / 缺 sheet / 缺表头 / 尾部空列头 / 短行。"""
+    from datetime import date, datetime
+    from zipfile import ZipFile
+
+    import bms_core.transfer.openpyxl_io as io
+
+    columns = ConcurrentStableList((ColumnSpec(key="name", title="姓名"),))
+    corrupted = BytesIO()
+    with ZipFile(corrupted, "w") as archive:
+        archive.writestr("[Content_Types].xml", b"not-xml")
+        archive.writestr("xl/workbook.xml", b"not-xml")
+    with pytest.raises(XlsxInvalidFileError, match="解析失败"):
+        io.read_sheet_rows(
+            corrupted.getvalue(),
+            sheet_name=DATA_SHEET_NAME,
+            columns=columns,
+            max_uncompressed_bytes=1024 * 1024,
+            max_zip_entries=100,
+        )
+
+    data = _workbook([["张三"]])
+    with pytest.raises(XlsxTemplateMismatchError):
+        io.read_sheet_rows(
+            data,
+            sheet_name="其他",
+            columns=columns,
+            max_uncompressed_bytes=1024 * 1024,
+            max_zip_entries=100,
+        )
+
+    empty_book = Workbook()
+    empty_sheet = empty_book.active
+    assert empty_sheet is not None
+    empty_sheet.title = DATA_SHEET_NAME
+    empty_output = BytesIO()
+    empty_book.save(empty_output)
+    empty_book.close()
+    with pytest.raises(XlsxInvalidFileError, match="表头"):
+        io.read_sheet_rows(
+            empty_output.getvalue(),
+            sheet_name=DATA_SHEET_NAME,
+            columns=columns,
+            max_uncompressed_bytes=1024 * 1024,
+            max_zip_entries=100,
+        )
+
+    blank_tail = _workbook([["张三"]], headers=["姓名", " "])
+    rows = io.read_sheet_rows(
+        blank_tail,
+        sheet_name=DATA_SHEET_NAME,
+        columns=columns,
+        max_uncompressed_bytes=1024 * 1024,
+        max_zip_entries=100,
+    )
+    assert rows[0].values["name"] == "张三"
+
+    short_columns = ConcurrentStableList((ColumnSpec(key="name", title="姓名"), ColumnSpec(key="age", title="年龄")))
+    short = _workbook([["张三"]], headers=["姓名", "年龄"])
+    rows = io.read_sheet_rows(
+        short,
+        sheet_name=DATA_SHEET_NAME,
+        columns=short_columns,
+        max_uncompressed_bytes=1024 * 1024,
+        max_zip_entries=100,
+    )
+    assert rows[0].values["age"] is None
+
+    dated = _workbook(
+        [[date(2026, 1, 2), datetime(2026, 1, 2, 3, 4, 5)]],
+        headers=["日期", "日期时间"],
+    )
+    dated_columns = ConcurrentStableList((ColumnSpec(key="d", title="日期"), ColumnSpec(key="dt", title="日期时间")))
+    rows = io.read_sheet_rows(
+        dated,
+        sheet_name=DATA_SHEET_NAME,
+        columns=dated_columns,
+        max_uncompressed_bytes=1024 * 1024,
+        max_zip_entries=100,
+    )
+    assert rows[0].values["d"] == "2026-01-02 00:00:00"
+    assert rows[0].values["dt"] == "2026-01-02 03:04:05"
+
+
+def test_from_limits_and_defensive_active() -> None:
+    """按参数构造导入器；工作簿无默认 sheet 属防御性失败。"""
+    from bms_core.transfer.limits import ImportLimits
+
+    importer = OpenpyxlImporter.from_limits(ImportLimits(max_uncompressed_bytes=1, max_zip_entries=2))
+    assert importer._max_uncompressed_bytes == 1  # pyright: ignore[reportPrivateUsage]
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(
+        "bms_core.transfer.openpyxl_io.Workbook",
+        lambda: type("_Book", (), {"active": None})(),
+    )
+    try:
+        with pytest.raises(RuntimeError, match="默认 sheet"):
+            build_template(_COLUMNS)
+    finally:
+        monkeypatch.undo()

@@ -148,7 +148,7 @@ async def _service(deps: _ImportDeps) -> ImportService:
 async def _rate_limit(deps: _ImportDeps) -> None:
     """用户维度限流（默认 10 次/分钟）。"""
     user_id = current_user_id.get()
-    if user_id is None:
+    if user_id is None:  # pragma: no cover（鉴权路由下不可达；防御性分支）
         return
     limits = await ImportLimits.load(deps.config)
     key = build_rate_limit_key(dimension="user", target=str(user_id), tenant=current_tenant.get())

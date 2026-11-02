@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from openpyxl import Workbook, load_workbook
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.api.deps import (
     get_audit_capturer,
@@ -38,8 +38,9 @@ from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.session import DbUnitOfWork
+from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
 from bms_core.idempotency.redis import RedisIdempotencyStore
-from bms_core.models.job import SysJob, SysJobError
+from bms_core.models.job import JOB_STATUS_FAILED, JOB_STATUS_QUEUED, SysJob, SysJobError
 from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysAccountLock, SysUser
 from bms_core.outbox.null import NullOutboxStore
@@ -53,6 +54,7 @@ from bms_core.storage.local import LocalObjectStorage
 from bms_core.testing.fixtures import clear_tenant_cache
 from bms_core.testing.schema import ensure_tables
 from bms_core.transfer.openpyxl import OpenpyxlImporter
+from bms_platform.domains.import_export.services.report import report_key, token_payload
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
 from tests_support.permission_admin import setup_min_tenant
@@ -124,6 +126,8 @@ class _ApiEnv:
     config: _Config
     limiter: MemoryRateLimiter
     redis: FakeRedis
+    cache: MemoryCacheRegion
+    factory: async_sessionmaker[AsyncSession]
 
 
 @pytest_asyncio.fixture
@@ -189,7 +193,15 @@ async def api_env(
             AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client,
         ):
             client.headers.update(auth_headers())
-            yield _ApiEnv(client=client, app=service_app, config=config, limiter=limiter, redis=redis)
+            yield _ApiEnv(
+                client=client,
+                app=service_app,
+                config=config,
+                limiter=limiter,
+                redis=redis,
+                cache=cache,
+                factory=factory,
+            )
     finally:
         service_app.dependency_overrides.clear()
         clear_tenant_cache(service_app)
@@ -427,3 +439,140 @@ async def test_business_write_permission(api_env: _ApiEnv) -> None:
         headers={"Idempotency-Key": "perm-1"},
     )
     assert _code(response) == 30001
+
+
+class _ConflictIdempotencyStore(IdempotencyStore):
+    """幂等键已被占用且无首次结果（处理中）。"""
+
+    plugin_name = ""
+
+    async def begin(self, key: str, *, ttl: int = 86400) -> bool:
+        del key, ttl
+        return False
+
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
+        del key
+        return None
+
+    async def save(self, key: str, payload: IDEMPOTENCY_PAYLOAD_TYPE, *, ttl: int = 86400) -> None:
+        del key, payload, ttl
+
+    async def release(self, key: str) -> None:
+        del key
+
+
+class _BrokenReleaseStore(_ConflictIdempotencyStore):
+    """begin 成功但 release 抛错（验证不覆盖原始异常）。"""
+
+    async def begin(self, key: str, *, ttl: int = 86400) -> bool:
+        del key, ttl
+        return True
+
+    async def release(self, key: str) -> None:
+        del key
+        raise RuntimeError("redis down")
+
+
+async def test_invalid_xlsx_and_missing_job(api_env: _ApiEnv) -> None:
+    """扩展名合法但内容非 xlsx → 50302；作业不存在 → 50307。"""
+    bad = await api_env.client.post(
+        f"{API}/users/execute",
+        files={"file": ("users.xlsx", b"not-a-zip")},
+        headers={"Idempotency-Key": "bad-zip-1"},
+    )
+    assert _code(bad) == 50302
+
+    missing = await api_env.client.get(f"{API}/users/jobs/999999999")
+    assert _code(missing) == 50307
+
+
+async def test_idempotency_conflict_and_release_failure(api_env: _ApiEnv) -> None:
+    """处理中返回 10003；内部失败释放异常不覆盖原始错误。"""
+    api_env.app.dependency_overrides[get_idempotency_store] = _ConflictIdempotencyStore
+    data = _xlsx(_USER_HEADERS, [["conflict1", "甲", "", "", "启用", ""]])
+    conflict = await api_env.client.post(
+        f"{API}/users/execute",
+        files={"file": ("users.xlsx", data)},
+        headers={"Idempotency-Key": "conflict-1"},
+    )
+    assert _code(conflict) == 10003
+
+    api_env.app.dependency_overrides[get_idempotency_store] = _BrokenReleaseStore
+    bad = await api_env.client.post(
+        f"{API}/users/execute",
+        files={"file": ("users.xlsx", b"not-a-zip")},
+        headers={"Idempotency-Key": "release-1"},
+    )
+    assert _code(bad) == 50302
+
+
+async def test_error_report_branches(api_env: _ApiEnv) -> None:
+    """错误明细：业务不符 / 作业缺失 / 未终态 / 无错误 四类 404/409。"""
+    cache = api_env.cache
+    await cache.aset(report_key(cache, "demo", "wrong-biz"), token_payload(1, "roles"))
+    wrong_biz = await api_env.client.get(f"{API}/users/error-report/wrong-biz")
+    assert _code(wrong_biz) == 50306
+
+    await cache.aset(report_key(cache, "demo", "missing-job"), token_payload(999999999, "users"))
+    missing_job = await api_env.client.get(f"{API}/users/error-report/missing-job")
+    assert _code(missing_job) == 50306
+
+    async with api_env.factory() as session:
+        queued = SysJob(
+            job_type="platform.import.execute",
+            service_key="platform",
+            domain_key="import_export",
+            payload='{"biz": "users"}',
+            status=JOB_STATUS_QUEUED,
+        )
+        session.add(queued)
+        await session.commit()
+        queued_id = int(queued.id)
+    await cache.aset(report_key(cache, "demo", "not-ready"), token_payload(queued_id, "users"))
+    not_ready = await api_env.client.get(f"{API}/users/error-report/not-ready")
+    assert _code(not_ready) == 50308
+
+    async with api_env.factory() as session:
+        failed = SysJob(
+            job_type="platform.import.execute",
+            service_key="platform",
+            domain_key="import_export",
+            payload='{"biz": "users"}',
+            status=JOB_STATUS_FAILED,
+        )
+        session.add(failed)
+        await session.commit()
+        failed_id = int(failed.id)
+    await cache.aset(report_key(cache, "demo", "no-errors"), token_payload(failed_id, "users"))
+    no_errors = await api_env.client.get(f"{API}/users/error-report/no-errors")
+    assert _code(no_errors) == 50306
+
+
+async def test_status_malformed_payload_and_terminal_summary(api_env: _ApiEnv) -> None:
+    """状态端点：坏负载 50307；终态汇总从 result 解析。"""
+    async with api_env.factory() as session:
+        bad = SysJob(
+            job_type="platform.import.execute",
+            service_key="platform",
+            domain_key="import_export",
+            payload="[]",
+            status=JOB_STATUS_QUEUED,
+        )
+        good = SysJob(
+            job_type="platform.import.execute",
+            service_key="platform",
+            domain_key="import_export",
+            payload='{"biz": "users"}',
+            status="succeeded",
+            result='{"total": 2, "success_count": 2, "fail_count": 0, "blocked_count": 0, "committed": true}',
+        )
+        session.add_all([bad, good])
+        await session.commit()
+        bad_id = int(bad.id)
+        good_id = int(good.id)
+    malformed = await api_env.client.get(f"{API}/users/jobs/{bad_id}")
+    assert _code(malformed) == 50307
+    status = _data(await api_env.client.get(f"{API}/users/jobs/{good_id}"))
+    assert status["committed"] is True
+    assert status["success_count"] == 2
+    assert status["fail_count"] == 0
