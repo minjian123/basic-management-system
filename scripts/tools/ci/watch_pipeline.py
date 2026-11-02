@@ -627,6 +627,11 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         help=f"失败 job 日志尾部行数（缺省 {DEFAULT_LOG_TAIL_LINES}，0 不打日志）",
     )
     parser.add_argument("--once", action="store_true", help="只查一次现状即返回（秒查，不阻塞）")
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="检测到失败 job 即返回（不等其余 job 跑完；供「失败马上排查」用）",
+    )
     parser.add_argument("--json", action="store_true", help="终态时额外输出机器可读汇总")
     args = parser.parse_args(argv.to_list() if argv is not None else None)
 
@@ -661,6 +666,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """已播报过失败摘要的 job_id（避免每轮重复拉日志）。"""
     first = True
     while True:
+        failed_now = False
         line_parts: ConcurrentStableList[str] = ConcurrentStableList()
         detail: ConcurrentStableList[str] = ConcurrentStableList()
         for target in targets:
@@ -688,6 +694,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
                     detail.add(f"  {target.project} {_job_name(job)}：{previous} → {state}（{_job_duration(job)}）")
                 if state == "failed" and announced.get(job_id) is None:
                     announced.set(job_id, state)
+                    if _job_field(job, "allow_failure", False) is not True:
+                        failed_now = True
                     detail.add(f"  {target.project} {_job_name(job)} 失败要点：")
                     for line in failure_excerpt(api, token, target, job_id, int(args.log_tail)):
                         detail.add(f"    │ {line}")
@@ -699,6 +707,13 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         for line in detail:
             print(line, flush=True)
         first = False
+        if args.fail_fast and failed_now:
+            print(
+                "[watch] --fail-fast：已出现失败 job，立即返回（不等其余 job 跑完）；"
+                "要看全貌用 --once，要等终态去掉 --fail-fast",
+                file=sys.stderr,
+            )
+            return 1
 
         if args.once:
             return 0
