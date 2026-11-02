@@ -312,6 +312,10 @@ cross-repo-check:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
+    # engkit 克隆是 `uv sync`（backend 以 `engkit @ file://` 路径依赖）+ 后续仓校验的硬前置；
+    # 不显式 source 会依赖 runner 上「上一个 job 的残留目录」——2026-11-02 #1501 实测残留被清后
+    # 报 `Distribution not found at: file:///builds/bms/engkit`，故与 backend-lint / base-integrity 同口径补齐。
+    - . scripts/tools/ci/engkit_setup.sh
     - |
       if ! sh scripts/tools/ci/product_repos_setup.sh; then
         if [ "${CROSS_REPO_ALLOW_MISSING}" = "1" ]; then
