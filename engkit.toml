@@ -82,6 +82,21 @@ label = "护栏：服务边界（逐文件增量 + 全局全量）"
 cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "{root}", "--files-from", "{changed}"]
 
 [[devloop.steps]]
+label = "护栏：基座完整性（增量）"
+# 跨层引用 / 措辞残留 / 编号引用按清单内文档判；清单一致、设计登记、命名形态为全仓判据（推送环）
+cmd = ["{python}", "scripts/tools/base_check/check_base.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
+label = "护栏：系统字段（增量）"
+# 表文件只读清单内 .md，清单侧同步裁到这些表
+cmd = ["{python}", "scripts/tools/base_check/check_system_fields.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
+label = "护栏：后端基类体系（增量）"
+# 只判清单内文件定义的类 / 迁移 / 错误码；单 head 数与 alembic.ini 段位为全仓判据（推送环）
+cmd = ["{python}", "scripts/tools/base_check/check_backend_base.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
 label = "护栏：工作区卫生"
 cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
 

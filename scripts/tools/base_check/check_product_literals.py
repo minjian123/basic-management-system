@@ -24,7 +24,7 @@ for _entry in (_SCRIPT_DIR, _PREFLIGHT_DIR):
 
 from engkit_boot import config_path, forward, pop_root  # noqa: E402
 
-_VALUE_OPTIONS = ("--baseline-ref",)
+_VALUE_OPTIONS = ("--baseline-ref", "--files-from")
 
 
 def main() -> int:
