@@ -134,6 +134,16 @@ def isolate_catalog_records(
     reset_capability_usages()
     load_product_manifests(pinned_product_manifests)
     yield
+    # 用例结束同样复位：投影类用例写入的是「无来源」记录，留在进程里会让同一 worker 内
+    # 后建的会话级装配快照与清单装载撞「同键异值」。
+    reset_product_records()
+    reset_service_records()
+    reset_product_routes()
+    reset_data_source_records()
+    reset_collaboration_records()
+    reset_seed_records()
+    reset_error_code_records()
+    reset_capability_usages()
 
 
 _MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(

@@ -67,6 +67,41 @@ class EmptyRegistryProbe(Protocol):
         ...
 
 
+def _reset_registry_views() -> None:
+    """复位进程内登记视图族（九类；与平台用例隔离夹具同口径）。
+
+    会话级快照的构建先于用例函数级隔离夹具执行，同一 worker 内先前的声明注册 / 投影类用例
+    会把「无来源（`source` 为空）」的种子等记录留在进程里；此时装配应用再按清单装载同键记录
+    （`source` = 清单 `product_key`），会命中 `register_seed_records` 的同键异值拒绝。装配前的
+    复位让快照恒从「空视图 + 本仓清单」构建，与执行顺序无关。
+    """
+    from bms_core.collaboration.usage import reset_capability_usages
+    from bms_core.datasource.registry import reset_data_source_records
+    from bms_core.services.module_registry import (
+        reset_collaboration_records,
+        reset_domain_services,
+        reset_error_code_records,
+        reset_product_records,
+        reset_product_routes,
+        reset_seed_records,
+        reset_service_records,
+    )
+
+    resets = (
+        reset_service_records,
+        reset_product_records,
+        reset_product_routes,
+        reset_data_source_records,
+        reset_collaboration_records,
+        reset_seed_records,
+        reset_error_code_records,
+        reset_capability_usages,
+        reset_domain_services,
+    )
+    for reset in resets:
+        reset()
+
+
 def build_snapshot() -> ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]:
     """构建离线全量装配快照（应用工厂 → 平台实现登记 → 注册表构建；不进入 lifespan）。
 
@@ -82,6 +117,9 @@ def build_snapshot() -> ConcurrentStableDict[str, ConcurrentStableDict[str, Plug
         # 使进程内首次登记的 `token_verifier` 工厂携带密钥（后续用例复用的唯一工厂）。
         configure_token_env(patch)
         get_settings.cache_clear()
+        # 装配前复位视图族：会话级夹具早于用例函数级隔离，不复位会带上同一 worker 内先前的
+        # 声明注册 / 投影残留（无来源种子），使清单装载撞「同键异值」。
+        _reset_registry_views()
         app = ApplicationFactory().create(None)
         settings = cast("Settings", app.state.settings)
         register_platform_plugins(settings, app, app.state.resources)
