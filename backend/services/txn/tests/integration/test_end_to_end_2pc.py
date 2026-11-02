@@ -22,6 +22,7 @@ from typing import Any, cast
 
 import pytest
 from sqlalchemy import Engine, Table, create_engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -201,10 +202,54 @@ def engines(db_urls: ConcurrentStableDict[str, str]) -> Iterator[ConcurrentStabl
         engine.dispose()
 
 
+def _clear_prepared_branches(engine: Engine) -> None:
+    """清理库内遗留的 prepared XA 分支（幂等）。
+
+    进程被中止 / 超时 / 断言失败时，`XA PREPARE` 过的分支会留在库里；下一次同 `xid` 的
+    `XA BEGIN` 直接报 `XAER_DUPID (1440)`，且**不会自愈**（CI #1523 实测：19s 即失败）。
+    MySQL 用 `XA RECOVER` + `XA ROLLBACK`，PostgreSQL 用 `pg_prepared_xacts` + `ROLLBACK PREPARED`。
+
+    Args:
+        engine: 目标库同步引擎（库须已存在；不存在时 2PC 用例本就无法跑）。
+    """
+    dialect = engine.dialect.name
+    try:
+        with engine.connect() as connection:
+            if dialect == "mysql":
+                rows = connection.execute(text("XA RECOVER")).fetchall()
+                for row in rows:
+                    gtrid_len = int(row[1])
+                    bqual_len = int(row[2])
+                    data = str(row[3])
+                    gtrid = data[:gtrid_len]
+                    bqual = data[gtrid_len : gtrid_len + bqual_len]
+                    connection.execute(text(f"XA ROLLBACK '{gtrid}','{bqual}'"))
+            elif dialect == "postgresql":
+                rows = connection.execute(text("SELECT gid FROM pg_prepared_xacts")).fetchall()
+                for row in rows:
+                    connection.execute(text(f"ROLLBACK PREPARED '{row[0]}'"))
+    except OperationalError as exc:
+        # 库尚未由 `ops.test_db create` 建出（或已被上一 job 收尾 DROP）时连接会失败：
+        # 这属于「本用例本来也跑不了」，交给后续建表/断言暴露，清理步骤不抢先报错。
+        print(f"[2pc] 悬挂分支清理跳过（{dialect}）：{exc}")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clean_prepared_branches(engines: ConcurrentStableDict[str, Engine]) -> None:
+    """模块级前置：跑用例前清掉悬挂分支，避免上面一次的残留把本轮的 `XA BEGIN` 卡死。
+
+    Args:
+        engines: 两库同步引擎。
+    """
+    for engine in engines.values():
+        _clear_prepared_branches(engine)
+
+
 @pytest.fixture
 def probes(engines: ConcurrentStableDict[str, Engine]) -> Iterator[ConcurrentStableDict[str, Engine]]:
-    """每例重建探针表（失败路径先清理，避免悬挂分支挡住删表）。"""
+    """每例重建探针表（失败路径先清理悬挂分支，避免悬挂分支挡住删表）。"""
     for engine in engines.values():
+        _clear_prepared_branches(engine)
         _create_probe(engine)
     yield engines
     for engine in engines.values():
