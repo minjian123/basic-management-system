@@ -75,6 +75,38 @@ def _send(payload: Any) -> None:
     print(json.dumps(payload, ensure_ascii=False), flush=True)
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+"""仓库根（`scripts/tools/ci/mcp_server.py` 上溯三层）。"""
+
+
+def _head_sha(ref: str = "origin/main") -> str:
+    """取引用指向的提交短 sha，用于判断「最新流水线是否验证了最新提交」。
+
+    本仓推送**不触发**流水线（需手工 `ci_trigger`），最新流水线常指向旧提交；
+    不比对 sha 就会把「旧代码绿」当成「当前代码绿」——假绿灯。
+
+    Args:
+        ref: 分支引用（缺省 `origin/main`）。
+
+    Returns:
+        str: 9 位短 sha；取不到（无 git / 无该引用）返回空串。
+    """
+    import subprocess
+
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "--short=9", ref],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=15,
+            check=False,
+        )
+    except OSError, subprocess.SubprocessError:
+        return ""
+    return completed.stdout.strip() if completed.returncode == 0 else ""
+
+
 def _api() -> tuple[str, str]:
     """解析 GitLab API 基址与令牌。
 
@@ -249,12 +281,17 @@ def tool_ci_status(args: Any) -> str:
     jobs = _jobs(api, token, project_id, pipeline_id)
     grouped = _group(jobs)
     failed = grouped.get("failed", [])
+    pipeline_sha = str(info.get("sha", ""))
+    head_sha = _head_sha()
+    verified_head = bool(head_sha) and pipeline_sha.startswith(head_sha)
     brief: Any = {
         "project": project,
         "pipeline": pipeline_id,
         "status": info.get("status"),
         "ref": info.get("ref"),
-        "sha": str(info.get("sha", ""))[:9],
+        "sha": pipeline_sha[:9],
+        "head_sha": head_sha,
+        "verified_head": verified_head,
         "duration": info.get("duration"),
         "created_at": info.get("created_at"),
         "finished_at": info.get("finished_at"),
@@ -275,6 +312,11 @@ def tool_ci_status(args: Any) -> str:
         lines.append("失败 job：" + ", ".join(failed))
     if brief["running"]:
         lines.append("进行中：" + ", ".join(brief["running"]))
+    if head_sha and not verified_head:
+        lines.append(
+            f"⚠ 该流水线验证的是 {pipeline_sha[:9]}，而 origin/main 已是 {head_sha}"
+            "（本仓推送不触发流水线；需用 ci_trigger 另起一轮才算验证最新代码）"
+        )
     return "\n".join(lines) + "\n\n" + json.dumps(brief, ensure_ascii=False, indent=2)
 
 
