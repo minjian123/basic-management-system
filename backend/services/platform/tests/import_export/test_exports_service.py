@@ -223,18 +223,20 @@ class _Result:
 class _Session:
     """会话替身（仅供状态查询与事务判定）。"""
 
-    def __init__(self, job: object | None = None) -> None:
+    def __init__(self, job: object | None = None, *, in_transaction: bool = True) -> None:
         """初始化。
 
         Args:
             job: 状态查询返回的作业。
+            in_transaction: 是否处于只读事务（False 验证「无需回滚」分支）。
         """
         self._job = job
+        self._in_transaction = in_transaction
         self.rolled_back = False
 
     def in_transaction(self) -> bool:
-        """恒视为处于只读事务（验证提交前回滚）。"""
-        return True
+        """是否处于只读事务（默认 True，验证提交前回滚）。"""
+        return self._in_transaction
 
     async def rollback(self) -> None:
         """记录回滚。"""
@@ -524,3 +526,18 @@ async def test_collect_rejects_when_actual_rows_exceed_limit() -> None:
     # count 回 1（在限内），但 fetch 一次返回 3 行 ⇒ 累加越限即拒
     with pytest.raises(ExportRowLimitExceededError):
         await executor.collect(cast("DbSession", None), _DriftingDefinition(total=1), ExportQuery(), masker=_masker())
+
+
+async def test_submit_without_open_transaction_skips_rollback() -> None:
+    """作业提交：无开启事务时不回滚，直接进写事务提交。"""
+    runner = _Runner()
+    service = _service(_executor(total=100), runner=runner)
+    session = _Session(in_transaction=False)
+
+    job_id = await service._submit(  # pyright: ignore[reportPrivateUsage]
+        _payload(KIND_PDF), uow=cast("UnitOfWork", _Uow(session=session)), tenant_id=None, total=100
+    )
+
+    assert job_id == 42
+    assert session.rolled_back is False
+    assert len(runner.submitted) == 1

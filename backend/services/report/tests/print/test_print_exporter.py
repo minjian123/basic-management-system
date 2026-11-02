@@ -477,3 +477,39 @@ async def test_batch_idempotency_reuses_first_result(service_app: FastAPI) -> No
     finally:
         service_app.dependency_overrides.pop(get_print_exporter, None)
         service_app.dependency_overrides.pop(get_idempotency_store, None)
+
+
+@pytest.mark.kiwi_id(906)
+async def test_batch_idempotency_without_cached_payload_renders(service_app: FastAPI) -> None:
+    """批量幂等键已占位但首次结果缺失：照常渲染（不返回空响应）。"""
+    storage = LocalObjectStorage(root=_storage_root())
+    service_app.dependency_overrides[get_print_exporter] = lambda: _real_exporter(storage)
+
+    class _LostPayloadIdempotency(_RecordingIdempotency):
+        """`begin` 恒 False（键已存在）、`load` 恒 None（结果未落）。"""
+
+        async def begin(self, key: str, *, ttl: int | None = None) -> bool:
+            """恒视为非首次。"""
+            del ttl
+            self.keys.add(key)
+            return False
+
+        async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
+            """首次结果缺失。"""
+            del key
+            return None
+
+    service_app.dependency_overrides[get_idempotency_store] = lambda: _LostPayloadIdempotency()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+            client.headers.update(auth_headers())
+            response = await client.post(
+                f"{API}/batch",
+                json={"template_key": DEFAULT_DOCUMENT_TEMPLATE_KEY, "keys": ["A"]},  # pyright: ignore[reportUnknownArgumentType]
+                headers={"Idempotency-Key": "batch-lost"},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["data"]["total"] == 1
+    finally:
+        service_app.dependency_overrides.pop(get_print_exporter, None)
+        service_app.dependency_overrides.pop(get_idempotency_store, None)
