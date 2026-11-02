@@ -168,6 +168,7 @@ flowchart LR
 | `max_length` | `int \| None` | `None` | 文本最大长度；None 不限制 |
 | `value_type` | `str` | `"text"` | 通用读值类型：`text` / `int` / `number` / `bool` / `date` / `datetime` |
 | `pattern` | `str \| None` | `None` | 可选正则（如账号 / 邮箱 / 手机号）；None 不校验 |
+| `choices` | `frozen list[str]` | 空 | 可选值（模板下拉 + 通用预检）；空表示不限制 |
 | `note` | `str` | `""` | 填写说明（模板「填写说明」sheet） |
 | `example` | `str` | `""` | 示例（只进说明 sheet，不进数据 sheet） |
 
@@ -244,7 +245,7 @@ class ImportSourceStore(BaseFrameworkObject, ABC):
 ```
 
 - 默认实现 `ObjectStorageImportSourceStore` 包装 `BaseObjectStorage`（`local` / `minio` 均可）。
-- key 统一助手：`build_import_source_key(tenant, token)` → `bms:{租户|global}:imports:source:{token}.xlsx`。
+- key 统一助手：`build_import_source_key(tenant, token)` → `{租户|global}/imports/source/{token}.xlsx`（路径风格；Windows 本地存储不接受冒号）。
 - 只存 xlsx 源文件，**不建 `sys_file` 元数据、不占存储配额**；长期统一文件通道时只替换端口实现，编排零改动（开放项 3）。
 
 #### 4.2.5 导入参数
@@ -415,7 +416,7 @@ sequenceDiagram
 - Worker `ImportExecuteJob`：
   1. 从 `ctx.session()` 取会话，按 `payload.biz` 取定义；
   2. `source_store.get(source_key)`；对象缺失 → `50309`，`JobResult.failed(retryable=False)`；
-  3. 解析 + 全量预检：有错 → 逐行 `ctx.add_error`，返回 `failed(retryable=False, output=汇总)`；
+  3. 解析 + 通用校验（`BaseImporter.validate_rows`）+ 全量业务预检：有错 → 逐行 `ctx.add_error`，返回 `failed(retryable=False, output=汇总)`；
   4. 全部合法 → 配额 consume（users）→ 一个业务事务写入 → 成功 `succeeded(output=汇总)`；失败 → 回滚 + 配额 release + `failed(retryable=False)`；
   5. `finally` 删除源文件；进度按 `import.batch_size` 上报，取消检查在批次边界。
 
@@ -568,7 +569,7 @@ sequenceDiagram
 | `sys_role` | 角色导入落库 | platform 服务租户库；导入恒为 `custom` |
 | `sys_job` | 同步内联 / 异步作业记录 | 01_03 基础设施表；本段新增作业类型 `platform.import.execute` |
 | `sys_job_error` | 行级错误明细 | `row_no` / `column_key` / `message`；随作业 30 天硬删 |
-| 对象存储 | 导入源文件 | key `bms:{tenant}:imports:source:{token}.xlsx`；作业结束删除，不建 `sys_file` |
+| 对象存储 | 导入源文件 | key `{tenant|global}/imports/source/{token}.xlsx`；作业结束删除，不建 `sys_file` |
 
 - **幂等键不落业务表**：唯一约束由 `sys_job(job_type, idempotency_key)` 承担；用户 / 角色表不加幂等列。
 - **索引**：`sys_job_error` 已有 `(job_id, id)`；状态查询按 `job_id` 命中；无需新增索引。
@@ -697,7 +698,7 @@ options = {}
 | 《[数据库设计 · 异步作业中心](../../../../../../设计/数据库设计/38_数据库设计_异步作业中心.md)》 | 导入 `run_inline` / 异步 / `sys_job_error` 口径；失败作业 `result` 摘要 |
 | 《[后端基类清单](../../../../../../后端基类清单.md)》 | `BaseImporter` 新方法 / `ColumnSpec` 字段 / `ImportDefinition` / `ImportSourceStore` / `ImportLimits` / `OpenpyxlImporter` / 幂等 `release` |
 | 《[后端基类实现契约](../../../../../../设计/基类体系/后端基类实现契约.md)》 | 导入导出行补真实实现与定义注册 |
-| 《[命名规范](../../../../../../规范/命名规范.md)》§10 | Redis `bms:{tenant}:imports:report:{token}`；对象 key `bms:{tenant}:imports:source:{token}.xlsx` |
+| 《[命名规范](../../../../../../规范/命名规范.md)》§10 | Redis `bms:{tenant}:imports:report:{token}`；对象 key `{tenant}/imports/source/{token}.xlsx` |
 | 需求 [02-2](../../../../需求/02_需求_文件与导入导出.md#r02-2) | 交付注块：users + roles / 全量原子 / 异步 / 错误明细 / 遗留归口 |
 | [阶段计划](../../../../计划/01_计划_通用能力.md) | 04_01 归档 §2、移出 §3、重算头部；04_02 及后续按计划表顺延 |
 | 任务目录 `实施/`、`测试/` | 实施记录与测试记录（信息 / 过程 / 问题与处置 / 验证 / 覆盖率 / 偏差与遗留） |
