@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import secrets
 from collections.abc import Awaitable, Callable, Iterable, Mapping
@@ -808,10 +809,10 @@ def _parse_json_object(raw: str) -> ConcurrentStableDict[str, object]:
     """
     if not raw:
         return ConcurrentStableDict()
-    try:
+    parsed: object = None
+    # 负载 / 结果解析失败按「无字段」处理（不是无声明降级：解析失败已在下方按空处理，无能力寻址语义）
+    with contextlib.suppress(json.JSONDecodeError):
         parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        return ConcurrentStableDict()
     if not isinstance(parsed, dict):
         return ConcurrentStableDict()
     return ConcurrentStableDict(cast("dict[str, object]", parsed))

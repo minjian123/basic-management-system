@@ -29,11 +29,18 @@ def _platform_manifest_text() -> str:
 
 
 def test_real_manifest_declares_platform_jobs() -> None:
-    """真实清单声明平台两个作业（任务执行 + 孤儿回收），缺省值齐备。"""
+    """真实清单声明平台与文件 / 报表作业，缺省值齐备。"""
     path = next(item for item in local_manifest_paths() if item.name == "platform.toml")
     manifest = load_product_manifest(path)
     kinds = {job.job_type: job for job in manifest.jobs}
-    assert set(kinds) == {"sys.task.run", "file.cleanup_orphans", "platform.import.execute"}
+    assert set(kinds) == {
+        "sys.task.run",
+        "file.cleanup_orphans",
+        "platform.import.execute",
+        "platform.export.execute",
+        "platform.export.cleanup",
+        "print.batch.execute",
+    }
     assert kinds["platform.import.execute"].service == "platform"
     assert kinds["platform.import.execute"].max_attempts == 1
     assert kinds["sys.task.run"].service == "platform"
@@ -41,6 +48,11 @@ def test_real_manifest_declares_platform_jobs() -> None:
     assert kinds["file.cleanup_orphans"].service == "file"
     assert kinds["file.cleanup_orphans"].max_attempts == 3
     assert kinds["file.cleanup_orphans"].concurrency == 1
+    assert kinds["platform.export.execute"].service == "platform"
+    assert kinds["platform.export.execute"].max_attempts == 1
+    assert kinds["platform.export.cleanup"].max_attempts == 3
+    assert kinds["print.batch.execute"].service == "report"
+    assert kinds["print.batch.execute"].max_attempts == 1
     assert all(job.handler.count(":") == 1 for job in manifest.jobs)
 
 

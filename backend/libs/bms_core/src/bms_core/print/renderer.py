@@ -41,7 +41,7 @@ from reportlab.platypus import (
 )
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.print.base import (
     DEFAULT_PAPER,
     PRINT_ORIENTATIONS,
@@ -96,7 +96,7 @@ class PdfRenderConfig(BaseValueObject):
     """是否渲染页脚（打印人 / 时间 / 页码）。"""
 
 
-class ReportPdfRenderer:
+class ReportPdfRenderer(BaseFrameworkObject):
     """reportlab 渲染器（同步，调用方置于线程执行）。"""
 
     def __init__(self, config: PdfRenderConfig | None = None) -> None:

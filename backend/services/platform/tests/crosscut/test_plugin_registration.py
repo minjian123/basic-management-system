@@ -203,7 +203,9 @@ def test_ports_declared_and_abstract() -> None:
         assert inspect.isabstract(port), port.__name__
         assert port.plugin_key == port.key
         assert port.__dict__.get("plugin_name") == NULL_PLUGIN_NAME
-        expected_version = {"importer": "0.2.0"}.get(port.key, DEFAULT_CONTRACT_VERSION)
+        expected_version = {"importer": "0.2.0", "print_exporter": "0.2.0"}.get(
+            port.key, DEFAULT_CONTRACT_VERSION
+        )
         assert port.__dict__.get("contract_version") == expected_version
         assert re.fullmatch(r"\d+\.\d+\.\d+", port.contract_version)
 
