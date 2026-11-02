@@ -99,15 +99,11 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
 
 FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
     (
-        "check_backend_base.py",
-        "boundary_metrics.py",
         "ops.gateway_config",
         "ops.check_modules",
         "ops.contract_snapshot",
         "ops.check_contracts",
         "ops.event_contracts",
-        "check_docs_scope.py",
-        "check_status.py",
         "check_prototype_review.py",
         "check_frontend_types.py",
         "api-types",
