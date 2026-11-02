@@ -1,6 +1,9 @@
 """契约护栏测试（Kiwi 2227 / 2228）：路由覆盖 / 不可见白名单 / 响应 schema 完整性 / CLI 退出码。"""
 
+import io
+import sys
 from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -178,3 +181,51 @@ def test_check_service_passes_when_response_schema_complete(monkeypatch: pytest.
     monkeypatch.setattr(check_contracts, "build_app", _app_builder(_contract_app(contract)))
     assert list(check_contracts.check_service("stub")) == []
     assert check_contracts.main(ConcurrentStableList(["--service", "stub"])) == 0
+
+
+@pytest.mark.kiwi_id(2227)
+def test_affected_services_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """增量：清单命中的服务才校验；碰基座退全量；无命中直接通过；清单不可读退 2。"""
+    good = _stub_app(
+        ConcurrentStableList(["/api/v1/a"]),
+        ConcurrentStableList([_leaf("/api/v1/a", include_in_schema=True)]),
+    )
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(good))
+    monkeypatch.setattr(check_contracts, "enabled_service_keys", lambda: ("alpha", "beta"))
+    enabled = ConcurrentStableList(["alpha", "beta"])
+
+    assert check_contracts.affected_services(ConcurrentStableList(["backend/libs/bms_core/x.py"]), enabled) is None
+    assert list(
+        check_contracts.affected_services(
+            ConcurrentStableList(["backend/services/alpha/src/a.py", "backend/services/alpha/src/b.py", "docs/x.md"]),
+            enabled,
+        )
+        or []
+    ) == ["alpha"]
+    assert (
+        list(check_contracts.affected_services(ConcurrentStableList(["backend/services/ghost/x.py"]), enabled) or [])
+        == []
+    )
+    assert list(check_contracts.affected_services(ConcurrentStableList(["backend/deploy/x.yml"]), enabled) or []) == []
+
+    changed = tmp_path / "changed.txt"
+    changed.write_text("\n# 注释\nbackend/services/alpha/src/a.py\n", encoding="utf-8")
+    assert check_contracts.main(ConcurrentStableList(["--files-from", str(changed)])) == 0
+    assert "只校验受影响服务 1 个" in capsys.readouterr().out
+
+    changed.write_text("backend/libs/bms_core/a.py\n", encoding="utf-8")
+    assert check_contracts.main(ConcurrentStableList(["--files-from", str(changed)])) == 0
+    assert "按全量校验" in capsys.readouterr().out
+
+    changed.write_text("README.md\n", encoding="utf-8")
+    assert check_contracts.main(ConcurrentStableList(["--files-from", str(changed)])) == 0
+    assert "不涉及服务路由" in capsys.readouterr().out
+
+    assert check_contracts.main(ConcurrentStableList(["--files-from", str(tmp_path / "missing.txt")])) == 2
+
+    # 清单来源 `-`：门禁通过管道递清单，判定与文件来源一致
+    monkeypatch.setattr(sys, "stdin", io.StringIO("# 注释\nbackend/services/alpha/src/a.py\n"))
+    assert check_contracts.main(ConcurrentStableList(["--files-from", "-"])) == 0
+    assert "只校验受影响服务 1 个" in capsys.readouterr().out

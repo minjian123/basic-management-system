@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Callable, ItemsView, KeysView
+from pathlib import Path
 from typing import Any, cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -51,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="服务契约校验（实现路由 ⊆ 公开契约 paths + 不可见白名单 + 响应 schema 完整性）"
     )
     parser.add_argument("--service", default="", help="单个服务标识（缺省校验全部启用服务）")
+    parser.add_argument(
+        "--files-from",
+        default="",
+        help="只校验清单命中的服务（一行一个相对仓根路径；基座改动仍全量）",
+    )
     return parser
 
 
@@ -90,6 +96,55 @@ def _contract_paths(contract: ConcurrentStableDict[str, object]) -> ConcurrentSt
         for key in cast("Callable[[], KeysView[str]]", keys)():
             paths.add(str(key))
     return paths
+
+
+def affected_services(
+    listed: ConcurrentStableList[str], enabled: ConcurrentStableList[str]
+) -> ConcurrentStableList[str] | None:
+    """从改动文件推导受影响服务。
+
+    粒度是服务（判据要构建服务应用取路由），不是单个文件：`backend/services/<key>/` 命中即该服务；
+    碰 `backend/libs/`（基座影响所有服务的路由与契约）则退化为全量，返回 None。
+
+    Args:
+        listed: 改动文件清单（仓根相对）。
+        enabled: 启用服务集合（结果只会落在其中）。
+
+    Returns:
+        ConcurrentStableList[str] | None: 受影响服务（None 表示全量）；空列表表示本次改动不涉及。
+    """
+    picked: ConcurrentStableList[str] = ConcurrentStableList()
+    for rel in listed:
+        if rel.startswith("backend/libs/"):
+            return None
+        parts = rel.split("/")
+        if len(parts) < 3 or parts[0] != "backend" or parts[1] != "services":
+            continue
+        key = parts[2]
+        if key in enabled and key not in picked:
+            picked.add(key)
+    return picked
+
+
+def read_changed(path: str) -> ConcurrentStableList[str]:
+    """读取改动文件清单。
+
+    Args:
+        path: 清单路径；`-` 表示从标准输入读取（门禁直接传参，不落临时清单）。
+
+    Returns:
+        ConcurrentStableList[str]: 相对路径清单（空行与注释略过）。
+
+    Raises:
+        OSError: 清单不可读。
+    """
+    listed: ConcurrentStableList[str] = ConcurrentStableList()
+    content = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+    for line in content.splitlines():
+        text = line.strip()
+        if text and not text.startswith("#"):
+            listed.add(text)
+    return listed
 
 
 def check_service(service_key: str) -> ConcurrentStableList[str]:
@@ -149,6 +204,21 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     services: ConcurrentStableList[str] = ConcurrentStableList(enabled_service_keys())
     if args.service:
         services = ConcurrentStableList([cast("str", args.service)])
+    if args.files_from:
+        try:
+            listed = read_changed(cast("str", args.files_from))
+        except OSError as exc:
+            print(f"[契约] 改动清单不可读：{exc}")
+            return 2
+        affected = affected_services(listed, services)
+        if affected is None:
+            print("[契约] 增量模式：改动触及基座，按全量校验")
+        else:
+            services = affected
+            print(f"[契约] 增量模式：只校验受影响服务 {len(services)} 个")
+            if not services:
+                print("[契约] 校验通过：本次改动不涉及服务路由 / 契约")
+                return 0
     errors = check_all(services)
     if errors:
         for error in errors:

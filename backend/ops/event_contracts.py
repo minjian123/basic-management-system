@@ -184,16 +184,68 @@ def export(root: Path, *, to_stdout: bool = False, product_contracts: str | None
     return 0
 
 
-def check(root: Path, *, product_contracts: str | None = None) -> int:
+INPUT_PREFIXES = ("backend/libs/bms_core/src/bms_core/events/", "deploy/events/")
+"""事件契约判据的输入面：平台事件声明 / 契约实现 / 快照文件。
+
+判据是「注册表 ↔ 快照零漂移」，本质是全量产物对账，无法只判单个文件；因此增量模式只按**输入面**
+收敛——业务代码（服务实现、接口、迁移）改动不触发本判据，命中输入面时按全量判（只读这几处，秒级）。
+"""
+
+
+def touched_by(listed: ConcurrentStableList[str]) -> bool:
+    """判断改动是否触及事件契约的输入面。
+
+    Args:
+        listed: 改动文件清单（仓根相对）。
+
+    Returns:
+        bool: 触及返回 True。
+    """
+    return any(rel.startswith(INPUT_PREFIXES) for rel in listed)
+
+
+def read_changed(path: str) -> ConcurrentStableList[str]:
+    """读取改动文件清单。
+
+    Args:
+        path: 清单路径；`-` 表示从标准输入读取（门禁直接传参，不落临时清单）。
+
+    Returns:
+        ConcurrentStableList[str]: 相对路径清单（空行与注释略过）。
+
+    Raises:
+        OSError: 清单不可读。
+    """
+    listed: ConcurrentStableList[str] = ConcurrentStableList()
+    content = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+    for line in content.splitlines():
+        text = line.strip()
+        if text and not text.startswith("#"):
+            listed.add(text)
+    return listed
+
+
+def check(root: Path, *, product_contracts: str | None = None, files_from: str = "") -> int:
     """注册表校验 + 兼容校验 + 快照零漂移（CI / 预检门禁）。
 
     Args:
         root: 仓库根。
         product_contracts: 产品事件契约声明模块路径（点分）；None 只校验平台默认声明。
+        files_from: 改动文件清单（增量只在触及输入面时判；空串全量）。
 
     Returns:
-        int: 退出码（0 一致；1 不一致 / 产品契约声明不可用）。
+        int: 退出码（0 一致 / 本次不涉及；1 不一致 / 产品契约声明不可用；2 清单不可读）。
     """
+    if files_from:
+        try:
+            listed = read_changed(files_from)
+        except OSError as exc:
+            print(f"事件契约校验：改动清单不可读（{exc}）")
+            return 2
+        if not touched_by(listed):
+            print("事件契约校验通过：本次改动未触及事件声明 / 契约实现 / 快照，跳过")
+            return 0
+        print("事件契约增量模式：改动触及输入面，按全量校验")
     try:
         registry = build_registry(product_contracts)
     except EventContractError as exc:
@@ -247,6 +299,11 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     check_parser = subcommands.add_parser("check", help="零漂移 + 兼容校验")
     check_parser.add_argument("--root", default=str(REPO_ROOT), help="仓库根（默认 backend 的父目录）")
     check_parser.add_argument(
+        "--files-from",
+        default="",
+        help="改动文件清单（增量只在触及事件声明 / 契约实现 / 快照时判）",
+    )
+    check_parser.add_argument(
         "--product-contracts",
         default=None,
         help="产品事件契约声明模块路径（点分；该模块须暴露 register_product_event_contracts(registry)）",
@@ -254,7 +311,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "export":
         return export(Path(args.root), to_stdout=bool(args.to_stdout), product_contracts=args.product_contracts)
-    return check(Path(args.root), product_contracts=args.product_contracts)
+    return check(Path(args.root), product_contracts=args.product_contracts, files_from=str(args.files_from))
 
 
 if __name__ == "__main__":

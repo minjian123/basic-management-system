@@ -1,6 +1,7 @@
 """CI 服务目录与声明校验脚本测试（Kiwi 28 / 2163 / 2249 / 2365）：离线 + 接库 + 跨仓三档 / 退出码 / 取源退役。"""
 
 import asyncio
+import io
 import runpy
 import sys
 from pathlib import Path
@@ -475,3 +476,32 @@ def test_product_roots_expand_shapes(tmp_path: Path) -> None:
 
     assert check_modules.resolve_product_roots([str(empty)]) == []
     assert check_modules.product_manifest_paths([empty]) == []
+
+
+def test_incremental_scope(tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    """增量：未触及输入面跳过；触及按全量判；清单不可读退 2。"""
+    changed = tmp_path / "changed.txt"
+    changed.write_text("bms文档/规范/命名规范.md\n", encoding="utf-8")
+    assert check_modules.main(ConcurrentStableList(["--files-from", str(changed)])) == 0
+    assert "跳过" in capsys.readouterr().out
+
+    changed.write_text("engkit.toml\n", encoding="utf-8")
+    code = check_modules.main(ConcurrentStableList(["--files-from", str(changed)]))
+    assert "按全量校验" in capsys.readouterr().out
+    assert code in (0, 1, 2)
+
+    assert check_modules.main(ConcurrentStableList(["--files-from", str(tmp_path / "missing.txt")])) == 2
+
+    # 清单来源 `-`：门禁通过管道递清单，判定与文件来源一致
+    monkeypatch.setattr(sys, "stdin", io.StringIO("bms文档/规范/命名规范.md\n"))
+    assert check_modules.main(ConcurrentStableList(["--files-from", "-"])) == 0
+    assert "跳过" in capsys.readouterr().out
+
+
+def test_touched_by_prefixes() -> None:
+    """输入面判定：部署清单 / 基座服务声明 / 仓配置命中，其余不命中。"""
+    assert check_modules.touched_by(ConcurrentStableList(["deploy/registry/platform.toml"])) is True
+    assert check_modules.touched_by(ConcurrentStableList(["backend/libs/bms_core/src/bms_core/services/x.py"])) is True
+    assert check_modules.touched_by(ConcurrentStableList(["engkit.toml"])) is True
+    assert check_modules.touched_by(ConcurrentStableList(["backend/ops/check_modules.py"])) is False
+    assert check_modules.touched_by(ConcurrentStableList(["backend/services/platform/src/x.py"])) is False

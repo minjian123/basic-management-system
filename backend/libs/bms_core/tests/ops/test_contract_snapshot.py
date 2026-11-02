@@ -1,5 +1,6 @@
 """公开契约快照 CLI 测试（Kiwi 2168）：export / check 零漂移 / 缺件 / 多余件 / 漂移。"""
 
+import io
 import runpy
 import sys
 import types
@@ -132,3 +133,44 @@ def test_export_and_check_validation_failure(tmp_path: Path, monkeypatch: pytest
     monkeypatch.setattr(contract_snapshot, "_validate", fake_validate)
     assert contract_snapshot.export(tmp_path) == 1
     assert contract_snapshot.check(tmp_path) == 1
+
+
+def test_affected_services_scope() -> None:
+    """增量：服务路径命中该服务；碰基座退全量；其余为空。"""
+    assert (
+        contract_snapshot.affected_services(ConcurrentStableList(["backend/libs/bms_core/src/bms_core/x.py"])) is None
+    )
+    assert list(
+        contract_snapshot.affected_services(
+            ConcurrentStableList(["backend/services/platform/src/a.py", "backend/services/platform/src/b.py"])
+        )
+        or []
+    ) == ["platform"]
+    assert list(contract_snapshot.affected_services(ConcurrentStableList(["bms文档/x.md"])) or []) == []
+    assert list(contract_snapshot.affected_services(ConcurrentStableList(["backend/deploy/x.yml"])) or []) == []
+
+
+def test_check_incremental_scope(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """增量：无命中直接通过；清单不可读退 2。"""
+    changed = tmp_path / "changed.txt"
+    changed.write_text("bms文档/规范/命名规范.md\n", encoding="utf-8")
+    assert contract_snapshot.check(tmp_path, files_from=str(changed)) == 0
+    assert "不涉及服务公开契约" in capsys.readouterr().out
+    assert contract_snapshot.check(tmp_path, files_from=str(tmp_path / "missing.txt")) == 2
+
+    # 清单来源 `-`：门禁通过管道递清单，判定与文件来源一致
+    monkeypatch.setattr(sys, "stdin", io.StringIO("bms文档/规范/命名规范.md\n"))
+    assert contract_snapshot.check(tmp_path, files_from="-") == 0
+    assert "不涉及服务公开契约" in capsys.readouterr().out
+
+
+def test_check_incremental_scope_judges_affected_service(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """增量：命中服务时只比对它的快照（快照缺失即报缺件）。"""
+    service_key = _first_service_key()
+    changed = tmp_path / "changed.txt"
+    changed.write_text(f"backend/services/{service_key}/src/x.py\n", encoding="utf-8")
+    assert contract_snapshot.check(tmp_path, files_from=str(changed)) == 1
+    captured = capsys.readouterr()
+    assert f"缺快照文件：{contract_file_name(service_key)}" in captured.err

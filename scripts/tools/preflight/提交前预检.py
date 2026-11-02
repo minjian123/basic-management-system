@@ -51,10 +51,21 @@ from bms_core.core.concurrent import (  # noqa: E402
     ConcurrentStableList,
 )
 
-GATED_PREFIXES = ("backend/", "scripts/", "deploy/")
-"""需要门禁的代码 / 配置路径前缀。"""
+GATED_PREFIXES = ("backend/", "scripts/", "deploy/", "frontend/")
+"""需要门禁的代码 / 配置路径前缀（`frontend/` 改动此前被漏掉，等于前端改动不过门禁）。"""
 
-GATED_SUFFIXES = (".py", ".toml", ".yml", ".yaml")
+GATED_SUFFIXES = (
+    ".py",
+    ".toml",
+    ".yml",
+    ".yaml",
+    ".ts",
+    ".tsx",
+    ".vue",
+    ".mjs",
+    ".js",
+    ".json",
+)
 """需要门禁的代码 / 配置后缀。"""
 
 DOC_PREFIXES = ("bms文档/",)
@@ -63,8 +74,13 @@ DOC_PREFIXES = ("bms文档/",)
 DOC_SUFFIXES = (".md",)
 """需要门禁的文档后缀。"""
 
-CHANGED_LIST_PATH = Path(".cache") / "precommit" / "changed.txt"
-"""暂存变更清单落点（仓内缓存目录，已忽略）。"""
+CHANGED_LIST_SOURCE = "-"
+"""改动清单的来源：`-` 表示标准输入。
+
+门禁把改动清单**直接管道喂给各检查器**（`--files-from -`），不在仓内落任何临时清单：
+跨进程只有命令行 / 标准输入 / 文件三条路，命令行受操作系统长度上限约束（Windows 32767
+字符），标准输入无长度概念且不落盘，因此选它。
+"""
 
 CI_ONLY_TYPES = ConcurrentStableFrozenSet(("full_tests", "project_tests"))
 """仅 CI 执行的步骤类型。"""
@@ -86,6 +102,14 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "check_snowflake_ids.py",
         "check_product_literals.py",
         "check_service_boundaries.py",
+        "ops.check_contracts",
+        "ops.contract_snapshot",
+        "ops.event_contracts",
+        "ops.gateway_config",
+        "ops.check_modules",
+        "check_frontend_types.py",
+        "check_prototype_review.py",
+        "api-types",
         "ruff",
         "pyright",
         "run_selected",
@@ -97,18 +121,31 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
 不允许出现「新加一步、提交前悄悄扫全仓」的情况。
 """
 
-FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
+MODULE_INCREMENTAL: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
     (
+        "ops.check_contracts",
+        "ops.contract_snapshot",
+        "ops.event_contracts",
         "ops.gateway_config",
         "ops.check_modules",
-        "ops.contract_snapshot",
-        "ops.check_contracts",
-        "ops.event_contracts",
-        "check_prototype_review.py",
-        "check_frontend_types.py",
         "api-types",
     )
 )
+"""支持 `--files-from` 的模块级步骤（`python -m <module>`）：命令能按改动文件收敛。
+
+与脚本级增量的差别只在识别方式（脚本看文件名、模块看 `-m` 后的模块名）；两者都要求命令本身支持
+`--files-from`，门禁只负责把清单传进去。
+"""
+
+STEP_EXCLUDED_SUFFIXES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenDict(
+    {
+        # 前端类型检查的对象是 `.ts/.vue` 源码，不是生成脚本 / 构建脚本
+        "check_frontend_types.py": ConcurrentStableFrozenList((".mjs", ".js", ".md")),
+    }
+)
+"""步骤的「无关后缀」：命中作用域但这些后缀的改动与该步骤判据无关，不触发（避免白跑）。"""
+
+FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet()
 """语义为「全仓口径一致 / 零漂移」的步骤：默认命令只能全仓判定，无法只判改动文件。
 
 这类步骤**不会被跳过**：本次改动触及它时必须执行；若执行前校验发现命令无法限定到改动文件，
@@ -142,8 +179,21 @@ STEP_SCOPES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = 
         "check_status.py": ConcurrentStableFrozenList(("bms文档/",)),
         # —— 前端相关（typecheck / build 分钟级，只在真改前端或契约时才跑）——
         "check_prototype_review.py": ConcurrentStableFrozenList(("frontend/",)),
-        "check_frontend_types.py": ConcurrentStableFrozenList(("frontend/", "backend/")),
-        "api-types": ConcurrentStableFrozenList(("frontend/", "backend/")),
+        # 前端类型只受「前端源码 / 契约快照 / 基座 schema」影响；改后端业务实现不该白跑 typecheck
+        "check_frontend_types.py": ConcurrentStableFrozenList(
+            (
+                "frontend/",
+                "deploy/contracts/",
+                "backend/libs/bms_core/src/bms_core/schemas/",
+            )
+        ),
+        "api-types": ConcurrentStableFrozenList(
+            (
+                "frontend/",
+                "deploy/contracts/",
+                "backend/libs/bms_core/src/bms_core/schemas/",
+            )
+        ),
         # —— 静态（步骤内部再按改动文件筛，无对应改动文件即跳过）——
         "ruff": ConcurrentStableFrozenList(("backend/", "scripts/")),
         "pyright": ConcurrentStableFrozenList(("backend/", "scripts/")),
@@ -171,11 +221,13 @@ class PlannedStep:
         label: 步骤标签。
         cmd: 渲染完成、可直接执行的命令。
         cwd: 工作目录（相对仓根；空串取仓根）。
+        stdin_text: 从标准输入喂给子进程的改动清单（空串表示该步骤不需要清单）。
     """
 
     label: str
     cmd: ConcurrentStableList[str]
     cwd: str
+    stdin_text: str = ""
 
 
 def _git(root: Path, *args: str) -> str:
@@ -248,20 +300,33 @@ def changed_py(files: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     return ConcurrentStableList(rel for rel in files if rel.endswith(".py"))
 
 
-def write_changed_list(root: Path, files: ConcurrentStableList[str]) -> Path:
-    """把改动文件写成各步骤认的清单（一行一个相对路径）。
+def list_text(files: ConcurrentStableList[str]) -> str:
+    """把改动文件拼成标准输入要喂的清单文本（一行一个相对路径）。
 
     Args:
-        root: 仓库根。
         files: 改动文件。
 
     Returns:
-        Path: 清单文件绝对路径。
+        str: 清单文本（末尾带换行；空清单返回空串）。
     """
-    target = root / CHANGED_LIST_PATH
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("\n".join(files) + "\n", encoding="utf-8")
-    return target
+    if not files:
+        return ""
+    return "\n".join(files) + "\n"
+
+
+def needs_stdin(cmd: ConcurrentStableList[str]) -> bool:
+    """判断命令是否要从标准输入取改动清单（`--files-from -`）。
+
+    Args:
+        cmd: 渲染完成的命令。
+
+    Returns:
+        bool: 取清单的来源是标准输入返回 True。
+    """
+    for index, part in enumerate(cmd):
+        if part == "--files-from" and index + 1 < len(cmd) and cmd[index + 1] == CHANGED_LIST_SOURCE:
+            return True
+    return False
 
 
 def incremental_scripts(cfg: Config) -> ConcurrentStableFrozenSet[str]:
@@ -332,7 +397,14 @@ def _step_applies(key: str, files: ConcurrentStableList[str], *, force_all: bool
         return True
     if not scopes:
         return True
-    return any(rel.startswith(tuple(scopes)) for rel in files)
+    excluded = STEP_EXCLUDED_SUFFIXES.get(key, ConcurrentStableFrozenList())
+    for rel in files:
+        if not rel.startswith(tuple(scopes)):
+            continue
+        if excluded and rel.endswith(tuple(excluded)):
+            continue
+        return True
+    return False
 
 
 def _script_name(cmd: ConcurrentStableFrozenList[str]) -> str:
@@ -350,16 +422,15 @@ def _script_name(cmd: ConcurrentStableFrozenList[str]) -> str:
     return ""
 
 
-def _render(
-    cmd: ConcurrentStableFrozenList[str], *, root: Path, python: str, changed: Path
-) -> ConcurrentStableList[str]:
+def _render(cmd: ConcurrentStableFrozenList[str], *, root: Path, python: str) -> ConcurrentStableList[str]:
     """渲染命令占位符。
+
+    `{changed}` 一律渲染成标准输入标记：清单由 `run_step` 通过管道喂给子进程，不落盘。
 
     Args:
         cmd: 命令模板。
         root: 仓库根。
         python: 解释器路径。
-        changed: 变更清单文件。
 
     Returns:
         ConcurrentStableList[str]: 渲染后的命令。
@@ -370,7 +441,7 @@ def _render(
             part.replace("{python}", python)
             .replace("{root}", str(root))
             .replace("{config}", config_path())
-            .replace("{changed}", str(changed))
+            .replace("{changed}", CHANGED_LIST_SOURCE)
         )
     return rendered
 
@@ -420,9 +491,8 @@ def _adapt_lint(
     if not targets:
         return None
     if "pyright" in cmd:
-        adapted: ConcurrentStableList[str] = ConcurrentStableList(
-            (python, "-m", "pyright", "--project", "backend", "--pythonpath", python)
-        )
+        # 不传 `--project`：步骤 cwd 已是 `backend`，再给 `--project backend` 会解析成 backend/backend
+        adapted: ConcurrentStableList[str] = ConcurrentStableList((python, "-m", "pyright", "--pythonpath", python))
         adapted.extend(targets)
         return adapted
     # 只保留子命令（`check` / `format`）与选项，丢弃原目标路径（换成改动文件）
@@ -435,12 +505,57 @@ def _adapt_lint(
     return adapted
 
 
+def test_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
+    """从改动文件直接推出要跑的测试文件（不做依赖推导、不扩圈、不退全量）。
+
+    规则只有三条：
+    1. 改动本身就是测试文件（路径含 `tests/`）→ 直接跑；
+    2. 改动是 `.../src/<包>/<路径>/<模块>.py` → 映射到同工程 `tests/<路径>/test_<模块>.py`，存在才跑；
+    3. `backend/ops/<模块>.py` → `backend/libs/bms_core/tests/ops/test_<模块>.py`，存在才跑。
+
+    找不到对应测试不算失败（提交前只跑「改动文件对应的测试」，覆盖率门禁在推送环）。
+
+    Args:
+        root: 仓库根。
+        files: 改动文件（仓根相对）。
+
+    Returns:
+        ConcurrentStableList[str]: pytest 目标（相对 `backend/`，与步骤 cwd 一致）。
+    """
+    picked: ConcurrentStableList[str] = ConcurrentStableList()
+    for rel in files:
+        if not rel.endswith(".py") or not rel.startswith("backend/"):
+            continue
+        relative = rel[len("backend/") :]
+        if "/tests/" in relative or relative.startswith("tests/"):
+            if relative not in picked:
+                picked.add(relative)
+            continue
+        if relative.startswith("ops/"):
+            name = Path(relative).stem
+            candidate = f"libs/bms_core/tests/ops/test_{name}.py"
+            if (root / "backend" / candidate).is_file() and candidate not in picked:
+                picked.add(candidate)
+            continue
+        if "/src/" not in relative:
+            continue
+        head, tail = relative.split("/src/", 1)
+        parts = tail.split("/")
+        if len(parts) < 2:
+            continue
+        # 跳过包名层（bms_core / bms_platform ...），其余按包路径映射到 tests
+        rest = parts[1:]
+        mapped = f"{head}/tests/{'/'.join([*rest[:-1], f'test_{rest[-1]}'])}"
+        if (root / "backend" / mapped).is_file() and mapped not in picked:
+            picked.add(mapped)
+    return picked
+
+
 def plan_steps(
     cfg: Config,
     *,
     root: Path,
     python: str,
-    changed: Path,
     files: ConcurrentStableList[str],
     jobs: str,
     only_lint: bool,
@@ -457,7 +572,6 @@ def plan_steps(
         cfg: 仓配置。
         root: 仓库根。
         python: 解释器路径。
-        changed: 变更清单文件。
         files: 改动文件。
         jobs: 选测并行档位。
         only_lint: 只跑静态与护栏（不含选测 / 覆盖率）。
@@ -472,6 +586,7 @@ def plan_steps(
         StepScopeError: 步骤未登记提交前执行范围。
     """
     incremental = incremental_scripts(cfg)
+    stdin_list = list_text(files)
     planned: ConcurrentStableList[PlannedStep] = ConcurrentStableList()
     skipped: ConcurrentStableList[str] = ConcurrentStableList(
         f"{step.label}（仅 CI）" for step in cfg.preflight.steps if step.type in CI_ONLY_TYPES
@@ -502,21 +617,15 @@ def plan_steps(
             if only_lint:
                 skipped.add(f"{step.label}（--only-lint）")
                 continue
-            slow.add(
+            targets = test_targets(root, files)
+            if not targets:
+                skipped.add(f"{step.label}（本次改动无对应测试文件）")
+                continue
+            planned.add(
                 PlannedStep(
-                    label=step.label,
-                    cmd=ConcurrentStableList(
-                        (
-                            python,
-                            str(_SCRIPT_DIR / "run_selected.py"),
-                            str(root),
-                            "--changed-file-list",
-                            str(changed),
-                            "--jobs",
-                            jobs,
-                        )
-                    ),
-                    cwd="",
+                    label=f"{step.label}（改动文件对应测试 {len(targets)} 个）",
+                    cmd=ConcurrentStableList((python, "-m", "pytest", "-q", *targets)),
+                    cwd="backend",
                 )
             )
             continue
@@ -525,7 +634,6 @@ def plan_steps(
             ConcurrentStableFrozenList(step.cmd),
             root=root,
             python=python,
-            changed=changed,
         )
         if any("ruff" in part or "pyright" in part for part in step.cmd):
             adapted = _adapt_lint(
@@ -542,23 +650,34 @@ def plan_steps(
             continue
         if _script_name(ConcurrentStableFrozenList(step.cmd)) in incremental and "--files-from" not in cmd:
             cmd.add("--files-from")
-            cmd.add(str(changed))
-        planned.add(PlannedStep(label=step.label, cmd=cmd, cwd=cwd))
+            cmd.add(CHANGED_LIST_SOURCE)
+        if key in MODULE_INCREMENTAL and "--files-from" not in cmd:
+            cmd.add("--files-from")
+            cmd.add(CHANGED_LIST_SOURCE)
+        planned.add(
+            PlannedStep(
+                label=step.label,
+                cmd=cmd,
+                cwd=cwd,
+                stdin_text=stdin_list if needs_stdin(cmd) else "",
+            )
+        )
 
     planned.extend(slow)
 
     for self_test in cfg.preflight.self_tests:
         if any(rel.startswith(tuple(self_test.deps)) for rel in files) and self_test.deps:
+            self_cmd = _render(
+                ConcurrentStableFrozenList(self_test.cmd),
+                root=root,
+                python=python,
+            )
             planned.add(
                 PlannedStep(
                     label=f"自测：{self_test.label}",
-                    cmd=_render(
-                        ConcurrentStableFrozenList(self_test.cmd),
-                        root=root,
-                        python=python,
-                        changed=changed,
-                    ),
+                    cmd=self_cmd,
                     cwd="",
+                    stdin_text=stdin_list if needs_stdin(self_cmd) else "",
                 )
             )
     return planned, skipped, deferred
@@ -580,6 +699,8 @@ def run_step(step: PlannedStep, *, root: Path) -> tuple[bool, float]:
         list(step.cmd),
         cwd=(root / step.cwd) if step.cwd else root,
         check=False,
+        input=step.stdin_text or None,
+        text=True,
     )
     elapsed = time.perf_counter() - started
     if completed.returncode != 0:
@@ -625,14 +746,12 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(f"[precommit] 本次变更 {len(all_files)} 个文件，无需门禁（无后端源码 / 脚本 / 部署配置 / 文档），放行。")
         return 0
 
-    changed = write_changed_list(root, files)
     cfg = load_for(root, config_path())
     try:
         planned, skipped, deferred = plan_steps(
             cfg,
             root=root,
             python=sys.executable,
-            changed=changed,
             files=files,
             jobs=str(args.jobs),
             only_lint=bool(args.only_lint),

@@ -7,7 +7,7 @@
  *   node scripts/generate.mjs --check   # 零漂移校验（重新生成并与仓库产物逐字节比对）
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,6 +19,39 @@ const pkgDir = resolve(here, '..')
 const repoRoot = resolve(pkgDir, '../../..')
 const contractsDir = join(repoRoot, 'deploy', 'contracts')
 const srcDir = join(pkgDir, 'src')
+
+/**
+ * 判据输入面：契约快照、生成物本身、契约 schema 与生成逻辑。
+ *
+ * 改动落在这几处之外（业务实现、文档、脚本）不会改变类型产物，增量模式直接跳过。
+ */
+const INPUT_PREFIXES = [
+  'deploy/contracts/',
+  'frontend/packages/api_types/',
+  'backend/libs/bms_core/src/bms_core/schemas/',
+  'backend/libs/bms_core/src/bms_core/services/service_contract.py',
+]
+
+/**
+ * 读取 `--files-from` 清单（一行一个仓根相对路径）。
+ *
+ * `-` 表示从标准输入读取：提交前门禁把改动清单通过管道递进来，不在仓内落临时文件。
+ *
+ * @returns 清单行；未传该参数返回 null。
+ */
+function readChangedList() {
+  const index = process.argv.indexOf('--files-from')
+  if (index < 0 || index + 1 >= process.argv.length) {
+    return null
+  }
+  const source = process.argv[index + 1]
+  // 文件描述符 0 即标准输入，与读取文件同一套解码口径
+  const text = readFileSync(source === '-' ? 0 : source, 'utf8')
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+}
 
 /**
  * 生成文件头（统一标注「勿手改」与来源）。
@@ -90,6 +123,11 @@ function indexContent(services) {
 
 async function main() {
   const check = process.argv.includes('--check')
+  const changed = readChangedList()
+  if (changed && !changed.some((rel) => INPUT_PREFIXES.some((prefix) => rel.startsWith(prefix)))) {
+    console.log('[api-types] 跳过：本次改动未触及契约快照 / 类型生成物 / 契约 schema')
+    return
+  }
   const contracts = await listContracts()
   if (contracts.length === 0) {
     console.error(`[api-types] 未找到契约快照：${contractsDir}`)

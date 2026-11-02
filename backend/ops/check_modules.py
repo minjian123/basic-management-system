@@ -109,6 +109,11 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(description="服务目录 / 声明校验（离线 + 接库 + 跨仓三档）")
     parser.add_argument("--url", default="", help="平台库连接串（显式覆盖；缺省按配置解析）")
+    parser.add_argument(
+        "--files-from",
+        default="",
+        help="改动文件清单（增量只在触及部署清单 / 生成物 / 基座服务声明时判）",
+    )
     parser.add_argument("--offline", action="store_true", help="仅离线断言，不接库")
     parser.add_argument(
         "--manifest",
@@ -1085,6 +1090,46 @@ def _run_domain_layout(args: argparse.Namespace) -> int:
     return 0
 
 
+INPUT_PREFIXES = ("deploy/", "backend/libs/bms_core/src/bms_core/services/")
+"""模块对账判据的输入面：部署清单 / 生成物 / 基座服务声明。"""
+
+INPUT_FILES = ("engkit.toml",)
+"""需要精确命中的输入面文件（仓配置里的 [[domains]] 清单等）。"""
+
+
+def touched_by(listed: ConcurrentStableList[str]) -> bool:
+    """判断改动是否触及模块对账判据的输入面。
+
+    Args:
+        listed: 改动文件清单（仓根相对）。
+
+    Returns:
+        bool: 触及返回 True。
+    """
+    return any(rel.startswith(INPUT_PREFIXES) or rel in INPUT_FILES for rel in listed)
+
+
+def read_changed(path: str) -> ConcurrentStableList[str]:
+    """读取改动文件清单。
+
+    Args:
+        path: 清单路径；`-` 表示从标准输入读取（门禁直接传参，不落临时清单）。
+
+    Returns:
+        ConcurrentStableList[str]: 相对路径清单（空行与注释略过）。
+
+    Raises:
+        OSError: 清单不可读。
+    """
+    listed: ConcurrentStableList[str] = ConcurrentStableList()
+    content = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+    for line in content.splitlines():
+        text = line.strip()
+        if text and not text.startswith("#"):
+            listed.add(text)
+    return listed
+
+
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：离线校验（默认）+ 可选接库 / 跨仓校验。
 
@@ -1092,9 +1137,19 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         argv: 命令行参数。
 
     Returns:
-        int: 退出码（0 通过 / 1 失败 / 2 参数或环境错误）。
+        int: 退出码（0 通过 / 本次不涉及 / 1 失败 / 2 参数或环境错误）。
     """
     args = build_parser().parse_args(argv)
+    if args.files_from:
+        try:
+            listed = read_changed(str(args.files_from))
+        except OSError as exc:
+            print(f"[服务目录] 改动清单不可读：{exc}", file=sys.stderr)
+            return 2
+        if not touched_by(listed):
+            print("[服务目录] 校验通过：本次改动未触及部署清单 / 生成物 / 基座服务声明，跳过")
+            return 0
+        print("[服务目录] 增量模式：改动触及输入面，按全量校验")
     if args.render_domain_layout or args.check_domain_layout:
         return _run_domain_layout(args)
     if args.ephemeral and args.url:

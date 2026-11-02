@@ -1,6 +1,8 @@
 """事件契约快照 CLI 测试（Kiwi 2174 / 2250）：export / check / 兼容违规 / 缺件 / 漂移 / 解析失败 / 产品契约注入。"""
 
+import io
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -135,3 +137,26 @@ def test_main_product_contracts_unavailable_exits_nonzero(tmp_path: Path) -> Non
         )
         == 1
     )
+
+
+def test_check_incremental_scope(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """增量：未触及输入面直接通过；触及则全量判；清单不可读退 2。"""
+    changed = tmp_path / "changed.txt"
+    changed.write_text("\n# 注释\nbackend/services/platform/src/x.py\n", encoding="utf-8")
+    assert event_contracts.main(ConcurrentStableList(["check", "--files-from", str(changed)])) == 0
+    assert "跳过" in capsys.readouterr().out
+
+    changed.write_text("backend/libs/bms_core/src/bms_core/events/platform_events.py\n", encoding="utf-8")
+    code = event_contracts.main(ConcurrentStableList(["check", "--files-from", str(changed)]))
+    captured = capsys.readouterr().out
+    assert "按全量校验" in captured
+    assert code in (0, 1)
+
+    assert event_contracts.main(ConcurrentStableList(["check", "--files-from", str(tmp_path / "missing.txt")])) == 2
+
+    # 清单来源 `-`：门禁通过管道递清单，判定与文件来源一致
+    monkeypatch.setattr(sys, "stdin", io.StringIO("backend/services/platform/src/x.py\n"))
+    assert event_contracts.main(ConcurrentStableList(["check", "--files-from", "-"])) == 0
+    assert "跳过" in capsys.readouterr().out

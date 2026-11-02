@@ -1,6 +1,7 @@
 """网关声明式配置 CLI 测试（render / check 零漂移 + 请求体上限三方一致）。Kiwi 2165 / 2264。"""
 
 import asyncio
+import io
 import runpy
 import sys
 from pathlib import Path
@@ -492,3 +493,36 @@ def test_body_size_reports_declaration_gaps(tmp_path: Path) -> None:
     env_example = tmp_path / gateway_config.ENV_EXAMPLE_RELATIVE
     env_example.write_text("OTHER=1\n", encoding="utf-8")
     assert any("缺 GATEWAY_MAX_BODY_SIZE 键位" in item for item in gateway_config.validate_body_size(tmp_path))
+
+
+def test_check_incremental_scope(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """增量：未触及输入面跳过；触及按全量判；清单不可读退 2。"""
+    changed = tmp_path / "changed.txt"
+    changed.write_text("bms文档/规范/命名规范.md\n", encoding="utf-8")
+    assert (
+        gateway_config.main(ConcurrentStableList(["check", "--root", str(tmp_path), "--files-from", str(changed)])) == 0
+    )
+    assert "跳过" in capsys.readouterr().out
+
+    assert (
+        gateway_config.main(
+            ConcurrentStableList(["check", "--root", str(tmp_path), "--files-from", str(tmp_path / "missing.txt")])
+        )
+        == 2
+    )
+
+    # 清单来源 `-`：门禁通过管道递清单，判定与文件来源一致
+    monkeypatch.setattr(sys, "stdin", io.StringIO("bms文档/规范/命名规范.md\n"))
+    assert gateway_config.main(ConcurrentStableList(["check", "--root", str(tmp_path), "--files-from", "-"])) == 0
+    assert "跳过" in capsys.readouterr().out
+
+
+def test_touched_by_prefixes() -> None:
+    """输入面判定：服务目录 / 基座 / 部署清单命中，其余不命中。"""
+    assert gateway_config.touched_by(ConcurrentStableList(["backend/services/platform/src/x.py"])) is True
+    assert gateway_config.touched_by(ConcurrentStableList(["backend/libs/bms_core/src/bms_core/x.py"])) is True
+    assert gateway_config.touched_by(ConcurrentStableList(["deploy/gateway/apisix.yaml"])) is True
+    assert gateway_config.touched_by(ConcurrentStableList(["backend/ops/gateway_config.py"])) is False
+    assert gateway_config.touched_by(ConcurrentStableList([])) is False

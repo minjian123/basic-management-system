@@ -460,12 +460,54 @@ def render(
     return 0
 
 
+INPUT_PREFIXES = ("backend/services/", "backend/libs/", "deploy/")
+"""网关判据的输入面：服务目录（单一来源）/ 基座声明 / 部署清单与生成物。
+
+判据是「生成件 ↔ 服务目录零漂移」，无法只判单个文件；增量模式按输入面收敛——这些路径之外
+（文档、脚本、ops 工具本身）不触发，命中即按全量判（只读清单与生成件，秒级）。
+"""
+
+
+def touched_by(listed: Iterable[str]) -> bool:
+    """判断改动是否触及网关判据的输入面。
+
+    Args:
+        listed: 改动文件清单（仓根相对）。
+
+    Returns:
+        bool: 触及返回 True。
+    """
+    return any(rel.startswith(INPUT_PREFIXES) for rel in listed)
+
+
+def read_changed(path: str) -> ConcurrentStableList[str]:
+    """读取改动文件清单。
+
+    Args:
+        path: 清单路径；`-` 表示从标准输入读取（门禁直接传参，不落临时清单）。
+
+    Returns:
+        ConcurrentStableList[str]: 相对路径清单（空行与注释略过）。
+
+    Raises:
+        OSError: 清单不可读。
+    """
+    listed: ConcurrentStableList[str] = ConcurrentStableList()
+    content = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+    for line in content.splitlines():
+        text = line.strip()
+        if text and not text.startswith("#"):
+            listed.add(text)
+    return listed
+
+
 def check(
     root: Path,
     *,
     source: str = "manifest",
     url: str = "",
     manifests: Iterable[str] = (),
+    files_from: str = "",
 ) -> int:
     """校验仓库内生成件与服务目录零漂移、服务发现无硬编码 IP、请求体上限三方一致。
 
@@ -474,10 +516,21 @@ def check(
         source: 取数口径（`manifest` 清单 / `registry` 注册表）。
         url: 平台库连接串（`registry` 模式可省，省略时按配置解析平台库）。
         manifests: 额外清单路径（`--manifest`）。
+        files_from: 改动文件清单（增量只在触及输入面时判；空串全量）。
 
     Returns:
-        int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP / 请求体上限口径不一致）。
+        int: 退出码（0 一致 / 本次不涉及；1 缺失 / 漂移 / 硬编码 IP / 请求体上限口径不一致；2 清单不可读）。
     """
+    if files_from:
+        try:
+            listed = read_changed(files_from)
+        except OSError as exc:
+            print(f"[gateway_config] 改动清单不可读：{exc}", file=sys.stderr)
+            return 2
+        if not touched_by(listed):
+            print("[gateway_config] 校验通过：本次改动未触及服务目录 / 部署清单 / 生成件，跳过")
+            return 0
+        print("[gateway_config] 增量模式：改动触及输入面，按全量校验")
     errors, topology, warnings = _load(root, source=source, url=url, manifests=manifests)
     if errors:
         for error in errors:
@@ -551,6 +604,11 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     )
     parser.add_argument("--url", default="", help="平台库连接串（--from-registry 时可省：按配置解析平台库）")
     parser.add_argument(
+        "--files-from",
+        default="",
+        help="改动文件清单（增量只在触及服务目录 / 部署清单 / 生成件时判）",
+    )
+    parser.add_argument(
         "--manifest",
         action="append",
         default=[],
@@ -560,7 +618,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "render":
         return render(args.root, to_stdout=args.to_stdout, source=args.source, url=args.url, manifests=args.manifest)
-    return check(args.root, source=args.source, url=args.url, manifests=args.manifest)
+    return check(args.root, source=args.source, url=args.url, manifests=args.manifest, files_from=str(args.files_from))
 
 
 if __name__ == "__main__":

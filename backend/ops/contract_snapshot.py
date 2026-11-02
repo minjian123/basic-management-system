@@ -154,16 +154,78 @@ def export(root: Path, *, to_stdout: bool = False) -> int:
     return 0
 
 
-def check(root: Path) -> int:
+def affected_services(listed: ConcurrentStableList[str]) -> ConcurrentStableList[str] | None:
+    """从改动文件推导受影响服务。
+
+    粒度是服务（要构建服务应用取公开契约）：`backend/services/<key>/` 命中即该服务；碰
+    `backend/libs/`（基座影响所有服务的路由与 schema）退化为全量，返回 None。
+
+    Args:
+        listed: 改动文件清单（仓根相对）。
+
+    Returns:
+        ConcurrentStableList[str] | None: 受影响服务（None 表示全量）；空列表表示本次改动不涉及。
+    """
+    picked: ConcurrentStableList[str] = ConcurrentStableList()
+    for rel in listed:
+        if rel.startswith("backend/libs/"):
+            return None
+        parts = rel.split("/")
+        if len(parts) < 3 or parts[0] != "backend" or parts[1] != "services":
+            continue
+        key = parts[2]
+        if key not in picked:
+            picked.add(key)
+    return picked
+
+
+def read_changed(path: str) -> ConcurrentStableList[str]:
+    """读取改动文件清单。
+
+    Args:
+        path: 清单路径；`-` 表示从标准输入读取（门禁直接传参，不落临时清单）。
+
+    Returns:
+        ConcurrentStableList[str]: 相对路径清单（空行与注释略过）。
+
+    Raises:
+        OSError: 清单不可读。
+    """
+    listed: ConcurrentStableList[str] = ConcurrentStableList()
+    content = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+    for line in content.splitlines():
+        text = line.strip()
+        if text and not text.startswith("#"):
+            listed.add(text)
+    return listed
+
+
+def check(root: Path, *, files_from: str = "") -> int:
     """校验仓库内快照与各服务公开契约零漂移、契约版本一致、无缺件 / 无多余件。
 
     Args:
         root: 仓库根。
+        files_from: 改动文件清单（增量只比对受影响服务的快照；空串全量）。
 
     Returns:
-        int: 退出码（0 一致；1 缺件 / 多余件 / 漂移 / 契约版本不符）。
+        int: 退出码（0 一致 / 本次不涉及；1 缺件 / 多余件 / 漂移 / 契约版本不符；2 清单不可读）。
     """
     records = {cast("str", record.service_key): record for record in enabled_service_records()}
+    if files_from:
+        try:
+            listed = read_changed(files_from)
+        except OSError as exc:
+            print(f"[contract_snapshot] 改动清单不可读：{exc}", file=sys.stderr)
+            return 2
+        affected = affected_services(listed)
+        if affected is None:
+            print("[contract_snapshot] 增量模式：改动触及基座，按全量校验")
+        else:
+            records = {key: record for key, record in records.items() if key in affected}
+            print(f"[contract_snapshot] 增量模式：只比对受影响服务 {len(records)} 个")
+            if not records:
+                print("[contract_snapshot] 通过：本次改动不涉及服务公开契约")
+                return 0
     expected = {contract_file_name(service_key) for service_key in records}
     directory = contracts_dir(root)
     actual: ConcurrentStableSet[str] = ConcurrentStableSet()
@@ -172,7 +234,8 @@ def check(root: Path) -> int:
     problems: ConcurrentStableList[str] = ConcurrentStableList(
         f"缺快照文件：{name}" for name in sorted(expected - actual)
     )
-    problems.update(f"多余快照文件：{name}" for name in sorted(actual - expected))
+    if not files_from:
+        problems.update(f"多余快照文件：{name}" for name in sorted(actual - expected))
     for service_key, record in records.items():
         path = snapshot_path(root, service_key)
         if not path.is_file():
@@ -206,10 +269,15 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     parser.add_argument("command", choices=("export", "check"), help="export 导出；check 零漂移校验")
     parser.add_argument("--root", type=Path, default=REPO_ROOT, help="仓库根（缺省自动定位）")
     parser.add_argument("--print", dest="to_stdout", action="store_true", help="export 时打印生成内容")
+    parser.add_argument(
+        "--files-from",
+        default="",
+        help="改动文件清单（增量只比对受影响服务的快照；基座改动仍全量）",
+    )
     args = parser.parse_args(argv)
     if args.command == "export":
         return export(args.root, to_stdout=args.to_stdout)
-    return check(args.root)
+    return check(args.root, files_from=str(args.files_from))
 
 
 if __name__ == "__main__":
