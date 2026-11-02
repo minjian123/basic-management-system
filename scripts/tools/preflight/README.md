@@ -52,6 +52,9 @@
 #     下游工程）而登记于 `FULL_SCAN_STEPS`：触及即**报错拒绝提交**，需 `--allow-full-steps` 显式放行。
 # 新增预检步骤若未登记进 `RUNNABLE_STEPS` / `FULL_SCAN_STEPS`，门禁 **fail-closed 直接拒绝**——
 # 不允许出现「新加一步、提交前悄悄扫全仓」。
+# 门禁面只认代码 / 配置后缀（`GATED_SUFFIXES`）+ `bms文档/` 下的 `.md`（`DOC_PREFIXES`）：`scripts/`、
+# `frontend/` 里的目录说明文档（`.md`）**不进门禁**——它们不是判据来源，改说明不改变行为。此口径已拍板
+# （2026-11-03）：**勿把 `.md` 加进 `GATED_SUFFIXES`**，否则纯说明改动也会被拖进整条判定链。
 #
 # 运行前提（13_07 起）
 #   本地：`uv sync` 按 git 源依赖装好 engkit 包（`backend/pyproject.toml` 的 `[tool.uv.sources]`），
