@@ -44,7 +44,7 @@ import urllib.request
 from datetime import date
 
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
-# GitLab JSON / 命令行参数是动态结构（`json.loads` 结果无法静态表达），与 scripts/tools/ci/mcp_server.py 同口径：
+# GitLab JSON / 命令行参数是动态结构（`json.loads` 结果无法静态表达），与 scripts/tools/ci/status.py 同口径：
 # 只放宽「未知类型」三条，其余检查照常。
 from pathlib import Path
 from typing import Any

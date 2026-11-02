@@ -27,7 +27,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 """仓库根（`scripts/tools/ci/status.py` 上溯三层）。"""
 
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
-# GitLab JSON 是动态结构（`json.loads` 结果无法静态表达），与 mcp_server / defect 脚本同口径。
+# GitLab JSON 是动态结构（`json.loads` 结果无法静态表达），与 defect 脚本同口径。
 
 
 def _get(api: str, token: str, path: str) -> Any:
