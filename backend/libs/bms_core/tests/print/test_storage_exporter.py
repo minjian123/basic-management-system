@@ -55,8 +55,8 @@ class _Storage(BaseObjectStorage):
 class _Renderer:
     """测试渲染器（可按单据键注入失败）。"""
 
-    def __init__(self, fail_keys: tuple[str, ...] = ()) -> None:
-        self._fail = set(fail_keys)
+    def __init__(self, fail_keys: ConcurrentStableList[str] | None = None) -> None:
+        self._fail = set(fail_keys or ())
 
     def render_document(
         self, template: PrintTemplateInfo, document: PrintDocument, options: PrintOptions | None = None
@@ -149,7 +149,7 @@ async def test_batch_without_documents_renders_placeholder() -> None:
 
 async def test_batch_single_failure_does_not_abort() -> None:
     """单份失败计入 failed，其余继续。"""
-    exporter, _ = _exporter(renderer=_Renderer(fail_keys=("A",)))
+    exporter, _ = _exporter(renderer=_Renderer(fail_keys=ConcurrentStableList(("A",))))
     documents: ConcurrentStableList[PrintDocument] = ConcurrentStableList(
         (PrintDocument(biz_key="A"), PrintDocument(biz_key="B"))
     )
