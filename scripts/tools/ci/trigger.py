@@ -186,7 +186,7 @@ def trigger(api: str, token: str, project_id: str, ref: str) -> ConcurrentStable
     )
 
 
-def watch(project: str, pipeline_id: int, interval: int) -> int:
+def watch(project: str, pipeline_id: int, interval: int, *, fail_fast: bool = False) -> int:
     """盯守到终态（委托 `watch_pipeline`，job 级实时播报 + 失败当场给原因）。
 
     为什么委托：本脚本原先是「每轮打一行流水线状态」的空转，卡住时看不到任何 job 级信息。
@@ -196,6 +196,7 @@ def watch(project: str, pipeline_id: int, interval: int) -> int:
         project: 仓短名（bms / mdm / engkit）。
         pipeline_id: 流水线 ID。
         interval: 轮询间隔（秒）。
+        fail_fast: 出现失败 job 即返回（不等其余 job 跑完）。
 
     Returns:
         int: 盯守退出码（0 全部 success；1 存在非 success 或超时；2 用法 / 凭据问题）。
@@ -203,18 +204,19 @@ def watch(project: str, pipeline_id: int, interval: int) -> int:
     # 延迟导入：`watch_pipeline` 顶层反向依赖本模块（凭据与终态常量），顶层互相导入会成环。
     from watch_pipeline import main as watch_main
 
-    return watch_main(
-        ConcurrentStableList(
-            (
-                "--project",
-                project,
-                "--pipeline",
-                str(pipeline_id),
-                "--interval",
-                str(interval),
-            )
+    forwarded: ConcurrentStableList[str] = ConcurrentStableList(
+        (
+            "--project",
+            project,
+            "--pipeline",
+            str(pipeline_id),
+            "--interval",
+            str(interval),
         )
     )
+    if fail_fast:
+        forwarded.add("--fail-fast")
+    return watch_main(forwarded)
 
 
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
@@ -236,6 +238,11 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="只打印请求，不发")
     parser.add_argument("--watch", action="store_true", help="触发后轮询到终态")
     parser.add_argument("--interval", type=int, default=20, help="--watch 的轮询间隔秒数（缺省 20）")
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="配合 --watch：出现失败 job 即返回（不等其余 job 跑完）",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     env = load_env(ENV_FILE)
@@ -281,7 +288,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         (name for name, path in REPO_NAMES.items() if path == project),
         project.rsplit("/", 1)[-1],
     )
-    return watch(short, pipeline_id, max(5, int(args.interval)))
+    return watch(short, pipeline_id, max(5, int(args.interval)), fail_fast=bool(args.fail_fast))
 
 
 if __name__ == "__main__":
