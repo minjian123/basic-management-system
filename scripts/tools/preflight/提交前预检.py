@@ -52,10 +52,16 @@ from bms_core.core.concurrent import (  # noqa: E402
 )
 
 GATED_PREFIXES = ("backend/", "scripts/", "deploy/")
-"""需要门禁的路径前缀（`bms文档/`、`frontend/` 由各自步骤覆盖，不重复触发）。"""
+"""需要门禁的代码 / 配置路径前缀。"""
 
 GATED_SUFFIXES = (".py", ".toml", ".yml", ".yaml")
-"""需要门禁的后缀。"""
+"""需要门禁的代码 / 配置后缀。"""
+
+DOC_PREFIXES = ("bms文档/",)
+"""需要门禁的文档路径前缀（文档也过门禁：check_base / docs_scope / docs_status 均按改动文件增量判）。"""
+
+DOC_SUFFIXES = (".md",)
+"""需要门禁的文档后缀。"""
 
 CHANGED_LIST_PATH = Path(".cache") / "precommit" / "changed.txt"
 """暂存变更清单落点（仓内缓存目录，已忽略）。"""
@@ -72,6 +78,7 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "check_env_example.py",
         "boundary_metrics.py",
         "check_docs_scope.py",
+        "check_status.py",
         "engkit eol",
         "check_ci_config.py",
         "check_test_db_isolation.py",
@@ -224,7 +231,13 @@ def gated_files(files: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     Returns:
         ConcurrentStableList[str]: 需门禁的子集（空表示可直接放行）。
     """
-    return ConcurrentStableList(rel for rel in files if rel.startswith(GATED_PREFIXES) and rel.endswith(GATED_SUFFIXES))
+    picked: ConcurrentStableList[str] = ConcurrentStableList()
+    for rel in files:
+        if (rel.startswith(GATED_PREFIXES) and rel.endswith(GATED_SUFFIXES)) or (
+            rel.startswith(DOC_PREFIXES) and rel.endswith(DOC_SUFFIXES)
+        ):
+            picked.add(rel)
+    return picked
 
 
 def changed_py(files: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
@@ -437,7 +450,11 @@ def plan_steps(
     only_lint: bool,
     all_steps: bool,
     allow_full: bool,
-) -> tuple[ConcurrentStableList[PlannedStep], ConcurrentStableList[str], ConcurrentStableList[str]]:
+) -> tuple[
+    ConcurrentStableList[PlannedStep],
+    ConcurrentStableList[str],
+    ConcurrentStableList[str],
+]:
     """把预检步骤表换算成本次可执行的计划。
 
     Args:
@@ -508,9 +525,20 @@ def plan_steps(
             )
             continue
 
-        cmd = _render(ConcurrentStableFrozenList(step.cmd), root=root, python=python, changed=changed)
+        cmd = _render(
+            ConcurrentStableFrozenList(step.cmd),
+            root=root,
+            python=python,
+            changed=changed,
+        )
         if any("ruff" in part or "pyright" in part for part in step.cmd):
-            adapted = _adapt_lint(ConcurrentStableFrozenList(step.cmd), root=root, python=python, cwd=cwd, files=files)
+            adapted = _adapt_lint(
+                ConcurrentStableFrozenList(step.cmd),
+                root=root,
+                python=python,
+                cwd=cwd,
+                files=files,
+            )
             if adapted is None:
                 skipped.add(f"{step.label}（无对应改动文件）")
                 continue
@@ -528,7 +556,12 @@ def plan_steps(
             planned.add(
                 PlannedStep(
                     label=f"自测：{self_test.label}",
-                    cmd=_render(ConcurrentStableFrozenList(self_test.cmd), root=root, python=python, changed=changed),
+                    cmd=_render(
+                        ConcurrentStableFrozenList(self_test.cmd),
+                        root=root,
+                        python=python,
+                        changed=changed,
+                    ),
                     cwd="",
                 )
             )
@@ -554,7 +587,10 @@ def run_step(step: PlannedStep, *, root: Path) -> tuple[bool, float]:
     )
     elapsed = time.perf_counter() - started
     if completed.returncode != 0:
-        print(f"[precommit] ✗ {step.label}（{elapsed:.1f}s，退出码 {completed.returncode}）", file=sys.stderr)
+        print(
+            f"[precommit] ✗ {step.label}（{elapsed:.1f}s，退出码 {completed.returncode}）",
+            file=sys.stderr,
+        )
         return False, elapsed
     print(f"[precommit] ✓ {step.label}（{elapsed:.1f}s）")
     return True, elapsed
@@ -570,7 +606,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         int: 退出码（0 放行 / 1 有失败项）。
     """
     parser = argparse.ArgumentParser(
-        prog="提交前预检", description="提交前门禁（跑推送预检的全部检查项，范围到改动文件）"
+        prog="提交前预检",
+        description="提交前门禁（跑推送预检的全部检查项，范围到改动文件）",
     )
     parser.add_argument("--root", default=str(REPO_ROOT), help="仓库根（缺省为脚本所在仓）")
     parser.add_argument("--jobs", default="auto", help="选测并行档位：auto / 正整数 / off")
@@ -589,7 +626,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     all_files = staged_files(root, str(args.changed_from))
     files = gated_files(all_files)
     if not files:
-        print(f"[precommit] 本次变更 {len(all_files)} 个文件，无需门禁（无后端源码 / 脚本 / 部署配置），放行。")
+        print(f"[precommit] 本次变更 {len(all_files)} 个文件，无需门禁（无后端源码 / 脚本 / 部署配置 / 文档），放行。")
         return 0
 
     changed = write_changed_list(root, files)
@@ -611,7 +648,10 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         return 1
 
     if deferred:
-        print(f"[precommit] 拒绝提交：{len(deferred)} 个步骤只能全仓判定，无法限定到改动文件：", file=sys.stderr)
+        print(
+            f"[precommit] 拒绝提交：{len(deferred)} 个步骤只能全仓判定，无法限定到改动文件：",
+            file=sys.stderr,
+        )
         for note in deferred:
             print(f"[precommit]   - {note}", file=sys.stderr)
         print(
@@ -642,7 +682,10 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(f"[precommit] 未通过 {len(failed)} 项：", file=sys.stderr)
         for label in failed:
             print(f"[precommit]   - {label}", file=sys.stderr)
-        print("[precommit] 修完重新 `git add` 再提交（紧急回滚可用 `git commit --no-verify`）。", file=sys.stderr)
+        print(
+            "[precommit] 修完重新 `git add` 再提交（紧急回滚可用 `git commit --no-verify`）。",
+            file=sys.stderr,
+        )
         return 1
     print(f"[precommit] 全部通过（{len(planned)} 项，共 {total:.1f}s），允许提交。")
     return 0
