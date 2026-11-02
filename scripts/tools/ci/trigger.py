@@ -202,7 +202,8 @@ def watch(project: str, pipeline_id: int, interval: int, *, fail_fast: bool = Fa
         int: 盯守退出码（0 全部 success；1 存在非 success 或超时；2 用法 / 凭据问题）。
     """
     # 延迟导入：`watch_pipeline` 顶层反向依赖本模块（凭据与终态常量），顶层互相导入会成环。
-    from watch_pipeline import main as watch_main
+    # pyright 静态看不到同目录模块（`scripts/tools/ci` 不在 sys.path 的解析范围），按运行期事实忽略。
+    from watch_pipeline import main as watch_main  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
 
     forwarded: ConcurrentStableList[str] = ConcurrentStableList(
         (
@@ -216,7 +217,7 @@ def watch(project: str, pipeline_id: int, interval: int, *, fail_fast: bool = Fa
     )
     if fail_fast:
         forwarded.add("--fail-fast")
-    return watch_main(forwarded)
+    return watch_main(forwarded)  # pyright: ignore[reportUnknownVariableType]
 
 
 def main(argv: ConcurrentStableList[str] | None = None) -> int:

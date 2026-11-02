@@ -75,7 +75,7 @@ async def test_login_success_creates_session(client: AsyncClient, service_app: F
     wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     resp = await _login(client, "admin", "secret")
-    assert resp.status_code == 200
+    assert resp.status_code == 200, f"登录应 200，实际 {resp.status_code}：{resp.text}"
     data = resp.json()["data"]
     assert data["access_token"] and data["token_type"] == "Bearer" and data["expires_in"] == 1800
     assert data["user"] == {
@@ -234,7 +234,8 @@ async def test_login_rate_limited(client: AsyncClient, service_app: FastAPI) -> 
     wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     service_app.state.settings.login.account_rate_limit = 1
     try:
-        assert (await _login(client, "admin", "secret")).status_code == 200
+        first = await _login(client, "admin", "secret")
+        assert first.status_code == 200, f"首登应 200，实际 {first.status_code}：{first.text}"
         limited = await _login(client, "admin", "secret")
         assert limited.status_code == 429 and limited.json()["code"] == 10005
         keys = set(limiter._windows)  # pyright: ignore[reportPrivateUsage]

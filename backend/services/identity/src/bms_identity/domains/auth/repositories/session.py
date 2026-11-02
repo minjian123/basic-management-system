@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, func, select, update
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.identity.session import SysSession
@@ -104,20 +104,37 @@ class SessionRepository(BaseDbRepository[SysSession]):
         return await self.update(item.id, refresh_token_hash=refresh_token_hash, expires_at=expires_at)
 
     async def revoke(self, session_id: str, *, revoked_at: datetime) -> bool:
-        """撤销会话（置 `revoked_at`；幂等）。
+        """撤销会话（置 `revoked_at`；幂等，并发安全）。
+
+        用**条件置位**（`WHERE revoked_at IS NULL`，版本自增）而非 ORM 版本化更新：
+        并发撤销同一条会话（多端同时登录触发上限作废 / 并发踢人 / 批量作废）时，后到者
+        影响 0 行即视为「已被他人撤销」，与「幂等」语义一致；走 `update()` 则会因
+        `StaleDataError` 转译成 409，把正常的并发撤销暴露成客户端错误。
 
         Args:
             session_id: 会话 id。
             revoked_at: 撤销时间（UTC）。
 
         Returns:
-            bool: 命中并更新为 True；不存在为 False。
+            bool: 命中并更新为 True（含并发下已被他人撤销）；不存在为 False。
         """
         item = await self.get_by_session_id(session_id)
         if item is None:
             return False
         if item.revoked_at is None:
-            await self.update(item.id, revoked_at=revoked_at)
+            statement = (
+                update(SysSession)
+                .where(self._column("id") == item.id, self._column("revoked_at").is_(None))
+                .values(
+                    revoked_at=revoked_at,
+                    updated_at=revoked_at,
+                    version=self._column("version") + 1,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            await self._session.execute(statement)
+            # Core 语句不经过 ORM 事件：把同会话内的对象刷成落库值，避免后续读到过期属性
+            await self._session.refresh(item)
         return True
 
     async def list_active(
