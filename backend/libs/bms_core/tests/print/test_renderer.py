@@ -5,11 +5,12 @@ from __future__ import annotations
 import re
 
 import pytest
+from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFError
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.print.base import PrintDocument, PrintOptions, PrintTemplateInfo
-from bms_core.print.renderer import PdfRenderConfig, ReportPdfRenderer
+from bms_core.print.renderer import BUILTIN_CID_FONT, PdfRenderConfig, ReportPdfRenderer
 from bms_core.transfer.base import ColumnSpec
 
 pytestmark = pytest.mark.kiwi_id(2402)
@@ -169,3 +170,20 @@ def test_font_path_registers_and_reuses_ttf() -> None:
     second = ReportPdfRenderer(config=config)
     assert first.render_list("t", _COLUMNS, ConcurrentStableList()).startswith(b"%PDF")
     assert second.render_list("t", _COLUMNS, ConcurrentStableList()).startswith(b"%PDF")
+
+
+def test_builtin_font_already_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """内置 CID 字体已在册时不再重复注册（`_resolve_font` 的「未注册」判断取否）。"""
+    renderer = ReportPdfRenderer(config=PdfRenderConfig(footer_enabled=False))
+    monkeypatch.setattr(pdfmetrics, "getRegisteredFontNames", lambda: [BUILTIN_CID_FONT])
+    assert renderer._resolve_font() == BUILTIN_CID_FONT  # pyright: ignore[reportPrivateUsage]
+
+
+def test_render_document_without_fields() -> None:
+    """无字段区：`document.fields` 为空时跳过字段表格，仍产出 PDF。"""
+    document = PrintDocument(
+        biz_key="SO-2026-002",
+        fields=ConcurrentStableDict(),
+        rows=ConcurrentStableList(),
+    )
+    assert ReportPdfRenderer().render_document(_TEMPLATE, document).startswith(b"%PDF")
