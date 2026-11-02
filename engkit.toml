@@ -97,6 +97,11 @@ label = "护栏：后端基类体系（增量）"
 cmd = ["{python}", "scripts/tools/base_check/check_backend_base.py", "{root}", "--files-from", "{changed}"]
 
 [[devloop.steps]]
+label = "护栏：环境变量模板（增量）"
+# 只判清单内的模板（键位齐备 / 废弃键残留 / 疑似真实私钥）
+cmd = ["{python}", "scripts/tools/base_check/check_env_example.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
 label = "护栏：工作区卫生"
 cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
 
