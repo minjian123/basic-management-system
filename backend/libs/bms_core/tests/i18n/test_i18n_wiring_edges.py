@@ -7,6 +7,9 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import Any, cast
+
 import pytest
 
 from bms_core.core.assembly import RedisI18nCacheRegionFactory
@@ -16,22 +19,20 @@ from bms_core.dict.cache import MemoryDictCacheRegion
 from bms_core.dict.invalidate import DictInvalidator
 from bms_core.i18n.base import SUPPORTED_LOCALES
 from bms_core.i18n.cache import RedisI18nCacheRegion
-from bms_core.i18n.locale import LocaleInfo
-from bms_core.i18n.null import NullLocaleRegistry
 
 pytestmark = [pytest.mark.kiwi_id(2404)]
 
 
-class _EmptySnapshotRegistry(NullLocaleRegistry):
-    """清单能力域替身：已登记但快照为空（如装配完成、尚未预热）。"""
+def _empty_snapshot_registry() -> SimpleNamespace:
+    """清单能力域替身：已登记但快照为空（如装配完成、尚未预热）。
 
-    def snapshot(self) -> ConcurrentStableList[LocaleInfo]:
-        """返回空快照。
+    **刻意不继承 `BaseLocaleRegistry`**：任何 `BasePluggable` 子类都会被 `__init_subclass__`
+    自动登记，测试替身继承后会与 `(locale_registry, null)` 重名，导致全量跑时注册表构建失败。
 
-        Returns:
-            ConcurrentStableList[LocaleInfo]: 空序列。
-        """
-        return ConcurrentStableList()
+    Returns:
+        SimpleNamespace: 仅提供 `snapshot()` 的替身。
+    """
+    return SimpleNamespace(snapshot=lambda: ConcurrentStableList())
 
 
 def test_redis_cache_region_factory_creates_region() -> None:
@@ -43,5 +44,5 @@ def test_redis_cache_region_factory_creates_region() -> None:
 
 def test_dict_invalidator_locales_falls_back_when_snapshot_empty() -> None:
     """清单快照为空 → 失效语言回退出厂常量（不漏失效）。"""
-    invalidator = DictInvalidator(MemoryDictCacheRegion(), registry=_EmptySnapshotRegistry())
+    invalidator = DictInvalidator(MemoryDictCacheRegion(), registry=cast("Any", _empty_snapshot_registry()))
     assert invalidator.locales == ConcurrentStableList(SUPPORTED_LOCALES)
