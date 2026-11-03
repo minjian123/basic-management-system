@@ -794,7 +794,9 @@ def plan_steps(
                         (
                             python,
                             "scripts/tools/preflight/diff_coverage_gate.py",
-                            "--report",
+                            "--data-file",
+                            str(data_file),
+                            "--out",
                             str(report),
                             "--root",
                             str(root),
