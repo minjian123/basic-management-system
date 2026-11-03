@@ -282,3 +282,6 @@ mdm文档
 # 代码落点索引（脚本 scripts/tools/search/gen-code-index.py 秒级可重建的生成物；
 # 本地查用，不入库以免 docstring 频改造成 diff 噪音。语义成本高的《文档域路由索引》仍入库）
 bms文档/代码落点索引.md
+
+# IDE 工具目录（删除暂存等运行时状态，不入库；目录本身勿删）
+.codebuddy/
