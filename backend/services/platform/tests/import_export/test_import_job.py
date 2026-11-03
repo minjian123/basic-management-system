@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator, AsyncIterator, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from io import BytesIO
 from typing import cast
+from uuid import uuid4
 
 import pytest
 import pytest_asyncio
@@ -314,8 +315,12 @@ async def test_user_definition_columns_and_validation(shared_tenant_engine: Asyn
 async def test_job_progress_each_batch(job_env: JobEnv) -> None:
     """批次边界上报进度（非仅最终一次）。"""
     make_job, session_context, source = job_env
-    key = "demo/imports/source/job-progress.xlsx"
-    source.data[key] = _xlsx([["progress1", "甲", "", "", "启用", ""], ["progress2", "乙", "", "", "启用", ""]])
+    # 共享库叠加：用户名与源 key 都取唯一值，避免前序用例留下的同名行让作业判 failed
+    suffix = uuid4().hex[:8]
+    key = f"demo/imports/source/job-progress-{suffix}.xlsx"
+    source.data[key] = _xlsx(
+        [[f"progress1_{suffix}", "甲", "", "", "启用", ""], [f"progress2_{suffix}", "乙", "", "", "启用", ""]]
+    )
     job, captured = make_job(batch_size=1)
     result = await job.run(_context(captured, session_context, _payload(key)))
     assert result.status == "succeeded"
@@ -372,8 +377,9 @@ async def test_job_source_delete_failure_does_not_break(job_env: JobEnv) -> None
     """源文件删除失败只 warning，终态仍成功。"""
     make_job, session_context, _source = job_env
     source = _DeleteFailStore()
-    key = "demo/imports/source/job-delete-fail.xlsx"
-    source.data[key] = _xlsx([["deletefail", "甲", "", "", "启用", ""]])
+    suffix = uuid4().hex[:8]
+    key = f"demo/imports/source/job-delete-fail-{suffix}.xlsx"
+    source.data[key] = _xlsx([[f"deletefail_{suffix}", "甲", "", "", "启用", ""]])
     job, captured = make_job(source_store=source)
     result = await job.run(_context(captured, session_context, _payload(key)))
     assert result.status == "succeeded"
