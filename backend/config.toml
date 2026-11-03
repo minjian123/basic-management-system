@@ -47,6 +47,25 @@ redact_keys = []
 # 追加的敏感日志键名后缀（同上，只可追加）
 redact_suffixes = []
 
+[audit_log]
+# 操作 / 登录日志捕获与查询（06_01；`[audit]` 是字段级审计捕获器能力选择，两者不是同一口径）
+# 操作日志捕获开关（登录日志捕获不受本开关影响；单测公共夹具置 false）
+enabled = true
+# 记录的 HTTP 方法（读方法由端点显式声明 audit_read 另记）
+record_methods = ["POST", "PUT", "PATCH", "DELETE"]
+# 排除路径前缀（认证端点单独记登录日志）
+exclude_paths = ["/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout", "/api/v1/auth/introspect"]
+# 参数捕获上限（字节；超限只记路径与查询串）
+max_param_bytes = 8192
+# 查询未给时间范围时的默认回看天数
+query_default_days = 30
+# 单次查询最大时间跨度（天）
+max_query_days = 366
+# 分片预创建提前月数（0 = 仅当月）
+precreate_months_ahead = 1
+# 链校验巡检默认最近月数（含当月）
+chain_verify_months = 2
+
 [health]
 # 就绪探针单项检查超时（毫秒）
 check_timeout_ms = 2000
