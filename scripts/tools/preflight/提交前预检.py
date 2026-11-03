@@ -9,9 +9,9 @@
 - `scoped_tests` → 定向执行器（选测 + 覆盖率门禁 100% + 扩圈），只跑改动触及的用例；
 - `ruff` / `pyright` → 只跑改动文件（按步骤作用域筛 `backend/` 与 `scripts/`）；
 - 支持 `--files-from` 的步骤 → 追加改动清单，清单经**标准输入管道**喂给子进程（不落临时文件）：
-  - 脚本级 12 个（`check_base` / `check_system_fields` / `check_backend_base` / `check_env_example` /
+  - 脚本级 13 个（`check_base` / `check_system_fields` / `check_backend_base` / `check_env_example` /
     `boundary_metrics` / `check_docs_scope` / `check_status` / 集合声明 / 雪花 ID / 测试库隔离 /
-    产品字面量 / 服务边界），由 `[[devloop.steps]]` 带 `--files-from` 自动识别（零白名单维护）；
+    产品字面量 / 服务边界 / pragma 理由），由 `[[devloop.steps]]` 带 `--files-from` 自动识别（零白名单维护）；
   - 模块级 6 个（`ops.check_contracts` / `ops.contract_snapshot` / `ops.event_contracts` /
     `ops.gateway_config` / `ops.check_modules` / `api-types`），登记在 `MODULE_INCREMENTAL`；
   - `check_ci_config.py`：步骤命令在 `engkit.toml` 里不带 `--files-from`（推送环走全量），
@@ -108,6 +108,7 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "check_test_db_isolation.py",
         "check_bare_collections.py",
         "check_snowflake_ids.py",
+        "check_pragma_reason.py",
         "check_product_literals.py",
         "check_service_boundaries.py",
         "ops.check_contracts",
@@ -167,6 +168,8 @@ SCRIPT_INCREMENTAL: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         # CI 自检：脚本自己能按清单裁剪（只解析改动的 YAML；`.gitlab-ci.yml` 没改就不发 Lint），
         # 但它的步骤命令在 `engkit.toml` 里没带 `--files-from`（推送环走全量），故在此显式登记
         "check_ci_config.py",
+        # 覆盖率豁免理由：预检步骤在 `engkit.toml` 里走全量（存量基线只减不增），提交环只需判改动文件
+        "check_pragma_reason.py",
     )
 )
 """仅提交环追加清单的脚本（不在 `[[devloop.steps]]` 里，无法被自动识别）。"""
