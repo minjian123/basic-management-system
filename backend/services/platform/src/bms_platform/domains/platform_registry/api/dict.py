@@ -41,9 +41,10 @@ from bms_core.dict.query import (
     DictQueryProviderListResponse,
     DictQueryService,
 )
-from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
+from bms_core.i18n.registry import BaseLocaleRegistry
 from bms_core.query.base import BaseQueryProvider, BaseQueryProviderRegistry
 from bms_core.schemas.common import ApiResponse
+from bms_platform.api.locale import accept_locale
 
 router = BaseRouter(
     key="dict",
@@ -249,7 +250,7 @@ async def get_dict_by_type(
 
 
 def _accept_locale(request: Request) -> str:
-    """解析 `Accept-Language`（支持清单内匹配；缺省默认语言）。
+    """解析 `Accept-Language`（委托平台横切解析；有语言清单能力域时按库内清单）。
 
     Args:
         request: 请求对象。
@@ -257,15 +258,7 @@ def _accept_locale(request: Request) -> str:
     Returns:
         str: 生效语言。
     """
-    raw = request.headers.get("accept-language", "")
-    for part in raw.split(","):
-        tag = part.split(";")[0].strip()
-        if not tag:
-            continue
-        if tag in SUPPORTED_LOCALES:
-            return tag
-        prefix = tag.split("-")[0].lower()
-        for supported in SUPPORTED_LOCALES:
-            if supported.split("-")[0].lower() == prefix:
-                return supported
-    return DEFAULT_LOCALE
+    registry: BaseLocaleRegistry | None = None
+    if "app" in request.scope:
+        registry = cast("BaseLocaleRegistry | None", getattr(request.app.state, "locale_registry", None))
+    return accept_locale(request, registry)

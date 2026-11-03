@@ -51,10 +51,11 @@ async def test_null_translator_fixed() -> None:
 
 @pytest.mark.kiwi_id(60)
 async def test_dependency_provider_resolves() -> None:
-    """依赖解析：应用装配占位翻译器；路由经 get_translator 取到同一实例。"""
+    """依赖解析：应用装配翻译器（实现由配置决定）；路由经 get_translator 取到同一实例。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app):
-        assert isinstance(app.state.translator, NullTranslator)
+        assert isinstance(app.state.translator, BaseTranslator)
+        expected_type = type(app.state.translator).__name__
 
         @app.get("/i18n-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
@@ -67,4 +68,8 @@ async def test_dependency_provider_resolves() -> None:
             resp = await client.get("/i18n-probe")
 
         assert resp.status_code == 200
-        assert resp.json() == {"key": "translator", "type": "NullTranslator", "text": "common.confirm"}
+        payload = resp.json()
+        assert payload["key"] == "translator"
+        assert payload["type"] == expected_type
+        # 无语言包数据时（空库 / 未种子）取词回退 key 原文，不抛错
+        assert payload["text"] == "common.confirm"

@@ -21,6 +21,7 @@ from bms_core.core.plugin import resolve_plugin
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.dict.base import DictCacheRegion
 from bms_core.i18n.base import SUPPORTED_LOCALES
+from bms_core.i18n.registry import BaseLocaleRegistry
 
 __all__ = ["DictInvalidator", "get_dict_invalidator"]
 
@@ -30,15 +31,36 @@ _LOGGER = get_logger("bms")
 class DictInvalidator(BaseFrameworkObject):
     """字典版本化失效器（所有者域写路径的单一入口）。"""
 
-    def __init__(self, cache: DictCacheRegion, *, enabled: bool = True) -> None:
+    def __init__(
+        self,
+        cache: DictCacheRegion,
+        *,
+        enabled: bool = True,
+        registry: BaseLocaleRegistry | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             cache: 字典缓存域（与应用取数共用同一实例；区域决定 L1 / Redis 覆盖面）。
             enabled: 是否启用（`[dict].invalidate_on_write`；关掉即退化为 no-op，便于压测 / 排障）。
+            registry: 语言清单能力域（失效按**已登记语言**遍历，含停用；None 回退种子常量）。
         """
         self._cache = cache
         self._enabled = enabled
+        self._registry = registry
+
+    @property
+    def locales(self) -> ConcurrentStableList[str]:
+        """失效语言集合（已登记全部语言，含停用；无注册表时回退种子常量）。
+
+        Returns:
+            ConcurrentStableList[str]: 语言标识序列。
+        """
+        if self._registry is not None:
+            registered = ConcurrentStableList(item.code for item in self._registry.snapshot())
+            if registered:
+                return registered
+        return ConcurrentStableList(SUPPORTED_LOCALES)
 
     @property
     def enabled(self) -> bool:
@@ -62,9 +84,10 @@ class DictInvalidator(BaseFrameworkObject):
         if not self._enabled or not keys:
             return 0
         resolved = tenant if tenant is not None else current_tenant_id_str()
+        locales = self.locales
         try:
             for data_source_key in keys:
-                for locale in SUPPORTED_LOCALES:
+                for locale in locales:
                     await self._cache.adrop_type(resolved, locale, data_source_key)
                     await self._cache.adrop_id_subset(resolved, locale, data_source_key)
             version = await self._cache.aincrease_version(resolved)
@@ -93,4 +116,5 @@ def get_dict_invalidator(request: Request) -> DictInvalidator:
             expected_version=DictCacheRegion.contract_version,
         ),
     )
-    return DictInvalidator(cache, enabled=settings.dict_options.invalidate_on_write)
+    registry = cast("BaseLocaleRegistry | None", getattr(request.app.state, "locale_registry", None))
+    return DictInvalidator(cache, enabled=settings.dict_options.invalidate_on_write, registry=registry)

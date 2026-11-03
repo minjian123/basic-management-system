@@ -297,6 +297,27 @@ missing_ttl_seconds = 30     # 缺失键负缓存 TTL（秒；防穿透，远短
 version_check = true         # 读取时比对 bms:{tenant}:config:version（false = 退回旧行为，仅排障用）
 l1_max_items = 1024          # 进程内 L1 条目上限（LRU）
 
+[i18n]
+# 国际化缓存（05_01）：语言清单与语言包共用租户级版本键 bms:{tenant}:i18n:version
+messages_ttl_seconds = 300   # 语言包缓存 TTL（秒；写入共享层时叠加通用抖动）
+locales_ttl_seconds = 300    # 语言清单缓存 TTL（秒）
+version_check = true         # 读取时比对版本键（false = 退回纯 TTL，仅排障用）
+l1_max_items = 64            # 进程内 L1 条目上限（LRU；语言包按语言一条 + 清单一条）
+
+[i18n_cache_region]
+# 国际化缓存域实现：memory = 纯进程内（单测 / 无 Redis 可跑）、redis = Redis + 进程内 L1
+# 部署时置 redis 以获得跨实例即时一致；无 Redis 的进程保持 memory（语义正确、仅少一层共享）
+provider = "memory"
+
+[locale_registry]
+# 语言清单实现：sql = 读本服务租户库 sys_i18n_locale（platform 服务态）、空串 = null 占位（种子清单）
+# 其余服务态部署时可保持空串（本服务库无 i18n 表；语言解析回退种子清单，不影响取词）
+provider = "sql"
+
+[translator]
+# 翻译实现：db = 读本服务租户库 sys_i18n_message（platform 服务态）、空串 = null 占位（原样返回 key）
+provider = "db"
+
 [captcha]
 # 验证码实现选择（插件化配置；default = Pillow 出图 + Redis 一次性校验、空串解析到 null 占位）
 provider = "default"

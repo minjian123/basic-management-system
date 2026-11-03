@@ -1162,6 +1162,114 @@ class ConfigNoPlatformDefaultError(ConfigParamError):
         BizError.__init__(self, ErrorCode.CONFIG_NO_PLATFORM_DEFAULT, message, http_status=400, data=data)
 
 
+class I18nError(ConfigError):
+    """国际化段（`440xx`）异常基类：语言清单与语言包维护。"""
+
+
+class LocaleCodeExistsError(I18nError):
+    """语言标识已存在（`44001` / 409，大小写不敏感）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化语言标识冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOCALE_CODE_EXISTS, message, http_status=409, data=data)
+
+
+class LocaleHasMessagesError(I18nError):
+    """语言仍存在语言包数据，不可删除（`44002` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化语言存在文案异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOCALE_HAS_MESSAGES, message, http_status=409, data=data)
+
+
+class I18nMessageKeyInvalidError(I18nError):
+    """文案 key / 语言标识 / 文案值格式非法（`44003` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化格式非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.I18N_MESSAGE_KEY_INVALID, message, http_status=400, data=data)
+
+
+class LocaleLastEnabledError(I18nError):
+    """至少保留一种启用的语言（`44004` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化无启用语言异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOCALE_LAST_ENABLED, message, http_status=409, data=data)
+
+
+class LocaleDefaultProtectedError(I18nError):
+    """默认语言不可停用 / 不可删除（`44005` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化默认语言受保护异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOCALE_DEFAULT_PROTECTED, message, http_status=403, data=data)
+
+
+class LocaleDefaultConflictError(I18nError):
+    """默认语言标记缺失或重复（`44006` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化默认语言标记异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOCALE_DEFAULT_CONFLICT, message, http_status=409, data=data)
+
+
+class LocaleNotFoundError(I18nError):
+    """语言不存在（`44007` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化语言不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOCALE_NOT_FOUND, message, http_status=404, data=data)
+
+
+class I18nMessageNotFoundError(I18nError):
+    """语言包文案不存在 / 平台默认文案不可删除（`44008` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化文案不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.I18N_MESSAGE_NOT_FOUND, message, http_status=404, data=data)
+
+
 class FileError(BizError):
     """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
 

@@ -12,6 +12,8 @@ from bms_platform.api import (
     outbox,
     plugins,
 )
+from bms_platform.domains.i18n.api import locales as i18n_locales
+from bms_platform.domains.i18n.api import messages as i18n_messages
 from bms_platform.domains.import_export.api.exports import build_export_router
 from bms_platform.domains.import_export.api.imports import build_import_router
 from bms_platform.domains.job.api import internal_job as internal_job_api
@@ -112,6 +114,9 @@ api_router = mount_service_routers(
                 definitions_factory=build_export_definitions,
                 runner_factory=build_runner,
             ),
+            # 国际化（05_01）：语言清单维护 + 语言包下发 / 维护 / 缓存失效
+            i18n_locales.router,
+            i18n_messages.router,
         ]
     )
 )

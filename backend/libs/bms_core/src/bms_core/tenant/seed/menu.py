@@ -218,6 +218,7 @@ PERMISSION_SEEDS: ConcurrentStableList[tuple[str, str, str, str]] = ConcurrentSt
         ("dashboard", "query", "查询", "Query"),
         ("formdesign", "query", "查询", "Query"),
         ("i18n", "query", "查询", "Query"),
+        ("i18n", "manage", "管理（含查询与维护）", "Manage"),
         ("archive", "query", "查询", "Query"),
         ("backup", "query", "查询", "Query"),
         ("post", "query", "查询", "Query"),

@@ -1272,6 +1272,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/i18n/cache/invalidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Invalidate Cache
+         * @description 语言包缓存主动失效（需要 i18n:manage）。
+         *
+         *     失效「清单键 + 全部语言包键」并递增版本、刷新进程内快照；Redis 不可用时 `degraded=true` 且仍返回 200。
+         */
+        put: operations["invalidate_cache_api_v1_i18n_cache_invalidate_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/i18n/locales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Locales
+         * @description 语言清单分页查询。
+         *
+         *     需要 i18n:query 权限；支持按语言标识 / 名称关键字与状态筛选，可含回收站行。
+         */
+        get: operations["list_locales_api_v1_i18n_locales_get"];
+        put?: never;
+        /**
+         * Create Locale
+         * @description 新增语言（需要 i18n:manage）。
+         *
+         *     语言标识为 IETF 语言标签（如 ar-SA），大小写不敏感判重；`isDefault=true` 时同事务切换默认语言。
+         */
+        post: operations["create_locale_api_v1_i18n_locales_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/i18n/locales/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Enabled Locales
+         * @description 启用语言清单（登录即可访问）。
+         *
+         *     返回 `code` / `name` / `rtl` / 默认标记 / 排序，供各模块多语言文案字段渲染语言格；
+         *     走能力域缓存，新增语言后下一次请求即可见。
+         */
+        get: operations["list_enabled_locales_api_v1_i18n_locales_enabled_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/i18n/locales/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Locale
+         * @description 修改语言（需要 i18n:manage，乐观锁）。
+         *
+         *     默认语言不可停用（44005）；停用后须仍有启用语言（44004）；默认标记不可取消（44006）。
+         */
+        put: operations["update_locale_api_v1_i18n_locales__code__put"];
+        post?: never;
+        /**
+         * Delete Locale
+         * @description 删除语言（需要 i18n:manage）。
+         *
+         *     默认语言不可删除（44005）；仍有语言包数据的语言只能停用（44002）。
+         */
+        delete: operations["delete_locale_api_v1_i18n_locales__code__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/i18n/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Messages
+         * @description 语言包运行时下发（登录即可访问）。
+         *
+         *     `locale` 显式指定优先、缺省按 `Accept-Language` 解析；默认语言包打底、请求语言覆盖，
+         *     因此缺翻译时不会返回 key 原文。响应含 `locale` / `fallback` / `version` / `messages`。
+         */
+        get: operations["get_messages_api_v1_i18n_messages_get"];
+        /**
+         * Save Messages
+         * @description 语言包批量保存（需要 i18n:manage）。
+         *
+         *     差异三段：`adds` 命中已存在 `(key, locale)` 转更新；`updates` 必须带行 `version`；
+         *     `deletes` 仅允许删租户自建行。保存后按受影响语言失效缓存，响应含失效后的版本号。
+         */
+        put: operations["save_messages_api_v1_i18n_messages_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/i18n/messages/manage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @description 语言包维护列表（需要 i18n:query）。
+         *
+         *     支持按文案 key 关键字、模块前缀、语言与「只看缺失」筛选；`module` 由 key 首段派生。
+         */
+        get: operations["list_messages_api_v1_i18n_messages_manage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/icons": {
         parameters: {
             query?: never;
@@ -4559,6 +4712,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[CacheInvalidateResult] */
+        ApiResponse_CacheInvalidateResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["CacheInvalidateResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[CatalogSnapshotResponse] */
         ApiResponse_CatalogSnapshotResponse_: {
             /**
@@ -4839,6 +5006,62 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[LocaleDeleteResult] */
+        ApiResponse_LocaleDeleteResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LocaleDeleteResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LocaleItem] */
+        ApiResponse_LocaleItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LocaleItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LocaleListPayload] */
+        ApiResponse_LocaleListPayload_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LocaleListPayload"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LocalePage] */
+        ApiResponse_LocalePage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LocalePage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[LockItem] */
         ApiResponse_LockItem_: {
             /**
@@ -4889,6 +5112,48 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["MenuTree"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[MessagePage] */
+        ApiResponse_MessagePage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["MessagePage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[MessageSaveResult] */
+        ApiResponse_MessageSaveResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["MessageSaveResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[MessagesPayload] */
+        ApiResponse_MessagesPayload_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["MessagesPayload"] | null;
             /**
              * Message
              * @default ok
@@ -5657,6 +5922,22 @@ export interface components {
              * @enum {string}
              */
             type: "toolbar" | "interface";
+        };
+        /**
+         * CacheInvalidateResult
+         * @description 缓存主动失效结果。
+         */
+        CacheInvalidateResult: {
+            /**
+             * Degraded
+             * @description 是否降级（Redis 不可用时 true，不阻断保存）
+             */
+            degraded: boolean;
+            /**
+             * Version
+             * @description 失效后的版本号（0 = 失效失败）
+             */
+            version: number;
         };
         /**
          * CapabilityGrantCreateRequest
@@ -6489,6 +6770,37 @@ export interface components {
             version: number;
         };
         /**
+         * EnabledLocaleItem
+         * @description 启用语言清单条目（登录即可读；供多语言文案字段渲染语言格）。
+         */
+        EnabledLocaleItem: {
+            /**
+             * Code
+             * @description 语言标识
+             */
+            code: string;
+            /**
+             * Is Default
+             * @description 是否系统默认语言
+             */
+            is_default: boolean;
+            /**
+             * Name
+             * @description 语言名称
+             */
+            name: string;
+            /**
+             * Rtl
+             * @description 是否从右到左
+             */
+            rtl: boolean;
+            /**
+             * Sort
+             * @description 排序（升序）
+             */
+            sort: number;
+        };
+        /**
          * ExportArtifact
          * @description 导出产物（对象 key + 限时取址）。
          */
@@ -7284,6 +7596,179 @@ export interface components {
             priority: number;
         };
         /**
+         * LocaleCreateRequest
+         * @description 新增语言。
+         */
+        LocaleCreateRequest: {
+            /**
+             * Code
+             * @description 语言标识（IETF，如 ar-SA）
+             */
+            code: string;
+            /**
+             * Is Default
+             * @description 是否设为系统默认语言
+             * @default false
+             */
+            is_default: boolean;
+            /**
+             * Name
+             * @description 语言名称（本地名）
+             */
+            name: string;
+            /**
+             * Rtl
+             * @description 是否从右到左
+             * @default false
+             */
+            rtl: boolean;
+            /**
+             * Sort
+             * @description 排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             */
+            status: string;
+        };
+        /**
+         * LocaleDeleteResult
+         * @description 语言删除结果。
+         */
+        LocaleDeleteResult: {
+            /**
+             * Deleted
+             * @description 是否已删除
+             */
+            deleted: boolean;
+        };
+        /**
+         * LocaleItem
+         * @description 语言清单条目（维护列表 / 详情同构）。
+         */
+        LocaleItem: {
+            /**
+             * Code
+             * @description 语言标识（IETF 标准形态，如 zh-CN）
+             */
+            code: string;
+            /**
+             * Deleted At
+             * @description 软删除时间（回收站视图非空）
+             */
+            deleted_at?: string | null;
+            /**
+             * Id
+             * @description 语言主键
+             */
+            id: string;
+            /**
+             * Is Default
+             * @description 是否系统默认语言（全清单恰一条）
+             */
+            is_default: boolean;
+            /**
+             * Is Overridden
+             * @description 是否被租户改过（false=平台默认行）
+             */
+            is_overridden: boolean;
+            /**
+             * Name
+             * @description 语言名称（本地名）
+             */
+            name: string;
+            /**
+             * Rtl
+             * @description 是否从右到左（驱动前端布局方向）
+             */
+            rtl: boolean;
+            /**
+             * Sort
+             * @description 排序（升序）
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Updated At
+             * @description 最后更新时间（UTC）
+             */
+            updated_at?: string | null;
+            /**
+             * Version
+             * @description 乐观锁版本
+             */
+            version: number;
+        };
+        /**
+         * LocaleListPayload
+         * @description 启用语言清单载荷（只读出口）。
+         */
+        LocaleListPayload: {
+            /**
+             * Items
+             * @description 启用语言清单（按 sort 升序）
+             */
+            items?: components["schemas"]["EnabledLocaleItem"][];
+        };
+        /**
+         * LocalePage
+         * @description 语言清单分页响应。
+         */
+        LocalePage: {
+            /** List */
+            list: components["schemas"]["LocaleItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * LocaleUpdateRequest
+         * @description 修改语言（乐观锁：`version` 必填）。
+         */
+        LocaleUpdateRequest: {
+            /**
+             * Is Default
+             * @description 是否设为系统默认语言
+             */
+            is_default?: boolean | null;
+            /**
+             * Name
+             * @description 语言名称
+             */
+            name?: string | null;
+            /**
+             * Rtl
+             * @description 是否从右到左
+             */
+            rtl?: boolean | null;
+            /**
+             * Sort
+             * @description 排序（升序）
+             */
+            sort?: number | null;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status?: string | null;
+            /**
+             * Version
+             * @description 乐观锁版本（取详情里的当前值）
+             */
+            version: number;
+        };
+        /**
          * LockItem
          * @description 锁定记录行契约（列表 / 详情 / 手动锁定 / 解锁统一）。
          */
@@ -7594,6 +8079,195 @@ export interface components {
              * @enum {string}
              */
             status: "enabled" | "disabled";
+        };
+        /**
+         * MessageAddItem
+         * @description 新增文案行（已存在同 `(msg_key, locale)` 时转为更新，幂等）。
+         */
+        MessageAddItem: {
+            /**
+             * Locale
+             * @description 语言标识
+             */
+            locale: string;
+            /**
+             * Msg Key
+             * @description 文案 key（点分小写，至少两段）
+             */
+            msg_key: string;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Value
+             * @description 该语言文案
+             * @default
+             */
+            value: string;
+        };
+        /**
+         * MessageItem
+         * @description 语言包维护条目（一行 = 一个 key 的一种语言）。
+         */
+        MessageItem: {
+            /**
+             * Id
+             * @description 文案主键
+             */
+            id: string;
+            /**
+             * Is Overridden
+             * @description 是否被租户改过（false=平台默认行）
+             */
+            is_overridden: boolean;
+            /**
+             * Locale
+             * @description 语言标识
+             */
+            locale: string;
+            /**
+             * Module
+             * @description 模块前缀（msg_key 首段，派生）
+             */
+            module: string;
+            /**
+             * Msg Key
+             * @description 文案 key（模块.页面.字段）
+             */
+            msg_key: string;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Value
+             * @description 该语言文案（空白即缺失）
+             */
+            value: string;
+            /**
+             * Version
+             * @description 乐观锁版本
+             */
+            version: number;
+        };
+        /**
+         * MessagePage
+         * @description 语言包维护分页响应。
+         */
+        MessagePage: {
+            /** List */
+            list: components["schemas"]["MessageItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * MessageSaveRequest
+         * @description 语言包批量保存（差异三段 + 幂等键）。
+         */
+        MessageSaveRequest: {
+            /**
+             * Adds
+             * @description 新增行
+             */
+            adds?: components["schemas"]["MessageAddItem"][];
+            /**
+             * Deletes
+             * @description 删除行（仅租户自建行可删）
+             */
+            deletes?: number[];
+            /**
+             * Updates
+             * @description 修改行
+             */
+            updates?: components["schemas"]["MessageUpdateItem"][];
+        };
+        /**
+         * MessageSaveResult
+         * @description 语言包批量保存结果。
+         */
+        MessageSaveResult: {
+            /**
+             * Created
+             * @description 新增行数
+             */
+            created: number;
+            /**
+             * Deleted
+             * @description 删除行数
+             */
+            deleted: number;
+            /**
+             * Updated
+             * @description 修改行数
+             */
+            updated: number;
+            /**
+             * Version
+             * @description 失效后的缓存版本号（0 = 失效失败 / 降级）
+             */
+            version: number;
+        };
+        /**
+         * MessageUpdateItem
+         * @description 修改文案行（乐观锁）。
+         */
+        MessageUpdateItem: {
+            /**
+             * Id
+             * @description 文案主键
+             */
+            id: number;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Value
+             * @description 该语言文案
+             * @default
+             */
+            value: string;
+            /**
+             * Version
+             * @description 乐观锁版本
+             */
+            version: number;
+        };
+        /**
+         * MessagesPayload
+         * @description 语言包下发载荷。
+         */
+        MessagesPayload: {
+            /**
+             * Fallback
+             * @description 是否发生回退（请求语言未启用 / 未登记）
+             */
+            fallback: boolean;
+            /**
+             * Locale
+             * @description 生效语言（请求语言未启用时为默认语言）
+             */
+            locale: string;
+            /**
+             * Messages
+             * @description key → 文案
+             */
+            messages?: {
+                [key: string]: string;
+            };
+            /**
+             * Version
+             * @description 缓存版本号
+             */
+            version: number;
         };
         /**
          * ModuleResponse
@@ -13612,6 +14286,711 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    invalidate_cache_api_v1_i18n_cache_invalidate_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CacheInvalidateResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_locales_api_v1_i18n_locales_get: {
+        parameters: {
+            query?: {
+                /** @description 关键字（语言标识 / 名称模糊匹配） */
+                keyword?: string | null;
+                /** @description 状态筛选（enabled/disabled） */
+                status?: string | null;
+                /** @description 是否包含已软删行（回收站视图） */
+                include_deleted?: boolean;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LocalePage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_locale_api_v1_i18n_locales_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LocaleItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_enabled_locales_api_v1_i18n_locales_enabled_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LocaleListPayload_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_locale_api_v1_i18n_locales__code__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LocaleItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_locale_api_v1_i18n_locales__code__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LocaleDeleteResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_messages_api_v1_i18n_messages_get: {
+        parameters: {
+            query?: {
+                /** @description 语言标识（缺省按 Accept-Language 解析） */
+                locale?: string | null;
+            };
+            header?: {
+                /** @description 请求语言 */
+                "Accept-Language"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MessagesPayload_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    save_messages_api_v1_i18n_messages_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 幂等键（缺省按变更集派生） */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MessageSaveResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_messages_api_v1_i18n_messages_manage_get: {
+        parameters: {
+            query?: {
+                /** @description 关键字（文案 key 模糊匹配） */
+                keyword?: string | null;
+                /** @description 模块前缀（key 首段，如 common） */
+                module?: string | null;
+                /** @description 语言精确匹配 */
+                locale?: string | null;
+                /** @description 只看缺失（该语言无文案） */
+                missing_only?: boolean;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MessagePage_"];
                 };
             };
             /** @description 未认证 */

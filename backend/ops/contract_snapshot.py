@@ -142,7 +142,7 @@ def export(root: Path, *, to_stdout: bool = False) -> int:
             continue
         text = render_contract_json(ConcurrentStableDict(openapi))
         path = snapshot_path(root, service_key)
-        path.write_text(text, encoding="utf-8")
+        path.write_text(text, encoding="utf-8", newline="\n")
         if to_stdout:
             print(text, end="")
         else:

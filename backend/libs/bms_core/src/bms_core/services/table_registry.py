@@ -526,6 +526,22 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             note="系统参数（平台默认、租户覆盖）",
         ),
         TableRecord(
+            table_name="sys_i18n_locale",
+            owner="platform",
+            domain="i18n",
+            datasource=Datasource.TENANT,
+            status=TableStatus.ENABLED,
+            note="语言清单（默认语言标记 / RTL；05_01 落库，进租户链）",
+        ),
+        TableRecord(
+            table_name="sys_i18n_message",
+            owner="platform",
+            domain="i18n",
+            datasource=Datasource.TENANT,
+            status=TableStatus.ENABLED,
+            note="固定文案语言包（05_01 落库，进租户链）",
+        ),
+        TableRecord(
             table_name="sys_task",
             owner="platform",
             domain="task",

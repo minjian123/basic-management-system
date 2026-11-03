@@ -15,6 +15,22 @@ from collections.abc import Callable, Iterator
 import pytest
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """覆盖率入口守卫（工程根最早执行）：`pytest --cov` 或换落点立即退出（code=2）。
+
+    本仓**禁止手工采集覆盖率**：门禁只认 `[coverage].data_file`（engkit 采集）。
+    走错入口不报错会让「假缺口」反复误导排障，故在跑用例前直接终止；查缺口的唯一出口是
+    `scripts/tools/preflight/coverage_report.py`（`--module` 模块级 / `--changed` 改动行）。
+    口径见 `bms_core.testing.coverage_guard` 与《AI开发规范》「覆盖率要求」节。
+
+    Args:
+        config: pytest 配置对象。
+    """
+    from bms_core.testing.coverage_guard import assert_entrypoint
+
+    assert_entrypoint(config)
+
+
 @pytest.fixture
 def serial_db_write() -> Iterator[None]:
     """共享库**写路径**跨进程串行（单库叠加下「先读后写」必须排队）。

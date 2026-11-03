@@ -65,11 +65,17 @@ _plugin: Any = importlib.import_module("engkit.coverage_plugin")
 
 
 def pytest_configure(config: Any) -> None:
-    """守卫（全量测试 / 重命令）→ 注册测试基座夹具。
+    """覆盖率入口守卫 → 守卫（全量测试 / 重命令）→ 注册测试基座夹具。
+
+    覆盖率入口守卫最先执行（本仓专属，见 `bms_core.testing.coverage_guard`）：
+    `pytest --cov` 或换覆盖率落点一律在跑用例前退出（code=2）。
 
     Args:
         config: pytest 配置对象。
     """
+    from bms_core.testing.coverage_guard import assert_entrypoint
+
+    assert_entrypoint(config)
     _plugin.pytest_configure(config)
     from bms_core.testing import plugin as base_plugin
 

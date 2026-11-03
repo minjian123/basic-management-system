@@ -132,6 +132,19 @@ description = "系统参数默认值"
 sys_config = "config_key"
 
 [[seeds]]
+name = "seed-i18n"
+service = "tenant"
+db_key = "tenant_platform_{tenant}"
+module = "ops.seed_i18n"
+entry = "seed_i18n_entry"
+after = ["seed-tenant"]
+description = "语言清单与固定文案语言包（平台默认，05_01）"
+
+[seeds.tables]
+sys_i18n_locale = "code"
+sys_i18n_message = "code"
+
+[[seeds]]
 name = "seed-platform-role"
 service = "platform"
 db_key = "tenant_platform_{tenant}"
@@ -379,6 +392,18 @@ paths = [
 ]
 public_api = [
   "bms_platform.domains.platform_registry.public",
+]
+
+[[domains]]
+domain_key = "i18n"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/i18n/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/i18n.py",
+]
+public_api = [
+  "bms_platform.domains.i18n.public",
 ]
 
 [[domains]]

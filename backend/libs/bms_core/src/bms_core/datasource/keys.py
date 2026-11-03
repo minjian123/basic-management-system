@@ -18,12 +18,14 @@ __all__ = ["DataSourceKey", "platform_data_source_keys"]
 
 
 class DataSourceKey(StrEnum):
-    """平台内建数据源标识（12 个，与 `DATA_SOURCE_CATALOG` 一一对应）。"""
+    """平台内建数据源标识（与 `DATA_SOURCE_CATALOG` 一一对应）。"""
 
     ACTION = "action"
     BUSINESS = "business"
     CLIENT = "client"
     CONFIG = "config"
+    I18N_LOCALE = "i18n_locale"
+    I18N_MESSAGE = "i18n_message"
     ICON = "icon"
     IDENTITY_PROVIDER = "identity_provider"
     MODULE = "module"
@@ -38,6 +40,6 @@ def platform_data_source_keys() -> ConcurrentStableFrozenList[str]:
     """平台内建数据源标识清单（枚举声明序，供护栏与对账使用）。
 
     Returns:
-        ConcurrentStableFrozenList[str]: 12 个标识（不可变）。
+        ConcurrentStableFrozenList[str]: 全部标识（不可变）。
     """
     return ConcurrentStableFrozenList[str](key.value for key in DataSourceKey)

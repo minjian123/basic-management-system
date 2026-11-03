@@ -176,6 +176,20 @@ DATA_SOURCE_CATALOG: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFr
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
+            data_source_key=DataSourceKey.I18N_LOCALE.value,
+            name="语言清单",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key=DataSourceKey.I18N_MESSAGE.value,
+            name="语言包",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
             data_source_key=DataSourceKey.IDENTITY_PROVIDER.value,
             name="外部 IdP 配置",
             data_source="platform",

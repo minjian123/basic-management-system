@@ -62,6 +62,11 @@ ruff_config = "backend/pyproject.toml"
 # 增量口径：`{changed}` = 改动清单文件（git 基准为 `[preflight].since`），只扫改动文件；
 # 全量对账（基线 + 全局断言）仍在推送前预检里跑，两者分工见《AI开发规范》「开发环 / 推送环」。
 [[devloop.steps]]
+label = "护栏：pragma 理由（增量）"
+# `# pragma: no cover` 必须写 ` - 不可达原因`；否则出现永远补不上的分支缺口（存量基线只减不增）
+cmd = ["{python}", "scripts/tools/preflight/check_pragma_reason.py", "{root}", "--files-from", "{changed}"]
+
+[[devloop.steps]]
 label = "护栏：集合声明（增量）"
 cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "{root}", "--files-from", "{changed}"]
 
@@ -247,6 +252,11 @@ label = "护栏：测试库隔离（全量）"
 # 单库化收口（04-6-2）：默认路径统一到共享测试库后，把护栏从 devloop 的「增量」升到预检「全量」；
 # 新增自建 SQLite / 裸 int ID / 整表清理会被这一档拦住（白名单文件以 `own_db` 标记豁免，理由写在文件内）。
 cmd = ["{python}", "scripts/tools/base_check/check_test_db_isolation.py", "{root}"]
+
+[[preflight.steps]]
+label = "护栏：pragma 理由（全量；存量基线只减不增）"
+# 覆盖率豁免必须写明不可达原因；无理由的分支缺口会永远补不上（口径见《AI开发规范》「覆盖率要求」）
+cmd = ["{python}", "scripts/tools/preflight/check_pragma_reason.py", "{root}"]
 
 [[preflight.steps]]
 label = "后端静态：ruff check"

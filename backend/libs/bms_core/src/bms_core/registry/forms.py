@@ -129,6 +129,20 @@ FORM_CATALOG: ConcurrentStableList[FormRecord] = ConcurrentStableList(
             data_source_key=DataSourceKey.CONFIG.value,
         ),
         FormRecord(
+            form_key="i18n_locale",
+            table="sys_i18n_locale",
+            name="语言清单",
+            kind=FormKind.DICT.value,
+            data_source_key=DataSourceKey.I18N_LOCALE.value,
+        ),
+        FormRecord(
+            form_key="i18n_message",
+            table="sys_i18n_message",
+            name="语言包",
+            kind=FormKind.DICT.value,
+            data_source_key=DataSourceKey.I18N_MESSAGE.value,
+        ),
+        FormRecord(
             form_key="tenant",
             table="sys_tenant",
             name="租户",

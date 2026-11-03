@@ -265,6 +265,26 @@ class ConfigCacheSettings(BaseSettings):
     """进程内 L1 条目上限（LRU）。"""
 
 
+class I18nSettings(BaseSettings):
+    """国际化缓存参数（段 `[i18n]`；05_01）。
+
+    语言清单与语言包共用**租户级版本键**（`bms:{tenant}:i18n:version`）；写路径先 `DEL` 再 `INCR`，
+    读路径按版本比对（版本不一致即回源），`version_check=false` 时退回纯 TTL（仅排障用）。
+    """
+
+    messages_ttl_seconds: int = Field(default=300, ge=1)
+    """语言包缓存 TTL（秒；写入共享层时叠加通用抖动）。"""
+
+    locales_ttl_seconds: int = Field(default=300, ge=1)
+    """语言清单缓存 TTL（秒）。"""
+
+    version_check: bool = True
+    """读取时是否比对版本键（false = 退回纯 TTL）。"""
+
+    l1_max_items: int = Field(default=64, ge=1)
+    """进程内 L1 条目上限（LRU）。"""
+
+
 class FileSettings(BaseSettings):
     """文件管理进程级参数（段 `[file]`；03_01）。
 
@@ -1525,6 +1545,9 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     hash_chain: PluginSelection = Field(default_factory=PluginSelection)
     health_check_registry: PluginSelection = Field(default_factory=PluginSelection)
     http_client: PluginSelection = Field(default_factory=PluginSelection)
+    i18n_cache_region: PluginSelection = Field(default_factory=PluginSelection)
+    i18n_options: I18nSettings = Field(default_factory=I18nSettings, validation_alias="i18n")
+    """国际化缓存参数（TOML 段 `[i18n]`；字段名不叫 `i18n` 以免与命名空间歧义）。"""
     icon_registry: PluginSelection = Field(default_factory=PluginSelection)
     idempotency: PluginSelection = Field(default_factory=PluginSelection)
     identity_provider: IdentityProviderSettings = Field(default_factory=IdentityProviderSettings)
@@ -1532,6 +1555,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     idp_state_store: PluginSelection = Field(default_factory=PluginSelection)
     importer: PluginSelection = Field(default_factory=PluginSelection)
     llm_provider: PluginSelection = Field(default_factory=PluginSelection)
+    locale_registry: PluginSelection = Field(default_factory=PluginSelection)
     login: LoginSettings = Field(default_factory=LoginSettings)
     masking: PluginSelection = Field(default_factory=PluginSelection)
     metrics: PluginSelection = Field(default_factory=PluginSelection)

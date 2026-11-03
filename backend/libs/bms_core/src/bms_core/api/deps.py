@@ -42,6 +42,9 @@ from bms_core.fieldtype.base import get_field_type_registry
 from bms_core.globalsearch.base import get_audit_search, get_file_content_search, get_global_search
 from bms_core.health.base import get_health_check_registry
 from bms_core.i18n.base import get_translator
+from bms_core.i18n.cache import get_i18n_cache_region
+from bms_core.i18n.invalidate import get_i18n_invalidator
+from bms_core.i18n.registry import get_locale_registry
 from bms_core.icon.base import get_icon_registry
 from bms_core.idempotency.base import get_idempotency_store
 from bms_core.idp.base import get_identity_provider
@@ -118,12 +121,15 @@ __all__ = [
     "get_hash_chain",
     "get_health_check_registry",
     "get_http_client",
+    "get_i18n_cache_region",
+    "get_i18n_invalidator",
     "get_icon_registry",
     "get_idempotency_store",
     "get_identity_provider",
     "get_idp_state_store",
     "get_importer",
     "get_llm_provider",
+    "get_locale_registry",
     "get_masker",
     "get_metrics",
     "get_multipart_upload",

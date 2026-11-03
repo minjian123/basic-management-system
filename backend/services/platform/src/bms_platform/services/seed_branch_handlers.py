@@ -46,6 +46,7 @@ def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegi
     Returns:
         BranchHandlerRegistry: 同一个注册表（便于链式调用）。
     """
+    from bms_core.i18n.seed import seed_i18n_entry
     from bms_core.tenant.seed.config import seed_configs_entry
     from bms_core.tenant.seed.menu import seed_menu_entry
     from bms_core.tenant.seed.module import seed_modules_entry
@@ -59,6 +60,7 @@ def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegi
     handlers.set("seed-menu", cast("BranchHandler", seed_menu_entry))
     handlers.set("seed-tenant", cast("BranchHandler", seed_tenants_entry))
     handlers.set("seed-config", cast("BranchHandler", seed_configs_entry))
+    handlers.set("seed-i18n", cast("BranchHandler", seed_i18n_entry))
     handlers.set("seed-platform-role", cast("BranchHandler", seed_platform_roles_entry))
     handlers.set("seed-platform-grant", cast("BranchHandler", seed_platform_grants_entry))
     handlers.set("seed-rbac-role", cast("BranchHandler", seed_rbac_roles_entry))

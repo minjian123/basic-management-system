@@ -83,6 +83,10 @@ from bms_core.health.base import BaseHealthCheckRegistry
 from bms_core.health.checks import CatalogHealthCheck, DatabaseHealthCheck, RedisHealthCheck
 from bms_core.health.registry import HealthCheckRegistry
 from bms_core.i18n.base import BaseTranslator
+from bms_core.i18n.cache import I18nCacheRegion, MemoryI18nCacheRegion, RedisI18nCacheRegion
+from bms_core.i18n.db import DbTranslator
+from bms_core.i18n.registry import BaseLocaleRegistry
+from bms_core.i18n.registry_sql import SqlLocaleRegistry
 from bms_core.icon.base import BaseIconRegistry
 from bms_core.idempotency.base import IdempotencyStore
 from bms_core.idempotency.redis import RedisIdempotencyStore
@@ -209,7 +213,9 @@ _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.fieldtype.null",
         "bms_core.globalsearch.null",
         "bms_core.health.null",
+        "bms_core.i18n.cache_null",
         "bms_core.i18n.null",
+        "bms_core.i18n.registry_null",
         "bms_core.icon.null",
         "bms_core.idempotency.null",
         "bms_core.idp.null",
@@ -308,6 +314,8 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("token_codec", BaseTokenCodec, "token_codec", "token_codec"),
         PluginWiring("session_security", BaseSessionSecurity, "session_security", "session_security"),
         PluginWiring("dict_cache_region", DictCacheRegion, "dict_cache_region", "dict_cache_region"),
+        PluginWiring("i18n_cache_region", I18nCacheRegion, "i18n_cache_region", "i18n_cache_region"),
+        PluginWiring("locale_registry", BaseLocaleRegistry, "locale_registry", "locale_registry"),
         PluginWiring("data_source", BaseDataSource, "data_source", "data_source"),
         PluginWiring("dict_translator", BaseDictTranslator, "dict_translator", "dict_translator"),
         PluginWiring("object_storage", BaseObjectStorage, "storage", "object_storage"),
@@ -423,6 +431,10 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("dict_translator", "http", HttpDictTranslatorFactory(app))
     register_plugin("config_cache_region", "memory", MemoryConfigCacheRegionFactory(settings))
     register_plugin("config_cache_region", "redis", RedisConfigCacheRegionFactory(settings))
+    register_plugin("i18n_cache_region", "memory", MemoryI18nCacheRegionFactory(settings))
+    register_plugin("i18n_cache_region", "redis", RedisI18nCacheRegionFactory(settings))
+    register_plugin("locale_registry", "sql", SqlLocaleRegistryFactory(app))
+    register_plugin("translator", "db", DbTranslatorFactory(app))
     register_plugin("config_source", "sql", SqlConfigSourceFactory(app))
     register_plugin("config_source", "http", HttpConfigSourceFactory(app))
     register_plugin("query_scheme_store", "sql", SqlQuerySchemeStoreFactory(app))
@@ -1180,6 +1192,120 @@ class RedisConfigCacheRegionFactory(BasePluginFactory[RedisConfigCacheRegion]):
         return RedisConfigCacheRegion(url=self._settings.redis.url)
 
 
+class MemoryI18nCacheRegionFactory(BasePluginFactory[MemoryI18nCacheRegion]):
+    """国际化缓存·进程内实现工厂（插件名 `memory`）。"""
+
+    plugin_key: str = "i18n_cache_region"
+    plugin_name: str = "memory"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取 `[i18n].l1_max_items`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> MemoryI18nCacheRegion:
+        """构造内存缓存域。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MemoryI18nCacheRegion: 内存缓存域实例。
+        """
+        return MemoryI18nCacheRegion(max_items=self._settings.i18n_options.l1_max_items)
+
+
+class RedisI18nCacheRegionFactory(BasePluginFactory[RedisI18nCacheRegion]):
+    """国际化缓存·Redis 实现工厂（注入 Redis 连接串）。"""
+
+    plugin_key: str = "i18n_cache_region"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（取 `[redis].url` 与 `[i18n].l1_max_items`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisI18nCacheRegion:
+        """构造 Redis 缓存域。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisI18nCacheRegion: Redis 缓存域实例。
+        """
+        return RedisI18nCacheRegion(
+            url=self._settings.redis.url,
+            max_items=self._settings.i18n_options.l1_max_items,
+        )
+
+
+class SqlLocaleRegistryFactory(BasePluginFactory[SqlLocaleRegistry]):
+    """语言清单 SQL 实现工厂（注入引擎注册表与已装配缓存域）。"""
+
+    plugin_key: str = "locale_registry"
+    plugin_name: str = "sql"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取 `engine_registry` 与已装配 `i18n_cache_region`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> SqlLocaleRegistry:
+        """构造语言清单实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            SqlLocaleRegistry: 语言清单实例。
+        """
+        engines = cast("EngineRegistry", self._app.state.engine_registry)
+        cache = cast("I18nCacheRegion | None", getattr(self._app.state, "i18n_cache_region", None))
+        settings = cast("Settings", self._app.state.settings)
+        return SqlLocaleRegistry(engines=engines, cache=cache, options=settings.i18n_options)
+
+
+class DbTranslatorFactory(BasePluginFactory[DbTranslator]):
+    """翻译真实实现工厂（注入引擎注册表、语言清单与缓存域）。"""
+
+    plugin_key: str = "translator"
+    plugin_name: str = "db"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取 `engine_registry` / `locale_registry` / `i18n_cache_region`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> DbTranslator:
+        """构造翻译实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            DbTranslator: 翻译实例。
+        """
+        engines = cast("EngineRegistry", self._app.state.engine_registry)
+        registry = cast("BaseLocaleRegistry", self._app.state.locale_registry)
+        cache = cast("I18nCacheRegion | None", getattr(self._app.state, "i18n_cache_region", None))
+        settings = cast("Settings", self._app.state.settings)
+        return DbTranslator(engines=engines, registry=registry, cache=cache, options=settings.i18n_options)
+
+
 class SqlConfigSourceFactory(BasePluginFactory[SqlConfigSource]):
     """系统参数 SQL 取数工厂（注入引擎注册表与已装配缓存域）。"""
 
@@ -1697,8 +1823,24 @@ async def assemble_plugins(
         assembled.add(wiring.plugin_key)
     app.state.plugin_providers = providers
     app.state.assembled_plugin_keys = assembled
+    await _warm_locale_registry(app)
     _LOGGER.info("插件装配完成", keys=",".join(assembled), providers=providers)
     return providers
+
+
+async def _warm_locale_registry(app: FastAPI) -> None:
+    """预热语言清单进程内快照（同步解析路径依赖它；失败只告警并回退种子清单）。
+
+    Args:
+        app: 应用实例（已装配能力落 `app.state`）。
+    """
+    registry = getattr(app.state, "locale_registry", None)
+    if registry is None:
+        return
+    try:
+        await cast("BaseLocaleRegistry", registry).refresh()
+    except Exception as exc:  # 预热失败不拒启：`resolve_locale` 会回退种子清单
+        _LOGGER.warning("语言清单预热失败", error=repr(exc))
 
 
 def _resolve_or_reject(wiring: PluginWiring, provider: str) -> object:

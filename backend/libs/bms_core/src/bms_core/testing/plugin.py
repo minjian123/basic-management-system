@@ -75,6 +75,11 @@ def pytest_configure(config: pytest.Config) -> None:
     Args:
         config: pytest 配置对象。
     """
+    # 覆盖率入口守卫最先执行：`pytest --cov` / 换覆盖率落点在本钩子里直接终止（code=2）。
+    # 本钩子被**所有**子工程 addopts（`-p bms_core.testing.plugin`）与工程根插件转调，是唯一全覆盖入口。
+    from bms_core.testing.coverage_guard import assert_entrypoint
+
+    assert_entrypoint(config)
     # 共享测试库基址钉在会话起始的工程根：用例 `chdir` 后解析夹具也不会把库落到临时目录
     # （否则表现为随机的「no such table」；见 `fixtures.configure_project_root`）。
     fixtures.configure_project_root(os.getcwd())
