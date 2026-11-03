@@ -39,3 +39,54 @@ module = "bms_identity"
 backend = "backend"
 host = "127.0.0.5"
 db_dir = "../database/bms"
+
+# 以下六个服务已在 `deploy/compose/services.yml` 实现（各自镜像与 worker_id），
+# 此前未进本机裸跑声明 → 本地「全套」起不到它们，装配类问题只能在测试里间接暴露。
+# 统一 `after = ["platform"]`：启动期要向平台上报服务声明 / 取字典与参数。
+[[services]]
+key = "file"
+module = "bms_file"
+backend = "backend"
+host = "127.0.0.7"
+db_dir = "../database/bms"
+after = ["platform"]
+
+[[services]]
+key = "notification"
+module = "bms_notification"
+backend = "backend"
+host = "127.0.0.8"
+db_dir = "../database/bms"
+after = ["platform"]
+
+[[services]]
+key = "search"
+module = "bms_search"
+backend = "backend"
+host = "127.0.0.9"
+db_dir = "../database/bms"
+after = ["platform"]
+
+[[services]]
+key = "ai"
+module = "bms_ai"
+backend = "backend"
+host = "127.0.0.10"
+db_dir = "../database/bms"
+after = ["platform"]
+
+[[services]]
+key = "report"
+module = "bms_report"
+backend = "backend"
+host = "127.0.0.11"
+db_dir = "../database/bms"
+after = ["platform"]
+
+[[services]]
+key = "txn"
+module = "bms_txn"
+backend = "backend"
+host = "127.0.0.12"
+db_dir = "../database/bms"
+after = ["platform"]
