@@ -12,6 +12,8 @@
 #   测试改动内容.py        开发环：转发 `engkit run-changed`（只跑改动相关：直接依赖测试 + 前端受影响包 + 改动文件 ruff）
 #   test_selection.py     选测器：转发 `engkit selection`
 #   coverage_gate.py      覆盖率门禁：转发 `engkit coverage`
+#   diff_coverage_gate.py 改动行覆盖率门禁：转发 `engkit coverage-changed`（**提交环专用**：只判本次 diff
+#                         触达的可执行行；推送环仍走 coverage_gate 的模块级 100%）
 #   parallel_jobs.py      `--jobs` 映射：转发 `engkit.preflight.jobs_args / describe`
 #   heavy_command_guard.py 重命令拦截：转发 `engkit.guard`（判定 / 提示 / pytest 插件入口）
 #   full_test_guard.py    全量测试守卫：转发 `engkit.guard`（开发期间一律拒绝；仅推送入口内部授权 / CI 放行）
@@ -43,7 +45,9 @@
 #
 # 提交前门禁（`提交前预检.py`，装为 `.git/hooks/pre-commit`）：**步骤表与推送预检同源**（同一份
 # `[[preflight.steps]]`，一步不少），范围按「能增量就增量」——
-#   · 选测 → 定向执行器（选测 + 覆盖率门禁 + 扩圈），只跑改动触及的用例；
+#   · 选测 → 定向执行器（选测 + 覆盖率门禁 + 扩圈），只跑改动触及的用例；其中**覆盖率按「改动行」判**
+#     （只要求本次 diff 触达的可执行行被执行，未改动代码不参与；无同名测试的模块不采集、跳过），
+#     模块级 100% 只由推送环 / CI 判；
 #   · `ruff` / `pyright` → 只跑改动文件；
 #   · 脚本级 12 个 + 模块级 6 个步骤 → 追加 `--files-from -`，清单经**标准输入管道**喂入（不落盘，
 #     回避 Windows 命令行长度上限）；是否增量由 `[[devloop.steps]]` 带 `--files-from` 自动识别；
@@ -69,7 +73,9 @@
 #   2. 选测、并行、覆盖率、拦截的实现只有一份：`engkit` 的 `selection.py` / `preflight.py` /
 #      `coverage.py` / `guard.py`；bms 侧护栏用例锁「包装只转发」。
 #   3. 预算护栏（单步 / 总体）与步骤清单在 `engkit.toml`；改预算即改配置，不要改代码。
-#   4. 覆盖率门禁口径见《AI开发规范》「覆盖率要求」节。
+#   4. 覆盖率门禁口径见《AI开发规范》「覆盖率要求」节；**两环分工不同**：提交环判「改动行」
+#      （`diff_coverage_gate.py` → `engkit coverage-changed`），推送环 / CI 判「模块级 100%」
+#      （`coverage_gate.py` → `engkit coverage`）。
 #   5. 开发期只跑改动相关（开发环）与单文件 / 单节点；宽目录 pytest、无参数 ruff / pyright
 #      由重命令守卫拦下，跨模块排查走推送预检 / CI，不得整轮重跑。
 #   6. **全量测试只由 CI 执行**：开发期间无目标 / 宽目录 / `--pyargs` 的 pytest 一律被全量守卫拒绝
