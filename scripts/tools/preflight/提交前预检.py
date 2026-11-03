@@ -51,7 +51,6 @@ ensure_engkit()
 
 from engkit import coverage as engkit_coverage  # noqa: E402
 from engkit.config import Config, load_for  # noqa: E402
-from engkit.preflight import gate_command  # noqa: E402
 
 from bms_core.core.concurrent import (  # noqa: E402
     ConcurrentStableFrozenDict,
@@ -790,11 +789,19 @@ def plan_steps(
             )
             planned.add(
                 PlannedStep(
-                    label=(f"覆盖率门禁（改动文件 {len(modules)} 个模块，行 + 分支 {cfg.coverage.fail_under:g}%）"),
+                    label=f"覆盖率门禁（改动行；采集 {len(modules)} 个模块）",
                     cmd=ConcurrentStableList(
-                        gate_command(cfg, data_file, report, list(modules), cfg.coverage.fail_under)
+                        (
+                            python,
+                            "scripts/tools/preflight/diff_coverage_gate.py",
+                            "--report",
+                            str(report),
+                            "--root",
+                            str(root),
+                        )
                     ),
-                    cwd="backend",
+                    cwd="",
+                    stdin_text=stdin_list,
                 )
             )
             continue
