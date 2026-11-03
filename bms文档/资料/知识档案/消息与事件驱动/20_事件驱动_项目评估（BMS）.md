@@ -15,7 +15,7 @@
 | 事件总线 | 01_01 已交付：事务性发件箱 + 轮询投递器 + 消费幂等 + 死信看板 + 指标 |
 | 表结构 | `sys_outbox` / `sys_event_consumed` / `sys_event_dead_letter`，表名写死 |
 | 使用方 | 06_01 操作 / 登录审计经 `audit-chain` 有序组消费；06_02 字段级审计计划复用 |
-| 同步调用 | `HttpServiceClient`（httpx + JSON，OpenAPI 契约），性能不足 |
+| 同步调用 | `HttpServiceClient`（httpx + JSON）调 FastAPI 服务；瓶颈在 **FastAPI 框架栈**（路由匹配 / 依赖注入 / Pydantic 校验与序列化 / 中间件）与 httpx 连接开销，**不在 OpenAPI**（OpenAPI 只是契约规范，不产生运行时开销） |
 | 事务消息 | `EventPublisher.publish_transactional()` 已留接口，当前委托普通发送（备选，未启用） |
 | 账本能力 | `replay()` 按事件 / 类型 / 聚合 / 时间重放；死信可重投 / 忽略 |
 | 已知短板 | 多实例投递无行锁 / 租约；基础设施表名写死导致共库撞名；事件与 RPC 两套机制 |
