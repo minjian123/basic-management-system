@@ -50,85 +50,7 @@ workspace_protocol = "workspace:"
 [selection]
 base_threshold = 100
 base_ratio = 0.6
-# 开发环（`测试改动内容.sh`）的依赖深度：direct = 只认直接 import，不做传递闭包
-# 推送前预检固定用 closure（不受本项影响），口径见《AI开发规范》「开发环 / 推送环」
-depth = "direct"
-# 开发环只对改动文件跑 ruff（静态全量留推送前预检）
-ruff_cmd = "uv run --project backend ruff"
-ruff_config = "backend/pyproject.toml"
 
-# ---- 开发环附加步骤（07C 后增；命令模板占位见 engkit 文档「增量扫描」）----
-# 位置约定：ruff（改动文件）之后、选测之前——护栏是秒级，先失败先修，省掉后续测试时间。
-# 增量口径：`{changed}` = 改动清单文件（git 基准为 `[preflight].since`），只扫改动文件；
-# 全量对账（基线 + 全局断言）仍在推送前预检里跑，两者分工见《AI开发规范》「开发环 / 推送环」。
-[[devloop.steps]]
-label = "护栏：pragma 理由（增量）"
-# `# pragma: no cover` 必须写 ` - 不可达原因`；否则出现永远补不上的分支缺口（存量基线只减不增）
-cmd = ["{python}", "scripts/tools/preflight/check_pragma_reason.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：集合声明（增量）"
-cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：雪花 ID（增量）"
-cmd = ["{python}", "scripts/tools/base_check/check_snowflake_ids.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：测试库隔离（增量）"
-cmd = ["{python}", "scripts/tools/base_check/check_test_db_isolation.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：产品字面量（增量）"
-cmd = ["{python}", "scripts/tools/base_check/check_product_literals.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：服务边界（逐文件增量 + 全局全量）"
-cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：基座完整性（增量）"
-# 跨层引用 / 措辞残留 / 编号引用按清单内文档判；清单一致、设计登记、命名形态为全仓判据（推送环）
-cmd = ["{python}", "scripts/tools/base_check/check_base.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：系统字段（增量）"
-# 表文件只读清单内 .md，清单侧同步裁到这些表
-cmd = ["{python}", "scripts/tools/base_check/check_system_fields.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：后端基类体系（增量）"
-# 只判清单内文件定义的类 / 迁移 / 错误码；单 head 数与 alembic.ini 段位为全仓判据（推送环）
-cmd = ["{python}", "scripts/tools/base_check/check_backend_base.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：环境变量模板（增量）"
-# 只判清单内的模板（键位齐备 / 废弃键残留 / 疑似真实私钥）
-cmd = ["{python}", "scripts/tools/base_check/check_env_example.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "度量：服务边界与跨库（增量）"
-# 只采清单内文件的逐文件判据；跨服务表名 / 归属对账等全局判据恒全量
-cmd = ["{python}", "scripts/tools/governance/boundary_metrics.py", "--root", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "文档：check_docs_scope（增量）"
-# 只判清单内文档（进度类字段落点）
-cmd = ["{python}", "scripts/tools/base_check/check_docs_scope.py", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "文档：check_status（增量）"
-# 只核对清单命中的阶段（阶段内三向对账仍需整段核）
-cmd = ["{python}", "scripts/tools/check_docs/check_status.py", "--root", "{root}", "--files-from", "{changed}"]
-
-[[devloop.steps]]
-label = "护栏：工作区卫生"
-cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
-
-[[devloop.steps]]
-label = "后端静态：pyright（仅改动文件）"
-cmd = ["{python}", "-m", "pyright", "--project", "backend", "--pythonpath", "{python}", "{changed_py*}"]
-only_if = "changed_py"
 
 [rules.backend.global]
 exact = ["backend/pyproject.toml", "backend/uv.lock", ".gitlab-ci.yml"]
@@ -214,9 +136,10 @@ max_rounds = 2
 cwd = "."
 since = "origin/main"
 
-# 场景闸门（2026-10-29 拍板）：预检是**推送的内部步骤**（`engkit push`），本地不再有独立入口；
-# 工作树有未提交改动（含未跟踪文件）即拒绝执行、零步骤执行——开发中改完即测走
-# `scripts/tools/preflight/测试改动内容.py`（开发环）。
+# 场景闸门（2026-10-29 拍板）：推送预检是**推送的内部步骤**（`engkit push`），本地不再有独立入口；
+# 工作树有未提交改动（含未跟踪文件）即拒绝执行、零步骤执行。
+# 开发环（`测试改动内容` / `engkit run-changed`）已于 2026-11-03 移除：它与提交前预检重复（同跑静态 + 选测），
+# 改为「提交即预检」一次跑全，按失败清单一次性修正，不再先跑一遍再跑一遍。
 # 审计：真跑 / 被拒两类事件，一行一条 JSON（落 `.cache/`，不进 git）；写盘失败 fail-open。
 [preflight.gate]
 dirty_tree = true
@@ -249,7 +172,7 @@ cmd = ["{python}", "scripts/tools/preflight/check_ci_config.py", "{root}"]
 
 [[preflight.steps]]
 label = "护栏：测试库隔离（全量）"
-# 单库化收口（04-6-2）：默认路径统一到共享测试库后，把护栏从 devloop 的「增量」升到预检「全量」；
+# 单库化收口（04-6-2）：默认路径统一到共享测试库后，护栏统一按预检「全量」判定；
 # 新增自建 SQLite / 裸 int ID / 整表清理会被这一档拦住（白名单文件以 `own_db` 标记豁免，理由写在文件内）。
 cmd = ["{python}", "scripts/tools/base_check/check_test_db_isolation.py", "{root}"]
 
