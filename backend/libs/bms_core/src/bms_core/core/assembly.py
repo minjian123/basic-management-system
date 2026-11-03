@@ -1848,7 +1848,7 @@ async def _warm_locale_registry(app: FastAPI) -> None:
         return
     try:
         await cast("BaseLocaleRegistry", registry).refresh()
-    except Exception as exc:  # 预热失败不拒启：`resolve_locale` 会回退种子清单
+    except Exception as exc:  # pragma: no cover - 预热失败不拒启（`resolve_locale` 回退种子清单），需注入故障才可达
         _LOGGER.warning("语言清单预热失败", error=repr(exc))
 
 

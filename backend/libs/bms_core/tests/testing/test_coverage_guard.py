@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -9,6 +10,7 @@ import pytest
 from _pytest.outcomes import Exit
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.testing import coverage_guard
 from bms_core.testing.coverage_guard import assert_entrypoint, expected_data_dir
 
 pytestmark = [pytest.mark.kiwi_id(2404)]
@@ -89,3 +91,20 @@ def test_expected_data_dir_from_config() -> None:
     assert expected is not None
     assert expected.name == "coverage"
     assert expected.parts[-2:] == (".cache", "coverage")
+
+
+def test_missing_or_broken_config_skips_location_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """配置缺失 / 损坏 / 无 `data_file`：视为不可判定，跳过落点校验（不误伤单仓）。"""
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("BMS_COVERAGE_ENTRY_BYPASS", raising=False)
+    monkeypatch.setattr(coverage_guard, "_REPO_ROOT", tmp_path)
+    assert expected_data_dir() is None
+
+    (tmp_path / "engkit.toml").write_text("[[[", encoding="utf-8")
+    assert expected_data_dir() is None
+
+    (tmp_path / "engkit.toml").write_text("[coverage]\nfail_under = 100\n", encoding="utf-8")
+    assert expected_data_dir() is None
+
+    monkeypatch.setenv("COVERAGE_FILE", str(tmp_path / "elsewhere" / ".coverage"))
+    assert_entrypoint(_config("-q"))
