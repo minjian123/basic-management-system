@@ -161,6 +161,13 @@ async def test_save_deletes_only_overridden(client: AsyncClient, ns: Any) -> Non
     assert protected.json()["code"] == 44008
 
 
+async def test_save_delete_missing_row(client: AsyncClient) -> None:
+    """删除不存在的文案 id → 44008（含已软删行）。"""
+    missing = await client.put("/api/v1/i18n/messages", json={"deletes": [999999999999]})
+    assert missing.status_code == 404
+    assert missing.json()["code"] == 44008
+
+
 async def test_save_validation_branches(client: AsyncClient, ns: Any) -> None:  # pyright: ignore[reportAny]
     """校验：key 非法 / 语言未登记 / 值超长均 44003。"""
     bad_key = await client.put(
