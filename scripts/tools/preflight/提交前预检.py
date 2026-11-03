@@ -614,14 +614,22 @@ def _module_of(relative: str) -> str:
     return ""
 
 
-def cov_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
-    """从改动文件推出覆盖率门禁的目标模块（只含本次真正改动的可导入源码）。
+def cov_targets(
+    root: Path,
+    files: ConcurrentStableList[str],
+    targets: ConcurrentStableList[str],
+) -> ConcurrentStableList[str]:
+    """从改动文件推出覆盖率门禁的目标模块（只含本轮**确实跑了**同名测试的可导入源码）。
 
-    覆盖判定必须落在**改动文件**上：改了却没被测到就是缺口，未被改动的模块一律不进判据。
+    覆盖判定必须落在**改动文件**上，但判据要和选测对齐：提交环只跑「改动文件对应的测试」，
+    若对没跑到测试的模块也要求 100%，就是「没测却要达标」的必然失败。因此这里只收
+    「同名测试文件出现在本轮 targets 中」的模块；其余模块（改动落在公共模块、没有同名测试）
+    的覆盖率交推送环 / CI 的全量判据兜底。
 
     Args:
         root: 仓库根。
-        files: 改动文件。
+        files: 改动文件（仓根相对）。
+        targets: 本轮选中的测试文件（相对 `backend/`）。
 
     Returns:
         ConcurrentStableList[str]: 模块名清单（去重保序）。
@@ -631,9 +639,36 @@ def cov_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStabl
         if not relative.endswith(".py") or "/tests/" in f"/{relative}":
             continue
         module = _module_of(relative)
-        if module and (root / relative).is_file() and module not in picked:
+        if not module or not (root / relative).is_file():
+            continue
+        mapped = _mapped_test(relative)
+        if mapped is None or mapped not in targets:
+            continue
+        if module not in picked:
             picked.add(module)
     return picked
+
+
+def _mapped_test(relative: str) -> str | None:
+    """把源码路径映射为同名测试路径（相对 `backend/`；不可映射返回 None）。
+
+    Args:
+        relative: 相对仓根的源码路径。
+
+    Returns:
+        str | None: 同名测试路径。
+    """
+    if "/src/" not in relative:
+        return None
+    backend_relative = relative[len("backend/") :] if relative.startswith("backend/") else relative
+    if "/src/" not in backend_relative:
+        return None
+    head, tail = backend_relative.split("/src/", 1)
+    parts = tail.split("/")
+    if len(parts) < 2:
+        return None
+    rest = parts[1:]
+    return f"{head}/tests/{'/'.join([*rest[:-1], f'test_{rest[-1]}'])}"
 
 
 def coverage_env(cfg: Config, modules: ConcurrentStableList[str], cwd: Path) -> ConcurrentStableFrozenDict[str, str]:
@@ -729,11 +764,14 @@ def plan_steps(
             if not targets:
                 skipped.add(f"{step.label}（本次改动无对应测试文件）")
                 continue
-            modules = cov_targets(root, files)
+            modules = cov_targets(root, files, targets)
             if not modules:
                 planned.add(
                     PlannedStep(
-                        label=f"{step.label}（改动文件对应测试 {len(targets)} 个；本次改动无覆盖率目标）",
+                        label=(
+                            f"{step.label}（改动文件对应测试 {len(targets)} 个；"
+                            "无可判模块：改动模块无同名测试，覆盖率交推送环）"
+                        ),
                         cmd=ConcurrentStableList((python, "-m", "pytest", "-q", *targets)),
                         cwd="backend",
                     )
