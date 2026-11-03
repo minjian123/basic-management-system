@@ -51,9 +51,7 @@ async def locale_scope(request: Request) -> AsyncGenerator[None]:
     if "app" in request.scope:
         registry = cast("BaseLocaleRegistry | None", getattr(request.app.state, "locale_registry", None))
     locale_token = current_dict_locale.set(accept_locale(request, registry))
-    default_token = current_default_locale.set(
-        registry.default_locale() if registry is not None else DEFAULT_LOCALE
-    )
+    default_token = current_default_locale.set(registry.default_locale() if registry is not None else DEFAULT_LOCALE)
     try:
         yield
     finally:

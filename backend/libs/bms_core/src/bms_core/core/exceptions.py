@@ -1299,6 +1299,7 @@ class UserLocaleInvalidError(I18nError):
 class FileError(BizError):
     """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
 
+
 class FileTypeNotAllowedError(FileError):
     """文件类型不允许（扩展名或服务端嗅探不在白名单，`50101` / 400）。"""
 

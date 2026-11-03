@@ -265,6 +265,27 @@ class ConfigCacheSettings(BaseSettings):
     """进程内 L1 条目上限（LRU）。"""
 
 
+def _ensure_iana_timezone(value: str, *, field: str) -> None:
+    """校验时区标识是合法 IANA 时区（`ZoneInfo` 试构造，不走 `available_timezones()`）。
+
+    为什么不用 `available_timezones()`：它经 `importlib.resources` 读 tzdata 包数据，
+    importlib 被测试替身替换时会抛出与配置无关的异常；`ZoneInfo` 走 `tzpath` 文件查找，不受影响且更快。
+
+    Args:
+        value: 时区标识。
+        field: 配置项名（报错定位用）。
+
+    Raises:
+        ValueError: 非法时区。
+    """
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError(f"{field} 不是合法的 IANA 时区：{value}") from exc
+
+
 class I18nSettings(BaseSettings):
     """国际化缓存参数（段 `[i18n]`；05_01）。
 
@@ -308,10 +329,7 @@ class I18nSettings(BaseSettings):
         Raises:
             ValueError: 不在 IANA 时区清单内。
         """
-        from zoneinfo import available_timezones
-
-        if value not in available_timezones():
-            raise ValueError(f"default_timezone 不是合法的 IANA 时区：{value}")
+        _ensure_iana_timezone(value, field="default_timezone")
         return value
 
     @field_validator("timezone_by_locale")
@@ -328,12 +346,8 @@ class I18nSettings(BaseSettings):
         Raises:
             ValueError: 存在非法时区。
         """
-        from zoneinfo import available_timezones
-
-        zones = available_timezones()
         for locale, zone in value.items():
-            if not zone or zone not in zones:
-                raise ValueError(f"timezone_by_locale 中 {locale} 的时区不合法：{zone}")
+            _ensure_iana_timezone(zone, field=f"timezone_by_locale.{locale}")
         return value
 
 
@@ -1507,7 +1521,9 @@ class _EnvSelectorSource(PydanticBaseSettingsSource):
         super().__init__(settings_cls)
         self._env = env
 
-    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:  # pragma: no cover
+    def get_field_value(  # pragma: no cover - 协议要求实现，运行期不经此路径
+        self, field: FieldInfo, field_name: str
+    ) -> tuple[Any, str, bool]:
         """不按字段取单值（统一在 `__call__` 返回；协议要求实现，运行期不经此路径）。
 
         Args:

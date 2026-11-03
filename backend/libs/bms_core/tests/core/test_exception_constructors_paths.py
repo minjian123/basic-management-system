@@ -59,6 +59,8 @@ _EXCEPTIONS: ConcurrentStableList[tuple[type[BizError], int, int]] = ConcurrentS
         (exceptions.I18nError, 40001, 500),
         (exceptions.I18nMessageKeyInvalidError, 44003, 400),
         (exceptions.I18nMessageNotFoundError, 44008, 404),
+        (exceptions.TimezoneInvalidError, 44009, 400),
+        (exceptions.UserLocaleInvalidError, 44010, 400),
         (exceptions.LocaleCodeExistsError, 44001, 409),
         (exceptions.LocaleDefaultConflictError, 44006, 409),
         (exceptions.LocaleDefaultProtectedError, 44005, 403),

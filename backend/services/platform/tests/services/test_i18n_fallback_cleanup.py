@@ -38,6 +38,7 @@ from bms_core.models.platform.permission_meta import (
     SysBusinessI18n,
     SysPermission,
 )
+from bms_core.outbox.base import BaseOutboxStore
 from bms_platform.domains.menu_form.repositories.menu import (
     ButtonRepository,
     FieldRepository,
@@ -131,7 +132,7 @@ def _menu_service(session: AsyncSession, cache: CacheRegion) -> MenuFormService:
         menu_forms=MenuFormRepository(db),
         buttons=ButtonRepository(db),
         fields=FieldRepository(db),
-        outbox=_OutboxSpy(),
+        outbox=cast("BaseOutboxStore", _OutboxSpy()),
         cache=cache,
     )
 

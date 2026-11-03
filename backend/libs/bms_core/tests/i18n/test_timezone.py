@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import I18nSettings
 from bms_core.i18n.timezone import (
     DEFAULT_DATETIME_PATTERN,
@@ -20,7 +21,7 @@ from bms_core.i18n.timezone import (
 
 pytestmark = pytest.mark.kiwi_id(2405)
 
-_MAP = {"zh-CN": "Asia/Shanghai", "en-US": "UTC"}
+_MAP: ConcurrentStableDict[str, str] = ConcurrentStableDict({"zh-CN": "Asia/Shanghai", "en-US": "UTC"})
 
 
 def test_is_valid_timezone_whitelist() -> None:
@@ -43,7 +44,7 @@ def test_resolve_timezone_by_locale() -> None:
 
 def test_resolve_timezone_skips_invalid_mapping_value() -> None:
     """映射值非法时视为未命中，回落兜底值（不把脏值传给前端）。"""
-    assert resolve_timezone("zh-CN", {"zh-CN": "Mars/Base"}, "UTC") == "UTC"
+    assert resolve_timezone("zh-CN", ConcurrentStableDict({"zh-CN": "Mars/Base"}), "UTC") == "UTC"
 
 
 def test_to_local_converts_utc_naive() -> None:
@@ -84,11 +85,11 @@ def test_config_rejects_invalid_default_timezone() -> None:
 def test_config_rejects_invalid_map_value() -> None:
     """语言 → 时区映射里出现非法时区时启动期即失败。"""
     with pytest.raises(ValidationError):
-        I18nSettings(timezone_by_locale={"zh-CN": "Mars/Base"})
+        I18nSettings(timezone_by_locale=ConcurrentStableDict({"zh-CN": "Mars/Base"}))
 
 
 def test_config_accepts_valid_timezones() -> None:
     """合法配置通过校验并保留原值。"""
-    settings = I18nSettings(default_timezone="UTC", timezone_by_locale={"ja-JP": "Asia/Tokyo"})
+    settings = I18nSettings(default_timezone="UTC", timezone_by_locale=ConcurrentStableDict({"ja-JP": "Asia/Tokyo"}))
     assert settings.default_timezone == "UTC"
     assert settings.timezone_by_locale.get("ja-JP") == "Asia/Tokyo"
