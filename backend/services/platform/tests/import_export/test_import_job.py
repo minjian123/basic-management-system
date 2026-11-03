@@ -243,8 +243,9 @@ def _payload(key: str, *, biz: str = "users") -> ConcurrentStableDict[str, objec
 async def test_job_success_and_progress(job_env: JobEnv) -> None:
     """合法行异步执行成功；进度上报；源文件删除。"""
     make_job, session_context, source = job_env
-    key = "demo/imports/source/job-ok.xlsx"
-    source.data[key] = _xlsx([["jobzhangsan", "张三", "", "", "启用", ""]])
+    suffix = uuid4().hex[:8]
+    key = f"demo/imports/source/job-ok-{suffix}.xlsx"
+    source.data[key] = _xlsx([[f"jobzhangsan_{suffix}", "张三", "", "", "启用", ""]])
     job, captured = make_job()
     result = await job.run(_context(captured, session_context, _payload(key)))
     assert result.status == "succeeded"
@@ -517,8 +518,9 @@ def _role_xlsx(rows: Sequence[Sequence[object]]) -> bytes:  # bare-collections:a
 async def test_job_role_success_without_audit(job_env: JobEnv) -> None:
     """角色导入成功（审计为 None，覆盖角色写路径与无审计分支）。"""
     make_job, session_context, source = job_env
-    key = "demo/imports/source/job-role.xlsx"
-    source.data[key] = _role_xlsx([["jobrole1", "作业角色", "启用"]])
+    suffix = uuid4().hex[:8]
+    key = f"demo/imports/source/job-role-{suffix}.xlsx"
+    source.data[key] = _role_xlsx([[f"jobrole1_{suffix}", "作业角色", "启用"]])
     job, captured = make_job()
     result = await job.run(_context(captured, session_context, _payload(key, biz="roles")))
     assert result.status == "succeeded"
