@@ -239,6 +239,7 @@ class IconStore(BaseFrameworkObject):
                 return False
             if await self._count_menu_refs(code) > 0:
                 raise MenuReferencedError(f"图标已被菜单引用，先解除引用或停用：{code}")
+            await self._icons.soft_delete_i18n(row.id)
             await self._icons.soft_delete(row.id)
         return True
 

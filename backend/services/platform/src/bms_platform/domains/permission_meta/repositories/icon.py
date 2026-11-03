@@ -12,6 +12,7 @@ from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.repositories.i18n import load_i18n_all
 from bms_core.repositories.i18n import replace_i18n as replace_i18n_rows
+from bms_core.repositories.i18n import soft_delete_i18n as soft_delete_i18n_rows
 
 
 class IconRepository(BaseDbRepository[SysIcon]):
@@ -98,3 +99,11 @@ class IconRepository(BaseDbRepository[SysIcon]):
             names: 语言标识 → 文案。
         """
         await replace_i18n_rows(self._session, SysIconI18n, "icon_id", icon_id, names)
+
+    async def soft_delete_i18n(self, icon_id: int) -> None:
+        """软删除图标的多语言附表行（主表删除时连带清理，同生命周期）。
+
+        Args:
+            icon_id: 图标 ID。
+        """
+        await soft_delete_i18n_rows(self._session, SysIconI18n, "icon_id", icon_id)

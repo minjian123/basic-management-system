@@ -1270,9 +1270,34 @@ class I18nMessageNotFoundError(I18nError):
         BizError.__init__(self, ErrorCode.I18N_MESSAGE_NOT_FOUND, message, http_status=404, data=data)
 
 
+class TimezoneInvalidError(I18nError):
+    """时区标识非法（不在 IANA 清单内，`44009` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化时区非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.TIMEZONE_INVALID, message, http_status=400, data=data)
+
+
+class UserLocaleInvalidError(I18nError):
+    """语言偏好未登记或未启用（`44010` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化语言偏好非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.USER_LOCALE_INVALID, message, http_status=400, data=data)
+
+
 class FileError(BizError):
     """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
-
 
 class FileTypeNotAllowedError(FileError):
     """文件类型不允许（扩展名或服务端嗅探不在白名单，`50101` / 400）。"""

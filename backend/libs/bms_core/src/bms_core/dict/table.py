@@ -24,6 +24,7 @@ from bms_core.datasource.base import BaseDictDataSource, DataSourceItem
 from bms_core.db.keys import build_platform_db_key
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
+from bms_core.i18n.base import get_default_locale
 
 __all__ = ["DictColumnMapping", "DictI18nSpec", "DictTableDataSource", "DictTableScope"]
 
@@ -62,7 +63,8 @@ class DictTableScope(StrEnum):
 class DictI18nSpec(BaseValueObject):
     """字典表多语言附表规格（`<实体>_i18n` 表；同结构：`<实体>_id` / `locale` / `name`）。
 
-    命中行覆盖主表 label，未命中回退主表文案（需求 01-1 §7「缺省回退默认文案」）。
+    命中行覆盖主表 label；请求语言缺失时回退**系统默认语言**，两级皆缺再回退主表文案
+    （需求 01-1 §7「缺省回退默认文案」+ 05_02 三级回退口径）。
 
     Attributes:
         table: 多语言附表。
@@ -135,7 +137,7 @@ class DictTableDataSource(BaseDictDataSource):
 
         Args:
             data_source_key: 数据源标识（本实现按构造时的表取数；非本表已登记标识返回空）。
-            locale: 语言（标准字典表暂不分语言；`_i18n` 附表随各域实现）。
+            locale: 请求语言（附表规格存在时按「请求语言 → 默认语言 → 主表列」三级回退）。
 
         Returns:
             tuple[DataSourceItem, ...]: 启用行（缺关键列时返回空元组）。
@@ -159,19 +161,8 @@ class DictTableDataSource(BaseDictDataSource):
 
         label_expr: ColumnElement[Any] = label_col
         from_clause: Join | None = None
-        if self._i18n is not None and id_col is not None:
-            spec = self._i18n
-            i18n_columns = spec.table.c
-            locale_col = i18n_columns.get(spec.locale_column)
-            name_col = i18n_columns.get(spec.name_column)
-            relation_col = i18n_columns.get(spec.relation_column)
-            if locale_col is not None and name_col is not None and relation_col is not None:
-                conditions = [relation_col == id_col, locale_col == locale]
-                i18n_soft_delete = i18n_columns.get(spec.soft_delete)
-                if i18n_soft_delete is not None:
-                    conditions.append(i18n_soft_delete.is_(None))
-                from_clause = self._table.outerjoin(spec.table, and_(*conditions))
-                label_expr = func.coalesce(name_col, label_col)
+        if id_col is not None:
+            label_expr, from_clause = self._i18n_label(id_col, label_col, locale)
 
         selected = [value_col.label("value"), label_expr.label("label"), code_col.label("code")]
         if parent_col is not None:
@@ -198,6 +189,57 @@ class DictTableDataSource(BaseDictDataSource):
         return ConcurrentStableList(
             self.row_to_item(ConcurrentStableDict({str(key): value for key, value in row.items()})) for row in rows
         )
+
+    def _i18n_label(
+        self,
+        id_col: ColumnElement[Any],
+        label_col: ColumnElement[Any],
+        locale: str,
+    ) -> tuple[ColumnElement[Any], Join | None]:
+        """构造多语言标签表达式（请求语言 → 系统默认语言 → 主表列三级回退）。
+
+        两级语言各左连一次附表（`i18n_primary` / `i18n_fallback` 别名），`coalesce` 按优先级取值；
+        `locale` 比较大小写不敏感（与 `sys_*_i18n` 存量数据一致）。
+
+        Args:
+            id_col: 主表 `id` 列。
+            label_col: 主表默认标签列。
+            locale: 请求语言。
+
+        Returns:
+            tuple[ColumnElement[Any], Join | None]: 标签表达式与左连子句（无附表时为原列与 None）。
+        """
+        if self._i18n is None:
+            return label_col, None
+        spec = self._i18n
+        primary = spec.table.alias("i18n_primary")
+        primary_columns = primary.c
+        primary_locale = primary_columns.get(spec.locale_column)
+        primary_name = primary_columns.get(spec.name_column)
+        primary_relation = primary_columns.get(spec.relation_column)
+        if primary_locale is None or primary_name is None or primary_relation is None:
+            return label_col, None
+        primary_conditions = [
+            primary_relation == id_col,
+            func.lower(primary_locale) == locale.strip().lower(),
+        ]
+        primary_soft_delete = primary_columns.get(spec.soft_delete)
+        if primary_soft_delete is not None:
+            primary_conditions.append(primary_soft_delete.is_(None))
+        from_clause: Join = self._table.outerjoin(primary, and_(*primary_conditions))
+
+        fallback_locale = get_default_locale()
+        if fallback_locale.strip().lower() == locale.strip().lower():
+            return func.coalesce(primary_name, label_col), from_clause
+        fallback = spec.table.alias("i18n_fallback")
+        fallback_conditions = [
+            fallback.c[spec.relation_column] == id_col,
+            func.lower(fallback.c[spec.locale_column]) == fallback_locale.strip().lower(),
+        ]
+        if primary_soft_delete is not None:
+            fallback_conditions.append(fallback.c[spec.soft_delete].is_(None))
+        from_clause = from_clause.outerjoin(fallback, and_(*fallback_conditions))
+        return func.coalesce(primary_name, fallback.c[spec.name_column], label_col), from_clause
 
     def row_to_item(self, row: ConcurrentStableDict[str, object]) -> DataSourceItem:
         """结果行 → 通用条目（可继承覆写定制映射 / 本地化）。

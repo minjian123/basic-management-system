@@ -284,6 +284,58 @@ class I18nSettings(BaseSettings):
     l1_max_items: int = Field(default=64, ge=1)
     """进程内 L1 条目上限（LRU）。"""
 
+    default_timezone: str = "Asia/Shanghai"
+    """时区兜底（05_02）：语言映射缺失或生效语言未映射时使用，必须是 IANA 时区标识。"""
+
+    timezone_by_locale: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableDict(
+            {"zh-CN": "Asia/Shanghai", "en-US": "UTC"},
+        )
+    )
+    """「语言 → 时区」映射（05_02）：用户未设置时区时的缺省来源，键大小写不敏感。"""
+
+    @field_validator("default_timezone")
+    @classmethod
+    def _validate_default_timezone(cls, value: str) -> str:
+        """校验兜底时区（IANA 白名单，配错即拒启）。
+
+        Args:
+            value: 配置值。
+
+        Returns:
+            str: 校验后的时区标识。
+
+        Raises:
+            ValueError: 不在 IANA 时区清单内。
+        """
+        from zoneinfo import available_timezones
+
+        if value not in available_timezones():
+            raise ValueError(f"default_timezone 不是合法的 IANA 时区：{value}")
+        return value
+
+    @field_validator("timezone_by_locale")
+    @classmethod
+    def _validate_timezone_by_locale(cls, value: ConcurrentStableDict[str, str]) -> ConcurrentStableDict[str, str]:
+        """校验语言 → 时区映射（每个时区都须在 IANA 清单内）。
+
+        Args:
+            value: 配置值。
+
+        Returns:
+            ConcurrentStableDict[str, str]: 校验后的映射。
+
+        Raises:
+            ValueError: 存在非法时区。
+        """
+        from zoneinfo import available_timezones
+
+        zones = available_timezones()
+        for locale, zone in value.items():
+            if not zone or zone not in zones:
+                raise ValueError(f"timezone_by_locale 中 {locale} 的时区不合法：{zone}")
+        return value
+
 
 class FileSettings(BaseSettings):
     """文件管理进程级参数（段 `[file]`；03_01）。

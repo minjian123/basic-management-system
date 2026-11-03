@@ -11,6 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.i18n.base import get_default_locale
 from bms_core.models.platform.menu_form import (
     SysButton,
     SysField,
@@ -23,6 +24,7 @@ from bms_core.models.platform.menu_form import (
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.repositories.i18n import load_i18n, load_i18n_all
 from bms_core.repositories.i18n import replace_i18n as replace_i18n_rows
+from bms_core.repositories.i18n import soft_delete_i18n as soft_delete_i18n_rows
 
 
 class MenuRepository(BaseDbRepository[SysMenu]):
@@ -52,16 +54,22 @@ class MenuRepository(BaseDbRepository[SysMenu]):
         return (await self._session.execute(statement)).scalars().first()
 
     async def list_i18n(self, menu_ids: ConcurrentStableList[int], locale: str) -> ConcurrentStableDict[int, str]:
-        """装载菜单多语言文案。
+        """装载菜单多语言文案（请求语言 → 系统默认语言两级回退）。
 
         Args:
             menu_ids: 菜单 ID 集合。
-            locale: 语言标识。
+            locale: 请求语言标识。
 
         Returns:
             ConcurrentStableDict[int, str]: 菜单 ID → 文案。
         """
-        return await load_i18n(self._session, SysMenuI18n, "menu_id", menu_ids, locale)
+        return await load_i18n(
+            self._session,
+            SysMenuI18n,
+            "menu_id",
+            menu_ids,
+            locales=[locale, get_default_locale()],
+        )
 
     async def list_i18n_all(
         self, menu_ids: ConcurrentStableList[int]
@@ -84,6 +92,14 @@ class MenuRepository(BaseDbRepository[SysMenu]):
             names: 语言标识 → 文案。
         """
         await replace_i18n_rows(self._session, SysMenuI18n, "menu_id", menu_id, names)
+
+    async def soft_delete_i18n(self, menu_id: int) -> None:
+        """软删除菜单的多语言附表行（主表删除时连带清理，同生命周期）。
+
+        Args:
+            menu_id: 菜单 ID。
+        """
+        await soft_delete_i18n_rows(self._session, SysMenuI18n, "menu_id", menu_id)
 
 
 class FormRepository(BaseDbRepository[SysForm]):
@@ -315,16 +331,22 @@ class FieldRepository(BaseDbRepository[SysField]):
         return (await self._session.execute(statement)).scalars().first()
 
     async def list_i18n(self, field_ids: ConcurrentStableList[int], locale: str) -> ConcurrentStableDict[int, str]:
-        """装载字段多语言文案。
+        """装载字段多语言文案（请求语言 → 系统默认语言两级回退）。
 
         Args:
             field_ids: 字段 ID 集合。
-            locale: 语言标识。
+            locale: 请求语言标识。
 
         Returns:
             ConcurrentStableDict[int, str]: 字段 ID → 文案。
         """
-        return await load_i18n(self._session, SysFieldI18n, "field_id", field_ids, locale)
+        return await load_i18n(
+            self._session,
+            SysFieldI18n,
+            "field_id",
+            field_ids,
+            locales=[locale, get_default_locale()],
+        )
 
     async def list_i18n_all(
         self, field_ids: ConcurrentStableList[int]
@@ -347,3 +369,11 @@ class FieldRepository(BaseDbRepository[SysField]):
             names: 语言标识 → 文案。
         """
         await replace_i18n_rows(self._session, SysFieldI18n, "field_id", field_id, names)
+
+    async def soft_delete_i18n(self, field_id: int) -> None:
+        """软删除字段的多语言附表行（主表删除时连带清理，同生命周期）。
+
+        Args:
+            field_id: 字段 ID。
+        """
+        await soft_delete_i18n_rows(self._session, SysFieldI18n, "field_id", field_id)

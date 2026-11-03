@@ -303,6 +303,12 @@ messages_ttl_seconds = 300   # 语言包缓存 TTL（秒；写入共享层时叠
 locales_ttl_seconds = 300    # 语言清单缓存 TTL（秒）
 version_check = true         # 读取时比对版本键（false = 退回纯 TTL，仅排障用）
 l1_max_items = 64            # 进程内 L1 条目上限（LRU；语言包按语言一条 + 清单一条）
+default_timezone = "Asia/Shanghai"   # 时区兜底（05_02：映射未命中时用；必须是 IANA 标识）
+
+[i18n.timezone_by_locale]
+# 语言 → 时区（05_02）：用户未设置时区时的缺省来源；新增语言在这里加一行
+zh-CN = "Asia/Shanghai"
+en-US = "UTC"
 
 [i18n_cache_region]
 # 国际化缓存域实现：memory = 纯进程内（单测 / 无 Redis 可跑）、redis = Redis + 进程内 L1

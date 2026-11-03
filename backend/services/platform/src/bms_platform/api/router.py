@@ -42,6 +42,7 @@ from bms_platform.domains.user.api import (
     internal_credentials,
     internal_users,
     preference,
+    profile,
     user_extensions,
     users,
 )
@@ -57,6 +58,7 @@ api_router = mount_service_routers(
             products.router,
             plugins.router,
             preference.router,
+            profile.router,
             query_scheme.router,
             data_source.router,
             form_key.router,

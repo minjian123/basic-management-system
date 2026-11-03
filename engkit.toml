@@ -253,6 +253,11 @@ cmd = ["{python}", "scripts/tools/base_check/check_snowflake_ids.py", "{root}"]
 
 
 [[preflight.steps]]
+label = "国际化：check_i18n_attachments（i18n 附表台账 ↔ 模型层 ↔ 文档一致）"
+cmd = ["{python}", "scripts/tools/base_check/check_i18n_attachments.py", "{root}"]
+
+
+[[preflight.steps]]
 label = "产品字面量：check_product_literals（平台禁入面禁产品标识；基线只减不增）"
 cmd = [
   "{python}",

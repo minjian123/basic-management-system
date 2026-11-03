@@ -11,6 +11,7 @@
 """
 
 from abc import ABC, abstractmethod
+from contextvars import ContextVar
 from typing import cast
 
 from fastapi import Request
@@ -23,14 +24,32 @@ __all__ = [
     "DEFAULT_LOCALE",
     "SUPPORTED_LOCALES",
     "BaseTranslator",
+    "current_default_locale",
+    "get_default_locale",
     "get_translator",
 ]
 
 DEFAULT_LOCALE = "zh-CN"
-"""默认语言（缺省与回退）。"""
+"""出厂默认语言（清单快照不可用时的兜底）。"""
 
 SUPPORTED_LOCALES: ConcurrentStableList[str] = ConcurrentStableList(("zh-CN", "en-US"))
 """种子语言清单（架构「语言与 RTL」节；语言清单可由 `sys_i18n_locale` 动态扩展）。"""
+
+current_default_locale: ContextVar[str] = ContextVar("current_default_locale", default=DEFAULT_LOCALE)
+"""当前请求的**系统默认语言**（请求作用域依赖写入；i18n 附表回退目标）。
+
+运行期默认语言以语言清单 `sys_i18n_locale.is_default` 为准（租户可切换），不能写死为
+`DEFAULT_LOCALE`；请求外（后台作业 / 纯函数）读到的是出厂兜底值。
+"""
+
+
+def get_default_locale() -> str:
+    """取当前请求的系统默认语言（无请求上下文时回退出厂默认语言）。
+
+    Returns:
+        str: 默认语言标识。
+    """
+    return current_default_locale.get() or DEFAULT_LOCALE
 
 
 class BaseTranslator(BasePluggable, ABC):

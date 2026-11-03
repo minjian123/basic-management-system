@@ -125,6 +125,8 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (44006, "默认语言标记缺失或重复", "Default locale flag is missing or duplicated"),
         (44007, "语言不存在", "Locale not found"),
         (44008, "文案不存在或不可删除", "Message not found or cannot be deleted"),
+        (44009, "时区标识非法", "Invalid time zone identifier"),
+        (44010, "语言偏好未登记或未启用", "Preferred locale is not registered or not enabled"),
         # ---- 5xxxx 文件与导入导出 ----
         (50101, "文件类型不允许", "File type is not allowed"),
         (50102, "文件超出大小限制", "File exceeds the size limit"),

@@ -340,10 +340,11 @@ def test_i18n_out_handles_none_and_fills_required_locale() -> None:
 
 
 def test_request_locale_falls_back_when_unsupported() -> None:
-    """请求语言：不在支持清单时回退系统默认语言。"""
+    """请求语言：未设置时回退系统默认语言；已设置时原样采用（清单解析在 `locale_scope`，05_02）。"""
+    assert request_locale() == DEFAULT_LOCALE
     token = current_dict_locale.set("fr-FR")
     try:
-        assert request_locale() == DEFAULT_LOCALE
+        assert request_locale() == "fr-FR"
     finally:
         current_dict_locale.reset(token)
 

@@ -111,6 +111,7 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "check_pragma_reason.py",
         "check_product_literals.py",
         "check_service_boundaries.py",
+        "check_i18n_attachments.py",
         "ops.check_contracts",
         "ops.contract_snapshot",
         "ops.event_contracts",
@@ -197,6 +198,15 @@ STEP_SCOPES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = 
         "check_ci_config.py": ConcurrentStableFrozenList((".gitlab-ci.yml", "deploy/ci/", "deploy/compose/")),
         "check_test_db_isolation.py": ConcurrentStableFrozenList(),
         "check_bare_collections.py": ConcurrentStableFrozenList(),
+        # i18n 附表台账：只有模型层附表 / 台账模块 / 台账文档 / 脚本本身变化时才可能漂移
+        "check_i18n_attachments.py": ConcurrentStableFrozenList(
+            (
+                "backend/libs/bms_core/src/bms_core/models/",
+                "backend/libs/bms_core/src/bms_core/i18n/",
+                "bms文档/设计/数据库设计/30_数据库设计_国际化管理.md",
+                "scripts/tools/base_check/check_i18n_attachments.py",
+            )
+        ),
         "check_snowflake_ids.py": ConcurrentStableFrozenList(),
         "check_product_literals.py": ConcurrentStableFrozenList(),
         "check_service_boundaries.py": ConcurrentStableFrozenList(),

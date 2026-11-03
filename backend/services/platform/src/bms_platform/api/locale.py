@@ -12,7 +12,7 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.dict.base import current_dict_locale
-from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
+from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES, current_default_locale
 from bms_core.i18n.locale import match_locale
 from bms_core.i18n.registry import BaseLocaleRegistry
 
@@ -36,19 +36,26 @@ def accept_locale(request: Request, registry: BaseLocaleRegistry | None = None) 
 
 
 async def locale_scope(request: Request) -> AsyncGenerator[None]:
-    """请求语言作用域（路由级依赖）：设置 `current_dict_locale`，请求结束复位。
+    """请求语言作用域（路由级依赖）：设置请求语言与系统默认语言，请求结束复位。
+
+    `current_default_locale` 是 i18n 附表两级回退的第二级目标（05_02）：取语言清单的默认标记，
+    清单不可用时回退出厂默认语言；写路径的必填语言仍取请求语言。
 
     Args:
         request: 请求对象（取 `Accept-Language` 与已装配的语言清单能力域）。
 
     Yields:
-        None: 作用域内请求语言生效。
+        None: 作用域内请求语言与默认语言生效。
     """
     registry: BaseLocaleRegistry | None = None
     if "app" in request.scope:
         registry = cast("BaseLocaleRegistry | None", getattr(request.app.state, "locale_registry", None))
-    token = current_dict_locale.set(accept_locale(request, registry))
+    locale_token = current_dict_locale.set(accept_locale(request, registry))
+    default_token = current_default_locale.set(
+        registry.default_locale() if registry is not None else DEFAULT_LOCALE
+    )
     try:
         yield
     finally:
-        current_dict_locale.reset(token)
+        current_default_locale.reset(default_token)
+        current_dict_locale.reset(locale_token)

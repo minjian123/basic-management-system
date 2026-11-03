@@ -12,6 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.i18n.base import get_default_locale
 from bms_core.models.platform.permission_meta import (
     SysAction,
     SysActionI18n,
@@ -22,6 +23,7 @@ from bms_core.models.platform.permission_meta import (
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.repositories.i18n import load_i18n, load_i18n_all
 from bms_core.repositories.i18n import replace_i18n as replace_i18n_rows
+from bms_core.repositories.i18n import soft_delete_i18n as soft_delete_i18n_rows
 
 
 class BusinessRepository(BaseDbRepository[SysBusiness]):
@@ -39,16 +41,22 @@ class BusinessRepository(BaseDbRepository[SysBusiness]):
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def list_i18n(self, business_ids: ConcurrentStableList[int], locale: str) -> ConcurrentStableDict[int, str]:
-        """装载业务码多语言文案。
+        """装载业务码多语言文案（请求语言 → 系统默认语言两级回退）。
 
         Args:
             business_ids: 业务码 ID 集合。
-            locale: 语言标识。
+            locale: 请求语言标识。
 
         Returns:
             ConcurrentStableDict[int, str]: 业务码 ID → 文案。
         """
-        return await load_i18n(self._session, SysBusinessI18n, "business_id", business_ids, locale)
+        return await load_i18n(
+            self._session,
+            SysBusinessI18n,
+            "business_id",
+            business_ids,
+            locales=[locale, get_default_locale()],
+        )
 
     async def list_i18n_all(
         self, business_ids: ConcurrentStableList[int]
@@ -96,6 +104,14 @@ class BusinessRepository(BaseDbRepository[SysBusiness]):
         """
         await replace_i18n_rows(self._session, SysBusinessI18n, "business_id", business_id, names)
 
+    async def soft_delete_i18n(self, business_id: int) -> None:
+        """软删除业务码的多语言附表行（主表删除时连带清理，同生命周期）。
+
+        Args:
+            business_id: 业务码 ID。
+        """
+        await soft_delete_i18n_rows(self._session, SysBusinessI18n, "business_id", business_id)
+
 
 class ActionRepository(BaseDbRepository[SysAction]):
     """动作码字典仓储（`sys_action`）：全局动词，按主键列示与多语言装载。"""
@@ -112,16 +128,22 @@ class ActionRepository(BaseDbRepository[SysAction]):
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def list_i18n(self, action_ids: ConcurrentStableList[int], locale: str) -> ConcurrentStableDict[int, str]:
-        """装载动作码多语言文案。
+        """装载动作码多语言文案（请求语言 → 系统默认语言两级回退）。
 
         Args:
             action_ids: 动作码 ID 集合。
-            locale: 语言标识。
+            locale: 请求语言标识。
 
         Returns:
             ConcurrentStableDict[int, str]: 动作码 ID → 文案。
         """
-        return await load_i18n(self._session, SysActionI18n, "action_id", action_ids, locale)
+        return await load_i18n(
+            self._session,
+            SysActionI18n,
+            "action_id",
+            action_ids,
+            locales=[locale, get_default_locale()],
+        )
 
     async def list_i18n_all(
         self, action_ids: ConcurrentStableList[int]
@@ -168,6 +190,14 @@ class ActionRepository(BaseDbRepository[SysAction]):
             names: 语言标识 → 文案。
         """
         await replace_i18n_rows(self._session, SysActionI18n, "action_id", action_id, names)
+
+    async def soft_delete_i18n(self, action_id: int) -> None:
+        """软删除动作码的多语言附表行（主表删除时连带清理，同生命周期）。
+
+        Args:
+            action_id: 动作码 ID。
+        """
+        await soft_delete_i18n_rows(self._session, SysActionI18n, "action_id", action_id)
 
 
 class PermissionRepository(BaseDbRepository[SysPermission]):

@@ -3066,6 +3066,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profile/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Profile Preferences
+         * @description 读取本人语言 / 时区偏好（存值 + 生效值）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         uow: 请求级工作单元。
+         *         registry: 语言清单能力域。
+         *
+         *     Returns:
+         *         ApiResponse[ProfilePreferenceResponse]: 统一响应。
+         */
+        get: operations["get_profile_preferences_api_v1_profile_preferences_get"];
+        /**
+         * Update Profile Preferences
+         * @description 设置本人语言 / 时区偏好（部分更新；非法值即拒）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 偏好设置请求。
+         *         uow: 请求级工作单元。
+         *         registry: 语言清单能力域。
+         *
+         *     Returns:
+         *         ApiResponse[ProfilePreferenceResponse]: 更新后的偏好（存值 + 生效值）。
+         */
+        put: operations["update_profile_preferences_api_v1_profile_preferences_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/query-schemes": {
         parameters: {
             query?: never;
@@ -5267,6 +5308,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["PermissionSubjectResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ProfilePreferenceResponse] */
+        ApiResponse_ProfilePreferenceResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ProfilePreferenceResponse"] | null;
             /**
              * Message
              * @default ok
@@ -8828,6 +8883,48 @@ export interface components {
             product_key: string;
             /** Status */
             status: string;
+        };
+        /**
+         * ProfilePreferenceRequest
+         * @description 偏好设置请求（部分更新语义）。
+         */
+        ProfilePreferenceRequest: {
+            /**
+             * Locale
+             * @description 语言偏好（须已登记且启用；null 表示清空回退系统默认语言）
+             */
+            locale?: string | null;
+            /**
+             * Timezone
+             * @description 时区偏好（IANA 标识，如 Asia/Shanghai；null 表示清空回退缺省时区）
+             */
+            timezone?: string | null;
+        };
+        /**
+         * ProfilePreferenceResponse
+         * @description 偏好读取响应（存值 + 生效值）。
+         */
+        ProfilePreferenceResponse: {
+            /**
+             * Effective Locale
+             * @description 生效语言（未设置或该语言停用时为系统默认语言）
+             */
+            effective_locale: string;
+            /**
+             * Effective Timezone
+             * @description 生效时区（未设置时按生效语言派生）
+             */
+            effective_timezone: string;
+            /**
+             * Locale
+             * @description 语言偏好存值（未设置为 null）
+             */
+            locale?: string | null;
+            /**
+             * Timezone
+             * @description 时区偏好存值（未设置为 null）
+             */
+            timezone?: string | null;
         };
         /**
          * QueryScheme
@@ -19665,6 +19762,149 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_profile_preferences_api_v1_profile_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ProfilePreferenceResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_profile_preferences_api_v1_profile_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfilePreferenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ProfilePreferenceResponse_"];
                 };
             };
             /** @description 未认证 */

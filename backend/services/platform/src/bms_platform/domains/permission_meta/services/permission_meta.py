@@ -275,6 +275,7 @@ class PermissionMetadataService(BaseFrameworkObject):
                 raise MenuReferencedError(f"业务码仍有权限码，先删除权限码：{business_id}")
             if await self._forms.get_by_business(business_id) is not None:
                 raise MenuReferencedError(f"业务码已被表单挂接，先解除挂接：{business_id}")
+            await self._businesses.soft_delete_i18n(business_id)
             await self._businesses.soft_delete(business_id)
         await self.invalidate()
 
@@ -371,6 +372,7 @@ class PermissionMetadataService(BaseFrameworkObject):
                 raise MenuNotFoundError(f"动作码不存在：{action_id}")
             if await self._permissions.count_by_action(action_id) > 0:
                 raise MenuReferencedError(f"动作码仍有权限码，先删除权限码：{action_id}")
+            await self._actions.soft_delete_i18n(action_id)
             await self._actions.soft_delete(action_id)
         await self.invalidate()
 

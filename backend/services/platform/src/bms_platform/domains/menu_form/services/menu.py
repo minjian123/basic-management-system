@@ -699,6 +699,7 @@ class MenuFormService(BaseFrameworkObject):
                 raise MenuReferencedError(f"菜单存在子节点，先删除子节点：{menu_id}")
             if self._references is not None and await self._references.count_menu_refs(menu_id) > 0:
                 raise MenuReferencedError(f"菜单已被角色授权，先解除授权：{menu_id}")
+            await self._menus.soft_delete_i18n(menu_id)
             await self._menus.soft_delete(menu_id)
             await self._publish_form_updated(form_id=None, menu_id=menu_id, business_id=None, changed_type=CHANGED_MENU)
         await self.invalidate()
@@ -1090,6 +1091,7 @@ class MenuFormService(BaseFrameworkObject):
             current = await self._fields.get(field_id)
             if current is None:
                 raise MenuNotFoundError(f"字段不存在：{field_id}")
+            await self._fields.soft_delete_i18n(field_id)
             await self._fields.soft_delete(field_id)
             form = await self._forms.get(current.form_id)
             await self._publish_form_updated(

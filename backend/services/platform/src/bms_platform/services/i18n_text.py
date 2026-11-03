@@ -3,7 +3,8 @@
 平台内所有「主表默认文案 + `*_i18n` 附表」的资源（菜单 / 表单 / 字段 / 业务码 / 动作码）共用同一套
 入参与出参口径：
 
-- 请求语言取 `current_dict_locale`（请求作用域依赖设置），不支持时回退系统默认语言；
+- 请求语言取 `current_dict_locale`（请求作用域依赖已按语言清单解析）；
+- 系统默认语言取 `current_default_locale`（`05_02`：语言清单的默认标记，租户可切换，不写死标识）；
 - 入参只收多语言映射：剔除空白值，必填语言（＝请求语言）不得缺文案，主表默认文案由服务端派生；
 - 出参给完整映射，必填语言缺失时以主表默认文案回填（不改写存储）。
 
@@ -13,19 +14,30 @@
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import MenuI18nRequiredError
 from bms_core.dict.base import current_dict_locale
-from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
+from bms_core.i18n.base import get_default_locale
 
-__all__ = ["clean_i18n", "derive_default_name", "i18n_out", "request_locale", "require_i18n_name"]
+__all__ = ["clean_i18n", "default_locale", "derive_default_name", "i18n_out", "request_locale", "require_i18n_name"]
+
+
+def default_locale() -> str:
+    """当前系统默认语言（语言清单默认标记；无请求上下文时回退出厂默认语言）。
+
+    Returns:
+        str: 默认语言标识。
+    """
+    return get_default_locale()
 
 
 def request_locale() -> str:
-    """当前请求语言（＝必填语言口径；不支持时回退系统默认语言）。
+    """当前请求语言（＝必填语言口径；缺省回退系统默认语言）。
+
+    请求语言已由 `locale_scope` 按语言清单解析（新增语言免改代码），此处不再按常量白名单二次收敛，
+    否则「运行期扩语言」后的必填语言会错判。
 
     Returns:
         str: 生效请求语言。
     """
-    locale = current_dict_locale.get() or DEFAULT_LOCALE
-    return locale if locale in SUPPORTED_LOCALES else DEFAULT_LOCALE
+    return current_dict_locale.get() or default_locale()
 
 
 def clean_i18n(names: ConcurrentStableDict[str, str]) -> ConcurrentStableDict[str, str]:
@@ -74,7 +86,7 @@ def derive_default_name(names: ConcurrentStableDict[str, str], *, required_local
     Raises:
         MenuI18nRequiredError: 全部语言皆无文案（40208）。
     """
-    for candidate in (DEFAULT_LOCALE, required_locale):
+    for candidate in (default_locale(), required_locale):
         value = names.get(candidate) or ""
         if value:
             return value

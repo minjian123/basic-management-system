@@ -1579,6 +1579,33 @@
         "title": "ApiResponse[PermissionSubjectResult]",
         "type": "object"
       },
+      "ApiResponse_ProfilePreferenceResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfilePreferenceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ProfilePreferenceResponse]",
+        "type": "object"
+      },
       "ApiResponse_RoleAssignedUsers_": {
         "additionalProperties": false,
         "properties": {
@@ -7314,6 +7341,86 @@
           "status"
         ],
         "title": "ProductSnapshotItem",
+        "type": "object"
+      },
+      "ProfilePreferenceRequest": {
+        "additionalProperties": false,
+        "description": "偏好设置请求（部分更新语义）。",
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好（须已登记且启用；null 表示清空回退系统默认语言）",
+            "title": "Locale"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "时区偏好（IANA 标识，如 Asia/Shanghai；null 表示清空回退缺省时区）",
+            "title": "Timezone"
+          }
+        },
+        "title": "ProfilePreferenceRequest",
+        "type": "object"
+      },
+      "ProfilePreferenceResponse": {
+        "additionalProperties": false,
+        "description": "偏好读取响应（存值 + 生效值）。",
+        "properties": {
+          "effective_locale": {
+            "description": "生效语言（未设置或该语言停用时为系统默认语言）",
+            "title": "Effective Locale",
+            "type": "string"
+          },
+          "effective_timezone": {
+            "description": "生效时区（未设置时按生效语言派生）",
+            "title": "Effective Timezone",
+            "type": "string"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好存值（未设置为 null）",
+            "title": "Locale"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "时区偏好存值（未设置为 null）",
+            "title": "Timezone"
+          }
+        },
+        "required": [
+          "effective_locale",
+          "effective_timezone"
+        ],
+        "title": "ProfilePreferenceResponse",
         "type": "object"
       },
       "QueryScheme": {
@@ -22809,6 +22916,168 @@
         "summary": "Get Product",
         "tags": [
           "product"
+        ]
+      }
+    },
+    "/api/v1/profile/preferences": {
+      "get": {
+        "description": "读取本人语言 / 时区偏好（存值 + 生效值）。\n\nArgs:\n    request: 请求对象。\n    uow: 请求级工作单元。\n    registry: 语言清单能力域。\n\nReturns:\n    ApiResponse[ProfilePreferenceResponse]: 统一响应。",
+        "operationId": "get_profile_preferences_api_v1_profile_preferences_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ProfilePreferenceResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Profile Preferences",
+        "tags": [
+          "profile"
+        ]
+      },
+      "put": {
+        "description": "设置本人语言 / 时区偏好（部分更新；非法值即拒）。\n\nArgs:\n    request: 请求对象。\n    req: 偏好设置请求。\n    uow: 请求级工作单元。\n    registry: 语言清单能力域。\n\nReturns:\n    ApiResponse[ProfilePreferenceResponse]: 更新后的偏好（存值 + 生效值）。",
+        "operationId": "update_profile_preferences_api_v1_profile_preferences_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfilePreferenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ProfilePreferenceResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Profile Preferences",
+        "tags": [
+          "profile"
         ]
       }
     },
