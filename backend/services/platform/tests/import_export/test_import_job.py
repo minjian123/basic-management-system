@@ -51,7 +51,13 @@ from bms_platform.domains.user.imports import UserImportDefinition
 from bms_platform.domains.user.services.users_admin import UserAdminService
 from bms_platform.imports import build_import_definitions
 
-pytestmark = [pytest.mark.kiwi_id(2401), pytest.mark.usefixtures("serial_db_write")]
+pytestmark = [
+    pytest.mark.kiwi_id(2401),
+    pytest.mark.usefixtures("serial_db_write"),
+    # 共享库 + 作业内部自开事务写 sys_user：同文件用例固定同一 worker 串行（04-6-2 既有口径），
+    # 避免同文件内不同 worker 互相抢 SQLite 写锁（实测表现为 `database is locked` → 作业判 failed）。
+    pytest.mark.xdist_group("import-job"),
+]
 
 _USER_HEADERS = ["登录账号", "姓名", "邮箱", "手机号", "状态", "初始密码"]
 
