@@ -102,7 +102,7 @@ def _redis_region() -> RedisI18nCacheRegion:
     Returns:
         RedisI18nCacheRegion: Redis 缓存域实例。
     """
-    server = FakeServer()
+    server = FakeServer()  # pyright: ignore[reportUnknownVariableType]
     return RedisI18nCacheRegion(
         redis_region=RedisCacheRegion(
             domain="i18n",

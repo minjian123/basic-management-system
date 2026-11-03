@@ -87,9 +87,7 @@ def _iter_python_files(
     return sorted(set(found))
 
 
-def _files_from(
-    root: Path, stream: TextIO
-) -> Sequence[Path]:  # bare-collections:allow（命令行参数）
+def _files_from(root: Path, stream: TextIO) -> Sequence[Path]:  # bare-collections:allow（命令行参数）
     """按改动清单筛选待扫描文件。
 
     Args:
@@ -110,9 +108,7 @@ def _files_from(
     return sorted(set(selected))
 
 
-def _check_file(
-    path: Path, root: Path
-) -> Sequence[str]:  # bare-collections:allow（命令行参数）
+def _check_file(path: Path, root: Path) -> Sequence[str]:  # bare-collections:allow（命令行参数）
     """检查单文件的 pragma 豁免理由。
 
     Args:
@@ -124,13 +120,9 @@ def _check_file(
     """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
-    except (
-        OSError
-    ) as error:  # pragma: no cover - 读失败即环境问题（权限 / 并发删除），不参与判定
+    except OSError as error:  # pragma: no cover - 读失败即环境问题（权限 / 并发删除），不参与判定
         return [f"{path}: 读取失败（{error.__class__.__name__}）"]
-    relative = (
-        path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
-    )
+    relative = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
     problems = []  # bare-collections:allow（命令行参数）
     for number, line in enumerate(text.splitlines(), start=1):
         if line.lstrip().startswith("#"):
@@ -216,9 +208,7 @@ def main(
         for problem in problems:
             print(f"  - {problem}", file=sys.stderr)
         return 1
-    print(
-        f"[pragma-reason] 通过：{len(targets)} 个文件（豁免均带理由；存量基线 {exempted} 处待整改）"
-    )
+    print(f"[pragma-reason] 通过：{len(targets)} 个文件（豁免均带理由；存量基线 {exempted} 处待整改）")
     return 0
 
 

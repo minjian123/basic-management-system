@@ -13,7 +13,7 @@ from typing import Any, cast
 
 import pytest
 
-from bms_core.audit.base import AuditCapturer, FieldChange
+from bms_core.audit.base import FieldChange
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError, I18nMessageKeyInvalidError
 from bms_core.i18n.cache import MemoryI18nCacheRegion
@@ -140,7 +140,7 @@ class _HitStore:
         del key
 
 
-class _BrokenAudit(AuditCapturer):
+class _BrokenAudit:
     """审计捕获器替身：`capture` 抛错（验证留痕失败不反噬业务写）。"""
 
     def is_audited(self, table: str) -> bool:
@@ -449,7 +449,11 @@ async def test_save_releases_key_when_no_idempotency_and_invalid() -> None:
     """未装配幂等 + 校验失败：异常直接上抛（释放分支不执行）。"""
     service = _message_service()
     with pytest.raises(I18nMessageKeyInvalidError):
-        await service.save(MessageSaveRequest(adds=[MessageAddItem(msg_key="Bad Key", locale="zh-CN", value="v")]))
+        await service.save(
+            MessageSaveRequest(
+                adds=ConcurrentStableList((MessageAddItem(msg_key="Bad Key", locale="zh-CN", value="v"),))
+            )
+        )
 
 
 async def test_adds_existing_row_conflict() -> None:
@@ -457,7 +461,9 @@ async def test_adds_existing_row_conflict() -> None:
     service = _service_with_repos(_AddsConflictRepo(), _LocalesRepoStub())
     with pytest.raises(ConcurrentConflictError):
         await service.save(
-            MessageSaveRequest(adds=[MessageAddItem(msg_key="zztest.x.y", locale="zh-CN", value="新值")])
+            MessageSaveRequest(
+                adds=ConcurrentStableList((MessageAddItem(msg_key="zztest.x.y", locale="zh-CN", value="新值"),))
+            )
         )
 
 

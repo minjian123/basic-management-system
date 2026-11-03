@@ -21,7 +21,7 @@ from bms_core.i18n.db import (
 from bms_core.i18n.invalidate import I18nInvalidator
 from bms_core.i18n.locale import LocaleInfo
 from bms_core.i18n.registry_null import NullLocaleRegistry
-from bms_core.i18n.registry_sql import SqlLocaleRegistry, _query_locales
+from bms_core.i18n.registry_sql import SqlLocaleRegistry, _query_locales  # pyright: ignore[reportPrivateUsage]
 from bms_core.i18n.rules import (
     is_locale_code_valid,
     is_message_key_valid,
@@ -256,7 +256,7 @@ def test_rules_boundaries() -> None:
 def test_seed_cli_dry_run(capsys: pytest.CaptureFixture[str]) -> None:
     """种子命令行：`--dry-run` 只打印目标库。"""
     assert build_parser().parse_args(["--dry-run"]).dry_run is True
-    assert main(["--dry-run"]) == 0
+    assert main(ConcurrentStableList(["--dry-run"])) == 0
     assert "seed_i18n" in capsys.readouterr().out
 
 
@@ -278,7 +278,7 @@ def test_seed_cli_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db_url = f"sqlite+aiosqlite:///{tmp_path / 'cli.db'}"
     asyncio.run(_create_i18n_tables(db_url))
     monkeypatch.setattr("bms_core.i18n.seed._database_url", lambda: db_url)
-    assert main([]) == 0
+    assert main(ConcurrentStableList()) == 0
 
 
 async def test_seed_entry_and_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
