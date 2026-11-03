@@ -27,6 +27,7 @@ from bms_core.core.context import get_current_request_id
 from bms_core.core.exceptions import BizError, DatabaseUnavailableError, InternalError, ParamError
 from bms_core.core.logging import get_logger
 from bms_core.core.plugin import NULL_PLUGIN_NAME, resolve_plugin
+from bms_core.db.contention import RETRY_AFTER_SECONDS, contention_driver
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.i18n.base import BaseTranslator
@@ -39,11 +40,17 @@ logger = get_logger("bms_core.api.errors")
 
 _REQUEST_ID_HEADER = "X-Request-Id"
 
+_RETRY_AFTER_HEADER = "Retry-After"
+"""标准可重试标记：秒数（`503` 时由争用分支写入，body 不变）。"""
+
 METRIC_ERROR_CODE_UNKNOWN = "bms_error_code_unknown_total"
 """渲染时错误码在合并视图中未命中的次数（标签 `code`）。"""
 
 METRIC_ERROR_CODE_UNRESOLVED = "bms_error_code_unresolved_total"
 """真实 translator 下文案缺失（回退 `description`）的次数（标签 `code`）。"""
+
+METRIC_DB_LOCK_CONTENTION = "bms_db_lock_contention_total"
+"""数据库锁争用命中次数（标签 `driver`）：与主库故障分开计数，便于区分「争用」与「故障」。"""
 
 
 def _request_id(scope: Scope) -> str:
@@ -62,15 +69,26 @@ def _request_id(scope: Scope) -> str:
     return request_id or str(uuid.uuid4())
 
 
-def _render(status_code: int, body: ApiResponse, scope: Scope) -> JSONResponse:
+def _render(status_code: int, body: ApiResponse, scope: Scope, *, retry_after: int | None = None) -> JSONResponse:
     """构造统一响应并回写请求 id 与链路 id 头。
 
     `X-Trace-Id` 从请求态读取（未捕获异常的响应在中间件外层生成，
     上下文已被中间件复位，请求态不受复位影响）。
+
+    Args:
+        status_code: HTTP 状态码。
+        body: 统一响应体。
+        scope: ASGI 作用域。
+        retry_after: `Retry-After` 秒数（`None` 不写该头）。
+
+    Returns:
+        JSONResponse: 统一响应。
     """
     state = ConcurrentStableDict(scope.get("state", {}))
     response = JSONResponse(status_code=status_code, content=jsonable_encoder(body))
     response.headers[_REQUEST_ID_HEADER] = _request_id(scope)
+    if retry_after is not None:
+        response.headers[_RETRY_AFTER_HEADER] = str(retry_after)
     if trace_id := state.get("trace_id"):
         response.headers[TRACE_ID_HEADER] = str(trace_id)
     return response
@@ -107,18 +125,19 @@ def _real_translator(scope: Scope) -> BaseTranslator | None:
     )
 
 
-async def _count(scope: Scope, name: str, code: int) -> None:
-    """记录错误码相关计数器（未装配指标器时跳过）。
+async def _count(scope: Scope, name: str, value: int | str, *, label: str = "code") -> None:
+    """记录计数器（未装配指标器时跳过）。
 
     Args:
         scope: ASGI 作用域。
         name: 指标名。
-        code: 错误码（标签值）。
+        value: 标签值。
+        label: 标签名（错误码类用 `code`，争用类用 `driver`）。
     """
     metrics = cast("BaseMetrics | None", getattr(_app_state(scope), "metrics", None))
     if metrics is None:
         return
-    await metrics.counter(name, labels=ConcurrentStableDict({"code": str(code)}))
+    await metrics.counter(name, labels=ConcurrentStableDict({label: str(value)}))
 
 
 async def _resolve_message(scope: Scope, record: ErrorCodeRecord) -> str:
@@ -151,12 +170,14 @@ async def _resolve_message(scope: Scope, record: ErrorCodeRecord) -> str:
     return record.description
 
 
-async def build_error_response(scope: Scope, exc: BizError) -> JSONResponse:
+async def build_error_response(scope: Scope, exc: BizError, *, retry_after: int | None = None) -> JSONResponse:
     """构造业务异常的统一错误响应（全局异常处理器与中间件**共用单点**）。
 
     Args:
         scope: ASGI 作用域（取请求 id / 链路 id / 应用装配）。
         exc: 业务异常。
+        retry_after: `Retry-After` 秒数（`None` 不写该头；锁争用分支传
+            `RETRY_AFTER_SECONDS`）。
 
     Returns:
         JSONResponse: 统一响应（HTTP 状态与业务码分离）。
@@ -172,7 +193,7 @@ async def build_error_response(scope: Scope, exc: BizError) -> JSONResponse:
         await _count(scope, METRIC_ERROR_CODE_UNKNOWN, exc.code)
         message = exc.message or f"error.{exc.code}"
         body = ApiResponse(code=exc.code, message=message, data=exc.data)
-        return _render(exc.http_status, body, scope)
+        return _render(exc.http_status, body, scope, retry_after=retry_after)
     if exc.http_status != record.http_status:
         logger.warning(
             "error_code_status_drift",
@@ -182,7 +203,7 @@ async def build_error_response(scope: Scope, exc: BizError) -> JSONResponse:
         )
     message = exc.message or await _resolve_message(scope, record)
     body = ApiResponse(code=exc.code, message=message, data=exc.data)
-    return _render(record.http_status, body, scope)
+    return _render(record.http_status, body, scope, retry_after=retry_after)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -203,7 +224,23 @@ def register_exception_handlers(app: FastAPI) -> None:
         return await build_error_response(request.scope, ParamError(data=exc.errors()))
 
     async def _db_unavailable_handler(request: Request, exc: Exception) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
-        """数据库连接类失败 → 标记主库降级并转明确错误（10006 / 503）。"""
+        """数据库失败 → 分「锁争用」与「主库故障」两条路（10006 / 503）。
+
+        - **锁争用**（锁等待 / 死锁）：重试即可恢复，**不**置只读降级，响应带 `Retry-After`；
+        - **其它**：按主库故障处理，置降级（行为与改动前一致）。
+        """
+        driver = contention_driver(exc)
+        if driver is not None:
+            logger.warning(
+                "database_contention",
+                path=request.url.path,
+                method=request.method,
+                driver=driver,
+                error=type(exc).__name__,
+            )
+            await _count(request.scope, METRIC_DB_LOCK_CONTENTION, driver, label="driver")
+            error = DatabaseUnavailableError("数据库繁忙，请稍后重试")
+            return await build_error_response(request.scope, error, retry_after=RETRY_AFTER_SECONDS)
         health = getattr(request.app.state, "primary_health", None)
         if isinstance(health, PrimaryHealth):
             health.mark_degraded(PLATFORM_DB_KEY)
