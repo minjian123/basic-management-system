@@ -127,8 +127,18 @@ def _unused(*_args: object, **_kwargs: object) -> UserAdminService:
 
 
 @pytest_asyncio.fixture
-async def job_env(shared_tenant_engine: AsyncEngine) -> AsyncIterator[JobEnv]:
-    """作业执行环境（注册表 / 会话 / 源文件）。"""
+async def job_env(shared_tenant_engine: AsyncEngine, serial_db_write: None) -> AsyncIterator[JobEnv]:
+    """作业执行环境（注册表 / 会话 / 源文件）。
+
+    显式依赖 `serial_db_write`：作业在 fixture 作用域内自己开事务写 `sys_user`，
+    若只靠 `pytestmark` 的 usefixtures，锁在用例体内才生效，仍可能与其它 worker 撞
+    `database is locked`（实测把成功用例顶成 failed）。
+
+    Args:
+        shared_tenant_engine: 共享租户库引擎。
+        serial_db_write: 共享库写路径串行锁。
+    """
+    del serial_db_write
     tables: list[Table] = cast(  # bare-collections:allow（SQLAlchemy 表清单）
         "list[Table]",
         [
