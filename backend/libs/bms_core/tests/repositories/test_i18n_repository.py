@@ -125,7 +125,7 @@ async def test_load_prefers_request_locale(session: AsyncSession) -> None:
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        locales=["en-US", "zh-CN"],
+        locales=ConcurrentStableList(["en-US", "zh-CN"]),
     )
     assert result.get(probe_id) == "Menu One"
 
@@ -141,7 +141,7 @@ async def test_load_falls_back_to_default_locale(session: AsyncSession) -> None:
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        locales=["ja-JP", "zh-CN"],
+        locales=ConcurrentStableList(["ja-JP", "zh-CN"]),
     )
     assert result.get(probe_id) == "菜单一-中文"
 
@@ -155,7 +155,7 @@ async def test_load_returns_empty_when_both_locales_missing(session: AsyncSessio
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        locales=["ja-JP", "zh-CN"],
+        locales=ConcurrentStableList(["ja-JP", "zh-CN"]),
     )
     assert not result
 
@@ -171,7 +171,7 @@ async def test_load_locale_case_insensitive(session: AsyncSession) -> None:
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        locales=["ZH-CN"],
+        locales=ConcurrentStableList(["ZH-CN"]),
     )
     assert result.get(probe_id) == "小写存量"
 
@@ -192,7 +192,7 @@ async def test_load_skips_blank_text(session: AsyncSession) -> None:
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        locales=["en-US", "zh-CN"],
+        locales=ConcurrentStableList(["en-US", "zh-CN"]),
     )
     assert result.get(probe_id) == "中文兜底"
 
@@ -208,7 +208,7 @@ async def test_load_normalizes_locales(session: AsyncSession) -> None:
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        locales=[" en-US ", "en-us", "", "zh-CN"],
+        locales=ConcurrentStableList([" en-US ", "en-us", "", "zh-CN"]),
     )
     assert result.get(probe_id) == "Menu One"
 
@@ -216,9 +216,13 @@ async def test_load_normalizes_locales(session: AsyncSession) -> None:
 @pytest.mark.kiwi_id(2405)
 async def test_load_without_owner_ids_or_locales_returns_empty(session: AsyncSession) -> None:
     """空主表 ID 集或空语言序列直接返回空（不打库）。"""
-    assert not await load_i18n(session, I18nProbeText, "probe_id", ConcurrentStableList(), locales=["zh-CN"])
+    assert not await load_i18n(
+        session, I18nProbeText, "probe_id", ConcurrentStableList(), locales=ConcurrentStableList(["zh-CN"])
+    )
     probe_id = await _seed_probe(session)
-    assert not await load_i18n(session, I18nProbeText, "probe_id", ConcurrentStableList([probe_id]), locales=[])
+    assert not await load_i18n(
+        session, I18nProbeText, "probe_id", ConcurrentStableList([probe_id]), locales=ConcurrentStableList()
+    )
 
 
 @pytest.mark.kiwi_id(2405)
@@ -237,8 +241,8 @@ async def test_load_texts_falls_back_per_column(session: AsyncSession) -> None:
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        locales=["en-US", "zh-CN"],
-        text_columns=("subject", "content"),
+        locales=ConcurrentStableList(["en-US", "zh-CN"]),
+        text_columns=ConcurrentStableList(("subject", "content")),
     )
     bucket = result.get(probe_id)
     assert bucket is not None
@@ -265,7 +269,7 @@ async def test_load_all_variants(session: AsyncSession) -> None:
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        text_columns=("subject",),
+        text_columns=ConcurrentStableList(("subject",)),
     )
     detail = detailed.get(probe_id)
     assert detail is not None
@@ -315,15 +319,15 @@ async def test_replace_texts_writes_multiple_columns(session: AsyncSession) -> N
         "probe_id",
         probe_id,
         texts,
-        text_columns=("subject", "content"),
+        text_columns=ConcurrentStableList(("subject", "content")),
     )
     result = await load_i18n_texts(
         session,
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([probe_id]),
-        locales=["zh-CN"],
-        text_columns=("subject", "content"),
+        locales=ConcurrentStableList(["zh-CN"]),
+        text_columns=ConcurrentStableList(("subject", "content")),
     )
     bucket = result.get(probe_id)
     assert bucket is not None
@@ -359,7 +363,7 @@ async def test_load_all_texts_skips_blank_and_splits_owners(session: AsyncSessio
         I18nProbeText,
         "probe_id",
         ConcurrentStableList([first, second]),
-        text_columns=("name", "subject"),
+        text_columns=ConcurrentStableList(("name", "subject")),
     )
     assert set(result.keys()) == {first}
     by_locale = result.get(first)

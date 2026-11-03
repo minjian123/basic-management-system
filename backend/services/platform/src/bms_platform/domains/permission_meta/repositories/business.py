@@ -55,7 +55,7 @@ class BusinessRepository(BaseDbRepository[SysBusiness]):
             SysBusinessI18n,
             "business_id",
             business_ids,
-            locales=[locale, get_default_locale()],
+            locales=ConcurrentStableList([locale, get_default_locale()]),
         )
 
     async def list_i18n_all(
@@ -142,7 +142,7 @@ class ActionRepository(BaseDbRepository[SysAction]):
             SysActionI18n,
             "action_id",
             action_ids,
-            locales=[locale, get_default_locale()],
+            locales=ConcurrentStableList([locale, get_default_locale()]),
         )
 
     async def list_i18n_all(

@@ -12,6 +12,7 @@
 
 from dataclasses import dataclass
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import I18nSettings
 from bms_core.core.exceptions import ParamError, TimezoneInvalidError, UserLocaleInvalidError, UserNotFoundError
 from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
@@ -111,7 +112,7 @@ class ProfilePreferenceService(BaseFrameworkObject):
         """
         if not locale_provided and not timezone_provided:
             raise ParamError("未提供任何偏好字段（locale / timezone 至少一项）")
-        changes: dict[str, object] = {}
+        changes: ConcurrentStableDict[str, object] = ConcurrentStableDict()
         if locale_provided:
             changes["locale"] = await self._normalize_locale(locale)
         if timezone_provided:

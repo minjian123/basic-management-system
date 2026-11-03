@@ -12,11 +12,12 @@
 校验失败时抛出，避免能力域与错误码体系互相依赖。
 """
 
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Final
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
+
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenSet
 
 __all__ = [
     "DEFAULT_DATETIME_PATTERN",
@@ -31,13 +32,13 @@ DEFAULT_DATETIME_PATTERN: Final[str] = "%Y-%m-%d %H:%M"
 
 
 @lru_cache(maxsize=1)
-def _timezone_names() -> frozenset[str]:
+def _timezone_names() -> ConcurrentStableFrozenSet[str]:
     """取 IANA 时区名全集（进程内缓存，避免每次重建集合）。
 
     Returns:
-        frozenset[str]: 可用时区标识集合。
+        ConcurrentStableFrozenSet[str]: 可用时区标识集合。
     """
-    return frozenset(available_timezones())
+    return ConcurrentStableFrozenSet(available_timezones())
 
 
 def is_valid_timezone(name: str | None) -> bool:
@@ -54,7 +55,7 @@ def is_valid_timezone(name: str | None) -> bool:
     return name.strip() in _timezone_names()
 
 
-def resolve_timezone(locale: str, by_locale: Mapping[str, str], default: str) -> str:
+def resolve_timezone(locale: str, by_locale: ConcurrentStableDict[str, str], default: str) -> str:
     """按语言派生缺省时区（未设置偏好时使用）。
 
     Args:

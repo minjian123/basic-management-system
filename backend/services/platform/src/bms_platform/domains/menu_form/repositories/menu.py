@@ -68,7 +68,7 @@ class MenuRepository(BaseDbRepository[SysMenu]):
             SysMenuI18n,
             "menu_id",
             menu_ids,
-            locales=[locale, get_default_locale()],
+            locales=ConcurrentStableList([locale, get_default_locale()]),
         )
 
     async def list_i18n_all(
@@ -345,7 +345,7 @@ class FieldRepository(BaseDbRepository[SysField]):
             SysFieldI18n,
             "field_id",
             field_ids,
-            locales=[locale, get_default_locale()],
+            locales=ConcurrentStableList([locale, get_default_locale()]),
         )
 
     async def list_i18n_all(

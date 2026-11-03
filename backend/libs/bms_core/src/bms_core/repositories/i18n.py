@@ -18,16 +18,16 @@
 造成跨域 import；本模块不含表归属，仅按传入模型操作。
 """
 
-from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 from sqlalchemy import func, select
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.db.session import DbSession
 
 __all__ = [
     "DEFAULT_TEXT_COLUMN",
+    "DEFAULT_TEXT_COLUMNS",
     "I18nTextMap",
     "load_i18n",
     "load_i18n_all",
@@ -41,11 +41,14 @@ __all__ = [
 DEFAULT_TEXT_COLUMN = "name"
 """缺省文案列（多数附表的名称列；多列场景显式传 `text_columns`）。"""
 
+DEFAULT_TEXT_COLUMNS: ConcurrentStableList[str] = ConcurrentStableList((DEFAULT_TEXT_COLUMN,))
+"""缺省文案列序列（只读常量，供函数缺省参数复用）。"""
+
 I18nTextMap = ConcurrentStableDict[str, str]
 """单行文案映射：文案列 → 文本。"""
 
 
-def _normalized_locales(locales: Sequence[str]) -> ConcurrentStableList[str]:
+def _normalized_locales(locales: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """归一语言优先级序（去空白、去重、小写），保持首现顺序。
 
     Args:
@@ -55,7 +58,7 @@ def _normalized_locales(locales: Sequence[str]) -> ConcurrentStableList[str]:
         ConcurrentStableList[str]: 小写归一的语言序列。
     """
     result: ConcurrentStableList[str] = ConcurrentStableList()
-    seen: set[str] = set()
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
     for locale in locales:
         key = (locale or "").strip().lower()
         if not key or key in seen:
@@ -85,8 +88,8 @@ async def load_i18n_texts(
     key_column: str,
     owner_ids: ConcurrentStableList[int],
     *,
-    locales: Sequence[str],
-    text_columns: Sequence[str] = (DEFAULT_TEXT_COLUMN,),
+    locales: ConcurrentStableList[str],
+    text_columns: ConcurrentStableList[str] = DEFAULT_TEXT_COLUMNS,
 ) -> ConcurrentStableDict[int, I18nTextMap]:
     """按主表 ID 集合与语言优先级装载**多列**文案（每列独立回退）。
 
@@ -105,7 +108,9 @@ async def load_i18n_texts(
     ordered = _normalized_locales(locales)
     if not owner_ids or not ordered:
         return ConcurrentStableDict()
-    priority = {locale: index for index, locale in enumerate(ordered)}
+    priority: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+    for index, locale in enumerate(ordered):
+        priority.set(locale, index)
     key_attr = getattr(model, key_column)
     text_attrs = [getattr(model, column) for column in text_columns]
     statement = select(key_attr, model.locale, *text_attrs).where(
@@ -115,11 +120,11 @@ async def load_i18n_texts(
     )
     rows = (await session.execute(statement)).all()
 
-    best: dict[tuple[int, str], int] = {}
-    collected: dict[tuple[int, str], str] = {}
+    best: ConcurrentStableDict[tuple[int, str], int] = ConcurrentStableDict()
+    collected: ConcurrentStableDict[tuple[int, str], str] = ConcurrentStableDict()
     for row in rows:
         owner_id = int(cast("int", row[0]))
-        rank = priority[str(cast("str", row[1])).strip().lower()]
+        rank = priority.get(str(cast("str", row[1])).strip().lower()) or 0
         for index, column in enumerate(text_columns):
             value = row[index + 2]
             if _is_blank(value):
@@ -128,8 +133,8 @@ async def load_i18n_texts(
             current = best.get(slot)
             if current is not None and current <= rank:
                 continue
-            best[slot] = rank
-            collected[slot] = str(cast("str", value))
+            best.set(slot, rank)
+            collected.set(slot, str(cast("str", value)))
 
     result: ConcurrentStableDict[int, I18nTextMap] = ConcurrentStableDict()
     for (owner_id, column), text in collected.items():
@@ -147,7 +152,7 @@ async def load_i18n(
     key_column: str,
     owner_ids: ConcurrentStableList[int],
     *,
-    locales: Sequence[str],
+    locales: ConcurrentStableList[str],
     text_column: str = DEFAULT_TEXT_COLUMN,
 ) -> ConcurrentStableDict[int, str]:
     """按主表 ID 集合与语言优先级装载**单列**文案（两级回退）。
@@ -169,7 +174,7 @@ async def load_i18n(
         key_column,
         owner_ids,
         locales=locales,
-        text_columns=(text_column,),
+        text_columns=ConcurrentStableList((text_column,)),
     )
     projected: ConcurrentStableDict[int, str] = ConcurrentStableDict()
     for owner_id, bucket in texts.items():
@@ -183,7 +188,7 @@ async def load_i18n_all_texts(
     key_column: str,
     owner_ids: ConcurrentStableList[int],
     *,
-    text_columns: Sequence[str] = (DEFAULT_TEXT_COLUMN,),
+    text_columns: ConcurrentStableList[str] = DEFAULT_TEXT_COLUMNS,
 ) -> ConcurrentStableDict[int, ConcurrentStableDict[str, I18nTextMap]]:
     """按主表 ID 集合装载**全部语言的多列**文案（维护视图用）。
 
@@ -207,7 +212,7 @@ async def load_i18n_all_texts(
         model.deleted_at.is_(None),
     )
     rows = (await session.execute(statement)).all()
-    collected: dict[tuple[int, str, str], str] = {}
+    collected: ConcurrentStableDict[tuple[int, str, str], str] = ConcurrentStableDict()
     for row in rows:
         owner_id = int(cast("int", row[0]))
         locale = str(cast("str", row[1]))
@@ -215,7 +220,7 @@ async def load_i18n_all_texts(
             value = row[index + 2]
             if _is_blank(value):
                 continue
-            collected[(owner_id, locale, column)] = str(cast("str", value))
+            collected.set((owner_id, locale, column), str(cast("str", value)))
 
     result: ConcurrentStableDict[int, ConcurrentStableDict[str, I18nTextMap]] = ConcurrentStableDict()
     for (owner_id, locale, column), text in collected.items():
@@ -256,7 +261,7 @@ async def load_i18n_all(
         model,
         key_column,
         owner_ids,
-        text_columns=(text_column,),
+        text_columns=ConcurrentStableList((text_column,)),
     )
     projected: ConcurrentStableDict[int, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
     for owner_id, by_locale in texts.items():
@@ -272,9 +277,9 @@ async def replace_i18n_texts(
     model: Any,
     key_column: str,
     owner_id: int,
-    texts: Mapping[str, Mapping[str, str]],
+    texts: ConcurrentStableDict[str, ConcurrentStableDict[str, str]],
     *,
-    text_columns: Sequence[str] = (DEFAULT_TEXT_COLUMN,),
+    text_columns: ConcurrentStableList[str] = DEFAULT_TEXT_COLUMNS,
 ) -> None:
     """整体替换某主表行的多语言多列文案（软删除旧行后按语言插新行）。
 
@@ -304,7 +309,7 @@ async def replace_i18n(
     model: Any,
     key_column: str,
     owner_id: int,
-    names: Mapping[str, str],
+    names: ConcurrentStableDict[str, str],
     *,
     text_column: str = DEFAULT_TEXT_COLUMN,
 ) -> None:
@@ -327,7 +332,7 @@ async def replace_i18n(
         key_column,
         owner_id,
         texts,
-        text_columns=(text_column,),
+        text_columns=ConcurrentStableList((text_column,)),
     )
 
 

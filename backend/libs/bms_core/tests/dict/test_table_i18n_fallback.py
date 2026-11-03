@@ -7,7 +7,7 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import sqlalchemy as sa
@@ -59,14 +59,14 @@ def _i18n_table() -> sa.Table:
     )
 
 
-def _seed(db_path: Path, table: sa.Table, i18n: sa.Table, rows: list[sa.Table]) -> None:
+def _seed(db_path: Path, table: sa.Table, i18n: sa.Table, rows: object) -> None:
     """建表并写入主表行与附表行。
 
     Args:
         db_path: SQLite 文件路径。
         table: 主表。
         i18n: 附表。
-        rows: 附表行（`i18n.insert()` 参数）。
+        rows: 附表行（`i18n.insert()` 参数；空序列表示不写）。
     """
     engine = sa.create_engine(f"sqlite:///{db_path}")
     table.create(engine)
@@ -74,7 +74,7 @@ def _seed(db_path: Path, table: sa.Table, i18n: sa.Table, rows: list[sa.Table]) 
     with engine.begin() as connection:
         connection.execute(table.insert(), [{"id": 1, "code": "probe", "name": "主表名", "status": "enabled"}])
         if rows:
-            connection.execute(i18n.insert(), rows)
+            connection.execute(i18n.insert(), cast("Any", rows))
     engine.dispose()
 
 

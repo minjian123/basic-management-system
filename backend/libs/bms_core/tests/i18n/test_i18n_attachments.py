@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.i18n.attachments import (
     ATTACHMENT_LANDED,
     ATTACHMENT_PENDING,
@@ -18,20 +19,29 @@ from bms_core.i18n.attachments import (
     pending_attachments,
 )
 from bms_core.models.base import BaseModel
-from bms_core.models.platform import catalog, icon, menu_form, permission_meta  # noqa: F401（导入即注册模型元数据）
+from bms_core.models.platform import catalog, icon, menu_form, permission_meta
 
 pytestmark = pytest.mark.kiwi_id(2405)
 
 _MODELS_ROOT = Path(__file__).resolve().parents[2] / "src" / "bms_core" / "models"
 
+_MODEL_MODULES = (catalog, icon, menu_form, permission_meta)
+"""已落库附表所属模型模块（导入即注册 `BaseModel.metadata`，供列名一致性校验）。"""
 
-def _iter_model_tables() -> set[str]:
+
+def _ensure_models_registered() -> None:
+    """触发模型模块导入副作用（元数据注册）。"""
+    for module in _MODEL_MODULES:
+        assert module is not None
+
+
+def _iter_model_tables() -> ConcurrentStableSet[str]:
     """扫模型层源码里的 `__tablename__` 字面量（AST，不 import）。
 
     Returns:
-        set[str]: 模型层声明的表名集合。
+        ConcurrentStableSet[str]: 模型层声明的表名集合。
     """
-    tables: set[str] = set()
+    tables: ConcurrentStableSet[str] = ConcurrentStableSet()
     for path in _MODELS_ROOT.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -79,6 +89,7 @@ def test_model_tables_all_registered() -> None:
 
 def test_landed_text_columns_match_models() -> None:
     """已落库行的文案列 / 关联列与模型列名一致。"""
+    _ensure_models_registered()
     model_tables = _iter_model_tables()
     for item in landed_attachments():
         assert item.owner_table in model_tables, f"主表未在模型层声明：{item.owner_table}"

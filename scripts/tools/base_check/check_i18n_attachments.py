@@ -31,7 +31,7 @@ _SRC_RELATIVE = Path("backend/libs/bms_core/src")
 _IGNORED_ARGS = ("--files-from",)
 
 
-def _pop_args(argv: list[str]) -> tuple[Path, list[str]]:
+def _pop_args(argv: list[str]) -> tuple[Path, list[str]]:  # bare-collections:allow（argv 为 sys.argv 切片）
     """解析参数（位置参数为仓库根；`--files-from` 兼容预检增量传参，本脚本为全局一致性检查，忽略其值）。
 
     Args:
@@ -40,7 +40,7 @@ def _pop_args(argv: list[str]) -> tuple[Path, list[str]]:
     Returns:
         tuple[Path, list[str]]: (仓库根, 告警信息)。
     """
-    notes: list[str] = []
+    notes: list[str] = []  # bare-collections:allow（脚本内告警收集）
     root: Path | None = None
     index = 0
     while index < len(argv):
@@ -58,7 +58,7 @@ def _pop_args(argv: list[str]) -> tuple[Path, list[str]]:
     return root.resolve(), notes
 
 
-def _iter_model_tables(models_root: Path) -> set[str]:
+def _iter_model_tables(models_root: Path) -> set[str]:  # bare-collections:allow（脚本内临时集合）
     """扫描模型层源码里的 `__tablename__` 字面量。
 
     Args:
@@ -67,7 +67,7 @@ def _iter_model_tables(models_root: Path) -> set[str]:
     Returns:
         set[str]: 模型层声明的表名集合。
     """
-    tables: set[str] = set()
+    tables: set[str] = set()  # bare-collections:allow（脚本内临时集合）
     for path in models_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
@@ -84,7 +84,7 @@ def _iter_model_tables(models_root: Path) -> set[str]:
     return tables
 
 
-def _load_attachments(src_root: Path) -> dict[str, tuple[str, str]]:
+def _load_attachments(src_root: Path) -> dict[str, tuple[str, str]]:  # bare-collections:allow（脚本内台账快照）
     """从台账模块取「表名 → (状态, 归口)」。
 
     Args:
@@ -105,7 +105,7 @@ def _load_attachments(src_root: Path) -> dict[str, tuple[str, str]]:
     return {table: (item.status, item.owner_task) for table, item in I18N_ATTACHMENTS.items()}
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # bare-collections:allow（argv 为 sys.argv 切片）
     """入口。
 
     Args:
@@ -127,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[i18n-attachments] {exc}")
         return 2
 
-    problems: list[str] = []
+    problems: list[str] = []  # bare-collections:allow（脚本内问题收集）
     model_tables = _iter_model_tables(models_root)
     model_i18n = {name for name in model_tables if name.endswith("_i18n")}
 
@@ -160,8 +160,10 @@ def main(argv: list[str] | None = None) -> int:
         for problem in problems:
             print(f"  - {problem}")
         return 1
-    print(f"[i18n-attachments] 通过：台账 {len(attachments)} 行（已落库 {len(landed)} / 待落地 {len(pending)}），"
-          f"模型层 i18n 表 {len(model_i18n)} 张")
+    print(
+        f"[i18n-attachments] 通过：台账 {len(attachments)} 行（已落库 {len(landed)} / 待落地 {len(pending)}），"
+        f"模型层 i18n 表 {len(model_i18n)} 张"
+    )
     return 0
 
 

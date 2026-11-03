@@ -35,8 +35,8 @@
 | `last_login_at` | DATETIME | 是 | — | 最近登录时间（UTC） |
 | `email` | VARCHAR(255) | 是 | — | 邮箱（找回密码通道；维护入口 / 唯一性与格式校验归用户管理阶段） |
 | `phone` | VARCHAR(32) | 是 | — | 手机号（找回密码通道；维护入口 / 唯一性与格式校验归用户管理阶段） |
-| `locale` | VARCHAR(16) | 是 | — | 语言偏好（如 `zh-cn`） |
-| `timezone` | VARCHAR(64) | 是 | — | 时区偏好（如 `Asia/Shanghai`） |
+| `locale` | VARCHAR(16) | 是 | — | 语言偏好（IETF 标准形态，如 `zh-CN`；须已登记且启用，比较大小写不敏感） |
+| `timezone` | VARCHAR(64) | 是 | — | 时区偏好（IANA 标识，如 `Asia/Shanghai`；写入前经 `zoneinfo` 白名单校验，非法即拒 `44009`；NULL=未设置，按生效语言派生） |
 | `parent_id` | DECIMAL(38,0) | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
 | `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
@@ -74,4 +74,5 @@
 | 2026-10-11 | v5 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `username` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `username`），唯一约束改 `uq_sys_user_code_deleted_at`；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 | 2026-10-22 | v6 | ORM 模型落点迁基座共享 `bms_core/models/platform/user.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 | 2026-11-01 | v7 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
+| 2026-11-03 | v8 | 偏好字段口径明确（05_02）：`locale` 统一 IETF 标准形态 `zh-CN`（原示例 `zh-cn` 更正）；`timezone` 为 IANA 标识、写入经白名单校验；两字段经 `/api/v1/profile/preferences` 读写（无结构变更） | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
