@@ -1,12 +1,12 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试与浏览器真机验证（Playwright MCP）实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开） / 2026-10-21 本地全套脱 Job 启动与 PID 复用校验 / 2026-10-23 源代码管理面板仓库可见性排障
+> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试、浏览器真机验证（Playwright MCP）与 **DSH 模型接入（CodeBuddy Code CLI）** 实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开） / 2026-10-21 本地全套脱 Job 启动与 PID 复用校验 / 2026-10-23 源代码管理面板仓库可见性排障
 
 [文档首页](../../../文档首页.md) › 资料 › 开发机 › windows › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[VSCode部署使用说明 →](VSCode部署使用说明.md)　[linux 版 CodeBuddy 部署使用说明 →](../linux/CodeBuddy部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（同机双系统：Ubuntu + Windows 11，本文为 **Windows 侧**）上 **CodeBuddy CN** 的部署与使用：安装形态与版本、用户数据目录、首次配置与权限现状、扩展管理与 HTML 文档预览、**运行与调试（`bms/.vscode/` 双平台启动项与任务）**、**浏览器真机验证（Playwright MCP）** 与排障入口，并单列「[与 linux 版差异](#diff-linux)」一节。
+记录开发机 **mjpc**（同机双系统：Ubuntu + Windows 11，本文为 **Windows 侧**）上 **CodeBuddy CN** 的部署与使用：安装形态与版本、用户数据目录、首次配置与权限现状、扩展管理与 HTML 文档预览、**运行与调试（`bms/.vscode/` 双平台启动项与任务）**、**浏览器真机验证（Playwright MCP）** 与排障入口，并单列「[与 linux 版差异](#diff-linux)」与「[与 DSH 的模型接入](#dsh-integration)」两节。
 
 本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》（windows 侧总览）配套；同机 Ubuntu 侧的部署与排障记录见《[CodeBuddy 部署使用说明](../linux/CodeBuddy部署使用说明.md)》（linux 侧）。两侧**同一个 bms 仓库、同一套 `.vscode/` 配置**，差异只在平台取值（见第 11 节）。
 
@@ -29,7 +29,9 @@
 | 扩展市场     | open-vsx.org（`product.json` → `extensionsGallery.serviceUrl`），非微软市场              |
 | 更新地址     | `product.json` → `updateUrl = https://copilot.tencent.com`                               |
 
-> CLI 命令名是 **`buddycn`**（不是 `codebuddy`，PATH 中也没有 `codebuddy`）；`buddycn --help` 与 VS Code CLI 同款，含 `--list-extensions` / `--install-extension` 等（见 [7.2](#ext-install)）。
+> 应用自带的 CLI 命令名是 **`buddycn`**；`buddycn --help` 与 VS Code CLI 同款，含 `--list-extensions` / `--install-extension` 等（见 [7.2](#ext-install)）。
+>
+> **与 `codebuddy` 区分**：本机 PATH 里的 `codebuddy` / `cbc` **不是**这份应用带的，而是另一套独立安装的 **CodeBuddy Code CLI**（agent 终端工具，版本 2.173.0）——它的鉴权、模型端点与 DSH 接入口径见 [第 13 节](#dsh-integration)，别把两者的版本与配置混为一谈。
 
 ### 2.2 版本核实命令 <a id="env-cmds"></a>
 
@@ -558,9 +560,132 @@ pnpm --filter @bms/desktop dev                                                  
 - □ 浏览器真机验证口径明确：Playwright MCP 登记于 `~\.codebuddy\mcp.json`（系统 Chrome + `--isolated`）、生效需重启 IDE；结构读 `browser_snapshot` / `browser_find`（`.playwright-mcp\*.yml` 不可依赖）、截图落工作区 `tmp\`、控制台只认预期错误；长会话首选 MCP
 - □ 排障入口齐备：日志三处（扩展 / IDE / 崩溃转储）、`python3` 商店别名、中文编码（GBK）、CLI 未入旧终端 PATH、多开窗口
 - □ 源代码管理面板口径明确：仓库可见性看工作区库 `scm:view:visibleRepositories` 的 `visible` 是否覆盖 `all`，视图显隐看全局库 `workbench.scm.views.state.hidden`（`scm.alwaysShowRepositories` 只降低复发）；看不到仓库按 [10.3](#scm) 处理
+- □ DSH 接入口径明确：`CODEBUDDY_INTERNET_ENVIRONMENT=internal` 必给（漏了必 401）、端点**只支持流式**、`/v2/models` 是 404 故清单要手写、系统提示词必须 `system`（发 `developer` 回 11128）、`max_tokens` 上游不校验；路由声明与密钥落 `~\.dsh\`（不入库），详见 [第 13 节](#dsh-integration)
 - □ 本机事实均经核实（2026-10-15 安装实测；2026-10-16 复核版本 / 目录 / 扩展 / 权限存储 / uv 工具链 / MCP 登记 / `.vscode` 双平台取值；2026-10-21 权限与免确认设置改为全 13 类放开并冷启动取证），未写入账号 / 令牌等凭据
 
-## 13. 关联文档 <a id="related"></a>
+## 13. 与 DSH 的模型接入（CodeBuddy Code CLI 的 `ck_` 密钥） <a id="dsh-integration"></a>
+
+本机除 IDE 自带的 `buddycn`（管扩展与窗口）外，另有独立的 **CodeBuddy Code CLI**（agent 终端工具）。两者不是一回事，先分清再谈接入：
+
+| 项        | `buddycn`                                                                        | `codebuddy`（别名 `cbc`）                                                        |
+| --------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 归属      | CodeBuddy CN 应用自带（`...\CodeBuddy CN\bin\buddycn.cmd`）                  | 独立安装：`%LOCALAPPDATA%\Author Software\nvm\.nodejs\codebuddy.exe`        |
+| 用途      | 扩展 / 窗口 / `--install-extension`（见 [7.2](#ext-install)）                   | AI agent 会话：`-p` 无头、`--acp` 协议服务、`--serve` Web UI                  |
+| 版本      | 1.106.1（随应用）                                                                 | **2.173.0**（`codebuddy --version`）                                              |
+| 鉴权      | IDE 内登录态                                                                      | `CODEBUDDY_API_KEY`（`ck_` 开头）或 `/login` OAuth                             |
+
+> 两个命令**都在用户 PATH**；旧记录「PATH 中也没有 `codebuddy`」（[2.1](#env-app)）针对的是 IDE 安装器那一份，与这里的 CodeBuddy Code CLI 无关。
+
+### 13.1 认证取值（最常漏的一项） <a id="dsh-auth"></a>
+
+密钥由 CodeBuddy 平台签发，**不入本文档**；本机登记以《[本地资源](../../../用户文档/本地资源.md)》为准。两个环境变量**必须同时给**：
+
+| 变量                                 | 本机取值              | 漏掉的实测表现                                                                                     |
+| ------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------- |
+| `CODEBUDDY_API_KEY`                  | `ck_` 开头密钥       | `401 Authentication required…(auth-type:cli-external-link,token-type:ApiKey)`，并点名 target 为海外站 |
+| `CODEBUDDY_INTERNET_ENVIRONMENT`     | **`internal`**（中国版） | 不设即按海外版走 `https://www.codebuddy.ai`，**中国版密钥在那里必然 401**                    |
+
+实测（`codebuddy -p` 无头）：只给密钥 → 401；补 `internal` → **6 秒返回**。CLI 会提示可用 `CODEBUDDY_API_KEY_DISABLED=1` 回退到 `/login`——那是交互登录，**无头与脚本场景不要用**。
+
+### 13.2 模型端点：OpenAI 兼容，但七条约束必须知道 <a id="dsh-endpoint"></a>
+
+基址 `https://copilot.tencent.com/v2`，会话路径 `/chat/completions`，鉴权 `Authorization: Bearer <密钥>`（无需其它自定义请求头）。以下为本机实测结论：
+
+| # | 事实                                                                     | 影响与应对                                                                                     |
+| - | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| 1 | **只支持流式**：`stream:false` 回 `400 code 11101`                     | 请求必须 `stream:true`（DSH / pi-ai 本就走流式，不受影响）                                    |
+| 2 | `GET /v2/models` 回 `404 Route Not Found`                              | 模型清单**无法自动发现**，接入方必须手写；取清单见 [13.3](#dsh-model-list)                     |
+| 3 | `role:"developer"` 回 `400 code 11128`「Illegal API invocation from an unapproved channel」 | 系统提示词**必须用 `role:"system"`**；OpenAI 兼容库常默认发 `developer`，要显式关掉          |
+| 4 | `max_tokens` 上游**不做上限校验**（384000 / 512000 都照收）             | 不会因超窗口报错，而是回答被截；上限要接入方自己按模型窗口约束                                 |
+| 5 | `auto` 是**别名**（实测解析为 `deepseek-v4.1-flash`）；`primary-model` 之类 CLI 内部别名回 `11102` | 接入配置里点名真实模型 id；`auto` 与 `deepseek-v4.1-flash` 二选一，别同时挂成两个可选项      |
+| 6 | `tools` / `tool_calls` 正常（`finish_reason:tool_calls`）              | 可作 agent 后端；带 `tools` 的 assistant 历史**不要求** `reasoning_content`（三档模型实测均通过） |
+| 7 | 图片输入可用（`image_url` + `data:image/png;base64,…`）                | 实测 1×1 纯红 PNG 被正确识别为「深红色」                                                       |
+
+> 上游偶发 `400 code 11133`（把厂商瞬时校验失败包装成 400，同构请求稍后重发即成功）——属服务端抖动窗口，不是配置错误。
+
+### 13.3 取全量模型清单 <a id="dsh-model-list"></a>
+
+`/v2/models` 不可用，但 CLI 的 ACP 模式会在建会话时把清单吐出来（`session/new` 响应的 `models.availableModels`，含窗口、effort 档位、是否支持图片与倍率）：
+
+```powershell
+# 向 codebuddy --acp 的 stdin 依次写入 initialize 与 session/new 两条 JSON-RPC
+# 需要环境变量 CODEBUDDY_API_KEY 与 CODEBUDDY_INTERNET_ENVIRONMENT=internal
+'{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{"fs":{"readTextFile":false,"writeTextFile":false},"terminal":false}}}'
+'{"jsonrpc":"2.0","id":1,"method":"session/new","params":{"cwd":"D:/Develop/bizs","mcpServers":[]}}'
+```
+
+实测共 **19 个**模型；接入常用的三档：
+
+| 模型 id                | 上下文窗口 | effort 档位            | 图片 | 倍率        |
+| ---------------------- | ---------- | ---------------------- | ---- | ----------- |
+| `deepseek-v4.1-flash`  | 1000000    | low / high / max       | 支持 | x0.11       |
+| `hy3`                  | **192000** | low / medium / high / xhigh | 支持 | **x0.00**（免费档） |
+| `glm-5.3-flash`        | 1000000    | low / high / max       | 支持 | x0.08       |
+
+### 13.4 DSH 侧接法（模型提供方路由，当前采用） <a id="dsh-route"></a>
+
+DSH 用 `@deepseek-ai/dsh-llm-pi-ai` 承载多提供方，自定义网关走**手工声明路由**（无需装包）。两处改动，**均不入库**：
+
+1. **密钥落 DSH 凭据存储**：`~\.dsh\.credentials.yaml` 的 `refs:` 加一行 `CODEBUDDY_API_KEY: <密钥>`。该文件已 gitignore，且 `watch` 默认开启——**改完按请求生效，不需重启**。配置里只写引用名，明文不落配置。
+2. **路由声明落 profile patch**：`~\.dsh\profiles\desktop\cordis.patch.yml` 的 `id: llm-pi-ai` 条目下新增 `providers.codebuddy`。
+
+> ⚠️ 同 `id` 的 patch 条目按**整体覆盖** `config` 合并，不是深合并——本机的 `llm-pi-ai` 条目已承载 `opencode-go` 路由，改动须在**同一条目内追加**，另起一条会把 `opencode-go` 抹掉。
+
+```yaml
+      codebuddy:
+        displayName: CodeBuddy（CN）
+        api: openai-completions
+        baseURL: https://copilot.tencent.com/v2
+        apiKeyEnv: CODEBUDDY_API_KEY       # 引用凭据存储的键名，不是密钥本身
+        defaultContextWindow: 1000000
+        defaultMaxTokens: 384000
+        compat:
+          supportsDeveloperRole: false     # 必须关：否则发 developer → 11128（见 13.2 #3）
+          maxTokensField: max_tokens       # 实测接受名
+          requiresReasoningContentOnAssistantMessages: true  # 给无推理块的历史补 reasoning_content
+        models:                            # /v2/models 是 404，清单只能手写（见 13.2 #2）
+          - id: deepseek-v4.1-flash
+            contextWindow: 1000000
+            maxTokens: 384000
+            input: [ text, image ]
+            reasoningEfforts: { low: low, high: high, max: max }
+          - id: hy3
+            contextWindow: 192000
+            maxTokens: 96000               # 窗口只有 192K，取 1/2，避免输出预算挤爆上下文
+            input: [ text, image ]
+            reasoningEfforts: { low: low, medium: medium, high: high, xhigh: xhigh }
+```
+
+- **生效需冷启动**：`compat` / `baseURL` 这类路由结构变更要**完全退出 DSH 再启动**（重载窗口不重读 profile patch）；换密钥不需要。
+- **不动默认模型**：本机默认仍是原提供方，这条只作为可选路由出现在选择器里，验证稳定后再决定是否切换。
+- **端到端验证**（直接调 DSH 所用 pi-ai 的 `openai-completions` 实现，非 curl）：纯文本、effort 档位、`tools` 首轮与带 `tools` 的历史、图片输入均通过；`role` 已为 `system`、`max_tokens` 字段生效、历史补 `reasoning_content` 生效。
+
+### 13.5 备选：ACP 后端（驱动 CLI 本体） <a id="dsh-acp"></a>
+
+若要让 DSH 真正**驱动 CodeBuddy 进程**（而非只取它的模型额度），DSH 有现成的进程外后端 `@deepseek-ai/dsh-subagent-acp`。本机**实测通路可用，但未启用**（选了 [13.4](#dsh-route) 的额度接入）。要点：
+
+| 项        | 实测结论                                                                                                                   |
+| --------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 握手      | `codebuddy --acp` → `initialize` → `session/new` → `session/prompt` 全通，`stopReason:end_turn` 正常返回       |
+| 鉴权      | 同 [13.1](#dsh-auth)，两个环境变量透传给子进程即可；`initialize` 本身不需要登录                                            |
+| 模型      | `session/new` 回 19 个模型及元数据（[13.3](#dsh-model-list)）；配置项含权限模式与 effort                                  |
+| 权限      | 会话会发 `session/request_permission`，选项为 `allow_always` / `allow_once` / `reject_once`；**不应答就整轮卡住**（实测 150 秒无输出） |
+| 关键限制  | 外部子级**执行一次即结束**，不接受后续消息、不继承父对话上下文；DSH 侧只回收最终文本，中间工具活动不回传                     |
+| 装包要求  | profile 需新增依赖（npm 上 `@deepseek-ai/dsh-subagent-acp` 的 `next` 标签 = `0.2.1-rc.5`，与本机 peer 版本严格对齐；`latest` 标签是过旧的 `0.0.1-rc.1`，**不要用**） |
+
+### 13.6 接入排障 <a id="dsh-trouble"></a>
+
+| 现象                                                     | 处理                                                                                                   |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `401 Authentication required`，且提示密钥已设置      | `CODEBUDDY_INTERNET_ENVIRONMENT` 漏了 `internal`（见 [13.1](#dsh-auth)）                          |
+| `400 code 11101` Non-stream chat request              | 请求必须 `stream:true`（见 [13.2](#dsh-endpoint) #1）                                                |
+| `400 code 11128` unapproved channel                   | 系统提示词发成了 `developer`；补 `compat.supportsDeveloperRole: false`（#3）                        |
+| `400 code 11102` model [xxx] service info not found  | 点名了 CLI 内部别名（`primary-model` 等）；换成 [13.3](#dsh-model-list) 的真实 id（#5）             |
+| 路由改完不出现 / 选了报 `UNKNOWN_MODEL`                | 未冷启动；或同 `id` patch 另起一条把既有 `opencode-go` 覆盖了（见 [13.4](#dsh-route) 的警告）      |
+| 长回答中途被截，但没有任何报错                            | 上游不校验 `max_tokens`（#4）：核对模型的 `contextWindow` 与窗口余量，别只看是否报错               |
+| 换了密钥仍走旧值                                        | 密钥写在 `~\.dsh\.env` 时优先级低于凭据存储；确认只有一处定义（存储 `refs` 胜出）                 |
+
+## 14. 关联文档 <a id="related"></a>
 
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc Windows 侧开发设施汇总（CodeBuddy 在其中的定位与取值）
 - 《[CodeBuddy 部署使用说明](../linux/CodeBuddy部署使用说明.md)》：linux 侧同名文档（权限存储链路、工作区 `.codebuddy/` 与 AI 协作口径）
