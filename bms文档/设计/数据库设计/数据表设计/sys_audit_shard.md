@@ -30,7 +30,7 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_sys_audit_shard_type_month` | 唯一 | `(log_type, shard_month, deleted_at)` | 一类日志一个月一条台账（幂等建表依据） |
+| `uq_sys_audit_shard_type_month` | 唯一 | `(log_type, shard_month)` | 一类日志一个月一条台账（幂等建表依据；台账行不软删，不带 `deleted_at`） |
 
 - 无物理外键。
 
