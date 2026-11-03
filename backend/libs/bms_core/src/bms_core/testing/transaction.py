@@ -6,7 +6,10 @@
 2. 夹具结束**整体回滚**，用例间互不可见、不落盘；
 3. 被测代码自建的会话经 **patch `SessionFactory.create`** 复用同一外层会话——不 patch
    `session_scope` 函数本身（其时被测模块多为 `from … import session_scope`，patch 模块属性无效）；
-4. 同步方言（达梦）走 `registry.get_sync` 分支，不经过该工厂，**本夹具不覆盖**。
+4. 同步方言（达梦）走 `registry.get_sync` 分支，不经过该工厂，**本夹具不覆盖**；
+5. SQLite 事务一律 `BEGIN IMMEDIATE`（`begin_write`）：「先读后写」的延迟事务在升级写锁时若他人
+   持写锁会**立即** `database is locked`，`busy_timeout` 对升级死锁不等待；开头就拿写锁，冲突
+   退化为 `busy_timeout` 下的短等待（共享引擎 30s）。
 """
 
 import contextlib
@@ -14,7 +17,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 from unittest import mock
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 
 from bms_core.db.session import SessionFactory
 
@@ -60,6 +63,21 @@ def needs_explicit_begin(dialect_name: str) -> bool:
     return dialect_name == "sqlite"
 
 
+async def begin_write(connection: AsyncConnection) -> None:
+    """SQLite 上把当前事务开成 `BEGIN IMMEDIATE`（写锁前置），其它方言不做任何事。
+
+    为什么需要：SQLite 的延迟事务是「先 SELECT 再 INSERT/UPDATE」形态，读锁升级写锁时若另一连接
+    正持写锁会**立即** `database is locked`——`busy_timeout` 对升级死锁不生效（等待也推进不了）。
+    开头就拿写锁，冲突退化为 `busy_timeout` 下的短等待。**只用于确定要写的事务**（回滚夹具、
+    作业批写）：读路径若也前置写锁，会把纯读并发压成串行，长事务持有写锁还会把别人卡到超时。
+
+    Args:
+        connection: 已 `begin()` 但尚未发出 DML 的连接（SQLite 此时 DBAPI 层还没有事务）。
+    """
+    if needs_explicit_begin(connection.dialect.name):
+        await connection.exec_driver_sql("BEGIN IMMEDIATE")
+
+
 def _patch_session_factory(session: AsyncSession) -> Any:
     """把 `SessionFactory.create` 替换为复用 `session` 的实现。
 
@@ -93,14 +111,9 @@ async def rollback_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     """
     connection = await engine.connect()
     transaction = await connection.begin()
-    if needs_explicit_begin(connection.dialect.name):
-        # SQLite（pysqlite / aiosqlite legacy 隔离模式）延迟到首条 DML 才真正 BEGIN；
-        # 此时会话的 savepoint 会成为最外层事务并被 commit 提交。显式 BEGIN 保证外层事务真实存在。
-        #
-        # 用 `BEGIN IMMEDIATE` 而非 `BEGIN`（04-6-2 并发收口）：回滚会话普遍是「先读后写」，
-        # 延迟事务的读锁升级写锁时若他人持写锁会**立即** `database is locked`（busy_timeout 对升级
-        # 死锁不等待）。开头就拿写锁，冲突退化为 `busy_timeout` 下的短等待（共享引擎 30s）。
-        await connection.exec_driver_sql("BEGIN IMMEDIATE")
+    # SQLite 延迟到首条 DML 才真正 BEGIN；显式开事务保证 savepoint 不成为最外层事务（`begin_write` 内
+    # 同时做「写锁前置」，口径见模块文档第 5 条）。
+    await begin_write(connection)
     session = AsyncSession(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
     try:
         with _patch_session_factory(session):

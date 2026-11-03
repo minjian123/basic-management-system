@@ -35,6 +35,7 @@ from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_core.servicecall.null import NullServiceClient
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import begin_write
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.definition import (
     BaseImportDefinition,
@@ -171,7 +172,11 @@ async def job_env(shared_tenant_engine: AsyncEngine, serial_db_write: None) -> A
 
     @asynccontextmanager
     async def session_context() -> AsyncGenerator[AsyncSession]:
+        # 作业会话是「先校验读、再整批写」：SQLite 延迟事务升级写锁时若别的 worker 正持写锁会**立即**
+        # `database is locked`（busy_timeout 对升级死锁不等待）。一进事务就拿写锁，把冲突变成
+        # 共享引擎 `timeout=30` 下的短等待。
         async with factory() as session, session.begin():
+            await begin_write(await session.connection())
             yield session
 
     def make_job(

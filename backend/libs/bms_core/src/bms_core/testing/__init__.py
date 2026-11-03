@@ -6,7 +6,7 @@
 - 断言：`assert_error` / `assert_no_error`；
 - 日志：`log_events` / `assert_logged`；
 - 输出：`stdout_text` / `stderr_text` / `assert_output` / `CliResult` / `run_cli` / `assert_exit`；
-- 事务：`rollback_session`（回滚夹具内核）；
+- 事务：`rollback_session`（回滚夹具内核）/ `begin_write`（SQLite 写锁前置）；
 - 夹具：经 `pytest -p bms_core.testing.plugin` 全局注册（`conftest` 无需再写 `pytest_plugins`）。
 
 产品仓（mdm / biz）可直接 `from bms_core.testing import ...` 复用，不再复制第二套。
@@ -26,7 +26,7 @@ from bms_core.testing.output import (
     stdout_text,
 )
 from bms_core.testing.service import ServiceTestCase
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import begin_write, rollback_session
 
 __all__ = (
     "ApiTestCase",
@@ -39,6 +39,7 @@ __all__ = (
     "assert_logged",
     "assert_no_error",
     "assert_output",
+    "begin_write",
     "log_events",
     "rollback_session",
     "run_cli",

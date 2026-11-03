@@ -5,12 +5,15 @@
 注：探针表在夹具外先建好（SQLite 的 DDL 会隐式提交外层事务，不能用 CREATE TABLE 验证回滚）。
 """
 
+from typing import cast
+
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
 from bms_core.testing import rollback_session
 from bms_core.testing import transaction as transaction_module
+from bms_core.testing.transaction import begin_write
 
 pytestmark = pytest.mark.own_db("被测对象是回滚事务夹具本身：需真实库验证 savepoint 与整体回滚")
 
@@ -127,3 +130,37 @@ async def test_rollback_session_propagates_exception(platform_db_url: str) -> No
                 raise RuntimeError("boom")
     finally:
         await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2317)
+async def test_begin_write_takes_lock_on_sqlite(platform_db_url: str) -> None:
+    """SQLite：`begin_write` 把延迟事务开成真实事务（DBAPI 层 `in_transaction` 由假转真）。"""
+    engine = create_async_engine(platform_db_url)
+    try:
+        async with engine.connect() as connection:
+            transaction = await connection.begin()
+            raw = (await connection.get_raw_connection()).driver_connection
+            assert raw is not None
+            assert raw.in_transaction is False
+            await begin_write(connection)
+            assert raw.in_transaction is True
+            assert (await connection.exec_driver_sql("SELECT 1")).scalar_one() == 1
+            await transaction.rollback()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2317)
+async def test_begin_write_skips_other_dialects() -> None:
+    """非 SQLite（MySQL / 达梦）：不发 `BEGIN IMMEDIATE`（写锁前置只对 SQLite 有意义）。"""
+
+    class _Dialect:
+        name = "mysql"
+
+    class _Connection:
+        dialect = _Dialect()
+
+        async def exec_driver_sql(self, statement: str) -> None:
+            raise AssertionError(f"不应下发 SQL：{statement}")
+
+    await begin_write(cast("AsyncConnection", _Connection()))
