@@ -184,7 +184,7 @@ async def test_put_when_user_missing(client: AsyncClient, shared_tenant_engine: 
         row.soft_delete()
         await db.commit()
     try:
-        resp = await client.put(_URI, json={"locale": "en-US"})
+        resp = await client.put(_URI, json={"timezone": "UTC"})
         assert resp.status_code == 404, resp.text
     finally:
         async with factory() as db:

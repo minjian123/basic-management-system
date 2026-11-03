@@ -371,6 +371,8 @@ async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
     """
     async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
         c.headers.update(auth_headers())
+        # 固定请求语言：用例断言「必填语言」时不应受库内默认语言（可被其它用例临时切换）影响
+        c.headers.setdefault("Accept-Language", "zh-CN")
         yield c
 
 
