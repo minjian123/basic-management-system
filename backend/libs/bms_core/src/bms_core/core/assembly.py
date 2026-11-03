@@ -1298,9 +1298,20 @@ class DbTranslatorFactory(BasePluginFactory[DbTranslator]):
             DbTranslator: 翻译实例。
         """
         engines = cast("EngineRegistry", self._app.state.engine_registry)
-        registry = cast("BaseLocaleRegistry", self._app.state.locale_registry)
-        cache = cast("I18nCacheRegion | None", getattr(self._app.state, "i18n_cache_region", None))
         settings = cast("Settings", self._app.state.settings)
+        # `locale_registry` 可能尚未写入 `app.state`（装配顺序或子集装配）：按配置解析，
+        # 不依赖 state 就位——否则翻译器工厂会在装配期抛 `AttributeError` 使服务拒启。
+        registry = cast("BaseLocaleRegistry | None", getattr(self._app.state, "locale_registry", None))
+        if registry is None:
+            registry = cast(
+                "BaseLocaleRegistry",
+                resolve_plugin(
+                    "locale_registry",
+                    settings.locale_registry.provider,
+                    expected_version=BaseLocaleRegistry.contract_version,
+                ),
+            )
+        cache = cast("I18nCacheRegion | None", getattr(self._app.state, "i18n_cache_region", None))
         return DbTranslator(engines=engines, registry=registry, cache=cache, options=settings.i18n_options)
 
 
