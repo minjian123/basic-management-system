@@ -11,7 +11,7 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy import Table, select
+from sqlalchemy import Table, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
@@ -38,6 +38,11 @@ async def _cleanup(db: AsyncSession) -> None:
         (await db.execute(select(SysI18nMessage).where(SysI18nMessage.msg_key.like("zztest.%")))).scalars().all()
     ):
         await db.delete(row)
+    # 语言清单状态复位：其它用例会停用语言 / 改默认标记，逐用例复位消除顺序依赖
+    await db.execute(
+        update(SysI18nLocale).where(SysI18nLocale.code == "zh-CN").values(status="enabled", is_default=True)
+    )
+    await db.execute(update(SysI18nLocale).where(SysI18nLocale.code == "en-US").values(status="enabled"))
     await db.commit()
 
 

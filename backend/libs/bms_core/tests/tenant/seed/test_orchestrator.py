@@ -87,6 +87,7 @@ def test_platform_declaration_loaded_into_catalog() -> None:
         "seed-menu",
         "seed-tenant",
         "seed-config",
+        "seed-i18n",
         "seed-platform-role",
         "seed-tasks",
         "seed-rbac-role",
