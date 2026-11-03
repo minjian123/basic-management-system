@@ -64,7 +64,7 @@ def expected_data_dir() -> Path | None:
             config = tomllib.load(stream)
     except OSError, tomllib.TOMLDecodeError:
         return None
-    relative = str((config.get("coverage") or {}).get("data_file") or "")
+    relative = str((config.get("coverage") or {}).get("data_file") or "")  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
     if not relative:
         return None
     return (_REPO_ROOT / relative).resolve().parent
@@ -133,7 +133,7 @@ def assert_entrypoint(config: Any) -> None:
     Raises:
         pytest.exit: 命中禁止的参数或落点错位（`code=2`）。
     """
-    if os.environ.get(_BYPASS_ENV) == "1" or os.environ.get("CI"):
+    if os.getenv(_BYPASS_ENV) == "1" or os.getenv("CI"):
         return
     hits = _forbidden_args(config)
     if hits:

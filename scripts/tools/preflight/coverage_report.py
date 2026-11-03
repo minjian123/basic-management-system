@@ -150,9 +150,7 @@ def main(
     gaps_file = out_dir / _GAPS_NAME
     gaps_file.write_text(text, encoding="utf-8", newline="\n")
     print(text, end="")
-    print(
-        f"[coverage-report] 缺口明细已落盘：{gaps_file}（口径：{'改动行' if changed else '模块级 100%'}）"
-    )
+    print(f"[coverage-report] 缺口明细已落盘：{gaps_file}（口径：{'改动行' if changed else '模块级 100%'}）")
     return code
 
 
