@@ -32,11 +32,13 @@ def _ctx() -> TaskContext:
     )
 
 
-def test_builtin_specs_are_four_and_cron_valid() -> None:
-    """四条内置任务：代码 / 名称 / cron / handler / 归口齐备，cron 全部可解析。"""
+def test_builtin_specs_are_six_and_cron_valid() -> None:
+    """六条内置任务：代码 / 名称 / cron / handler / 归口齐备，cron 全部可解析。"""
     assert isinstance(BUILTIN_TASK_SPECS, ConcurrentStableList)
     assert [spec.code for spec in BUILTIN_TASK_SPECS] == [
         "cleanup_orphan_parts",
+        "cleanup_export_artifacts",
+        "cleanup_print_artifacts",
         "archive_audit_logs",
         "precreate_shard_tables",
         "purge_soft_deleted",

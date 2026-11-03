@@ -38,6 +38,7 @@ from bms_core.print.base import (
     PrintOptions,
     PrintTemplateInfo,
 )
+from bms_core.print.limits import PrintLimits
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.print import (
     PrintBatchRequest,
@@ -50,7 +51,6 @@ from bms_core.schemas.print import (
     PrintTemplateListResponse,
     PrintVariableResponse,
 )
-from bms_core.transfer.export_limits import ExportLimits
 
 router = BaseRouter(
     key="print",
@@ -225,7 +225,7 @@ async def batch_print(
     """
     options = _to_options(req.options)
     documents: ConcurrentStableList[PrintDocument] = ConcurrentStableList(_to_document(item) for item in req.documents)
-    limits = await ExportLimits.load(config)
+    limits = await PrintLimits.load(config)
     if len(req.keys) > limits.pdf_sync_max_docs:
         job_id = await _submit_batch(uow=uow, tenant=tenant, req=req)
         return ApiResponse.ok(

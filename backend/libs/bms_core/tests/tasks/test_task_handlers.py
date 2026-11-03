@@ -12,12 +12,14 @@ pytestmark = pytest.mark.kiwi_id(2371)
 _PREFIXES: ConcurrentStableList[str] = ConcurrentStableList(["bms_core.tasks.builtin"])
 
 
-def test_builtin_handlers_covers_four_tasks() -> None:
-    """注册表四条，路径均为 `module:attr`。"""
+def test_builtin_handlers_covers_six_tasks() -> None:
+    """注册表六条，路径均为 `module:attr`。"""
     registry = builtin_handlers()
     assert isinstance(registry, ConcurrentStableDict)
     assert set(registry) == {
         "cleanup_orphan_parts",
+        "cleanup_export_artifacts",
+        "cleanup_print_artifacts",
         "archive_audit_logs",
         "precreate_shard_tables",
         "purge_soft_deleted",

@@ -135,3 +135,16 @@ async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
     async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
         c.headers.update(auth_headers())
         yield c
+
+
+@pytest.fixture
+def serial_db_write() -> Iterator[None]:
+    """共享库写路径跨进程串行（实现与工程根同名夹具一致；子工程 rootdir 时兜底）。
+
+    Yields:
+        None: 持锁区间。
+    """
+    from tests_support.locks import file_lock
+
+    with file_lock("shared-db-write"):
+        yield

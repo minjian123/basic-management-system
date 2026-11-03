@@ -40,6 +40,7 @@ def test_real_manifest_declares_platform_jobs() -> None:
         "platform.export.execute",
         "platform.export.cleanup",
         "print.batch.execute",
+        "print.artifact.cleanup",
     }
     assert kinds["platform.import.execute"].service == "platform"
     assert kinds["platform.import.execute"].max_attempts == 1
@@ -53,6 +54,10 @@ def test_real_manifest_declares_platform_jobs() -> None:
     assert kinds["platform.export.cleanup"].max_attempts == 3
     assert kinds["print.batch.execute"].service == "report"
     assert kinds["print.batch.execute"].max_attempts == 1
+    assert kinds["print.artifact.cleanup"].service == "report"
+    assert kinds["print.artifact.cleanup"].domain == "report"
+    assert kinds["print.artifact.cleanup"].max_attempts == 1
+    assert kinds["print.artifact.cleanup"].concurrency == 1
     assert all(job.handler.count(":") == 1 for job in manifest.jobs)
 
 

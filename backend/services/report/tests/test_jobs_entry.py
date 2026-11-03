@@ -55,13 +55,18 @@ class _Registry:
 
 def test_job_handlers_and_specs_are_declared() -> None:
     """handler 与类型声明齐备（代码侧唯一登记点）。"""
-    assert list(jobs.job_handlers()) == ["print.batch.execute"]
+    assert list(jobs.job_handlers()) == ["print.batch.execute", "print.artifact.cleanup"]
     specs = jobs.job_specs()
-    assert list(specs) == ["print.batch.execute"]
+    assert list(specs) == ["print.batch.execute", "print.artifact.cleanup"]
     spec = specs["print.batch.execute"]
     assert spec.service_key == "report"
     assert spec.max_attempts == 1
     assert spec.handler == "bms_report.domains.report.jobs:PrintBatchJob"
+    cleanup = specs["print.artifact.cleanup"]
+    assert cleanup.service_key == "report"
+    assert cleanup.max_attempts == 1
+    assert cleanup.concurrency == 1
+    assert cleanup.handler == "bms_report.domains.report.artifact_cleanup:PrintArtifactCleanupJob"
 
 
 def test_build_runner_and_worker_wire_declarations() -> None:

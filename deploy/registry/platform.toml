@@ -569,6 +569,19 @@ payload_version = "1.0.0"
 status = "enabled"
 
 [[jobs]]
+job_type = "print.artifact.cleanup"
+service = "report"
+domain = "report"
+handler = "bms_report.domains.report.artifact_cleanup:PrintArtifactCleanupJob"
+description = "清理过期单据打印产物（按 print.artifact_ttl 与作业结果里的对象 key）"
+timeout_seconds = 1800
+max_attempts = 1
+backoff_seconds = 0
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
 job_type = "platform.import.execute"
 service = "platform"
 domain = "import_export"

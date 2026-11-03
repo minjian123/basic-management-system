@@ -25,6 +25,7 @@ from bms_core.jobs.signal import JobChangeSignal
 from bms_core.jobs.spec import JobTypeSpec
 from bms_core.jobs.worker import JobWorker
 from bms_core.workerid.lease import worker_id_lease_sync
+from bms_report.domains.report.artifact_cleanup import PrintArtifactCleanupJob
 from bms_report.domains.report.jobs import PrintBatchJob
 
 __all__ = ["build_runner", "build_worker", "job_handlers", "job_specs", "main"]
@@ -39,7 +40,9 @@ def job_handlers() -> ConcurrentStableDict[str, BaseJobHandler]:
     Returns:
         ConcurrentStableDict[str, BaseJobHandler]: 作业类型 → 处理器。
     """
-    return ConcurrentStableDict({PrintBatchJob.job_type: PrintBatchJob()})
+    return ConcurrentStableDict(
+        {PrintBatchJob.job_type: PrintBatchJob(), PrintArtifactCleanupJob.job_type: PrintArtifactCleanupJob()}
+    )
 
 
 def job_specs() -> ConcurrentStableDict[str, JobTypeSpec]:
@@ -60,7 +63,18 @@ def job_specs() -> ConcurrentStableDict[str, JobTypeSpec]:
                 max_attempts=1,
                 backoff_seconds=0,
                 concurrency=2,
-            )
+            ),
+            "print.artifact.cleanup": JobTypeSpec(
+                job_type="print.artifact.cleanup",
+                service_key=SERVICE_KEY,
+                domain_key="report",
+                handler="bms_report.domains.report.artifact_cleanup:PrintArtifactCleanupJob",
+                description="清理过期单据打印产物（按 print.artifact_ttl 与作业结果里的对象 key）",
+                timeout_seconds=1800,
+                max_attempts=1,
+                backoff_seconds=0,
+                concurrency=1,
+            ),
         }
     )
 

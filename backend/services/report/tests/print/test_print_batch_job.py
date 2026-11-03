@@ -258,6 +258,37 @@ async def test_batch_over_threshold_submits_job(app_with_stubs: FastAPI) -> None
     assert len(cast("ConcurrentStableList[object]", payload["documents"])) == 1
 
 
+async def test_batch_threshold_reads_print_key(app_with_stubs: FastAPI) -> None:
+    """阈值从 `print.pdf.sync_max_docs` 读取：新键优先于旧键（旧键值更宽松也不生效）。"""
+
+    class _BothKeys(BaseConfigSource):
+        """同时提供新旧两键的参数源（新键严格、旧键宽松，用于区分读取来源）。"""
+
+        plugin_name = ""
+
+        async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
+            """返回两键固定值。
+
+            Args:
+                keys: 请求键。
+
+            Returns:
+                ConcurrentStableDict[str, str]: 键值。
+            """
+            del keys
+            return ConcurrentStableDict({"print.pdf.sync_max_docs": "1", "export.pdf.sync_max_docs": "99"})
+
+    app_with_stubs.dependency_overrides[get_config_source] = _BothKeys
+    async with AsyncClient(transport=ASGITransport(app=app_with_stubs), base_url="http://test") as client:
+        client.headers.update(auth_headers())
+        response = await client.post(
+            "/api/v1/prints/batch",
+            json={"template_key": "generic_document", "keys": ["A", "B"]},
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["task_id"] == "4242"
+
+
 class _PartialFailExporter(_FakeExporter):
     """打印导出替身：整批部分失败（验证失败汇总与告警分支）。"""
 
