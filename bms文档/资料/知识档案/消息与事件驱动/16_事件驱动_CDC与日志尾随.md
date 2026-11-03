@@ -2,7 +2,7 @@
 
 > binlog / WAL · Debezium · Python 自研 · 三库差异与运维代价
 
-[文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [事件驱动总览](01_事件驱动_总览.md) › CDC 与日志尾随
+[文档首页](../../../文档首页.md) › [知识档案](../技术栈知识档案总览.md) › [消息与事件驱动总览](01_事件驱动_总览.md) › CDC 与日志尾随
 
 ---
 
@@ -99,7 +99,24 @@ Debezium 提供 `EventRouter` SMT，可以把 outbox 表的一行路由成一条
 
 > CDC 不是「废除 outbox」的同义词：它最常见的用法恰恰是**替代 outbox 的 relay**，而不是替代 outbox 表。
 
-## 7. 参考资源 <a id="refs"></a>
+## 7. 在消息平台（L3）中的位置 <a id="l3"></a>
+
+CDC 在自研消息平台里有两个可能落点：
+
+| 落点 | 形态 | 首期建议 |
+| --- | --- | --- |
+| **outbox connector** | msg 侧提供连接器，尾随业务库 outbox 表，直接投递到平台 | ⏳ 8B_04 评估；比「业务自己跑 relay」少一个进程 |
+| **业务表变更捕获** | 直接尾随业务表 binlog，省掉 outbox 表 | ❌ 首期不做：schema 耦合 + 三库方言差异 + 权限模型复杂 |
+
+**为什么首期不做业务表 CDC**：
+
+1. bms 需要支持 MySQL / PG / 达梦三库，达梦侧没有成熟的 Debezium connector，自研日志挖掘成本极高。
+2. 直接尾随业务表意味着「事件 schema 与业务表 schema 强耦合」，业务改表就会破坏事件契约。
+3. 自研平台已有持久化日志与位点，**「账本 + 重放」的需求已由平台承担**，CDC 的边际收益下降。
+
+**保留口子**：若将来要支持「零侵入接入」（业务完全不改代码就产生事件），CDC 是唯一路径；届时应以「outbox connector」为先，而不是直接尾随业务表。
+
+## 8. 参考资源 <a id="refs"></a>
 
 | 资源 | 网址 | 说明 |
 | --- | --- | --- |
@@ -110,13 +127,13 @@ Debezium 提供 `EventRouter` SMT，可以把 outbox 表的一行路由成一条
 | PostgreSQL 逻辑复制 | https://www.postgresql.org/docs/16/logical-replication.html | `pgoutput` 与复制槽 |
 | 达梦 DM8 文档 | https://eco.dameng.com/document/dm/zh-cn/pm/ | 日志挖掘与数据库管理 |
 
-## 8. 项目内关联文档 <a id="related"></a>
+## 9. 项目内关联文档 <a id="related"></a>
 
 | 文档 | 说明 |
 | --- | --- |
-| [02 事务性发件箱](02_事件驱动_事务性发件箱.md) | CDC 可作为 outbox 的 relay |
-| [03 事务消息](03_事件驱动_事务消息.md) | 另一种「不用 outbox 表」的方案 |
-| [06 选型对比（BMS）](06_事件驱动_选型对比（BMS）.md) | 何时选 CDC |
+| [14 事务性发件箱](14_事件驱动_事务性发件箱.md) | CDC 可作为 outbox 的 relay |
+| [15 事务消息](15_事件驱动_事务消息.md) | 另一种「不用 outbox 表」的方案 |
+| [18 选型对比（BMS）](18_事件驱动_选型对比（BMS）.md) | 何时选 CDC |
 | [微服务 · 12 选型对比](../微服务/12_微服务_选型对比.md) | 达梦无 Debezium connector 的原始登记 |
 
 ---
