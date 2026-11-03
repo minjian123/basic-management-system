@@ -184,6 +184,18 @@ def test_configure_warns_when_shared_db_cleanup_fails(
     assert "共享测试库清理失败" in capsys.readouterr().out
 
 
+@pytest.mark.kiwi_id(2399)
+def test_configure_quiet_when_shared_db_cleanup_succeeds(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """会话开始清库成功（`failed` 为空）：不打印告警（补齐该分支在 worker 内的覆盖）。"""
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
+
+    monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", lambda: ConcurrentStableList())
+    plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
+    assert "共享测试库清理失败" not in capsys.readouterr().out
+
+
 @pytest.mark.kiwi_id(2400)
 def test_configure_prints_isolation_notice(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """隔离调试模式（`BMS_TEST_ISOLATED_DB=1`）：会话头打印醒目提示，避免误当 CI 口径。"""
