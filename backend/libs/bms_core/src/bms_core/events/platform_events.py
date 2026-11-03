@@ -286,9 +286,46 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
                 {"policy_id": _STRING_REQUIRED, "archived_count": _INTEGER_REQUIRED, "target": _STRING_REQUIRED}
             ),
         ),
+        EventContract(
+            event_type="sys.operation.logged",
+            description="操作审计记录（06_01；经审计链组有序消费落库）",
+            fields=ConcurrentStableFrozenDict(
+                {
+                    "module": _STRING_REQUIRED,
+                    "action": _STRING_REQUIRED,
+                    "method": _STRING_REQUIRED,
+                    "path": _STRING_REQUIRED,
+                    "status": _INTEGER_REQUIRED,
+                    "tenant_id": _STRING_OPTIONAL,
+                    "user_id": _STRING_OPTIONAL,
+                    "username": _STRING_OPTIONAL,
+                    "query": _STRING_OPTIONAL,
+                    "params": _STRING_OPTIONAL,
+                    "ip": _STRING_OPTIONAL,
+                    "user_agent": _STRING_OPTIONAL,
+                    "cost_time": _INTEGER_OPTIONAL,
+                    "error_msg": _STRING_OPTIONAL,
+                }
+            ),
+        ),
+        EventContract(
+            event_type="sys.login.logged",
+            description="登录审计记录（06_01；成功 / 失败）",
+            fields=ConcurrentStableFrozenDict(
+                {
+                    "username": _STRING_REQUIRED,
+                    "status": _STRING_REQUIRED,
+                    "tenant_id": _STRING_OPTIONAL,
+                    "user_id": _STRING_OPTIONAL,
+                    "ip": _STRING_OPTIONAL,
+                    "user_agent": _STRING_OPTIONAL,
+                    "fail_reason": _STRING_OPTIONAL,
+                }
+            ),
+        ),
     )
 )
-"""平台默认事件契约（23 条；三条租户事件 `2.0.0`，其余 `1.0.0`；字段规格为对外契约，变更走兼容规则）。"""
+"""平台默认事件契约（25 条；三条租户事件 `2.0.0`，其余 `1.0.0`；字段规格为对外契约，变更走兼容规则）。"""
 
 PLATFORM_EVENT_SUBSCRIPTIONS: ConcurrentStableList[EventSubscription] = ConcurrentStableList()
 """平台内建消费方订阅声明（本期为空；服务级订阅随消费方实现落地登记）。"""

@@ -18,6 +18,9 @@ from bms_platform.domains.import_export.api.exports import build_export_router
 from bms_platform.domains.import_export.api.imports import build_import_router
 from bms_platform.domains.job.api import internal_job as internal_job_api
 from bms_platform.domains.job.api import job as job_api
+from bms_platform.domains.log.api import internal_audit as internal_audit_api
+from bms_platform.domains.log.api.logs import login_router as login_log_api
+from bms_platform.domains.log.api.logs import router as operation_log_api
 from bms_platform.domains.menu_form.api import form_key, menu
 from bms_platform.domains.permission_meta.api import icon, permission, permission_meta
 from bms_platform.domains.platform_config.api import configs, internal_config, query_scheme
@@ -119,6 +122,10 @@ api_router = mount_service_routers(
             # 国际化（05_01）：语言清单维护 + 语言包下发 / 维护 / 缓存失效
             i18n_locales.router,
             i18n_messages.router,
+            # 审计日志（06_01）：操作 / 登录日志查询 + 链校验 / 分片预创建内部面
+            operation_log_api,
+            login_log_api,
+            internal_audit_api.router,
         ]
     )
 )

@@ -1151,6 +1151,49 @@ class DataOwnershipSettings(PluginSelection):
     """读侧出口例外白名单文件（相对仓库根；缺文件视为空集）。"""
 
 
+class AuditLogSettings(BaseSettings):
+    """操作 / 登录日志捕获与查询参数（`[audit_log]`；06_01）。
+
+    与能力选择分区 `[audit]`（`AuditCapturer`，字段级审计）是两个口径：本段只管
+    **请求操作日志中间件与日志查询**，字段级审计（06_02）不读本段。
+    """
+
+    enabled: bool = True
+    """操作日志捕获开关（False = 中间件不产生事件；登录日志捕获不受本开关影响）。"""
+
+    record_methods: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["POST", "PUT", "PATCH", "DELETE"])
+    )
+    """记录的 HTTP 方法（大写；读方法按端点显式声明 `audit_read` 另记）。"""
+
+    exclude_paths: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(
+            [
+                "/api/v1/auth/login",
+                "/api/v1/auth/refresh",
+                "/api/v1/auth/logout",
+                "/api/v1/auth/introspect",
+            ]
+        )
+    )
+    """排除路径前缀（认证端点单独记登录日志，不重复记操作日志）。"""
+
+    max_param_bytes: int = Field(default=8192, ge=0)
+    """参数捕获上限（字节）：超限只记路径与查询串，不解析请求体。"""
+
+    query_default_days: int = Field(default=30, ge=1)
+    """查询未给时间范围时的默认回看天数。"""
+
+    max_query_days: int = Field(default=366, ge=1)
+    """单次查询最大时间跨度（天；超过按参数非法）。"""
+
+    precreate_months_ahead: int = Field(default=1, ge=0)
+    """分片预创建提前月数（0 = 仅当月）。"""
+
+    chain_verify_months: int = Field(default=2, ge=1)
+    """巡检默认校验最近月数（含当月）。"""
+
+
 class OutboxSettings(PluginSelection):
     """发件箱投递器配置（`[outbox]`；在能力选择之外追加轮询与重试参数）。"""
 
@@ -1577,6 +1620,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     archive_policy: PluginSelection = Field(default_factory=PluginSelection)
     archive_query_router: PluginSelection = Field(default_factory=PluginSelection)
     audit: PluginSelection = Field(default_factory=PluginSelection)
+    audit_log: AuditLogSettings = Field(default_factory=AuditLogSettings)
     audit_search: PluginSelection = Field(default_factory=PluginSelection)
     cache: PluginSelection = Field(default_factory=PluginSelection)
     captcha: PluginSelection = Field(default_factory=PluginSelection)

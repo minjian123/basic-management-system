@@ -1916,3 +1916,42 @@ class ExportJobFailedError(ExportError):
             data: 随附数据（可选）。
         """
         BizError.__init__(self, ErrorCode.EXPORT_JOB_FAILED, message, http_status=409, data=data)
+
+
+class OperationLogNotFoundError(BizError):
+    """操作日志不存在（`90201` / 404；含分片未命中）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化操作日志不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.OPERATION_LOG_NOT_FOUND, message, http_status=404, data=data)
+
+
+class LoginLogNotFoundError(BizError):
+    """登录日志不存在（`90301` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化登录日志不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOGIN_LOG_NOT_FOUND, message, http_status=404, data=data)
+
+
+class LogTimeRangeExceededError(BizError):
+    """日志查询时间跨度超限（`90203` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化时间跨度超限异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.LOG_TIME_RANGE_EXCEEDED, message, http_status=400, data=data)

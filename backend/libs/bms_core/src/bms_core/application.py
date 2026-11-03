@@ -29,6 +29,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy import select
 
 from bms_core.api import health
+from bms_core.api.audit_middleware import OperationAuditMiddleware
 from bms_core.api.errors import register_exception_handlers
 from bms_core.api.metrics import router as metrics_router
 from bms_core.api.middleware import (
@@ -664,6 +665,12 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.add_middleware(TraceIdMiddleware)
         app.add_middleware(RequestLoggingMiddleware, slow_request_ms=settings.log.slow_request_ms)
         app.add_middleware(ReadOnlyMiddleware)
+        # 操作审计（06_01）：最外层——响应结束后统一捕获上下文并写发件箱（失败只告警）
+        app.add_middleware(
+            OperationAuditMiddleware,
+            settings=settings.audit_log,
+            app_settings=settings,
+        )
 
         register_exception_handlers(app)
 

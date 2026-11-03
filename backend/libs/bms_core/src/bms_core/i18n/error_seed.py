@@ -188,6 +188,10 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (80111, "客户端不存在", "Client not found"),
         (80112, "客户端非法", "Invalid client"),
         (80113, "客户端冲突", "Client conflict"),
+        # ---- 9xxxx 报表 / 审计 ----
+        (90201, "操作日志不存在", "Operation log not found"),
+        (90203, "查询时间范围过大，请缩小范围", "Time range too large, narrow it down"),
+        (90301, "登录日志不存在", "Login log not found"),
     )
 )
 """错误码文案种子：`(错误码, 中文, 英文)`，与 `ErrorCode` 业务码一一对应。"""

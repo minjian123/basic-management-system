@@ -139,6 +139,29 @@ def _replace_conn_password(match: re.Match[str]) -> str:
     return f"{match.group(1)}{_MASK}{match.group(3)}"
 
 
+def mask_sensitive(value: object) -> object:
+    """按日志敏感名单递归脱敏一个值（审计参数落库前使用）。
+
+    生效名单＝内置名单 ∪ `[log].redact_keys` / `[log].redact_suffixes`（配置只可追加）；
+    命中键的值替换为 `***`，字符串中的连接串密码同样替换；限深 5 层，超出保持原值。
+
+    Args:
+        value: 待脱敏值（映射 / 序列 / 标量）。
+
+    Returns:
+        object: 脱敏后的新值（不修改入参）。
+    """
+    from bms_core.core.config import get_settings  # 局部导入：避免 config → logging 的导入期环
+
+    settings = get_settings()
+    keys: ConcurrentStableSet[str] = ConcurrentStableSet[str](_SENSITIVE_KEYS)
+    keys.update(settings.log.redact_keys)
+    suffixes: ConcurrentStableList[str] = ConcurrentStableList[str](
+        [*_SENSITIVE_SUFFIXES, *settings.log.redact_suffixes]
+    )
+    return _redact_value(value, depth=0, keys=keys, suffixes=suffixes)
+
+
 def _build_redact_processor(
     keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]
 ) -> Callable[[WrappedLogger, str, EventDict], EventDict]:

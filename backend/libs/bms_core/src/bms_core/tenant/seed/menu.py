@@ -312,6 +312,28 @@ MENU_SEEDS: ConcurrentStableList[tuple[int, str, str, str, str | None, str | Non
             ),
             (0, "/monitor", "系统监控", "Monitoring", None, "el:monitor", 30, False, None),
             (10, "/monitor/sessions", "会话管理", "Sessions", "monitor/sessions", "el:connection", 1, False, "session"),
+            (
+                12,
+                "/monitor/operation-logs",
+                "操作日志",
+                "Operation logs",
+                "monitor/operation-logs",
+                "el:document",
+                2,
+                False,
+                "log",
+            ),
+            (
+                12,
+                "/monitor/login-logs",
+                "登录日志",
+                "Login logs",
+                "monitor/login-logs",
+                "el:key",
+                3,
+                False,
+                "log",
+            ),
         )
     )
 )
@@ -354,6 +376,8 @@ BUTTON_SEEDS: ConcurrentStableList[tuple[str, str, str, str, int]] = ConcurrentS
         ("/platform/tenants", "模块开关", "manage", "toolbar", 3),
         ("/platform/tenants", "配额", "quota", "interface", 4),
         ("/monitor/sessions", "强制踢出", "kick", "toolbar", 1),
+        ("/monitor/operation-logs", "查询", "query", "toolbar", 1),
+        ("/monitor/login-logs", "查询", "query", "toolbar", 1),
     )
 )
 

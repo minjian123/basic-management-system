@@ -204,6 +204,9 @@ class ErrorCode(IntEnum):
     CLIENT_NOT_FOUND = 80111
     CLIENT_INVALID = 80112
     CLIENT_CONFLICT = 80113
+    OPERATION_LOG_NOT_FOUND = 90201
+    LOG_TIME_RANGE_EXCEEDED = 90203
+    LOGIN_LOG_NOT_FOUND = 90301
 
 
 ERROR_CODE_HTTP_STATUS: ConcurrentStableFrozenDict[ErrorCode, int] = ConcurrentStableFrozenDict(
@@ -233,6 +236,9 @@ ERROR_CODE_HTTP_STATUS: ConcurrentStableFrozenDict[ErrorCode, int] = ConcurrentS
         ErrorCode.JOB_NOT_RETRYABLE: 409,
         ErrorCode.JOB_PAYLOAD_INVALID: 400,
         ErrorCode.JOB_HANDLER_NOT_REGISTERED: 500,
+        ErrorCode.OPERATION_LOG_NOT_FOUND: 404,
+        ErrorCode.LOG_TIME_RANGE_EXCEEDED: 400,
+        ErrorCode.LOGIN_LOG_NOT_FOUND: 404,
         ErrorCode.AUTH: 401,
         ErrorCode.LOGIN_FAILED: 401,
         ErrorCode.ACCOUNT_LOCKED: 401,

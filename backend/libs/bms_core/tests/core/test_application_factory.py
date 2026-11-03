@@ -4,6 +4,7 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from bms_core.api.audit_middleware import OperationAuditMiddleware
 from bms_core.api.base import BaseRouter, mount_service_routers
 from bms_core.application import BaseServiceApplicationFactory, service_lifespan
 from bms_core.core.concurrent import ConcurrentStableList
@@ -71,6 +72,13 @@ class _Factory(BaseServiceApplicationFactory):
             ConcurrentStableList[APIRouter]: 路由清单。
         """
         return ConcurrentStableList([mount_service_routers(ConcurrentStableList([_probe_router]))])
+
+
+@pytest.mark.kiwi_id(2407)
+def test_operation_audit_middleware_wired() -> None:
+    """应用装配默认挂载操作审计中间件（06_01）。"""
+    app = _Factory().create(None)
+    assert any(middleware.cls is OperationAuditMiddleware for middleware in app.user_middleware)
 
 
 @pytest.mark.kiwi_id(1206)

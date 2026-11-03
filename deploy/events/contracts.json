@@ -318,6 +318,42 @@
     },
     {
       "deprecated": false,
+      "description": "登录审计记录（06_01；成功 / 失败）",
+      "event_type": "sys.login.logged",
+      "fields": {
+        "fail_reason": {
+          "required": false,
+          "type": "string"
+        },
+        "ip": {
+          "required": false,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "tenant_id": {
+          "required": false,
+          "type": "string"
+        },
+        "user_agent": {
+          "required": false,
+          "type": "string"
+        },
+        "user_id": {
+          "required": false,
+          "type": "string"
+        },
+        "username": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
       "description": "公告发布 / 更新 / 下线",
       "event_type": "sys.notice.published",
       "fields": {
@@ -331,6 +367,70 @@
         },
         "title": {
           "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
+      "description": "操作审计记录（06_01；经审计链组有序消费落库）",
+      "event_type": "sys.operation.logged",
+      "fields": {
+        "action": {
+          "required": true,
+          "type": "string"
+        },
+        "cost_time": {
+          "required": false,
+          "type": "integer"
+        },
+        "error_msg": {
+          "required": false,
+          "type": "string"
+        },
+        "ip": {
+          "required": false,
+          "type": "string"
+        },
+        "method": {
+          "required": true,
+          "type": "string"
+        },
+        "module": {
+          "required": true,
+          "type": "string"
+        },
+        "params": {
+          "required": false,
+          "type": "string"
+        },
+        "path": {
+          "required": true,
+          "type": "string"
+        },
+        "query": {
+          "required": false,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "integer"
+        },
+        "tenant_id": {
+          "required": false,
+          "type": "string"
+        },
+        "user_agent": {
+          "required": false,
+          "type": "string"
+        },
+        "user_id": {
+          "required": false,
+          "type": "string"
+        },
+        "username": {
+          "required": false,
           "type": "string"
         }
       },

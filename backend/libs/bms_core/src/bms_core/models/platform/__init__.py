@@ -18,6 +18,7 @@ MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.models.platform.icon",
         "bms_core.models.platform.i18n",
         "bms_core.models.platform.job",
+        "bms_core.models.platform.log",
         "bms_core.models.platform.menu_form",
         "bms_core.models.platform.permission_meta",
         "bms_core.models.platform.release_manifest",

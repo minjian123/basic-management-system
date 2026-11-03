@@ -26,7 +26,7 @@ from bms_core.api.deps import (
 from bms_core.captcha.base import BaseCaptcha
 from bms_core.collaboration.domain_scope import enabled_domains
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
-from bms_core.core.context import current_client_ip
+from bms_core.core.context import current_client_ip, get_current_trace_id
 from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
@@ -53,6 +53,12 @@ from bms_identity.domains.auth.schemas.auth import (
     PlatformTenantResult,
     RefreshResult,
     UserSummary,
+)
+from bms_identity.domains.auth.services.audit import (
+    STATUS_FAILED,
+    STATUS_SUCCESS,
+    LoginAuditRecorder,
+    classify_login_error,
 )
 from bms_identity.domains.auth.services.auth import CurrentUserService, LoginService
 from bms_identity.domains.auth.services.session import REASON_PASSWORD_RESET, SessionService
@@ -264,29 +270,54 @@ async def login(
         raise AuthError("租户缺少主键标识")
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
-    async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
-        service = _build_service(
-            request=request,
-            session=session,
-            issuer=issuer,
-            security=security,
-            store=store,
-            captcha=captcha,
-            limiter=limiter,
-            client=client,
-            publisher=publisher,
+    recorder = LoginAuditRecorder(
+        registry=registry,
+        session_factory=factory,
+        settings=request.app.state.settings,
+    )
+    user_id: int | None = None
+    status = STATUS_FAILED
+    fail_reason: str | None = None
+    try:
+        async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
+            service = _build_service(
+                request=request,
+                session=session,
+                issuer=issuer,
+                security=security,
+                store=store,
+                captcha=captcha,
+                limiter=limiter,
+                client=client,
+                publisher=publisher,
+            )
+            outcome = await service.login(
+                req,
+                tenant_id=str(tenant.tenant_id),
+                tenant_code=tenant.code,
+                ip=current_client_ip.get(),
+                user_agent=request.headers.get("user-agent"),
+            )
+        status = STATUS_SUCCESS
+        user_id = outcome.result.user.id
+        _set_refresh_cookie(
+            response, request, outcome.refresh_token, outcome.refresh_expires_in if outcome.remember_me else None
         )
-        outcome = await service.login(
-            req,
+        return ApiResponse.ok(outcome.result)
+    except Exception as exc:
+        fail_reason = classify_login_error(exc)
+        raise
+    finally:
+        await recorder.record(
+            username=req.account,
             tenant_id=str(tenant.tenant_id),
-            tenant_code=tenant.code,
+            user_id=user_id,
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
+            status=status,
+            fail_reason=fail_reason,
+            trace_id=get_current_trace_id(),
         )
-    _set_refresh_cookie(
-        response, request, outcome.refresh_token, outcome.refresh_expires_in if outcome.remember_me else None
-    )
-    return ApiResponse.ok(outcome.result)
 
 
 @router.post("/refresh")

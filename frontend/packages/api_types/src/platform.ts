@@ -1920,6 +1920,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/login-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Login Logs
+         * @description 登录日志分页查询（用户名 / 状态 / IP / 时间范围）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         page: 分页参数。
+         *         username: 登录名（模糊）。
+         *         status: 结果。
+         *         ip: 客户端 IP。
+         *         occurred_from: 事件时间下界。
+         *         occurred_to: 事件时间上界。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页结果。
+         */
+        get: operations["list_login_logs_api_v1_login_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/login-logs/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Login Log
+         * @description 登录日志详情（含失败原因与哈希值）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         record_id: 日志主键。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为日志详情。
+         */
+        get: operations["get_login_log_api_v1_login_logs__record_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/menus": {
         parameters: {
             query?: never;
@@ -2129,6 +2188,66 @@ export interface paths {
          *         NotFoundError: 未登记（10002 / 404，全局处理器统一转响应）。
          */
         get: operations["get_module_api_v1_modules__service_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operation-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Operation Logs
+         * @description 操作日志分页查询（用户 / 模块 / 动作 / 状态 / 时间范围）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         page: 分页参数。
+         *         user_id: 操作人主键。
+         *         module: 模块。
+         *         action: 动作 / 权限码。
+         *         status: HTTP 状态码。
+         *         occurred_from: 事件时间下界。
+         *         occurred_to: 事件时间上界。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页结果。
+         */
+        get: operations["list_operation_logs_api_v1_operation_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operation-logs/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Operation Log
+         * @description 操作日志详情（含哈希值）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         record_id: 日志主键。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为日志详情。
+         */
+        get: operations["get_operation_log_api_v1_operation_logs__record_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2398,6 +2517,64 @@ export interface paths {
          *         ApiResponse: 统一响应，data 为扫描概要（`InactiveScanResult`）。
          */
         post: operations["scan_inactive_api_v1_platform_internal_account_locks_scan_inactive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/internal/audit/shards/ensure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ensure Shards
+         * @description 确保审计分片存在（当月 + 未来 N 月，两类日志）。
+         *
+         *     Args:
+         *         session: 平台库会话。
+         *         req: 预创建请求（提前月数）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为已确保月份。
+         */
+        post: operations["ensure_shards_api_v1_platform_internal_audit_shards_ensure_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/internal/audit/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Chain
+         * @description 校验某类日志的哈希链（缺省校验台账全部月份）。
+         *
+         *     Args:
+         *         session: 平台库会话。
+         *         chain: 哈希链实现。
+         *         req: 校验请求（日志类型 + 可选月份）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为校验结果。
+         *
+         *     Raises:
+         *         ParamError: 日志类型未登记（10001）。
+         */
+        post: operations["verify_chain_api_v1_platform_internal_audit_verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4921,6 +5098,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[EnsureShardsResult] */
+        ApiResponse_EnsureShardsResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["EnsureShardsResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ExportJobStatus] */
         ApiResponse_ExportJobStatus_: {
             /**
@@ -5117,6 +5308,34 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[LoginLogItem] */
+        ApiResponse_LoginLogItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LoginLogItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LoginLogPage] */
+        ApiResponse_LoginLogPage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LoginLogPage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[LoginStateResult] */
         ApiResponse_LoginStateResult_: {
             /**
@@ -5224,6 +5443,34 @@ export interface components {
             code: number;
             /** Data */
             data?: null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[OperationLogItem] */
+        ApiResponse_OperationLogItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["OperationLogItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[OperationLogPage] */
+        ApiResponse_OperationLogPage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["OperationLogPage"] | null;
             /**
              * Message
              * @default ok
@@ -5588,6 +5835,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["UserStatusResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[VerifyResult] */
+        ApiResponse_VerifyResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["VerifyResult"] | null;
             /**
              * Message
              * @default ok
@@ -6856,6 +7117,29 @@ export interface components {
             sort: number;
         };
         /**
+         * EnsureShardsRequest
+         * @description 分片预创建请求。
+         */
+        EnsureShardsRequest: {
+            /**
+             * Months Ahead
+             * @description 提前月数（0 = 仅当月）
+             * @default 1
+             */
+            months_ahead: number;
+        };
+        /**
+         * EnsureShardsResult
+         * @description 分片预创建结果。
+         */
+        EnsureShardsResult: {
+            /**
+             * Months
+             * @description 已确保存在的月份（含当月）
+             */
+            months?: string[];
+        };
+        /**
          * ExportArtifact
          * @description 导出产物（对象 key + 限时取址）。
          */
@@ -7893,6 +8177,93 @@ export interface components {
             username: string;
         };
         /**
+         * LoginLogItem
+         * @description 登录日志列表 / 详情同构。
+         */
+        LoginLogItem: {
+            /**
+             * Created At
+             * Format: date-time
+             * @description 写入时间（UTC）
+             */
+            created_at: string;
+            /**
+             * Event Id
+             * @description 事件幂等键
+             */
+            event_id: string;
+            /**
+             * Fail Reason
+             * @description 失败原因
+             */
+            fail_reason?: string | null;
+            /**
+             * Id
+             * @description 日志主键
+             */
+            id: string;
+            /**
+             * Ip
+             * @description 客户端 IP
+             */
+            ip?: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             * @description 事件发生时间（UTC）
+             */
+            occurred_at: string;
+            /**
+             * Prev Hash
+             * @description 前一条记录哈希
+             */
+            prev_hash: string;
+            /**
+             * Record Hash
+             * @description 本条记录哈希
+             */
+            record_hash: string;
+            /**
+             * Status
+             * @description 结果（success / failed）
+             */
+            status: string;
+            /**
+             * Tenant Id
+             * @description 租户主键
+             */
+            tenant_id?: string | null;
+            /**
+             * User Agent
+             * @description User-Agent
+             */
+            user_agent?: string | null;
+            /**
+             * User Id
+             * @description 命中用户主键
+             */
+            user_id?: string | null;
+            /**
+             * Username
+             * @description 登录名
+             */
+            username: string;
+        };
+        /**
+         * LoginLogPage
+         * @description 登录日志分页响应。
+         */
+        LoginLogPage: {
+            /** List */
+            list: components["schemas"]["LoginLogItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
          * LoginStateRequest
          * @description 登录态写回请求（成功清零 / 失败计数与锁定）。
          */
@@ -8568,6 +8939,128 @@ export interface components {
              * @description 元数据版本号（缓存版本）
              */
             version: number;
+        };
+        /**
+         * OperationLogItem
+         * @description 操作日志列表 / 详情同构。
+         */
+        OperationLogItem: {
+            /**
+             * Action
+             * @description 动作（权限码 / 回落动词）
+             */
+            action: string;
+            /**
+             * Cost Time
+             * @description 耗时（毫秒）
+             */
+            cost_time?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             * @description 写入时间（UTC）
+             */
+            created_at: string;
+            /**
+             * Error Msg
+             * @description 错误摘要
+             */
+            error_msg?: string | null;
+            /**
+             * Event Id
+             * @description 事件幂等键
+             */
+            event_id: string;
+            /**
+             * Id
+             * @description 日志主键
+             */
+            id: string;
+            /**
+             * Ip
+             * @description 客户端 IP
+             */
+            ip?: string | null;
+            /**
+             * Method
+             * @description HTTP 方法
+             */
+            method: string;
+            /**
+             * Module
+             * @description 模块
+             */
+            module: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             * @description 事件发生时间（UTC）
+             */
+            occurred_at: string;
+            /**
+             * Params
+             * @description 请求体参数 JSON（已脱敏）
+             */
+            params?: string | null;
+            /**
+             * Path
+             * @description 请求路径
+             */
+            path: string;
+            /**
+             * Prev Hash
+             * @description 前一条记录哈希
+             */
+            prev_hash: string;
+            /**
+             * Query Params
+             * @description 查询串（已脱敏）
+             */
+            query_params?: string | null;
+            /**
+             * Record Hash
+             * @description 本条记录哈希
+             */
+            record_hash: string;
+            /**
+             * Status
+             * @description HTTP 状态码
+             */
+            status: number;
+            /**
+             * Tenant Id
+             * @description 租户主键
+             */
+            tenant_id?: string | null;
+            /**
+             * User Agent
+             * @description User-Agent
+             */
+            user_agent?: string | null;
+            /**
+             * User Id
+             * @description 操作人主键
+             */
+            user_id?: string | null;
+            /**
+             * Username
+             * @description 操作账号快照
+             */
+            username?: string | null;
+        };
+        /**
+         * OperationLogPage
+         * @description 操作日志分页响应。
+         */
+        OperationLogPage: {
+            /** List */
+            list: components["schemas"]["OperationLogItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
         };
         /**
          * PermissionCreateRequest
@@ -10414,6 +10907,63 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * VerifyRequest
+         * @description 链校验请求（内部端点 / 巡检任务）。
+         */
+        VerifyRequest: {
+            /**
+             * Log Type
+             * @description 日志类型（operation / login）
+             */
+            log_type: string;
+            /**
+             * Months
+             * @description 指定月份（yyyyMM；空 = 台账全部）
+             */
+            months?: string[] | null;
+        };
+        /**
+         * VerifyResult
+         * @description 链校验结果。
+         */
+        VerifyResult: {
+            /**
+             * Broken Index
+             * @description 断裂位置（月内从 0 起）
+             */
+            broken_index?: number | null;
+            /**
+             * Broken Month
+             * @description 断裂分片月份
+             */
+            broken_month?: string | null;
+            /**
+             * Broken Record Id
+             * @description 断裂记录主键
+             */
+            broken_record_id?: string | null;
+            /**
+             * Checked Months
+             * @description 实际校验月份
+             */
+            checked_months?: string[];
+            /**
+             * Checked Records
+             * @description 校验记录数
+             */
+            checked_records: number;
+            /**
+             * Log Type
+             * @description 日志类型
+             */
+            log_type: string;
+            /**
+             * Valid
+             * @description 链是否完整
+             */
+            valid: boolean;
         };
     };
     responses: never;
@@ -16581,6 +17131,176 @@ export interface operations {
             };
         };
     };
+    list_login_logs_api_v1_login_logs_get: {
+        parameters: {
+            query?: {
+                /** @description 登录名（模糊） */
+                username?: string | null;
+                /** @description 结果（success / failed） */
+                status?: string | null;
+                /** @description 客户端 IP（精确） */
+                ip?: string | null;
+                /** @description 事件时间下界（含） */
+                occurred_from?: string | null;
+                /** @description 事件时间上界（含） */
+                occurred_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LoginLogPage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_login_log_api_v1_login_logs__record_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 日志主键（雪花 ID） */
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LoginLogItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
     list_menus_api_v1_menus_get: {
         parameters: {
             query?: never;
@@ -17128,6 +17848,178 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_operation_logs_api_v1_operation_logs_get: {
+        parameters: {
+            query?: {
+                /** @description 操作人主键 */
+                user_id?: number | null;
+                /** @description 模块（精确） */
+                module?: string | null;
+                /** @description 动作 / 权限码（精确） */
+                action?: string | null;
+                /** @description HTTP 状态码 */
+                status?: number | null;
+                /** @description 事件时间下界（含） */
+                occurred_from?: string | null;
+                /** @description 事件时间上界（含） */
+                occurred_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_OperationLogPage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_operation_log_api_v1_operation_logs__record_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 日志主键（雪花 ID） */
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_OperationLogItem_"];
                 };
             };
             /** @description 未认证 */
@@ -17915,6 +18807,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_InactiveScanResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    ensure_shards_api_v1_platform_internal_audit_shards_ensure_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnsureShardsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_EnsureShardsResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    verify_chain_api_v1_platform_internal_audit_verify_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_VerifyResult_"];
                 };
             };
             /** @description 未认证 */

@@ -153,8 +153,8 @@ SYSTEM_ADMIN_CODES: ConcurrentStableList[str] = ConcurrentStableList(
 DEFAULT_ASSIGN_ACCOUNT = "admin"
 """缺省绑定账号（本地 bootstrap：把首个可用账号绑到内置系统管理员，命中豁免层级）。"""
 
-AUDIT_ADMIN_CODES: ConcurrentStableList[str] = ConcurrentStableList()
-"""审计管理员授权（本轮为空；审计域权限码随审计模块落地）。"""
+AUDIT_ADMIN_CODES: ConcurrentStableList[str] = ConcurrentStableList(("log:query",))
+"""审计管理员授权（`log:query`：操作 / 登录日志只读；06_01 落地）。"""
 
 BUILTIN_ADMIN_ROLES: ConcurrentStableList[tuple[str, str, str, ConcurrentStableList[str]]] = ConcurrentStableList(
     (

@@ -125,7 +125,7 @@ async def test_seed_creates_builtin_roles_and_grants_idempotently(urls: tuple[st
     assert grants == 4
     assert first.missing_codes  # 其余在册码平台库未登记 → 上报且不产生授权
     assert set(SECURITY_ADMIN_CODES).issubset(set(SYSTEM_ADMIN_CODES) | set(SECURITY_ADMIN_CODES))
-    assert set(AUDIT_ADMIN_CODES) == set()
+    assert set(AUDIT_ADMIN_CODES) == {"log:query"}  # 06_01：审计管理员只读日志
     # `02_01` 用户完整域：系统管理员持全部用户域码（防新端点 403 自锁）
     assert {
         "user:create",
@@ -346,4 +346,4 @@ def test_module_exports() -> None:
     assert ROLE_AUDIT_ADMIN == "audit_admin"
     assert set(SECURITY_ADMIN_CODES) == {"role:query", "role:create", "role:update", "role:delete", "role:grant"}
     assert len(BUILTIN_ADMIN_ROLES) == 3
-    assert ConcurrentStableList(AUDIT_ADMIN_CODES) == ConcurrentStableList()
+    assert ConcurrentStableList(AUDIT_ADMIN_CODES) == ConcurrentStableList(["log:query"])

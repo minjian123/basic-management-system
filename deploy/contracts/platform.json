@@ -829,6 +829,33 @@
         "title": "ApiResponse[DictTypeResult]",
         "type": "object"
       },
+      "ApiResponse_EnsureShardsResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnsureShardsResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[EnsureShardsResult]",
+        "type": "object"
+      },
       "ApiResponse_ExportJobStatus_": {
         "additionalProperties": false,
         "properties": {
@@ -1207,6 +1234,60 @@
         "title": "ApiResponse[LockItem]",
         "type": "object"
       },
+      "ApiResponse_LoginLogItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoginLogItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LoginLogItem]",
+        "type": "object"
+      },
+      "ApiResponse_LoginLogPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoginLogPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LoginLogPage]",
+        "type": "object"
+      },
       "ApiResponse_LoginStateResult_": {
         "additionalProperties": false,
         "properties": {
@@ -1415,6 +1496,60 @@
           }
         },
         "title": "ApiResponse[NoneType]",
+        "type": "object"
+      },
+      "ApiResponse_OperationLogItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OperationLogItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[OperationLogItem]",
+        "type": "object"
+      },
+      "ApiResponse_OperationLogPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OperationLogPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[OperationLogPage]",
         "type": "object"
       },
       "ApiResponse_PermissionGenerateResult_": {
@@ -2117,6 +2252,33 @@
           }
         },
         "title": "ApiResponse[UserStatusResult]",
+        "type": "object"
+      },
+      "ApiResponse_VerifyResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifyResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[VerifyResult]",
         "type": "object"
       },
       "ApiResponse_list_ModuleResponse__": {
@@ -4146,6 +4308,37 @@
         "title": "EnabledLocaleItem",
         "type": "object"
       },
+      "EnsureShardsRequest": {
+        "additionalProperties": false,
+        "description": "分片预创建请求。",
+        "properties": {
+          "months_ahead": {
+            "default": 1,
+            "description": "提前月数（0 = 仅当月）",
+            "minimum": 0.0,
+            "title": "Months Ahead",
+            "type": "integer"
+          }
+        },
+        "title": "EnsureShardsRequest",
+        "type": "object"
+      },
+      "EnsureShardsResult": {
+        "additionalProperties": false,
+        "description": "分片预创建结果。",
+        "properties": {
+          "months": {
+            "description": "已确保存在的月份（含当月）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Months",
+            "type": "array"
+          }
+        },
+        "title": "EnsureShardsResult",
+        "type": "object"
+      },
       "ExportArtifact": {
         "additionalProperties": false,
         "description": "导出产物（对象 key + 限时取址）。",
@@ -5823,6 +6016,159 @@
         "title": "LockItem",
         "type": "object"
       },
+      "LoginLogItem": {
+        "additionalProperties": false,
+        "description": "登录日志列表 / 详情同构。",
+        "properties": {
+          "created_at": {
+            "description": "写入时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_id": {
+            "description": "事件幂等键",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "fail_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败原因",
+            "title": "Fail Reason"
+          },
+          "id": {
+            "description": "日志主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户端 IP",
+            "title": "Ip"
+          },
+          "occurred_at": {
+            "description": "事件发生时间（UTC）",
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "prev_hash": {
+            "description": "前一条记录哈希",
+            "title": "Prev Hash",
+            "type": "string"
+          },
+          "record_hash": {
+            "description": "本条记录哈希",
+            "title": "Record Hash",
+            "type": "string"
+          },
+          "status": {
+            "description": "结果（success / failed）",
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户主键",
+            "title": "Tenant Id"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "User-Agent",
+            "title": "User Agent"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "命中用户主键",
+            "title": "User Id"
+          },
+          "username": {
+            "description": "登录名",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "username",
+          "status",
+          "occurred_at",
+          "prev_hash",
+          "record_hash",
+          "created_at"
+        ],
+        "title": "LoginLogItem",
+        "type": "object"
+      },
+      "LoginLogPage": {
+        "additionalProperties": false,
+        "description": "登录日志分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/LoginLogItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "LoginLogPage",
+        "type": "object"
+      },
       "LoginStateRequest": {
         "additionalProperties": false,
         "description": "登录态写回请求（成功清零 / 失败计数与锁定）。",
@@ -6900,6 +7246,225 @@
           "version"
         ],
         "title": "MyMenuResponse",
+        "type": "object"
+      },
+      "OperationLogItem": {
+        "additionalProperties": false,
+        "description": "操作日志列表 / 详情同构。",
+        "properties": {
+          "action": {
+            "description": "动作（权限码 / 回落动词）",
+            "title": "Action",
+            "type": "string"
+          },
+          "cost_time": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "耗时（毫秒）",
+            "title": "Cost Time"
+          },
+          "created_at": {
+            "description": "写入时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误摘要",
+            "title": "Error Msg"
+          },
+          "event_id": {
+            "description": "事件幂等键",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "id": {
+            "description": "日志主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户端 IP",
+            "title": "Ip"
+          },
+          "method": {
+            "description": "HTTP 方法",
+            "title": "Method",
+            "type": "string"
+          },
+          "module": {
+            "description": "模块",
+            "title": "Module",
+            "type": "string"
+          },
+          "occurred_at": {
+            "description": "事件发生时间（UTC）",
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "请求体参数 JSON（已脱敏）",
+            "title": "Params"
+          },
+          "path": {
+            "description": "请求路径",
+            "title": "Path",
+            "type": "string"
+          },
+          "prev_hash": {
+            "description": "前一条记录哈希",
+            "title": "Prev Hash",
+            "type": "string"
+          },
+          "query_params": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "查询串（已脱敏）",
+            "title": "Query Params"
+          },
+          "record_hash": {
+            "description": "本条记录哈希",
+            "title": "Record Hash",
+            "type": "string"
+          },
+          "status": {
+            "description": "HTTP 状态码",
+            "title": "Status",
+            "type": "integer"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户主键",
+            "title": "Tenant Id"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "User-Agent",
+            "title": "User Agent"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "操作人主键",
+            "title": "User Id"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "操作账号快照",
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "module",
+          "action",
+          "method",
+          "path",
+          "status",
+          "occurred_at",
+          "prev_hash",
+          "record_hash",
+          "created_at"
+        ],
+        "title": "OperationLogItem",
+        "type": "object"
+      },
+      "OperationLogPage": {
+        "additionalProperties": false,
+        "description": "操作日志分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/OperationLogItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "OperationLogPage",
         "type": "object"
       },
       "PermissionCreateRequest": {
@@ -9918,6 +10483,109 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifyRequest": {
+        "additionalProperties": false,
+        "description": "链校验请求（内部端点 / 巡检任务）。",
+        "properties": {
+          "log_type": {
+            "description": "日志类型（operation / login）",
+            "title": "Log Type",
+            "type": "string"
+          },
+          "months": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "指定月份（yyyyMM；空 = 台账全部）",
+            "title": "Months"
+          }
+        },
+        "required": [
+          "log_type"
+        ],
+        "title": "VerifyRequest",
+        "type": "object"
+      },
+      "VerifyResult": {
+        "additionalProperties": false,
+        "description": "链校验结果。",
+        "properties": {
+          "broken_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂位置（月内从 0 起）",
+            "title": "Broken Index"
+          },
+          "broken_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂分片月份",
+            "title": "Broken Month"
+          },
+          "broken_record_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂记录主键",
+            "title": "Broken Record Id"
+          },
+          "checked_months": {
+            "description": "实际校验月份",
+            "items": {
+              "type": "string"
+            },
+            "title": "Checked Months",
+            "type": "array"
+          },
+          "checked_records": {
+            "description": "校验记录数",
+            "title": "Checked Records",
+            "type": "integer"
+          },
+          "log_type": {
+            "description": "日志类型",
+            "title": "Log Type",
+            "type": "string"
+          },
+          "valid": {
+            "description": "链是否完整",
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "log_type",
+          "valid",
+          "checked_records"
+        ],
+        "title": "VerifyResult",
         "type": "object"
       }
     }
@@ -18589,6 +19257,343 @@
         ]
       }
     },
+    "/api/v1/login-logs": {
+      "get": {
+        "description": "登录日志分页查询（用户名 / 状态 / IP / 时间范围）。\n\nArgs:\n    session: 平台库只读会话。\n    page: 分页参数。\n    username: 登录名（模糊）。\n    status: 结果。\n    ip: 客户端 IP。\n    occurred_from: 事件时间下界。\n    occurred_to: 事件时间上界。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "operationId": "list_login_logs_api_v1_login_logs_get",
+        "parameters": [
+          {
+            "description": "登录名（模糊）",
+            "in": "query",
+            "name": "username",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "登录名（模糊）",
+              "title": "Username"
+            }
+          },
+          {
+            "description": "结果（success / failed）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结果（success / failed）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "客户端 IP（精确）",
+            "in": "query",
+            "name": "ip",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "客户端 IP（精确）",
+              "title": "Ip"
+            }
+          },
+          {
+            "description": "事件时间下界（含）",
+            "in": "query",
+            "name": "occurred_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间下界（含）",
+              "title": "Occurred From"
+            }
+          },
+          {
+            "description": "事件时间上界（含）",
+            "in": "query",
+            "name": "occurred_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间上界（含）",
+              "title": "Occurred To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoginLogPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Login Logs",
+        "tags": [
+          "log"
+        ]
+      }
+    },
+    "/api/v1/login-logs/{record_id}": {
+      "get": {
+        "description": "登录日志详情（含失败原因与哈希值）。\n\nArgs:\n    session: 平台库只读会话。\n    record_id: 日志主键。\n\nReturns:\n    ApiResponse: 统一响应，data 为日志详情。",
+        "operationId": "get_login_log_api_v1_login_logs__record_id__get",
+        "parameters": [
+          {
+            "description": "日志主键（雪花 ID）",
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "description": "日志主键（雪花 ID）",
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoginLogItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Login Log",
+        "tags": [
+          "log"
+        ]
+      }
+    },
     "/api/v1/menus": {
       "get": {
         "description": "菜单树（平台维护视图，含 hidden 与 disabled）。\n\nArgs:\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为菜单树。",
@@ -19405,6 +20410,361 @@
         "summary": "Get Module",
         "tags": [
           "module"
+        ]
+      }
+    },
+    "/api/v1/operation-logs": {
+      "get": {
+        "description": "操作日志分页查询（用户 / 模块 / 动作 / 状态 / 时间范围）。\n\nArgs:\n    session: 平台库只读会话。\n    page: 分页参数。\n    user_id: 操作人主键。\n    module: 模块。\n    action: 动作 / 权限码。\n    status: HTTP 状态码。\n    occurred_from: 事件时间下界。\n    occurred_to: 事件时间上界。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "operationId": "list_operation_logs_api_v1_operation_logs_get",
+        "parameters": [
+          {
+            "description": "操作人主键",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "操作人主键",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "模块（精确）",
+            "in": "query",
+            "name": "module",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "模块（精确）",
+              "title": "Module"
+            }
+          },
+          {
+            "description": "动作 / 权限码（精确）",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "动作 / 权限码（精确）",
+              "title": "Action"
+            }
+          },
+          {
+            "description": "HTTP 状态码",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "HTTP 状态码",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "事件时间下界（含）",
+            "in": "query",
+            "name": "occurred_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间下界（含）",
+              "title": "Occurred From"
+            }
+          },
+          {
+            "description": "事件时间上界（含）",
+            "in": "query",
+            "name": "occurred_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间上界（含）",
+              "title": "Occurred To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OperationLogPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Operation Logs",
+        "tags": [
+          "log"
+        ]
+      }
+    },
+    "/api/v1/operation-logs/{record_id}": {
+      "get": {
+        "description": "操作日志详情（含哈希值）。\n\nArgs:\n    session: 平台库只读会话。\n    record_id: 日志主键。\n\nReturns:\n    ApiResponse: 统一响应，data 为日志详情。",
+        "operationId": "get_operation_log_api_v1_operation_logs__record_id__get",
+        "parameters": [
+          {
+            "description": "日志主键（雪花 ID）",
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "description": "日志主键（雪花 ID）",
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OperationLogItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Operation Log",
+        "tags": [
+          "log"
         ]
       }
     },
@@ -20465,6 +21825,226 @@
         "summary": "Scan Inactive",
         "tags": [
           "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/audit/shards/ensure": {
+      "post": {
+        "description": "确保审计分片存在（当月 + 未来 N 月，两类日志）。\n\nArgs:\n    session: 平台库会话。\n    req: 预创建请求（提前月数）。\n\nReturns:\n    ApiResponse: 统一响应，data 为已确保月份。",
+        "operationId": "ensure_shards_api_v1_platform_internal_audit_shards_ensure_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsureShardsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_EnsureShardsResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Ensure Shards",
+        "tags": [
+          "audit-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/audit/verify": {
+      "post": {
+        "description": "校验某类日志的哈希链（缺省校验台账全部月份）。\n\nArgs:\n    session: 平台库会话。\n    chain: 哈希链实现。\n    req: 校验请求（日志类型 + 可选月份）。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果。\n\nRaises:\n    ParamError: 日志类型未登记（10001）。",
+        "operationId": "verify_chain_api_v1_platform_internal_audit_verify_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_VerifyResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Verify Chain",
+        "tags": [
+          "audit-internal"
         ]
       }
     },

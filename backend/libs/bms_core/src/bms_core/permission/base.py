@@ -117,6 +117,8 @@ def require_permission(code: str) -> Callable[..., Awaitable[None]]:
             PermissionError: 不持该权限码（30001 / 403）。
             TenantModuleDisabledError: 所属产品模块未开通 / 已停用（82008 / 403）。
         """
+        # 操作审计（06_01）：校验前记录权限码（拒绝也留痕；首个码为准，多权限端点取主权限）
+        request.scope.setdefault("state", {}).setdefault("audit_action", code)  # type: ignore[arg-type]
         checker = get_permission_checker(request)
         prepare = getattr(checker, "aprepare", None)
         if callable(prepare):

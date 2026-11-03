@@ -119,6 +119,18 @@
       ]
     },
     {
+      "domain_key": "log",
+      "service_key": "platform",
+      "status": "placement",
+      "paths": [
+        "backend/services/platform/src/bms_platform/domains/log/**/*.py",
+        "backend/libs/bms_core/src/bms_core/models/platform/log.py"
+      ],
+      "public_api": [
+        "bms_platform.domains.log.public"
+      ]
+    },
+    {
       "domain_key": "task",
       "service_key": "platform",
       "status": "placement",

@@ -125,6 +125,8 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_CAPTCHA__PROVIDER", "")
     monkeypatch.setenv("BMS_MASKING__PROVIDER", "")
     monkeypatch.setenv("BMS_DISTRIBUTED_LOCK__PROVIDER", "")
+    # 操作审计中间件（06_01）默认关闭：单测不因每个写请求额外写发件箱（审计专项用例显式开启）
+    monkeypatch.setenv("BMS_AUDIT_LOG__ENABLED", "false")
     # 权限 / 数据范围强制占位：`get_settings()` 是进程级单例，服务套件（platform / identity）会在
     # `prepare_settings` 里把它改成 `provider = rbac`；同进程跑其他套件（含基座自身不登记数据来源的
     # 测试应用）时若沿用该残留，装配期即按「`rbac` 却无取数实现」拒启（与用例意图无关）。

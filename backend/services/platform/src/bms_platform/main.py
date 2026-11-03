@@ -22,6 +22,8 @@ from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __versio
 from bms_platform.api.router import api_router
 from bms_platform.domains.job.jobs import event_consumer_records as job_event_consumer_records
 from bms_platform.domains.job.services.bootstrap import bootstrap_job_types
+from bms_platform.domains.log.jobs import event_consumer_records as log_event_consumer_records
+from bms_platform.domains.log.services.shard_bootstrap import bootstrap_audit_shards
 from bms_platform.domains.permission_meta.icon.registry import (  # noqa: F401  (导入即登记 icon_registry:db)
     DB_ICON_PROVIDER,
     DbIconRegistry,  # pyright: ignore[reportUnusedImport]
@@ -71,6 +73,8 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             settings.data_scope.provider = RBAC_DATA_SCOPE_NAME
         if not settings.icon_registry.provider:
             settings.icon_registry.provider = DB_ICON_PROVIDER
+        if not settings.hash_chain.provider:
+            settings.hash_chain.provider = "sha256"
         # 平台侧装配：真实校验器 + 直查本库数据来源工厂 + 字段权限 provider 工厂
         register_platform_permission(settings)
         register_rbac_data_scope(settings)
@@ -99,16 +103,19 @@ class ApplicationFactory(BaseServiceApplicationFactory):
                 bootstrap_job_types,
                 bootstrap_capability_grants,
                 bootstrap_tenant_topologies,
+                bootstrap_audit_shards,
             )
         )
 
     def event_consumer_records(self) -> ConcurrentStableList[EventConsumerRecord]:
-        """平台自持的事件消费组声明（作业监控投影）。
+        """平台自持的事件消费组声明（作业监控投影 + 审计链落库）。
 
         Returns:
             ConcurrentStableList[EventConsumerRecord]: 消费组声明。
         """
-        return job_event_consumer_records()
+        records = ConcurrentStableList(job_event_consumer_records())
+        records.update(log_event_consumer_records())
+        return records
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）与权限实现。

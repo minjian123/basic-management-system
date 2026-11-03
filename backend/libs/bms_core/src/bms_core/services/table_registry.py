@@ -628,6 +628,31 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             datasource=Datasource.TENANT,
             note="用户扩展信息（具名插槽样例插件后端契约资源）",
         ),
+        # ---- 审计日志（06_01：平台库集中存放；两张日志表按月分片，逻辑表不进迁移链）----
+        TableRecord(
+            table_name="sys_operation_log",
+            owner="platform",
+            domain="log",
+            datasource=Datasource.PLATFORM,
+            status=TableStatus.PLANNED,
+            note="操作日志（逻辑表名；物理按月分片 sys_operation_log_yyyyMM，运行期建表；06_01）",
+        ),
+        TableRecord(
+            table_name="sys_login_log",
+            owner="platform",
+            domain="log",
+            datasource=Datasource.PLATFORM,
+            status=TableStatus.PLANNED,
+            note="登录日志（逻辑表名；物理按月分片 sys_login_log_yyyyMM，运行期建表；06_01）",
+        ),
+        TableRecord(
+            table_name="sys_audit_shard",
+            owner="platform",
+            domain="log",
+            datasource=Datasource.PLATFORM,
+            status=TableStatus.ENABLED,
+            note="审计分片台账（已建分片 / 归档清单；06_01 落库）",
+        ),
     )
 )
 """表归属登记（单一来源）。
