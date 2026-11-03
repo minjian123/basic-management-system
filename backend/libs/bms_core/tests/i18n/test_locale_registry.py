@@ -5,8 +5,8 @@ import pytest
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.i18n.locale import LOCALE_DISABLED, LocaleInfo, match_locale
+from bms_core.i18n.null import NullLocaleRegistry
 from bms_core.i18n.registry import SEED_DEFAULT_LOCALE, SEED_LOCALES, seed_locale_infos
-from bms_core.i18n.registry_null import NullLocaleRegistry
 
 pytestmark = [pytest.mark.kiwi_id(2404)]
 

@@ -30,6 +30,7 @@ from bms_core.dict.table import DictI18nSpec, DictTableScope
 from bms_core.models.identity.client import SysClient
 from bms_core.models.identity.identity_provider import SysIdentityProvider
 from bms_core.models.platform.catalog import SysModule, SysModuleI18n, SysProduct
+from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
 from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.models.platform.permission_meta import SysAction, SysActionI18n, SysBusiness, SysBusinessI18n
 from bms_core.models.platform.role import SysRole
@@ -134,6 +135,20 @@ PLATFORM_DICT_SPECS: ConcurrentStableDict[str, DictSourceSpec] = ConcurrentStabl
         (
             DataSourceKey.CONFIG.value,
             DictSourceSpec(data_source_key=DataSourceKey.CONFIG.value, table=cast("Table", SysConfig.__table__)),
+        ),
+        (
+            DataSourceKey.I18N_LOCALE.value,
+            DictSourceSpec(
+                data_source_key=DataSourceKey.I18N_LOCALE.value,
+                table=cast("Table", SysI18nLocale.__table__),
+            ),
+        ),
+        (
+            DataSourceKey.I18N_MESSAGE.value,
+            DictSourceSpec(
+                data_source_key=DataSourceKey.I18N_MESSAGE.value,
+                table=cast("Table", SysI18nMessage.__table__),
+            ),
         ),
         (
             DataSourceKey.ICON.value,

@@ -13,7 +13,7 @@ import pytest
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.i18n.cache import RedisI18nCacheRegion
 from bms_core.i18n.invalidate import I18nInvalidator
-from bms_core.i18n.registry_null import NullLocaleRegistry
+from bms_core.i18n.null import NullLocaleRegistry
 
 pytestmark = pytest.mark.kiwi_id(2404)
 

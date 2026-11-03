@@ -13,14 +13,13 @@ from bms_core.core.config import I18nSettings
 from bms_core.db.registry import EngineRegistry
 from bms_core.i18n import seed as seed_module
 from bms_core.i18n.cache import I18nCacheRegion, MemoryI18nCacheRegion
-from bms_core.i18n.cache_null import NullI18nCacheRegion
 from bms_core.i18n.db import (
     DbTranslator,
     _query_messages,  # pyright: ignore[reportPrivateUsage]
 )
 from bms_core.i18n.invalidate import I18nInvalidator
 from bms_core.i18n.locale import LocaleInfo
-from bms_core.i18n.registry_null import NullLocaleRegistry
+from bms_core.i18n.null import NullI18nCacheRegion, NullLocaleRegistry
 from bms_core.i18n.registry_sql import SqlLocaleRegistry, _query_locales  # pyright: ignore[reportPrivateUsage]
 from bms_core.i18n.rules import (
     is_locale_code_valid,

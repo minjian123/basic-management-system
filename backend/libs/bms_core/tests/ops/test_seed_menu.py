@@ -8,7 +8,7 @@ from bms_core.tenant.seed import menu as seed_menu
 # 2026-10-31 起基线记「含平台后续新增条目」：08-02_02 补 `config:manage`（110 → 111）、
 # 08-03_01 补 `file:manage`（111 → 112）、03_06 补 `job` 业务码与 query / manage 权限码（44 → 45、112 → 114）。
 _BUSINESS_BEFORE = 45
-_PERMISSIONS_BEFORE = 114
+_PERMISSIONS_BEFORE = 115
 _ACTIONS_BEFORE = 31
 
 

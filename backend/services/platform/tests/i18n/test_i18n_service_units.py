@@ -18,7 +18,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError, I18nMessageKeyInvalidError
 from bms_core.i18n.cache import MemoryI18nCacheRegion
 from bms_core.i18n.invalidate import I18nInvalidator
-from bms_core.i18n.registry_null import NullLocaleRegistry
+from bms_core.i18n.null import NullLocaleRegistry
 from bms_core.i18n.seed import MESSAGE_SEEDS
 from bms_core.models.platform.i18n import SysI18nLocale
 from bms_platform.domains.i18n.schemas.i18n import MessageAddItem, MessageSaveRequest

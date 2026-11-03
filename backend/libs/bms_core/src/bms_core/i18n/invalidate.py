@@ -14,8 +14,10 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.config import Settings
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.plugin import resolve_plugin
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.i18n.cache import I18nCacheRegion
 from bms_core.i18n.registry import BaseLocaleRegistry
@@ -93,6 +95,21 @@ def get_i18n_invalidator(request: Request) -> I18nInvalidator:
     Returns:
         I18nInvalidator: 与取数共用同一缓存域与清单能力域的失效器。
     """
-    cache = cast("I18nCacheRegion", request.app.state.i18n_cache_region)
-    registry = cast("BaseLocaleRegistry", request.app.state.locale_registry)
+    settings = cast("Settings", request.app.state.settings)
+    cache = cast(
+        "I18nCacheRegion",
+        resolve_plugin(
+            "i18n_cache_region",
+            settings.i18n_cache_region.provider,
+            expected_version=I18nCacheRegion.contract_version,
+        ),
+    )
+    registry = cast(
+        "BaseLocaleRegistry",
+        resolve_plugin(
+            "locale_registry",
+            settings.locale_registry.provider,
+            expected_version=BaseLocaleRegistry.contract_version,
+        ),
+    )
     return I18nInvalidator(cache, registry)

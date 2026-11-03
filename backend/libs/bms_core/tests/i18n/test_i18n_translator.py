@@ -11,7 +11,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.registry import EngineRegistry
 from bms_core.i18n.cache import MemoryI18nCacheRegion
 from bms_core.i18n.db import DbTranslator
-from bms_core.i18n.registry_null import NullLocaleRegistry
+from bms_core.i18n.null import NullLocaleRegistry
 
 pytestmark = [pytest.mark.kiwi_id(2404)]
 
