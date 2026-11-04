@@ -145,6 +145,18 @@ curl -s -H "Authorization: token <GitHub PAT>" \
 
 > 本次 mirror 经 GitLab API `POST /projects/16/remote_mirrors` 创建（HTTP 201，附 `only_protected_branches=true`，只归档 main，与其余归档仓实际口径一致），再以 rails runner `Project.find(16).remote_mirrors.find(7).sync` 触发首次同步（手动同步端点 `/projects/16/remote_mirrors/7/update` 仍返回 404，同第 2.4 节备注）；验证 GitHub main sha 与 GitLab main 一致（`68e0bf5`）。engkit 随推文件经红线检查：无服务器名 / 内网 IP / 凭据，仅 `tests/` 内含 `10.0.0.1` 一类合成占位地址。
 
+### 2.6.5 msg 新增实录（2026-11-04） <a id="mirror-log-msg"></a>
+
+自研消息平台 msg（与 biz / mdm 同属 GitLab `mjs` 组，项目 id=17）按 2.6.1 流程接入 GitHub 归档（描述「BMS 消息平台（GitLab push mirror 只读归档）」；仓库名取 `message-platform`，与 mdm 的全称风格一致）：
+
+| 仓库 | GitLab 项目 id | GitLab 路径 | GitHub 归档仓库 | mirror id | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| msg 平台 | 17 | mjs/msg | `message-platform` | 8 | enabled，已验证同步 |
+
+> 本次 mirror 先经 GitHub API `POST /user/repos` 创建空归档仓（public、`auto_init=false`），再在 GitLab 侧 `Project.find(17).remote_mirrors.create!`（`auth_method=password`、`only_protected_branches=false`、`keep_divergent_refs=false`）并 `sync` 触发首次同步；验证 GitHub main sha 与 GitLab main 一致（`1e851da`）。
+>
+> **排障提示（与第 6 节合并阅读）**：首次触发时 `update_status` 为 `to_retry`、`last_error` 报 `github.com:443` 连接超时；**无需干预**——GitLab 会自动重试，约 40 秒后转为 `finished`、`last_error=nil`。诊断时不要用宿主机或容器内 `curl https://github.com` 下结论（`curl` 返回超时不代表 mirror 失败，GitLab 的 git 子进程可能用不同路径重试成功），**以 `remote_mirrors.first.update_status` / `last_successful_update_at` 为准**。也**不要**绕过 mirror 从本机直推 GitHub（违反第 4 节「禁止直接向 GitHub 推送」口径）。
+
 ## 3. 验证结果 <a id="verify"></a>
 
 | 项目 | 结果 |
@@ -153,7 +165,7 @@ curl -s -H "Authorization: token <GitHub PAT>" \
 | GitHub 同步 | 最新提交 `1d4681a` 已镜像（GitHub API 确认） |
 | main 保护 | push=Maintainers、merge=Maintainers |
 | 本地 remote | gitlab=GitLab（唯一远端），origin（GitHub）已删除 |
-| 延伸归档（biz / bizs / mdm / engkit） | 见第 2.6.2 ~ 2.6.4 节实录，mirror enabled 且已验证同步 |
+| 延伸归档（biz / bizs / mdm / engkit / msg） | 见第 2.6.2 ~ 2.6.5 节实录，mirror enabled 且已验证同步 |
 
 ## 4. 日常使用流程 <a id="workflow"></a>
 
