@@ -4,7 +4,7 @@
 
 ## 项目简介
 
-BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn + Pydantic v2 + SQLAlchemy 2.0（异步）+ Alembic，**一服务一工程一库**（`services/` 下 9 个服务，共享基座库 `libs/bms_core`）。
+BMS 平台后端服务：Python 3.14 + FastAPI + hypercorn + Pydantic v2 + SQLAlchemy 2.0（异步）+ Alembic，**一服务一工程一库**（`services/` 下 9 个服务，共享基座库 `libs/bms_core`）。
 
 - **已交付**：monorepo 分层目录、L0 根基类与集合体系、模块基类（仓储 / 服务 / 请求响应 / ORM）、core 横切基座（配置 / 异常 / 安全 / 日志 / 序列化 / 锁 / 雪花 ID）、数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 工作单元 / 迁移链）、配置管理 / 日志体系 / 健康检查（`/healthz` `/readyz`）、认证与会话、验证码与账号治理、数据脱敏、动态菜单与权限元数据。
 - **在途**：阶段七 RBAC 基础模块（角色管理 / 权限计算 / 用户完整域 / 租户治理）。
@@ -40,7 +40,7 @@ uv run python -m bms_platform          # 各服务启动入口（读 config 的 
 #   uv run python -m ops.dev_run --service identity       # 等价命令行；IDE 用 launch 项
 #   # 「后端：单服务（debugpy · 本机三服务）」（即以上为 module）→ 断点 / 变量 / 调用栈齐备
 #   python3 scripts/tools/dev/本地全套.py up                 # 调试完补回三服务
-# 或：uv run uvicorn bms_platform.asgi:app --port 8000
+# 或：uv run hypercorn bms_platform.asgi:app --bind 0.0.0.0:8000
 # 验证：/healthz 返回 {"status":"ok","service":"platform","version":"..."}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
 uv run pytest   # 全量用例（工作区根；含 Kiwi TCMS 用例 ID 标注）
 # 工程级范围：进入某工程目录 `uv run pytest` 只跑该工程（如 cd services/org / cd libs/bms_core），不落根全量
@@ -77,7 +77,7 @@ python3 scripts/tools/preflight/推送.py     # 推送入口：预检（静态 +
 | 依赖 | 版本 | 用途 |
 | --- | --- | --- |
 | fastapi | 0.141.1 | Web 框架 |
-| uvicorn[standard] | 0.52.4 | ASGI 服务器 |
+| hypercorn | 0.18.0 | ASGI 服务器（HTTP/1.1 + HTTP/2） |
 | pydantic / pydantic-settings | 2.13.5 / 2.15.0 | 校验与配置 |
 | sqlalchemy | 2.0.52 | ORM |
 | alembic | 1.19.2 | 数据库迁移机制（当前无脚本，按新基线重建） |
