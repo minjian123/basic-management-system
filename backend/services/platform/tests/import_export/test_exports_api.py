@@ -219,7 +219,7 @@ async def env(
                             name=f"用户{index}",
                             status="enabled",
                             phone=f"1380000000{index}",
-                            email=f"user{index}@example.com",
+                            email=f"{_TENANT_SEED}-{index}@example.com",
                         )
                         for index in range(1, 4)
                     ]
@@ -241,8 +241,13 @@ async def env(
 
 
 async def test_export_excel_stream_and_rows(env: _Env) -> None:
-    """同步导出 Excel：文件流 + 行数 = 列表总数（含表头）。"""
-    response = await env.client.get(f"{API}/users")
+    """同步导出 Excel：文件流 + 行数 = 列表总数（含表头）。
+
+    统计范围限定为本夹具的唯一关键字（`_TENANT_SEED` 命中邮箱）：测试基座是多 worker
+    共用一份 SQLite，全库行数会被其他 worker 的并发写入改变，不能作为断言语义。
+    """
+    filters = {"kw": _TENANT_SEED}
+    response = await env.client.get(f"{API}/users", params=filters)
     assert response.status_code == 200, response.text
     assert response.headers["content-type"].startswith(
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -250,7 +255,7 @@ async def test_export_excel_stream_and_rows(env: _Env) -> None:
     assert "filename*=UTF-8''" in response.headers["content-disposition"]
     rows = _sheet_rows(response.content)
     assert tuple(rows[0]) == ("登录账号", "姓名", "手机号", "邮箱", "状态", "最近登录")
-    listed = await env.client.get("/api/v1/users", params={"size": 1})
+    listed = await env.client.get("/api/v1/users", params={"size": 1, **filters})
     total = int(cast("int", _data(listed)["total"]))
     assert len(rows) == total + 1
 
