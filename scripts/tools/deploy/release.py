@@ -196,7 +196,15 @@ def rotate_ledger(
     Returns:
         ConcurrentStableDict[str, object]: 新台账（不改动入参）。
     """
-    current = ConcurrentStableDict({"tag": tag, "sha": sha, "digest": digest, "deployed_at": at, "deployed_by": actor})
+    current = ConcurrentStableDict(
+        {
+            "tag": tag,
+            "sha": sha,
+            "digest": digest,
+            "deployed_at": at,
+            "deployed_by": actor,
+        }
+    )
     raw_previous = ledger.get("current")
     previous = raw_previous if isinstance(raw_previous, Mapping) else None
     return ConcurrentStableDict({"service": ledger.get("service", ""), "current": current, "previous": previous})
@@ -308,7 +316,15 @@ def gateway_check_args() -> ConcurrentStableList[str]:
         ConcurrentStableList[str]: 容器内命令参数。
     """
     return ConcurrentStableList(
-        ["python", "-m", "ops.gateway_config", "check", "--from-registry", "--root", GATEWAY_CHECK_ROOT]
+        [
+            "python",
+            "-m",
+            "ops.gateway_config",
+            "check",
+            "--from-registry",
+            "--root",
+            GATEWAY_CHECK_ROOT,
+        ]
     )
 
 
@@ -608,11 +624,72 @@ def health_gate(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: 
 # ---------------------------------------------------------------------------
 # 子命令
 # ---------------------------------------------------------------------------
-def _up(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str) -> None:
-    """以指定标签起（或更新）服务容器。"""
+def _ledger_tag(deploy_dir: Path, service: str, fallback: str) -> str:
+    """取服务台账当前 tag；缺失时回落 fallback。
+
+    Args:
+        deploy_dir: deploy 目录。
+        service: 服务名。
+        fallback: 台账缺失时的回退 tag。
+
+    Returns:
+        str: 当前 tag。
+    """
+    ledger = _load_ledger(deploy_dir, service)
+    current = ledger.get("current")
+    if isinstance(current, Mapping) and current.get("tag"):
+        return str(current["tag"])
+    return fallback
+
+
+def _service_env(
+    deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str
+) -> ConcurrentStableDict[str, str]:
+    """构造 compose 子进程环境：**所有**服务标签齐全（compose 会解析整份文件）。
+
+    目标服务用新 tag；其余取各自台账当前 tag（缺失回落新 tag）。不补齐会让
+    `docker compose up -d <服务>` 因其它服务 `BMS_TAG_*` 缺失直接报错。
+
+    Args:
+        deploy_dir: deploy 目录。
+        env: 基础环境（含 `.env`）。
+        service: 目标服务。
+        tag: 目标 tag。
+
+    Returns:
+        ConcurrentStableDict[str, str]: 补齐后的子进程环境。
+    """
     run_env = ConcurrentStableDict(env)
-    run_env.set(f"BMS_TAG_{service.upper()}", tag)
-    _compose(deploy_dir, run_env, ConcurrentStableList(["up", "-d", service]))
+    for name in SERVICES:
+        run_env.set(
+            f"BMS_TAG_{name.upper()}",
+            tag if name == service else _ledger_tag(deploy_dir, name, tag),
+        )
+    return run_env
+
+
+def _compose_services(deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> ConcurrentStableList[str]:
+    """列出 compose 文件内全部服务名。
+
+    Args:
+        deploy_dir: deploy 目录。
+        env: 已补齐标签的子进程环境。
+
+    Returns:
+        ConcurrentStableList[str]: 服务名清单。
+    """
+    output = _compose(deploy_dir, env, ConcurrentStableList(["config", "--services"]), capture=True)
+    return ConcurrentStableList(line.strip() for line in output.splitlines() if line.strip())
+
+
+def _up(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str) -> None:
+    """以指定标签起（或更新）服务容器（含同镜像的 `-jobs` 容器）。"""
+    run_env = _service_env(deploy_dir, env, service, tag)
+    targets = ConcurrentStableList([service])
+    jobs = f"{service}-jobs"
+    if jobs in _compose_services(deploy_dir, run_env):
+        targets.add(jobs)
+    _compose(deploy_dir, run_env, ConcurrentStableList(["up", "-d", "--no-deps", *targets]))
 
 
 def _init_schema(
@@ -623,8 +700,7 @@ def _init_schema(
     tenants: ConcurrentStableList[str],
 ) -> None:
     """以目标标签镜像跑一次性建表容器（建表先行）。"""
-    run_env = ConcurrentStableDict(env)
-    run_env.set(f"BMS_TAG_{service.upper()}", tag)
+    run_env = _service_env(deploy_dir, env, service, tag)
     args = ConcurrentStableList(["python", "-m", "ops.init_schema", "--service", service])
     if tenants:
         for tenant in tenants:
@@ -634,7 +710,13 @@ def _init_schema(
     _compose_run(deploy_dir, run_env, service, args)
 
 
-def _deploy_one(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str, actor: str) -> bool:
+def _deploy_one(
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    service: str,
+    tag: str,
+    actor: str,
+) -> bool:
     """单服务部署：建表 → 起容器 → 门禁 → 台账；门禁失败自动回滚。"""
     ledger = _load_ledger(deploy_dir, service)
     raw_old_current = ledger.get("current")
@@ -700,7 +782,13 @@ def _deploy_one(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: 
     return False
 
 
-def _rollback_one(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, to: str, actor: str) -> bool:
+def _rollback_one(
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    service: str,
+    to: str,
+    actor: str,
+) -> bool:
     """单服务回滚：切换上一 tag → 起容器 → 门禁 → 台账（不 downgrade）。"""
     ledger = _load_ledger(deploy_dir, service)
     target = resolve_rollback_target(ledger, to)
@@ -748,7 +836,19 @@ def _ensure_app_user(deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> N
     _compose(
         deploy_dir,
         env,
-        ConcurrentStableList(["exec", "-T", "-e", f"MYSQL_PWD={root_pw}", "mysql", "mysql", "-uroot", "-e", sql]),
+        ConcurrentStableList(
+            [
+                "exec",
+                "-T",
+                "-e",
+                f"MYSQL_PWD={root_pw}",
+                "mysql",
+                "mysql",
+                "-uroot",
+                "-e",
+                sql,
+            ]
+        ),
     )
 
 
@@ -997,13 +1097,25 @@ def cmd_deploy(
     return 0 if ok else 1
 
 
-def cmd_rollback(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, service: str, to: str, actor: str) -> int:
+def cmd_rollback(
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    *,
+    service: str,
+    to: str,
+    actor: str,
+) -> int:
     """一键回滚（切换上一 tag / 指定 tag；不 downgrade）。"""
     _ensure_registry_login(env)
     return 0 if _rollback_one(deploy_dir, env, service, to, actor) else 1
 
 
-def cmd_status(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, services: ConcurrentStableList[str]) -> int:
+def cmd_status(
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    *,
+    services: ConcurrentStableList[str],
+) -> int:
     """打印版本台账（当前 / 上一版本）。"""
     for service in services:
         ledger = _load_ledger(deploy_dir, service)
@@ -1025,7 +1137,10 @@ def cmd_prune(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, keep: in
     token = env.get("GITLAB_API_TOKEN", "")
     project = env.get("CI_PROJECT_ID") or env.get("GITLAB_PROJECT_ID", "")
     if not api or not token or not project:
-        print("错误：prune 需 GITLAB_API_URL / GITLAB_API_TOKEN / CI_PROJECT_ID（读 deploy/.env）", file=sys.stderr)
+        print(
+            "错误：prune 需 GITLAB_API_URL / GITLAB_API_TOKEN / CI_PROJECT_ID（读 deploy/.env）",
+            file=sys.stderr,
+        )
         return 2
     headers = ConcurrentStableDict({"PRIVATE-TOKEN": token})
     repos = _api_get(f"{api}/projects/{project}/registry/repositories?per_page=100", headers)
@@ -1034,7 +1149,10 @@ def cmd_prune(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, keep: in
         repo = _find_repo(repos, service)
         if repo is None:
             continue
-        tags = _api_get(f"{api}/projects/{project}/registry/repositories/{repo['id']}/tags?per_page=100", headers)
+        tags = _api_get(
+            f"{api}/projects/{project}/registry/repositories/{repo['id']}/tags?per_page=100",
+            headers,
+        )
         prunable = select_prunable_tags(tags, keep)
         for name in prunable:
             total += 1
@@ -1090,14 +1208,26 @@ def _api_delete(url: str, headers: ConcurrentStableDict[str, str]) -> None:
 def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
     """解析命令行参数。"""
     parser = argparse.ArgumentParser(description="BMS 服务部署 / 回滚 / 门禁 / 数据引导 CLI（09_02）")
-    parser.add_argument("--deploy-dir", default=str(REPO_ROOT / "deploy"), help="deploy 目录（默认仓库 deploy/）")
+    parser.add_argument(
+        "--deploy-dir",
+        default=str(REPO_ROOT / "deploy"),
+        help="deploy 目录（默认仓库 deploy/）",
+    )
     parser.add_argument("--env-file", default="", help="环境变量文件（默认 <deploy-dir>/.env）")
-    parser.add_argument("--actor", default=os.environ.get("USER", "unknown"), help="操作者（记入台账 / 日志）")
+    parser.add_argument(
+        "--actor",
+        default=os.environ.get("USER", "unknown"),
+        help="操作者（记入台账 / 日志）",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     bootstrap = sub.add_parser("bootstrap", help="一次性数据引导（建库 + 建表 + 种子）")
     bootstrap.add_argument(
-        "--service", action="append", choices=SERVICES, default=[], help="限定服务（可重复；缺省全部启用服务）"
+        "--service",
+        action="append",
+        choices=SERVICES,
+        default=[],
+        help="限定服务（可重复；缺省全部启用服务）",
     )
 
     deploy = sub.add_parser("deploy", help="部署（注册表对账 → 建表 → 起容器 → 门禁 → 台账）")
@@ -1128,7 +1258,10 @@ def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
 
     prune = sub.add_parser("prune", help="清理超窗 SHA 标签（semver 永久保留）")
     prune.add_argument(
-        "--keep", type=int, default=int(os.environ.get("BMS_KEEP_SHA_TAGS", "30")), help="SHA 标签保留数"
+        "--keep",
+        type=int,
+        default=int(os.environ.get("BMS_KEEP_SHA_TAGS", "30")),
+        help="SHA 标签保留数",
     )
     prune.add_argument("--dry-run", action="store_true", help="只列出将删除的标签")
     return parser.parse_args(argv)
@@ -1167,7 +1300,13 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         if args.command == "gateway":
             return cmd_gateway_check(deploy_dir, env)
         if args.command == "seed":
-            return cmd_seed(deploy_dir, env, tenant=args.tenant, dry_run=args.dry_run, actor=args.actor)
+            return cmd_seed(
+                deploy_dir,
+                env,
+                tenant=args.tenant,
+                dry_run=args.dry_run,
+                actor=args.actor,
+            )
         if args.command == "rollback":
             return cmd_rollback(deploy_dir, env, service=args.service, to=args.to, actor=args.actor)
         if args.command == "status":
