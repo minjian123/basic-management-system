@@ -68,7 +68,7 @@ def test_pool_defaults_and_sqlite_no_pool(monkeypatch: pytest.MonkeyPatch) -> No
     sqlite_settings.database.platform.url = "sqlite+aiosqlite:///./app.db"
     EngineFactory(sqlite_settings).create("platform")
     sqlite_kwargs = captured[1][1]
-    assert sqlite_kwargs == {"pool_pre_ping": True}
+    assert sqlite_kwargs == {"pool_pre_ping": True, "connect_args": {"timeout": 30}}
 
 
 @pytest.mark.kiwi_id(984)

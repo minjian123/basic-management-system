@@ -21,7 +21,6 @@
 """
 
 import sqlalchemy
-import sqlalchemy.ext.asyncio
 from sqlalchemy import Engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -40,6 +39,7 @@ from bms_core.db.keys import (
     database_name,
     resolve_db_key,
 )
+from bms_core.db.sqlite import create_async_engine as create_sqlite_engine
 from bms_core.db.sync import SYNC_ONLY_DIALECTS
 
 _SQLITE = "sqlite"
@@ -169,7 +169,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             raise ConfigError(
                 f"数据库方言 {dialect} 为同步驱动、无异步实现（运行期请走同步门面 SyncSession）：{key.raw}"
             )
-        engine = sqlalchemy.ext.asyncio.create_async_engine(url, **self._engine_kwargs(target, dialect))
+        engine = create_sqlite_engine(url, **self._engine_kwargs(target, dialect))
         self._engines.set((key.raw, role), engine)
         return engine
 
