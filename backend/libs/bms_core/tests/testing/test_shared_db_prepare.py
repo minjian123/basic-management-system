@@ -260,13 +260,13 @@ def test_tenant_metadata_falls_back_when_layout_missing(monkeypatch: pytest.Monk
     """域布局不可用：回落到全模型并集并打印提示（不静默少建表）。"""
     from bms_core.core.exceptions import ConfigError
     from bms_core.models.base import Base
-    from tests_support import shared_db
+    from bms_core.testing import shared_db as base_shared_db
 
     def _raise(_domains: object, _datasource: object) -> object:
         raise ConfigError("布局缺失")
 
-    monkeypatch.setattr(shared_db, "domains_metadata", _raise)
-    assert shared_db._tenant_metadata() is Base.metadata  # pyright: ignore[reportPrivateUsage]
+    monkeypatch.setattr(base_shared_db, "domains_metadata", _raise)
+    assert base_shared_db.tenant_metadata() is Base.metadata
 
 
 async def _count_async(url: str, statement: str) -> int:
