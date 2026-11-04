@@ -52,8 +52,11 @@ x-service-base: &service-base
   expose:
     - "8000"
   volumes:
-    # 边界例外白名单（仓库根相对资产；容器内 BACKEND_ROOT.parent = /opt）
+    # 仓库根相对资产（容器内 BACKEND_ROOT.parent = /opt）：
+    # 边界例外白名单 / 注册表声明（平台启动自注册）/ 公开契约
     - ../boundaries:/opt/deploy/boundaries:ro
+    - ../registry:/opt/deploy/registry:ro
+    - ../contracts:/opt/deploy/contracts:ro
   environment:
     <<: *service-env
 
