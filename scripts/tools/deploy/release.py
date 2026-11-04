@@ -430,7 +430,7 @@ def _compose_proc(
         cwd=deploy_dir,
         env=dict(env),
         check=False,
-        capture_output=not capture,
+        capture_output=capture,
         text=True,
     )
     if raise_on_error and proc.returncode != 0:
@@ -861,6 +861,12 @@ def cmd_bootstrap(
 ) -> int:
     """首次数据引导：建库授权 → 建表 → 种子（幂等；`services` 可限定子集）。"""
     tenants = ConcurrentStableList(t for t in (env.get("BMS_DEPLOY_TENANTS", "demo,acme") or "").split(",") if t)
+    # 显式 `BMS_IMAGE_TAG` 优先于台账：首部署 / 重建库时台账还是旧版本，
+    # 若按台账 tag 建表会用旧镜像（缺新列），导致随后新镜像启动失败。
+    image_tag = env.get("BMS_IMAGE_TAG", "")
+    if image_tag:
+        for service in services:
+            env.set(f"BMS_TAG_{service.upper()}", image_tag)
     print("[bootstrap] 1/4 应用账号与授权")
     _ensure_registry_login(env)
     _ensure_app_user(deploy_dir, env)
