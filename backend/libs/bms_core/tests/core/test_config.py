@@ -344,6 +344,19 @@ def test_prod_requires_secret_key(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "security.secret_key" in str(excinfo.value)
 
 
+@pytest.mark.kiwi_id(2411)
+def test_prod_rejects_dev_override_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
+    """prod 环境开启开发态显式租户（`[tenant].dev_override_tenant`）时启动校验失败。"""
+    monkeypatch.setenv("BMS_ENV", "prod")
+    monkeypatch.setenv("BMS_SECURITY__SECRET_KEY", "k" * 32)
+    monkeypatch.setenv("BMS_TENANT__DEV_OVERRIDE_TENANT", "demo")
+    settings = Settings()
+    assert settings.tenant.dev_override_tenant == "demo"
+    with pytest.raises(ConfigError) as excinfo:
+        validate_startup(settings)
+    assert "dev_override_tenant" in str(excinfo.value)
+
+
 @pytest.mark.kiwi_id(62)
 def test_worker_id_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
     """WorkerId 由配置接线：validate_startup 后雪花 ID 可正常产出。"""

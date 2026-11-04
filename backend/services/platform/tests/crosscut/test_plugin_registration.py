@@ -55,6 +55,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "dict_translator",
         "distributed_lock",
         "edge",
+        "error_mapper",
         "event",
         "event_consumer",
         "event_handler",

@@ -421,6 +421,12 @@ class TenantSettings(BaseSettings):
     """租户引擎闲置回收阈值（秒；每次访问先清扫）。"""
     allow_demo_fallback: bool = True
     """无任何来源时是否回落演示租户（开发兜底；生产应置 false 直接拒绝）。"""
+    dev_override_tenant: str = ""
+    """开发态显式租户（租户**编码**；msg 任务 `01-1-1` 引入）。
+
+    **仅开发便利**：无令牌入口（如数据面直连）在 dev / test 下可显式指定租户；懒解析链
+    （`resolve_request_tenant`）**不自动消费**本项，由各服务入口按需读取并自行校验环境。
+    生产环境非空即**启动失败**（`validate_startup`），防止本地便利开关随配置流入生产。"""
     exempt_paths: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
         default_factory=lambda: ConcurrentStableList(
             [
@@ -788,6 +794,17 @@ class TenantModuleSettings(PluginSelection):
 
     ttl: int = Field(default=5, ge=0)
     """状态缓存 TTL（秒；0 表示不缓存、每请求回源）。"""
+
+
+class ErrorMapperSettings(PluginSelection):
+    """错误码覆盖（段 `[error_mapper]`；msg 任务 `01-1-1` 引入）。
+
+    `provider` 为空串（缺省）表示**不覆盖**：统一错误响应原样出平台码，行为与接入前逐字节一致；
+    产品在 `configure_plugins()` 登记自有实现后填实现名，`build_error_response()` 单点按实现改写。
+    """
+
+    provider: str = ""
+    """实现名（空串 = 不覆盖，不解析插件；实现须自行保证目标码已登记）。"""
 
 
 class TenantGuardSettings(PluginSelection):
@@ -1657,6 +1674,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     dict_translator: PluginSelection = Field(default_factory=PluginSelection)
     distributed_lock: PluginSelection = Field(default_factory=PluginSelection)
     edge: EdgeSettings = Field(default_factory=EdgeSettings)
+    error_mapper: ErrorMapperSettings = Field(default_factory=ErrorMapperSettings)
     event: EventSettings = Field(default_factory=EventSettings)
     event_consumer: EventConsumerSettings = Field(default_factory=EventConsumerSettings)
     exporter: PluginSelection = Field(default_factory=PluginSelection)
@@ -1829,10 +1847,12 @@ def validate_startup(settings: Settings) -> None:
         settings: 应用配置。
 
     Raises:
-        ConfigError: 生产环境缺少必要密钥。
+        ConfigError: 生产环境缺少必要密钥，或开启了开发态专用开关。
     """
     if settings.app.env == "prod" and not settings.security.secret_key:
         raise ConfigError("生产环境必须提供 security.secret_key（BMS_SECURITY__SECRET_KEY）")
+    if settings.app.env == "prod" and settings.tenant.dev_override_tenant:
+        raise ConfigError("生产环境不得启用 [tenant].dev_override_tenant（开发态显式租户覆盖，仅在 dev / test 生效）")
     from bms_core.core.id import id_generator
 
     id_generator.reconfigure(settings.app.worker_id)

@@ -1,7 +1,8 @@
 """api 层全局异常处理器：业务异常、参数校验与未捕获异常统一转 `ApiResponse`。
 
 **统一渲染单点**（07B `02_05`）：业务异常的状态与文案补全、告警与指标一律经
-`build_error_response()`（全局异常处理器与中间件共用），产品码经错误码合并视图
+`build_error_response()`（全局异常处理器与中间件共用），渲染前先经**产品码覆盖**
+（`[error_mapper].provider`，未配置即原样返回），产品码经错误码合并视图
 （`error_code_view()`）取 `http_status` 与 `message_key`：
 
 - 视图命中：状态以声明为准（与异常自带值不一致时告警，暴露声明漂移）；异常**显式给了文案**
@@ -30,6 +31,7 @@ from bms_core.core.plugin import NULL_PLUGIN_NAME, resolve_plugin
 from bms_core.db.contention import RETRY_AFTER_SECONDS, contention_driver
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import PLATFORM_DB_KEY
+from bms_core.error_mapper.base import apply_error_mapper
 from bms_core.i18n.base import BaseTranslator
 from bms_core.metrics.base import BaseMetrics
 from bms_core.schemas.common import ApiResponse
@@ -170,18 +172,33 @@ async def _resolve_message(scope: Scope, record: ErrorCodeRecord) -> str:
     return record.description
 
 
+def _error_mapper_provider(scope: Scope) -> str:
+    """取产品码覆盖的实现名（未装配配置 / 未声明该段即视为不覆盖）。
+
+    Args:
+        scope: ASGI 作用域（经 `app.state.settings` 取配置）。
+
+    Returns:
+        str: 实现名；空串表示不覆盖。
+    """
+    settings = getattr(getattr(scope.get("app"), "state", None), "settings", None)
+    mapper = getattr(settings, "error_mapper", None)
+    return str(getattr(mapper, "provider", "") or "")
+
+
 async def build_error_response(scope: Scope, exc: BizError, *, retry_after: int | None = None) -> JSONResponse:
     """构造业务异常的统一错误响应（全局异常处理器与中间件**共用单点**）。
 
     Args:
         scope: ASGI 作用域（取请求 id / 链路 id / 应用装配）。
-        exc: 业务异常。
+        exc: 业务异常（**先经产品码覆盖**再渲染）。
         retry_after: `Retry-After` 秒数（`None` 不写该头；锁争用分支传
             `RETRY_AFTER_SECONDS`）。
 
     Returns:
         JSONResponse: 统一响应（HTTP 状态与业务码分离）。
     """
+    exc = apply_error_mapper(exc, _error_mapper_provider(scope))
     record = error_code_view().get(exc.code)
     if record is None:
         logger.error(
