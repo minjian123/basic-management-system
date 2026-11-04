@@ -195,3 +195,28 @@ def test_prepare_settings_fills_icon_registry_default() -> None:
     ApplicationFactory().prepare_settings(settings)
 
     assert settings.icon_registry.provider == "db"
+
+
+@pytest.mark.kiwi_id(2312)
+def test_prepare_settings_keeps_explicit_hash_chain_provider() -> None:
+    """`prepare_settings` 只补缺省：显式配置的 `[hash_chain].provider` 不被改写。
+
+    覆盖 `main.py` 的 `if not settings.hash_chain.provider` 假分支。
+    """
+    settings = Settings()
+    settings.hash_chain.provider = "custom-hash-chain"
+
+    ApplicationFactory().prepare_settings(settings)
+
+    assert settings.hash_chain.provider == "custom-hash-chain"
+
+
+@pytest.mark.kiwi_id(2312)
+def test_prepare_settings_fills_hash_chain_default() -> None:
+    """`prepare_settings` 缺省补齐：未配置时置为 `sha256`。"""
+    settings = Settings()
+    settings.hash_chain.provider = ""
+
+    ApplicationFactory().prepare_settings(settings)
+
+    assert settings.hash_chain.provider == "sha256"
