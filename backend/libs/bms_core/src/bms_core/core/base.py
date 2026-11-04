@@ -1,5 +1,7 @@
 """core 层根基类：所有可继承类的公共方法落点。"""
 
+from __future__ import annotations
+
 import dataclasses
 from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import TYPE_CHECKING, Any, cast
