@@ -7,7 +7,7 @@
 范围按「能增量就增量、不能增量按原样」：
 
 - `scoped_tests` → 定向执行器（选测 + 覆盖率门禁 100% + 扩圈），只跑改动触及的用例；
-- `ruff` / `pyright` → 只跑改动文件（按步骤作用域筛 `backend/` 与 `scripts/`）；
+- `ruff` / `pyright` → 只跑改动文件（按步骤作用域筛 `backend/` 与 `scripts/`，且只收 `.py` / `.pyi`）；
 - 支持 `--files-from` 的步骤 → 追加改动清单，清单经**标准输入管道**喂给子进程（不落临时文件）：
   - 脚本级 13 个（`check_base` / `check_system_fields` / `check_backend_base` / `check_env_example` /
     `boundary_metrics` / `check_docs_scope` / `check_status` / 集合声明 / 雪花 ID / 测试库隔离 /
@@ -81,6 +81,15 @@ DOC_PREFIXES = ("bms文档/",)
 
 DOC_SUFFIXES = (".md",)
 """需要门禁的文档后缀。"""
+
+PYTHON_SUFFIXES = (".py", ".pyi")
+"""Python 源码后缀（ruff / pyright 增量只收这些）。
+
+`GATED_SUFFIXES` 含 `.toml` / `.json` / `.yaml` 等配置，它们在提交前同样要过门禁（配置类判据），
+但**不能交给 Python 静态检查器**：`pyright <文件>` 会按 Python 语法解析 TOML 并报几十条
+「name is not defined」，把一次纯配置提交判成失败（2026-11-04 实测）。故 lint 类步骤按后缀过滤，
+过滤只剔除「本就不是 Python 源码」的文件，不放松任何 `.py` 的判定。
+"""
 
 CHANGED_LIST_SOURCE = "-"
 """改动清单的来源：`-` 表示标准输入。
@@ -541,7 +550,8 @@ def _adapt_lint(
         ConcurrentStableList[str] | None: 渲染后的命令；无改动文件时 None（跳过）。
     """
     tool_scope = "scripts" if any("scripts/tools" in part for part in cmd) else "backend"
-    targets = _rel_to(root, cwd, files, prefix=f"{tool_scope}/")
+    changed = _rel_to(root, cwd, files, prefix=f"{tool_scope}/")
+    targets = ConcurrentStableList(path for path in changed if path.endswith(PYTHON_SUFFIXES))
     if not targets:
         return None
     if "pyright" in cmd:
