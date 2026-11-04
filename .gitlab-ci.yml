@@ -452,6 +452,8 @@ backend-test:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   variables:
     BMS_ENV: test
+    # 日志降噪：aiosqlite 的 DEBUG 会把单 job 日志放大到数 MB，掩盖失败摘要
+    BMS_LOG__LEVEL: INFO
   rules:
     # 手工触发（web / api）时 changes 恒真 ⇒ 全量触发（选测在 job 内按变更推导）
     # main 分支：共享 / 工作区路径 + 预检脚本变更即触发（服务变更由服务子流水线工程级测试覆盖）
