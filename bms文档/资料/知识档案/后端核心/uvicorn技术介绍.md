@@ -28,7 +28,7 @@
 | `--reload` | 开发模式热重载：代码变更自动重启，生产环境禁用 |
 | `--workers N` | 启动 N 个 worker 进程（需配合 `--proxy-headers` 等信任反向代理参数使用） |
 | uvloop | 基于 libuv 的高性能事件循环实现，比 asyncio 默认循环更快，仅 POSIX 平台可用 |
-| HTTP/1.1 与 HTTP/2 | uvicorn 默认 HTTP/1.1；HTTP/2 需 `--http2` 且要求 TLS（本项目由 nginx 终止 TLS） |
+| HTTP/1.1 与 HTTP/2 | uvicorn 默认 HTTP/1.1；**0.52.x 及以前不支持 HTTP/2**（`--http` 仅 `auto` / `h11` / `httptools` / `zttp`）；**0.53.0 起实验性支持**，需 `zttp>=0.0.34` 且显式 `--http zttp --http2`，支持 h2c prior knowledge 与 TLS ALPN，不支持 `Upgrade: h2c` 与 WebSocket over h2；官方标注实验性、不宜生产。本项目当前安装 0.52.4，HTTP/2 仍由 nginx 终止（实测 2026-11-04） |
 | WebSocket | 全双工长连接协议，uvicorn 原生支持，是 Socket.IO 实时推送的承载通道 |
 | 进程模型 | master 进程 + N 个 worker：worker 数量决定并发上限，也决定数据库连接池的规划基数 |
 
@@ -49,6 +49,10 @@
 | hypercorn | 支持 HTTP/3、worker 管理内置；但性能与社区资料略逊 | 无 HTTP/3 需求，不必引入 |
 | gunicorn（配 uvicorn worker） | 经典同步服务器，进程管理成熟；同步 worker 会阻塞异步应用 | 需额外包一层，uvicorn 自带多 worker 即可 |
 | daphne | Django Channels 的 ASGI 服务器 | 与 FastAPI 无关联，排除 |
+
+> **2026-11-04 口径**：msg 8B_01 要求客户端→broker 的 h2c 数据面（单连接多 stream + 订阅长驻流），
+> uvicorn 的 h2 仍为实验性，故基座已拍板**统一改用 hypercorn**（`core/run.py` 的服务器与信号摘流同步改造；
+> 其他产品的回归由基座任务覆盖）。本表其余选型理由不变，改动落在服务启动层而非 FastAPI 应用层。
 
 ## 5. 常见问题与注意事项 <a id="pitfalls"></a>
 
