@@ -1,4 +1,4 @@
-"""ASGI 入口：模块级应用实例（`uvicorn bms_identity.asgi:app`）。"""
+"""ASGI 入口：模块级应用实例（`hypercorn bms_identity.asgi:app`）。"""
 
 from bms_identity.main import ApplicationFactory
 

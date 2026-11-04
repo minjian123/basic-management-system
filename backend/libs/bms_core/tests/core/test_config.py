@@ -452,6 +452,22 @@ url = "sqlite+aiosqlite:///./app.db"
     assert "database.tenants" in str(excinfo.value)
 
 
+@pytest.mark.kiwi_id(2419)
+def test_server_tls_pair_and_graceful_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`[server]` TLS 同给同空与优雅停机超时边界。"""
+    monkeypatch.setenv("BMS_SERVER__CERTFILE", "cert.pem")
+    with pytest.raises(ConfigError, match="certfile"):
+        Settings()
+
+    monkeypatch.delenv("BMS_SERVER__CERTFILE")
+    monkeypatch.setenv("BMS_SERVER__GRACEFUL_TIMEOUT_SECONDS", "0")
+    with pytest.raises(ValidationError, match="graceful_timeout_seconds"):
+        Settings()
+
+    monkeypatch.setenv("BMS_SERVER__GRACEFUL_TIMEOUT_SECONDS", "600")
+    assert Settings().server.graceful_timeout_seconds == 600
+
+
 def test_topology_domains_declaration_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     """`[topology].domains` 不得声明：域由拓扑解析，两处声明必然漂移（拒启并指明口径）。"""
     monkeypatch.setenv("BMS_TOPOLOGY__DOMAINS", '["role"]')

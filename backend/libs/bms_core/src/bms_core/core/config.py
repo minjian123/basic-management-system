@@ -142,6 +142,29 @@ class ServerSettings(BaseSettings):
     )
     """按服务的 worker 数覆盖：`{服务标识 → worker 数}`；缺省回落 `workers`（连接预算按服务核算用）。"""
 
+    certfile: str = ""
+    """TLS 证书路径（`[server].certfile`；空 = 不启用 TLS，与 `keyfile` 同给或同空）。"""
+
+    keyfile: str = ""
+    """TLS 私钥路径（`[server].keyfile`；空 = 不启用 TLS，与 `certfile` 同给或同空）。"""
+
+    graceful_timeout_seconds: int = Field(default=30, ge=1, le=600)
+    """优雅停机等待在途的上限（秒；关闭监听后超过该时长即强制收尾）。"""
+
+    @model_validator(mode="after")
+    def _validate_tls_pair(self) -> ServerSettings:
+        """校验 TLS 证书与私钥同给或同空。
+
+        Returns:
+            ServerSettings: 自身。
+
+        Raises:
+            ConfigError: 只给了证书或只给了私钥（半配置无法建立 TLS）。
+        """
+        if bool(self.certfile.strip()) != bool(self.keyfile.strip()):
+            raise ConfigError("[server].certfile 与 [server].keyfile 必须同时配置或同时留空")
+        return self
+
     def workers_for(self, service: str) -> int:
         """取该服务生效的 worker 数（服务覆盖优先，缺省回落全局 `workers`）。
 

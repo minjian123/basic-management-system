@@ -15,7 +15,7 @@ from tests_support.service_entrypoints import load_entrypoint_source
 
 
 def test_asgi_module_exposes_application() -> None:
-    """ASGI 入口：`uvicorn bms_tenant.asgi:app` 所需模块级应用实例就位。"""
+    """ASGI 入口：`hypercorn bms_tenant.asgi:app` 所需模块级应用实例就位。"""
     from bms_tenant.asgi import app
 
     assert app.title

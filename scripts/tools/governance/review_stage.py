@@ -182,7 +182,7 @@ def check_deliverables(root: Path, stage_dir: Path) -> Check:
                 problems.add(f"报告缺「{heading}」")
     readme_expect = {
         "README.md": ["app.asgi:app", "01_测试报告_项目骨架.md", "pnpm run dev"],
-        "backend/README.md": ["uv run uvicorn", "文档导航", "check_status.py"],
+        "backend/README.md": ["uv run hypercorn", "文档导航", "check_status.py"],
     }
     for rel, needles in readme_expect.items():
         path = root / rel

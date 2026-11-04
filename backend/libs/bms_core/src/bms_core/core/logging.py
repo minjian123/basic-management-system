@@ -3,7 +3,7 @@
 - `BaseLogger`：日志门面**中间层基类**（纳入 `BaseObject` 体系）。
 - `StdoutLogger`：门面实现（structlog 绑定日志器，输出 **stdout、不落文件**）。
 - `configure_logging`：初始化入口——structlog 处理器链（上下文 / 级别 / logger / 时间戳 / 堆栈 / 脱敏）、
-  `dev` console 与 `test` / `prod` JSON 渲染、stdlib / uvicorn 统一渲染、`uvicorn.access` 关闭
+  `dev` console 与 `test` / `prod` JSON 渲染、stdlib / ASGI 服务器统一渲染、access 日志关闭
   （访问行由请求日志中间件统一输出，避免重复）。
 - 上下文字段（`trace_id` / `request_id` / `tenant` / `user_id` / `client_ip`）由 `_add_context_fields`
   从 `core/context.py` 读取；脱敏处理器对敏感键名与连接串密码统一脱敏（不落原始值），
@@ -360,11 +360,12 @@ def configure_logging(settings: Settings) -> None:
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
-    for name in ("uvicorn", "uvicorn.error"):
-        uvicorn_logger = logging.getLogger(name)
-        uvicorn_logger.handlers.clear()
-        uvicorn_logger.propagate = True
+    for name in ("uvicorn", "uvicorn.error", "hypercorn", "hypercorn.error"):
+        server_logger = logging.getLogger(name)
+        server_logger.handlers.clear()
+        server_logger.propagate = True
     logging.getLogger("uvicorn.access").disabled = True
+    logging.getLogger("hypercorn.access").disabled = True
 
 
 def get_logger(name: str = "bms") -> BaseLogger:

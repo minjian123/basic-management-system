@@ -7,18 +7,21 @@
 - 服务端处理期 `otel_trace_id()` / `resolve_trace_id()` 与 span 上下文一致（日志与 Trace 同 id）。
 
 口径：显式传 `tracer_provider`（独立 provider + in-memory exporter），**不设全局 provider**；被调服务
-经后台线程起真实 uvicorn（本地回环，非外部服务）；httpx 埋点为进程级补丁，`finally` 复原保证用例隔离。
+经后台线程起真实 hypercorn（本地回环，非外部服务）；httpx 埋点为进程级补丁，`finally` 复原保证用例隔离。
 """
 
+import asyncio
 import socket
 import threading
 import time
 from collections.abc import Iterator
+from contextlib import suppress
 
 import httpx
 import pytest
-import uvicorn
 from fastapi import FastAPI
+from hypercorn.asyncio import serve  # pyright: ignore[reportUnknownVariableType]
+from hypercorn.config import Config
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor  # pyright: ignore[reportMissingTypeStubs]
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor  # pyright: ignore[reportMissingTypeStubs]
 from opentelemetry.sdk.trace import TracerProvider
@@ -30,6 +33,37 @@ from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.tracing.base import otel_trace_id, resolve_trace_id
 
 _STARTUP_TIMEOUT_S = 5.0
+
+
+def _serve_in_thread(app: FastAPI, config: Config, stop: threading.Event) -> None:
+    """在独立事件循环里跑 hypercorn，`stop` 置位后触发优雅停机。"""
+
+    async def _main() -> None:
+        shutdown = asyncio.Event()
+        loop = asyncio.get_running_loop()
+
+        def _watch() -> None:
+            if stop.is_set():
+                shutdown.set()
+            else:
+                loop.call_later(0.05, _watch)
+
+        loop.call_soon(_watch)
+        await serve(app, config, shutdown_trigger=shutdown.wait)  # pyright: ignore[reportArgumentType]
+
+    asyncio.run(_main())
+
+
+def _wait_port(port: int, timeout: float) -> bool:
+    """轮询本机端口直到可连接（返回是否在超时内就绪）。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with socket.socket() as probe, suppress(OSError):
+            probe.settimeout(0.2)
+            probe.connect(("127.0.0.1", port))
+            return True
+        time.sleep(0.05)
+    return False
 
 
 @pytest.fixture
@@ -48,7 +82,7 @@ def provider(exporter: InMemorySpanExporter) -> TracerProvider:
 
 @pytest.fixture
 def downstream(provider: TracerProvider) -> Iterator[tuple[int, ConcurrentStableDict[str, str | None]]]:
-    """被调服务：真实 uvicorn（本地回环，后台线程），产出端口与处理期上下文捕获。
+    """被调服务：真实 hypercorn（本地回环，后台线程），产出端口与处理期上下文捕获。
 
     Yields:
         tuple[int, ConcurrentStableDict[str, str | None]]: `(端口, 处理期链路上下文捕获)`。
@@ -67,17 +101,19 @@ def downstream(provider: TracerProvider) -> Iterator[tuple[int, ConcurrentStable
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = int(probe.getsockname()[1])
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
-    thread = threading.Thread(target=server.run, daemon=True)
+    config = Config()
+    config.bind = [f"127.0.0.1:{port}"]
+    config.accesslog = None
+    config.errorlog = None
+    config.loglevel = "warning"
+    stop = threading.Event()
+    thread = threading.Thread(target=_serve_in_thread, args=(app, config, stop), daemon=True)
     thread.start()
-    deadline = time.monotonic() + _STARTUP_TIMEOUT_S
-    while not server.started and time.monotonic() < deadline:
-        time.sleep(0.05)
-    assert server.started, "uvicorn 未在超时内就绪"
+    assert _wait_port(port, _STARTUP_TIMEOUT_S), "hypercorn 未在超时内就绪"
     try:
         yield port, captured
     finally:
-        server.should_exit = True
+        stop.set()
         thread.join(timeout=_STARTUP_TIMEOUT_S)
 
 

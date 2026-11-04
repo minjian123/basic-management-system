@@ -2,7 +2,7 @@
 
 - 通用装配（中间件 / 异常处理 / 引擎与租户源 / 插件装配 / 探针 / lifespan）由共享基座
   `bms_core.application.BaseServiceApplicationFactory` 承载，本服务只声明身份、业务路由与 demo 注入。
-- 启动入口见 `bms_platform/asgi.py`（`uvicorn bms_platform.asgi:app`）与 `python -m bms_platform`。
+- 启动入口见 `bms_platform/asgi.py`（`hypercorn bms_platform.asgi:app`）与 `python -m bms_platform`。
 """
 
 from typing import cast

@@ -5,6 +5,7 @@ description = "BMS 共享基座库（core 横切 / 数据访问底座 / 模块�
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115",
+    "hypercorn>=0.18,<0.19",
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
     "python-dotenv>=1.0",

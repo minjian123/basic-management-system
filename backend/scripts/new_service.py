@@ -112,7 +112,7 @@ if __name__ == "__main__":
     run_service(ApplicationFactory)
 '''
 
-_ASGI = '''"""ASGI 入口：模块级应用实例（`uvicorn bms_{name}.asgi:app`）。"""
+_ASGI = '''"""ASGI 入口：模块级应用实例（`hypercorn bms_{name}.asgi:app`）。"""
 
 from bms_{name}.main import ApplicationFactory
 
