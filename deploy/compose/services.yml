@@ -78,6 +78,7 @@ services:
     environment:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_PLATFORM_JOBS:-101}
+      BMS_APP__SERVICE: platform
 
   identity:
     <<: *service-base
@@ -114,6 +115,7 @@ services:
     environment:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_FILE_JOBS:-102}
+      BMS_APP__SERVICE: file
 
   notification:
     <<: *service-base
@@ -156,6 +158,7 @@ services:
     environment:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_REPORT_JOBS:-103}
+      BMS_APP__SERVICE: report
 
   txn:
     <<: *service-base
