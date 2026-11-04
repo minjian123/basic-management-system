@@ -8,7 +8,8 @@
   `tenant_{service}_{code}`）显式指向某服务。平台目标占位 `{service}` / `{database}`，租户目标占位
   `{service}` / `{tenant}` / `{database}`；空模板回落 `url` 单库（开发 SQLite 兼容）；归档库恒取 `url`。
 - **越界拒绝**：取键入口先经 `validate_key` 校验服务归属，全限定键越界抛 `DataOwnershipError`（10008）；
-  运维侧（`ops`）经 `allow_cross_service=True` 显式豁免（仅运维通道）。
+  豁免只给两处**只读**用途：运维侧（`ops`）与作业 worker 枚举租户时读租户注册库 `platform_tenant`
+  （均经 `allow_cross_service=True` 的**独立**工厂，执行路径仍严格归属）。
 - 建引擎**不建连**；URL 经配置基座读取；连接池参数按服务（`[app].service`）取覆盖。
 - 达梦为同步驱动、无异步方言（原生 `dm` 与自定义 XA 方言 `dmxa`）：`create` 对其抛 `ConfigError`
   （运行期经 `app/db/sync.py` 的
@@ -118,8 +119,9 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
 
         Args:
             settings: 应用配置（数据库 URL 与连接池参数）；缺省取全局配置单例。
-            allow_cross_service: 是否允许跨服务数据源键（**仅 `ops` 运维通道**使用；
-                `False` 时全限定键的服务段必须为当前服务，否则 `DataOwnershipError` 10008）。
+            allow_cross_service: 是否允许跨服务数据源键（**仅两处只读用途**：`ops` 运维通道、
+                作业 worker 读取租户注册库；`False` 时全限定键的服务段必须为当前服务，
+                否则 `DataOwnershipError` 10008）。
         """
         self._settings = settings or get_settings()
         self._allow_cross_service = allow_cross_service

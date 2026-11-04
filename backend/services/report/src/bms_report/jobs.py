@@ -115,6 +115,9 @@ def build_worker(settings: Settings | None = None) -> tuple[JobWorker, EngineReg
     resolved = settings if settings is not None else get_settings()
     factory = EngineFactory(resolved)
     engine_registry = EngineRegistry(factory)
+    # 租户注册库 `platform_tenant` 归 tenant 单元：枚举租户需**只读跨读**，
+    # 故单独给一个只解析地址的工厂；作业执行仍走严格归属的 engine_registry。
+    registry_factory = EngineFactory(resolved, allow_cross_service=True)
     worker = JobWorker(
         service_key=SERVICE_KEY,
         registry=_registry(),
@@ -122,7 +125,7 @@ def build_worker(settings: Settings | None = None) -> tuple[JobWorker, EngineReg
         limits=JobLimits(resolved.jobs),
         engine_registry=engine_registry,
         db_keys=JobDbKeys(
-            factory=factory,
+            registry_factory=registry_factory,
             service_key=SERVICE_KEY,
             ttl_seconds=resolved.jobs.tenant_cache_ttl_seconds,
         ),

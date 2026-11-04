@@ -38,10 +38,31 @@ async def test_keys_platform_first_then_tenants(monkeypatch: pytest.MonkeyPatch)
         return refs
 
     monkeypatch.setattr(job_keys, "tenant_refs", fake_refs)
-    keys = JobDbKeys(factory=cast("Any", _Factory()), service_key="file", ttl_seconds=60)
+    keys = JobDbKeys(registry_factory=cast("Any", _Factory()), service_key="file", ttl_seconds=60)
     result = await keys()
     assert result[0] == "platform_file"
     assert result[1:] == ["tenant_file_acme", "tenant_file_beta"]
+
+
+async def test_keys_use_registry_factory_for_tenant_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """租户注册库解析走 `registry_factory`，键为 tenant 单元的平台库（跨读豁免只作用于该工厂）。"""
+    seen = ConcurrentStableList[str]()
+
+    class _Recording:
+        """记录被解析的库键。"""
+
+        def resolved_url(self, db_key: str) -> str:
+            seen.add(db_key)
+            return "sqlite+aiosqlite://"
+
+    async def fake_refs(url: str) -> ConcurrentStableList[_Ref]:
+        del url
+        return ConcurrentStableList([_Ref("acme")])
+
+    monkeypatch.setattr(job_keys, "tenant_refs", fake_refs)
+    keys = JobDbKeys(registry_factory=cast("Any", _Recording()), service_key="file", ttl_seconds=60)
+    assert await keys() == ["platform_file", "tenant_file_acme"]
+    assert seen == ["platform_tenant"]
 
 
 async def test_keys_cache_hit_and_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -53,7 +74,7 @@ async def test_keys_cache_hit_and_expiry(monkeypatch: pytest.MonkeyPatch) -> Non
         return ConcurrentStableList([_Ref("acme")])
 
     monkeypatch.setattr(job_keys, "tenant_refs", fake_refs)
-    keys = JobDbKeys(factory=cast("Any", _Factory()), service_key="file", ttl_seconds=60)
+    keys = JobDbKeys(registry_factory=cast("Any", _Factory()), service_key="file", ttl_seconds=60)
     first = await keys()
     second = await keys()
     assert first == second and len(calls) == 1
@@ -71,5 +92,7 @@ async def test_keys_without_platform_chain(monkeypatch: pytest.MonkeyPatch) -> N
         return ConcurrentStableList([_Ref("acme")])
 
     monkeypatch.setattr(job_keys, "tenant_refs", fake_refs)
-    keys = JobDbKeys(factory=cast("Any", _Factory()), service_key="file", ttl_seconds=60, include_platform_chain=False)
+    keys = JobDbKeys(
+        registry_factory=cast("Any", _Factory()), service_key="file", ttl_seconds=60, include_platform_chain=False
+    )
     assert await keys() == ["tenant_file_acme"]
