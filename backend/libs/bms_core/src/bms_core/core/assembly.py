@@ -209,6 +209,7 @@ _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.db.null",
         "bms_core.dict.null",
         "bms_core.edge.null",
+        "bms_core.error_mapper.null",
         "bms_core.events.null",
         "bms_core.fallback.null",
         "bms_core.fieldtype.null",

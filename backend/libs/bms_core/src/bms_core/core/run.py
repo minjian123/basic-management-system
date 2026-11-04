@@ -34,6 +34,7 @@ from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.factory import BaseApplicationFactory
 from bms_core.core.logging import configure_logging, get_logger
+from bms_core.core.roots import BaseFrameworkObject
 from bms_core.core.service import ServiceRuntime
 
 __all__ = [
@@ -46,7 +47,7 @@ SIGNAL_NAMES = ("SIGTERM", "SIGINT", "SIGBREAK")
 """需要接管的信号名（`SIGBREAK` 仅 Windows 存在，按 `getattr` 跳过）。"""
 
 
-class _SignalController:
+class _SignalController(BaseFrameworkObject):
     """信号控制器：第一次摘流并触发停机，第二次强退。"""
 
     def __init__(self, *, shutdown_event: asyncio.Event, on_drain: ServiceRuntime | None) -> None:
