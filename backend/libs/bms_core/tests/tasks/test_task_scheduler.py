@@ -317,17 +317,37 @@ async def test_tick_isolates_tenant_failure(
     assert report.tenants[1].dispatched == 0
 
 
+async def _count_jobs(session: AsyncSession) -> int:
+    """读取作业条数（每次独立事务，避免长读快照看不到调度器刚提交的行）。
+
+    Args:
+        session: 会话。
+
+    Returns:
+        int: `sys_job` 行数。
+    """
+    async with session.begin():
+        return len((await session.execute(select(SysJob))).scalars().all())
+
+
 async def test_run_forever_submits_once_then_idles(registry: EngineRegistry, session: AsyncSession) -> None:
-    """长驻循环：首个 tick 提交，之后到期时间已推进故不再重复。"""
+    """长驻循环：首个 tick 提交，之后到期时间已推进故不再重复（轮询等待，去除固定时序假设）。"""
     await _add_task(session, next_run_at=None)
     scheduler = _scheduler(registry, poll_interval=0.02)
     task = asyncio.create_task(scheduler.run_forever())
-    await asyncio.sleep(0.2)
-    task.cancel()
-    await asyncio.gather(task, return_exceptions=True)
-    async with session.begin():
-        jobs = (await session.execute(select(SysJob))).scalars().all()
-    assert len(jobs) == 1
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 5.0
+    try:
+        while await _count_jobs(session) == 0:
+            if task.done():
+                await task  # 首个 tick 异常直接抛出，避免只看到「未提交」的断言差异
+            assert loop.time() < deadline, "调度器 5s 内未提交作业"
+            await asyncio.sleep(0.05)
+        await asyncio.sleep(0.1)
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+    assert await _count_jobs(session) == 1
 
 
 async def test_aclose_is_noop(registry: EngineRegistry) -> None:
