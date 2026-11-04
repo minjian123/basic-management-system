@@ -107,6 +107,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "task",
         "tenant_self_service",
         "tenant_module",
+        "tenant_guard",
         "token_codec",
         "token_verifier",
         "tracer",
