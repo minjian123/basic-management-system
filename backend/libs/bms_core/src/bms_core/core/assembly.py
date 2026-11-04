@@ -161,6 +161,7 @@ from bms_core.sharding.base import ShardingRouter
 from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage
 from bms_core.tasks.base import BaseTask
 from bms_core.tenant.base import BaseTenantSelfService
+from bms_core.tenant.guard import BaseTenantGuard, SourceTenantGuardFactory
 from bms_core.tenant_module.base import BaseTenantModuleGate
 from bms_core.tenant_module.remote import RemoteTenantModuleGate, build_remote_gate
 from bms_core.tracing.base import BaseTracer
@@ -357,6 +358,7 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("task", BaseTask, "task", "task"),
         PluginWiring("tenant_self_service", BaseTenantSelfService, "tenant_self_service", "tenant_self_service"),
         PluginWiring("tenant_module", BaseTenantModuleGate, "tenant_module", "tenant_module_gate"),
+        PluginWiring("tenant_guard", BaseTenantGuard, "tenant_guard", "tenant_guard"),
         PluginWiring("print_template", BasePrintTemplateProvider, "print_template", "print_template"),
         PluginWiring("print_exporter", BasePrintExporter, "print_exporter", "print_exporter"),
         PluginWiring("icon_registry", BaseIconRegistry, "icon_registry", "icon_registry"),
@@ -459,6 +461,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
     register_plugin("tenant_module", "remote", RemoteTenantModuleGateFactory(settings, app))
+    register_plugin("tenant_guard", "source", SourceTenantGuardFactory(app))
     register_plugin("event", "rocketmq", RocketMqEventPublisherFactory(settings))
     register_plugin("event_consumer", "rocketmq", RocketMqEventConsumerGroupFactory(settings, app))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))

@@ -790,6 +790,17 @@ class TenantModuleSettings(PluginSelection):
     """状态缓存 TTL（秒；0 表示不缓存、每请求回源）。"""
 
 
+class TenantGuardSettings(PluginSelection):
+    """租户可用性守卫（段 `[tenant_guard]`；任务 `04_02`）。
+
+    `provider = "source"`（缺省）时复用租户源（全局版本戳，停用即时生效）；`null` 为占位实现，
+    **调用即报错**（fail-closed，不静默放行）。产品经 `configure_plugins()` 登记自有实现名后可覆盖。
+    """
+
+    provider: str = "source"
+    """实现名（缺省 `source`；空串解析到 `null` 占位，调用即 `ConfigError`）。"""
+
+
 class TracerSettings(PluginSelection):
     """链路配置（`[tracer]`；在能力选择之外追加 OTLP 端点 / 采样 / 导出参数）。
 
@@ -1709,6 +1720,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     """异步作业中心运行参数（TOML 段 `[jobs]`）。"""
     tenant_membership: TenantMembershipSettings = Field(default_factory=TenantMembershipSettings)
     tenant_module: TenantModuleSettings = Field(default_factory=TenantModuleSettings)
+    tenant_guard: TenantGuardSettings = Field(default_factory=TenantGuardSettings)
     tenant_quota: TenantQuotaSettings = Field(default_factory=TenantQuotaSettings)
     platform_tenant: PlatformTenantSettings = Field(default_factory=PlatformTenantSettings)
     tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)

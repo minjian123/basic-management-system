@@ -1,8 +1,13 @@
-"""tenant_self_service 能力域缺省实现（Null Object）：固定返回单租户，不落库、不签发令牌、不读租户配置。"""
+"""tenant 能力域缺省实现（Null Object）。
+
+- `tenant_self_service`：固定返回单租户，不落库、不签发令牌、不读租户配置；
+- `tenant_guard`：**调用即 `ConfigError`**（fail-closed）——守卫未启用时宁可报错，也不静默放行。
+"""
 
 from bms_core.core.capability import BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.db.tenant import DEMO_TENANT
+from bms_core.core.exceptions import ConfigError
+from bms_core.db.tenant import DEMO_TENANT, TenantContext
 from bms_core.tenant.base import (
     TENANT_SWITCH_MODES,
     BaseTenantSelfService,
@@ -12,8 +17,9 @@ from bms_core.tenant.base import (
     TenantSwitchResult,
     build_tenant_db_key,
 )
+from bms_core.tenant.guard import BaseTenantGuard, TenantTarget
 
-__all__ = ["NullTenantSelfService"]
+__all__ = ["NullTenantGuard", "NullTenantSelfService"]
 
 
 class NullTenantSelfService(BaseTenantSelfService, BaseNullObject):
@@ -82,3 +88,28 @@ class NullTenantSelfService(BaseTenantSelfService, BaseNullObject):
             TenantBrand: 平台默认品牌（主色 / 模式 / 开关取默认，标识类字段留空）。
         """
         return TenantBrand(name=DEMO_TENANT.name)
+
+
+class NullTenantGuard(BaseTenantGuard, BaseNullObject):
+    """占位守卫：任何校验调用即 `ConfigError`（fail-closed，不放行、不静默）。
+
+    插件装配对每条接线无条件解析 `provider or null`，占位实现必然存在；若照抄模块门禁的恒放行，
+    「provider 写错 / 留空」就会让异步路径全部放行——与本能力域「不静默放行」的口径相反。
+    """
+
+    async def resolve(self, target: TenantTarget) -> TenantContext:
+        """拒绝校验（占位不取数、不放行）。
+
+        Args:
+            target: 租户定位（仅用于错误消息）。
+
+        Returns:
+            TenantContext: 不返回（恒定抛错）。
+
+        Raises:
+            ConfigError: 守卫未启用（恒定）。
+        """
+        raise ConfigError(
+            '租户可用性守卫未启用：请设置 [tenant_guard].provider = "source"（或产品实现的登记名）；'
+            f"拒绝校验租户 {target.label}"
+        )
