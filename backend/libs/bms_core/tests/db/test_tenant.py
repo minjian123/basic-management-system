@@ -119,10 +119,12 @@ def test_source_value_shape_validation() -> None:
 
     assert is_tenant_id("1001") is True
     assert is_tenant_id("730000000000000001") is True
+    assert is_tenant_id("1" * 39) is True
+    assert is_tenant_id("58573853431929662784410870695854080") is True  # 基座 126 位雪花实测宽度（35 位）
     assert is_tenant_id("demo") is False
     assert is_tenant_id("12a3") is False
     assert is_tenant_id("") is False
-    assert is_tenant_id("1" * 21) is False
+    assert is_tenant_id("1" * 40) is False
 
     assert is_tenant_domain("demo.bms.example.com") is True
     assert is_tenant_domain("example.com") is True

@@ -88,8 +88,14 @@ DEFAULT_DEFERRED_PATHS: ConcurrentStableList[str] = ConcurrentStableList(
 _TENANT_CODE_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
 """租户编码形态（与 `sys_tenant.code` 字段口径一致：字母开头、字母数字下划线、长度 ≤ 64）。"""
 
-_TENANT_ID_PATTERN = re.compile(r"[0-9]{1,20}")
-"""租户主键形态（雪花 id 十进制字符串：纯数字、长度 ≤ 20）。"""
+_TENANT_ID_PATTERN = re.compile(r"[0-9]{1,39}")
+"""租户主键形态（雪花 id 十进制字符串：纯数字、长度 ≤ 39）。
+
+**上限按基座雪花位宽定**：`bms_core.core.id` 的 id 生成器是 **126 位**雪花（十进制约 38.8 位），
+实测租户主键为 31~35 位十进制。此前的 ≤ 20 位上限（bigint 口径）与自家 id 方案不符——形态校验
+会把合法主键判为非法，`resolve_request_tenant()` 随即当作「未提供来源」拒绝（表现为 `350012` /
+「未提供租户标识」）。上限取 39 = 126 位十进制的天花板，既容得下全部合法 id，也继续挡住超长脏值。
+"""
 
 _TENANT_DOMAIN_PATTERN = re.compile(
     r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+"
