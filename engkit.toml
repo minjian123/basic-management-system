@@ -53,7 +53,10 @@ base_ratio = 0.6
 
 
 [rules.backend.global]
-exact = ["backend/pyproject.toml", "backend/uv.lock", ".gitlab-ci.yml"]
+# 全局输入：这两份决定后端依赖与工作区布局，改动会影响所有服务与测试解析
+# `.gitlab-ci.yml` 不在此列——它只定义 GitLab 流水线，不参与本地预检选测；
+# 其自身的 YAML / pytest 选项由 `check_ci_config` 单独校验
+exact = ["backend/pyproject.toml", "backend/uv.lock"]
 prefixes = ["backend/alembic/", "deploy/"]
 config_prefix = "backend/config"
 config_suffix = ".toml"
