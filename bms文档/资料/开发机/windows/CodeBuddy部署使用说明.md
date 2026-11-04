@@ -1,6 +1,6 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试、浏览器真机验证（Playwright MCP）与 **DSH 模型接入（CodeBuddy Code CLI）** 实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开） / 2026-10-21 本地全套脱 Job 启动与 PID 复用校验 / 2026-10-23 源代码管理面板仓库可见性排障
+> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试、浏览器真机验证（Playwright MCP）与 **DSH 模型接入（CodeBuddy Code CLI）** 实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开） / 2026-10-21 本地全套脱 Job 启动与 PID 复用校验 / 2026-10-23 源代码管理面板仓库可见性排障 / 2026-11-04 同问题复发与排障脚本双平台化
 
 [文档首页](../../../文档首页.md) › 资料 › 开发机 › windows › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[VSCode部署使用说明 →](VSCode部署使用说明.md)　[linux 版 CodeBuddy 部署使用说明 →](../linux/CodeBuddy部署使用说明.md)
 
@@ -49,6 +49,7 @@ python3 -c "import json,os;print(json.load(open(os.path.join(os.environ['LOCALAP
 | IDE 用户设置（含权限开关）        | `%APPDATA%\CodeBuddy CN\User\settings.json`                                                  |
 | 权威设置存储（安全类别 / 自动审批） | `%APPDATA%\CodeBuddy CN\User\globalStorage\state.vscdb`（SQLite，键 `CodeBuddy.settings`）    |
 | 工作区状态（SCM 仓库可见性等）    | `%APPDATA%\CodeBuddy CN\User\workspaceStorage\<hash>\state.vscdb`（SQLite；`<hash>` 按同目录 `workspace.json` 定位，见 [10.3](#scm)） |
+| 全局视图显隐（SCM「仓库」视图等） | 同上目录 `globalStorage\state.vscdb` 的 `workbench.scm.views.state.hidden`（判据②，见 [10.3](#scm)） |
 | AI 侧配置（插件登记 / MCP / 技能） | `~\.codebuddy\`（`settings.json`、`mcp.json`、`plugins\`、`skills-marketplace\`）             |
 | 扩展宿主                          | `~\.codebuddycn\extensions\`（另有 `argv.json`）                                             |
 | 对话与扩展日志                    | `%LOCALAPPDATA%\CodeBuddyExtension\Logs\CodeBuddyIDE\<日期>\<工作区名>__<hash>.log`          |
@@ -509,13 +510,35 @@ pnpm --filter @bms/desktop dev                                                  
 
 `<hash>` 目录按同目录 `workspace.json` 的 `folder`（裸目录打开）或 `workspace`（`.code-workspace` 打开）字段定位，两种打开方式各存一份状态。
 
-**修复**
+**修复（统一走仓库脚本，2026-11-04 起双平台可用）**
+
+```powershell
+cd D:\Develop\bizs\bms
+
+# 只看现状（只读，可随时跑，无需退出 IDE）
+backend\.venv\Scripts\python.exe scripts\tools\ide\fix_scm_state.py --ide codebuddy --check
+
+# 执行修复（必须先完全退出 CodeBuddy，含所有窗口）
+backend\.venv\Scripts\python.exe scripts\tools\ide\fix_scm_state.py --ide codebuddy
+```
+
+脚本行为：Windows 上自动取 `%APPDATA%\CodeBuddy CN` 为用户数据目录 → 定位该工作区的全部 `state.vscdb`（裸目录打开与 `.code-workspace` 打开各一份，URI 的 `%3A` 百分号编码与盘符大小写已归一化）→ **同时判两处**（判据① `visible` 是否覆盖 `all`、判据② 全局库「仓库」视图是否隐藏）→ 备份为 `state.vscdb.bak-<时间戳>` → 改到「全部可见 + 视图显示」→ **回读校验**并打印明细。**检测到 CodeBuddy 仍在运行会直接中止**（运行期间改库会被退出时的内存回写覆盖，白改）。`--workspace` 可给目录，也可直接给 `bizs.code-workspace`。
+
+**手工兜底（脚本不可用时）**
 
 1. **完全退出 CodeBuddy**（含所有窗口，任务管理器确认 `CodeBuddy CN` 进程全无）——IDE 运行期间改库会被退出时的内存状态回写覆盖。
 2. 改两处：工作区库把 `visible` 改为 `all` 的全量下标；全局库把 `workbench.scm.repositories` 的 `isHidden` 改为 `false`。
-3. 重新打开工作区：面板出现「仓库」区块，6 个仓库齐全，可逐个切换查看变更。
+3. 重新打开工作区：面板出现「仓库」区块，仓库齐全，可逐个切换查看变更。
 
-> 仓库内脚本 `bms/scripts/tools/ide/fix_scm_state.py` 当前是 **Linux 口径**（默认目录 `~/.config/Code`、进程检测用 `ps -eo args`、工作区 URI 未做 `%3A` 百分号编码匹配），在 Windows 上定位不到状态库，也不会拦「IDE 仍在运行」。本次用一次性脚本处理（未入库）；待该脚本补双平台后再统一走该入口。
+**复发记录**
+
+| 日期       | 工作区仓库数     | 故障值                                                                   | 处理                                    |
+| ---------- | ---------------- | ------------------------------------------------------------------------ | --------------------------------------- |
+| 2026-10-23 | 6                | 工作区库 `visible: [4,5]`（指向 `mdm`/`test`）；全局库「仓库」视图隐藏     | 首次排查，一次性脚本（未入库）          |
+| 2026-11-04 | 7（新增 `msg`）  | 工作区库 `visible: [6]`（只剩 `test`）；全局库「仓库」视图再次隐藏         | `alwaysShowRepositories: true` 已在仍复发；改走仓库脚本，端到端验证通过 |
+
+- 两次都是**同一对键**退化、git 层均正常，且都发生在「`all` 里新增了一个仓库」之后（`msg` 仓新增）——疑似「仓库集合变化」与「视图状态持久化」的交互，尚无定论，按观察项累积。
+- `"scm.alwaysShowRepositories": true` 只降低复发概率，**不能防住**（2026-11-04 实证）：复发后按上面的脚本重跑一次即可。
 
 **预防与易误判**
 
@@ -559,7 +582,7 @@ pnpm --filter @bms/desktop dev                                                  
 - □ 本地全套口径明确：`本地全套.py`（按各仓声明装载 + loopback 别名 + 开发密钥），寻址靠端点覆盖（不依赖管理员写 hosts）、`seed` 必跑（否则恒 401）
 - □ 浏览器真机验证口径明确：Playwright MCP 登记于 `~\.codebuddy\mcp.json`（系统 Chrome + `--isolated`）、生效需重启 IDE；结构读 `browser_snapshot` / `browser_find`（`.playwright-mcp\*.yml` 不可依赖）、截图落工作区 `tmp\`、控制台只认预期错误；长会话首选 MCP
 - □ 排障入口齐备：日志三处（扩展 / IDE / 崩溃转储）、`python3` 商店别名、中文编码（GBK）、CLI 未入旧终端 PATH、多开窗口
-- □ 源代码管理面板口径明确：仓库可见性看工作区库 `scm:view:visibleRepositories` 的 `visible` 是否覆盖 `all`，视图显隐看全局库 `workbench.scm.views.state.hidden`（`scm.alwaysShowRepositories` 只降低复发）；看不到仓库按 [10.3](#scm) 处理
+- □ 源代码管理面板口径明确：仓库可见性看工作区库 `scm:view:visibleRepositories` 的 `visible` 是否覆盖 `all`，视图显隐看全局库 `workbench.scm.views.state.hidden`（`scm.alwaysShowRepositories` 只降低复发）；看不到仓库先跑 `scripts/tools/ide/fix_scm_state.py --ide codebuddy --check`，再按 [10.3](#scm) 处理
 - □ DSH 接入口径明确：`CODEBUDDY_INTERNET_ENVIRONMENT=internal` 必给（漏了必 401）、端点**只支持流式**、`/v2/models` 是 404 故清单要手写、系统提示词必须 `system`（发 `developer` 回 11128）、`max_tokens` 上游不校验；路由声明与密钥落 `~\.dsh\`（不入库），详见 [第 13 节](#dsh-integration)
 - □ 本机事实均经核实（2026-10-15 安装实测；2026-10-16 复核版本 / 目录 / 扩展 / 权限存储 / uv 工具链 / MCP 登记 / `.vscode` 双平台取值；2026-10-21 权限与免确认设置改为全 13 类放开并冷启动取证），未写入账号 / 令牌等凭据
 

@@ -171,7 +171,7 @@ done
 
 `visible` 存的是 `all` 数组的**下标**（不是仓库名）：`all` 顺序为 `[bizs, biz, bms, mdm, test]`，故 `[4]` 正指向**空仓库 test**。
 
-> **易误判（本次踩过）**：`workbench.scm.views.state` 里三个视图的 `isHidden` 在**正常工作的**工作区同样是 `true`（实测 CodeBuddy 的 `bms_other` / `cws` / `Claw` 三项全为 true，面板照常显示变更）——它是默认值，**不能拿来判故障**。判据只有一条：`visible` 是否覆盖 `all`。
+> **易误判（本次踩过）**：**工作区库**里 `workbench.scm.views.state` 三个视图的 `isHidden` 在**正常工作的**工作区同样是 `true`（实测 CodeBuddy 的 `bms_other` / `cws` / `Claw` 三项全为 true，面板照常显示变更）——它是默认值，**不能拿来判故障**。故障判据只有两条：判据① 工作区库 `visible` 是否覆盖 `all`；判据② **全局库** `globalStorage/state.vscdb` 的 `workbench.scm.views.state.hidden` 里 `workbench.scm.repositories` 是否 `isHidden: true`（此条会整块隐藏「仓库」视图，2026-11-04 在 windows 侧实证）。
 
 > **定位突破口（可复用）**：同一工作区在 **CodeBuddy** 里是正常的（`visible: [0,1,2,3,4]`）。**同一工作区、同一份仓库、两个 IDE 表现不同 ⇒ 排除 git 与工作区本身，锁定为 IDE 侧状态**。排查手法：无 `sqlite3` 命令时用 `python3 -c` + 标准库 `sqlite3` 读 `ItemTable`（先 `SELECT key FROM ItemTable` 过滤 `scm`/`git` 相关键）。
 
@@ -189,7 +189,7 @@ python3 scripts/tools/ide/fix_scm_state.py --ide vscode --check
 python3 scripts/tools/ide/fix_scm_state.py --ide vscode
 ```
 
-脚本行为：定位 `state.vscdb` → 自动备份为 `state.vscdb.bak-<时间戳>` → 把 `visible` 改为全部下标（**只改这一处**，`isHidden` 属正常默认值不动）→ **回读校验**并打印结果。**检测到目标 IDE 仍在运行时会直接中止**（运行期间改库会被退出时的内存回写覆盖，白改）。工作区若从未保存过仓库可见性记录（键不存在），脚本报「不适用」并直接退出，不判失败。
+脚本行为：定位 `state.vscdb`（裸目录 / `.code-workspace` 打开各一份都认）→ **同时判两处**（判据① `visible` 是否覆盖 `all`；判据② 全局库 `workbench.scm.views.state.hidden` 里 `workbench.scm.repositories` 是否被隐藏）→ 备份为 `state.vscdb.bak-<时间戳>` → 改到「全部可见 + 视图显示」→ **回读校验**并打印结果。工作区库的 `isHidden` 属正常默认值不动（见上方易误判）。**检测到目标 IDE 仍在运行时会直接中止**（运行期间改库会被退出时的内存回写覆盖，白改）。工作区若从未保存过仓库可见性记录（键不存在），脚本报「不适用」并直接退出，不判失败。Windows 侧同一入口：用户数据目录自动取 `%APPDATA%`（如 `--ide codebuddy` 对应 `%APPDATA%\CodeBuddy CN`），详见《[CodeBuddy 部署使用说明（windows）](../windows/CodeBuddy部署使用说明.md#scm)》。
 
 修复后重新打开 IDE，面板即显示全部 5 个仓库。实测 `--check` 输出（修复前）：
 
