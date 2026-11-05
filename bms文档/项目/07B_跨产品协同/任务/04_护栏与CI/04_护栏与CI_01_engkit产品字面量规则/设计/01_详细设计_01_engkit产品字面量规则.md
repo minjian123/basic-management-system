@@ -30,18 +30,18 @@
 | 配置校验 | 缺段取缺省值；**未知键、类型不符一律 `ConfigError`**（配置是唯一事实源）；`_TOP_KEYS` 与 `[rules.*]` 键集均显式登记，新增段必须同步登记 |
 | 自测 | 规则模块提供 `--self-test`（内置正反夹具，`preflight` 的 `[[preflight.self_tests]]` 调用） |
 | 豁免标记 | 行级标记（如 `docs-scope:allow`），理由可缺省 |
-| 缺口 | **无产品标识护栏**——本次跨仓漂移（`org` → `mdm`）无任何机器拦截，靠人工发现 |
+| 缺口 | **无产品标识护栏**——本次跨仓漂移（`mdm` → `mdm`）无任何机器拦截，靠人工发现 |
 
 ### 2.2 bms 侧实测存量 <a id="current-bms"></a>
 
 | 面 | 实测（2026-10-28，`git grep`） | 说明 |
 | --- | --- | --- |
 | 后端非测试源码 | **37 个文件 / 98 行**含 `mdm` | 约八成是**注释与 docstring**（如 `db/keys.py` 库名类比、`db/migration.py` 前缀去重说明）；真实代码面约 20 行：`tenant/seed/menu.py` 6 行、`tenant/seed/probe.py` 1 行、`services/platform/src/bms_platform/capabilities.py` 5 个能力名（**契约级**）、其余为零散标识 |
-| 前端非测试源码 | **39 行** | 实质命中集中在 `core/src/contracts/service-endpoint.ts`、`core/src/capabilities/org-source.ts`、`ui_ep/src/utils/orgSource.ts`、`apps/desktop/src/api/*.ts`、`module/registries.ts`、`views/system/**/*.vue`（`mdm_org` 模块键）；`packages/ui_ep/src/assets/maps/china.ts` 为**误报样本**（长串内出现 `mdm`），须靠词边界排除 |
+| 前端非测试源码 | **39 行** | 实质命中集中在 `core/src/contracts/service-endpoint.ts`、`core/src/capabilities/dict-remote-source.ts`、`ui_ep/src/utils/dictRemoteSource.ts`、`apps/desktop/src/api/*.ts`、`module/registries.ts`、`views/system/**/*.vue`（`mdm` 模块键）；`packages/ui_ep/src/assets/maps/china.ts` 为**误报样本**（长串内出现 `mdm`），须靠词边界排除 |
 | 生成物（应排除） | `frontend/packages/api_types`、`frontend/releases/**`、`frontend/apps/desktop/public/modules.json` | 由构建 / 发布生成，非人工维护，纳入扫描只会制造噪音 |
 | 测试与测试支撑 | `**/tests/**`、`**/*.spec.ts`、`frontend/packages/core/testing/**` | 夹具必须写产品标识才是“零改动”验证的前提 |
 
-**问题**：产品标识同时以「类型」「常量数组」「字面量字符串」「注释旧口径」四种形态存在于平台仓；产品改名或新增时必漏改（阶段七收口时组织选择与回显即因命名空间过期不可用）。
+**问题**：产品标识同时以「类型」「常量数组」「字面量字符串」「注释旧口径」四种形态存在于平台仓；产品改名或新增时必漏改（阶段七收口时远程字典选择与回显即因命名空间过期不可用）。
 
 ## 3. 设计 <a id="design"></a>
 
@@ -117,10 +117,10 @@ exempt_marker = "product-literal:allow:"
 
 | 形态 | 判定 | 例 |
 | --- | --- | --- |
-| 裸标识（词边界） | 违规 | `service = "mdm"`、`data_source_key="mdm.org.dept"` |
-| 组合形态（标识 + `combine_suffixes`） | 违规 | `mdm_dept`（表前缀）、`mdm.org.*`（事件域 / 能力名）、`mdm:query`（权限码） |
+| 裸标识（词边界） | 违规 | `service = "mdm"`、`data_source_key="mdm.mdm.dept"` |
+| 组合形态（标识 + `combine_suffixes`） | 违规 | `mdm_dept`（表前缀）、`mdm.mdm.*`（事件域 / 能力名）、`mdm:query`（权限码） |
 | 长串内出现（非词边界） | **不违规** | `mdma`、`xmdm`、`china.ts` 坐标串内的 `mdm` |
-| 注释 / docstring（`include_comments = true`） | 违规 | `# 组织关系归 mdm`、docstring 里的旧口径 |
+| 注释 / docstring（`include_comments = true`） | 违规 | `# 部门 / 岗位关系归 mdm`、docstring 里的旧口径 |
 | 注释 / docstring（`include_comments = false`） | 不判定 | — |
 | 允许面命中 | 不判定（计入允许面统计） | `tests/**`、`deploy/registry/**`、`capabilities.py` |
 | 排除面命中 | 不扫描（不计统计） | `api_types/**`、`releases/**` |
@@ -320,7 +320,7 @@ engkit base product-literals [--self-test] [--update-baseline] [--baseline-ref R
 
 | # | 事项 | 归口 |
 | --- | --- | --- |
-| 1 | 是否按“标识 → 建议动作”给出更细的整改提示（如“改为 `resolve_capability('mdm.org.user-roles')`”） | 规则稳定后评估；当前给统一建议文案 |
+| 1 | 是否按“标识 → 建议动作”给出更细的整改提示（如“改为 `resolve_capability('mdm.mdm.user-roles')`”） | 规则稳定后评估；当前给统一建议文案 |
 | 2 | 是否扩展到“平台源码不得出现产品表前缀”的独立规则 | 当前已由组合形态覆盖，出现误判再拆分 |
 | 3 | 产品仓是否启用“反向护栏”（不得直连其他产品） | 产品间直连真实出现时评估 |
 

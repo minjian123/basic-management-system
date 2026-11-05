@@ -387,7 +387,7 @@
                   </el-table>
                 </el-tab-pane>
 
-                <!-- 岗位分配 / 部门分配：由 mdm 组织域插件插入（未注册即隐藏） -->
+                <!-- 岗位分配 / 部门分配：由 mdm 主数据域插件插入（未注册即隐藏） -->
                 <el-tab-pane v-if="mdmPluginLoaded" label="岗位分配" name="post">
                   <div class="op-row">
                     <el-button size="small" @click="pluginPick('post')">选择岗位</el-button>
@@ -397,7 +397,7 @@
                     <el-table-column prop="name" label="岗位" min-width="150"></el-table-column>
                     <el-table-column prop="dept" label="所属部门" min-width="150"></el-table-column>
                   </el-table>
-                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 组织域（<code>org_role_post</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏；取消分配在「选择岗位」弹窗取消勾选（列表零操作列）。</div>
+                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 主数据域（<code>mdm_role_post</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏；取消分配在「选择岗位」弹窗取消勾选（列表零操作列）。</div>
                 </el-tab-pane>
                 <el-tab-pane v-if="mdmPluginLoaded" label="部门分配" name="dept">
                   <div class="op-row">
@@ -407,7 +407,7 @@
                   <el-table :data="assignedDepts" size="small" border>
                     <el-table-column prop="name" label="部门" min-width="180"></el-table-column>
                   </el-table>
-                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 组织域（<code>org_role_dept</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏；取消分配在「选择部门」弹窗取消勾选（列表零操作列）。</div>
+                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 主数据域（<code>mdm_role_dept</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏；取消分配在「选择部门」弹窗取消勾选（列表零操作列）。</div>
                 </el-tab-pane>
               </el-tabs>
 
@@ -658,10 +658,10 @@
         { key: 'gender', code: 'sys_gender', label: '性别', items: [
           { code: 'M', label: '男' }, { code: 'F', label: '女' }, { code: 'U', label: '未知' }
         ] },
-        { key: 'dept', code: 'org_dept', label: '部门', items: [
+        { key: 'dept', code: 'mdm_dept', label: '部门', items: [
           { code: 'd01', label: '研发部' }, { code: 'd02', label: '财务部' }, { code: 'd03', label: '市场部' }, { code: 'd04', label: '人事部' }
         ] },
-        { key: 'post', code: 'org_post', label: '岗位', items: [
+        { key: 'post', code: 'mdm_post', label: '岗位', items: [
           { code: 'p01', label: '工程师' }, { code: 'p02', label: '会计' }, { code: 'p03', label: '主管' }
         ] },
         { key: 'doc_type', code: 'biz_doc_type', label: '单据类型', items: [
@@ -774,7 +774,7 @@
         toast('已添加 ' + pickerSelected.value.length + ' 名用户（保存后生效）');
         userPick.visible = false;
       }
-      // 岗位分配 / 部门分配：mdm 组织域插件页签（改动进草稿，随宿主「保存」统一提交）
+      // 岗位分配 / 部门分配：mdm 主数据域插件页签（改动进草稿，随宿主「保存」统一提交）
       var mdmPluginLoaded = ref(false);
       var assignedPosts = ref([{ id: 'p1', name: '工程师', dept: '研发中心' }]);
       var assignedDepts = ref([{ id: 'd1', name: '研发中心' }]);

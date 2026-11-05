@@ -11,15 +11,15 @@
 | 编号 | 02 |
 | 父任务 | [02 SSO 与身份联邦](../02_SSO与身份联邦.md) |
 | 对应需求 | [02-2](../../../需求/02_需求_SSO与身份联邦.md#r02-2) |
-| 依赖 | 02_01（SSO 链路）；01_03（org 内部接口）；阶段二 `05_03`（Outbox） |
+| 依赖 | 02_01（SSO 链路）；01_03（mdm 内部接口）；阶段二 `05_03`（Outbox） |
 | 负责人 | minjian |
 
-> **前置契约（已交付 · 02_01，2026-09-27）**：SSO 登录完整链路已交付——`sys_user_identity` 表 + ORM + `identity:platform` 迁移 + `UserIdentityRepository.get_by_key_external` 只读查询（映射键 `{tenant}:{provider_key}`），本任务在其上补 JIT 写路径与 `(idp_key, external_id)` 唯一约束并发处置；`SsoService.callback` 映射未命中返回 `20054`（`SsoIdentityUnmatchedError`）、`SysIdentityProvider.config.jit_enabled` 字段已预留（本期不读），JIT 分支在此接入；`SsoError` 段位错误码 `20051`~`20056` 已登记（含冲突 `20055`）；org 内部概要接口 `POST /api/v1/org/internal/users/profile`（`require_service("identity")`）已交付，JIT 建号所经 org 内部接口参照其服务鉴权与公开契约口径扩展。
+> **前置契约（已交付 · 02_01，2026-09-27）**：SSO 登录完整链路已交付——`sys_user_identity` 表 + ORM + `identity:platform` 迁移 + `UserIdentityRepository.get_by_key_external` 只读查询（映射键 `{tenant}:{provider_key}`），本任务在其上补 JIT 写路径与 `(idp_key, external_id)` 唯一约束并发处置；`SsoService.callback` 映射未命中返回 `20054`（`SsoIdentityUnmatchedError`）、`SysIdentityProvider.config.jit_enabled` 字段已预留（本期不读），JIT 分支在此接入；`SsoError` 段位错误码 `20051`~`20056` 已登记（含冲突 `20055`）；mdm 内部概要接口 `POST /api/v1/mdm/internal/users/profile`（`require_service("identity")`）已交付，JIT 建号所经 mdm 内部接口参照其服务鉴权与公开契约口径扩展。
 
 ## 2. 任务内容 <a id="content"></a>
 
 1. **身份映射表**：`sys_user_identity` 表文件先设计后落库（`idp_key` / `external_id` / `tenant_id` / `user_id`），`(idp_key, external_id)` 唯一约束防并发重复建号（平台库，表归属登记）。
-2. **JIT 建号**：首次 SSO 登录经 org 内部接口创建 `sys_user` 最小模型记录（SSO 账号无本地密码或标记），随后写身份映射；同租户同外部身份二次登录命中映射直接登录。
+2. **JIT 建号**：首次 SSO 登录经 mdm 内部接口创建 `sys_user` 最小模型记录（SSO 账号无本地密码或标记），随后写身份映射；同租户同外部身份二次登录命中映射直接登录。
 3. **建号规则**：按 IdP 配置的租户归属与标识规则建号；用户名冲突处置（加后缀 / 拒绝）成文；域名 / 租户白名单校验（《[安全开发规范](../../../../../规范/安全开发规范.md)》口径）。
 4. **事件登记**：`identity.user.jit_created` 事件经 Outbox 登记（事件契约「只加不删」），供后续模块订阅。
 5. **口径回写**：《[后端基类清单](../../../../../后端基类清单.md)》「身份源」条目与架构 14 §4 更新。
@@ -39,5 +39,5 @@
 
 > 交付物：详细设计、实施记录、测试记录（随任务开工建立，落本目录 `设计/`、`实施/`、`测试/`）。
 
-> **已交付（2026-09-27）**：详细设计 [02_详细设计](设计/02_详细设计_02_JIT建号与身份映射.md)（12 项决策确认）→ 实施 [02_实施](实施/02_实施_02_JIT建号与身份映射.md) → 测试 [02_测试](测试/02_测试_02_JIT建号与身份映射.md)（Kiwi 2198）。新增分布式锁能力域（memory / redis 真实实现）、org 建号内部接口、`JitService` 编排、`sso:bind` 只读端点与 `identity.user.jit_created` 签发路径。
+> **已交付（2026-09-27）**：详细设计 [02_详细设计](设计/02_详细设计_02_JIT建号与身份映射.md)（12 项决策确认）→ 实施 [02_实施](实施/02_实施_02_JIT建号与身份映射.md) → 测试 [02_测试](测试/02_测试_02_JIT建号与身份映射.md)（Kiwi 2198）。新增分布式锁能力域（memory / redis 真实实现）、mdm 建号内部接口、`JitService` 编排、`sso:bind` 只读端点与 `identity.user.jit_created` 签发路径。
 > **消费方契约（已交付）**：`02_06`（IdP 行新增 `config.jit_enabled` / `config.allowed_email_domains` 的管理面校验与连通性）、`02_03` / `02_04`（协议适配复用同一 JIT 与映射写路径）、域五（`GET /api/v1/users/{id}/identities` 绑定查看）、阶段七（`sso:bind` 真实权限与本人 / 超管判定）。

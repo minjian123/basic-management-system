@@ -47,12 +47,12 @@
         </el-radio-group>
       </div>
 
-      <div class="row"><span class="lb">组织选择字段</span>
+      <div class="row"><span class="lb">远程字典选择字段</span>
         <template v-if="degrade === 'empty'">
           <div class="ph-box" :data-ph="'占位标记=' + reason" style="width:320px">（占位空态：{{ label }}）</div>
         </template>
         <template v-else-if="degrade === 'disabled'">
-          <el-select v-model="dept" disabled placeholder="组织选择（占位禁用）" style="width:320px">
+          <el-select v-model="dept" disabled placeholder="远程字典选择（占位禁用）" style="width:320px">
             <el-option label="（占位，无可选项）" value="" />
           </el-select>
         </template>
@@ -85,10 +85,10 @@ stub＝未实现（调用即抛错，对齐后端未实现语义）；占位与�
     setup: function () {
       var reason = ref('pending'), degrade = ref('empty'), dept = ref('');
       var callResult = ref('（未调用）');
-      var LABELS = { pending: '组织选择数据源（依赖后端 RBAC 阶段，占位先行）', null: '组织选择数据源（空实现：恒空列表）', stub: '组织选择数据源（未实现）' };
+      var LABELS = { pending: '远程字典选择数据源（依赖后端 RBAC 阶段，占位先行）', null: '远程字典选择数据源（空实现：恒空列表）', stub: '远程字典选择数据源（未实现）' };
       var label = computed(function () { return LABELS[reason.value]; });
       var describeText = computed(function () {
-        return (reason.value === 'stub' ? 'stub:' : reason.value + ':') + '组织选择 · ' + label.value;
+        return (reason.value === 'stub' ? 'stub:' : reason.value + ':') + '远程字典选择 · ' + label.value;
       });
       var degradeText = computed(function () {
         return { empty: '空态占位（不请求、空结果）', disabled: '保留结构、整体禁用（不可交互）', hidden: '整块隐藏（不渲染）' }[degrade.value];

@@ -57,7 +57,7 @@
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
-| 2026-10-06 | v1 | 新建表结构（org 服务租户库；`source_menu_id` 以 `0` 表示表单级直接授予） | minjian |
+| 2026-10-06 | v1 | 新建表结构（mdm 服务租户库；`source_menu_id` 以 `0` 表示表单级直接授予） | minjian |
 | 2026-10-10 | v2 | 三词分治：授权类型 `action` 改为 `permission`，`target_id` 指向 `sys_permission.id` | minjian |
 | 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 | 2026-10-22 | v4 | ORM 模型落点迁基座共享 `bms_core/models/platform/role.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |

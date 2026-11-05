@@ -20,7 +20,7 @@ goat-gauge 是纯本地服务（Python 标准库 `http.server` + SQLite），读
 
 | 接口 | 用途 |
 | --- | --- |
-| `GET /alpha/whoami` | 账号（用户名/邮箱/组织） |
+| `GET /alpha/whoami` | 账号（用户名/邮箱/部门） |
 | `GET /alpha/billing/credits` | 额度余额与 5 小时 / 周 / 月度配额窗口 |
 | `GET /alpha/billing/subscriptions` | 套餐与账单周期 |
 | `GET /alpha/usage/summary` | 账单周期内聚合统计（请求数、token、费用） |

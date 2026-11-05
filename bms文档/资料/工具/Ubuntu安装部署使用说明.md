@@ -327,9 +327,9 @@ sudo systemctl restart systemd-logind
 
 # 2. GNOME 层：合盖不动作、不关屏（注意此键没有 ignore 值，用 nothing；SSH 中设置需带用户总线）
 export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
-gsettings set org.gnome.settings-daemon.plugins.power lid-close-ac-action nothing
-gsettings set org.gnome.settings-daemon.plugins.power lid-close-battery-action nothing
-gsettings set org.gnome.settings-daemon.plugins.power lid-close-suspend-with-external-monitor false
+gsettings set mdm.gnome.settings-daemon.plugins.power lid-close-ac-action nothing
+gsettings set mdm.gnome.settings-daemon.plugins.power lid-close-battery-action nothing
+gsettings set mdm.gnome.settings-daemon.plugins.power lid-close-suspend-with-external-monitor false
 ```
 
 > GNOME 层若仍为 `suspend`（默认值），合盖依然会休眠；必须改为 `nothing`。修改后合盖屏幕保持常亮，不再触发关屏。

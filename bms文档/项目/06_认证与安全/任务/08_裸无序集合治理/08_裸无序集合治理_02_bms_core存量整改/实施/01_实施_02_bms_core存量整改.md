@@ -123,7 +123,7 @@ flowchart LR
 **动作**：
 
 1. **值对象 / 契约字段（Mapping / dict / list）**：`audit/hashchain.py`、`dict/seed.py`、`events/base.py`、`events/contracts.py`、`idp/base.py`、`idp/registry.py`、`masking/default.py`、`oauth/oidc_provider.py`、`oauth/verify.py`、`outbound/http.py`、`outbox/base.py`、`query/base.py`、`search/base.py`、`servicecall/base.py`、`tracing/base.py`、`transfer/importer.py`、`ws/base.py`、`db/migration.py` → `ConcurrentStableDict` / `ConcurrentStableList` / `ConcurrentStableSet`（`Mapping` / `Sequence` / `Collection` 抽象一并落集合类）。
-2. **`ClassVar` 常量（原豁免）**：`BaseRepository.sortable_fields` / `BaseSchema.masked_fields` / `Masker.masked_fields`（属性返回）→ `ConcurrentStableSet`；`org/base.py` 与 `services` 各仓储子类赋值、测试断言同步（`ConcurrentStableSet` 与内置容器**内容相等**，断言不改）。
+2. **`ClassVar` 常量（原豁免）**：`BaseRepository.sortable_fields` / `BaseSchema.masked_fields` / `Masker.masked_fields`（属性返回）→ `ConcurrentStableSet`；`mdm/base.py` 与 `services` 各仓储子类赋值、测试断言同步（`ConcurrentStableSet` 与内置容器**内容相等**，断言不改）。
 3. **ORM JSON 列（9 处）**：`dict/models.py`（`attr_json` / `operators` / `options`）、`listing/models.py`（`conditions` / `params` / `layout`）、`models/outbox.py`（`payload` ×2）→ `Mapped[ConcurrentStable*]`，列类型由裸 `JSON` 改为新增的 `StableJson`。
 4. **新增基座类型 `StableJson`（`models/base.py`）**：`TypeDecorator[JSON]`——`process_bind_param` 经 `normalize_collections` 规整为内置容器落库（免 `json.dumps` 遇非内置容器报错）；`process_result_value` 经 `to_stable_value` **递归**转插入序集合类（声明与运行期形态一致）。
 5. **配置字段（原豁免，21 处）**：`core/config.py` 各分区字段 → `Annotated[ConcurrentStable*, CONTRACT_COLLECTION]` + `Field(default_factory=CONTRACT_STABLE_*)`（非空默认值包 `lambda: ConcurrentStableList([...])`）；`attribute_map` 嵌套落 `ConcurrentStableDict[str, ConcurrentStableList[str]]`。pydantic-settings（TOML / 环境变量）解析经契约元数据校验后转集合类；消费方按只读面使用。
@@ -166,7 +166,7 @@ flowchart LR
 | --- | --- | --- |
 | 定向用例（基座） | `pytest libs/bms_core/tests/repositories libs/bms_core/tests/db` | **142 passed** |
 | 全量 `libs` + 平台 | `pytest libs/bms_core/tests services/platform/tests` | **1450 passed / 38 skipped / 1 failed**（失败项见下「偏差」） |
-| 其余服务 | `pytest services/{identity,org,tenant,search,notification,file,ai,report}/tests` | **426 passed / 2 skipped** |
+| 其余服务 | `pytest services/{identity,mdm,tenant,search,notification,file,ai,report}/tests` | **426 passed / 2 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（956 文件已格式化） |
 | 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`repositories/` **45 → 0** |
 | 基线递减 | `--update-baseline` | **1622 → 1553**（`libs` 947 → 892 / `services` 348 → 334 / `ops` 103 / `scripts/tools` 224） |
@@ -201,7 +201,7 @@ flowchart LR
 | --- | --- | --- |
 | 定向用例 | `pytest libs/bms_core/tests/query libs/bms_core/tests/dict services/platform/tests/{dict,contracts,repositories}` | **155 passed**（另 1 既有 red，见偏差） |
 | 全量 `libs` + 平台 | `pytest libs/bms_core/tests services/platform/tests` | **1450 passed / 38 skipped / 1 failed**（同上一既有 red，无新增） |
-| 其余服务 | `pytest services/{identity,org,tenant,search,notification,file,ai,report}/tests` | **426 passed / 2 skipped** |
+| 其余服务 | `pytest services/{identity,mdm,tenant,search,notification,file,ai,report}/tests` | **426 passed / 2 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿 |
 | 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`dict/` **70 → 0**、`query/` **4 → 0** |
 | 基线递减 | `--update-baseline` | **1553 → 1476**（`libs` 892 → 817 / `services` 334 → 332 / `ops` 103 / `scripts/tools` 224） |
@@ -317,14 +317,14 @@ flowchart LR
 3. **系统参数能力域**：`BaseConfigSource.get_many` 契约（含 `http` / `null` / `sql` 三实现）改 `keys: ConcurrentStableList[str]` → `ConcurrentStableDict[str, str]`；`get()` 默认实现按集合类构造入参；`HttpConfigSource` 的 `headers` 落 `ConcurrentStableDict`（`json_body` 保持**内置容器**——httpx `json=` 边界，沿用 `dict` 子批既有口径）、四处降级返回空集合类；`SqlConfigSource` 的 `result` / `missing` 落集合类（写改 `set` / `add`）；`MemoryConfigCacheRegion._versions` 落 `ConcurrentStableDict`（写改 `set`）。
 4. **调用方适配**：`password/default.py` 四处与 `captcha/default.py::policy` 的 `get_many` 实参包 `ConcurrentStableList`；`services/platform/.../api/internal_config.py` 无需改（`ConfigResolveRequest.keys` 已是集合类）。
 
-**调用方与测试同步**：`libs` 侧 `tests/config/test_config_edges.py`、`tests/config/test_config_real.py`、`tests/captcha/test_captcha_policy.py`、`tests/password/test_password_policy.py`（三者含取数替身 `_MappingSource` 的 `__init__` / `get_many` 签名）；`services` 侧 `org/tests/account_lock/test_scan.py`、`platform/tests/config/test_internal_config.py` 的取数替身同步。
+**调用方与测试同步**：`libs` 侧 `tests/config/test_config_edges.py`、`tests/config/test_config_real.py`、`tests/captcha/test_captcha_policy.py`、`tests/password/test_password_policy.py`（三者含取数替身 `_MappingSource` 的 `__init__` / `get_many` 签名）；`services` 侧 `mdm/tests/account_lock/test_scan.py`、`platform/tests/config/test_internal_config.py` 的取数替身同步。
 
 **验证**：
 
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
-| 服务侧 | `pytest services/platform/tests services/org/tests` | **390 passed / 1 skipped / 1 failed**（既有 red，见偏差） |
+| 服务侧 | `pytest services/platform/tests services/mdm/tests` | **390 passed / 1 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check` / `ruff format --check`（改动文件） | 全绿 |
 | 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`captcha/` **16 → 0**、`config/` **16 → 0** |
 | 基线递减 | `--update-baseline` | **1360 → 1306**（`libs` 701 → 652 / `services` 332 → 327） |
@@ -370,7 +370,7 @@ flowchart LR
 | --- | --- | --- |
 | **无依赖链实证** | 系统 `python3`（无第三方依赖）导入 `bms_core.services.module_registry` / `table_registry` / `bms_core.boundary.assess` / `directory` 并调用 `table_names()` / `known_tables()` / `known_services()` | **通过**（导入 + 调用均成功） |
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
-| 服务侧 | `pytest services/platform/tests services/org/tests` | **390 passed / 1 skipped / 1 failed**（既有 red） |
+| 服务侧 | `pytest services/platform/tests services/mdm/tests` | **390 passed / 1 skipped / 1 failed**（既有 red） |
 | 静态检查 | `ruff check` / `ruff format --check` | 全绿 |
 | 护栏 | `check_bare_collections.py .`（+ `--self-test`） | 「新增 0 / 残留 0」；`bms_core/services` **89 → 36**（仅 `gateway_catalog`）；基线 **1306 → 1246**（`libs` 652 → 592） |
 | 基座 / 边界护栏 | `check_base.py` / `check_backend_base.py`(+`--self-test`) / `check_service_boundaries.py`(+`--self-test`) | 全绿（此前因 `sortedcontainers` 缺失而红的 2 项恢复） |
@@ -635,7 +635,7 @@ flowchart LR
 
 **过程处置（集合类非内置容器超集的坑复现）**：`OtelTracer._active` 落 `ConcurrentStableDict` 后，`self._active[span_id] = …` 与 `self._active.pop(span_id, None)` 不可用（无 `__setitem__` / `pop`）→ 改 `set(...)` / `get_and_remove(...)`；首次定向用例即暴露（`test_otel_tracer` 3 项红），修复后全绿。OTel SDK 为第三方边界，`attributes` 在调用处转内置 `dict`。
 
-**遗留**：`fieldtype/` / `i18n/` / `tracing/` 归零；`bms_core` 剩余 **382 处**（`libs`：`tests` 276 / `outbox` 10 / `schemas` 10 / `security` 9 / `archive` 6 / `audit` 6 / `chat` 6 / `edge` 6 / `org` 6 …），按交接单 §7 第 1 项续推。
+**遗留**：`fieldtype/` / `i18n/` / `tracing/` 归零；`bms_core` 剩余 **382 处**（`libs`：`tests` 276 / `outbox` 10 / `schemas` 10 / `security` 9 / `archive` 6 / `audit` 6 / `chat` 6 / `edge` 6 / `mdm` 6 …），按交接单 §7 第 1 项续推。
 
 ## 25. 实施过程补充 · 存量整改子批 3 · `archive/` + `audit/` + `chat/` 能力域（签名单轮，2026-09-30） <a id="batch3-archive-audit-chat"></a>
 
@@ -666,39 +666,39 @@ flowchart LR
 
 **过程处置（新增一条边界口径）**：集合类**返回值直入 Pydantic / FastAPI 响应封装**（`ApiResponse.ok(集合类)`）会触发运行期序列化失败（`Unable to serialize unknown type: ConcurrentStableList`，首次定向用例即暴露 `test_placeholder_routes`）。处置：**未标注 `CONTRACT_COLLECTION` 的响应出口**在调用处显式 `list(...)`（承接 §3「第三方 / 框架边界调用处显式转内置容器」口径；契约字段仍走 `CONTRACT_COLLECTION` 无需转换）。
 
-**遗留**：`archive/` / `audit/` / `chat/` 归零；`bms_core` 剩余 **364 处**（`libs`：`tests` 276 / `outbox` 10 / `schemas` 10 / `security` 9 / `edge` 6 / `org` 6 …），按交接单 §7 第 1 项续推。
+**遗留**：`archive/` / `audit/` / `chat/` 归零；`bms_core` 剩余 **364 处**（`libs`：`tests` 276 / `outbox` 10 / `schemas` 10 / `security` 9 / `edge` 6 / `mdm` 6 …），按交接单 §7 第 1 项续推。
 
-## 26. 实施过程补充 · 存量整改子批 3 · `edge/` + `org/` + `globalsearch/` + `llm/` 能力域（签名单轮，2026-09-30） <a id="batch3-edge-org-search-llm"></a>
+## 26. 实施过程补充 · 存量整改子批 3 · `edge/` + `mdm/` + `globalsearch/` + `llm/` 能力域（签名单轮，2026-09-30） <a id="batch3-edge-org-search-llm"></a>
 
-**范围**：`bms_core` 四个**低耦合叶子能力域**共 **20 处**（`edge/` 6 / `org/` 6 / `globalsearch/` 4 / `llm/` 4），外加调用方 / 测试替身适配（`libs` 测试 1 处、`services/search` 与 `services/org` 路由出口 2 处、`services` 测试替身 5 处）。按交接单 §5 第 1 步「优先低耦合叶子模块」推进。
+**范围**：`bms_core` 四个**低耦合叶子能力域**共 **20 处**（`edge/` 6 / `mdm/` 6 / `globalsearch/` 4 / `llm/` 4），外加调用方 / 测试替身适配（`libs` 测试 1 处、`services/search` 与 `services/mdm` 路由出口 2 处、`services` 测试替身 5 处）。按交接单 §5 第 1 步「优先低耦合叶子模块」推进。
 
 **动作**：
 
 1. **边缘信任（`edge/`）**：`BaseEdgeTrust.evaluate` 的 `headers`、`EdgeIdentity.from_headers` 的 `headers`、`MarkerEdgeTrust` / `NullEdgeTrust` / `ServiceJwtEdgeTrust.evaluate` 与 `_bearer_token` 全部落 `ConcurrentStableDict[str, str]`（中间件传入的 `_raw_headers(scope)` 已为集合类，勿需转换）。
-2. **组织主数据（`org/`）**：`BaseOrgDataSource.dept_tree` 返回、`BaseOrgNameResolver.resolve_names` 的 `ids` 与返回落 `ConcurrentStableList`（`NullOrgDataSource.dept_tree` 的 `(root,)` → `ConcurrentStableList([root])`、`NullOrgNameResolver.resolve_names` 的 `tuple(...)` → `ConcurrentStableList(...)`）。
+2. **主数据（`mdm/`）**：`BaseDictRemoteSource.dept_tree` 返回、`BaseUserDisplay.resolve_names` 的 `ids` 与返回落 `ConcurrentStableList`（`NullDictRemoteSource.dept_tree` 的 `(root,)` → `ConcurrentStableList([root])`、`NullUserDisplay.resolve_names` 的 `tuple(...)` → `ConcurrentStableList(...)`）。
 3. **全文检索（`globalsearch/`）**：`BaseGlobalSearch.domains` 返回、`search` 的 `types` 参数落 `ConcurrentStableList[str]`；`NullGlobalSearch` 同名两处同步（空返回 `()` → `ConcurrentStableList()`）。
 4. **LLM 适配（`llm/`）**：`BaseLlmProvider.chat` 的 `messages`、`embedding` 的 `texts` 落 `ConcurrentStableList`；`NullLlmProvider` 同名两处同步。
-5. **服务侧出口/入参边界（必需）**：`services/search/src/bms_search/api/search.py` 的 FastAPI 查询参数 `types: list[str] | None`（框架绑定，声明保留基线）在调用契约前显式 `ConcurrentStableList(types)`；`services/org/src/bms_org/api/org.py` 的 `parse_id_in(id_in)` 产物显式 `ConcurrentStableList(...)` 传入 `resolve_names`。
+5. **服务侧出口/入参边界（必需）**：`services/search/src/bms_search/api/search.py` 的 FastAPI 查询参数 `types: list[str] | None`（框架绑定，声明保留基线）在调用契约前显式 `ConcurrentStableList(types)`；`services/mdm/src/bms_mdm/api/mdm.py` 的 `parse_id_in(id_in)` 产物显式 `ConcurrentStableList(...)` 传入 `resolve_names`。
 
-**调用方与测试同步**：`libs` 侧 `tests/edge/test_edge.py` / `test_service_jwt.py`（`evaluate` / `from_headers` 实参包 `ConcurrentStableDict`、参数化 `headers` 注解同步）；`services/search/tests/globalsearch/test_global_search.py` 的 `_InMemoryGlobalSearch` 覆写（`domains` / `search`）、空实现断言 `domains() == []`、`search(types=ConcurrentStableList(["user"]))`；`services/org/tests/org/test_org.py` 的 `_InMemoryOrgDataSource.dept_tree` / `_InMemoryOrgNameResolver.resolve_names` 覆写与 `resolve_names("post", ConcurrentStableList([1, 2]))`；`services/ai/tests/llm/test_llm.py` 的 `chat` / `embedding` 实参包集合类。断言维持内容相等，未改语义。
+**调用方与测试同步**：`libs` 侧 `tests/edge/test_edge.py` / `test_service_jwt.py`（`evaluate` / `from_headers` 实参包 `ConcurrentStableDict`、参数化 `headers` 注解同步）；`services/search/tests/globalsearch/test_global_search.py` 的 `_InMemoryGlobalSearch` 覆写（`domains` / `search`）、空实现断言 `domains() == []`、`search(types=ConcurrentStableList(["user"]))`；`services/mdm/tests/mdm/test_mdm.py` 的 `_InMemoryOrgDataSource.dept_tree` / `_InMemoryOrgNameResolver.resolve_names` 覆写与 `resolve_names("post", ConcurrentStableList([1, 2]))`；`services/ai/tests/llm/test_llm.py` 的 `chat` / `embedding` 实参包集合类。断言维持内容相等，未改语义。
 
 **验证**：
 
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
-| 定向用例 | `pytest libs/bms_core/tests/edge services/{search,org,ai}/tests/...` | **47 passed** |
+| 定向用例 | `pytest libs/bms_core/tests/edge services/{search,mdm,ai}/tests/...` | **47 passed** |
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`edge/` **6 → 0**、`org/` **6 → 0**、`globalsearch/` **4 → 0**、`llm/` **4 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`edge/` **6 → 0**、`mdm/` **6 → 0**、`globalsearch/` **4 → 0**、`llm/` **4 → 0** |
 | 基线递减 | `--update-baseline` | **1009 → 983**（`libs` 364 → 343 / `services` 319 → 314） |
 | 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
-**过程处置**：① `org` 路由出口本已 `tuple(await …)`（框架序列化边界），`Cursor`/`ApiResponse` 侧零改动；② `edge` 中间件传入的 `_raw_headers(scope)` 在 §21 已落集合类，本轮 `evaluate` 收窄后**调用方零适配**（契约与中间件形态自然对齐）。
+**过程处置**：① `mdm` 路由出口本已 `tuple(await …)`（框架序列化边界），`Cursor`/`ApiResponse` 侧零改动；② `edge` 中间件传入的 `_raw_headers(scope)` 在 §21 已落集合类，本轮 `evaluate` 收窄后**调用方零适配**（契约与中间件形态自然对齐）。
 
-**遗留**：`edge/` / `org/` / `globalsearch/` / `llm/` 归零；`bms_core` 剩余 **343 处**（`libs`：`tests` 275 / `outbox` 10 / `schemas` 10 / `security` 9 / `masking` 4 / `outbound` 4 / `password` 4 …），按交接单 §7 第 1 项续推。
+**遗留**：`edge/` / `mdm/` / `globalsearch/` / `llm/` 归零；`bms_core` 剩余 **343 处**（`libs`：`tests` 275 / `outbox` 10 / `schemas` 10 / `security` 9 / `masking` 4 / `outbound` 4 / `password` 4 …），按交接单 §7 第 1 项续推。
 
 ## 27. 实施过程补充 · 存量整改子批 3 · `masking/` + `outbound/` + `password/` + `print/` + `icon/` + `metrics/` + `servicecall/` 七能力域（签名单轮，2026-09-30） <a id="batch3-leaf-internals"></a>
 
@@ -908,16 +908,16 @@ flowchart LR
 | 基线递减 | `--update-baseline` | **697 → 630**（条目 658 → 593、计数合计 630；`libs` **0** / `services` 304 / `scripts/tools` 223 / `ops` 103；新增条目 0） |
 | 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
-**遗留**：全局剩余 **630 处**（`services` 304〔`identity` 195 / `platform` 68 / `org` 9 / `ai` 7 / `file`·`report` 各 6 / `tenant` 5 / `notification`·`search` 各 4〕、`scripts/tools` 223、`ops` 103）。`libs`（源侧 + `tests`）**已归零**；后续为批次 2 `services` → 批次 3 `scripts/tools` + `ops`。
+**遗留**：全局剩余 **630 处**（`services` 304〔`identity` 195 / `platform` 68 / `mdm` 9 / `ai` 7 / `file`·`report` 各 6 / `tenant` 5 / `notification`·`search` 各 4〕、`scripts/tools` 223、`ops` 103）。`libs`（源侧 + `tests`）**已归零**；后续为批次 2 `services` → 批次 3 `scripts/tools` + `ops`。
 
-## 34. 实施过程补充 · 存量整改子批 5 · 批次 2 首轮 · 七小服务（`org` / `ai` / `file` / `report` / `tenant` / `notification` / `search`，签名单轮，2026-10-01） <a id="batch5-seven-services"></a>
+## 34. 实施过程补充 · 存量整改子批 5 · 批次 2 首轮 · 七小服务（`mdm` / `ai` / `file` / `report` / `tenant` / `notification` / `search`，签名单轮，2026-10-01） <a id="batch5-seven-services"></a>
 
-**范围**：`services` 七小服务共 **41 处 / 22 文件**（`org` 9 / `ai` 7 / `file` 6 / `report` 6 / `tenant` 5 / `notification` 4 / `search` 4；按位置＝类字段 1 / 签名参数 4 / 签名返回 19 / 局部变量 17），其中**实现侧 9 处**（`src/`）与测试侧 32 处。按交接单 §7 第 2 项「批次 2 `services`」起步，取**低耦合叶子服务群**先做，`identity`（195）与 `platform`（68）单独成后续轮。
+**范围**：`services` 七小服务共 **41 处 / 22 文件**（`mdm` 9 / `ai` 7 / `file` 6 / `report` 6 / `tenant` 5 / `notification` 4 / `search` 4；按位置＝类字段 1 / 签名参数 4 / 签名返回 19 / 局部变量 17），其中**实现侧 9 处**（`src/`）与测试侧 32 处。按交接单 §7 第 2 项「批次 2 `services`」起步，取**低耦合叶子服务群**先做，`identity`（195）与 `platform`（68）单独成后续轮。
 
 **动作**（按位置归并）：
 
-1. **实现侧签名与局部量落集合类**：`org` 的 `parse_id_in` → `ConcurrentStableList[int]`、`UserRepository.list_inactive` → `ConcurrentStableList[SysUser]`、`AccountLockRepository.list_filtered`·`_filter_conditions` → `ConcurrentStableList[...]`（`conditions` 局部量同步、`append` → `add`、`list(...)` 出口改 `ConcurrentStableList(...)`）、`AccountLockService.list_locks` 返回 `tuple[ConcurrentStableList[SysAccountLock], int]`、`parse_password_history` → `ConcurrentStableList[str]`；`notification` 的 `_parse_filters` → `ConcurrentStableList[FilterSpec]`；`tenant` 的 `_snapshot` → `ConcurrentStableDict[str, object]`。
-2. **契约字段（Pydantic）**：`org.schemas.credentials.UpdatePasswordResult.violations` 改 `Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(default_factory=CONTRACT_STABLE_LIST, ...)`（与 `bms_core` 契约集合字段同款写法）。
+1. **实现侧签名与局部量落集合类**：`mdm` 的 `parse_id_in` → `ConcurrentStableList[int]`、`UserRepository.list_inactive` → `ConcurrentStableList[SysUser]`、`AccountLockRepository.list_filtered`·`_filter_conditions` → `ConcurrentStableList[...]`（`conditions` 局部量同步、`append` → `add`、`list(...)` 出口改 `ConcurrentStableList(...)`）、`AccountLockService.list_locks` 返回 `tuple[ConcurrentStableList[SysAccountLock], int]`、`parse_password_history` → `ConcurrentStableList[str]`；`notification` 的 `_parse_filters` → `ConcurrentStableList[FilterSpec]`；`tenant` 的 `_snapshot` → `ConcurrentStableDict[str, object]`。
+2. **契约字段（Pydantic）**：`mdm.schemas.credentials.UpdatePasswordResult.violations` 改 `Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(default_factory=CONTRACT_STABLE_LIST, ...)`（与 `bms_core` 契约集合字段同款写法）。
 3. **调用方适配（形态一致）**：`policy.reused(history=ConcurrentStableList([...]))`（`BasePasswordPolicy.reused` 入参已为集合类）；`violations=ConcurrentStableList(...)`；`history.add(...)`、`history[-keep:]`（切片返回同类）、`else ConcurrentStableList()`、`json.dumps(list(history), ...)`（JSON 出口显式转换）；`ApiResponse.ok(dict(_snapshot(row, db_basis)))`（**框架响应出口**：集合类不可直入未标注 `CONTRACT_COLLECTION` 的响应封装）；`parse_id_in(...)` 直接入参（去原二次 `ConcurrentStableList(...)` 包裹）。
 4. **查询入参边界（保留内置 + 行级标记）**：`search` 路由 `types: Annotated[list[str] | None, Query(...)]` 保持内置 `list`（集合类会破坏 FastAPI 参数绑定），标记单独成行置于声明行之上；出口侧原有 `ConcurrentStableList(types)` 保留。
 5. **测试侧替身与签名**：`_InMemoryChatStream._active` / `_InMemoryChatSessionStore._sessions`·`_messages` / `_InMemoryChatActionGate._confirmed` / `_InMemoryChatDataSource.last_users` / `_FakeMinioClient.objects` / `_FakeIdempotencyStore.begun`·`saved` / `_InMemoryNotificationCenter._items` / `_InMemoryGlobalSearch._hits` / `_RecordingIdempotency.keys`·`_payloads` / `_StubTemplateProvider.list` 等落集合类；集合类无 `pop` / `__delitem__` → `get_and_remove` / `delete`，无 `append` → `add`，无 `__setitem__` → `set`；**幂等替身 payload 沿用 `IDEMPOTENCY_PAYLOAD_TYPE` 别名**（`bms_core` 已声明为 JSON 载荷内置 `dict`，与同型替身 `services/file/tests/storage/test_multipart.py` 同款范式，非新豁免）。
@@ -927,7 +927,7 @@ flowchart LR
 
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
-| 定向用例 | `pytest services/{org,ai,file,report,tenant,notification,search}/tests` | **160 passed / 1 skipped** |
+| 定向用例 | `pytest services/{mdm,ai,file,report,tenant,notification,search}/tests` | **160 passed / 1 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
 | 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；七小服务 **41 → 0** |
 | 基线递减 | `--update-baseline` | **630 → 589**（条目 593 → 554、计数合计 589；`services` **304 → 263**〔`identity` 195 / `platform` 68〕/ `scripts/tools` 223 / `ops` 103；新增条目 0） |
@@ -935,7 +935,7 @@ flowchart LR
 
 **过程处置（已闭环）**：① `ConcurrentStableDict` 无 `pop(key, default)` → 幂等 / 会话 / 通知替身改用 `get_and_remove(...)`（语义一致，缺失返回 None）；② `del d[k]` → `delete(k)`；③ `json.dumps(history)` 因集合类不可直序列化 → `json.dumps(list(history))`；④ `_scope_conditions` 式「运行期识别」缺口的同类风险已在交接单 §9 立条目；⑤ `ConcurrentStableList[messages] | None = None` 规避 `ConcurrentStableSet()` 形参默认值的 ruff `B008`。
 
-**遗留**：全局剩余 **589 处**（`services` 263〔`identity` 195 / `platform` 68〕、`scripts/tools` 223、`ops` 103）。批次 2 续推 `identity`（195，量最大、含 `sso`·`oidc`·`idp` 测试编排较重）与 `platform`（68）；随后批次 3 `scripts/tools` + `ops`。**测试卫生观察项**：`services/org/tests/account_lock/test_endpoints.py::test_lock_endpoints_reject_invalid_token` 出现 `SAWarning`（GC 回收未归还连接）——属既有测试卫生现象、不影响门禁，未在本轮追改。
+**遗留**：全局剩余 **589 处**（`services` 263〔`identity` 195 / `platform` 68〕、`scripts/tools` 223、`ops` 103）。批次 2 续推 `identity`（195，量最大、含 `sso`·`oidc`·`idp` 测试编排较重）与 `platform`（68）；随后批次 3 `scripts/tools` + `ops`。**测试卫生观察项**：`services/mdm/tests/account_lock/test_endpoints.py::test_lock_endpoints_reject_invalid_token` 出现 `SAWarning`（GC 回收未归还连接）——属既有测试卫生现象、不影响门禁，未在本轮追改。
 
 ## 35. 实施过程补充 · 存量整改子批 5 · 批次 2 续推 · `platform` 服务（签名单轮，2026-10-01） <a id="batch5-platform"></a>
 
@@ -973,7 +973,7 @@ flowchart LR
 **动作**（按位置归并）：
 
 1. **仓储层（`src/repositories/`）**：`SysClientRepository` / `IdentityProviderRepository` / `SessionRepository` / `UserIdentityRepository` 的 `list_*` / `_filter_conditions` 返回与局部量落 `ConcurrentStableList`（`conditions` 初值改集合构造、`append` → `add`、`list(...)` 出口改 `ConcurrentStableList(...)`）；`_active_conditions` 的字面量初值同步改集合类。
-2. **服务层（`src/services/`）**：`ClientService.create`（4 个 `Sequence[str]` 入参 + `_validate` 四元组返回）、`IdentityProviderService`（`create` / `update` / `test_draft` 的 `config`、`_validate` 归一化返回、`values` 局部量、`_row_config`）、`ProviderRegistry`（`spec_for_config` / `_parse_config` / `_resolve_redirect_uri`、`merged` 局部量）、`OidcProviderService`（`discovery` / `load_list` / `_code_payload` / `code_from_payload` / `seen` 局部量 / `params` 局部量）、`OrgCredentialClient`（`_post` / `_post_path` / `_payload` / login-state `body`）、`PasswordResetService`、`SessionService`（`list_sessions` / `enforce_max_active` / `revoke_user_sessions`）、`SsoService`（`list_providers` / `_flow_payload`）、`JitService`（`allowed_email_domains` → `ConcurrentStableSet`、`domains` 局部量、`_row_config`）。
+2. **服务层（`src/services/`）**：`ClientService.create`（4 个 `Sequence[str]` 入参 + `_validate` 四元组返回）、`IdentityProviderService`（`create` / `update` / `test_draft` 的 `config`、`_validate` 归一化返回、`values` 局部量、`_row_config`）、`ProviderRegistry`（`spec_for_config` / `_parse_config` / `_resolve_redirect_uri`、`merged` 局部量）、`OidcProviderService`（`discovery` / `load_list` / `_code_payload` / `code_from_payload` / `seen` 局部量 / `params` 局部量）、`MdmCredentialClient`（`_post` / `_post_path` / `_payload` / login-state `body`）、`PasswordResetService`、`SessionService`（`list_sessions` / `enforce_max_active` / `revoke_user_sessions`）、`SsoService`（`list_providers` / `_flow_payload`）、`JitService`（`allowed_email_domains` → `ConcurrentStableSet`、`domains` 局部量、`_row_config`）。
 3. **API 与契约层**：`api/auth.py::_is_public` 的 `public_paths` 落集合类（调用点 `settings.gateway.public_paths` 本就是配置集合字段）、`api/clients.py::_load_list` 返回集合类；`schemas/oidc.py` **12 个**契约集合字段、`schemas/identity_provider.py` **4 个** `config` 字段（含 `| None` 联合形态）、`schemas/auth.py`（`trace` / `violations`）、`schemas/sso.py`（两个 `items`）一律改 `Annotated[集合类, CONTRACT_COLLECTION]` + `default_factory=CONTRACT_STABLE_*`。
 4. **调用方与边界适配**：IdP 行配置落库 `json.dumps(dict(payload))`、客户端多值列 `json.dumps(list(...))`、密码历史 `json.dumps(list(history))`；`jwt.encode(header, dict(claims), key)`；Discovery 出口 `JSONResponse(content=dict(document))`；`idp_state.save(state, payload)` 直接复用集合类（`BaseIdpStateStore.save/consume` 早已为集合类）；`ApiResponse[dict[str, object]]` 与 JWKS / 端点返回注解保留内置 + 行级标记。
 5. **测试侧（111 处 / 24 文件）**：替身与夹具的字段 / 签名（`_by_token` / `users` / `last_state` / `calls` / `specs` / `events` / `messages` / `seen` / `tickets` / `services` / `discovery_drop` / `allowed_services` / `login_states` / `oidc_document` 等）落集合类；`TENANT_HEADERS` 等测试头常量改集合类（httpx 按 `Mapping` 接受，`{**CONST, ...}` 展开仍为内置 dict）；OpenAPI / JWKS / Discovery 构造链（`_metadata` / `_key_pair` / `_compact` / `_handler` / `_params` / `_claims` / `_craft`）落集合类；mock 响应出口 `json=dict(...)`（嵌套集合类用 `normalize_collections` 深转换）；幂等替身沿用 `IDEMPOTENCY_PAYLOAD_TYPE` 别名。
@@ -1233,7 +1233,7 @@ flowchart LR
 | T1 | `identity` 测试（含替身 JSON 出口规整） | `bd259843` | 归零 |
 | T2 | `services/platform/tests` | `3f54705f` | 34 → 0 |
 | T3 | `libs/bms_core/tests` | `0530e22e` | 89 → 0 |
-| T4 | `services/{search,report,org,notification,file,ai}/tests` | `cd6ce4bd` | 24 → 0 |
+| T4 | `services/{search,report,mdm,notification,file,ai}/tests` | `cd6ce4bd` | 24 → 0 |
 
 **主要处置口径**：
 

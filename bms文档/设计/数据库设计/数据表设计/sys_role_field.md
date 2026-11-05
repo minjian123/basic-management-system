@@ -60,7 +60,7 @@
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
-| 2026-10-06 | v1 | 新建表结构（org 服务租户库；只存收窄项、带来源标记） | minjian |
+| 2026-10-06 | v1 | 新建表结构（mdm 服务租户库；只存收窄项、带来源标记） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 | 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/platform/role.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 | 2026-11-01 | v4 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |

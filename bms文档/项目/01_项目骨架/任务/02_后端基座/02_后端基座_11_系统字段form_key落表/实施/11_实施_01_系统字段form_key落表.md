@@ -69,7 +69,7 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                       
 
 ## 6. 偏差与遗留 <a id="open"></a>
 
-- **产品仓同步（本任务范围外）**：`mdm`（`org_dept` / `org_post` / `org_role_dept` / `org_role_post` / `org_user_dept` / `org_user_post` 表文件）、`biz` / `cw`（暂无表文件）按本口径对齐——**另立产品仓任务**（工作区模型下各仓独立提交），本任务仅 bms 仓。
+- **产品仓同步（本任务范围外）**：`mdm`（`mdm_dept` / `mdm_post` / `mdm_role_dept` / `mdm_role_post` / `mdm_user_dept` / `mdm_user_post` 表文件）、`biz` / `cw`（暂无表文件）按本口径对齐——**另立产品仓任务**（工作区模型下各仓独立提交），本任务仅 bms 仓。
 - **三库真库实测**：迁移在 SQLite（零漂移测试）与本地开发库实测通过；MySQL / PostgreSQL / 达梦 真库执行**待验**，随部署窗口回写方言特性文档。
 - **`form_key` 常量列语义**：DB 层 `(form_key, deleted_at)` 复合唯一对同表多行无实际约束力（`form_key` 为每表常量，联合取数判别列即其用途）；跨表全局唯一由 `FormRegistry` 承担（设计 §12 已登记）。
 - **`02_10` 待回填**：`FormRecord.data_source_key` 暂空，由任务 `02_10`（统一数据源注册）回填，供任务 `02_13` 解析 `form_key → data_source_key`。
@@ -101,7 +101,7 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                       
 
 ## 8. 协同补记（2026-10-22 · 产品 `form_key` 注入钩子） <a id="form-hook"></a>
 
-**由来**：mdm 任务 `01_02/_04`（组织主数据系统字段对齐，需求 mdm `01-5`）要把 `org_dept` / `org_post` 的 `form_key` 登记进构建期清单。`merge_form_records(injected=…)` 在库内已备，但**应用装配无注入入口**（`create()` 未构造清单视图、`GET /api/v1/form-keys` 直读常量），产品侧无处注入 → 按「产品自持清单 + 基座装配钩子」口径补全本任务能力（属 `02_11` 口径补全，不另立需求）。
+**由来**：mdm 任务 `01_02/_04`（主数据系统字段对齐，需求 mdm `01-5`）要把 `mdm_dept` / `mdm_post` 的 `form_key` 登记进构建期清单。`merge_form_records(injected=…)` 在库内已备，但**应用装配无注入入口**（`create()` 未构造清单视图、`GET /api/v1/form-keys` 直读常量），产品侧无处注入 → 按「产品自持清单 + 基座装配钩子」口径补全本任务能力（属 `02_11` 口径补全，不另立需求）。
 
 | 项 | 内容 |
 | --- | --- |

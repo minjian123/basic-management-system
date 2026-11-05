@@ -186,7 +186,7 @@ POST /api/v1/oidc/token
   └─ 200：{access_token, token_type:"Bearer", expires_in, id_token, scope}（本期不发 refresh_token）
 ```
 
-**userinfo**：`Authorization: Bearer <access_token>` → `verify_access_token`（`iss=issuer(租户)` / `aud=userinfo` / `typ=idp_access`）→ org 用户概要（`POST /api/v1/org/internal/users/profile`）→ `200` `{sub, preferred_username, name}`（`sys_user` 无 `email`，本期不返）；令牌非法 → `401`（`WWW-Authenticate: Bearer`），用户不存在 / 停用 → `401`（不泄露细节）。
+**userinfo**：`Authorization: Bearer <access_token>` → `verify_access_token`（`iss=issuer(租户)` / `aud=userinfo` / `typ=idp_access`）→ mdm 用户概要（`POST /api/v1/mdm/internal/users/profile`）→ `200` `{sub, preferred_username, name}`（`sys_user` 无 `email`，本期不返）；令牌非法 → `401`（`WWW-Authenticate: Bearer`），用户不存在 / 停用 → `401`（不泄露细节）。
 
 ### 3.5 `sys_client` 最小管理接口 <a id="clients"></a>
 
@@ -267,8 +267,8 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | token：PKCE `code_verifier` 不符 | `OidcInvalidGrantError`（`80103/400`） |
 | userinfo：缺 / 非法 access token | `401`（`WWW-Authenticate: Bearer error="invalid_token"`） |
 | userinfo：access token 租户与请求租户不符 | `401`（`iss` 不符，跨租户拒绝） |
-| userinfo：org 用户不存在 / 停用 | `401`（不泄露细节） |
-| userinfo：org 接口不可达 | `ServiceUnavailableError`（`10007/503`，fail-closed） |
+| userinfo：mdm 用户不存在 / 停用 | `401`（不泄露细节） |
+| userinfo：mdm 接口不可达 | `ServiceUnavailableError`（`10007/503`，fail-closed） |
 | 客户端管理：id 不存在 / 字段非法 / 冲突 | `80111/404`、`80112/400`、`80113/409`（平台统一响应） |
 | 达梦 / 三库方言 | 结构走迁移零漂移；`redirect_uris` 等用 `TEXT` 存 JSON 规避方言差异 |
 | 与 SSO 客户端链路（02_01~02_04） | 完全不受影响（两向能力分列，`aud` 隔离） |
@@ -280,7 +280,7 @@ login_url = ""                                 # /authorize 未登录跳转的�
 - **不改**：SSO 客户端链路（`bms_core/idp/` 与 identity `api/sso.py`）、既有 `/.well-known/jwks.json`（服务 + 用户令牌公钥合并）、用户令牌 / 服务令牌 / 统一校验契约、`oauth_server` 与 Client Credentials（阶段十）、`sys_identity_provider` 表与迁移链。
 - **迁移链影响**：`identity:tenant` 增 `0003_sys_client`（单 head，`down_revision=0002_sys_identity_provider`）；`test_alembic_chains` 断言同步（表集含 `sys_client`）。
 - **默认值变更（需回归）**：新增 `[oidc_provider].provider="jwt"`（各测试套 `conftest` 置空回落 Null，与 `user_token` / `idp_state_store` 同模式，仅 identity OIDC 用例显式开启）；`config.toml` 新增 `[oidc_provider]` 默认值。
-- **数据所有权**：identity 不 import org 模型；userinfo 经 org 公开契约（服务间调用）取用户概要；`sys_client` 平台库 / 租户库归属不变。
+- **数据所有权**：identity 不 import mdm 模型；userinfo 经 mdm 公开契约（服务间调用）取用户概要；`sys_client` 平台库 / 租户库归属不变。
 - **消费方前置契约标注**：阶段十（`sys_client` 管理页面 / Client Credentials / IP 白名单 / 调用审计复用本表与 `open:manage` 路径）、域五（前端登录页 `return_to` 落点）、用户管理阶段（`sys_user.email` 补齐后 ID Token / userinfo 补 `email`）。
 
 ## 5. 测试设计与验收映射 <a id="test"></a>
@@ -294,14 +294,14 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 3 | `services/identity/tests/oidc/test_discovery.py`（新） | Discovery `200` 字段齐全且 `issuer` 与端点前缀一致；jwks 返回公钥（与 `/.well-known/jwks.json` 的 `usr-` 公钥同源）；无租户 → 404 | Discovery / JWKS 可访问且合规 |
 | 4 | `services/identity/tests/oidc/test_authorize.py`（新） | 成功：登录态 → 授权码落库（payload / TTL）→ `302` 回 `redirect_uri`（含 `code` / `state`）；未登录跳 `login_url` / 未配 401；未知客户端 / 非法 `redirect_uri` → 400 标准错误（不回跳）；未注册 `redirect_uri` 拒；scope 非法回跳；公共客户端缺 PKCE 拒；停用客户端拒 | 授权跳转与安全分支 |
 | 5 | `services/identity/tests/oidc/test_token.py`（新） | 成功：换码 → ID Token 验签（`aud=client_id` / `nonce` / `sub`）+ access token 验签（`aud=userinfo`）；basic 与 post 两认证；授权码重放 / 过期 → invalid_grant；`redirect_uri` 不符 / PKCE 不符 → invalid_grant；未知客户端 / 错密钥 → invalid_client；`grant_type` 非授权码 → unsupported_grant_type；无 refresh_token | 授权码流程 E2E 与错误分支 |
-| 6 | `services/identity/tests/oidc/test_userinfo.py`（新） | Bearer access token → `{sub, preferred_username, name}`；缺 / 错 / 过期 / 跨租户令牌 → 401；用户不存在 / 停用 → 401；org 不可达 → 503 | userinfo 与失败语义 |
+| 6 | `services/identity/tests/oidc/test_userinfo.py`（新） | Bearer access token → `{sub, preferred_username, name}`；缺 / 错 / 过期 / 跨租户令牌 → 401；用户不存在 / 停用 → 401；mdm 不可达 → 503 | userinfo 与失败语义 |
 | 7 | `services/identity/tests/oidc/test_clients.py`（新） | 创建返回 `client_id` + 明文 secret 一次；重置后旧 secret 失效、新密钥可换码；列表 / 详情不含 secret 与哈希；启停后 authorize / token 拒绝；字段非法 → 80112；不存在 → 80111；权限依赖生效 | 注册 / 停用 / 重置可用且落库 |
 | 8 | `services/identity/tests/oidc/test_e2e.py`（新） | 单测内全链路：登录建会话 → authorize（Bearer）→ 换码 → userinfo；测试客户端种子可用 | 「BMS 作 IdP 通过」证据 |
 | 9 | `services/identity/tests/oidc/test_units.py`（新） | helper 分支：`issuer` 占位派生 / scope 校验 / redirect_uri 匹配 / PKCE S256 计算 / 授权码载荷编解码非法结构 | 覆盖率 100% |
 | 10 | `libs/bms_core/tests/alembic/test_alembic_chains.py`（扩展） | `identity:tenant` 单 head 新 revision；表集含 `sys_client`；`branch_labels` 正确 | 迁移链与零漂移 |
 | 11 | `services/platform/tests/crosscut/test_plugin_registration.py`（扩展） | `_EXPECTED_PLUGIN_KEYS` 与接线一致（`oidc_provider` 登记） | 装配一致性 |
 | 12 | 既有全量回归 + 门禁 | `pytest` / `ruff` / `pyright` / 契约快照 `check`（identity.json 重生成）/ `check_backend_base` / `check_service_boundaries` / `preflight --fast` 全绿 | 回归与门禁 |
-| 13 | mjbk 真实冒烟（人工留痕） | 开发环境 identity + org + Redis：`ops.seed_oidc_client.py` 播种 → 登录 → authorize → token → userinfo；Gateway 公开路径放行 | 端到端 |
+| 13 | mjbk 真实冒烟（人工留痕） | 开发环境 identity + mdm + Redis：`ops.seed_oidc_client.py` 播种 → 登录 → authorize → token → userinfo；Gateway 公开路径放行 | 端到端 |
 
 **验收映射**：需求 02-5 完成标准四句——「Discovery / JWKS 可访问且字段合规」落用例 2/3；「测试客户端授权码流程 E2E 通过（PKCE、授权码单次、scope 校验）」落用例 4/5/8；「`sys_client` 注册 / 停用 / 重置经最小接口可用且落库」落用例 7；「错误分支（非法 redirect_uri / 未知 client / 授权码重放）有用例」落用例 4/5。「`sys_client` 表文件 ↔ 登记 ↔ 迁移零漂移」落用例 10 + `preflight --fast` 基座校验。`pytest`、`pyright`、`ruff`、契约门禁与基座校验全绿为准出门禁；新增 / 变更模块（`oauth/oidc_provider`、`oauth/oidc_jwt`、`idp/state` 差异、identity `oidc` / `clients` 全套、`SysClient` / 仓储）覆盖率 100%。
 
@@ -329,7 +329,7 @@ login_url = ""                                 # /authorize 未登录跳转的�
 - **开放项（浏览器会话 cookie）**：本期 `/authorize` 依赖 `require_auth`（Bearer / 网关可信身份）；真实浏览器导航的 BMS 会话 cookie 联动（使前端登录后直接回跳即签发授权码）留域五评估——当前以 `login_url` + `return_to` 过渡。
 - **开放项（issuer 单基址 vs 租户子域）**：`[oidc_provider].issuer` 支持 `{tenant}` 占位；dev 用单基址 + `X-Tenant-ID`，生产按租户子域呈现（部署定稿）。
 - **开放项（授权码存储复用）**：授权码复用 `idp_state_store`（namespace 隔离）；若后续需持久审计，再评估独立表（本期不落库）。
-- **开放项（userinfo 每次回源 org）**：userinfo 每次经 org 内部接口取概要（无本地缓存）；高频调用优化留后续（可加缓存或以 ID Token claims 为主）。
+- **开放项（userinfo 每次回源 mdm）**：userinfo 每次经 mdm 内部接口取概要（无本地缓存）；高频调用优化留后续（可加缓存或以 ID Token claims 为主）。
 - **开放项（Client Credentials 共存）**：`sys_client.grant_types` 已含 `client_credentials` 值，本期 Provider 只实现 `authorization_code`，Client Credentials 由阶段十在 `oauth_server` 域落地。
 
 ## 8. 对齐记录 <a id="align"></a>

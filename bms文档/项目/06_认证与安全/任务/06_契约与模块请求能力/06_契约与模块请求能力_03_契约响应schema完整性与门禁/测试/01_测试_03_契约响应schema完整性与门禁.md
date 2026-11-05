@@ -54,7 +54,7 @@
 | 服务 | 修复前 | 修复后 |
 | --- | --- | --- |
 | identity | 40 / 56 | **0 / 56** |
-| org | 21 / 31 | **0 / 31** |
+| mdm | 21 / 31 | **0 / 31** |
 | platform | 3 / 22 | **0 / 22** |
 | ai / file / notification / report / search / tenant | 各 1（`ApiResponse`） | **各 0** |
 

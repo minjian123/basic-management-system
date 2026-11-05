@@ -30,7 +30,7 @@ Loki（日志）、Jaeger（链路）、MySQL 等**多种数据源**接进来，
 | Alerting | 内置告警引擎；本项目的告警主脑在 Alertmanager，Grafana 侧只做展示与跳转，避免双头告警 |
 | Provisioning | 数据源 / 看板 / 用户用 YAML 声明式管理，可随 Compose 一键初始化 |
 | 嵌入（Embed） | iframe 嵌入其他系统页面，需同源且目标站点放行 X-Frame-Options |
-| 组织与用户 | 多组织、角色（Admin / Editor / Viewer），按职责分配看板权限 |
+| 团队与用户 | 多组织、角色（Admin / Editor / Viewer），按职责分配看板权限 |
 | 插件 | 可视化与数据源均可插件扩展，官方市场丰富 |
 
 ## 3. 在本项目中的用途 <a id="usage"></a>

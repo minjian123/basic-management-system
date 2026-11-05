@@ -62,7 +62,7 @@ backend/
 │       │   ├── api/               #   迁：base / errors / middleware / health / deps（接口层基座）
 │       │   └── <横切能力域>/       #   迁：archive audit cache captcha chat circuit codecheck dashboard dict
 │       │                          #       events fallback fieldtype globalsearch health i18n icon idempotency
-│       │                          #       idp listing llm lock masking metrics notification notify oauth org
+│       │                          #       idp listing llm lock masking metrics notification notify oauth mdm
 │       │                          #       outbound password permission preference print query ratelimit replay
 │       │                          #       scope search session sharding storage tasks tenant tracing transfer
 │       │                          #       workflow ws
@@ -75,7 +75,7 @@ backend/
         │   ├── main.py            #   迁：应用工厂（ApplicationFactory + lifespan）
         │   ├── asgi.py            #   迁：ASGI 入口（uvicorn bms_platform.asgi:app）
         │   ├── api/               #   迁：业务路由 + router.py 聚合（captcha chat codecheck demo dict file icon
-        │   │                      #       modules notification org plugins preference print query_scheme search tenant）
+        │   │                      #       modules notification mdm plugins preference print query_scheme search tenant）
         │   ├── services/          #   迁：demo_service.py（服务五层示例）
         │   ├── repositories/      #   迁：demo_repository.py
         │   ├── models/            #   迁：system.py / ai.py / demo.py（平台业务与骨架表模型）
@@ -112,7 +112,7 @@ services/platform/pyproject.toml  包 bms-platform（依赖 bms-core + fastapi/u
 
 - **平台基础模型随库的原因**：`db/tenant_source.py` 需 `SysTenant`（租户解析底座）、`services/module_registry.py` 与迁移元数据需 `SysModule`；二者是平台级基础设施模型，暂随库承载，服务边界定案（02_03）时再评估所有权。
 - **骨架表模型（`system.py` / `ai.py`）随服务**：仅迁移元数据引用，未进任何迁移链表集，不产生反向依赖；随服务承载更贴合「业务模型归服务」。
-- **能力域及其实现随库**：`dict` / `listing` / `org` / `notification` / `print` / `icon` / `codecheck` / `globalsearch` / `chat` / `tenant` / `preference` 等横切基座的**契约与默认/真实实现、自带 schemas 与 models** 随库；其**对外接口路由**随服务（服务负责组装与暴露）。
+- **能力域及其实现随库**：`dict` / `listing` / `mdm` / `notification` / `print` / `icon` / `codecheck` / `globalsearch` / `chat` / `tenant` / `preference` 等横切基座的**契约与默认/真实实现、自带 schemas 与 models** 随库；其**对外接口路由**随服务（服务负责组装与暴露）。
 
 ### 4.3 import 映射与改写口径 <a id="import-map"></a>
 

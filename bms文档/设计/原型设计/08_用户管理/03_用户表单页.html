@@ -27,7 +27,7 @@
     <b>用户分配</b>内含三个子页签：<b>角色分配</b>（bms 内建，写 <code>sys_user_role</code>）·
     <b>岗位分配</b>（mdm 插件，含<b>主要岗位</b>标记）· <b>部门分配</b>（mdm 插件，含<b>主要部门</b>标记）；
     三者<b>改动均只进草稿</b>，由宿主工具栏「保存」一次统一提交（「取消」即放弃草稿、不留半成品）。
-    岗位 / 部门数据与契约整体归 mdm 组织域，<b>插件缺失即隐藏</b>（bms 单独运行、cw 工作区无 mdm 时只剩「角色分配」）。
+    岗位 / 部门数据与契约整体归 mdm 主数据域，<b>插件缺失即隐藏</b>（bms 单独运行、cw 工作区无 mdm 时只剩「角色分配」）。
     账号<b>停用</b>时分配只读（仅启用账号可持有角色 / 岗位 / 部门分配）；<b>新增</b>用户创建后方可分配。
     用户＝系统账号：<b>不含部门 / 岗位 / 语言时区字段</b>（语言与时区归个人中心）；「系统信息」内含 <b>SSO 身份绑定</b>只读区块。
   </div>
@@ -141,7 +141,7 @@
               </div>
             </el-tab-pane>
 
-            <!-- 岗位分配 / 部门分配：由 mdm 组织域插件插入（未注册即隐藏） -->
+            <!-- 岗位分配 / 部门分配：由 mdm 主数据域插件插入（未注册即隐藏） -->
             <el-tab-pane v-if="mdmPluginLoaded" label="岗位分配" name="post">
               <div class="op-row">
                 <el-button size="small" @click="openPostPicker">选择岗位</el-button>
@@ -159,7 +159,7 @@
                 <template #empty><span class="proto-hint">暂未分配岗位</span></template>
               </el-table>
               <div class="proto-hint" style="margin-top:8px">
-                一个用户可有多个岗位，其中<b>至多一个主要岗位</b>（用户所属岗位以主要岗位为准）；数据与契约整体归 mdm 组织域。
+                一个用户可有多个岗位，其中<b>至多一个主要岗位</b>（用户所属岗位以主要岗位为准）；数据与契约整体归 mdm 主数据域。
                 取消分配经「选择岗位」弹窗取消勾选（全量覆盖语义），列表不设「操作」列。
               </div>
             </el-tab-pane>
@@ -179,7 +179,7 @@
                 <template #empty><span class="proto-hint">暂未分配部门</span></template>
               </el-table>
               <div class="proto-hint" style="margin-top:8px">
-                一个用户可有多个部门，其中<b>至多一个主要部门</b>（用户所属部门以主要部门为准）；数据与契约整体归 mdm 组织域。
+                一个用户可有多个部门，其中<b>至多一个主要部门</b>（用户所属部门以主要部门为准）；数据与契约整体归 mdm 主数据域。
                 取消分配经「选择部门」弹窗取消勾选（全量覆盖语义），列表不设「操作」列。
               </div>
             </el-tab-pane>

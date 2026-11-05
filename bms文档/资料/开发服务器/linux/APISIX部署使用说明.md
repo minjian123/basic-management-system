@@ -71,7 +71,7 @@ nginx_config:
 | 生成 | 清单模式：`cd backend && uv run python -m ops.gateway_config render`（写出 `deploy/gateway/apisix.yaml`，CI 零依赖）；注册表模式：`render --from-registry`（`--url` 可省——按配置解析平台库，与 `ops.check_modules` 同口径；需覆盖时加 `--url <平台库连接串>`） |
 | 校验 | `uv run python -m ops.gateway_config check`（零漂移；CI `base-integrity` 与本地预检同跑）；注册表模式同一命令加 `--from-registry` |
 | 部署态对账（07B `02_06`） | 部署机：`python3 scripts/tools/deploy/release.py --deploy-dir deploy gateway`——在 platform 镜像内以 `--from-registry` 重渲，与仓库 `deploy/gateway/apisix.yaml` 逐字比对（宿主 `deploy/` 只读挂到容器 `/opt/registry-check/deploy`，不在宿主传库凭据）；`release.py deploy` 已把它作为**前置步骤**（不一致即中止部署） |
-| 参与服务 | 仅启用且带服务标识的服务（当前 9 个：platform / identity / tenant / org / file / notification / search / ai / report） |
+| 参与服务 | 仅启用且带服务标识的服务（当前 9 个：platform / identity / tenant / mdm / file / notification / search / ai / report） |
 | 外部路径 | `/api/{service_key}/v1/...`，网关 `proxy-rewrite` 剥离为服务内 `/api/v1/...` |
 | 认证 / 限流钩子 | 限流（`limit-count`）由生成器直接产出；**认证（`forward-auth`）07_03 接入**（见下） |
 | 网关认证接线（07_03） | 每条服务路由与登录路由挂 `forward-auth`，转调认证服务内部端点 `http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect`：认证服务按 `aud=api` 全校验用户 JWT（**校验源：identity 自签 JWKS，01_02 起；不再依赖外部 IdP JWKS**）、判公开路径（登录 / 刷新 / 验证码），通过后返回契约身份头（`X-User-Subject` / `X-Tenant-Id` / `X-User-Scopes`）并**换发短时网关服务 JWT**（`aud=service`）；网关 `upstream_headers` 注入身份头并覆盖上游 `Authorization`（外部 access token 不透传），`status_on_error: 503` fail-closed。`GATEWAY_AUTH_HOST` 经 `deploy/.env` 注入（Compose DNS 默认 `identity`）。插件执行次序：`edge-sanitize`（剥伪造头）→ `proxy-rewrite`（置标记）→ `forward-auth`（priority 2002，注入身份 / 覆盖 Authorization）→ `limit-count`（priority 1002，按身份维度计数） |

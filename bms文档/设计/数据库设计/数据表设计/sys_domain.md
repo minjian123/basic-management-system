@@ -18,7 +18,7 @@
 
 - **语义**：一行 = 某产品声明的**一个业务域**及其承载服务（第九类记录）；域布局的权威落点。
 - **写入归属**：写方 = platform 服务（注册通道）。读方 = 能力寻址第二段（`domain_service_view()` 按注册表快照重建）、装载校验（`[[domains]]` 的承载服务一致性）。
-- **为什么落库**：域布局原先是各仓 `deploy/boundaries/domain_layout.json` **文件**，平台注册通道拿不到产品仓的文件，产品声明的业务域在平台侧无登记（实测 `mdm` 8 条 `org` 域能力被拒）。改为声明后域信息随注册通道到达平台，跨进程与 CI 单仓环境都成立；`domain_layout.json` 降为**本仓清单渲染的生成物**（`ops.check_modules --render-domain-layout`）。
+- **为什么落库**：域布局原先是各仓 `deploy/boundaries/domain_layout.json` **文件**，平台注册通道拿不到产品仓的文件，产品声明的业务域在平台侧无登记（实测 `mdm` 8 条 `mdm` 域能力被拒）。改为声明后域信息随注册通道到达平台，跨进程与 CI 单仓环境都成立；`domain_layout.json` 降为**本仓清单渲染的生成物**（`ops.check_modules --render-domain-layout`）。
 
 ## 2. 字段 <a id="fields"></a>
 

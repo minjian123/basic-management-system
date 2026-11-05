@@ -8,11 +8,11 @@
 
 | 项 | 值 |
 | --- | --- |
-| 归属库 | platform 服务租户库 `bms_platform_{code}`（归属部署单元 `platform`，与 `sys_user` 同库）；**02_05 由 org 服务租户库迁入** |
+| 归属库 | platform 服务租户库 `bms_platform_{code}`（归属部署单元 `platform`，与 `sys_user` 同库）；**02_05 由 mdm 服务租户库迁入** |
 | 覆盖模块 | 03-用户管理（账号锁定 / 解锁记录；锁定类型与用户状态一致） |
 | 上游依据 | [需求 03-7](../../../项目/06_认证与安全/需求/03_需求_验证码与账号治理.md#r03-7)、《[概要设计 · 用户管理](../../概要设计/03_概要设计_用户管理.md)》「核心表」节、《[概要设计 · 会话管理](../../概要设计/14_概要设计_会话管理.md)》、《[架构设计 · 认证与会话](../../架构设计/14_架构设计_子系统_认证与会话.md)》§5、[需求 07-10](../../../项目/07_RBAC基础模块/需求/02_需求_用户与角色.md#r07-10) |
 | ORM 模型 | `bms_core/models/platform/user.py::SysAccountLock`（继承 `BaseModel`；基座共享模型，14_01 下沉；登记于 `bms_core/models/platform::MODEL_MODULES`） |
-| 状态 | 已落库（`platform:tenant` 链迁移 `0008_user_tables`，2026-10-07；原 `org:tenant` 链 `0002_password_policy_and_account_lock`（建表）/ `0004_sys_account_lock_expire`（补列）保留为历史，`0006_drop_user_tables` 删表） |
+| 状态 | 已落库（`platform:tenant` 链迁移 `0008_user_tables`，2026-10-07；原 `mdm:tenant` 链 `0002_password_policy_and_account_lock`（建表）/ `0004_sys_account_lock_expire`（补列）保留为历史，`0006_drop_user_tables` 删表） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[概要 03-用户管理](../../概要设计/03_概要设计_用户管理.md) |
 
 ## 2. 字段 <a id="fields"></a>
@@ -62,9 +62,9 @@
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
-| 2026-09-27 | v1 | 新建表结构（org 服务租户库；随 `03_05` 落 `org:tenant` 链迁移 `0002_password_policy_and_account_lock`） | minjian |
-| 2026-09-28 | v2 | 补 `expire_at`（锁定期限）/ `unlock_mode`（解锁方式）两列，随 `03_07` 落 `org:tenant` 链迁移 `0004_sys_account_lock_expire` | minjian |
-| 2026-10-07 | v3 | **归属库迁移**：org 服务租户库 → **platform 服务租户库**（随 02_05 落 `platform:tenant` 链 `0008_user_tables`；字段 / 索引 / 约束不变） | minjian |
+| 2026-09-27 | v1 | 新建表结构（mdm 服务租户库；随 `03_05` 落 `mdm:tenant` 链迁移 `0002_password_policy_and_account_lock`） | minjian |
+| 2026-09-28 | v2 | 补 `expire_at`（锁定期限）/ `unlock_mode`（解锁方式）两列，随 `03_07` 落 `mdm:tenant` 链迁移 `0004_sys_account_lock_expire` | minjian |
+| 2026-10-07 | v3 | **归属库迁移**：mdm 服务租户库 → **platform 服务租户库**（随 02_05 落 `platform:tenant` 链 `0008_user_tables`；字段 / 索引 / 约束不变） | minjian |
 | 2026-10-11 | v4 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 | 2026-10-22 | v5 | ORM 模型落点迁基座共享 `bms_core/models/platform/user.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 | 2026-11-01 | v6 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |

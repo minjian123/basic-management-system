@@ -22,7 +22,7 @@
 
 | # | 实测项 | 结论 |
 | --- | --- | --- |
-| 1 | `components.schemas` 空对象条目（9 服务） | **大量存在**：identity 56 个中 40 个为空、org 31 个中 21 个为空、platform 22 个中 3 个为空，其余服务各 1 个（`ApiResponse`） |
+| 1 | `components.schemas` 空对象条目（9 服务） | **大量存在**：identity 56 个中 40 个为空、mdm 31 个中 21 个为空、platform 22 个中 3 个为空，其余服务各 1 个（`ApiResponse`） |
 | 2 | 具体空条目 | `ApiResponse`、`ApiResponse_LoginResult_` / `ApiResponse_RefreshResult_` 等全部响应包装、`LoginResult`、`RefreshResult`、`UserSummary`、`ConfigResolveResponse`、`LoginStateResult` …… |
 | 3 | 请求体 schema | **完整**（`LoginRequest` 具 `account` / `password` / `tenant` / `captcha`） |
 | 4 | 根因定位（本机实测） | `LoginResult.model_json_schema(mode="validation")` **具完整 properties**；`mode="serialization"` 为 **`{}`**。`BaseSchema._serialize_ids` 为 `@model_serializer(mode="wrap")`，生成的核心 serialization schema 为 `{'type': 'function-wrap', 'return_schema': {'type': 'any'}}` —— 序列化模式 JSON Schema 取 `return_schema`，`any` 即塌陷为空对象 |

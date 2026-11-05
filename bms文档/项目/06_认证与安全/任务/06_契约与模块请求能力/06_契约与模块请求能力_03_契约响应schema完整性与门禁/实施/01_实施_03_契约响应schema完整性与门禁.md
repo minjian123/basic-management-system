@@ -25,7 +25,7 @@
 5. **契约完整性纯判定**：`services/service_contract.py` 新增 `EMPTY_SCHEMA_ALLOWLIST`（缺省空集）、`empty_schema_entries(openapi)`（断言 C：`components.schemas` 无空对象条目）、`response_schema_gaps(openapi)`（断言 D：成功响应**引用型** schema 可解析且引用目标非空）；辅助 `_as_mapping` / `_component_schemas` / `_is_success_status` / `_json_schema_gap` 以鸭子类型读取、全部落插入序基座集合类。
 6. **命令接入**：`ops/check_contracts.py` 抽出 `_contract_openapi(app)` 复用一次 `openapi()` 调用，`_contract_paths` 改接契约映射；`check_service` 追加 C / D 两组断言（前缀 `[契约]`）；命令说明与成功/失败文案同步更新。**CI `swagger-snapshot` 与本地预检复用既有接入点，零配置改动**。
 7. **快照与基线重生成**：`ops.contract_snapshot export`（9 服务）+ `ops.contract_gate baseline-update --all`（9 服务）。
-   - **变更性质核验**：本机无 docker（无法跑 oasdiff）→ 以严格结构差异核验替代：基线 ↔ 新快照**逐服务零移除键、零值变更**（`ai` 249→260、`file` 198→209、`identity` 1028→1567、`notification` 175→186、`org` 146→835、`platform` 1359→1435、`report` 211→222、`search` 126→137、`tenant` 138→149，全部仅新增），属**非破坏性**。
+   - **变更性质核验**：本机无 docker（无法跑 oasdiff）→ 以严格结构差异核验替代：基线 ↔ 新快照**逐服务零移除键、零值变更**（`ai` 249→260、`file` 198→209、`identity` 1028→1567、`notification` 175→186、`mdm` 146→835、`platform` 1359→1435、`report` 211→222、`search` 126→137、`tenant` 138→149，全部仅新增），属**非破坏性**。
    - **基线现存漂移一并吸收**：8 个服务基线此前停留在较早评审节点（如 `tenant.json` 缺后续新增的 `tenant_id` 查询参数）——本次随同一口径一并重生成，消除漂移；`identity` 基线为 `06_01` 更新点，本次再随响应 schema 更新。
 8. **前端类型重生成**：`pnpm --filter @bms/api_types run gen` → `login:LoginResult` 具 `access_token` / `token_type` / `expires_in` / `user`（`UserSummary` 具 `id`（string）/ `username` / `name` / `tenant` / `locale` / `timezone` / `must_change_password`），`ApiResponse_LoginResult_` 等包装类型不再为 `unknown`；`gen:check` 零漂移。
 9. **规范与清单登记**：《后端开发规范》§7.4 由「契约门禁三道」扩为**四道**并补「响应契约不得丢字段」强制口径；《后端基类清单》扩展 `BaseSchema` 行与新增「契约响应 schema 完整性护栏」行。
@@ -71,7 +71,7 @@ python3 scripts/tools/preflight/check_preflight.py --fast
 | 契约校验（四道同命令） | `uv run python -m ops.check_contracts` | 通过（9 服务：路由全覆盖、不可见均在白名单、**无空 schema、引用型响应 schema 均可解析**） |
 | 快照零漂移 | `uv run python -m ops.contract_snapshot check` | 通过（9 服务） |
 | 前端类型零漂移 | `pnpm run api_types:gen:check` | 通过（9 份一致） |
-| 空 schema 残留 | 逐服务统计 `components.schemas` 空条目 | **全 9 服务为 0**（修复前 identity 40 / org 21 / platform 3 / 其余各 1） |
+| 空 schema 残留 | 逐服务统计 `components.schemas` 空条目 | **全 9 服务为 0**（修复前 identity 40 / mdm 21 / platform 3 / 其余各 1） |
 | `-Input` / `-Output` 变体 | 快照全文匹配 | **0**（无两侧同用模型，命名稳定性不受影响） |
 | Lint / 格式 | `uv run ruff check .` / `uv run ruff format --check .` | 全绿 |
 | 基座护栏 | `check_base` / `check_links` / `check_backend_base` / `check_docs_scope` / `check_bare_collections` / `check_status --strict` | 全绿 |

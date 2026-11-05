@@ -15,7 +15,7 @@
 | Kiwi 用例 | **2202**（策展用例，先登记后编码；平台回读确认，2026-09-27） |
 | 测试日期 | 2026-09-27 |
 | 测试人 | minjian |
-| 测试环境 | 本地开发机（Python 3.14.4 / uv；ASGI 内存客户端；SQLite 租户库 / 平台库 + joserfc 真实签验；org 用户概要替身） |
+| 测试环境 | 本地开发机（Python 3.14.4 / uv；ASGI 内存客户端；SQLite 租户库 / 平台库 + joserfc 真实签验；mdm 用户概要替身） |
 | 结论 | 通过（自动化用例全绿；新增 / 变更代码覆盖率 100%；契约 / 基座 / 预检全绿） |
 
 ## 2. 测试范围与用例 <a id="cases"></a>
@@ -29,7 +29,7 @@
 | 3 | `services/identity/tests/oidc/test_discovery.py`（新） | Discovery `200` 字段齐全且 issuer 与端点前缀一致；`tenant` 参数回落分支；jwks 发布 `usr-` 公钥；无租户头回落演示租户（**2202**） |
 | 4 | `services/identity/tests/oidc/test_authorize.py`（新） | 成功：授权码落 `oidccode` 命名空间（payload / 租户 / nonce）→ 302 含 code / state；未登录 401（未配登录页）/ 302 跳登录页（配 `login_url` + `return_to`）；未知客户端 / 未注册 `redirect_uri` / 停用客户端 / 缺参数 / 租户不一致 → 400 标准错误（不回跳）；scope 非法 / `response_type` 非 code / 未授权授权码 / PKCE 方法非 S256 / 公共客户端缺 PKCE → 302 回跳带 `error`（**2202**） |
 | 5 | `services/identity/tests/oidc/test_token.py`（新） | basic 与 post 两认证；换码签发 ID Token（`aud=client_id` / `nonce` / `sub`）与 access token；授权码重放 / 缺参 / 用户不存在 / `redirect_uri` 不符 / PKCE 不符 → `invalid_grant`；未知客户端 / 错密钥 / 公共客户端携带密钥 → `invalid_client`；非授权码 `grant_type` → `unsupported_grant_type`；无 `refresh_token`（**2202**） |
-| 6 | `services/identity/tests/oidc/test_userinfo.py`（新） | Bearer access token → `{sub, preferred_username, name}`；缺 / 非法令牌 401；跨租户令牌 401；用户不存在 / 停用 401；org 不可达 503（**2202**） |
+| 6 | `services/identity/tests/oidc/test_userinfo.py`（新） | Bearer access token → `{sub, preferred_username, name}`；缺 / 非法令牌 401；跨租户令牌 401；用户不存在 / 停用 401；mdm 不可达 503（**2202**） |
 | 7 | `services/identity/tests/oidc/test_clients.py`（新） | 创建返回 `client_id` + 明文 secret 一次并可用于完整换码；列表 / 详情不含 secret；`status` / `name` 筛选；启停后授权拒绝；重置密钥旧失效新可用；公共客户端 secret 为空、重置被拒（80112）；非法授权类型 / 回调 / scope（80112）；不存在（80111）（**2202**） |
 | 8 | `services/identity/tests/oidc/test_e2e.py`（新） | 端到端：授权 → 换码 → userinfo；issuer 占位派生与非法模板回落；`_resolve` 四分支；API helper 分支（租户缺失 / JSON 非法 / Basic 头非法 / 表单缺值 / Bearer 解析）（**2202**） |
 | 9 | 迁移与装配 | `libs/bms_core/tests/alembic/test_alembic_chains.py`、`libs/bms_core/tests/services/test_table_registry.py`（`sys_client` 进链）、`services/platform/tests/crosscut/test_plugin_registration.py`（`oidc_provider` 登记） |

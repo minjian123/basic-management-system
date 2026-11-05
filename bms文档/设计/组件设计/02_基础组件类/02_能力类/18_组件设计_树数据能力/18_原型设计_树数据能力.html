@@ -103,10 +103,10 @@ checkedKeys（含半选）: {{ checkedKeys }}　半选: {{ halfKeys.length ? hal
         return '';
       }
       function markText(key) { return mark(key) === 'ck' ? '☑' : (mark(key) === 'half' ? '◪' : '☐'); }
-      function load() { logs.value.push('[' + stamp() + '] 加载根节点 → 请求组织树接口（归一：键 / 文本 / 子级）'); }
+      function load() { logs.value.push('[' + stamp() + '] 加载根节点 → 请求部门树接口（归一：键 / 文本 / 子级）'); }
       function expandOps() {
         if (opsLoaded.value) { logs.value.push('[' + stamp() + '] expand(运维部) → loaded 标记命中缓存（0 请求）'); return; }
-        logs.value.push('[' + stamp() + '] expand(运维部) → loadChildren(node) → GET /api/org/children?pid=ops');
+        logs.value.push('[' + stamp() + '] expand(运维部) → loadChildren(node) → GET /api/mdm/children?pid=ops');
         setTimeout(function () {
           opsLoaded.value = true;
           opsChildren.value = [{ key: 'ops-sre', label: 'SRE 组' }, { key: 'ops-db', label: 'DBA 组' }];
