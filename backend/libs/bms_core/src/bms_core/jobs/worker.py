@@ -26,6 +26,7 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, SessionFactory, session_scope
 from bms_core.jobs import store
 from bms_core.jobs.events import enqueue_job_event, started_envelope
+from bms_core.jobs.heartbeat import write_heartbeat
 from bms_core.jobs.limits import JobLimits
 from bms_core.jobs.registry import JobHandlerRegistry
 from bms_core.jobs.runner import JobExecutor
@@ -80,6 +81,7 @@ class JobWorker(BaseFrameworkObject):
         worker_id: str | None = None,
         clock: Callable[[], Any] | None = None,
         sleep: Callable[[float], Awaitable[None]] | None = None,
+        heartbeat_path: str | None = None,
     ) -> None:
         """初始化。
 
@@ -97,6 +99,7 @@ class JobWorker(BaseFrameworkObject):
             worker_id: 执行者实例标识（缺省 `{service}-{hostname}-{pid}`）。
             clock: 时钟（测试注入）。
             sleep: 睡眠（测试注入）。
+            heartbeat_path: 心跳文件路径（每轮 `tick()` 前刷新；None 表示不写心跳）。
         """
         self._service_key = service_key
         self._registry = registry
@@ -111,6 +114,7 @@ class JobWorker(BaseFrameworkObject):
         self._worker_id = worker_id or f"{service_key}-{socket.gethostname()}-{os.getpid()}"
         self._clock = clock if clock is not None else now_utc
         self._sleep = sleep if sleep is not None else asyncio.sleep
+        self._heartbeat_path = heartbeat_path
         self._stopping = asyncio.Event()
         self._global_semaphore = asyncio.Semaphore(limits.global_concurrency)
         self._tenant_semaphores: ConcurrentStableDict[str, asyncio.Semaphore] = ConcurrentStableDict()
@@ -128,6 +132,15 @@ class JobWorker(BaseFrameworkObject):
             str: worker 标识。
         """
         return self._worker_id
+
+    def _beat(self) -> None:
+        """刷新心跳文件（失败只告警，不阻断作业处理）。"""
+        if self._heartbeat_path is None:
+            return
+        try:
+            write_heartbeat(self._heartbeat_path)
+        except OSError as exc:
+            _LOGGER.warning("作业 worker 心跳写入失败", path=self._heartbeat_path, error=str(exc))
 
     @property
     def stopping(self) -> bool:
@@ -188,6 +201,7 @@ class JobWorker(BaseFrameworkObject):
         Returns:
             JobTickReport: 本轮汇总。
         """
+        self._beat()
         if self._stopping.is_set():
             return JobTickReport()
         keys = await self._db_keys()

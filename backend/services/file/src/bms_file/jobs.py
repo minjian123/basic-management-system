@@ -118,6 +118,7 @@ def build_worker(settings: Settings | None = None) -> tuple[JobWorker, EngineReg
         session_factory=SessionFactory(),
         signal=JobChangeSignal(channel=resolved.jobs.change_channel),
         worker_id=resolved.jobs.worker_id or None,
+        heartbeat_path=resolved.jobs.heartbeat_path,
     )
     return worker, engine_registry
 

@@ -1460,6 +1460,36 @@ class JobSettings(BaseSettings):
     change_channel: str = "bms:global:job:changed"
     """唤醒信号信道（仅唤醒，不承担正确性）。"""
 
+    heartbeat_path: str = "/tmp/bms-jobs-heartbeat"
+    """容器本地心跳文件：作业 worker 每轮 `tick()` 前刷新，健康检查读 `mtime`。
+
+    缺省值与 `bms_core.jobs.heartbeat.DEFAULT_HEARTBEAT_PATH` 一致（不在本模块导入
+    `jobs` 包，避免 `config ↔ jobs` 导入环；一致性由用例护栏）。
+    """
+
+    heartbeat_timeout_seconds: float = Field(default=30.0, gt=0)
+    """心跳超时（秒）：`mtime` 超过该值判定 unhealthy。
+
+    须显著大于 `poll_interval_seconds`（建议 ≥ 3 倍），否则正常轮询也会被判超时。
+    """
+
+    @model_validator(mode="after")
+    def _validate_job_heartbeat(self) -> JobSettings:
+        """校验心跳超时大于轮询间隔。
+
+        Returns:
+            JobSettings: 自身。
+
+        Raises:
+            ValueError: `heartbeat_timeout_seconds` 不大于 `poll_interval_seconds`。
+        """
+        if self.heartbeat_timeout_seconds <= self.poll_interval_seconds:
+            raise ValueError(
+                f"jobs.heartbeat_timeout_seconds（{self.heartbeat_timeout_seconds}）"
+                f"必须大于 poll_interval_seconds（{self.poll_interval_seconds}）"
+            )
+        return self
+
 
 class RegistrySettings(BaseSettings):
     """登记清单配置（`[registry]`）。

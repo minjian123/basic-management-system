@@ -36,12 +36,19 @@ def test_every_service_has_unique_worker_id() -> None:
 
 
 def test_job_workers_use_service_entrypoints() -> None:
-    """平台 / 文件服务的作业 worker 容器以 `python -m bms_<service>.jobs` 启动且不暴露端口。"""
+    """作业 worker 容器以 `python -m bms_<service>.jobs` 启动、不暴露端口，健康检查走心跳模块。"""
     services = _services()
-    expected = {"platform-jobs": "bms_platform.jobs", "file-jobs": "bms_file.jobs"}
+    expected = {
+        "platform-jobs": "bms_platform.jobs",
+        "file-jobs": "bms_file.jobs",
+        "report-jobs": "bms_report.jobs",
+    }
     for name, module in expected.items():
         service = services[name]
         command = service.get("command")
         assert command == ["python", "-m", module]
         assert service.get("expose") == []
         assert service.get("container_name") == f"bms-{name}"
+        healthcheck = cast("dict[str, object]", service.get("healthcheck") or {})
+        # worker 不起 HTTP 端口：健康检查用容器本地心跳文件，不能沿用镜像的 /healthz
+        assert healthcheck.get("test") == ["CMD", "python", "-m", "bms_core.jobs.heartbeat", "--check"]

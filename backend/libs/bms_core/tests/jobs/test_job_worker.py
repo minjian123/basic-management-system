@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import select
@@ -42,13 +43,20 @@ async def _keys() -> ConcurrentStableList[str]:
     return ConcurrentStableList(["platform"])
 
 
-def _worker(registry: EngineRegistry, handler: _Counting, *, worker_id: str = "w1") -> JobWorker:
+def _worker(
+    registry: EngineRegistry,
+    handler: _Counting,
+    *,
+    worker_id: str = "w1",
+    heartbeat_path: str | None = None,
+) -> JobWorker:
     """构造单 handler worker。
 
     Args:
         registry: 引擎注册表。
         handler: 计数 handler。
         worker_id: 执行者标识。
+        heartbeat_path: 心跳文件路径（None 表示不写心跳）。
 
     Returns:
         JobWorker: worker。
@@ -66,6 +74,7 @@ def _worker(registry: EngineRegistry, handler: _Counting, *, worker_id: str = "w
         engine_registry=registry,
         db_keys=_keys,
         worker_id=worker_id,
+        heartbeat_path=heartbeat_path,
     )
 
 
@@ -160,3 +169,20 @@ async def test_worker_rejects_missing_handler(registry: EngineRegistry) -> None:
             engine_registry=registry,
             db_keys=_keys,
         )
+
+
+async def test_tick_refreshes_heartbeat(registry: EngineRegistry, tmp_path: Path) -> None:
+    """每轮 tick() 前刷新心跳文件（容器健康检查据此判活）。"""
+    target = tmp_path / "beat"
+    worker = _worker(registry, _Counting(), heartbeat_path=str(target))
+    await worker.tick()
+    assert target.is_file()
+
+
+async def test_tick_survives_heartbeat_write_failure(registry: EngineRegistry, tmp_path: Path) -> None:
+    """心跳写入失败只告警：tick 仍正常返回（不因健康文件拖垮作业处理）。"""
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not-a-dir", encoding="utf-8")
+    worker = _worker(registry, _Counting(), heartbeat_path=str(blocker / "beat"))
+    report = await worker.tick()
+    assert report.claimed == 0
