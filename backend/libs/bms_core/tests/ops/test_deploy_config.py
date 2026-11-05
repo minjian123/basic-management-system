@@ -10,6 +10,7 @@
 """
 
 import importlib.util
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -34,6 +35,8 @@ _DOCKERIGNORE = BACKEND_ROOT / ".dockerignore"
 _spec = importlib.util.spec_from_file_location("release_cli", _RELEASE_CLI)
 assert _spec is not None and _spec.loader is not None
 release_cli = importlib.util.module_from_spec(_spec)
+# Py3.14 dataclasses 解析字符串注解时经 `sys.modules[cls.__module__]` 取模块；按路径加载须先登记
+sys.modules[_spec.name] = release_cli
 _spec.loader.exec_module(release_cli)
 
 
