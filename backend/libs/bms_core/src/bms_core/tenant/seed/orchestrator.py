@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Protocol, cast
 
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenDict,
@@ -75,6 +77,26 @@ EXIT_USAGE = 64
 
 DEFAULT_TIMEOUT_SECONDS = 300.0
 """全局事务超时（秒）：防长锁窗口挂死。"""
+
+
+class SeedEngineProvider(Protocol):
+    """只读预检所需的引擎提供者契约（生产为 `EngineRegistry`）。
+
+    只声明 `get`（异步引擎）：同步引擎（`get_sync`）在生产异步驱动上须换驱动并绕线程池，
+    既多开销又曾是 `MissingGreenlet` 的来源，故预检只用异步路径。
+    """
+
+    async def get(self, db_key: str, *, read_only: bool = False) -> AsyncEngine:
+        """取异步引擎。
+
+        Args:
+            db_key: 数据源键。
+            read_only: 是否只读。
+
+        Returns:
+            AsyncEngine: 异步引擎。
+        """
+        ...
 
 
 class SeedBranchRunner(Protocol):
@@ -475,46 +497,49 @@ def _compare_row(existing: object, expected: ExpectedRow) -> ConcurrentStableLis
 async def precheck_conflicts(
     plan: ConcurrentStableList[SeedPlanItem],
     *,
-    engines: object,
+    engines: SeedEngineProvider,
 ) -> ConcurrentStableList[str]:
     """事务**外**的数据冲突预检（详设 §3.5）：按 `tables` 声明只读比对目标表。
 
     **为什么在事务外**：快速失败、一次看全、不浪费 XA 开销。**为什么在结构前置之后**：
     表须先就绪才能查（故调用点在 `ensure_structure` 之后、`TM.begin()` 之前）。
 
+    **为什么走异步引擎**：本函数运行在异步请求路径内。同步引擎（`get_sync`）在 MySQL 上须
+    额外换驱动 + 线程池，既多一层开销又曾因异步方言误用触发 `MissingGreenlet`
+    （07C `11_02` 部署复现）。只读比对用异步引擎即可，与事务内的执行路径同源。
+
     Args:
         plan: 编排计划（已展开库键）。
-        engines: 同步引擎提供者（具备 `get_sync(db_key)`；生产为 `EngineRegistry`）。
+        engines: 异步引擎提供者（具备 `get(db_key, read_only=...)`；生产为 `EngineRegistry`）。
 
     Returns:
         ConcurrentStableList[str]: 冲突明细（空表示无冲突）。
     """
-    import asyncio
-
     conflicts: ConcurrentStableList[str] = ConcurrentStableList()
     for item in plan:
         rows = expected_rows_of(item.record)
         if not rows:
             continue
-        engine = await engines.get_sync(item.db_key)  # type: ignore[attr-defined]
-        for expected in rows:
-            found = await asyncio.to_thread(_fetch_row, engine, expected)
-            if found is None:
-                continue
-            diffs = _compare_row(found, expected)
-            if diffs:
-                key_text = "、".join(f"{column}={value!r}" for column, value in expected.key.items())
-                conflicts.add(
-                    f"种子 {item.record.name}：{expected.table}（{key_text}）与声明不一致 → {'；'.join(diffs)}"
-                )
+        engine = await engines.get(item.db_key, read_only=True)
+        async with engine.connect() as connection:
+            for expected in rows:
+                found = await _fetch_row(connection, expected)
+                if found is None:
+                    continue
+                diffs = _compare_row(found, expected)
+                if diffs:
+                    key_text = "、".join(f"{column}={value!r}" for column, value in expected.key.items())
+                    conflicts.add(
+                        f"种子 {item.record.name}：{expected.table}（{key_text}）与声明不一致 → {'；'.join(diffs)}"
+                    )
     return conflicts
 
 
-def _fetch_row(engine: Any, expected: ExpectedRow) -> Any:
-    """按期望行的自然键查目标表（同步；供 `asyncio.to_thread` 调用）。
+async def _fetch_row(connection: AsyncConnection, expected: ExpectedRow) -> Any:
+    """按期望行的自然键查目标表（异步连接；供只读预检调用）。
 
     Args:
-        engine: 同步引擎。
+        connection: 异步连接（`AsyncConnection`）。
         expected: 期望行。
 
     Returns:
@@ -529,8 +554,8 @@ def _fetch_row(engine: Any, expected: ExpectedRow) -> Any:
     for column, value in expected.key.items():
         if column in table.c:
             statement = statement.where(table.c[column] == value)
-    with engine.connect() as connection:
-        return connection.execute(statement).first()
+    result = await connection.execute(statement)
+    return result.first()
 
 
 def _table_for(table_name: str) -> Any:

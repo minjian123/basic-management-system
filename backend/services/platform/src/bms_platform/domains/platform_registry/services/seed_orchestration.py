@@ -8,7 +8,7 @@
 
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, Protocol, cast
+from typing import cast
 
 from bms_core.core.concurrent import (
     ConcurrentStableFrozenList,
@@ -26,6 +26,7 @@ from bms_core.tenant.seed.orchestrator import (
     EXIT_OK,
     EXIT_PRECHECK,
     SeedBranchRunner,
+    SeedEngineProvider,
     SeedReport,
     SeedTransactionManager,
     build_plan,
@@ -37,23 +38,7 @@ from bms_core.tenant.seed.orchestrator import (
 )
 from bms_platform.services.seed_branch_handlers import register_seed_stats
 
-__all__ = ["SeedOrchestrationRequest", "SeedOrchestrationResult", "SeedOrchestrationService", "SyncEngineProvider"]
-
-
-class SyncEngineProvider(Protocol):
-    """同步引擎提供者（冲突预检只读查库用；生产为 `EngineRegistry`）。"""
-
-    async def get_sync(self, db_key: str, *, read_only: bool = False) -> Any:
-        """取同步引擎。
-
-        Args:
-            db_key: 数据源键。
-            read_only: 是否只读。
-
-        Returns:
-            Any: 同步引擎。
-        """
-        ...
+__all__ = ["SeedEngineProvider", "SeedOrchestrationRequest", "SeedOrchestrationResult", "SeedOrchestrationService"]
 
 
 @dataclass
@@ -130,7 +115,7 @@ class SeedOrchestrationService(BaseFrameworkObject):
         self._caller = caller_service
         self._manager: SeedTransactionManager | None = cast("SeedTransactionManager | None", manager)
         self._participant: SeedBranchRunner | None = cast("SeedBranchRunner | None", participant)
-        self._engines: SyncEngineProvider | None = cast("SyncEngineProvider | None", engines)
+        self._engines: SeedEngineProvider | None = cast("SeedEngineProvider | None", engines)
         self._logger = get_logger("bms")
 
     def _load_records(self) -> ConcurrentStableList[SeedRecord]:

@@ -41,7 +41,7 @@ from bms_core.db.keys import (
     resolve_db_key,
 )
 from bms_core.db.sqlite import create_async_engine as create_sqlite_engine
-from bms_core.db.sync import SYNC_ONLY_DIALECTS
+from bms_core.db.sync import SYNC_ONLY_DIALECTS, to_sync_driver_url
 
 _SQLITE = "sqlite"
 _CONNECT_TIMEOUT_DIALECTS = frozenset({"mysql", "postgresql"})
@@ -179,6 +179,9 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         """创建 / 复用同步引擎（达梦运行期与四库连通性验证用）。
 
         副本路由与异步路径同源：`read_only=True` 且配置了副本时轮询选副本，无副本回落主库。
+        **驱动换同步**：连接串可能带异步驱动（`mysql+aiomysql` / `sqlite+aiosqlite` /
+        `postgresql+asyncpg`），同步引擎必须换成同后端同步驱动（见 `db/sync.py`
+        `to_sync_driver_url`），否则一建连就 `MissingGreenlet`。
 
         Args:
             options: 数据源键；缺省 `platform`。
@@ -195,7 +198,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         dialect = _dialect_name(url)
         if dialect in SYNC_ONLY_DIALECTS:
             _ensure_dm_ssl(dialect)
-        engine = sqlalchemy.create_engine(url, pool_pre_ping=True)
+        engine = sqlalchemy.create_engine(to_sync_driver_url(url), pool_pre_ping=True)
         self._sync_engines.set((key.raw, role), engine)
         return engine
 

@@ -1,6 +1,7 @@
 """引擎主 / 副本多绑定与请求上下文选引擎测试（Kiwi 984）。"""
 
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated, cast
 
@@ -92,6 +93,34 @@ async def test_dm_sync_only_dialect() -> None:
     assert factory.create_sync("platform") is sync_engine
     await factory.drop("platform")
     assert factory.create_sync("platform") is not sync_engine
+    await factory.aclose()
+
+
+def test_to_sync_driver_url_covers_mappings() -> None:
+    """异步驱动换同步驱动：三种映射命中，无驱动名 / 未知驱动原样返回。"""
+    from bms_core.db.sync import to_sync_driver_url
+
+    assert to_sync_driver_url("mysql+aiomysql://u@h/db") == "mysql+pymysql://u@h/db"
+    assert to_sync_driver_url("postgresql+asyncpg://u@h/db") == "postgresql+psycopg://u@h/db"
+    assert to_sync_driver_url("sqlite+aiosqlite:///x.db") == "sqlite+pysqlite:///x.db"
+    assert to_sync_driver_url("sqlite:///x.db") == "sqlite:///x.db"
+    assert to_sync_driver_url("mysql+asyncmy://u@h/db") == "mysql+asyncmy://u@h/db"
+
+
+@pytest.mark.kiwi_id(984)
+async def test_create_sync_switches_async_driver(tmp_path: Path) -> None:
+    """`create_sync` 换同步驱动后能**真连库**（异步方言误用曾致 `MissingGreenlet`，07C `11_02`）。"""
+    from sqlalchemy import text
+
+    settings = Settings()
+    settings.database.platform.url = f"sqlite+aiosqlite:///{tmp_path / 'sync.db'}"
+    settings.database.platform.replicas = ConcurrentStableList([])
+    factory = EngineFactory(settings)
+    engine = factory.create_sync("platform")
+    assert engine.dialect.driver == "pysqlite"
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT 1")).scalar_one() == 1
+    await factory.drop("platform")
     await factory.aclose()
 
 

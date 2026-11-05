@@ -22,11 +22,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.base import Executable
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject
 
 SYNC_ONLY_DIALECTS: ConcurrentStableSet[str] = ConcurrentStableSet({"dm", "dmxa"})
 """无异步方言、仅同步驱动的方言（达梦 `dm` / `dmxa`）。"""
+
+ASYNC_TO_SYNC_DRIVERS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        "aiomysql": "pymysql",
+        "aiosqlite": "pysqlite",
+        "asyncpg": "psycopg",
+    }
+)
+"""异步驱动名 → 同后端同步驱动名（`create_sync` 建同步引擎时按此换驱动）。
+
+**为什么必须换**：`create_engine("mysql+aiomysql://…")` 能建出引擎对象，但其方言仍是异步方言，
+一建连就 `await_only()` → `MissingGreenlet`（07C `11_02` 种子冲突预检在部署镜像上暴露）。
+不能靠「建引擎不建连」蒙混——同步路径必须拿到真同步驱动。
+"""
 
 
 def is_sync_only_url(url: str) -> bool:
@@ -39,6 +53,23 @@ def is_sync_only_url(url: str) -> bool:
         bool: 仅同步方言 True（`dm` / `dmxa`）。
     """
     return make_url(url).get_backend_name() in SYNC_ONLY_DIALECTS
+
+
+def to_sync_driver_url(url: str) -> str:
+    """把异步驱动连接串换成同后端的同步驱动连接串（同步引擎专用）。
+
+    Args:
+        url: 数据库连接串（可能带异步驱动，如 `mysql+aiomysql`）。
+
+    Returns:
+        str: 换好同步驱动的连接串；非异步驱动 / 无驱动名时原样返回。
+    """
+    parsed = make_url(url)
+    backend, separator, driver = parsed.drivername.partition("+")
+    sync_driver = ASYNC_TO_SYNC_DRIVERS.get(driver) if separator else None
+    if sync_driver is None:
+        return url
+    return parsed.set(drivername=f"{backend}+{sync_driver}").render_as_string(hide_password=False)
 
 
 class _SyncTransaction(BaseFrameworkObject):

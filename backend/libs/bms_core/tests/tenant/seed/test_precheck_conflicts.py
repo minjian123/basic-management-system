@@ -21,27 +21,27 @@ pytestmark = pytest.mark.own_db("被测对象是播种前置冲突预检：需�
 
 
 class _Engines:
-    """同步引擎提供者替身：按 db_key 返回同一 SQLite 同步引擎。"""
+    """异步引擎提供者替身：按 db_key 返回同一 SQLite 异步引擎。"""
 
     def __init__(self, url: str) -> None:
         """初始化。
 
         Args:
-            url: SQLite 文件路径（同步方言）。
+            url: SQLite 文件路径（同步方言；内部换异步驱动打开同一文件）。
         """
-        from sqlalchemy import create_engine
+        from sqlalchemy.ext.asyncio import create_async_engine
 
-        self._engine = create_engine(url)
+        self._engine = create_async_engine(url.replace("sqlite:///", "sqlite+aiosqlite:///"))
 
-    async def get_sync(self, db_key: str, *, read_only: bool = False) -> Any:
-        """取同步引擎（忽略 db_key / read_only）。
+    async def get(self, db_key: str, *, read_only: bool = False) -> Any:
+        """取异步引擎（忽略 db_key / read_only）。
 
         Args:
             db_key: 数据源键。
             read_only: 是否只读。
 
         Returns:
-            Any: 同步引擎。
+            Any: 异步引擎。
         """
         del db_key, read_only
         return self._engine
