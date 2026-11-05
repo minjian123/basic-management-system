@@ -172,8 +172,8 @@ def test_owned_tables_and_chain_derivation() -> None:
             "sys_tenant_module",
         }
     )
-    # org 域（mdm 承载）不在 bms 布局内：未注入产品表归属时为空集
-    assert series_tables("org", Datasource.TENANT) == frozenset()
+    # mdm 域（mdm 承载）不在 bms 布局内：未注入产品表归属时为空集
+    assert series_tables("mdm", Datasource.TENANT) == frozenset()
     assert series_tables("auth", Datasource.TENANT) == frozenset({"sys_session"})
     assert series_tables("identity_federation", Datasource.TENANT) == frozenset({"sys_identity_provider", "sys_client"})
     assert series_tables("identity_federation", Datasource.PLATFORM) == frozenset({"sys_user_identity"})
@@ -193,7 +193,7 @@ def test_registry_detects_conflicts() -> None:
                 _record("zzz_bad_ds", datasource="memory"),
                 _record("zzz_bad_status", status="disabled"),
                 _record("zzz_sentinel", owner=OWNER_EVERY_SERVICE, datasource=Datasource.TENANT),
-                _record("org_item", owner="platform"),
+                _record("mdm_item", owner="platform"),
                 _record("BadTable"),
             ]
         )
@@ -205,7 +205,7 @@ def test_registry_detects_conflicts() -> None:
     assert "库类别非法（memory）" in joined
     assert "状态非法（disabled）" in joined
     assert "`*` 归属须为 `both` 库类别" in joined
-    assert "表前缀 org_ 不属于归属服务 platform" in joined
+    assert "表前缀 mdm_ 不属于归属服务 platform" in joined
     assert "表名非法" in joined
 
 
@@ -327,15 +327,15 @@ def _mdm_service_record() -> ModuleRecord:
 
 
 def _mdm_records() -> ConcurrentStableList[TableRecord]:
-    """构造产品侧（mdm 组织域）注入记录。
+    """构造产品侧（mdm 跨产品域）注入记录。
 
     Returns:
         ConcurrentStableList[TableRecord]: 归属记录（插入序）。
     """
     return ConcurrentStableList(
         [
-            TableRecord(table_name="mdm_dept", owner="mdm", domain="org", datasource=Datasource.TENANT, note="部门"),
-            TableRecord(table_name="mdm_post", owner="mdm", domain="org", datasource=Datasource.TENANT, note="岗位"),
+            TableRecord(table_name="mdm_dept", owner="mdm", domain="mdm", datasource=Datasource.TENANT, note="部门"),
+            TableRecord(table_name="mdm_post", owner="mdm", domain="mdm", datasource=Datasource.TENANT, note="岗位"),
         ]
     )
 
@@ -343,7 +343,7 @@ def _mdm_records() -> ConcurrentStableList[TableRecord]:
 @pytest.mark.kiwi_id(2254)
 def test_product_table_injection_enters_chain() -> None:
     """产品表装载期注入 → 视图 / 归属查询 / 链派生均可见；清空后回到平台清单。"""
-    assert "mdm_dept" not in series_tables("org", Datasource.TENANT)
+    assert "mdm_dept" not in series_tables("mdm", Datasource.TENANT)
     assert table_owner("mdm_dept") is None
 
     register_service_records((_mdm_service_record(),))
@@ -355,18 +355,18 @@ def test_product_table_injection_enters_chain() -> None:
         assert table_owner("mdm_dept") == "mdm"
         assert "mdm_post" in table_names()
         assert len(table_ownership_view()) == len(TABLE_OWNERSHIP) + 2
-        tenant_series = series_tables("org", Datasource.TENANT)
+        tenant_series = series_tables("mdm", Datasource.TENANT)
         assert {"mdm_dept", "mdm_post"} <= tenant_series
         # 基础设施表不进域清单（每库一份）；单元级建表集才含它们
         assert infrastructure_tables().isdisjoint(tenant_series)
-        assert infrastructure_tables() <= unit_tables(["org"], Datasource.TENANT)
-        assert not series_tables("org", Datasource.ARCHIVE), "租户层产品表不进归档链"
+        assert infrastructure_tables() <= unit_tables(["mdm"], Datasource.TENANT)
+        assert not series_tables("mdm", Datasource.ARCHIVE), "租户层产品表不进归档链"
         assert TableOwnershipRegistry().validate() == []
     finally:
         reset_table_records()
         reset_service_records()
         reset_product_records()
-        assert "mdm_dept" not in series_tables("org", Datasource.TENANT)
+        assert "mdm_dept" not in series_tables("mdm", Datasource.TENANT)
 
 
 @pytest.mark.kiwi_id(2254)

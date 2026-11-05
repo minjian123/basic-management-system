@@ -1,13 +1,13 @@
 /**
- * 组织数据源：HTTP 内建实现 + 注册表默认实例（`fetch` 单一落点）。
+ * 字典数据源：HTTP 内建实现 + 注册表默认实例（`fetch` 单一落点）。
  *
- * 端点**运行期取自平台目录快照**（`03_02`）：按「组织域 + 能力种类 `dataset`」推导提供方产品键与
+ * 端点**运行期取自平台目录快照**（`03_02`）：按「跨产品域 + 能力种类 `dataset`」推导提供方产品键与
  * 前端命名空间域段，再经**寻址契约**组装为 `/api/{产品键}/v1/{域段}`——平台代码不持有产品键、不持有
  * 产品命名空间常量。路径为出口口径 `/data-source/{users,posts,dept-tree}` 与 `/resolve-names`
  * （**查询与批量回显分列两个出口**、**部门树一次性返回**）。
  * 目录不可用（或该域无数据源类能力 / 目标不唯一）时端点解析为 `null`：**不发请求**、不拼默认地址，
  * 由消费方进入降级（禁用并提示）。
- * 宿主可经 `registerDictRemoteSource` 登记定制实现（如组织 store 版）或覆盖内建键。
+ * 宿主可经 `registerDictRemoteSource` 登记定制实现（如字典 store 版）或覆盖内建键。
  */
 
 import {
@@ -26,29 +26,29 @@ import {
   type DictUserQuery,
 } from '@bms/core'
 
-/** 组织主数据所属**业务域**标识（业务域与产品 / 服务同名；非产品键，取值由本常量单点持有）。 */
-export const DICT_SOURCE_DOMAIN = 'mdm' // product-literal:allow:组织数据源的业务域标识单点持有，运行期与平台目录同源
+/** 字典数据所属**业务域**标识（业务域与产品 / 服务同名；非产品键，取值由本常量单点持有）。 */
+export const DICT_SOURCE_DOMAIN = 'mdm' // product-literal:allow:字典数据源的业务域标识单点持有，运行期与平台目录同源
 
-/** 组织数据源对应的**能力种类**（数据源类能力；同域可能另有读出口与事务分支类）。 */
+/** 字典数据源对应的**能力种类**（数据源类能力；同域可能另有读出口与事务分支类）。 */
 export const DICT_SOURCE_CAPABILITY_KIND = 'dataset'
 
 /** 降级文案：目录不可用（请求失败 / 结构不合规 / 产品为空 / 有警示）。 */
-export const DICT_DEGRADE_UNAVAILABLE_TEXT = '组织数据暂不可用，请稍后重试'
+export const DICT_DEGRADE_UNAVAILABLE_TEXT = '字典数据暂不可用，请稍后重试'
 
-/** 降级文案：目录正常但未登记组织数据源类能力。 */
-export const DICT_DEGRADE_NOT_INTEGRATED_TEXT = '未接入组织主数据'
+/** 降级文案：目录正常但未登记字典数据源类能力。 */
+export const DICT_DEGRADE_NOT_INTEGRATED_TEXT = '未接入字典数据'
 
 /** 降级文案：同一业务域存在多组数据源目标（不猜、不挑选）。 */
-export const DICT_DEGRADE_AMBIGUOUS_TEXT = '组织数据源配置不唯一'
+export const DICT_DEGRADE_AMBIGUOUS_TEXT = '字典数据源配置不唯一'
 
 /** 端点缺失告警是否已输出（避免每次取数刷屏）。 */
 let endpointWarningEmitted = false
 
-/** 链路内默认组织数据源注册表实例（宿主可登记定制实现或覆盖内建键）。 */
+/** 链路内默认字典数据源注册表实例（宿主可登记定制实现或覆盖内建键）。 */
 export const dictRemoteSourceRegistry = new DictRemoteSourceRegistry()
 
 /**
- * 登记组织数据源实现。
+ * 登记字典数据源实现。
  *
  * @param key 数据源键（同键拒重）。
  * @param create 数据源工厂。
@@ -60,7 +60,7 @@ export function registerDictRemoteSource(
   dictRemoteSourceRegistry.register(new DictRemoteSourceProvider(key, create))
 }
 
-/** HTTP 内建组织数据源（未覆盖的方法不请求）。 */
+/** HTTP 内建字典数据源（未覆盖的方法不请求）。 */
 class HttpDictRemoteSource extends BaseDictRemoteSource {
   /** 实现名。 */
   override readonly pluginName: string = 'http'
@@ -155,7 +155,7 @@ class HttpDictRemoteSource extends BaseDictRemoteSource {
     if (resolved === null) {
       if (!endpointWarningEmitted) {
         endpointWarningEmitted = true
-        console.warn('[dict-remote-source] 组织数据源端点不可用（目录未就绪或未登记数据源类能力）：已跳过请求')
+        console.warn('[dict-remote-source] 字典数据源端点不可用（目录未就绪或未登记数据源类能力）：已跳过请求')
       }
       return undefined
     }
@@ -166,14 +166,14 @@ class HttpDictRemoteSource extends BaseDictRemoteSource {
     const headers = typeof this.#options.headers === 'function' ? this.#options.headers() : this.#options.headers
     const response = await fetchFn(`${endpoint}${path}${query}`, { method: 'GET', headers })
     if (!response.ok) {
-      throw new BaseError(30101, '组织数据源不可用')
+      throw new BaseError(30101, '字典数据源不可用')
     }
     return unwrapResponse(await response.json())
   }
 }
 
 /**
- * 追加组织数据源查询参数（跳过空值：`undefined` / `null` / 空串 / `false`；布尔真写 `true`）。
+ * 追加字典数据源查询参数（跳过空值：`undefined` / `null` / 空串 / `false`；布尔真写 `true`）。
  *
  * 抽为独立函数是为了让「空值过滤」这一分支可被直接用例覆盖（服务端参数口径与后端同源，
  * 空值必须**不出现**在查询串里，否则后端会按空串过滤而不是不过滤）。
@@ -191,7 +191,7 @@ export function appendDictSearchParams(search: URLSearchParams, params: Record<s
 }
 
 /**
- * 组织数据源默认端点（**运行期取自平台目录快照**）。
+ * 字典数据源默认端点（**运行期取自平台目录快照**）。
  *
  * 按「业务域 + 能力种类 `dataset`」解析提供方产品键与前端域段，经寻址契约组装为
  * `/api/{产品键}/v1/{域段}`——产品服务只经产品命名空间对外暴露，页面 / 插件**不得自拼** `/api/...`
@@ -205,7 +205,7 @@ export function dictRemoteSourceEndpoint(): string | null {
 }
 
 /**
- * 创建 HTTP 内建组织数据源。
+ * 创建 HTTP 内建字典数据源。
  *
  * @param options 装载选项（`endpoint` 缺省＝按目录取址，见 `dictRemoteSourceEndpoint`）。
  * @returns 数据源实例。

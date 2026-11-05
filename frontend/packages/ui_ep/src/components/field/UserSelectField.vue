@@ -25,7 +25,7 @@ interface Props {
   modelValue?: UserFieldValue
   /** 数据通路是否就绪。 */
   ready?: boolean
-  /** 组织数据源（未注入即占位零请求）。 */
+  /** 字典数据源（未注入即占位零请求）。 */
   source?: DictRemoteSourceAdapter
   /** 用户展示能力（缺省由投影内建花名册）。 */
   userDisplay?: BaseUserDisplay

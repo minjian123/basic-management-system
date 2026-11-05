@@ -1,12 +1,12 @@
 /**
- * 组织数据源插件基类与提供者注册表：组织数据源为**可替换实现（纵向）**——
+ * 字典数据源插件基类与提供者注册表：字典数据源为**可替换实现（纵向）**——
  * 内建 / 定制实现继承 `BaseDictRemoteSource`，经 `DictRemoteSourceRegistry` 登记接入；
- * 未登记 / 未注入时组织选择能力即占位（不发请求）。
+ * 未登记 / 未注入时远程字典选择能力即占位（不发请求）。
  *
- * 四方法对应**组织主数据出口**（查询与批量回显分列两个出口）——组织主数据归**组织主数据产品**，
+ * 四方法对应**字典数据出口**（查询与批量回显分列两个出口）——字典数据归**主数据产品**，
  * 出口经**产品命名空间**暴露：`/api/{产品键}/v1/{域段}/data-source/{users,posts,dept-tree}` 与
  * `/api/{产品键}/v1/{域段}/resolve-names`（前端默认端点按目录快照取址，见 `@bms/ui_ep` 的 `dictRemoteSourceEndpoint`）；
- * 契约（数据契约与插件基类）原在 `bms_core/org`，已随阶段二 `11_02` 迁出基座。
+ * 契约（数据契约与插件基类）原在基座主数据查询能力，已随阶段二 `11_02` 迁出基座。
  */
 
 import { BaseProviderRegistry } from '../mechanisms/registry'
@@ -60,7 +60,7 @@ export interface DictResolveQuery {
   ids: readonly string[]
 }
 
-/** 组织数据源契约面（方法与 `BaseDictRemoteSource` 一致）。 */
+/** 字典数据源契约面（方法与 `BaseDictRemoteSource` 一致）。 */
 export interface DictRemoteSourceAdapter {
   /** 用户查询。 */
   searchUsers?(query: DictUserQuery): Promise<unknown>
@@ -80,7 +80,7 @@ export interface DictRemoteSourceOptions {
   headers?: Record<string, string> | (() => Record<string, string>)
 }
 
-/** 组织数据源插件基类（抽象；未覆写的方法返回 `undefined`，即不请求）。 */
+/** 字典数据源插件基类（抽象；未覆写的方法返回 `undefined`，即不请求）。 */
 export abstract class BaseDictRemoteSource extends BasePluggable implements DictRemoteSourceAdapter {
   /** 插件键。 */
   readonly pluginKey: string = 'dict-remote-source'
@@ -132,7 +132,7 @@ export abstract class BaseDictRemoteSource extends BasePluggable implements Dict
   }
 }
 
-/** 组织数据源注册项（工厂创建插件实例）。 */
+/** 字典数据源注册项（工厂创建插件实例）。 */
 export class DictRemoteSourceProvider extends BaseProvider {
   /** 数据源键（如 `http`）。 */
   readonly key: string
@@ -152,7 +152,7 @@ export class DictRemoteSourceProvider extends BaseProvider {
   }
 }
 
-/** 组织数据源注册表（统一注册表基座；同键唯一性拒重）。 */
+/** 字典数据源注册表（统一注册表基座；同键唯一性拒重）。 */
 export class DictRemoteSourceRegistry extends BaseProviderRegistry<DictRemoteSourceProvider> {
   /** 插件键。 */
   readonly pluginKey = 'dict-remote-source-registry'

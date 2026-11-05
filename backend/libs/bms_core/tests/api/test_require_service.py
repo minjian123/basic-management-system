@@ -1,7 +1,7 @@
 """服务身份依赖 `require_service` 测试（Kiwi 2250）：产品服务身份入站白名单（复用既有基座）。
 
 `require_service` 是产品服务**服务间入站**的统一入口（东向内部端点）：按 `aud=service` 全校验服务 JWT，
-并限定签发方服务标识白名单——产品服务（如 `mdm-org`）与平台服务同构复用，无需另起认证基座。
+并限定签发方服务标识白名单——产品服务（如 `mdm-mdm`）与平台服务同构复用，无需另起认证基座。
 """
 
 from collections.abc import Awaitable, Callable
@@ -22,7 +22,7 @@ class _StubVerifier(BaseTokenVerifier):
 
     plugin_name = "stub-require-service"
 
-    def __init__(self, *, service: str = "mdm-org", error: Exception | None = None) -> None:
+    def __init__(self, *, service: str = "mdm-mdm", error: Exception | None = None) -> None:
         """初始化。
 
         Args:
@@ -77,9 +77,9 @@ async def _call(
 
 async def test_product_service_identity_in_whitelist_passes() -> None:
     """产品服务身份在白名单内：放行，且按 `aud=service` 全校验。"""
-    verifier = _StubVerifier(service="mdm-org")
-    verified = await _call(require_service("mdm-org"), authorization="Bearer tok", verifier=verifier)
-    assert verified.service == "mdm-org"
+    verifier = _StubVerifier(service="mdm-mdm")
+    verified = await _call(require_service("mdm-mdm"), authorization="Bearer tok", verifier=verifier)
+    assert verified.service == "mdm-mdm"
     assert verifier.audiences == [TOKEN_AUDIENCE_SERVICE]
 
 
@@ -87,7 +87,7 @@ async def test_service_identity_out_of_whitelist_rejected() -> None:
     """签发方不在白名单（如经网关误信的 `gateway` 服务 JWT）：拒绝（20001 / 401）。"""
     verifier = _StubVerifier(service="gateway")
     with pytest.raises(AuthError) as excinfo:
-        await _call(require_service("mdm-org"), authorization="Bearer tok", verifier=verifier)
+        await _call(require_service("mdm-mdm"), authorization="Bearer tok", verifier=verifier)
     assert excinfo.value.code == 20001
     assert excinfo.value.http_status == 401
 
@@ -96,7 +96,7 @@ async def test_missing_credentials_rejected() -> None:
     """缺少服务身份凭证：拒绝（20001 / 401），不进入校验。"""
     verifier = _StubVerifier()
     with pytest.raises(AuthError):
-        await _call(require_service("mdm-org"), authorization=None, verifier=verifier)
+        await _call(require_service("mdm-mdm"), authorization=None, verifier=verifier)
     assert verifier.audiences == []
 
 

@@ -118,7 +118,7 @@ export function serviceUrl(service: ServiceKey, path = ''): string {
 }
 
 /**
- * 产品域段归一与校验（产品自持域：`org` / `sup` / `cus` / `mat` 等）。
+ * 产品域段归一与校验（产品自持域（如 `sup` / `cus` / `mat`））。
  *
  * @param domain 域段（可带首尾 `/`，去空白后判定）。
  * @returns 归一后的域段。

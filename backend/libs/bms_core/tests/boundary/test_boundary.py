@@ -44,12 +44,12 @@ def _exception(**overrides: str) -> OwnershipException:
     """构造测试例外（默认合法，按需覆盖字段）。"""
     values = {
         "service": "report",
-        "target_prefix": "org_",
+        "target_prefix": "mdm_",
         "access": "read",
         "exit": "readonly_projection",
         "consumer": "报表聚合",
         "reason": "测试",
-        "alternative": "经组织主数据基座",
+        "alternative": "经字典数据基座",
         "expiry": "测试后移除",
         "registered_at": "2026-09-23",
     }
@@ -67,7 +67,7 @@ def _write_exceptions(path: Path, entries: ConcurrentStableList[ConcurrentStable
 @pytest.mark.kiwi_id(2170)
 def test_directory_ownership() -> None:
     """表级归属查询口径（06_03：不再有共享前缀，`sys_` 表按表级归属判定）。"""
-    assert table_prefix_of("org_item") == "org_"
+    assert table_prefix_of("mdm_item") == "mdm_"
     assert table_prefix_of("demo") == "demo"
     assert table_owner("sys_tenant") == "tenant"
     assert table_owner("sys_module") == "platform"
@@ -103,22 +103,22 @@ def test_directory_snapshots_and_derived_queries() -> None:
 def test_sql_operation_and_tables() -> None:
     """SQL 操作归类与表名提取（去引号 / schema 末段 / 注释）。"""
     assert operation_of("SELECT 1") == "read"
-    assert operation_of("update org_item set x=1") == "write"
+    assert operation_of("update mdm_item set x=1") == "write"
     assert operation_of("create table x (id int)") == "ddl"
     assert operation_of("pragma x") == "unknown"
     assert extract_tables('SELECT * FROM "sys_tenant"') == ("sys_tenant",)
-    tables = extract_tables("select a from public.org_item join pur_order on 1 -- note\n where 1")
-    assert tables == ("org_item", "pur_order")
-    assert [ref.table for ref in analyze("delete from org_item")] == ["org_item"]
+    tables = extract_tables("select a from public.mdm_item join pur_order on 1 -- note\n where 1")
+    assert tables == ("mdm_item", "pur_order")
+    assert [ref.table for ref in analyze("delete from mdm_item")] == ["mdm_item"]
 
 
 @pytest.mark.kiwi_id(2170)
 def test_assess_table_ownership() -> None:
     """越界判定：基础设施表 / 自身归属 / 未登记表名放行，他服务归属越界。"""
-    assert assess_table("sys_outbox", service="org", operation="read") is None
+    assert assess_table("sys_outbox", service="mdm", operation="read") is None
     assert assess_table("demo", service="platform", operation="read") is None
-    assert assess_table("zzz_unknown", service="org", operation="read") is None
-    violation = assess_table("sys_tenant", service="org", operation="read")
+    assert assess_table("zzz_unknown", service="mdm", operation="read") is None
+    violation = assess_table("sys_tenant", service="mdm", operation="read")
     assert violation is not None
     assert violation.owner == "tenant" and violation.prefix == "sys_"
 
@@ -140,8 +140,8 @@ def test_exceptions_load_and_validate(tmp_path: Path) -> None:
     _write_exceptions(valid, ConcurrentStableList([ConcurrentStableDict(_exception().__dict__)]))
     entries = load_exceptions(valid)
     assert len(entries) == 1
-    assert exception_allows(entries, service="report", table="org_item", operation="read")
-    assert not exception_allows(entries, service="report", table="org_item", operation="write")
+    assert exception_allows(entries, service="report", table="mdm_item", operation="read")
+    assert not exception_allows(entries, service="report", table="mdm_item", operation="write")
 
     invalid = tmp_path / "invalid.json"
     _write_exceptions(invalid, ConcurrentStableList([ConcurrentStableDict(_exception(access="write").__dict__)]))
@@ -150,8 +150,8 @@ def test_exceptions_load_and_validate(tmp_path: Path) -> None:
 
     problems = validate_exceptions(
         (_exception(service="unknown_svc"), _exception(target_prefix="zzz_"), _exception(exit="bad")),
-        known_tables=ConcurrentStableSet({"org_item"}),
-        known_prefixes=ConcurrentStableSet({"org_"}),
+        known_tables=ConcurrentStableSet({"mdm_item"}),
+        known_prefixes=ConcurrentStableSet({"mdm_"}),
         known_services=ConcurrentStableSet({"report"}),
     )
     assert any("service" in item for item in problems)
@@ -199,7 +199,7 @@ def test_guard_modes_and_counters() -> None:
 @pytest.mark.kiwi_id(2170)
 def test_sql_duplicate_and_ignored_tables() -> None:
     """重复表名与忽略 token（如 `dual`）不重复产出。"""
-    assert extract_tables("select a from org_item join org_item on 1") == ("org_item",)
+    assert extract_tables("select a from mdm_item join mdm_item on 1") == ("mdm_item",)
     assert extract_tables("select a from dual") == ()
 
 
@@ -226,8 +226,8 @@ def test_validate_exceptions_prefix_and_date() -> None:
     """前缀未登记与登记日期格式非法。"""
     problems = validate_exceptions(
         (_exception(target_prefix="zzz_"), _exception(registered_at="2026/09/23")),
-        known_tables=ConcurrentStableSet({"org_item"}),
-        known_prefixes=ConcurrentStableSet({"org_"}),
+        known_tables=ConcurrentStableSet({"mdm_item"}),
+        known_prefixes=ConcurrentStableSet({"mdm_"}),
         known_services=ConcurrentStableSet({"report"}),
     )
     assert any("目标" in item for item in problems)

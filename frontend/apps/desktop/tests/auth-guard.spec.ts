@@ -214,17 +214,17 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
     const ensureSession = vi.fn().mockResolvedValue(false)
     const { run } = install({ ensureSession })
 
-    const result = await run(target('/org/users', { query: { page: '2' }, fullPath: '/org/users?page=2' }))
+    const result = await run(target('/mdm/users', { query: { page: '2' }, fullPath: '/mdm/users?page=2' }))
 
     expect(ensureSession).toHaveBeenCalledTimes(1)
-    expect(result).toEqual({ path: '/login', query: { redirect: '/org/users?page=2' } })
+    expect(result).toEqual({ path: '/login', query: { redirect: '/mdm/users?page=2' } })
   })
 
   it('刷新页面（内存令牌未恢复）但续期成功 → 放行，不跳登录页（不闪登录页）', async () => {
     const ensureSession = vi.fn().mockResolvedValue(true)
     const { run } = install({ ensureSession })
 
-    expect(await run(target('/org/users'))).toBe(true)
+    expect(await run(target('/mdm/users'))).toBe(true)
     expect(ensureSession).toHaveBeenCalledTimes(1)
   })
 
@@ -235,7 +235,7 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
       { routes: () => ({ '/change-password': 'ChangePassword' }) },
     )
 
-    expect(await run(target('/org/users'))).toEqual({ path: '/change-password' })
+    expect(await run(target('/mdm/users'))).toEqual({ path: '/change-password' })
     expect(await run(target('/change-password'))).toBe(true)
   })
 
@@ -259,7 +259,7 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
     setAccessToken('t1')
     const { run } = install()
 
-    expect(await run(target('/login', { query: { redirect: '/org/users?page=2' } }))).toBe('/org/users?page=2')
+    expect(await run(target('/login', { query: { redirect: '/mdm/users?page=2' } }))).toBe('/mdm/users?page=2')
     expect(await run(target('/login', { query: { redirect: 'https://evil.example.com' } }))).toBe('/')
     expect(await run(target('/login'))).toBe('/')
     expect(await run(target('/login', { query: { redirect: '/login' } }))).toBe('/')
@@ -267,7 +267,7 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
 
   it('未登录访问登录页 → 展示登录页（不回跳）', async () => {
     const { run } = install({ ensureSession: vi.fn().mockResolvedValue(false) })
-    expect(await run(target('/login', { query: { redirect: '/org/users' } }))).toBe(true)
+    expect(await run(target('/login', { query: { redirect: '/mdm/users' } }))).toBe(true)
   })
 
   it('meta.perm：权限已装载且不满足 → 跳 403；未装载 → 占位放行', async () => {
@@ -275,14 +275,14 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
     const denied = install({ permissions: () => ({ codes: ['user:edit'], loaded: true }) })
     const allowed = install({ permissions: () => ({ codes: [], loaded: false }) })
 
-    expect(await denied.run(target('/org/users', { meta: { perm: 'user:query' } }))).toEqual({ path: '/403' })
-    expect(await allowed.run(target('/org/users', { meta: { perm: 'user:query' } }))).toBe(true)
+    expect(await denied.run(target('/mdm/users', { meta: { perm: 'user:query' } }))).toEqual({ path: '/403' })
+    expect(await allowed.run(target('/mdm/users', { meta: { perm: 'user:query' } }))).toBe(true)
   })
 
   it('meta.perm：权限已装载且满足 → 放行', async () => {
     setAccessToken('t1')
     const { run } = install({ permissions: () => ({ codes: ['user:query'], loaded: true }) })
-    expect(await run(target('/org/users', { meta: { perm: ['user:query', 'user:edit'] } }))).toBe(true)
+    expect(await run(target('/mdm/users', { meta: { perm: ['user:query', 'user:edit'] } }))).toBe(true)
   })
 
   it('动态路由：会话就绪后幂等装载，装载后可解析则按新路由表重解析', async () => {
@@ -366,21 +366,21 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
     const record = vi.fn()
     const { run } = install({ ensureSession: vi.fn().mockResolvedValue(false), record })
 
-    await run(target('/org/users'))
-    expect(record).toHaveBeenCalledWith({ decision: 'login', path: '/org/users', reason: 'no-session' })
+    await run(target('/mdm/users'))
+    expect(record).toHaveBeenCalledWith({ decision: 'login', path: '/mdm/users', reason: 'no-session' })
 
     record.mockClear()
     setAccessToken('t1')
-    await run(target('/org/users'))
-    expect(record).toHaveBeenCalledWith({ decision: 'allow', path: '/org/users', reason: 'session-ready' })
+    await run(target('/mdm/users'))
+    expect(record).toHaveBeenCalledWith({ decision: 'allow', path: '/mdm/users', reason: 'session-ready' })
   })
 
   it('判定观测：权限未装载的放行带明确原因（阶段七核对来源）', async () => {
     const record = vi.fn()
     setAccessToken('t1')
     const { run } = install({ record })
-    await run(target('/org/users', { meta: { perm: 'user:query' } }))
-    expect(record).toHaveBeenCalledWith({ decision: 'allow', path: '/org/users', reason: 'perm-not-loaded' })
+    await run(target('/mdm/users', { meta: { perm: 'user:query' } }))
+    expect(record).toHaveBeenCalledWith({ decision: 'allow', path: '/mdm/users', reason: 'perm-not-loaded' })
   })
 })
 

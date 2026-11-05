@@ -192,7 +192,7 @@ class RoleFields(BaseSchema):
 class RoleDataScopeEntryRequest(BaseSchema):
     """一条数据权限条目（角色 × 字典 × 策略 → 结构化配置，只选不编）。"""
 
-    data_source_key: str = Field(min_length=1, description="字典标识（业务码字符串，如 org_dept / role）")
+    data_source_key: str = Field(min_length=1, description="字典标识（业务码字符串，如 dept / role）")
     policy_type: PolicyType = Field(description="策略类型（select/region/match/extension）")
     config: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="结构化策略配置（按策略分结构）"
@@ -227,7 +227,7 @@ class RoleDataScopes(BaseSchema):
 
 
 # --------------------------------------------------------------------------- 分配编排（角色保存编排端点）
-# 一次请求分段**全量覆盖**角色本体 / 用户分配（角色 × 用户）/ 组织分配（岗位、部门）；跨服务写入由
+# 一次请求分段**全量覆盖**角色本体 / 用户分配（角色 × 用户）/ 部门 / 岗位分配；跨服务写入由
 # TM 全局事务保证原子（`provider=xa`；`provider=null` 走顺序提交，仅 dev / test）。需求 07-11 §5。
 # 与用户侧 `UserAssignments*`（schemas/users.py）对称；角色侧无「主要项」语义。
 
@@ -281,7 +281,7 @@ class RoleAssignmentsRequest(BaseSchema):
 class RoleAssignmentsResult(BaseSchema):
     """角色保存编排结果（回带 platform 侧生效后集合）。
 
-    组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
+    部门 / 岗位分配段的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
     XA 分支执行端点契约只回分支状态、不回业务集合。
     """
 

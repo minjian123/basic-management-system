@@ -198,7 +198,7 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
       },
     }
     registries.pageArea.register(
-      new PageAreaProvider('mdm_org:role_posts', 'sys.role.detail.assign', probe, 20, { title: '岗位分配' }),
+      new PageAreaProvider('mdm:role_posts', 'sys.role.detail.assign', probe, 20, { title: '岗位分配' }),
     )
 
     const wrapper = mount(ModuleAreaOutlet, {
@@ -225,7 +225,7 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
       },
     }
     registries.pageArea.register(
-      new PageAreaProvider('mdm_org:role_depts', 'sys.role.detail.assign', probe, 30, { title: '部门分配' }),
+      new PageAreaProvider('mdm:role_depts', 'sys.role.detail.assign', probe, 30, { title: '部门分配' }),
     )
 
     const wrapper = mount(ModuleAreaOutlet, { props: { area: 'sys.role.detail.assign', registries, variant: 'tabs' } })

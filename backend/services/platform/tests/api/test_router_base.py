@@ -85,7 +85,7 @@ async def test_unified_mount_and_prefix() -> None:
     assert API_PREFIX + "/modules" in paths
     assert API_PREFIX + "/plugins" in paths
     # 服务级登记：平台应用只挂本服务路由，其他服务路由不串入
-    assert API_PREFIX + "/org" not in paths
+    assert API_PREFIX + "/mdm" not in paths
     assert API_PREFIX + "/notifications" not in paths
 
     router = BaseRouter(key="probe", prefix="/probe")

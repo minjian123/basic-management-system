@@ -246,7 +246,7 @@ function isMultiple(field: RenderFieldPlan): boolean {
 }
 
 /**
- * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dataSourceKey`；选项集件透传 `form` 与 `optionSetKey`；上传件透传 `upload*`；验证码件透传 `captchaKind` / `captchaScene`；其余为空）。
+ * 控件附加属性（远程字典选择件透传 `kind`；字典件透传 `dataSourceKey`；选项集件透传 `form` 与 `optionSetKey`；上传件透传 `upload*`；验证码件透传 `captchaKind` / `captchaScene`；其余为空）。
  *
  * @param field 字段渲染项。
  */

@@ -19,7 +19,7 @@ export type CapabilityTarget =
 /**
  * 按「业务域 + 能力种类」解析前端取址（要求唯一目标，不猜、不挑选）。
  *
- * @param domain 业务域标识（如 `org`）。
+ * @param domain 业务域标识（产品自持域键）。
  * @param kind 能力种类（如 `dataset`）。
  * @returns 取址结果；非 `ok` 时由调用方进入降级（禁用相关能力并提示）。
  */

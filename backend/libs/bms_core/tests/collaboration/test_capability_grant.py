@@ -95,10 +95,10 @@ class _FakeSource:
 
 
 def _record(
-    name: str = "demo.org.user-roles",
+    name: str = "demo.mdm.user-roles",
     *,
     kind: str = "read",
-    domain: str = "org",
+    domain: str = "mdm",
     consumers: ConcurrentStableFrozenList[str] | None = None,
 ) -> CollaborationRecord:
     """构造能力记录（缺省读出口 + 平台为默认消费方）。
@@ -133,7 +133,7 @@ def _record(
 
 
 def _grant(
-    capability: str = "demo.org.user-roles",
+    capability: str = "demo.mdm.user-roles",
     consumer: str = "platform",
     *,
     source: str = "declared",
@@ -260,20 +260,20 @@ async def test_granted_scopes_cover_kinds_and_dedupe() -> None:
     """出站 scope：按授权派生 `svc:{业务域}:{read|write}`、同域去重、`codes` 与禁用能力不产生。"""
     register_collaboration_records(
         (
-            _record("demo.org.user-roles", kind="read"),
-            _record("demo.org.user-posts.assign", kind="txn-branch"),
-            _record("demo.org.dept-data", kind="dataset"),
-            _record("demo.org.admin-codes", kind="codes", consumers=ConcurrentStableFrozenList()),
+            _record("demo.mdm.user-roles", kind="read"),
+            _record("demo.mdm.user-posts.assign", kind="txn-branch"),
+            _record("demo.mdm.dept-data", kind="dataset"),
+            _record("demo.mdm.admin-codes", kind="codes", consumers=ConcurrentStableFrozenList()),
         )
     )
     register_capability_grant_source(
         _FakeSource(
             ConcurrentStableList(
                 [
-                    _grant("demo.org.user-roles"),
-                    _grant("demo.org.user-posts.assign"),
-                    _grant("demo.org.dept-data"),
-                    _grant("demo.org.admin-codes"),
+                    _grant("demo.mdm.user-roles"),
+                    _grant("demo.mdm.user-posts.assign"),
+                    _grant("demo.mdm.dept-data"),
+                    _grant("demo.mdm.admin-codes"),
                 ]
             )
         )
@@ -282,7 +282,7 @@ async def test_granted_scopes_cover_kinds_and_dedupe() -> None:
 
     scopes = granted_scopes("platform")
 
-    assert list(scopes) == [f"{SCOPE_PREFIX}:org:read", f"{SCOPE_PREFIX}:org:write"]
+    assert list(scopes) == [f"{SCOPE_PREFIX}:mdm:read", f"{SCOPE_PREFIX}:mdm:write"]
 
 
 async def test_granted_consumers_filters_effective_rows() -> None:
@@ -298,9 +298,9 @@ async def test_granted_consumers_filters_effective_rows() -> None:
             )
         )
     )
-    await ensure_grant_view(provider="org", now=_NOW)
+    await ensure_grant_view(provider="mdm", now=_NOW)
 
-    assert list(granted_consumers("demo.org.user-roles")) == ["platform"]
+    assert list(granted_consumers("demo.mdm.user-roles")) == ["platform"]
 
 
 async def test_check_access_allowed_counts_call() -> None:
@@ -309,11 +309,11 @@ async def test_check_access_allowed_counts_call() -> None:
     register_capability_grant_source(_FakeSource(ConcurrentStableList([_grant()])))
     metrics = RecordingMetrics()
 
-    await check_capability_access("demo.org.user-roles", "platform", metrics=metrics)
+    await check_capability_access("demo.mdm.user-roles", "platform", metrics=metrics)
 
     assert metrics.counter_values(METRIC_CAPABILITY_CALL) == [1.0]
     assert metrics.labels_of(METRIC_CAPABILITY_CALL)[0] == {
-        "capability": "demo.org.user-roles",
+        "capability": "demo.mdm.user-roles",
         "consumer": "platform",
         "result": CALL_RESULT_ALLOWED,
     }
@@ -327,9 +327,9 @@ async def test_check_access_denied_raises_permission_error_and_counts() -> None:
     metrics = RecordingMetrics()
 
     with pytest.raises(PermissionError) as excinfo:
-        await check_capability_access("demo.org.user-roles", "platform", metrics=metrics)
+        await check_capability_access("demo.mdm.user-roles", "platform", metrics=metrics)
 
-    assert "demo.org.user-roles" in str(excinfo.value) and "platform" in str(excinfo.value)
+    assert "demo.mdm.user-roles" in str(excinfo.value) and "platform" in str(excinfo.value)
     labels = metrics.labels_of(METRIC_CAPABILITY_CALL)[0]
     assert labels is not None and labels["result"] == CALL_RESULT_DENIED
     assert metrics.counter_values(METRIC_CAPABILITY_DENIED) == [1.0]
@@ -344,7 +344,7 @@ async def test_check_access_expired_is_rejected_with_reason() -> None:
     metrics = RecordingMetrics()
 
     with pytest.raises(PermissionError) as excinfo:
-        await check_capability_access("demo.org.user-roles", "platform", metrics=metrics)
+        await check_capability_access("demo.mdm.user-roles", "platform", metrics=metrics)
 
     assert "授权已过期" in str(excinfo.value)
     labels = metrics.labels_of(METRIC_CAPABILITY_CALL)[0]
@@ -356,11 +356,11 @@ async def test_ensure_view_caches_within_ttl_and_refreshes_after() -> None:
     source = _FakeSource(ConcurrentStableList([_grant()]))
     register_capability_grant_source(source)
 
-    await ensure_grant_view(provider="org", now=_NOW)
-    await ensure_grant_view(provider="org", now=_NOW + timedelta(seconds=10))
+    await ensure_grant_view(provider="mdm", now=_NOW)
+    await ensure_grant_view(provider="mdm", now=_NOW + timedelta(seconds=10))
     assert source.loads == 1
 
-    await ensure_grant_view(provider="org", now=_NOW + timedelta(seconds=120))
+    await ensure_grant_view(provider="mdm", now=_NOW + timedelta(seconds=120))
     assert source.loads == 2
 
 
@@ -368,10 +368,10 @@ async def test_ensure_view_keeps_snapshot_when_refresh_fails() -> None:
     """刷新失败：保留旧快照（有界过期），不抛错、不放行未加载视图。"""
     source = _FakeSource(ConcurrentStableList([_grant()]))
     register_capability_grant_source(source)
-    await ensure_grant_view(provider="org", now=_NOW)
+    await ensure_grant_view(provider="mdm", now=_NOW)
 
     source.fail = True
-    snapshot = await ensure_grant_view(provider="org", now=_NOW + timedelta(seconds=120))
+    snapshot = await ensure_grant_view(provider="mdm", now=_NOW + timedelta(seconds=120))
 
     assert [item.consumer_key for item in snapshot.grants] == ["platform"]
 
@@ -379,7 +379,7 @@ async def test_ensure_view_keeps_snapshot_when_refresh_fails() -> None:
 async def test_ensure_view_requires_registered_source() -> None:
     """来源未登记：首访即抛 `CatalogError`（fail-closed，不静默放行）。"""
     with pytest.raises(CatalogError):
-        await ensure_grant_view(provider="org")
+        await ensure_grant_view(provider="mdm")
 
 
 async def test_view_requires_exactly_one_dimension() -> None:
@@ -388,8 +388,8 @@ async def test_view_requires_exactly_one_dimension() -> None:
     with pytest.raises(CatalogError):
         await ensure_grant_view()
     with pytest.raises(CatalogError):
-        await ensure_grant_view(provider="org", consumer="platform")
-    assert list(capability_grant_pairs(provider="org")) == []
+        await ensure_grant_view(provider="mdm", consumer="platform")
+    assert list(capability_grant_pairs(provider="mdm")) == []
 
 
 async def test_remote_source_parses_internal_view_payload() -> None:
@@ -400,18 +400,18 @@ async def test_remote_source_parses_internal_view_payload() -> None:
         async def call(self, request: object) -> ServiceResponse:
             del request
             body = (
-                b'{"code":0,"data":{"provider":"org","consumer":null,"grants":['
-                b'{"capability_name":"demo.org.user-roles","consumer_key":"platform","domain":"org",'
+                b'{"code":0,"data":{"provider":"mdm","consumer":null,"grants":['
+                b'{"capability_name":"demo.mdm.user-roles","consumer_key":"platform","domain":"mdm",'
                 b'"kind":"read","expire_at":null}]}}'
             )
             response = ServiceResponse(status_code=200, content=body)
             return response
 
     source = RemoteCapabilityGrantSource(_Client())  # pyright: ignore[reportArgumentType]  # 结构替身
-    grants = await source.load(provider="org")
+    grants = await source.load(provider="mdm")
 
     assert [(item.capability_name, item.consumer_key, item.expire_at) for item in grants] == [
-        ("demo.org.user-roles", "platform", None)
+        ("demo.mdm.user-roles", "platform", None)
     ]
 
 
@@ -473,7 +473,7 @@ async def test_remote_source_rejects_unavailable_and_malformed_payloads() -> Non
     for status_code, body in cases:
         source = _remote_source(status_code=status_code, body=body)
         with pytest.raises(CatalogError):
-            await source.load(provider="org")
+            await source.load(provider="mdm")
 
 
 async def test_remote_source_parses_expire_at_variants() -> None:
@@ -499,11 +499,11 @@ async def test_invalidate_snapshots_all_or_specific() -> None:
     """快照失效：给维度只失效该维度（不存在的键安全跳过），不给维度清空全部。"""
     register_collaboration_records((_record(),))
     register_capability_grant_source(_FakeSource(ConcurrentStableList([_grant()])))
-    await ensure_grant_view(provider="org", now=_NOW)
+    await ensure_grant_view(provider="mdm", now=_NOW)
     await ensure_grant_view(consumer="platform", now=_NOW)
 
-    invalidate_capability_grants(provider="org")
-    assert list(capability_grant_pairs(provider="org")) == []
+    invalidate_capability_grants(provider="mdm")
+    assert list(capability_grant_pairs(provider="mdm")) == []
     assert len(capability_grant_pairs(consumer="platform")) == 1
 
     invalidate_capability_grants(provider="ghost")
@@ -518,18 +518,18 @@ async def test_ensure_view_raises_when_first_load_fails() -> None:
     register_capability_grant_source(source)
 
     with pytest.raises(CatalogError):
-        await ensure_grant_view(provider="org", now=_NOW)
+        await ensure_grant_view(provider="mdm", now=_NOW)
 
 
 async def test_granted_scopes_skips_disabled_capability_and_codes() -> None:
     """出站 scope：禁用能力与 `codes` 类不产生 scope。"""
     from bms_core.services.module_registry import CollaborationStatus
 
-    disabled = _record("demo.org.legacy")
+    disabled = _record("demo.mdm.legacy")
     register_collaboration_records(
         (
             _record(),
-            _record("demo.org.codes", kind="codes"),
+            _record("demo.mdm.codes", kind="codes"),
             CollaborationRecord(
                 name=disabled.name,
                 domain=disabled.domain,
@@ -546,36 +546,36 @@ async def test_granted_scopes_skips_disabled_capability_and_codes() -> None:
         _FakeSource(
             ConcurrentStableList(
                 [
-                    _grant("demo.org.codes"),
-                    _grant("demo.org.legacy"),
-                    _grant("demo.org.user-roles"),
+                    _grant("demo.mdm.codes"),
+                    _grant("demo.mdm.legacy"),
+                    _grant("demo.mdm.user-roles"),
                 ]
             )
         )
     )
     await ensure_grant_view(consumer="platform", now=_NOW)
 
-    assert list(granted_scopes("platform")) == [f"{SCOPE_PREFIX}:org:read"]
+    assert list(granted_scopes("platform")) == [f"{SCOPE_PREFIX}:mdm:read"]
 
 
 async def test_granted_consumers_skips_other_capability() -> None:
     """入站允许集合：只回本能力的授权（同域其他能力的记录不计入）。"""
-    register_collaboration_records((_record(), _record("demo.org.other")))
-    register_capability_grant_source(_FakeSource(ConcurrentStableList([_grant("demo.org.other", "mdm"), _grant()])))
-    await ensure_grant_view(provider="org", now=_NOW)
+    register_collaboration_records((_record(), _record("demo.mdm.other")))
+    register_capability_grant_source(_FakeSource(ConcurrentStableList([_grant("demo.mdm.other", "mdm"), _grant()])))
+    await ensure_grant_view(provider="mdm", now=_NOW)
 
-    assert list(granted_consumers("demo.org.user-roles")) == ["platform"]
+    assert list(granted_consumers("demo.mdm.user-roles")) == ["platform"]
 
 
 async def test_check_access_unknown_capability_and_blank_consumer() -> None:
     """入站校验前置：能力未登记（`CatalogError`）/ 调用方缺失（`PermissionError`）。"""
     with pytest.raises(PermissionError):
-        await check_capability_access("demo.org.user-roles", "")
+        await check_capability_access("demo.mdm.user-roles", "")
 
     register_collaboration_records((_record(),))
     register_capability_grant_source(_FakeSource(ConcurrentStableList()))
     with pytest.raises(CatalogError):
-        await check_capability_access("demo.org.ghost", "platform")
+        await check_capability_access("demo.mdm.ghost", "platform")
 
 
 async def test_granted_scopes_skips_expired_and_disabled_grants() -> None:
@@ -600,18 +600,18 @@ async def test_granted_consumers_dedupes_repeated_rows() -> None:
     """入站允许集合：来源返回重复行时按消费方去重（幂等视图，不重复列示）。"""
     register_collaboration_records((_record(),))
     register_capability_grant_source(_FakeSource(ConcurrentStableList([_grant(), _grant()])))
-    await ensure_grant_view(provider="org", now=_NOW)
+    await ensure_grant_view(provider="mdm", now=_NOW)
 
-    assert list(granted_consumers("demo.org.user-roles")) == ["platform"]
+    assert list(granted_consumers("demo.mdm.user-roles")) == ["platform"]
 
 
 async def test_check_access_without_metrics_passes_silently() -> None:
     """无指标器（测试 / 无观测环境）：判定照常，打点跳过。"""
     register_collaboration_records((_record(),))
     register_capability_grant_source(_FakeSource(ConcurrentStableList([_grant()])))
-    await ensure_grant_view(provider="org", now=_NOW)
+    await ensure_grant_view(provider="mdm", now=_NOW)
 
-    await check_capability_access("demo.org.user-roles", "platform")
+    await check_capability_access("demo.mdm.user-roles", "platform")
 
 
 async def test_build_request_fills_scopes_from_grants(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -623,7 +623,7 @@ async def test_build_request_fills_scopes_from_grants(monkeypatch: pytest.Monkey
     from bms_core.services.module_registry import register_domain_services
 
     register_collaboration_records((_record(kind="write"),))
-    register_domain_services(ConcurrentStableFrozenDict({"org": "mdm"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
     register_capability_grant_source(_FakeSource(ConcurrentStableList([_grant()])))
     await ensure_grant_view(consumer="platform", now=_NOW)
     monkeypatch.setattr(
@@ -632,11 +632,11 @@ async def test_build_request_fills_scopes_from_grants(monkeypatch: pytest.Monkey
         lambda: SimpleNamespace(app=SimpleNamespace(service="platform")),
     )
 
-    endpoint = resolve_capability("demo.org.user-roles")
+    endpoint = resolve_capability("demo.mdm.user-roles")
     auto = build_capability_request(endpoint, method="GET")
     explicit = build_capability_request(
         endpoint, method="GET", policy=ServiceCallPolicy(timeout=1.5, scopes=ConcurrentStableFrozenList(["x:y"]))
     )
 
-    assert list(auto.policy.scopes) == [f"{SCOPE_PREFIX}:org:write"]
+    assert list(auto.policy.scopes) == [f"{SCOPE_PREFIX}:mdm:write"]
     assert list(explicit.policy.scopes) == ["x:y"] and explicit.policy.timeout == 1.5

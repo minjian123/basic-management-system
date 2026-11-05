@@ -1,27 +1,27 @@
 /**
- * 组织（用户 / 岗位 / 部门）领域纯函数与数据模型：归一 / 查询参数 / 结果解析 / 缓存键 /
+ * 字典数据（用户 / 岗位 / 部门）领域纯函数与数据模型：归一 / 查询参数 / 结果解析 / 缓存键 /
  * 选择与上限 / 已删除与停用标记 / 标签摘要 / 部门路径与树节点 / 错误码文案。
  *
- * 与后端组织主数据出口（部门 / 岗位 / 人员三类出口）契约同源；
+ * 与后端字典数据出口（部门 / 岗位 / 人员三类出口）契约同源；
  * 不触 DOM、不请求、不依赖渲染框架与第三方库。
  */
 
-/** 组织对象类型（与后端 `DICT_DATA_TARGETS` 同源）。 */
+/** 字典数据对象类型（与后端 `DICT_DATA_TARGETS` 同源）。 */
 export const DICT_DATA_TARGETS = ['user', 'post', 'dept'] as const
 
-/** 组织对象类型。 */
+/** 字典数据对象类型。 */
 export type DictDataKind = (typeof DICT_DATA_TARGETS)[number]
 
-/** 组织对象状态（与后端 `DICT_DATA_STATUSES` 同源）。 */
+/** 字典数据对象状态（与后端 `DICT_DATA_STATUSES` 同源）。 */
 export const DICT_DATA_STATUSES = ['enabled', 'disabled'] as const
 
-/** 组织对象状态。 */
+/** 字典数据对象状态。 */
 export type DictDataStatus = (typeof DICT_DATA_STATUSES)[number]
 
 /** 远程搜索防抖（毫秒；组件设计 300ms）。 */
 export const DICT_DATA_SEARCH_DEBOUNCE = 300
 
-/** 组织列表缺省页长（与后端 `DEFAULT_DICT_DATA_PAGE_SIZE` 同源；下拉限制条数）。 */
+/** 字典数据列表缺省页长（与后端 `DEFAULT_DICT_DATA_PAGE_SIZE` 同源；下拉限制条数）。 */
 export const DICT_DATA_DEFAULT_PAGE_SIZE = 20
 
 /** 页长上限。 */
@@ -52,22 +52,22 @@ export const DICT_DATA_DELETED_MARK = '已删除'
 export const DICT_DATA_DISABLED_MARK = '停用'
 
 /** 占位文案（`ready=false` 降级）。 */
-export const DICT_DATA_PLACEHOLDER_TEXT = '组织数据未就绪（占位）'
+export const DICT_DATA_PLACEHOLDER_TEXT = '字典数据未就绪（占位）'
 
 /** 空态文案。 */
-export const DICT_DATA_EMPTY_TEXT = '暂无匹配的组织数据'
+export const DICT_DATA_EMPTY_TEXT = '暂无匹配的字典数据'
 
-/** 加载失败兜底文案（非组织错误码时）。 */
-export const DICT_DATA_LOAD_ERROR_TEXT = '组织数据加载失败'
+/** 加载失败兜底文案（非字典数据错误码时）。 */
+export const DICT_DATA_LOAD_ERROR_TEXT = '字典数据加载失败'
 
-/** 组织查询错误码文案（30101 ~ 30103，与架构 09 错误码分段同源）。 */
+/** 字典数据查询错误码文案（30101 ~ 30103，与架构 09 错误码分段同源）。 */
 export const DICT_DATA_ERROR_TEXTS: Readonly<Record<number, string>> = {
-  30101: '组织数据源不可用',
+  30101: '字典数据源不可用',
   30102: '不支持的回显目标类型',
   30103: '部门不存在',
 }
 
-/** 统一组织选项项（用户 / 岗位 / 部门的展示最小面）。 */
+/** 统一字典数据选项项（用户 / 岗位 / 部门的展示最小面）。 */
 export interface DictDataOptionItem {
   /** 标识。 */
   id: string
@@ -129,7 +129,7 @@ export interface DictDataTreeNode {
   children?: DictDataTreeNode[]
 }
 
-/** 组织查询输入（件 / 族基类侧）。 */
+/** 字典数据查询输入（件 / 族基类侧）。 */
 export interface DictDataSearchInput {
   /** 对象类型。 */
   kind: DictDataKind
@@ -196,7 +196,7 @@ export interface DictDataTagSummary {
 }
 
 /**
- * 归一组织对象类型（`org` 字段类型视为 `dept`）。
+ * 归一字典数据对象类型（`org` 字段类型视为 `dept`）。
  *
  * @param value 原始值。
  * @returns 类型或 `undefined`。
@@ -213,7 +213,7 @@ export function normalizeDictDataKind(value: unknown): DictDataKind | undefined 
 }
 
 /**
- * 字段类型 → 组织对象类型（表单渲染协同；`org` / `dept` → `dept`）。
+ * 字段类型 → 字典数据对象类型（表单渲染协同；`org` / `dept` → `dept`）。
  *
  * @param fieldType 字段类型。
  * @returns 类型或 `undefined`。
@@ -223,7 +223,7 @@ export function dictDataKindOfFieldType(fieldType: string): DictDataKind | undef
 }
 
 /**
- * 归一组织对象状态（非法回落 `enabled`）。
+ * 归一字典数据对象状态（非法回落 `enabled`）。
  *
  * @param value 原始值。
  * @returns 状态。
@@ -233,7 +233,7 @@ export function normalizeDictDataStatus(value: unknown): DictDataStatus {
 }
 
 /**
- * 归一单条组织选项（`id` 缺失视为脏项剔除；兼容 snake_case）。
+ * 归一单条字典数据选项（`id` 缺失视为脏项剔除；兼容 snake_case）。
  *
  * @param raw 原始项。
  * @param kind 对象类型。
@@ -293,7 +293,7 @@ export function normalizeDictDataItem(raw: unknown, kind: DictDataKind): DictDat
 }
 
 /**
- * 归一组织选项列表（脏项剔除）。
+ * 归一字典数据选项列表（脏项剔除）。
  *
  * @param raw 原始列表。
  * @param kind 对象类型。
@@ -431,7 +431,7 @@ export function removeDictDataId(ids: readonly string[], id: string): string[] {
 }
 
 /**
- * 合并组织选项（按 id 合并，入参覆盖同名项；保序）。
+ * 合并字典数据选项（按 id 合并，入参覆盖同名项；保序）。
  *
  * @param base 基线列表。
  * @param incoming 增量列表。
@@ -726,7 +726,7 @@ export function clampDictDataPageSize(size: number): number {
 }
 
 /**
- * 是否组织查询错误码（30101 ~ 30103）。
+ * 是否字典数据查询错误码（30101 ~ 30103）。
  *
  * @param code 错误码。
  * @returns 是否命中。
@@ -736,16 +736,16 @@ export function isDictDataErrorCode(code: unknown): boolean {
 }
 
 /**
- * 组织查询错误码文案。
+ * 字典数据查询错误码文案。
  *
  * @param code 错误码。
- * @returns 文案（未知码回落「组织数据不可用」）。
+ * @returns 文案（未知码回落「字典数据不可用」）。
  */
 export function resolveDictDataErrorText(code: number | undefined): string {
   if (code === undefined) {
     return ''
   }
-  return DICT_DATA_ERROR_TEXTS[code] ?? '组织数据不可用'
+  return DICT_DATA_ERROR_TEXTS[code] ?? '字典数据不可用'
 }
 
 /**

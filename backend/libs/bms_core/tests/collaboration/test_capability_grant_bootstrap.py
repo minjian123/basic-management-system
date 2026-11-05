@@ -31,7 +31,7 @@ from bms_core.services.module_registry import (
 )
 
 SERVICE_KEY = "demo"
-"""本服务标识（承载 `org` 域）。"""
+"""本服务标识（承载 `mdm` 域）。"""
 
 
 class _ClientStub(BaseServiceClient):
@@ -98,7 +98,7 @@ def _isolate() -> Iterator[None]:
 
 async def test_bootstrap_registers_source_and_warms_carried_domain() -> None:
     """引导：登记远端来源并只预热本服务承载域的 `provider` 视图（不请求消费方维度）。"""
-    register_domain_services(ConcurrentStableFrozenDict({"org": SERVICE_KEY, "peer": "other"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": SERVICE_KEY, "peer": "other"}))
     client = _ClientStub(content=b'{"code":0,"data":{"grants":[]}}')
 
     await bootstrap_remote_capability_grants(_app(client=client))
@@ -108,7 +108,7 @@ async def test_bootstrap_registers_source_and_warms_carried_domain() -> None:
 
 async def test_bootstrap_marks_not_degraded_on_success() -> None:
     """引导成功：`grant_view_degraded` 复位为 False（降级标记只在失败时置真）。"""
-    register_domain_services(ConcurrentStableFrozenDict({"org": SERVICE_KEY}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": SERVICE_KEY}))
     app = _app(client=_ClientStub(content=b'{"code":0,"data":{"grants":[]}}'))
 
     await bootstrap_remote_capability_grants(app)
@@ -118,7 +118,7 @@ async def test_bootstrap_marks_not_degraded_on_success() -> None:
 
 async def test_warm_views_skips_consumer_when_disabled() -> None:
     """预热：`consumer=False` 时消费方维度不加载（产品进程入站判定只需 `provider` 维）。"""
-    register_domain_services(ConcurrentStableFrozenDict({"org": SERVICE_KEY}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": SERVICE_KEY}))
     client = _ClientStub(content=b'{"code":0,"data":{"grants":[]}}')
     app = _app(client=client)
 
@@ -130,7 +130,7 @@ async def test_warm_views_skips_consumer_when_disabled() -> None:
 
 async def test_warm_views_includes_consumer_by_default() -> None:
     """预热：缺省档（平台侧口径）在承载域之外并拉本服务作为消费方的视图。"""
-    register_domain_services(ConcurrentStableFrozenDict({"org": SERVICE_KEY}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": SERVICE_KEY}))
     client = _ClientStub(content=b'{"code":0,"data":{"grants":[]}}')
     app = _app(client=client)
     await bootstrap_remote_capability_grants(app)
@@ -142,31 +142,31 @@ async def test_warm_views_includes_consumer_by_default() -> None:
 
 async def test_remote_grants_feed_provider_view() -> None:
     """远端来源：出口返回的授权记录进入承载域 `provider` 视图（入站判定可读）。"""
-    register_domain_services(ConcurrentStableFrozenDict({"org": SERVICE_KEY}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": SERVICE_KEY}))
     content = (
-        b'{"code":0,"data":{"grants":[{"capability_name":"demo.org.user-roles",'
+        b'{"code":0,"data":{"grants":[{"capability_name":"demo.mdm.user-roles",'
         b'"consumer_key":"platform","expire_at":null}]}}'
     )
     app = _app(client=_ClientStub(content=content))
 
     await bootstrap_remote_capability_grants(app)
-    snapshot = await ensure_grant_view(provider="org")
+    snapshot = await ensure_grant_view(provider="mdm")
 
     assert [(grant.capability_name, grant.consumer_key) for grant in snapshot.grants] == [
-        ("demo.org.user-roles", "platform")
+        ("demo.mdm.user-roles", "platform")
     ]
 
 
 async def test_bootstrap_degrades_when_source_unavailable() -> None:
     """来源不可达：告警降级（不拒启），且首访仍 fail-closed（抛 `CatalogError`）。"""
-    register_domain_services(ConcurrentStableFrozenDict({"org": SERVICE_KEY}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": SERVICE_KEY}))
     app = _app(client=_ClientStub(status_code=503))
 
     await bootstrap_remote_capability_grants(app)
 
     assert getattr(app.state, GRANT_VIEW_DEGRADED_FLAG) is True
     with pytest.raises(CatalogError):
-        await ensure_grant_view(provider="org")
+        await ensure_grant_view(provider="mdm")
 
 
 async def test_bootstrap_requires_service_client() -> None:

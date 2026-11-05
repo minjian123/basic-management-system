@@ -42,7 +42,7 @@ from bms_platform.domains.role.ports import (
 )
 from bms_platform.domains.role.repositories.reference import MetadataReferenceRepository
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.domains.role.services.permission_subject import DirectRoleResolver, OrgRoleResolver
+from bms_platform.domains.role.services.permission_subject import DeptPostRoleResolver, DirectRoleResolver
 from bms_platform.domains.role.services.role_assignment import RoleAssignmentService
 from bms_platform.domains.role.services.role_assignments import RoleAssignmentWriter
 from bms_platform.domains.role.services.role_grant_reader import RoleGrantReader
@@ -227,15 +227,15 @@ def role_resolvers(
     session: DbSession,
     *,
     service_client: BaseServiceClient,
-    require_org: bool = False,
+    require_dept_post: bool = False,
     metrics: BaseMetrics | None = None,
 ) -> ConcurrentStableList[BaseRoleResolver]:
-    """构造角色解析器组（直接角色 + 组织链角色）。
+    """构造角色解析器组（直接角色 + 岗位/部门链角色）。
 
     Args:
         session: 租户库会话。
-        service_client: 服务间客户端（组织链角色按能力名取用）。
-        require_org: 组织链不可达时是否严格拒绝。
+        service_client: 服务间客户端（岗位/部门链角色按能力名取用）。
+        require_dept_post: 岗位 / 部门链不可达时是否严格拒绝。
         metrics: 指标记录器（可选）。
 
     Returns:
@@ -244,6 +244,6 @@ def role_resolvers(
     return ConcurrentStableList(
         [
             DirectRoleResolver(UserRoleRepository(session)),
-            OrgRoleResolver(service_client, require_roles=require_org, metrics=metrics),
+            DeptPostRoleResolver(service_client, require_roles=require_dept_post, metrics=metrics),
         ]
     )

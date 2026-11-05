@@ -203,7 +203,7 @@ def test_registry_registration_and_auto_selection() -> None:
 
     explicit = build_tenant_membership_store(
         _TEST_STORE,
-        settings=_settings("org"),
+        settings=_settings("mdm"),
         registry=cast("EngineRegistry", object()),
         session_factory=None,
         service_client=None,
@@ -212,7 +212,7 @@ def test_registry_registration_and_auto_selection() -> None:
 
     remote = build_tenant_membership_store(
         "",
-        settings=_settings("org"),
+        settings=_settings("mdm"),
         registry=cast("EngineRegistry", object()),
         session_factory=None,
         service_client=_FakeClient(_response(_targets_payload())),
@@ -234,7 +234,7 @@ def test_remote_store_requires_service_client() -> None:
     with pytest.raises(ConfigError):
         build_tenant_membership_store(
             REMOTE_TENANT_MEMBERSHIP_STORE,
-            settings=_settings("org"),
+            settings=_settings("mdm"),
             registry=cast("EngineRegistry", object()),
             session_factory=None,
             service_client=None,
@@ -242,7 +242,7 @@ def test_remote_store_requires_service_client() -> None:
 
     store = build_tenant_membership_store(
         REMOTE_TENANT_MEMBERSHIP_STORE,
-        settings=_settings("org"),
+        settings=_settings("mdm"),
         registry=cast("EngineRegistry", object()),
         session_factory=None,
         service_client=_FakeClient(_response(_targets_payload())),

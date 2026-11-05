@@ -42,9 +42,9 @@ class RowRepository(BaseMemoryRepository[Row]):
 
 
 class ScopedRowRepository(RowRepository):
-    """暴露作用域钩子的测试仓储（`owner_id` 承载 `org_dept` 数据源）。"""
+    """暴露作用域钩子的测试仓储（`owner_id` 承载 `mdm_dept` 数据源）。"""
 
-    scope_columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"org_dept": "owner_id"})
+    scope_columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"mdm_dept": "owner_id"})
 
     def use_scope(self, scope: DataScope | None) -> None:
         """注入数据范围。"""
@@ -235,10 +235,10 @@ async def test_data_source_conditions_translate_and_coerce() -> None:
     repo = await _repo_with_rows()
     repo.disable_soft_delete()
 
-    repo.use_scope(FixedScope(ScopeCondition("", "in", ["1", "2"], "org_dept")))
+    repo.use_scope(FixedScope(ScopeCondition("", "in", ["1", "2"], "mdm_dept")))
     assert [row.name for row in await repo.list()] == ["甲", "乙", "删"]
 
-    repo.use_scope(FixedScope(ScopeCondition("", "between", ("2", "3"), "org_dept")))
+    repo.use_scope(FixedScope(ScopeCondition("", "between", ("2", "3"), "mdm_dept")))
     assert [row.name for row in await repo.list()] == ["乙", "丙", "删"]
 
 
@@ -248,7 +248,7 @@ async def test_unmapped_data_source_condition_denies_all() -> None:
     reset_permission_cache_store()
     repo = UnmappedRowRepository()
     await repo.create(name="甲", owner_id=1)
-    repo.use_scope(FixedScope(ScopeCondition("", "in", ["1"], "org_dept")))
+    repo.use_scope(FixedScope(ScopeCondition("", "in", ["1"], "mdm_dept")))
     assert await repo.list() == []
     assert current_permission_cache_store().stats()["invalid_rule_rejections"] == 1
 
@@ -258,7 +258,7 @@ async def test_unmapped_condition_falls_back_to_field() -> None:
     """未声明映射但条件带字段（`match`）：回落字段原名过滤。"""
     repo = UnmappedRowRepository()
     await repo.create(name="乙", owner_id=2)
-    repo.use_scope(FixedScope(ScopeCondition("name", "like", "乙", "org_dept")))
+    repo.use_scope(FixedScope(ScopeCondition("name", "like", "乙", "mdm_dept")))
     assert [row.name for row in await repo.list()] == ["乙"]
 
 

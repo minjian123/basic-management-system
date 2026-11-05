@@ -172,7 +172,7 @@ describe('守卫决策记录（Kiwi 2231）', () => {
     moduleTelemetry.record({
       kind: 'guard',
       decision: 'login',
-      path: '/org/users',
+      path: '/mdm/users',
       reason: 'no-session',
       at: '2026-10-02T00:00:00.000Z',
     })
@@ -186,7 +186,7 @@ describe('守卫决策记录（Kiwi 2231）', () => {
 
     const guards = moduleSnapshot().platform.guards
     expect(guards).toHaveLength(2)
-    expect(guards[0]).toMatchObject({ decision: 'login', path: '/org/users', reason: 'no-session' })
+    expect(guards[0]).toMatchObject({ decision: 'login', path: '/mdm/users', reason: 'no-session' })
     expect(guards[1]).toMatchObject({ decision: 'allow', path: '/', reason: 'session-ready' })
 
     resetModuleTelemetry()

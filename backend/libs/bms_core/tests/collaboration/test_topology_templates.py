@@ -15,7 +15,7 @@ from bms_core.core.exceptions import ParamError
 
 pytestmark = pytest.mark.kiwi_id(2366)
 
-_DOMAINS = ("auth", "identity_federation", "org", "platform_registry")
+_DOMAINS = ("auth", "identity_federation", "mdm", "platform_registry")
 
 
 def _units(name: str) -> ConcurrentStableDict[str, str]:
@@ -59,7 +59,7 @@ def test_isolated_gives_each_domain_its_own_unit() -> None:
     """独立型：每域一个 `dom-*` 单元（下划线换连字符以符合单元命名）。"""
     units = _units(TEMPLATE_ISOLATED)
     assert units["identity_federation"] == "dom-identity-federation"
-    assert units["org"] == "dom-org"
+    assert units["mdm"] == "dom-mdm"
     assert len(set(units.values())) == len(_DOMAINS)
 
 

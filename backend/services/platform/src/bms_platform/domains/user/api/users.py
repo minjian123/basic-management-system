@@ -4,7 +4,7 @@
   （`02_04` 起为真实 RBAC 校验器；内置系统管理员的 `user:*` 授权见 `ops/seed_rbac.py`）；
 - **同库**：`sys_user` / `sys_user_role` / `sys_role` / `sys_account_lock` 全在 **platform 服务租户库**；
 - **跨服务**：会话失效经 identity 内部端点（`services/user_sessions.py`，提交后调用、失败不阻断）；
-- **不含**：组织字段（部门 / 岗位，归产品组织域，需求 `07-11`）、`locale` / `timezone`（个人中心）、
+- **不含**：部门 / 岗位字段（部门 / 岗位，归产品主数据域，需求 `07-11`）、`locale` / `timezone`（个人中心）、
   SSO 身份绑定查看（identity 服务既有端点 `GET /api/v1/users/{id}/identities`，权限码 `sso:bind`）；
 - **留痕**：写操作接 `AuditCapturer` 占位（真实落库随审计阶段）+ 事务性发件箱发射 `sys.user.*`；
 - **契约**：计入 platform 公开契约（`deploy/contracts/platform.json`）。
@@ -514,8 +514,8 @@ async def apply_user_assignments(
 ) -> ApiResponse[UserAssignmentsResult]:
     """用户保存编排（分段全量覆盖；跨服务原子）。
 
-    `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；
-    `provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。
+    `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 跨产品域分支经参与端点）；
+    `provider = null`（dev / test）时顺序提交（platform 本地事务 → 跨产品域内部写通道）。
     权限码**分段校验**：`profile` 段另需 `user:update`。
 
     Args:
@@ -525,13 +525,13 @@ async def apply_user_assignments(
         hasher: 口令哈希器（占位：保持构造口径一致）。
         policy: 密码策略（占位）。
         outbox: 事务性发件箱存储。
-        client: 服务间调用客户端（组织域分支执行 / 内部写通道；提交后会话失效）。
+        client: 服务间调用客户端（跨产品域分支执行 / 内部写通道；提交后会话失效）。
         cache: 缓存能力域（角色分配变更后权限版本递增）。
         manager: 事务管理器（`provider=null` 时为 Null 实现）。
         participant: 事务参与方（platform 自身分支进程内执行）。
         checker: 权限校验器（`profile` 段命令式复校）。
         audit: 审计捕获（占位）。
-        idem_key: 幂等键请求头（透传给组织域内部写通道）。
+        idem_key: 幂等键请求头（透传给跨产品域内部写通道）。
 
     Returns:
         ApiResponse: 统一响应，data 为用户详情、生效后角色清单与本次参与分段名。

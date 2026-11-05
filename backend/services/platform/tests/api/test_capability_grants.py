@@ -50,7 +50,7 @@ pytestmark = pytest.mark.own_db(
 API = "/api/v1/capability-grants"
 INTERNAL_API = "/api/v1/platform/internal/capability-grants"
 
-CAPABILITY = "demo.org.user-roles"
+CAPABILITY = "demo.mdm.user-roles"
 CONSUMER = "platform"
 
 
@@ -132,7 +132,7 @@ def _record(*, consumers: ConcurrentStableFrozenList[str] | None = None) -> Coll
     """
     return CollaborationRecord(
         name=CAPABILITY,
-        domain="org",
+        domain="mdm",
         kind="read",
         contract_version="0.1.0",
         path="/api/v1/demo/user-roles",
@@ -190,7 +190,7 @@ def _isolate_grant_state() -> Iterator[None]:
     reset_collaboration_records()
     reset_domain_services()
     register_collaboration_records((_record(),))
-    register_domain_services(ConcurrentStableFrozenDict({"org": "mdm", "platform_registry": "platform"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm", "platform_registry": "platform"}))
     yield
     reset_collaboration_records()
     reset_domain_services()
@@ -238,7 +238,7 @@ async def test_grant_is_idempotent_and_listed(client: AsyncClient) -> None:
 @pytest.mark.anyio
 async def test_grant_rejects_unregistered_capability_and_consumer(client: AsyncClient) -> None:
     """入库前校验：能力未登记 / 消费方未登记均按参数非法拒绝（10001）。"""
-    unknown_capability = await client.post(API, json={"capability_name": "demo.org.ghost", "consumer_key": CONSUMER})
+    unknown_capability = await client.post(API, json={"capability_name": "demo.mdm.ghost", "consumer_key": CONSUMER})
     assert unknown_capability.json()["code"] == 10001
 
     unknown_consumer = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": "ghost"})
@@ -400,7 +400,7 @@ async def test_internal_view_provider_and_consumer_dimensions(client: AsyncClien
     created = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": CONSUMER})
     assert created.status_code == 200
 
-    by_provider = await client.get(INTERNAL_API, params={"provider": "org"})
+    by_provider = await client.get(INTERNAL_API, params={"provider": "mdm"})
     assert by_provider.status_code == 200
     assert [item["capability_name"] for item in by_provider.json()["data"]["grants"]] == [CAPABILITY]
 
@@ -415,7 +415,7 @@ async def test_internal_view_provider_and_consumer_dimensions(client: AsyncClien
     assert foreign_consumer.status_code == 403
 
     foreign_domain = await client.get(
-        INTERNAL_API, params={"provider": "org"}, headers={"Authorization": "Bearer platform"}
+        INTERNAL_API, params={"provider": "mdm"}, headers={"Authorization": "Bearer platform"}
     )
     assert foreign_domain.status_code == 403
 
@@ -431,7 +431,7 @@ async def test_internal_view_requires_single_dimension(client: AsyncClient) -> N
     missing = await client.get(INTERNAL_API)
     assert missing.json()["code"] == 10001
 
-    both = await client.get(INTERNAL_API, params={"provider": "org", "consumer": CONSUMER})
+    both = await client.get(INTERNAL_API, params={"provider": "mdm", "consumer": CONSUMER})
     assert both.json()["code"] == 10001
 
 
@@ -466,7 +466,7 @@ async def test_service_rejects_invalid_view_dimension_and_missing_uow(service_ap
         with pytest.raises(ParamError):
             await read_only.view()
         with pytest.raises(ParamError):
-            await read_only.view(provider="org", consumer=CONSUMER)
+            await read_only.view(provider="mdm", consumer=CONSUMER)
         with pytest.raises(ConfigError):
             await read_only.grant(capability_name=CAPABILITY, consumer_key=CONSUMER)
 
@@ -534,8 +534,8 @@ async def test_revoke_tolerates_capability_removed_from_catalog(service_app: Fas
         register_collaboration_records(
             (
                 CollaborationRecord(
-                    name="demo.org.other",
-                    domain="org",
+                    name="demo.mdm.other",
+                    domain="mdm",
                     kind="read",
                     contract_version="0.1.0",
                     path="/api/v1/demo/other",

@@ -28,7 +28,7 @@ from bms_core.services.module_registry import (
 )
 from tests_support.metrics import RecordingMetrics
 
-CAPABILITY = "demo.org.user-roles"
+CAPABILITY = "demo.mdm.user-roles"
 
 
 class _StubVerifier:
@@ -53,7 +53,7 @@ class _StubVerifier:
                 subject="platform",
                 service="platform",
                 token_type="service",
-                domains=ConcurrentStableFrozenList(("org",)),  # pyright: ignore[reportArgumentType]
+                domains=ConcurrentStableFrozenList(("mdm",)),  # pyright: ignore[reportArgumentType]
             )
         if token == "gateway":
             return VerifiedToken(subject="gateway", service="gateway", token_type="service")
@@ -111,7 +111,7 @@ def _isolate_state() -> Iterator[None]:
         (
             CollaborationRecord(
                 name=CAPABILITY,
-                domain="org",
+                domain="mdm",
                 kind="read",
                 contract_version="0.1.0",
                 path="/api/v1/demo/user-roles",

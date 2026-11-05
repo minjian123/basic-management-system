@@ -463,7 +463,7 @@ async def test_build_platform_source_reads_options() -> None:
     settings = Settings()
     options: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     options.set("snapshot_ttl_seconds", 60)
-    options.set("require_org_roles", True)
+    options.set("require_mdm_roles", True)
     settings.permission.options = options
     app.state.settings = settings
     app.state.engine_registry = cast("EngineRegistry", object())
@@ -489,7 +489,7 @@ def test_build_menu_metadata_service_wires_read_only_ports() -> None:
 
 @pytest.mark.kiwi_id(2320)
 async def test_build_platform_source_falls_back_on_bad_option_types() -> None:
-    """装配容错：`snapshot_ttl_seconds` 非整数 / 未配置 → 回落缺省 TTL；`require_org_roles` 缺省 False。"""
+    """装配容错：`snapshot_ttl_seconds` 非整数 / 未配置 → 回落缺省 TTL；`require_mdm_roles` 缺省 False。"""
     app = FastAPI()
     settings = Settings()
     options: ConcurrentStableDict[str, object] = ConcurrentStableDict()

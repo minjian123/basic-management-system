@@ -1,5 +1,5 @@
 // kiwi_id: 962
-/** 组织选择族组件基类用例（06_05）：契约同实现（核心 + 投影）+ 身份依赖 + 部门树缓存 + 用户展示汇入。 */
+/** 远程字典选择族组件基类用例（06_05）：契约同实现（核心 + 投影）+ 身份依赖 + 部门树缓存 + 用户展示汇入。 */
 
 import {
   BaseField,
@@ -19,7 +19,7 @@ import {
 } from '@bms/core/testing'
 import { describe, expect, it } from 'vitest'
 
-/** 具体组织选择族（可实例化）。 */
+/** 具体远程字典选择族（可实例化）。 */
 class DictSelectState extends BaseDictRemoteSelect {}
 
 /** 具体用户展示（可实例化）。 */
@@ -91,7 +91,7 @@ function makeTarget(): DictRemoteSelectContractTarget {
   }
 }
 
-describeDictRemoteSelectContract('组织选择契约（BaseDictRemoteSelect）', makeTarget)
+describeDictRemoteSelectContract('远程字典选择契约（BaseDictRemoteSelect）', makeTarget)
 
 describe('BaseDictRemoteSelect 继承链与身份', () => {
   it('挂链 BaseOptionSource → BaseField，能力键与依赖登记一致', () => {

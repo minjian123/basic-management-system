@@ -94,12 +94,12 @@ async def test_redis_await_waits_until_converged() -> None:
 
     async def _converge() -> None:
         await asyncio.sleep(0.05)
-        await barrier.mark_applied(scope="org", version=7, tenant="t1")
+        await barrier.mark_applied(scope="mdm", version=7, tenant="t1")
 
     task = asyncio.create_task(_converge())
-    await barrier.await_applied(scope="org", target_version=7, tenant="t1", timeout_ms=2000, poll_ms=10)
+    await barrier.await_applied(scope="mdm", target_version=7, tenant="t1", timeout_ms=2000, poll_ms=10)
     await task
-    assert await barrier.applied_version(scope="org", tenant="t1") == 7
+    assert await barrier.applied_version(scope="mdm", tenant="t1") == 7
     await client.aclose()
 
 

@@ -1,5 +1,5 @@
 /**
- * 组织选择契约（`@bms/core/testing`）。
+ * 远程字典选择契约（`@bms/core/testing`）。
  *
  * 组件基类 / 投影 / 移动端为「同一契约多实现」，各自在本套件中传入适配器跑同一套断言：
  * 占位零请求、数据源注入与就绪、三类派发与查询参数、关键词结果缓存、批量回显与
@@ -55,7 +55,7 @@ export interface DictRemoteSelectContractNode {
   children?: unknown[]
 }
 
-/** 组织选择契约面（结构化；实现侧可用基类实例或投影适配器接入）。 */
+/** 远程字典选择契约面（结构化；实现侧可用基类实例或投影适配器接入）。 */
 export interface DictRemoteSelectContractTarget {
   /** 数据通路是否就绪。 */
   readonly ready: boolean
@@ -140,7 +140,7 @@ export interface DictRemoteSourceStub {
 }
 
 /**
- * 创建组织数据源桩（记录调用轨迹）。
+ * 创建字典数据源桩（记录调用轨迹）。
  *
  * @param overrides 覆盖方法。
  * @returns 数据源桩。
@@ -184,7 +184,7 @@ export function createDictRemoteSourceStub(overrides: DictRemoteSourceAdapter = 
 }
 
 /**
- * 组织选择契约（`06_05` 冻结；后续移动端复用同一套断言）。
+ * 远程字典选择契约（`06_05` 冻结；后续移动端复用同一套断言）。
  *
  * 目标约定：用户 `u1`（启用）/ `u2`（停用）、岗位 `p1`、部门树两节点、
  * 回显 `u1` / `u2` 命中、`u9` 未命中（`exists=false`）。
@@ -377,7 +377,7 @@ export function describeDictRemoteSelectContract(name: string, create: () => Dic
       target.setKind('user')
       await target.load()
       expect(target.errorCode).toBe(30101)
-      expect(target.errorMessage).toBe('组织数据源不可用')
+      expect(target.errorMessage).toBe('字典数据源不可用')
     })
 
     it('竞态：旧响应不覆盖新响应', async () => {

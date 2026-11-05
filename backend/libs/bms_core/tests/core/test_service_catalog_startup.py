@@ -351,7 +351,7 @@ async def test_lifespan_degrades_when_snapshot_unavailable(
         raise ServiceUnavailableError("服务目录快照契约调用失败（503）")
 
     monkeypatch.setattr("bms_core.application.load_catalog_snapshot", _unreachable)
-    app = _create_app(service="org")
+    app = _create_app(service="mdm")
     with _capture_bms_logs() as logs:
         async with service_lifespan(app):
             assert app.state.startup_complete is True

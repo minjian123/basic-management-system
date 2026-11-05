@@ -97,7 +97,7 @@ def _manifest(
 def _errcode(
     *,
     code: int = 390001,
-    domain: str = "org",
+    domain: str = "mdm",
     http_status: int = 404,
     message_key: str = "demo.error.dept_not_found",
     severity: str = "warning",
@@ -227,7 +227,7 @@ def _record(**overrides: object) -> ErrorCodeRecord:
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
         {
             "code": 390001,
-            "domain": "org",
+            "domain": "mdm",
             "http_status": 404,
             "message_key": "demo.error.dept_not_found",
             "severity": "warning",
@@ -347,7 +347,7 @@ def test_load_error_code_fields(tmp_path: Path) -> None:
     """合法声明：字段逐项解析，`product_key` / `segment` 装载期注入。"""
     manifest = load_product_manifest(_write(tmp_path, _manifest(body=_errcode())))
     record = manifest.error_codes[0]
-    assert (record.code, record.domain, record.http_status) == (390001, "org", 404)
+    assert (record.code, record.domain, record.http_status) == (390001, "mdm", 404)
     assert record.message_key == "demo.error.dept_not_found"
     assert (record.severity, record.description, record.status) == ("warning", "部门不存在", "enabled")
     assert (record.product_key, record.segment) == ("demo", "39")
@@ -358,7 +358,7 @@ def test_load_error_code_fields(tmp_path: Path) -> None:
     [
         ('[[errcodes]]\ncode = "390001"\n', "code 须为整数"),
         (_errcode(code=39001), "6 位"),
-        (_errcode(domain="Org"), "domain 形态非法"),
+        (_errcode(domain="Bad"), "domain 形态非法"),
         (_errcode().replace("http_status = 404", 'http_status = "404"'), "http_status 须为整数"),
         (_errcode(http_status=99), "http_status 越界"),
         (_errcode(http_status=600), "http_status 越界"),

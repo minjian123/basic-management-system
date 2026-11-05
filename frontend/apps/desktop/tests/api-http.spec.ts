@@ -80,7 +80,7 @@ describe('createAxiosAdapter（Kiwi 2191）', () => {
   it('写方法携带幂等键', async () => {
     requestMock.mockResolvedValueOnce(ok(null))
     const adapter = createAxiosAdapter()
-    await adapter.request({ method: 'POST', url: '/api/org/v1/y', idempotencyKey: 'k1' })
+    await adapter.request({ method: 'POST', url: '/api/mdm/v1/y', idempotencyKey: 'k1' })
     const call = requestMock.mock.calls[0]?.[0] as RequestConfig & { headers: Record<string, string> }
     expect(call.headers['Idempotency-Key']).toBe('k1')
   })

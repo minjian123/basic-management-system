@@ -26,7 +26,7 @@ function makeRouter(): Router {
     routes: [
       { path: '/', name: 'Home', component: { template: '<div />' } },
       { path: '/change-password', name: 'ChangePassword', component: { template: '<div />' } },
-      { path: '/org/users', name: 'Users', component: { template: '<div />' } },
+      { path: '/mdm/users', name: 'Users', component: { template: '<div />' } },
     ],
   })
 }
@@ -110,7 +110,7 @@ describe('ChangePasswordView（04_01）', () => {
 
   it('提交成功：清除强制改密标记、提示会话失效数并回跳', async () => {
     changeMock.mockResolvedValue({ changed: true, revoked_sessions: 2 })
-    const { wrapper, router, session } = await mountView(true, 'redirect=%2Forg%2Fusers')
+    const { wrapper, router, session } = await mountView(true, 'redirect=%2Fmdm%2Fusers')
 
     await fill(wrapper, 'old-pass', 'NewPass@123', 'NewPass@123')
     await wrapper.find('form').trigger('submit')
@@ -119,7 +119,7 @@ describe('ChangePasswordView（04_01）', () => {
     expect(changeMock).toHaveBeenCalledWith({ old_password: 'old-pass', new_password: 'NewPass@123' })
     expect(session.user?.must_change_password).toBe(false)
     expect(ElMessage.success).toHaveBeenCalledWith('口令已修改，其它 2 个会话已失效')
-    expect(router.currentRoute.value.path).toBe('/org/users')
+    expect(router.currentRoute.value.path).toBe('/mdm/users')
   })
 
   it('提交成功：无其它会话失效时提示简化文案', async () => {

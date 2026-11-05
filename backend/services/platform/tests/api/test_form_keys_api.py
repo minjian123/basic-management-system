@@ -67,13 +67,13 @@ async def test_form_keys_kind_filter(client: AsyncClient) -> None:
 async def test_form_keys_reads_application_view(client: AsyncClient, service_app: FastAPI) -> None:
     """端点取**应用级视图**：替换 `app.state.form_registry` 后清单含注入的产品登记项（`form_records()` 通道）。"""
     injected: ConcurrentStableList[FormRecord] = ConcurrentStableList(
-        (FormRecord(form_key="org_dept", table="org_dept", name="部门", data_source_key="org_dept"),)
+        (FormRecord(form_key="mdm_dept", table="mdm_dept", name="部门", data_source_key="mdm_dept"),)
     )
     service_app.state.form_registry = FormRegistry(merge_form_records(injected=injected))
     items = (await client.get("/api/v1/form-keys")).json()["data"]["items"]
     assert len(items) == len(FORM_CATALOG) + 1
-    assert items[-1]["form_key"] == "org_dept"
-    assert items[-1]["data_source_key"] == "org_dept"
+    assert items[-1]["form_key"] == "mdm_dept"
+    assert items[-1]["data_source_key"] == "mdm_dept"
 
 
 @pytest.mark.kiwi_id(2292)

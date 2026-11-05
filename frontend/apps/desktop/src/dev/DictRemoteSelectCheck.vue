@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 开发态核对页（06_05 / 出口切址 11_02）：组织选择字段族（统一件 / 人员 / 岗位 / 部门树 / 复合弹窗）
+// 开发态核对页（06_05 / 出口切址 11_02）：远程字典选择字段族（统一件 / 人员 / 岗位 / 部门树 / 复合弹窗）
 // 实例 + 13 项自检上屏（本页不进构建产物）。
 import {
   BaseDictRemoteSource,
@@ -183,7 +183,7 @@ async function runChecks(): Promise<void> {
   await api.resolve()
   add('部门树一次性加载与路径回显', pathPass && api.deptNodes.value[0]?.children?.[0]?.name === '研发部')
 
-  // 11. 组织复合选择（勾选启用项并确认回填）
+  // 11. 远程字典复合选择（勾选启用项并确认回填）
   await nextTick()
   const composite = document.querySelector('[data-test="dict-composite-picker"]')
   const checkbox = document.querySelector('[data-test="composite-check-u3"] input')
@@ -196,17 +196,17 @@ async function runChecks(): Promise<void> {
     confirm.click()
   }
   await nextTick()
-  add('组织复合选择勾选与确认回填', composite !== null && compositeValue.value.includes('u3'))
+  add('远程字典复合选择勾选与确认回填', composite !== null && compositeValue.value.includes('u3'))
 
   // 12. 数据源可替换（注册表登记与默认键）
   add('数据源可替换（默认键 http + 自定义登记）', dictRemoteSourceRegistry.get('http') !== undefined && dictRemoteSourceRegistry.get('check-store') !== undefined)
 
-  // 13. 出口取址（03_02）：组织数据源端点由目录快照按「业务域 + 能力种类」推导，平台不持有产品键
+  // 13. 出口取址（03_02）：字典数据源端点由目录快照按「业务域 + 能力种类」推导，平台不持有产品键
   applyCatalogSnapshot({
     products: [{ productKey: 'demo', status: 'enabled' }],
     services: [],
     collaborations: [
-      { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' }, // product-literal:allow:开发核对页示例能力名，用于展示按「业务域 + 能力种类」取址（本页不进构建产物）
     ],
     warnings: [],
   })
@@ -214,7 +214,7 @@ async function runChecks(): Promise<void> {
   resetCatalog()
   const degraded = dictRemoteSourceEndpoint()
   add(
-    '组织数据源端点由目录推导（虚构产品 /api/demo/v1/demo）；目录复位后显式降级为 null',
+    '字典数据源端点由目录推导（虚构产品 /api/demo/v1/demo）；目录复位后显式降级为 null',
     resolved === productPrefix('demo', 'demo') && resolved === '/api/demo/v1/demo' && degraded === null,
   )
 
@@ -226,8 +226,8 @@ void runChecks()
 
 <template>
   <main style="padding: 16px; font-family: sans-serif">
-    <h1>组织选择字段核对页（06-5）</h1>
-    <section data-check-scope="org" style="margin-bottom: 16px; max-width: 480px">
+    <h1>远程字典选择字段核对页（06-5）</h1>
+    <section data-check-scope="dict" style="margin-bottom: 16px; max-width: 480px">
       <dict-remote-select-field v-model="dictValue" :ready="true" :source="source" :multiple="true" :limit="0" :show-avatar="true" />
     </section>
     <section data-check-scope="user" style="margin-bottom: 16px; max-width: 480px">

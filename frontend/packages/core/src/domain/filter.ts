@@ -172,7 +172,7 @@ export interface FilterField {
   placeholder?: string
   /** 是否为查询类字段（假则不渲染）。 */
   query?: boolean
-  /** 组织类字段：是否含下级。 */
+  /** 字典类字段：是否含下级。 */
   includeChildren?: boolean
 }
 

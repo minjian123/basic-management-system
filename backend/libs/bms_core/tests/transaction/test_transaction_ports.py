@@ -101,13 +101,13 @@ def test_branch_handler_registry() -> None:
         return None
 
     registry = BranchHandlerRegistry()
-    registry.register("org.assign", handler)
+    registry.register("mdm.assign", handler)
 
-    assert registry.resolve("org.assign") is handler
-    assert registry.resolve("org.unknown") is None
-    assert registry.ops() == ("org.assign",)
+    assert registry.resolve("mdm.assign") is handler
+    assert registry.resolve("mdm.unknown") is None
+    assert registry.ops() == ("mdm.assign",)
     with pytest.raises(ValueError):
-        registry.register("org.assign", handler)
+        registry.register("mdm.assign", handler)
 
 
 def test_plugin_wirings_share_transaction_section() -> None:

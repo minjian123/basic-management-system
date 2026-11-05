@@ -39,7 +39,7 @@ _EXPECTED_PLATFORM_ROUTE_SERVICES = (
     "report",
     "txn",
 )
-"""参与**服务级路由**的服务（enabled + 非产品分组）——`org` 归 mdm 产品服务后不含它。"""
+"""参与**服务级路由**的服务（enabled + 非产品分组）——`mdm` 归 mdm 产品服务后不含它。"""
 
 
 @pytest.mark.kiwi_id(2165)
@@ -380,7 +380,7 @@ def test_login_route_absent_when_service_disabled(monkeypatch: pytest.MonkeyPatc
 def _product_route(
     *,
     product_key: str = "biz",
-    domain: str = "org",
+    domain: str = "mdm",
     service_key: str = "tenant",
 ) -> ProductRouteRecord:
     """构造产品级路由映射记录（默认指向已启用服务，供网关生成用例）。
@@ -437,12 +437,12 @@ def test_product_routes_default_empty() -> None:
 def test_render_product_routes_shape_and_rewrite() -> None:
     """产品级路由：产品命名空间 /api/{product_key}/v1/{domain}；上游=映射服务；重写剥离产品前缀（域段保留）。"""
     routes = gc.render_product_routes(
-        ConcurrentStableList((_product_route(),)), _topology(ConcurrentStableDict({"org": "tenant"}))
+        ConcurrentStableList((_product_route(),)), _topology(ConcurrentStableDict({"mdm": "tenant"}))
     )
     assert len(routes) == 1
     route = routes[0]
-    prefix = "/api/biz/v1/org"
-    assert route["id"] == "route-biz-org"
+    prefix = "/api/biz/v1/mdm"
+    assert route["id"] == "route-biz-mdm"
     assert route["uris"] == [prefix, f"{prefix}/*"]
     assert route["upstream_id"] == "tenant"
     plugins = cast("dict[str, Any]", route["plugins"])
@@ -452,12 +452,12 @@ def test_render_product_routes_shape_and_rewrite() -> None:
     rewrite = cast("dict[str, Any]", plugins["proxy-rewrite"])
     pattern, replacement = cast("list[str]", rewrite["regex_uri"])
     assert (pattern, replacement) == ("^/api/biz/v1(.*)$", "/api/v1$1")
-    # 域段保留为服务内路径首段：/api/biz/v1/org/users → /api/v1/org/users
-    for subject, expected in (("/api/biz/v1/org/users", "/api/v1/org/users"), (prefix, "/api/v1/org")):
+    # 域段保留为服务内路径首段：/api/biz/v1/mdm/users → /api/v1/mdm/users
+    for subject, expected in (("/api/biz/v1/mdm/users", "/api/v1/mdm/users"), (prefix, "/api/v1/mdm")):
         matched = re.fullmatch(pattern, subject)
         assert matched is not None
         assert f"/api/v1{matched.group(1)}" == expected
-    assert gc.product_route_prefix("biz", "org") == prefix
+    assert gc.product_route_prefix("biz", "mdm") == prefix
 
 
 @pytest.mark.kiwi_id(2250)
@@ -477,17 +477,17 @@ def test_product_routes_merged_into_full_config() -> None:
     ids = [
         item["id"]
         for item in cast(
-            "list[Any]", gc.render_apisix_config(routes, _topology(ConcurrentStableDict({"org": "tenant"})))["routes"]
+            "list[Any]", gc.render_apisix_config(routes, _topology(ConcurrentStableDict({"mdm": "tenant"})))["routes"]
         )
     ]
     assert ids == [f"route-{key}" for key in _EXPECTED_PLATFORM_ROUTE_SERVICES] + [
         gc.LOGIN_ROUTE_ID,
-        "route-biz-org",
+        "route-biz-mdm",
     ]
     assert gc.render_apisix_yaml() == gc.render_apisix_yaml()
     assert (
         gc.validate_service_discovery(
-            gc.render_apisix_config(routes, _topology(ConcurrentStableDict({"org": "tenant"})))
+            gc.render_apisix_config(routes, _topology(ConcurrentStableDict({"mdm": "tenant"})))
         )
         == []
     )
@@ -496,44 +496,44 @@ def test_product_routes_merged_into_full_config() -> None:
 def test_route_paths_stable_across_topologies() -> None:
     """同域两种拓扑：对外路径完全相同，只有上游指向不同单元（前端口径无感）。"""
     routes = ConcurrentStableList((_product_route(),))
-    merged = _topology(ConcurrentStableDict({"org": "orgops"}))
-    split = _topology(ConcurrentStableDict({"org": "org"}))
+    merged = _topology(ConcurrentStableDict({"mdm": "mdmops"}))
+    split = _topology(ConcurrentStableDict({"mdm": "mdm"}))
 
     merged_routes = gc.render_product_routes(routes, merged)
     split_routes = gc.render_product_routes(routes, split)
 
     assert [item["uris"] for item in merged_routes] == [item["uris"] for item in split_routes]
     assert [item["id"] for item in merged_routes] == [item["id"] for item in split_routes]
-    assert merged_routes[0]["upstream_id"] == "orgops"
-    assert split_routes[0]["upstream_id"] == "org"
+    assert merged_routes[0]["upstream_id"] == "mdmops"
+    assert split_routes[0]["upstream_id"] == "mdm"
 
 
 def test_merged_unit_gets_single_upstream() -> None:
     """合并部署：一个单元承载多域时只生成一条 upstream（不按域重复建）。"""
-    routes = ConcurrentStableList((_product_route(domain="org"), _product_route(domain="pur", service_key="tenant")))
-    topology = _topology(ConcurrentStableDict({"org": "orgops", "pur": "orgops"}))
+    routes = ConcurrentStableList((_product_route(domain="mdm"), _product_route(domain="pur", service_key="tenant")))
+    topology = _topology(ConcurrentStableDict({"mdm": "mdmops", "pur": "mdmops"}))
 
     upstreams = gc.render_upstreams(routes, topology)
 
     ids = [item["id"] for item in upstreams]
-    assert ids.count("orgops") == 1
+    assert ids.count("mdmops") == 1
     assert ids[: len(_EXPECTED_SERVICES)] == list(_EXPECTED_SERVICES), "服务级上游保持原顺序与口径"
 
 
 def test_disabled_domain_generates_no_route() -> None:
     """拓扑停用的域不生成路由（不是生成后拒绝），其单元也不进上游段。"""
     routes = ConcurrentStableList((_product_route(),))
-    topology = _topology(ConcurrentStableDict({"org": "orgops"}), disabled=ConcurrentStableFrozenList(("org",)))
+    topology = _topology(ConcurrentStableDict({"mdm": "mdmops"}), disabled=ConcurrentStableFrozenList(("mdm",)))
 
     assert gc.render_product_routes(routes, topology) == []
-    assert "orgops" not in [item["id"] for item in gc.render_upstreams(routes, topology)]
+    assert "mdmops" not in [item["id"] for item in gc.render_upstreams(routes, topology)]
 
 
 def test_missing_topology_entry_rejected() -> None:
     """域未在拓扑登记：生成前即拒（拓扑不完整，错误指明域与产品）。"""
     from bms_core.core.exceptions import CatalogError
 
-    with pytest.raises(CatalogError, match="业务域未在部署拓扑登记：org"):
+    with pytest.raises(CatalogError, match="业务域未在部署拓扑登记：mdm"):
         gc.render_product_routes(ConcurrentStableList((_product_route(),)), _topology())
 
 
@@ -541,9 +541,9 @@ def test_empty_unit_rejected() -> None:
     """拓扑行单元为空：同属生成前必拒（避免路由指向空上游）。"""
     from bms_core.core.exceptions import CatalogError
 
-    with pytest.raises(CatalogError, match="业务域未指定部署单元：org"):
+    with pytest.raises(CatalogError, match="业务域未指定部署单元：mdm"):
         gc.render_product_routes(
-            ConcurrentStableList((_product_route(),)), _topology(ConcurrentStableDict({"org": ""}))
+            ConcurrentStableList((_product_route(),)), _topology(ConcurrentStableDict({"mdm": ""}))
         )
 
 
@@ -552,7 +552,7 @@ def test_platform_service_routes_unaffected_by_topology() -> None:
     before = gc.render_routes()
     gc.render_apisix_config(
         ConcurrentStableList((_product_route(),)),
-        _topology(ConcurrentStableDict({"org": "orgops"})),
+        _topology(ConcurrentStableDict({"mdm": "mdmops"})),
     )
     after = gc.render_routes()
 
@@ -576,20 +576,20 @@ def test_default_route_topology_mirrors_domain_registry() -> None:
     from bms_core.services.module_registry import register_domain_services, reset_domain_services
 
     reset_domain_services()
-    register_domain_services(ConcurrentStableFrozenDict({"org": "tenant", "user": "platform"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "tenant", "user": "platform"}))
     try:
         topology = gc.default_route_topology()
     finally:
         reset_domain_services()
 
     assert dict(topology) == {
-        "org": gc.RouteTarget(unit_key="tenant"),
+        "mdm": gc.RouteTarget(unit_key="tenant"),
         "user": gc.RouteTarget(unit_key="platform"),
     }
     assert all(target.enabled for target in topology.values())
-    assert gc.route_targets_from_rows((("org", "orgops", "enabled"),))["org"] == gc.RouteTarget(unit_key="orgops")
+    assert gc.route_targets_from_rows((("mdm", "mdmops", "enabled"),))["mdm"] == gc.RouteTarget(unit_key="mdmops")
     empty = ConcurrentStableList[ProductRouteRecord]()
-    topology_units = _topology(ConcurrentStableDict({"org": "tenant"}))
+    topology_units = _topology(ConcurrentStableDict({"mdm": "tenant"}))
     assert gc.render_apisix_yaml(empty, topology_units) == gc.render_apisix_yaml(empty, topology_units), (
         "同一输入 → 同文本（确定性）"
     )
@@ -597,6 +597,6 @@ def test_default_route_topology_mirrors_domain_registry() -> None:
 
 def test_route_targets_skip_blank_domain_rows() -> None:
     """拓扑行域为空：跳过（脏行不产生路由目标，也不报错）。"""
-    targets = gc.route_targets_from_rows((("", "orgops", "enabled"), ("org", "orgops", "enabled")))
+    targets = gc.route_targets_from_rows((("", "mdmops", "enabled"), ("mdm", "mdmops", "enabled")))
 
-    assert list(targets.keys()) == ["org"]
+    assert list(targets.keys()) == ["mdm"]

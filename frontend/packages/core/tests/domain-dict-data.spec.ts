@@ -1,5 +1,5 @@
 // kiwi_id: 962
-/** 组织领域纯函数用例（06_05）：归一 / 参数 / 解析 / 选择与上限 / 标记 / 标签摘要 / 路径与树 / 错误码。 */
+/** 字典数据领域纯函数用例（06_05）：归一 / 参数 / 解析 / 选择与上限 / 标记 / 标签摘要 / 路径与树 / 错误码。 */
 
 import {
   DICT_DATA_DEFAULT_PAGE_SIZE,
@@ -40,8 +40,8 @@ import {
 } from '../src'
 import { describe, expect, it } from 'vitest'
 
-describe('组织领域 · 归一', () => {
-  it('对象类型与字段类型归一（org / dept → dept）', () => {
+describe('字典数据领域 · 归一', () => {
+  it('对象类型与字段类型归一（mdm / dept → dept）', () => {
     expect(normalizeDictDataKind('user')).toBe('user')
     expect(normalizeDictDataKind(' POST ')).toBe('post')
     expect(normalizeDictDataKind('org')).toBe('dept')
@@ -134,7 +134,7 @@ describe('组织领域 · 归一', () => {
   })
 })
 
-describe('组织领域 · 选择与展示', () => {
+describe('字典数据领域 · 选择与展示', () => {
   const item = (id: string, name: string, extra: Partial<DictDataOptionItem> = {}): DictDataOptionItem => ({
     id,
     name,
@@ -192,7 +192,7 @@ describe('组织领域 · 选择与展示', () => {
   })
 })
 
-describe('组织领域 · 参数与解析', () => {
+describe('字典数据领域 · 参数与解析', () => {
   it('查询归一（关键词去空白截断 / 页码页长夹取）', () => {
     const query = normalizeDictDataSearchQuery({
       kind: 'user',
@@ -261,7 +261,7 @@ describe('组织领域 · 参数与解析', () => {
   })
 })
 
-describe('组织领域 · 树与错误码', () => {
+describe('字典数据领域 · 树与错误码', () => {
   it('部门路径查找', () => {
     const nodes = normalizeDictDataDeptTree([
       { id: 'd1', name: '总部', children: [{ id: 'd2', name: '研发部', children: [{ id: 'd3', name: '前端组' }] }] },
@@ -293,16 +293,16 @@ describe('组织领域 · 树与错误码', () => {
     expect(isDictDataErrorCode(30103)).toBe(true)
     expect(isDictDataErrorCode(30104)).toBe(false)
     expect(isDictDataErrorCode('30101')).toBe(false)
-    expect(resolveDictDataErrorText(30101)).toBe('组织数据源不可用')
+    expect(resolveDictDataErrorText(30101)).toBe('字典数据源不可用')
     expect(resolveDictDataErrorText(30102)).toBe('不支持的回显目标类型')
     expect(resolveDictDataErrorText(30103)).toBe('部门不存在')
-    expect(resolveDictDataErrorText(99999)).toBe('组织数据不可用')
+    expect(resolveDictDataErrorText(99999)).toBe('字典数据不可用')
     expect(resolveDictDataErrorText(undefined)).toBe('')
   })
 })
 
-describe('组织领域 · 类型面', () => {
-  it('组织对象类型覆盖用户 / 岗位 / 部门', () => {
+describe('字典数据领域 · 类型面', () => {
+  it('字典数据对象类型覆盖用户 / 岗位 / 部门', () => {
     const kinds: DictDataKind[] = ['user', 'post', 'dept']
     expect(kinds.map(dictDataKindLabel)).toEqual(['用户', '岗位', '部门'])
   })

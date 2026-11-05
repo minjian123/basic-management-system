@@ -1,9 +1,9 @@
-"""平台服务权限解析器用例（`04_01` 下沉后）：mdm 组织链降级 / 出口解析 / 并集收敛。
+"""平台服务权限解析器用例（`04_01` 下沉后）：mdm 岗位 / 部门链降级 / 出口解析 / 并集收敛。
 
 引擎主流程、校验器判定与数据来源接缝的逐分支用例已下沉基座
 （`libs/bms_core/tests/permission/{test_engine,test_sources}.py`）；本文件只覆盖**平台侧取数件**：
 
-- `OrgRoleResolver`：跨服务不可达降级、严格模式抛错、非 2xx 降级、出口载荷解析与形态回落；
+- `DeptPostRoleResolver`：跨服务不可达降级、严格模式抛错、非 2xx 降级、出口载荷解析与形态回落；
 - `DirectRoleResolver`：真实仓储取数（`sys_user_role`）；
 - 主体链并集：多解析器结果去重合并（基座收敛服务 + 平台解析器组合）。
 """
@@ -25,7 +25,7 @@ from bms_core.permission.snapshot import set_current_permission_snapshot
 from bms_core.permission.subject import PermissionSubjectService
 from bms_platform import SERVICE_NAME
 from bms_platform.capabilities import CAPABILITY_MDM_USER_ROLES
-from bms_platform.domains.role.services.permission_subject import DirectRoleResolver, OrgRoleResolver
+from bms_platform.domains.role.services.permission_subject import DeptPostRoleResolver, DirectRoleResolver
 
 
 class _Response:
@@ -82,8 +82,8 @@ class _Client:
 
 
 @pytest.fixture(autouse=True)
-def declare_org_usage() -> Iterator[None]:
-    """声明本消费方对组织域只读能力的降级策略（与 `platform.toml` 的 `[[usages]]` 一致）。
+def declare_mdm_usage() -> Iterator[None]:
+    """声明本消费方对跨产品域只读能力的降级策略（与 `platform.toml` 的 `[[usages]]` 一致）。
 
     降级是**消费方声明**（07B `02_02` / `03_01`）：未声明时断链失败上抛，声明 `empty` 才降级为空集。
     应用内由注册表投影登记；本文件是纯单元用例，故在此登记后复位。
@@ -98,7 +98,7 @@ def declare_org_usage() -> Iterator[None]:
             CapabilityUsage(
                 name=CAPABILITY_MDM_USER_ROLES,
                 degrade=DEGRADE_EMPTY,
-                reason="组织域不可达时主体链只保留直接角色",
+                reason="跨产品域不可达时主体链只保留直接角色",
             ),
         ),
     )
@@ -121,35 +121,35 @@ def clean_context() -> Iterator[None]:
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_org_resolver_degrades_when_service_unreachable() -> None:
+async def test_mdm_resolver_degrades_when_service_unreachable() -> None:
     """跨服务降级：mdm 不可达 → 空集 + 不抛（缺省口径）；严格模式抛 `InternalError`。"""
-    degraded = OrgRoleResolver(_Client(error=RuntimeError("conn refused")))  # type: ignore[arg-type]
+    degraded = DeptPostRoleResolver(_Client(error=RuntimeError("conn refused")))  # type: ignore[arg-type]
     assert list(await degraded.resolve(user_id=1)) == []
-    strict = OrgRoleResolver(_Client(error=RuntimeError("conn refused")), require_roles=True)  # type: ignore[arg-type]
+    strict = DeptPostRoleResolver(_Client(error=RuntimeError("conn refused")), require_roles=True)  # type: ignore[arg-type]
     with pytest.raises(InternalError):
         await strict.resolve(user_id=1)
-    bad_status = OrgRoleResolver(_Client(response=_Response(502, {})))  # type: ignore[arg-type]
+    bad_status = DeptPostRoleResolver(_Client(response=_Response(502, {})))  # type: ignore[arg-type]
     assert list(await bad_status.resolve(user_id=1)) == []
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_org_resolver_reads_role_ids_from_payload() -> None:
+async def test_mdm_resolver_reads_role_ids_from_payload() -> None:
     """出口解析：`data.role_ids` 取并集；非整数项忽略。"""
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     inner: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     inner.set("role_ids", [7, 8, "x", True])
     payload.set("data", dict(inner))
-    resolver = OrgRoleResolver(_Client(response=_Response(200, dict(payload))))  # type: ignore[arg-type]
+    resolver = DeptPostRoleResolver(_Client(response=_Response(200, dict(payload))))  # type: ignore[arg-type]
     assert sorted(await resolver.resolve(user_id=5)) == [7, 8]
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_org_resolver_payload_shape_fallbacks() -> None:
+async def test_mdm_resolver_payload_shape_fallbacks() -> None:
     """出口解析回落：`data` 非对象 / `role_ids` 非序列 → 空集。"""
-    bad_data = OrgRoleResolver(_Client(response=_Response(200, {"data": "x"})))  # type: ignore[arg-type]
+    bad_data = DeptPostRoleResolver(_Client(response=_Response(200, {"data": "x"})))  # type: ignore[arg-type]
     assert list(await bad_data.resolve(user_id=1)) == []
 
-    bad_ids = OrgRoleResolver(_Client(response=_Response(200, {"data": {"role_ids": "x"}})))  # type: ignore[arg-type]
+    bad_ids = DeptPostRoleResolver(_Client(response=_Response(200, {"data": {"role_ids": "x"}})))  # type: ignore[arg-type]
     assert list(await bad_ids.resolve(user_id=1)) == []
 
 

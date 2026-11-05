@@ -35,7 +35,7 @@ def test_service_package_prefix_default_and_override() -> None:
     assert service_package("platform", settings=base) == "bms_platform"
 
     product = _settings_with_prefix("mdm")
-    assert service_package("org", settings=product) == "mdm_org"
+    assert service_package("crm", settings=product) == "mdm_crm"
     # 前缀与产品名相同：去重为服务标识本身（与库名 `prefix == service` 去重同规则）
     assert service_package("mdm", settings=product) == "mdm"
 

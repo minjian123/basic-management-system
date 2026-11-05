@@ -219,10 +219,10 @@ def _values(*items: object) -> ConcurrentStableDict[str, object]:
 def test_select_yields_data_source_dimension_in_set() -> None:
     """`select`：`item_code`（兼容 `itemCode`）去重为数据源维度 `in` 集合，`field` 留空。"""
     config = _config_list(_config(item_code="13"), _config(itemCode="13"), _config(item_code="14"))
-    conditions = resolve_select("org_dept", config)
+    conditions = resolve_select("mdm_dept", config)
     assert len(conditions) == 1
     condition = next(iter(conditions))
-    assert (condition.field, condition.operator, condition.data_source_key) == ("", "in", "org_dept")
+    assert (condition.field, condition.operator, condition.data_source_key) == ("", "in", "mdm_dept")
     assert set(cast("Any", condition.value)) == {"13", "14"}
 
 
@@ -259,13 +259,13 @@ def test_region_denies_missing_incomparable_and_inverted() -> None:
 @pytest.mark.kiwi_id(2324)
 def test_match_keeps_whitelist_field_and_carries_data_source() -> None:
     """`match`：保留白名单字段与 `like` 值转换，条件带数据源标识。"""
-    conditions = resolve_match("org_dept", _config_list(_config(field="code", pattern="BJ*?")))
+    conditions = resolve_match("mdm_dept", _config_list(_config(field="code", pattern="BJ*?")))
     condition = next(iter(conditions))
     assert (condition.field, condition.operator, condition.value, condition.data_source_key) == (
         "code",
         "like",
         "BJ%_",
-        "org_dept",
+        "mdm_dept",
     )
 
 
@@ -302,10 +302,10 @@ def test_extension_aggregates_all_rows_of_one_key() -> None:
 
     register_scope_extension_resolver("dept_subtree", _resolver)
     config = _config_list(_config(key="dept_subtree", params={"a": 1}), _config(key="dept_subtree", params={"b": 2}))
-    conditions = resolve_extension("org_dept", config)
+    conditions = resolve_extension("mdm_dept", config)
     assert [(item.field, item.operator) for item in conditions] == [("dept_id", "in")]
     assert len(calls) == 1
-    assert calls[0] == ("org_dept", 2)
+    assert calls[0] == ("mdm_dept", 2)
 
 
 @pytest.mark.kiwi_id(2324)
@@ -338,7 +338,7 @@ def test_four_policies_produce_conditions_through_provider() -> None:
     register_scope_extension_resolver("dept_subtree", lambda ds, _rows_arg: _ext_conditions(ds))
     register_data_scope_extension(DataScopeExtensionInfo(key="dept_subtree", label="本部门及下级"))
     snapshot = _snapshot(
-        _rule("org_dept", "select", _rows(_config(item_code="13"))),
+        _rule("mdm_dept", "select", _rows(_config(item_code="13"))),
         _rule("area", "region", _rows(_config(start="110000", end="119999"))),
         _rule("role", "match", _rows(_config(field="code", pattern="BJ*"))),
         _rule("post", "extension", _rows(_config(key="dept_subtree"))),
@@ -371,12 +371,12 @@ def test_same_source_in_conditions_merge_as_union() -> None:
     """并集兜底：同数据源同字段的多个 `in` 合并为一条（真并集）。"""
     first = _rows(_config(item_code="13"), _config(item_code="14"))
     second = _rows(_config(item_code="15"))
-    set_current_permission_snapshot(_snapshot(_rule("org_dept", "select", first), _rule("org_dept", "select", second)))
+    set_current_permission_snapshot(_snapshot(_rule("mdm_dept", "select", first), _rule("mdm_dept", "select", second)))
     conditions = _conditions(_provider().read_predicate())
     assert len(conditions) == 1
     assert conditions[0].operator == "in"
     assert sorted(cast("Any", conditions[0].value)) == ["13", "14", "15"]
-    assert conditions[0].data_source_key == "org_dept"
+    assert conditions[0].data_source_key == "mdm_dept"
 
 
 def test_union_falls_back_when_field_or_source_differs() -> None:
@@ -385,8 +385,8 @@ def test_union_falls_back_when_field_or_source_differs() -> None:
         "k",
         ConcurrentStableList(
             [
-                ScopeCondition("", "in", ["1"], "org_dept"),
-                ScopeCondition("code", "in", ["2"], "org_dept"),
+                ScopeCondition("", "in", ["1"], "mdm_dept"),
+                ScopeCondition("code", "in", ["2"], "mdm_dept"),
             ]
         ),
     )
@@ -396,14 +396,14 @@ def test_union_falls_back_when_field_or_source_differs() -> None:
         "k",
         ConcurrentStableList(
             [
-                ScopeCondition("", "in", ["1"], "org_dept"),
-                ScopeCondition("", "in", ["2"], "org_user"),
+                ScopeCondition("", "in", ["1"], "mdm_dept"),
+                ScopeCondition("", "in", ["2"], "mdm_user"),
             ]
         ),
     )
-    assert [item.data_source_key for item in crossed] == ["org_dept", "org_user"]
+    assert [item.data_source_key for item in crossed] == ["mdm_dept", "mdm_user"]
 
-    single = _union("k", ConcurrentStableList([ScopeCondition("", "in", ["1"], "org_dept")]))
+    single = _union("k", ConcurrentStableList([ScopeCondition("", "in", ["1"], "mdm_dept")]))
     assert [item.field for item in single] == [""]
 
     assert list(_value_members("not-a-container")) == []
@@ -440,9 +440,9 @@ def test_unregistered_policy_and_missing_type_deny_all() -> None:
 @pytest.mark.kiwi_id(2324)
 def test_allow_write_translates_data_source_conditions() -> None:
     """写校验：按 `scope_columns` 翻译数据源维度条件（范围内放行、越界拒、未涉及列跳过）。"""
-    set_current_permission_snapshot(_snapshot(_rule("org_dept", "select", _rows(_config(item_code="13")))))
+    set_current_permission_snapshot(_snapshot(_rule("mdm_dept", "select", _rows(_config(item_code="13")))))
     provider = _provider()
-    columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"org_dept": "dept_id"})
+    columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"mdm_dept": "dept_id"})
     assert provider.allow_write(_values("dept_id", "13"), scope_columns=columns) is True
     assert provider.allow_write(_values("dept_id", "14"), scope_columns=columns) is False
     assert provider.allow_write(_values("name", "改名"), scope_columns=columns) is True
@@ -451,7 +451,7 @@ def test_allow_write_translates_data_source_conditions() -> None:
 @pytest.mark.kiwi_id(2324)
 def test_allow_write_denies_when_source_column_unmapped() -> None:
     """写校验：数据源维度条件无映射且无字段可回落 → 拒绝写入（并计数）。"""
-    set_current_permission_snapshot(_snapshot(_rule("org_dept", "select", _rows(_config(item_code="13")))))
+    set_current_permission_snapshot(_snapshot(_rule("mdm_dept", "select", _rows(_config(item_code="13")))))
     provider = _provider()
     assert provider.allow_write(_values("dept_id", "13")) is False
     assert provider.allow_write(_values("dept_id", "13"), scope_columns=ConcurrentStableDict()) is False
@@ -503,12 +503,12 @@ def test_condition_column_translation_branches() -> None:
     """条件 → 列翻译：非数据源维度原样、映射优先、无映射回落字段、两者皆无即 None + 计数。"""
     assert _condition_column(ScopeCondition("code", "eq", "x"), ConcurrentStableDict({"code": "other"})) == "code"
     assert (
-        _condition_column(ScopeCondition("", "in", [], "org_dept"), ConcurrentStableDict({"org_dept": "dept_id"}))
+        _condition_column(ScopeCondition("", "in", [], "mdm_dept"), ConcurrentStableDict({"mdm_dept": "dept_id"}))
         == "dept_id"
     )
     assert _condition_column(ScopeCondition("code", "like", "a%", "role"), None) == "code"
     before = current_permission_cache_store().stats()["invalid_rule_rejections"]
-    assert _condition_column(ScopeCondition("", "in", [], "org_dept"), None) is None
+    assert _condition_column(ScopeCondition("", "in", [], "mdm_dept"), None) is None
     assert current_permission_cache_store().stats()["invalid_rule_rejections"] == before + 1
 
 
@@ -600,7 +600,7 @@ def test_custom_policy_receives_data_source_key() -> None:
         return result
 
     register_scope_policy("custom", _policy)
-    set_current_permission_snapshot(_snapshot(_rule("org_dept", "custom", _rows(_config(any="v")))))
+    set_current_permission_snapshot(_snapshot(_rule("mdm_dept", "custom", _rows(_config(any="v")))))
     conditions = _conditions(_provider().read_predicate())
-    assert list(seen) == ["org_dept"]
-    assert conditions[0].data_source_key == "org_dept"
+    assert list(seen) == ["mdm_dept"]
+    assert conditions[0].data_source_key == "mdm_dept"

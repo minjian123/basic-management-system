@@ -33,37 +33,37 @@ interface CheckGroup {
 }
 
 /** 判定结果快照（便于人工核对）。 */
-const decisionLogin = resolveAuthGuard({ hasToken: false, path: '/org/users' })
+const decisionLogin = resolveAuthGuard({ hasToken: false, path: '/demo/users' })
 const decisionPublic = resolveAuthGuard({ hasToken: false, path: '/500' })
 const decisionPublicRoute = resolveAuthGuard({ hasToken: false, path: '/sso/callback', isPublicRoute: true })
-const locationProtected = buildLoginLocation('/org/users?page=2#row-3')
+const locationProtected = buildLoginLocation('/demo/users?page=2#row-3')
 const locationPublic = buildLoginLocation('/500')
-const safeInternal = resolveSafeRedirect('/org/users?page=2#row-3')
+const safeInternal = resolveSafeRedirect('/demo/users?page=2#row-3')
 const safeExternal = resolveSafeRedirect('https://evil.example.com/x')
 const safeProtocolRelative = resolveSafeRedirect('//evil.example.com')
 const safeScript = resolveSafeRedirect('javascript:alert(1)')
-const safeBackslash = resolveSafeRedirect('/org\\users')
+const safeBackslash = resolveSafeRedirect('/demo\\users')
 const safeControl = resolveSafeRedirect('/org\u0000users')
 const safeEmpty = resolveSafeRedirect('')
-const safeNonString = resolveSafeRedirect({ path: '/org/users' })
+const safeNonString = resolveSafeRedirect({ path: '/demo/users' })
 const safePublic = resolveSafeRedirect('/login?redirect=/x')
-const permUndeclared = resolveAuthGuard({ hasToken: true, path: '/org/users' })
+const permUndeclared = resolveAuthGuard({ hasToken: true, path: '/demo/users' })
 const permNotLoaded = resolveAuthGuard({
   hasToken: true,
-  path: '/org/users',
+  path: '/demo/users',
   requiredPermissions: ['user:query'],
   permissionsLoaded: false,
 })
 const permGranted = resolveAuthGuard({
   hasToken: true,
-  path: '/org/users',
+  path: '/demo/users',
   requiredPermissions: ['user:query'],
   permissions: ['user:query'],
   permissionsLoaded: true,
 })
 const permDenied = resolveAuthGuard({
   hasToken: true,
-  path: '/org/users',
+  path: '/demo/users',
   requiredPermissions: ['user:query'],
   permissions: ['user:edit'],
   permissionsLoaded: true,
@@ -82,10 +82,10 @@ const groups = computed<CheckGroup[]>(() => {
     {
       title: '一、拦截与回跳',
       items: [
-        next(`无令牌访问受保护路径 /org/users → 决策 login（实得 ${decisionLogin}）`, decisionLogin === 'login'),
+        next(`无令牌访问受保护路径 /demo/users → 决策 login（实得 ${decisionLogin}）`, decisionLogin === 'login'),
         next(
           `跳登录带 redirect（实得 ${locationProtected.path} · redirect=${locationProtected.query?.redirect ?? '无'}）`,
-          locationProtected.path === DEFAULT_LOGIN_PATH && locationProtected.query?.redirect === '/org/users?page=2#row-3',
+          locationProtected.path === DEFAULT_LOGIN_PATH && locationProtected.query?.redirect === '/demo/users?page=2#row-3',
         ),
         next(
           `公开路径 ${locationPublic.path} 跳登录不回带 redirect`,
@@ -109,7 +109,7 @@ const groups = computed<CheckGroup[]>(() => {
     {
       title: '三、回跳安全校验（站内）',
       items: [
-        next(`站内相对路径原样（含查询串与片段，实得 ${safeInternal}）`, safeInternal === '/org/users?page=2#row-3'),
+        next(`站内相对路径原样（含查询串与片段，实得 ${safeInternal}）`, safeInternal === '/demo/users?page=2#row-3'),
         next(
           `外链 / 协议相对 / 危险协议回落首页（${safeExternal} / ${safeProtocolRelative} / ${safeScript}）`,
           safeExternal === DEFAULT_HOME_PATH && safeProtocolRelative === DEFAULT_HOME_PATH && safeScript === DEFAULT_HOME_PATH,

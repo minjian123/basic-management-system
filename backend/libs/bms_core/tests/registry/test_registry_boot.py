@@ -148,8 +148,8 @@ def test_project_registry_rebuilds_views_without_constants_and_retired() -> None
     constant_product = PRODUCT_CATALOG[0].product_key
     constant_service = SERVICE_CATALOG[0].module_key
     demo_capability = CollaborationRecord(
-        name="demo.org.roles",
-        domain="org",
+        name="demo.mdm.roles",
+        domain="mdm",
         kind="read",
         contract_version="0.1.0",
         path="/api/v1/demo/roles",
@@ -157,8 +157,8 @@ def test_project_registry_rebuilds_views_without_constants_and_retired() -> None
         frontend_prefix="demo",
     )
     retired_capability = CollaborationRecord(
-        name="demo.org.old",
-        domain="org",
+        name="demo.mdm.old",
+        domain="mdm",
         kind="read",
         contract_version="0.1.0",
         path="/api/v1/demo/old",
@@ -197,12 +197,12 @@ def test_project_registry_rebuilds_views_without_constants_and_retired() -> None
                 segment="88",
             )
         ],
-        usages=[CapabilityUsage(name="demo.org.roles")],
+        usages=[CapabilityUsage(name="demo.mdm.roles")],
         owners=ConcurrentStableDict(
-            {"usages": ConcurrentStableDict({"demo.org.roles": "demo"})},
+            {"usages": ConcurrentStableDict({"demo.mdm.roles": "demo"})},
         ),
     )
-    snapshot.retired.set("collaborations", ConcurrentStableSet(("demo.org.old",)))
+    snapshot.retired.set("collaborations", ConcurrentStableSet(("demo.mdm.old",)))
 
     project_registry(snapshot)
 
@@ -212,14 +212,14 @@ def test_project_registry_rebuilds_views_without_constants_and_retired() -> None
     assert {"demo"} <= {item.module_key for item in service_catalog_view()}
     assert {item.name for item in seed_catalog_view()} >= {"demo-seed"}
     assert [item.domain for item in product_routes_view()] == ["demo"]
-    assert [item.name for item in collaboration_catalog_view()] == ["demo.org.roles"]
+    assert [item.name for item in collaboration_catalog_view()] == ["demo.mdm.roles"]
     assert 880001 in error_code_view()
-    assert [item.name for item in capability_usage_view().get("demo") or ()] == ["demo.org.roles"]
+    assert [item.name for item in capability_usage_view().get("demo") or ()] == ["demo.mdm.roles"]
 
 
 def test_project_registry_skips_usage_without_owner() -> None:
     """使用声明缺声明方：不登记（不猜消费方）。"""
-    snapshot = _snapshot(usages=[CapabilityUsage(name="demo.org.roles")])
+    snapshot = _snapshot(usages=[CapabilityUsage(name="demo.mdm.roles")])
 
     project_registry(snapshot)
 
@@ -257,7 +257,7 @@ def test_project_registry_skips_retired_domain() -> None:
     snapshot = _snapshot(
         domains=[
             DomainEntry(
-                domain_key="org", service_key="mdm", status="placement", paths=ConcurrentStableFrozenList(("a",))
+                domain_key="mdm", service_key="mdm", status="placement", paths=ConcurrentStableFrozenList(("a",))
             ),
             DomainEntry(
                 domain_key="old", service_key="mdm", status="placement", paths=ConcurrentStableFrozenList(("b",))
@@ -268,7 +268,7 @@ def test_project_registry_skips_retired_domain() -> None:
 
     project_registry(snapshot)
 
-    assert domain_service_view() == {"org": "mdm"}
+    assert domain_service_view() == {"mdm": "mdm"}
     reset_domain_services()
 
 
@@ -277,7 +277,7 @@ def test_project_registry_projects_domains() -> None:
     snapshot = _snapshot(
         domains=[
             DomainEntry(
-                domain_key="org", service_key="mdm", status="placement", paths=ConcurrentStableFrozenList(("a",))
+                domain_key="mdm", service_key="mdm", status="placement", paths=ConcurrentStableFrozenList(("a",))
             ),
             DomainEntry(
                 domain_key="user", service_key="platform", status="placement", paths=ConcurrentStableFrozenList(("b",))
@@ -287,7 +287,7 @@ def test_project_registry_projects_domains() -> None:
 
     project_registry(snapshot)
 
-    assert domain_service_view() == {"org": "mdm", "user": "platform"}
+    assert domain_service_view() == {"mdm": "mdm", "user": "platform"}
     reset_domain_services()
 
 
@@ -334,8 +334,8 @@ async def test_fetch_declarations_loads_snapshot() -> None:
                     declaration_wire(
                         "collaborations",
                         CollaborationRecord(
-                            name="demo.org.roles",
-                            domain="org",
+                            name="demo.mdm.roles",
+                            domain="mdm",
                             kind="read",
                             contract_version="0.1.0",
                             path="/api/v1/demo/roles",
@@ -371,8 +371,8 @@ def test_apply_snapshot_projects() -> None:
     snapshot = _snapshot(
         collaborations=[
             CollaborationRecord(
-                name="demo.org.roles",
-                domain="org",
+                name="demo.mdm.roles",
+                domain="mdm",
                 kind="read",
                 contract_version="0.1.0",
                 path="/api/v1/demo/roles",
@@ -383,7 +383,7 @@ def test_apply_snapshot_projects() -> None:
 
     apply_snapshot(snapshot)
 
-    assert [item.name for item in collaboration_catalog_view()] == ["demo.org.roles"]
+    assert [item.name for item in collaboration_catalog_view()] == ["demo.mdm.roles"]
 
 
 async def test_bootstrap_skips_when_disabled() -> None:

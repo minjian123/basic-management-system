@@ -336,13 +336,13 @@ def test_check_reports_body_size_problem(tmp_path: Path, capsys: pytest.CaptureF
 def test_load_topology_from_db_maps_units_and_status(tmp_path: Path) -> None:
     """拓扑读面：默认租户当前版本行 → 域 / 单元 / 状态（停用域保留状态，供网关跳过生成）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'units.db'}"
-    _seed_registry(url, default_units=ConcurrentStableDict({"org": "grpops", "role": "platform"}))
+    _seed_registry(url, default_units=ConcurrentStableDict({"mdm": "grpops", "role": "platform"}))
     asyncio.run(_disable_domain(url, domain="role"))
 
     topology, warnings = gateway_config.load_topology_from_db(url)
 
     assert {domain: target.unit_key for domain, target in topology.items()} == {
-        "org": "grpops",
+        "mdm": "grpops",
         "role": "platform",
     }
     assert not topology["role"].enabled, "停用域保留状态（生成时跳过）"

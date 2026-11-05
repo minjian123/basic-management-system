@@ -37,7 +37,7 @@ def _record(code: int = 390001) -> ErrorCodeRecord:
     """
     return ErrorCodeRecord(
         code=code,
-        domain="org",
+        domain="mdm",
         http_status=404,
         message_key="demo.error.dept_not_found",
         severity="warning",
@@ -83,14 +83,14 @@ def test_render_markdown_columns_and_status() -> None:
     lines = text.splitlines()
     assert lines[0].startswith("| 错误码 | 段 | 业务域 | 提供方 | HTTP |")
     assert len(lines) == 2 + len(records)
-    assert "| `390001` | 39 | org | demo | 404 | `demo.error.dept_not_found` | warning | 部门不存在 | 启用 |" in lines
+    assert "| `390001` | 39 | mdm | demo | 404 | `demo.error.dept_not_found` | warning | 部门不存在 | 启用 |" in lines
 
 
 def test_render_marks_disabled_records() -> None:
     """停用码：导出标注「已停用（码位保留不复用）」，仍出现在表中。"""
     record = ErrorCodeRecord(
         code=390002,
-        domain="org",
+        domain="mdm",
         http_status=200,
         message_key="demo.error.dept_gone",
         severity="warning",
@@ -144,7 +144,7 @@ product_key = "demo"
 
 [[errcodes]]
 code = 390001
-domain = "org"
+domain = "mdm"
 http_status = 404
 message_key = "demo.error.dept_not_found"
 severity = "warning"

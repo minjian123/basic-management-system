@@ -124,29 +124,29 @@ describe('产品命名空间寻址（05-13 · Kiwi 2259）', () => {
   })
 
   it('productPrefix / productUrl 按「产品键 + 域 + 路径」组装', () => {
-    expect(productPrefix('demo', 'org')).toBe('/api/demo/v1/org')
-    expect(productUrl('demo', 'org')).toBe('/api/demo/v1/org')
-    expect(productUrl('demo', 'org', '/posts')).toBe('/api/demo/v1/org/posts')
-    expect(productUrl('demo', 'org', 'posts')).toBe('/api/demo/v1/org/posts')
+    expect(productPrefix('demo', 'mdm')).toBe('/api/demo/v1/mdm')
+    expect(productUrl('demo', 'mdm')).toBe('/api/demo/v1/mdm')
+    expect(productUrl('demo', 'mdm', '/posts')).toBe('/api/demo/v1/mdm/posts')
+    expect(productUrl('demo', 'mdm', 'posts')).toBe('/api/demo/v1/mdm/posts')
   })
 
   it('域段归一（首尾斜杠 / 空白）与路径归一与服务通道同口径', () => {
-    expect(productDomain('/org/')).toBe('org')
-    expect(productUrl('demo', ' /org/ ', '//data-source//dept-tree')).toBe('/api/demo/v1/org/data-source/dept-tree')
+    expect(productDomain('/mdm/')).toBe('mdm')
+    expect(productUrl('demo', ' /mdm/ ', '//data-source//dept-tree')).toBe('/api/demo/v1/mdm/data-source/dept-tree')
   })
 
   it('保留查询串与深层路径', () => {
-    expect(productUrl('demo', 'org', 'posts?deptId=1&page=2')).toBe('/api/demo/v1/org/posts?deptId=1&page=2')
+    expect(productUrl('demo', 'mdm', 'posts?deptId=1&page=2')).toBe('/api/demo/v1/mdm/posts?deptId=1&page=2')
   })
 
   it('已加载目录且产品未登记 / 非法或缺失域段 → 抛参数段位错误', () => {
     applyMinimalCatalog('demo')
     const calls = [
-      () => productPrefix('biz', 'org'),
+      () => productPrefix('biz', 'mdm'),
       () => productPrefix('demo', ''),
-      () => productPrefix('demo', 'ORG'),
+      () => productPrefix('demo', 'MDM'),
       () => productPrefix('demo', '1org'),
-      () => productUrl('demo', 'org/x'),
+      () => productUrl('demo', 'mdm/x'),
     ]
     for (const call of calls) {
       try {
@@ -160,7 +160,7 @@ describe('产品命名空间寻址（05-13 · Kiwi 2259）', () => {
   })
 
   it('平台服务寻址零变化（清单不含产品域，产品键不进入服务清单）', () => {
-    expect((SERVICE_KEYS as readonly string[]).includes('org')).toBe(false)
+    expect((SERVICE_KEYS as readonly string[]).includes('mdm')).toBe(false)
     expect(serviceUrl('platform', '/tenants')).toBe('/api/platform/v1/tenants')
   })
 })

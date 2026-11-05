@@ -21,7 +21,7 @@ interface Props {
   modelValue?: DeptFieldValue
   /** 数据通路是否就绪。 */
   ready?: boolean
-  /** 组织数据源（未注入即占位零请求）。 */
+  /** 字典数据源（未注入即占位零请求）。 */
   source?: DictRemoteSourceAdapter
   /** 多选。 */
   multiple?: boolean

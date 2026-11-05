@@ -189,7 +189,7 @@ describe('utils/formWidgets 分发映射', () => {
     expect(resolveFieldComponent({ widget: 'text', fieldType: 'name', registry })).toBeDefined()
   })
 
-  it('重控件按语义键解析到对应组件（富文本 / 文件 / 组织 / 穿梭 / 级联）', () => {
+  it('重控件按语义键解析到对应组件（富文本 / 文件 / 远程字典 / 穿梭 / 级联）', () => {
     expect(getFieldWidget('richtext')).toBeDefined()
     expect(getFieldWidget('file')).toBeDefined()
     expect(getFieldWidget('dict_remote_select')).toBeDefined()
@@ -212,7 +212,7 @@ describe('utils/formWidgets 分发映射', () => {
     }
   })
 
-  it('组织字段协同（06_05）：dept 映射组织件、kind 透传、多选语义单一来源', () => {
+  it('部门 / 岗位字段协同（06_05）：dept 映射字典树件、kind 透传、多选语义单一来源', () => {
     expect(MULTIPLE_WIDGETS).toContain('dict_remote_select')
     const dictMeta: LayoutEffective = {
       ...meta,
@@ -223,7 +223,7 @@ describe('utils/formWidgets 分发映射', () => {
       layout: {
         main: {
           labelPosition: 'top',
-          sections: [{ key: 's-org', title: '组织', columns: 2, fields: [{ key: 'dept' }, { key: 'user' }] }],
+          sections: [{ key: 's-mdm', title: '组织', columns: 2, fields: [{ key: 'dept' }, { key: 'user' }] }],
         },
       },
     }

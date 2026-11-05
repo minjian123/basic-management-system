@@ -24,7 +24,7 @@ export const FILE_RETRY_MAX = 3
 export const FILE_RETRY_BASE_MS = 1000
 /** 重试指数退避上限（毫秒）。 */
 export const FILE_RETRY_MAX_MS = 8000
-/** 搜索 / 输入防抖（毫秒，与组织 / 字典同口径）。 */
+/** 搜索 / 输入防抖（毫秒，与字典搜索同口径）。 */
 export const FILE_DEBOUNCE = 300
 /** 数量上限缺省值（0 = 不限）。 */
 export const FILE_LIMIT_DEFAULT = 0

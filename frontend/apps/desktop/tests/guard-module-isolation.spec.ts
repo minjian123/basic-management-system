@@ -83,7 +83,7 @@ describe('模块隔离护栏（Kiwi 980）', () => {
 
   it('自拼服务 / 产品前缀被拦截（`/api/...` 字面量与模板串；经寻址契约组装不误判）', () => {
     const sourceProblems = scanSourceFiles([
-      { path: 'a.ts', source: "const url = '/api/mdm/v1/org/posts'" },
+      { path: 'a.ts', source: "const url = '/api/mdm/v1/mdm/posts'" },
       { path: 'b.ts', source: 'const url = `/api/platform/v1/tenants`' },
       { path: 'c.vue', source: "const url = '/api/identity/v1/auth/me'" },
       { path: 'd.ts', source: 'const url = `/api/mdm/v1/${domain}/x`' },
@@ -92,7 +92,7 @@ describe('模块隔离护栏（Kiwi 980）', () => {
 
     expect(
       scanSourceFiles([
-        { path: 'api.ts', source: "const rows = await context.api.product('mdm', 'org').get('/posts')" },
+        { path: 'api.ts', source: "const rows = await context.api.product('mdm', 'mdm').get('/posts')" },
         { path: 'svc.ts', source: "const me = await api.get('identity', '/auth/me')" },
         { path: 'link.ts', source: "const docs = 'https://example.com/api/guide'" },
         // 寻址契约组装 / 基座默认基址（随 core 打包）不误判
@@ -102,7 +102,7 @@ describe('模块隔离护栏（Kiwi 980）', () => {
     ).toEqual([])
 
     const productProblems = scanProductFiles({
-      js: [{ path: 'assets/module-x.js', source: 'const url="/api/mdm/v1/org/posts"' }],
+      js: [{ path: 'assets/module-x.js', source: 'const url="/api/mdm/v1/mdm/posts"' }],
     })
     expect(productProblems.some((problem) => problem.includes('R4'))).toBe(true)
   })

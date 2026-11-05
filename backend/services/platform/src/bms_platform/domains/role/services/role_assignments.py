@@ -5,8 +5,8 @@
 - **分段全量覆盖**：`role`（角色本体）/ `user_ids`（角色 × 用户分配）/ `role_posts`（岗位）/
   `role_depts`（部门）；分段为 `None` 表示**不参与**，空集表示清空；角色侧**无主要项**语义。
 - **两条路径**：`[transaction_manager].provider = "xa"` ⇒ TM 全局事务（platform 自身分支**进程内执行**、
-  组织域分支经参与端点 `POST /api/v1/txn/branches` 执行，全部 `PREPARED` 后由 TM 提交）；
-  `provider = null`（dev / test 的 SQLite）⇒ **顺序提交**（platform 本地事务 → 组织域内部写通道），
+  跨产品域分支经参与端点 `POST /api/v1/txn/branches` 执行，全部 `PREPARED` 后由 TM 提交）；
+  `provider = null`（dev / test 的 SQLite）⇒ **顺序提交**（platform 本地事务 → 跨产品域内部写通道），
   **不做反向补偿、不做一致性屏障**（过渡期基线与屏障判据属废路径）。
 - **跨服务副作用在提交之后**：角色 / 角色分配变更的权限版本递增为**提交后**尽力而为（失败不阻断、
   不影响已提交结果），避免把跨服务调用卷进两阶段窗口。
@@ -76,8 +76,8 @@ ROLE_ASSIGNMENTS_OP = "sys.role.assignments"
 BRANCH_ID_PLATFORM = "p"
 """platform 分支标识（同一全局事务内唯一，≤ 16 字符）。"""
 
-DICT_DATA_SERVICE_SCOPE = "组织域"
-"""组织域称谓（分支标识 / 承载服务 / 库键 / 动作名一律取自已解析的能力声明）。"""
+BRANCH_SERVICE_SCOPE = "跨产品域"
+"""跨产品域称谓（分支标识 / 承载服务 / 库键 / 动作名一律取自已解析的能力声明）。"""
 
 BRANCH_EXECUTE_PATH = "/api/v1/txn/branches"
 """参与端点：分支执行路径。"""
@@ -293,7 +293,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
             cache: 缓存能力域（角色 / 分配变更后权限版本递增）。
             manager: 事务管理器（`provider=null` 时为 Null 实现，`enabled` 为假）。
             participant: 事务参与方（platform 自身分支进程内执行）。
-            client: 服务间调用客户端（组织域分支执行 / 顺序提交内部写通道）。
+            client: 服务间调用客户端（跨产品域分支执行 / 顺序提交内部写通道）。
             tenant_id: 当前租户标识（权限版本键作用域）。
         """
         self._writer = writer
@@ -318,7 +318,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         Args:
             role_id: 角色主键。
             req: 分段全量覆盖请求。
-            idempotency_key: 业务幂等键（透传给组织域内部写通道 / 分支载荷）。
+            idempotency_key: 业务幂等键（透传给跨产品域内部写通道 / 分支载荷）。
 
         Returns:
             tuple[SysRole, ConcurrentStableList[SysUser], ConcurrentStableList[str]]:
@@ -347,7 +347,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         req: RoleAssignmentsRequest,
         idempotency_key: str | None,
     ) -> None:
-        """`provider=xa`：TM 全局事务路径（platform 分支进程内 + 组织域分支远端）。
+        """`provider=xa`：TM 全局事务路径（platform 分支进程内 + 跨产品域分支远端）。
 
         Args:
             role_id: 角色主键。
@@ -359,7 +359,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
             ServiceUnavailableError: 分支执行调用失败（10007）。
         """
         platform_db_key = current_tenant_context().db_key
-        endpoints = resolve_org_endpoints(req)
+        endpoints = resolve_branch_endpoints(req)
         branch = branch_target(endpoints, platform_db_key=platform_db_key) if endpoints else None
         specs: ConcurrentStableList[BranchSpec] = ConcurrentStableList()
         specs.add(BranchSpec(branch_id=BRANCH_ID_PLATFORM, service=SERVICE_NAME, db_key=platform_db_key))
@@ -406,15 +406,15 @@ class RoleAssignmentsService(BaseFrameworkObject):
         req: RoleAssignmentsRequest,
         idempotency_key: str | None,
     ) -> None:
-        """执行组织域分支（岗位 + 部门合并为**同一分支的同一请求**，按序执行）。
+        """执行跨产品域分支（岗位 + 部门合并为**同一分支的同一请求**，按序执行）。
 
         一个分支＝一条 XA 事务＝一条数据库连接，故两段必须一次请求提交（基座 `ops` 列表）。
         承载服务取自已解析的能力声明（与分支规格同一来源），不写死产品服务键。
 
         Args:
-            xid: 组织域分支事务标识（TM 分配）。
-            branch: 组织域分支三要素（分支标识 / 承载服务 / 库键）；无组织域分段时为 None。
-            endpoints: 本次参与的组织域能力取用结果（动作名由各自声明提供）。
+            xid: 跨产品域分支事务标识（TM 分配）。
+            branch: 跨产品域分支三要素（分支标识 / 承载服务 / 库键）；无跨产品域分段时为 None。
+            endpoints: 本次参与的跨产品域能力取用结果（动作名由各自声明提供）。
             role_id: 角色主键。
             req: 分段全量覆盖请求。
             idempotency_key: 业务幂等键。
@@ -424,8 +424,8 @@ class RoleAssignmentsService(BaseFrameworkObject):
         """
         if branch is None:
             return
-        # 分支非空 ⟹ 本次至少一段组织域分段（`resolve_org_endpoints` 与分段一一对应），故 op 清单必非空
-        branch_ops = build_org_ops(role_id=role_id, req=req, idempotency_key=idempotency_key, endpoints=endpoints)
+        # 分支非空 ⟹ 本次至少一段跨产品域分段（`resolve_branch_endpoints` 与分段一一对应），故 op 清单必非空
+        branch_ops = build_branch_ops(role_id=role_id, req=req, idempotency_key=idempotency_key, endpoints=endpoints)
         payload: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
         for op, args in branch_ops:
             entry: ConcurrentStableDict[str, object] = ConcurrentStableDict()
@@ -447,7 +447,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         )
         state = _branch_state(response)
         if state != BRANCH_PREPARED:
-            raise TransactionUnavailableError(f"{DICT_DATA_SERVICE_SCOPE}分支未就绪：{state}")
+            raise TransactionUnavailableError(f"{BRANCH_SERVICE_SCOPE}分支未就绪：{state}")
 
     async def _apply_sequential(
         self,
@@ -456,7 +456,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         req: RoleAssignmentsRequest,
         idempotency_key: str | None,
     ) -> None:
-        """`provider=null`：顺序提交路径（platform 本地事务 → 组织域内部写通道；无补偿）。
+        """`provider=null`：顺序提交路径（platform 本地事务 → 跨产品域内部写通道；无补偿）。
 
         Args:
             role_id: 角色主键。
@@ -465,21 +465,21 @@ class RoleAssignmentsService(BaseFrameworkObject):
         """
         await self._writer.write(role_id=role_id, profile=req.role, user_ids=req.user_ids)
         if req.role_posts is not None:
-            await self._call_org_internal(
+            await self._call_branch_internal(
                 resolve_capability(CAPABILITY_MDM_ROLE_POSTS),
                 params=ConcurrentStableFrozenDict({"role_id": str(role_id)}),
                 body=_posts_args(req.role_posts, idempotency_key=idempotency_key),
                 idempotency_key=idempotency_key,
             )
         if req.role_depts is not None:
-            await self._call_org_internal(
+            await self._call_branch_internal(
                 resolve_capability(CAPABILITY_MDM_ROLE_DEPTS),
                 params=ConcurrentStableFrozenDict({"role_id": str(role_id)}),
                 body=_depts_args(req.role_depts, idempotency_key=idempotency_key),
                 idempotency_key=idempotency_key,
             )
 
-    async def _call_org_internal(
+    async def _call_branch_internal(
         self,
         endpoint: CapabilityEndpoint,
         *,
@@ -487,7 +487,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         body: ConcurrentStableDict[str, object],
         idempotency_key: str | None,
     ) -> None:
-        """调组织域内部写通道（承载服务与路径模板取自能力声明；幂等键经请求头透传）。
+        """调跨产品域内部写通道（承载服务与路径模板取自能力声明；幂等键经请求头透传）。
 
         Args:
             endpoint: 能力取用结果（承载服务与路径模板均取自声明）。
@@ -670,8 +670,8 @@ def collect_segments(req: RoleAssignmentsRequest) -> ConcurrentStableList[str]:
     return applied
 
 
-def resolve_org_endpoints(req: RoleAssignmentsRequest) -> ConcurrentStableList[CapabilityEndpoint]:
-    """解析本次参与的组织域能力（岗位段在前、部门段在后，与 `build_org_ops` 同序）。
+def resolve_branch_endpoints(req: RoleAssignmentsRequest) -> ConcurrentStableList[CapabilityEndpoint]:
+    """解析本次参与的跨产品域能力（岗位段在前、部门段在后，与 `build_branch_ops` 同序）。
 
     惰性解析（每次调用现取装载视图）：声明变更即时生效，装配期不解析。
 
@@ -692,14 +692,14 @@ def resolve_org_endpoints(req: RoleAssignmentsRequest) -> ConcurrentStableList[C
     return endpoints
 
 
-def build_org_ops(
+def build_branch_ops(
     *,
     role_id: int,
     req: RoleAssignmentsRequest,
     idempotency_key: str | None,
     endpoints: ConcurrentStableList[CapabilityEndpoint],
 ) -> ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]:
-    """构造组织域**分支**操作清单（岗位 / 部门各一 op；同一分支内按序执行）。
+    """构造跨产品域**分支**操作清单（岗位 / 部门各一 op；同一分支内按序执行）。
 
     动作名取自已解析的能力声明（`branch_op`），与 `endpoints` 逐段对位。
 
@@ -707,7 +707,7 @@ def build_org_ops(
         role_id: 角色主键。
         req: 分段全量覆盖请求。
         idempotency_key: 业务幂等键。
-        endpoints: `resolve_org_endpoints(req)` 的结果（同序对位）。
+        endpoints: `resolve_branch_endpoints(req)` 的结果（同序对位）。
 
     Returns:
         ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]: (op, 载荷) 清单。

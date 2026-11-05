@@ -1,8 +1,8 @@
 """角色保存编排（`02_03/_02` · Kiwi 2283）：分段校验 + 双路径编排（顺序提交路径）+ 提交后副作用。
 
 覆盖：分段收集（`null` 不参与）；`provider=null` 顺序提交路径的编排顺序（platform 本地写入 →
-组织域内部写通道 role-posts / role-depts ×2）与提交后副作用（角色段 / `user_ids` 段 ⇒ 权限版本 +1）；
-组织域**分支载荷**构造（同一分支内两 op）；角色 × 用户全量覆盖（保留集合外软删 + 恢复原行）。
+跨产品域内部写通道 role-posts / role-depts ×2）与提交后副作用（角色段 / `user_ids` 段 ⇒ 权限版本 +1）；
+跨产品域**分支载荷**构造（同一分支内两 op）；角色 × 用户全量覆盖（保留集合外软删 + 恢复原行）。
 XA 全局事务路径的真库两阶段由 CI `2pc` 作业与 `05_07` 收尾验证（本机无真库）。
 """
 
@@ -45,9 +45,9 @@ from bms_platform.domains.role.services.role_assignments import (
     RoleAssignmentsService,
     RoleAssignmentWriter,
     _branch_state,  # pyright: ignore[reportPrivateUsage]
-    build_org_ops,
+    build_branch_ops,
     collect_segments,
-    resolve_org_endpoints,
+    resolve_branch_endpoints,
 )
 from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
@@ -200,7 +200,7 @@ def test_collect_segments() -> None:
 
 
 async def test_sequential_path_orders_writes_and_bumps_permission_version() -> None:
-    """`provider=null`（顺序提交）：本地写入 → 组织域内部写通道 ×2；角色段 ⇒ 权限版本 +1。"""
+    """`provider=null`（顺序提交）：本地写入 → 跨产品域内部写通道 ×2；角色段 ⇒ 权限版本 +1。"""
     client = _ClientSpy()
     service, writer, cache = _service(
         NullTransactionManager(), NullTransactionParticipant(), client, user_ids=ConcurrentStableList([7])
@@ -231,8 +231,8 @@ async def test_sequential_path_orders_writes_and_bumps_permission_version() -> N
     assert list(cache.bumped) == ["bms:1001:permission:version"]
 
 
-async def test_sequential_path_skips_bump_when_only_org_segments() -> None:
-    """仅组织分配段（无角色本体 / 用户分配）：不递增平台权限版本。"""
+async def test_sequential_path_skips_bump_when_only_mdm_segments() -> None:
+    """仅部门 / 岗位分配段（无角色本体 / 用户分配）：不递增平台权限版本。"""
     client = _ClientSpy()
     service, _writer, cache = _service(NullTransactionManager(), NullTransactionParticipant(), client)
 
@@ -264,13 +264,13 @@ async def test_sequential_path_posts_without_idempotency_key() -> None:
     assert "idempotency_key" not in body
 
 
-def test_org_branch_ops_share_one_branch_request() -> None:
-    """组织域分支载荷：岗位 / 部门各一 op，同一分支（同一 `xid`）一次请求内按序执行。"""
+def test_mdm_branch_ops_share_one_branch_request() -> None:
+    """跨产品域分支载荷：岗位 / 部门各一 op，同一分支（同一 `xid`）一次请求内按序执行。"""
     req = RoleAssignmentsRequest(
         role_posts=RoleAssignmentPosts(post_ids=ConcurrentStableList([11, 12])),
         role_depts=RoleAssignmentDepts(dept_ids=ConcurrentStableList([21])),
     )
-    ops = build_org_ops(role_id=5, req=req, idempotency_key="k-1", endpoints=resolve_org_endpoints(req))
+    ops = build_branch_ops(role_id=5, req=req, idempotency_key="k-1", endpoints=resolve_branch_endpoints(req))
 
     assert [op for op, _args in ops] == ["mdm.role-posts.assign", "mdm.role-depts.assign"]
     posts_args = ops[0][1]
@@ -562,7 +562,7 @@ async def test_apply_returns_empty_users_when_none_assigned() -> None:
 
 
 async def test_xa_path_commits_after_all_branches_prepared() -> None:
-    """XA 路径：platform 分支进程内执行 + 组织域分支远端执行，双方就绪后提交并递增权限版本。"""
+    """XA 路径：platform 分支进程内执行 + 跨产品域分支远端执行，双方就绪后提交并递增权限版本。"""
     manager = _ManagerSpy()
     participant = _ParticipantSpy()
     client = _ClientSpy()
@@ -603,8 +603,8 @@ async def test_xa_path_commits_after_all_branches_prepared() -> None:
     assert list(cache.bumped) == ["bms:1001:permission:version"]
 
 
-async def test_xa_path_without_org_declares_platform_branch_only() -> None:
-    """XA 路径（无组织域分段）：只声明 platform 分支并提交，不发远端调用。"""
+async def test_xa_path_without_mdm_declares_platform_branch_only() -> None:
+    """XA 路径（无跨产品域分段）：只声明 platform 分支并提交，不发远端调用。"""
     manager = _ManagerSpy()
     client = _ClientSpy()
     service, _writer, cache = _service(manager, _ParticipantSpy(), client, user_ids=ConcurrentStableList([7]))
@@ -632,8 +632,8 @@ async def test_xa_path_rolls_back_when_platform_branch_rejected() -> None:
     assert manager.commits == []
 
 
-async def test_xa_path_rolls_back_when_org_branch_rejected() -> None:
-    """组织域分支未达 `PREPARED` → 10013 并回滚全局事务。"""
+async def test_xa_path_rolls_back_when_mdm_branch_rejected() -> None:
+    """跨产品域分支未达 `PREPARED` → 10013 并回滚全局事务。"""
     manager = _ManagerSpy()
     service, _writer, _cache = _service(manager, _ParticipantSpy(), _ClientSpy(state="rejected"))
 
@@ -646,8 +646,8 @@ async def test_xa_path_rolls_back_when_org_branch_rejected() -> None:
     assert list(manager.rollbacks) == ["gtx-1"]
 
 
-async def test_xa_path_posts_only_executes_one_org_op() -> None:
-    """XA 路径只给岗位段：组织域分支只含一个 op（部门段缺失时 op 清单按段裁剪）。"""
+async def test_xa_path_posts_only_executes_one_mdm_op() -> None:
+    """XA 路径只给岗位段：跨产品域分支只含一个 op（部门段缺失时 op 清单按段裁剪）。"""
     manager = _ManagerSpy()
     client = _ClientSpy()
     service, _writer, _cache = _service(manager, _ParticipantSpy(), client)
@@ -677,16 +677,16 @@ async def test_xa_path_missing_branch_raises() -> None:
     assert list(manager.rollbacks) == ["gtx-1"]
 
 
-async def test_execute_org_branches_returns_early_without_org_segments() -> None:
-    """无组织域分段时组织分支执行直接返回（不发起远端调用）。"""
+async def test_execute_user_role_branches_returns_early_without_segments() -> None:
+    """无跨产品分段时分支执行直接返回（不发起远端调用）。"""
     client = _ClientSpy()
     service, _writer, _cache = _service(_ManagerSpy(), _ParticipantSpy(), client)
 
     empty = RoleAssignmentsRequest(role=RoleAssignmentProfile(name="运维角色", version=1))
-    await service._execute_org_branches(  # pyright: ignore[reportPrivateUsage]
+    await service._execute_user_role_branches(  # pyright: ignore[reportPrivateUsage]
         xid="x",
         branch=None,
-        endpoints=resolve_org_endpoints(empty),
+        endpoints=resolve_branch_endpoints(empty),
         role_id=5,
         req=empty,
         idempotency_key=None,

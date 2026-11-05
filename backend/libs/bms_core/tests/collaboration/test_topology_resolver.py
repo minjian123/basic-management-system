@@ -53,7 +53,7 @@ def _reason(exc: CatalogError) -> str:
 
 @pytest.fixture(autouse=True)
 def _isolate_topology() -> Iterator[None]:
-    """每例复位快照、解析器与域映射，并登记两个域（`auth` / `org`）。
+    """每例复位快照、解析器与域映射，并登记两个域（`auth` / `mdm`）。
 
     Yields:
         None: 用例运行期。
@@ -62,7 +62,7 @@ def _isolate_topology() -> Iterator[None]:
     reset_topology_resolver()
     reset_instance_context()
     reset_domain_services()
-    register_domain_services(ConcurrentStableFrozenDict({"auth": "identity", "org": "mdm"}))
+    register_domain_services(ConcurrentStableFrozenDict({"auth": "identity", "mdm": "mdm"}))
     yield
     reset_topology_snapshots()
     reset_topology_resolver()
@@ -103,7 +103,7 @@ def _default(version: int = 1) -> TopologySnapshot:
         ConcurrentStableDict(
             {
                 "auth": TopologyEntry(unit_key="identity"),
-                "org": TopologyEntry(unit_key="mdm"),
+                "mdm": TopologyEntry(unit_key="mdm"),
             }
         ),
     )
@@ -134,7 +134,7 @@ def test_tenant_snapshot_overrides_default() -> None:
     register_topology_snapshot(_snapshot(_TENANT, 3, ConcurrentStableDict({"auth": TopologyEntry(unit_key="core")})))
     assert resolve_for(_TENANT, "auth").unit_key == "core"
     with pytest.raises(CatalogError) as captured:
-        resolve_for(_TENANT, "org")
+        resolve_for(_TENANT, "mdm")
     assert _reason(captured.value) == "not_registered"
 
 
@@ -154,7 +154,7 @@ def test_domain_disabled_is_business_state() -> None:
             ConcurrentStableDict(
                 {
                     "auth": TopologyEntry(unit_key="identity", status="disabled"),
-                    "org": TopologyEntry(unit_key="mdm"),
+                    "mdm": TopologyEntry(unit_key="mdm"),
                 }
             ),
         )

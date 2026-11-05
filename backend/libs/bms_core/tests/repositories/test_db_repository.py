@@ -262,9 +262,9 @@ async def test_scope_condition_errors(session: AsyncSession) -> None:
 
 
 class MappedItemRepository(DbItemRepository):
-    """声明数据源映射的测试仓储（`org_dept` → `rank` 列）。"""
+    """声明数据源映射的测试仓储（`mdm_dept` → `rank` 列）。"""
 
-    scope_columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"org_dept": "rank"})
+    scope_columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"mdm_dept": "rank"})
 
 
 @pytest.mark.kiwi_id(2324)
@@ -273,14 +273,14 @@ async def test_data_source_condition_translates_with_type_coercion(session: Asyn
     mapped = MappedItemRepository(session)
     await mapped.create(name="alpha", rank=2)
 
-    mapped.apply_scope(FakeScope(ScopeCondition("", "in", ["2", "3"], "org_dept")))
+    mapped.apply_scope(FakeScope(ScopeCondition("", "in", ["2", "3"], "mdm_dept")))
     assert await mapped.count() == 1
 
-    mapped.apply_scope(FakeScope(ScopeCondition("", "between", ("1", "3"), "org_dept")))
+    mapped.apply_scope(FakeScope(ScopeCondition("", "between", ("1", "3"), "mdm_dept")))
     assert await mapped.count() == 1
 
     unmapped = DbItemRepository(session)
-    unmapped.apply_scope(FakeScope(ScopeCondition("", "in", ["2"], "org_dept")))
+    unmapped.apply_scope(FakeScope(ScopeCondition("", "in", ["2"], "mdm_dept")))
     assert await unmapped.count() == 0
 
 
@@ -290,7 +290,7 @@ async def test_condition_value_coercion_failure_denies_all(session: AsyncSession
     reset_permission_cache_store()
     repo = MappedItemRepository(session)
     await repo.create(name="alpha", rank=2)
-    repo.apply_scope(FakeScope(ScopeCondition("", "in", ["x"], "org_dept")))
+    repo.apply_scope(FakeScope(ScopeCondition("", "in", ["x"], "mdm_dept")))
     assert await repo.count() == 0
     assert current_permission_cache_store().stats()["invalid_rule_rejections"] == 1
 

@@ -56,7 +56,7 @@ def _merged() -> TopologySnapshot:
     """
     return _snapshot(
         DEFAULT_TOPOLOGY_TENANT,
-        ConcurrentStableDict({"auth": TopologyEntry(unit_key="identity"), "org": TopologyEntry(unit_key="mdm")}),
+        ConcurrentStableDict({"auth": TopologyEntry(unit_key="identity"), "mdm": TopologyEntry(unit_key="mdm")}),
     )
 
 
@@ -71,13 +71,13 @@ def _split(tenant_id: int = DEFAULT_TOPOLOGY_TENANT) -> TopologySnapshot:
     """
     return _snapshot(
         tenant_id,
-        ConcurrentStableDict({"auth": TopologyEntry(unit_key="core"), "org": TopologyEntry(unit_key="grp-ops")}),
+        ConcurrentStableDict({"auth": TopologyEntry(unit_key="core"), "mdm": TopologyEntry(unit_key="grp-ops")}),
     )
 
 
 @pytest.fixture(autouse=True)
 def _isolate() -> Iterator[None]:
-    """每例复位快照、解析器、本实例身份与域映射，并登记两个域（`auth` / `org`）。
+    """每例复位快照、解析器、本实例身份与域映射，并登记两个域（`auth` / `mdm`）。
 
     Yields:
         None: 用例运行期。
@@ -86,7 +86,7 @@ def _isolate() -> Iterator[None]:
     reset_topology_resolver()
     reset_instance_context()
     reset_domain_services()
-    register_domain_services(ConcurrentStableFrozenDict({"auth": "identity", "org": "mdm"}))
+    register_domain_services(ConcurrentStableFrozenDict({"auth": "identity", "mdm": "mdm"}))
     yield
     reset_topology_snapshots()
     reset_topology_resolver()
@@ -100,12 +100,12 @@ def test_carried_domain_is_local_and_peer_is_colocated() -> None:
     register_instance_context("identity", None)
 
     auth = resolve_for(_TENANT, "auth")
-    org = resolve_for(_TENANT, "org")
+    mdm = resolve_for(_TENANT, "mdm")
 
     assert auth.mode == CapabilityMode.LOCAL
     assert auth.unit_key == "identity"
-    assert org.mode == CapabilityMode.COLOCATED
-    assert org.service_key == "mdm"
+    assert mdm.mode == CapabilityMode.COLOCATED
+    assert mdm.service_key == "mdm"
 
 
 def test_declared_unit_without_carrier_is_colocated() -> None:
@@ -125,10 +125,10 @@ def test_unit_outside_declared_units_is_remote() -> None:
     register_instance_context("billing", ConcurrentStableList(("grp-ops",)))
 
     auth = resolve_for(_TENANT, "auth")
-    org = resolve_for(_TENANT, "org")
+    mdm = resolve_for(_TENANT, "mdm")
 
     assert auth.mode == CapabilityMode.REMOTE
-    assert org.mode == CapabilityMode.COLOCATED
+    assert mdm.mode == CapabilityMode.COLOCATED
 
 
 def test_empty_declared_units_makes_peers_remote() -> None:
@@ -137,7 +137,7 @@ def test_empty_declared_units_makes_peers_remote() -> None:
     register_instance_context("identity", ConcurrentStableList())
 
     assert resolve_for(_TENANT, "auth").mode == CapabilityMode.LOCAL
-    assert resolve_for(_TENANT, "org").mode == CapabilityMode.REMOTE
+    assert resolve_for(_TENANT, "mdm").mode == CapabilityMode.REMOTE
     assert list(instance_units()) == []
 
 
@@ -185,7 +185,7 @@ def test_phase_a_keeps_db_key_and_base_url_from_unit() -> None:
     register_topology_snapshot(_merged())
     register_instance_context("identity", None)
 
-    target = resolve_for(_TENANT, "org")
+    target = resolve_for(_TENANT, "mdm")
 
     assert list(target.db_keys) == [build_platform_db_key("mdm")]
     assert target.base_url == "http://mdm:8000"

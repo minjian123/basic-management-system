@@ -146,7 +146,7 @@ function stubRequests(
 /**
  * 挂载登录页。
  *
- * @param query 附加查询串（如 `redirect=%2Forg%2Fusers`）。
+ * @param query 附加查询串（如 `redirect=%2Fmdm%2Fusers`）。
  * @returns 测试装配。
  */
 async function mountLogin(query = ''): Promise<Harness> {
@@ -213,7 +213,7 @@ afterEach(() => {
 describe('登录页（Kiwi 2232）', () => {
   it('提交成功：租户标识默认隐藏、载荷 tenant 为空、写入会话并按 redirect 回跳', async () => {
     stubRequests({ login: () => LOGIN_SUCCESS })
-    const { wrapper, router, pinia } = await mountLogin(`redirect=${encodeURIComponent('/org/users?page=2')}`)
+    const { wrapper, router, pinia } = await mountLogin(`redirect=${encodeURIComponent('/mdm/users?page=2')}`)
 
     expect(wrapper.find('[data-test="login-tenant"]').exists()).toBe(false)
     await submit(wrapper)
@@ -230,7 +230,7 @@ describe('登录页（Kiwi 2232）', () => {
     expect(session.token).toBe('token-1')
     expect(session.user?.name).toBe('管理员')
     expect(session.tenant).toBe('acme')
-    expect(router.currentRoute.value.fullPath).toBe('/org/users?page=2')
+    expect(router.currentRoute.value.fullPath).toBe('/mdm/users?page=2')
   })
 
   it('登录成功且强制改密为真：提示并跳转改密页', async () => {
@@ -565,7 +565,7 @@ describe('登录页（Kiwi 2232）', () => {
 
   it('扫码入口：含可扫码 provider 时渲染并跳 /login/qr（携带回跳目标）', async () => {
     stubRequests({ providers: SSO_PROVIDERS })
-    const { wrapper, router } = await mountLogin('redirect=%2Forg%2Fusers')
+    const { wrapper, router } = await mountLogin('redirect=%2Fmdm%2Fusers')
 
     const entry = wrapper.find('[data-test="login-qr-entry"]')
     expect(entry.exists()).toBe(true)
@@ -573,7 +573,7 @@ describe('登录页（Kiwi 2232）', () => {
     await entry.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/login/qr')
-    expect(router.currentRoute.value.query.redirect).toBe('/org/users')
+    expect(router.currentRoute.value.query.redirect).toBe('/mdm/users')
   })
 
   it('扫码入口：无可扫码 provider 时不渲染', async () => {

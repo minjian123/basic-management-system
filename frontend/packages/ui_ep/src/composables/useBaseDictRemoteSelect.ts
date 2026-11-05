@@ -1,4 +1,4 @@
-/** 组织选择投影：把核心组织选择族组件基类 `BaseDictRemoteSelect` 投影为组合式（远程搜索 / 批量回显 / 缓存 / 多选与上限 / 部门树）。 */
+/** 远程字典选择投影：把核心远程字典选择族组件基类 `BaseDictRemoteSelect` 投影为组合式（远程搜索 / 批量回显 / 缓存 / 多选与上限 / 部门树）。 */
 
 import {
   BaseDictRemoteSelect,
@@ -16,7 +16,7 @@ import {
 } from '@bms/core'
 import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
-/** 具体组织选择族（可实例化）。 */
+/** 具体远程字典选择族（可实例化）。 */
 class DictSelectState extends BaseDictRemoteSelect {}
 
 /** 具体用户展示（内建花名册通道）。 */
@@ -45,7 +45,7 @@ export interface UseBaseDictRemoteSelectOptions {
   includeChildren?: boolean
   /** 状态过滤。 */
   status?: DictDataStatus | ''
-  /** 组织数据源（未注入即占位零请求）。 */
+  /** 字典数据源（未注入即占位零请求）。 */
   source?: DictRemoteSourceAdapter
   /** 用户展示能力（缺省内建花名册实例）。 */
   userDisplay?: BaseUserDisplay
@@ -55,7 +55,7 @@ export interface UseBaseDictRemoteSelectOptions {
 
 /** `useBaseDictRemoteSelect` 返回面（与核心方法一一对应的响应式面）。 */
 export interface UseBaseDictRemoteSelectResult {
-  /** 组织选择族实例。 */
+  /** 远程字典选择族实例。 */
   select: BaseDictRemoteSelect
   /** 内建用户展示花名册实例。 */
   userDisplay: BaseUserDisplay
@@ -162,10 +162,10 @@ export interface UseBaseDictRemoteSelectResult {
 }
 
 /**
- * 使用组织选择投影。
+ * 使用远程字典选择投影。
  *
  * @param options 选项。
- * @returns 组织选择族实例与响应式面。
+ * @returns 远程字典选择族实例与响应式面。
  */
 export function useBaseDictRemoteSelect(options: UseBaseDictRemoteSelectOptions = {}): UseBaseDictRemoteSelectResult {
   const select = new DictSelectState()

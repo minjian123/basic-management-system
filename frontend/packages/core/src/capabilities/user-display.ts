@@ -1,7 +1,7 @@
 /**
- * 用户 / 组织展示能力基类：姓名 / 头像 / 状态 / 部门路径，及成员花名册。
+ * 用户 / 人员展示能力基类：姓名 / 头像 / 状态 / 部门路径，及成员花名册。
  *
- * 花名册（`users`）为向后兼容扩展：组织选择、消息内用户信息等按 id 批量展示的场景
+ * 花名册（`users`）为向后兼容扩展：远程字典选择、消息内用户信息等按 id 批量展示的场景
  * 统一经本基类解析；既有 `user` / `setUser` / `name` / `avatar` / `status` / `deptPath` 不变。
  */
 
@@ -36,7 +36,7 @@ export abstract class BaseUserDisplay extends BaseComponent {
   readonly identifier: string = 'user_display'
   /** 当前用户信息。 */
   user: UserDisplayInfo | undefined
-  /** 成员花名册（按 id 索引；组织选择等场景复用）。 */
+  /** 成员花名册（按 id 索引；远程字典选择等场景复用）。 */
   readonly users: UserDisplayInfo[] = []
 
   /**

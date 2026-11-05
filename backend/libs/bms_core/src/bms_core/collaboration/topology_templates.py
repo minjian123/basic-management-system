@@ -34,7 +34,7 @@ TEMPLATE_SINGLE = "single"
 """单体型：全部已登记域 → 一个单元。"""
 
 TEMPLATE_GROUPED = "grouped"
-"""分组型：平台域与组织 → 公共单元；采购 / 仓储 + 销售域登记后各自成组。"""
+"""分组型：平台域与主数据 → 公共单元；采购 / 仓储 + 销售域登记后各自成组。"""
 
 TEMPLATE_ISOLATED = "isolated"
 """独立型：每域一个单元（`dom-*`）。"""

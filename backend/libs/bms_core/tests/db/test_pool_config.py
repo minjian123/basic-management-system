@@ -90,16 +90,16 @@ def test_pool_budget_rows_service_override() -> None:
     """按服务核算：worker 数与最大连接数均支持按服务覆盖（缺省回落目标级 / 全局）。"""
     settings = Settings()
     settings.server.workers = 2
-    settings.server.workers_by_service = ConcurrentStableDict({"org": 8})
-    settings.database.platform.max_connections_by_service = ConcurrentStableDict({"org": 200})
+    settings.server.workers_by_service = ConcurrentStableDict({"mdm": 8})
+    settings.database.platform.max_connections_by_service = ConcurrentStableDict({"mdm": 200})
     settings.database.platform.pool = DbPoolSettings(pool_size=5, max_overflow=10)
 
-    rows = {row.name: row for row in pool_budget_rows(settings, services=ConcurrentStableList(["org"]))}
-    org = rows["org.platform"]
-    assert org.workers == 8
-    assert org.max_connections == 200
-    assert org.total == 8 * 15
-    assert org.ok is True
+    rows = {row.name: row for row in pool_budget_rows(settings, services=ConcurrentStableList(["mdm"]))}
+    mdm = rows["mdm.platform"]
+    assert mdm.workers == 8
+    assert mdm.max_connections == 200
+    assert mdm.total == 8 * 15
+    assert mdm.ok is True
 
     # 未覆盖 `max_connections` 时回落目标级（0 = 不校验 → 视为在预算内）
     settings.database.platform.max_connections = 100

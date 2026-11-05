@@ -35,8 +35,8 @@ def _record(
         CollaborationRecord: 能力记录。
     """
     return CollaborationRecord(
-        name="demo.org.user-posts.assign",
-        domain="org",
+        name="demo.mdm.user-posts.assign",
+        domain="mdm",
         kind=kind,
         contract_version="0.1.0",
         path=path,
@@ -59,7 +59,7 @@ def _isolate_state() -> Iterator[None]:
     """
     reset_collaboration_records()
     reset_domain_services()
-    register_domain_services(ConcurrentStableFrozenDict({"org": "mdm"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
     yield
     reset_collaboration_records()
     reset_domain_services()
@@ -70,7 +70,7 @@ def test_build_request_fills_service_and_path() -> None:
     register_collaboration_records((_record(),))
 
     request = build_capability_request(
-        resolve_capability("demo.org.user-posts.assign"),
+        resolve_capability("demo.mdm.user-posts.assign"),
         method="POST",
         params=ConcurrentStableFrozenDict({"user_id": 42}),
         tenant_id="1001",
@@ -89,7 +89,7 @@ def test_build_request_passes_query_body_and_policy() -> None:
     policy = ServiceCallPolicy(timeout=1.5, max_retries=0)
 
     request = build_capability_request(
-        resolve_capability("demo.org.user-posts.assign"),
+        resolve_capability("demo.mdm.user-posts.assign"),
         method="POST",
         query=ConcurrentStableFrozenDict({"dry_run": "1"}),
         json_body=ConcurrentStableFrozenDict({"post_ids": ("p1",)}),
@@ -106,8 +106,8 @@ def test_build_request_rejects_codes_capability() -> None:
     """`codes` 类无访问面 → 抛 `ParamError`，不得据此发起调用。"""
     register_collaboration_records((_record(kind="codes", path=None),))
 
-    with pytest.raises(ParamError, match=re.escape("能力无访问面（kind=codes）：demo.org.user-posts.assign")):
-        build_capability_request(resolve_capability("demo.org.user-posts.assign"), method="GET")
+    with pytest.raises(ParamError, match=re.escape("能力无访问面（kind=codes）：demo.mdm.user-posts.assign")):
+        build_capability_request(resolve_capability("demo.mdm.user-posts.assign"), method="GET")
 
 
 def test_build_request_rejects_missing_path_parameter() -> None:
@@ -115,4 +115,4 @@ def test_build_request_rejects_missing_path_parameter() -> None:
     register_collaboration_records((_record(),))
 
     with pytest.raises(ParamError, match="访问面缺少路径参数（user_id）"):
-        build_capability_request(resolve_capability("demo.org.user-posts.assign"), method="POST")
+        build_capability_request(resolve_capability("demo.mdm.user-posts.assign"), method="POST")

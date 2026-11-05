@@ -51,9 +51,9 @@ _SNAPSHOT_PAYLOAD = {
             {
                 "tenant_id": DEFAULT_TOPOLOGY_TENANT,
                 "version": 1,
-                "rows": [{"domain_key": "org", "unit_key": "mdm", "status": "enabled"}],
+                "rows": [{"domain_key": "mdm", "unit_key": "mdm", "status": "enabled"}],
             },
-            {"tenant_id": 7, "version": 2, "rows": [{"domain_key": "org", "unit_key": "grp-ops", "status": "enabled"}]},
+            {"tenant_id": 7, "version": 2, "rows": [{"domain_key": "mdm", "unit_key": "grp-ops", "status": "enabled"}]},
         ],
     },
 }
@@ -152,7 +152,7 @@ def _app(client: object | None = None, *, settings: Settings | None = None) -> F
 
 @pytest.fixture(autouse=True)
 def _isolate() -> Iterator[None]:
-    """每例复位拓扑进程态与域映射，并登记一个域（`org`）。
+    """每例复位拓扑进程态与域映射，并登记一个域（`mdm`）。
 
     Yields:
         None: 用例运行期。
@@ -161,7 +161,7 @@ def _isolate() -> Iterator[None]:
     reset_topology_resolver()
     reset_instance_context()
     reset_domain_services()
-    register_domain_services(ConcurrentStableFrozenDict({"org": "mdm"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
     yield
     reset_topology_snapshots()
     reset_topology_resolver()
@@ -179,7 +179,7 @@ async def test_bootstrap_registers_snapshots_and_resolver() -> None:
     assert client.paths.to_list() == [TOPOLOGY_SNAPSHOT_PATH]
     assert isinstance(resolve_topology(), TenantTopologyResolver)
     assert topology_snapshot(7) is not None
-    assert resolve_for(7, "org").unit_key == "grp-ops"
+    assert resolve_for(7, "mdm").unit_key == "grp-ops"
     assert app.state.topology_degraded is False
     resource_stub = cast("_ResourceStub", app.state.resources)
     assert len(resource_stub.registered) == 1
@@ -275,8 +275,8 @@ def test_snapshot_payload_parsed() -> None:
 
     assert [snapshot.tenant_id for snapshot in snapshots] == [DEFAULT_TOPOLOGY_TENANT, 7]
     assert snapshots[1].version == 2
-    assert snapshots[1].entries["org"].unit_key == "grp-ops"
-    assert snapshots[1].entries["org"].enabled is True
+    assert snapshots[1].entries["mdm"].unit_key == "grp-ops"
+    assert snapshots[1].entries["mdm"].enabled is True
 
 
 @pytest.mark.parametrize(

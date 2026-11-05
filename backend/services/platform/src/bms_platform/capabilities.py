@@ -31,10 +31,10 @@ __all__ = [
 # ---- 平台自身作为提供方的能力（入站判定用；声明在 deploy/registry/platform.toml）----
 
 CAPABILITY_PLATFORM_USER_QUERY = "platform.user.query"
-"""用户只读出口（`kind=read`）：供组织域取用户明细，不跨库读 `sys_user`。"""
+"""用户只读出口（`kind=read`）：供跨产品域取用户明细，不跨库读 `sys_user`。"""
 
 CAPABILITY_PLATFORM_PERMISSION_INVALIDATE = "platform.permission_meta.invalidate"
-"""权限失效入口（`kind=write`）：组织变更后失效权限快照（写路径，失败即拒）。"""
+"""权限失效入口（`kind=write`）：部门 / 岗位变更后失效权限快照（写路径，失败即拒）。"""
 
 CAPABILITY_PLATFORM_CONFIG_SNAPSHOT = "platform.platform_config.snapshot"
 """系统参数内部读（`kind=read`）：产品侧按能力授权，`identity` 仍走平台内部白名单。"""
@@ -47,17 +47,17 @@ CAPABILITY_PLATFORM_PERMISSION_METADATA = "platform.permission_meta.metadata"
 
 # ---- 平台作为消费方的能力（取用与降级声明见 platform.toml 的 `[[usages]]` 段）----
 
-CAPABILITY_MDM_USER_ROLES = "mdm.org.user-roles"
-"""mdm 组织域只读出口：按用户解析岗位 / 部门链角色（`kind=read`，消费方降级 `empty`）。"""
+CAPABILITY_MDM_USER_ROLES = "mdm.mdm.user-roles"
+"""mdm 跨产品域只读出口：按用户解析岗位 / 部门链角色（`kind=read`，消费方降级 `empty`）。"""
 
-CAPABILITY_MDM_USER_POSTS = "mdm.org.user-posts.assign"
+CAPABILITY_MDM_USER_POSTS = "mdm.mdm.user-posts.assign"
 """mdm 内部写通道 + 事务参与分支：用户-岗位全量覆盖（`kind=txn-branch`，写路径不降级）。"""
 
-CAPABILITY_MDM_USER_DEPTS = "mdm.org.user-depts.assign"
+CAPABILITY_MDM_USER_DEPTS = "mdm.mdm.user-depts.assign"
 """mdm 内部写通道 + 事务参与分支：用户-部门全量覆盖（`kind=txn-branch`，写路径不降级）。"""
 
-CAPABILITY_MDM_ROLE_POSTS = "mdm.org.role-posts.assign"
+CAPABILITY_MDM_ROLE_POSTS = "mdm.mdm.role-posts.assign"
 """mdm 内部写通道 + 事务参与分支：角色-岗位全量覆盖（`kind=txn-branch`，写路径不降级）。"""
 
-CAPABILITY_MDM_ROLE_DEPTS = "mdm.org.role-depts.assign"
+CAPABILITY_MDM_ROLE_DEPTS = "mdm.mdm.role-depts.assign"
 """mdm 内部写通道 + 事务参与分支：角色-部门全量覆盖（`kind=txn-branch`，写路径不降级）。"""

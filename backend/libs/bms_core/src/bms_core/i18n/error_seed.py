@@ -4,7 +4,7 @@
   （`tests/i18n/test_error_seed_coverage.py`）断言每个业务码（排除 1~9 段位哨兵）都有中英两行，
   新增错误码而忘记补文案时 CI 直接失败。
 - 中文为面向用户的通用提示（不含内部细节，符合《安全开发规范》）；英文按 sentence case。
-- 段位与 `ErrorCode` 一致：1xxxx 通用 / 2xxxx 认证 / 3xxxx 用户与组织 / 4xxxx 系统配置 /
+- 段位与 `ErrorCode` 一致：1xxxx 通用 / 2xxxx 认证 / 3xxxx 用户与数据 / 4xxxx 系统配置 /
   5xxxx 文件 / 7xxxx 通知与任务 / 8xxxx 开放与租户。
 """
 
@@ -70,7 +70,7 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (20064, "身份源配置非法", "Identity provider configuration is invalid"),
         (20065, "身份源标识冲突", "Identity provider key conflict"),
         (20066, "身份源连通性测试失败", "Identity provider connectivity test failed"),
-        # ---- 3xxxx 用户与组织 ----
+        # ---- 3xxxx 用户与数据 ----
         (30001, "无权限", "Permission denied"),
         (30002, "用户不存在", "User not found"),
         (30003, "用户名已存在", "Username already exists"),
@@ -90,8 +90,8 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (30047, "数据范围取值非法", "Invalid data scope value"),
         (30048, "角色违反三权互斥", "Role conflicts with the separation of duties"),
         (30049, "字段权限与表单字段不匹配", "Field permission does not match the form field"),
-        (30101, "组织数据源不可用", "Organization data source unavailable"),
-        (30102, "不支持的组织节点类型", "Unsupported organization node type"),
+        (30101, "字典数据源不可用", "Organization data source unavailable"),
+        (30102, "不支持的字典节点类型", "Unsupported organization node type"),
         (30103, "部门不存在", "Department not found"),
         # ---- 4xxxx 系统配置 ----
         (40001, "配置错误", "Configuration error"),

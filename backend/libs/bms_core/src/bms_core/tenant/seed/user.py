@@ -69,7 +69,7 @@ DEFAULT_NAME = "管理员"
 """缺省显示名。"""
 
 DEFAULT_SERVICE = "platform"
-"""账号主数据归属服务（`sys_user` 落 platform 服务租户库；02_05 由 org 租户库迁入）。"""
+"""账号主数据归属服务（`sys_user` 落 platform 服务租户库；02_05 由主数据租户库迁入）。"""
 
 MIN_PASSWORD_LENGTH = 8
 """脚本侧口令最小长度防护（复杂度与强度口径归《安全开发规范》）。"""

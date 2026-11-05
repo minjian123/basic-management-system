@@ -53,18 +53,18 @@ from bms_core.services.table_registry import (
 _PRODUCT_KEY = "mdm"
 """测试用产品标识（已在 `PRODUCT_CATALOG` 预登记——先注册后建表）。"""
 
-_SERVICE_KEY = "mdm-org"
+_SERVICE_KEY = "mdm"
 """测试用产品服务标识。"""
 
 _PRODUCT_RECORDS: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
     (
         ModuleRecord(
-            module_key="mdorg",
+            module_key="mdm",
             service_key=_SERVICE_KEY,
-            name="mdm 组织主数据服务",
-            table_prefix="mdorg_",
+            name="mdm 字典数据服务",
+            table_prefix="mdm_",
             errcode_segment="34",
-            event_domain="mdorg",
+            event_domain="mdm",
             service_group=ServiceGroup.PRODUCT,
             build_batch=3,
             product_key=_PRODUCT_KEY,
@@ -77,23 +77,23 @@ _PRODUCT_RECORDS: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
 _ORG_TABLE_RECORDS: ConcurrentStableList[TableRecord] = ConcurrentStableList(
     (
         TableRecord(
-            table_name="org_dept",
-            owner="org",
-            domain="org",
+            table_name="mdm_dept",
+            owner="mdm",
+            domain="mdm",
             datasource=Datasource.TENANT,
             note="产品注入样例",
         ),
     )
 )
-"""产品表归属自报记录（12_04；`org` 服务键已登记、前缀 `org_` 已登记）。"""
+"""产品表归属自报记录（12_04；`mdm` 服务键已登记、前缀 `mdm_` 已登记）。"""
 
 _FORM_RECORDS: ConcurrentStableList[FormRecord] = ConcurrentStableList(
     (
-        FormRecord(form_key="org_dept", table="org_dept", name="部门", data_source_key="org_dept"),
-        FormRecord(form_key="org_post", table="org_post", name="岗位", data_source_key="org_post"),
+        FormRecord(form_key="mdm_dept", table="mdm_dept", name="部门", data_source_key="mdm_dept"),
+        FormRecord(form_key="mdm_post", table="mdm_post", name="岗位", data_source_key="mdm_post"),
     )
 )
-"""产品表单标识自报记录（mdm 组织域样例；`data_source_key` 与 `form_key` 同名闭合）。"""
+"""产品表单标识自报记录（mdm 跨产品域样例；`data_source_key` 与 `form_key` 同名闭合）。"""
 
 
 @pytest.fixture(autouse=True)
@@ -117,7 +117,7 @@ class _ProductFactory(BaseServiceApplicationFactory):
 
     key: str = "application_factory"
     service_name: str = _SERVICE_KEY
-    service_title: str = "mdm 组织主数据服务（产品服务装配测试）"
+    service_title: str = "mdm 字典数据服务（产品服务装配测试）"
     version: str = "0.1.0"
     contract_version: str = "0.1.0"
     product_key: str | None = _PRODUCT_KEY
@@ -197,7 +197,7 @@ def test_factory_merges_injected_records_into_catalog_view() -> None:
     product_records = _registry(product_app).catalog_records()
     assert [record.module_key for record in product_records] == [
         *[record.module_key for record in SERVICE_CATALOG],
-        "mdorg",
+        "mdm",
     ]
     assert product_app.state.service_product_key == _PRODUCT_KEY
     assert product_app.state.service_injected_records == ConcurrentStableList(_PRODUCT_RECORDS)
@@ -219,8 +219,8 @@ def test_catalog_view_accessors_and_filters_unchanged() -> None:
     assert registry.catalog_records() == merged
     domains = registry.event_domains()
     assert domains == ConcurrentStableSet(record.event_domain for record in merged)
-    assert "mdorg" in domains
-    assert "mdorg" not in known_event_domains()
+    assert "mdm" in domains
+    assert "mdm" not in known_event_domains()
     assert [record.module_key for record in registry.list_modules(group=ServiceGroup.PRODUCT)] == [
         "pur",
         "pay",
@@ -228,7 +228,7 @@ def test_catalog_view_accessors_and_filters_unchanged() -> None:
         "wh",
         "sup",
         "cw",
-        "mdorg",
+        "mdm",
     ]
     assert registry.validate() == []
 
@@ -249,7 +249,7 @@ async def test_product_service_assembles_and_starts(monkeypatch: pytest.MonkeyPa
     assert health.json()["service"] == _SERVICE_KEY
     assert ready.status_code == 200
     assert ready.json()["service"] == _SERVICE_KEY
-    assert root.json()["data"] == {"name": "mdm 组织主数据服务（产品服务装配测试）", "version": "0.1.0"}
+    assert root.json()["data"] == {"name": "mdm 字典数据服务（产品服务装配测试）", "version": "0.1.0"}
 
 
 @pytest.mark.kiwi_id(2251)
@@ -265,11 +265,11 @@ def test_product_dimension_validation_rules() -> None:
     non_product = ConcurrentStableList(
         [
             ModuleRecord(
-                module_key="mdorgbase",
+                module_key="mdmbase",
                 service_key=_SERVICE_KEY,
                 name="mdm 基座模块",
-                table_prefix="mdorgbase_",
-                event_domain="mdorgbase",
+                table_prefix="mdmbase_",
+                event_domain="mdmbase",
                 service_group=ServiceGroup.FOUNDATION,
             )
         ]
@@ -297,7 +297,7 @@ def test_product_dimension_validation_rules() -> None:
         validate_product_service_records(foreign_product, service_key=_SERVICE_KEY, product_key=_PRODUCT_KEY)
     )
     assert "注入记录产品归属与声明不一致（记录 cw，声明 mdm）" in joined
-    assert "运行服务未在注入清单登记：mdm-org" in joined
+    assert "运行服务未在注入清单登记：mdm" in joined
 
 
 @pytest.mark.kiwi_id(2251)
@@ -368,25 +368,25 @@ async def test_catalog_reconciliation_uses_merged_records(monkeypatch: pytest.Mo
         assert app.state.startup_complete is True
 
     _snapshot(monkeypatch, SERVICE_CATALOG)
-    with pytest.raises(CatalogError, match="库中缺登记行：mdorg") as missing:
+    with pytest.raises(CatalogError, match="库中缺登记行：mdm") as missing:
         async with service_lifespan(_ProductFactory().create(None)):
             pass
     assert missing.value.code == ErrorCode.CATALOG
 
     drifted = tuple(
         ModuleRecord(
-            module_key="mdorg",
+            module_key="mdm",
             service_key=_SERVICE_KEY,
             name="改过的名字",
-            table_prefix="mdorg_",
+            table_prefix="mdm_",
             errcode_segment="34",
-            event_domain="mdorg",
+            event_domain="mdm",
             service_group=ServiceGroup.PRODUCT,
             build_batch=3,
             product_key=_PRODUCT_KEY,
             status=ModuleStatus.PLANNED,
         )
-        if record.module_key == "mdorg"
+        if record.module_key == "mdm"
         else record
         for record in merged
     )
@@ -409,9 +409,9 @@ def test_event_contract_domains_follow_merged_view(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(application, "validate_event_registry", _fake_validate)
     application._validate_event_contracts(_ProductFactory().create(None))  # pyright: ignore[reportPrivateUsage]
-    assert "mdorg" in captured
+    assert "mdm" in captured
     # 装载期注册后合并视图含产品事件域（事件契约校验取同一视图）
-    assert "mdorg" in known_event_domains()
+    assert "mdm" in known_event_domains()
 
 
 @pytest.mark.kiwi_id(2252)
@@ -435,8 +435,8 @@ class _TableInjectFactory(BaseServiceApplicationFactory):
     """测试用产品侧服务工厂：注入本产品表归属记录（12_04）。"""
 
     key: str = "application_factory"
-    service_name: str = "org"
-    service_title: str = "mdm 组织主数据服务（表归属注入测试）"
+    service_name: str = "mdm"
+    service_title: str = "mdm 字典数据服务（表归属注入测试）"
     version: str = "0.1.0"
     contract_version: str = "0.1.0"
 
@@ -461,18 +461,18 @@ def test_table_records_hook_registers_and_merges() -> None:
     view = cast("TableOwnershipRegistry", app.state.table_ownership).list_tables()
     assert [record.table_name for record in view] == [
         *[record.table_name for record in TABLE_OWNERSHIP],
-        "org_dept",
+        "mdm_dept",
     ]
     assert app.state.table_injected_records == ConcurrentStableList(_ORG_TABLE_RECORDS)
-    assert "org_dept" in series_tables("org", Datasource.TENANT)
+    assert "mdm_dept" in series_tables("mdm", Datasource.TENANT)
 
 
 class _FormInjectFactory(BaseServiceApplicationFactory):
     """测试用产品侧服务工厂：注入本产品表单标识记录（`form_records()` 钩子）。"""
 
     key: str = "application_factory"
-    service_name: str = "org"
-    service_title: str = "mdm 组织主数据服务（form_key 注入测试）"
+    service_name: str = "mdm"
+    service_title: str = "mdm 字典数据服务（form_key 注入测试）"
     version: str = "0.1.0"
     contract_version: str = "0.1.0"
 
@@ -495,13 +495,13 @@ def test_form_records_hook_merges_into_application_view() -> None:
     view = cast("FormRegistry", app.state.form_registry).catalog_records()
     assert [record.form_key for record in view] == [
         *[record.form_key for record in FORM_CATALOG],
-        "org_dept",
-        "org_post",
+        "mdm_dept",
+        "mdm_post",
     ]
     assert app.state.form_injected_records == _FORM_RECORDS
     # 注入只进应用级视图：构建期清单常量不被修改（无进程级注册表）
-    assert {record.form_key for record in FORM_CATALOG}.isdisjoint({"org_dept", "org_post"})
-    assert cast("FormRegistry", app.state.form_registry).get("org_dept") == _FORM_RECORDS[0]
+    assert {record.form_key for record in FORM_CATALOG}.isdisjoint({"mdm_dept", "mdm_post"})
+    assert cast("FormRegistry", app.state.form_registry).get("mdm_dept") == _FORM_RECORDS[0]
 
 
 @pytest.mark.kiwi_id(2251)

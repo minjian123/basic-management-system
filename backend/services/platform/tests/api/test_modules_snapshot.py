@@ -31,8 +31,8 @@ pytestmark = pytest.mark.kiwi_id(2363)
 _DEMO_RECORDS: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(
     (
         CollaborationRecord(
-            name="demo.org.user-roles",
-            domain="org",
+            name="demo.mdm.user-roles",
+            domain="mdm",
             kind="read",
             contract_version="0.1.0",
             path="/api/v1/demo/user-roles",
@@ -40,8 +40,8 @@ _DEMO_RECORDS: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(
             frontend_prefix="demo",
         ),
         CollaborationRecord(
-            name="demo.org.dept-data",
-            domain="org",
+            name="demo.mdm.dept-data",
+            domain="mdm",
             kind="dataset",
             contract_version="0.1.0",
             path="/api/v1/demo/data-source/dept-tree",
@@ -50,27 +50,27 @@ _DEMO_RECORDS: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(
             frontend_prefix="demo",
         ),
         CollaborationRecord(
-            name="demo.org.admin-codes",
-            domain="org",
+            name="demo.mdm.admin-codes",
+            domain="mdm",
             kind="codes",
             contract_version="0.1.0",
             product_key="demo",
             permission_codes=ConcurrentStableFrozenList(("demo:query",)),
         ),
         CollaborationRecord(
-            name="demo.org.legacy-roles",
-            domain="org",
+            name="demo.mdm.legacy-roles",
+            domain="mdm",
             kind="read",
             contract_version="0.1.0",
             path="/api/v1/demo/legacy-roles",
             product_key="demo",
             frontend_prefix="demo",
             status=CollaborationStatus.DEPRECATED,
-            replacement="demo.org.user-roles",
+            replacement="demo.mdm.user-roles",
         ),
         CollaborationRecord(
-            name="demo.org.retired-roles",
-            domain="org",
+            name="demo.mdm.retired-roles",
+            domain="mdm",
             kind="read",
             contract_version="0.1.0",
             path="/api/v1/demo/retired-roles",
@@ -134,13 +134,13 @@ async def test_snapshot_with_segments_returns_products_and_collaborations(
     assert set(data["products"][0]) == {"product_key", "name", "status"}
 
     names = [item["name"] for item in data["collaborations"]]
-    assert "demo.org.user-roles" in names
-    assert "demo.org.dept-data" in names
-    assert "demo.org.legacy-roles" in names
-    assert "demo.org.admin-codes" not in names
-    assert "demo.org.retired-roles" not in names
+    assert "demo.mdm.user-roles" in names
+    assert "demo.mdm.dept-data" in names
+    assert "demo.mdm.legacy-roles" in names
+    assert "demo.mdm.admin-codes" not in names
+    assert "demo.mdm.retired-roles" not in names
 
-    first = next(item for item in data["collaborations"] if item["name"] == "demo.org.user-roles")
+    first = next(item for item in data["collaborations"] if item["name"] == "demo.mdm.user-roles")
     assert set(first) == {
         "name",
         "domain",
@@ -154,12 +154,12 @@ async def test_snapshot_with_segments_returns_products_and_collaborations(
     assert first["frontend_prefix"] == "demo"
     assert first["kind"] == "read"
 
-    dataset = next(item for item in data["collaborations"] if item["name"] == "demo.org.dept-data")
+    dataset = next(item for item in data["collaborations"] if item["name"] == "demo.mdm.dept-data")
     assert dataset["kind"] == "dataset"
 
-    legacy = next(item for item in data["collaborations"] if item["name"] == "demo.org.legacy-roles")
+    legacy = next(item for item in data["collaborations"] if item["name"] == "demo.mdm.legacy-roles")
     assert legacy["status"] == "deprecated"
-    assert legacy["replacement"] == "demo.org.user-roles"
+    assert legacy["replacement"] == "demo.mdm.user-roles"
 
 
 async def test_snapshot_subset_only_returns_requested_segments(client: AsyncClient, demo_catalog_entries: None) -> None:

@@ -192,7 +192,7 @@ export function derivedServiceKeys(): readonly string[] {
 /**
  * 按「业务域 + 能力种类」解析取址目标（**要求唯一**，不猜、不挑选）。
  *
- * @param domain 业务域标识（如 `org`）。
+ * @param domain 业务域标识（产品自持域键）。
  * @param kind 能力种类（如 `dataset`）。
  * @returns 取址结果（`ok` 时带产品键与前端域段）。
  */

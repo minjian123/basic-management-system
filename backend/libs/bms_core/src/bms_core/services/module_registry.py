@@ -1194,7 +1194,7 @@ def merge_service_records(
 ) -> ConcurrentStableList[ModuleRecord]:
     """合并平台服务清单与服务注入记录（**同 `module_key` 同值去重、异值即拒**；12_03 扩展）。
 
-    产品服务在**平台侧已登记**（如产品组织域的服务行——供网关、迁移链、库键与表归属派生）**且产品侧
+    产品服务在**平台侧已登记**（如产品主数据域的服务行——供网关、迁移链、库键与表归属派生）**且产品侧
     自报同值清单**注入时，直接拼接会因 `module_key` 重复被唯一性校验拒绝；本函数对「与平台清单中同
     `module_key` 且**逐字段同值**」的注入记录去重，其余原样保留——异值记录仍以 `module_key` 重复被
     `ModuleRegistry.validate()` 拒绝（fail-closed，不静默取一侧，见《后端开发规范》产品服务装配条）。
@@ -1240,7 +1240,7 @@ def enabled_service_keys() -> ConcurrentStableList[str]:
     """已启用**平台服务**标识集合（`service_key` 非空 + `status = enabled` + **非产品分组**，保持目录顺序）。
 
     用于「按服务×租户建库」的服务维度（06_01）与平台侧按服务扫描（契约快照 / 表归属 / 发布编排）：
-    `planned` 服务、无 `service_key` 的产品模块**以及产品分组服务**（如组织域归产品）均不纳入——
+    `planned` 服务、无 `service_key` 的产品模块**以及产品分组服务**（如跨产品域归产品）均不纳入——
     产品服务的库、契约与工程随产品仓库（网关侧其 upstream 由 `gateway_catalog.gateway_services()` 覆盖）。
 
     Returns:

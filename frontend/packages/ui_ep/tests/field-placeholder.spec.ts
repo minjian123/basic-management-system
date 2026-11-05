@@ -77,14 +77,14 @@ describe('占位组合式', () => {
 })
 
 describe('占位组件', () => {
-  it('字典 / 组织字段占位禁用且不渲染真实控件', () => {
+  it('字典 / 部门 / 岗位字段占位禁用且不渲染真实控件', () => {
     const dict = mount(DictSelectField, { props: { modelValue: undefined }, global: { stubs } })
     expect(dict.attributes('data-degraded')).toBe('true')
     expect(dict.find('[data-test="placeholder"]').text()).toContain('字典数据未就绪')
     expect(dict.findComponent(ElSelectStub).exists()).toBe(false)
 
-    const org = mount(DictRemoteSelectField, { props: { modelValue: undefined }, global: { stubs } })
-    expect(org.find('[data-test="placeholder"]').text()).toContain('组织数据未就绪')
+    const mdm = mount(DictRemoteSelectField, { props: { modelValue: undefined }, global: { stubs } })
+    expect(mdm.find('[data-test="placeholder"]').text()).toContain('字典数据未就绪')
   })
 
   it('就绪后渲染真实控件并透传选项', () => {

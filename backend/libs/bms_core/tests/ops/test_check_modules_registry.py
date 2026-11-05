@@ -269,8 +269,8 @@ def test_check_registry_db_diffs_when_tables_exist(tmp_path: object) -> None:
 def test_diff_ignores_other_products_and_retired() -> None:
     """别的产品行不参与；已退役行不算缺失也不算多出。"""
     other = CollaborationRecord(
-        name="demo.org.roles",
-        domain="org",
+        name="demo.mdm.roles",
+        domain="mdm",
         kind="read",
         contract_version="0.1.0",
         path="/api/v1/demo/roles",
@@ -280,7 +280,7 @@ def test_diff_ignores_other_products_and_retired() -> None:
     snapshot = _snapshot(
         ConcurrentStableList([other, retired]),
         owners=ConcurrentStableDict(
-            {"demo.org.roles": "demo", "platform.user.query": "platform"},
+            {"demo.mdm.roles": "demo", "platform.user.query": "platform"},
         ),
         retired=ConcurrentStableSet(("platform.user.query",)),
     )

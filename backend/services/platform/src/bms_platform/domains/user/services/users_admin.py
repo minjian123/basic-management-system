@@ -10,8 +10,8 @@
 - **保护规则**：内置管理员（`role_type != custom`）与当前操作人自身不可停用 / 删除（30009）；
   删除前校验角色分配引用（30011）；
 - **事件**：`sys.user.created` / `sys.user.updated` / `sys.user.deleted` / `sys.user.password_reset`
-  在写事务内经事务性发件箱发射（载荷不含组织字段）；
-- **不含**：组织（部门 / 岗位）字段与关系（归产品组织域，需求 `07-11`）、`locale` / `timezone`（个人中心）。
+  在写事务内经事务性发件箱发射（载荷不含部门 / 岗位字段）；
+- **不含**：部门 / 岗位字段与关系（归产品主数据域，需求 `07-11`）、`locale` / `timezone`（个人中心）。
 """
 
 from __future__ import annotations
@@ -119,7 +119,7 @@ def _require_pattern(value: str | None, pattern: str, label: str) -> None:
 
 
 def _user_payload(user: SysUser) -> ConcurrentStableDict[str, object]:
-    """构造用户事件载荷（`sys.user.*`；不含组织字段）。
+    """构造用户事件载荷（`sys.user.*`；不含部门 / 岗位字段）。
 
     Args:
         user: 用户记录。

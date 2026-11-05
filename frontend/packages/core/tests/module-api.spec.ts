@@ -152,13 +152,13 @@ describe('模块请求能力 · 产品域通道（05-13 · Kiwi 2259）', () => 
     const { configs, adapter } = recordingAdapter()
     configureRequestAdapter(adapter)
 
-    const result = await new ProbeModuleApi().product('mdm', 'org').get('/posts', { deptId: '1' })
+    const result = await new ProbeModuleApi().product('mdm', 'mdm').get('/posts', { deptId: '1' })
 
     expect(result).toEqual({ ok: true })
     expect(configs).toEqual([
       {
         method: 'GET',
-        url: productUrl('mdm', 'org', '/posts'),
+        url: productUrl('mdm', 'mdm', '/posts'),
         params: { deptId: '1' },
         data: undefined,
         headers: undefined,
@@ -170,7 +170,7 @@ describe('模块请求能力 · 产品域通道（05-13 · Kiwi 2259）', () => 
   it('产品域写方法自动带幂等键（口径含「产品键:域」，与平台通道不冲突）', async () => {
     const { configs, adapter } = recordingAdapter()
     configureRequestAdapter(adapter)
-    const scope = new ProbeModuleApi().product('mdm', 'org')
+    const scope = new ProbeModuleApi().product('mdm', 'mdm')
 
     await scope.post('/user-posts', { userId: '1' })
     await scope.put('/posts/p1', { name: '组长' })
@@ -178,31 +178,31 @@ describe('模块请求能力 · 产品域通道（05-13 · Kiwi 2259）', () => 
 
     expect(configs[0]).toMatchObject({
       method: 'POST',
-      url: productUrl('mdm', 'org', '/user-posts'),
+      url: productUrl('mdm', 'mdm', '/user-posts'),
       data: { userId: '1' },
-      idempotencyKey: 'probe:mdm:org:/user-posts',
+      idempotencyKey: 'probe:mdm:mdm:/user-posts',
     })
-    expect(configs[1]).toMatchObject({ method: 'PUT', idempotencyKey: 'probe:mdm:org:/posts/p1' })
-    expect(configs[2]).toMatchObject({ method: 'PATCH', idempotencyKey: 'probe:mdm:org:/posts/p1' })
+    expect(configs[1]).toMatchObject({ method: 'PUT', idempotencyKey: 'probe:mdm:mdm:/posts/p1' })
+    expect(configs[2]).toMatchObject({ method: 'PATCH', idempotencyKey: 'probe:mdm:mdm:/posts/p1' })
   })
 
   it('产品域 del / request 逃生口口径与服务通道一致', async () => {
     const { configs, adapter } = recordingAdapter()
     configureRequestAdapter(adapter)
-    const scope = new ProbeModuleApi().product('mdm', 'org')
+    const scope = new ProbeModuleApi().product('mdm', 'mdm')
 
     await scope.del('/role-depts', { roleId: 'r1' })
     await scope.request({ method: 'POST', path: '/role-depts', headers: { 'X-Trace': 't1' }, idempotencyKey: 'k1' })
 
     expect(configs[0]).toMatchObject({
       method: 'DELETE',
-      url: productUrl('mdm', 'org', '/role-depts'),
+      url: productUrl('mdm', 'mdm', '/role-depts'),
       params: { roleId: 'r1' },
     })
     expect(configs[0]?.idempotencyKey).toBeUndefined()
     expect(configs[1]).toMatchObject({
       method: 'POST',
-      url: productUrl('mdm', 'org', '/role-depts'),
+      url: productUrl('mdm', 'mdm', '/role-depts'),
       headers: { 'X-Trace': 't1' },
       idempotencyKey: 'k1',
     })
@@ -212,9 +212,9 @@ describe('模块请求能力 · 产品域通道（05-13 · Kiwi 2259）', () => 
     const { configs, adapter } = recordingAdapter()
     configureRequestAdapter(adapter)
 
-    await new ProbeModuleApi().product('mdm', 'org').get()
+    await new ProbeModuleApi().product('mdm', 'mdm').get()
 
-    expect(configs[0]?.url).toBe('/api/mdm/v1/org')
+    expect(configs[0]?.url).toBe('/api/mdm/v1/mdm')
   })
 
   it('未登记产品键（目录已加载）/ 非法域段：立即抛 CAPABILITY_VIOLATION 且零请求', () => {
@@ -227,7 +227,7 @@ describe('模块请求能力 · 产品域通道（05-13 · Kiwi 2259）', () => 
       warnings: [],
     })
     const api = new ProbeModuleApi()
-    const calls = [() => api.product('biz', 'org'), () => api.product('mdm', 'ORG'), () => api.product('mdm', '')]
+    const calls = [() => api.product('biz', 'mdm'), () => api.product('mdm', 'MDM'), () => api.product('mdm', '')]
 
     for (const call of calls) {
       expect(call).toThrowError()

@@ -1114,7 +1114,7 @@ export interface components {
             target_tenant_id: number;
             /**
              * User Id
-             * @description 用户主键（org 服务 sys_user.id）
+             * @description 用户主键（主数据服务 sys_user.id）
              */
             user_id: number;
         };

@@ -8,7 +8,7 @@
 export const DICT_LARGE_THRESHOLD = 2000
 /** 探针条数上限（首次取数以该值判别大小字典，与后端 `DICT_PROBE_LIMIT` 同源）。 */
 export const DICT_PROBE_LIMIT = 2001
-/** 远程搜索防抖（毫秒，与组织搜索同口径）。 */
+/** 远程搜索防抖（毫秒，与字典搜索同口径）。 */
 export const DICT_SEARCH_DEBOUNCE = 300
 /** 默认语言（与后端 `DEFAULT_LOCALE` 同源）。 */
 export const DICT_DEFAULT_LOCALE = 'zh-CN'

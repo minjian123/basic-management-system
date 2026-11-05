@@ -255,7 +255,7 @@ export function describeConfirmContract(name: string, create: () => ConfirmContr
   })
 }
 
-/** 占位字段契约面（依赖后端的字段：字典 / 组织 / 文件 / 验证码）。 */
+/** 占位字段契约面（依赖后端的字段：字典 / 远程字典 / 文件 / 验证码）。 */
 export interface PlaceholderFieldContractTarget {
   /** 数据通路是否就绪。 */
   readonly ready: boolean

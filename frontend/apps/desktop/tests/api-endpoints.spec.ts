@@ -19,7 +19,7 @@ import {
 } from '@/api/endpoints'
 import { setAccessToken } from '@/api/token'
 
-/** 组织数据源目录夹具（虚构产品 `demo`：一个数据源类能力 + 平台服务行）。 */
+/** 字典数据源目录夹具（虚构产品 `demo`：一个数据源类能力 + 平台服务行）。 */
 const DICT_DATA_CATALOG = {
   products: [{ productKey: 'demo', status: 'enabled' }],
   services: [
@@ -30,7 +30,7 @@ const DICT_DATA_CATALOG = {
     { serviceKey: 'notification', serviceGroup: 'capability', status: 'enabled' },
   ],
   collaborations: [
-    { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+    { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
   ],
   warnings: [],
 }
@@ -51,7 +51,7 @@ describe('能力源端点按服务分流（Kiwi 2191）', () => {
     expect(sourceEndpoint('notification').endpoint).toBe('/api/notification/v1')
   })
 
-  it('组织数据源端点按目录取址：目录不可用时不给端点（消费方降级、不发起请求）', () => {
+  it('字典数据源端点按目录取址：目录不可用时不给端点（消费方降级、不发起请求）', () => {
     expect(dictRemoteSourceOptions().endpoint).toBeUndefined()
     applyCatalogSnapshot({ ...DICT_DATA_CATALOG, collaborations: [] })
     expect(dictRemoteSourceOptions().endpoint).toBeUndefined()

@@ -4,7 +4,7 @@
 **数据来源相关**的解析器实现：
 
 - 直接角色（`DirectRoleResolver`）：platform 租户库 `sys_user_role`，同库查询；
-- 岗位 / 部门链角色（`OrgRoleResolver`）：按能力名取用产品组织域只读出口（`07B` `03_01` 收编；
+- 岗位 / 部门链角色（`DeptPostRoleResolver`）：按能力名取用产品主数据域只读出口（`07B` `03_01` 收编；
   服务标识与路径一律取自能力声明，本文件不再写产品标识与对端路径）。
 
 解析器经基座注册表登记后由基座收敛服务统一执行——**主流程只做并集去重**，来源增减不改主流程
@@ -59,10 +59,10 @@ class DirectRoleResolver(BaseRoleResolver):
         return ConcurrentStableSet(await self._user_roles.list_role_ids_by_user(user_id))
 
 
-class OrgRoleResolver(BaseRoleResolver):
-    """岗位 / 部门链角色解析器（产品组织域只读出口；按能力名取用，不可达按降级或严格模式处置）。"""
+class DeptPostRoleResolver(BaseRoleResolver):
+    """岗位 / 部门链角色解析器（产品主数据域只读出口；按能力名取用，不可达按降级或严格模式处置）。"""
 
-    key: str = "org"
+    key: str = "dept_post"
     order: int = 20
 
     def __init__(
@@ -129,7 +129,7 @@ class OrgRoleResolver(BaseRoleResolver):
             raise InternalError(f"跨服务角色解析失败（严格模式）：{exc}") from exc
 
     async def _fetch(self, endpoint: CapabilityEndpoint, *, user_id: int) -> ConcurrentStableSet[int]:
-        """按取用结果调产品组织域只读出口并解析角色主键。
+        """按取用结果调产品主数据域只读出口并解析角色主键。
 
         Args:
             endpoint: 能力取用结果（服务标识与路径均取自声明）。
@@ -149,7 +149,7 @@ class OrgRoleResolver(BaseRoleResolver):
         )
         response = await self._client.call(request)
         if response.status_code != 200:
-            raise ServiceUnavailableError(f"组织域返回状态码 {response.status_code}")
+            raise ServiceUnavailableError(f"跨产品域返回状态码 {response.status_code}")
         return _read_role_ids(response.payload())
 
 

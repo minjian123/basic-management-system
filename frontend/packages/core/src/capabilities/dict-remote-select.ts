@@ -1,5 +1,5 @@
 /**
- * 组织选择族组件基类：用户 / 岗位 / 部门三类远程搜索、批量按 id 回显、缓存、
+ * 远程字典选择族组件基类：用户 / 岗位 / 部门三类远程搜索、批量按 id 回显、缓存、
  * 已删除 / 停用占位、多选上限，以及部门树一次性加载。
  *
  * 全链：`BaseComponent → BasePlaceholderState → BaseValue → BaseField → BaseOptionSource → BaseDictRemoteSelect → 具体件`。
@@ -44,7 +44,7 @@ import {
   type DictDataTagSummary,
 } from '../domain/dict-data'
 
-/** 组织选择族组件基类（抽象）。 */
+/** 远程字典选择族组件基类（抽象）。 */
 export abstract class BaseDictRemoteSelect extends BaseOptionSource<string | string[]> {
   /** 能力键（组件基类身份）。 */
   override readonly identifier: string = 'dict_remote_select'
@@ -80,7 +80,7 @@ export abstract class BaseDictRemoteSelect extends BaseOptionSource<string | str
   errorCode: number | undefined
   /** 错误文案。 */
   errorMessage = ''
-  /** 组织数据源（注入式；未注入即占位零请求）。 */
+  /** 字典数据源（注入式；未注入即占位零请求）。 */
   source: DictRemoteSourceAdapter | undefined
   /** 用户展示能力（注入引用；用户姓名 / 头像 / 状态 / 部门路径统一经其解析）。 */
   userDisplay: BaseUserDisplay | undefined
@@ -144,7 +144,7 @@ export abstract class BaseDictRemoteSelect extends BaseOptionSource<string | str
   }
 
   /**
-   * 注入 / 移除组织数据源（移除即回落占位零请求）。
+   * 注入 / 移除字典数据源（移除即回落占位零请求）。
    *
    * @param source 数据源适配器；`undefined` 表示移除。
    */

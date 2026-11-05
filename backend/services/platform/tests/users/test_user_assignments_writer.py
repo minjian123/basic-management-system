@@ -4,7 +4,7 @@
 
 - **写入器**（`UserAssignmentWriter`）：基础资料分段（乐观锁 / 状态合法性 / 联系方式格式 / 内置保护）、
   角色分段全量覆盖（软删集合外 + 恢复 / 新建）、`sys.user.updated` 事件发射；
-- **XA 全局事务路径**：平台分支进程内执行 + 组织域分支远端执行 + 提交 / 回滚，分支未就绪与
+- **XA 全局事务路径**：平台分支进程内执行 + 跨产品域分支远端执行 + 提交 / 回滚，分支未就绪与
   分支状态解析失败分支；
 - **纯函数载荷**：`_platform_args` / `_posts_args` / `_depts_args` / `_dedupe` / `_clean_optional`。
 
@@ -57,7 +57,7 @@ from bms_platform.domains.user.services.user_assignments import (
     UserAssignmentWriter,
     _branch_state,  # pyright: ignore[reportPrivateUsage]
     _clean_optional,  # pyright: ignore[reportPrivateUsage]
-    resolve_org_endpoints,
+    resolve_branch_endpoints,
 )
 from bms_platform.wiring import role_assignment, role_query
 
@@ -635,7 +635,7 @@ def _xa_service(
 
 
 async def test_xa_path_declares_branches_and_commits() -> None:
-    """XA 路径：平台分支进程内执行 + 组织域分支远端执行，双方就绪后提交。"""
+    """XA 路径：平台分支进程内执行 + 跨产品域分支远端执行，双方就绪后提交。"""
     manager = _ManagerSpy()
     participant = _ParticipantSpy()
     client = _ClientSpy()
@@ -656,9 +656,9 @@ async def test_xa_path_declares_branches_and_commits() -> None:
     assert list(applied) == [SEGMENT_ROLES, "user_posts", "user_depts"]
     _caller, specs = manager.begun[0]
     # 分支标识 / 承载服务 / 库键均取自已解析的能力声明（历史值不变：m / mdm / txn 库键按服务键派生）
-    org = resolve_capability("mdm.org.user-posts.assign")
-    assert [spec.branch_id for spec in specs] == [BRANCH_ID_PLATFORM, org.branch_id]
-    assert specs[1].service == org.target.service_key
+    mdm = resolve_capability("mdm.mdm.user-posts.assign")
+    assert [spec.branch_id for spec in specs] == [BRANCH_ID_PLATFORM, mdm.branch_id]
+    assert specs[1].service == mdm.target.service_key
     xid, _db_key, ops = participant.calls[0]
     assert xid == f"xid-{BRANCH_ID_PLATFORM}"
     assert ops[0].op == USER_ASSIGNMENTS_OP
@@ -668,10 +668,10 @@ async def test_xa_path_declares_branches_and_commits() -> None:
 
     assert len(client.requests) == 1
     body = cast("Any", client.requests[0].json_body)
-    assert body.get("xid") == f"xid-{org.branch_id}"
-    org_ops = body.get("ops")
-    assert [entry.get("op") for entry in org_ops] == ["mdm.user-posts.assign", "mdm.user-depts.assign"]
-    assert org_ops[0].get("args").get("user_id") == 7
+    assert body.get("xid") == f"xid-{mdm.branch_id}"
+    mdm_ops = body.get("ops")
+    assert [entry.get("op") for entry in mdm_ops] == ["mdm.user-posts.assign", "mdm.user-depts.assign"]
+    assert mdm_ops[0].get("args").get("user_id") == 7
     assert list(manager.commits) == ["gtx-1"]
     assert manager.rollbacks == []
     assert list(cache.bumped) == ["bms:1001:permission:version"]
@@ -693,8 +693,8 @@ async def test_xa_path_rolls_back_when_platform_branch_not_prepared() -> None:
     assert manager.commits == []
 
 
-async def test_xa_path_rolls_back_when_org_branch_not_prepared() -> None:
-    """组织域分支未达 `PREPARED` → 10013 并回滚全局事务。"""
+async def test_xa_path_rolls_back_when_mdm_branch_not_prepared() -> None:
+    """跨产品域分支未达 `PREPARED` → 10013 并回滚全局事务。"""
     manager = _ManagerSpy()
     participant = _ParticipantSpy()
     client = _ClientSpy(
@@ -711,8 +711,8 @@ async def test_xa_path_rolls_back_when_org_branch_not_prepared() -> None:
     assert list(manager.rollbacks) == ["gtx-1"]
 
 
-async def test_xa_path_depts_only_executes_one_org_op() -> None:
-    """XA 路径只给部门段：组织域分支只含一个 op（岗位段缺失时 op 清单按段裁剪）。"""
+async def test_xa_path_depts_only_executes_one_mdm_op() -> None:
+    """XA 路径只给部门段：跨产品域分支只含一个 op（岗位段缺失时 op 清单按段裁剪）。"""
     manager = _ManagerSpy()
     client = _ClientSpy()
     service = _xa_service(manager, _ParticipantSpy(), client)
@@ -740,16 +740,16 @@ async def test_xa_path_missing_branch_raises() -> None:
     assert list(manager.rollbacks) == ["gtx-1"]
 
 
-async def test_execute_org_branches_returns_early_without_org_segments() -> None:
-    """无组织域分段时组织分支执行直接返回（不发起远端调用）。"""
+async def test_execute_user_role_branches_returns_early_without_segments() -> None:
+    """无跨产品分段时分支执行直接返回（不发起远端调用）。"""
     client = _ClientSpy()
     service = _xa_service(_ManagerSpy(), _ParticipantSpy(), client)
 
     empty = UserAssignmentsRequest(role_ids=ConcurrentStableList())
-    await service._execute_org_branches(  # pyright: ignore[reportPrivateUsage]
+    await service._execute_user_role_branches(  # pyright: ignore[reportPrivateUsage]
         xid="x",
         branch=None,
-        endpoints=resolve_org_endpoints(empty),
+        endpoints=resolve_branch_endpoints(empty),
         user_id=7,
         req=empty,
         idempotency_key=None,
@@ -875,8 +875,8 @@ async def test_apply_requires_at_least_one_segment() -> None:
     assert service is not None
 
 
-async def test_xa_path_without_org_branches_commits() -> None:
-    """XA 路径（无组织域分段）：只声明平台分支并提交。"""
+async def test_xa_path_without_mdm_branches_commits() -> None:
+    """XA 路径（无跨产品域分段）：只声明平台分支并提交。"""
     manager = _ManagerSpy()
     participant = _ParticipantSpy()
     client = _ClientSpy()
@@ -905,7 +905,7 @@ async def test_apply_raises_when_user_missing_after_write() -> None:
 
 
 async def test_sequential_path_without_idempotency_key_omits_header() -> None:
-    """顺序提交路径未给幂等键：组织域内部写通道不带 `Idempotency-Key` 头。"""
+    """顺序提交路径未给幂等键：跨产品域内部写通道不带 `Idempotency-Key` 头。"""
     manager = _ManagerSpy(enabled=False)
     participant = _ParticipantSpy()
     client = _ClientSpy()

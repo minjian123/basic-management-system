@@ -37,9 +37,9 @@ const DEMO_PROJECTION: CatalogSnapshotProjection = {
     { serviceKey: 'platform', serviceGroup: 'foundation', status: 'enabled' },
   ],
   collaborations: [
-    { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
-    { name: 'demo.org.user-roles', domain: 'org', kind: 'read', productKey: 'demo', frontendPrefix: 'demo' },
-    { name: 'demo.org.pending', domain: 'org', kind: 'dataset', productKey: null, frontendPrefix: null },
+    { name: 'demo.mdm.dept-data', domain: 'mdm', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+    { name: 'demo.mdm.user-roles', domain: 'mdm', kind: 'read', productKey: 'demo', frontendPrefix: 'demo' },
+    { name: 'demo.mdm.pending', domain: 'mdm', kind: 'dataset', productKey: null, frontendPrefix: null },
   ],
   warnings: [],
 }
@@ -107,7 +107,7 @@ describe('服务键派生（07B 03_02）', () => {
 describe('按「业务域 + 能力种类」取址（07B 03_02）', () => {
   it('唯一目标：返回产品键与前端域段（忽略同域其它种类与空目标）', () => {
     apply()
-    expect(resolveCapabilityTarget('org', 'dataset')).toEqual({
+    expect(resolveCapabilityTarget('mdm', 'dataset')).toEqual({
       status: 'ok',
       productKey: 'demo',
       frontendPrefix: 'demo',
@@ -118,17 +118,17 @@ describe('按「业务域 + 能力种类」取址（07B 03_02）', () => {
     apply({
       ...DEMO_PROJECTION,
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
-        { name: 'demo.org.post-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.dept-data', domain: 'mdm', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.post-data', domain: 'mdm', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
     })
-    expect(resolveCapabilityTarget('org', 'dataset').status).toBe('ok')
+    expect(resolveCapabilityTarget('mdm', 'dataset').status).toBe('ok')
   })
 
   it('目录未就绪 → catalog-unavailable', () => {
-    expect(resolveCapabilityTarget('org', 'dataset')).toEqual({ status: 'catalog-unavailable' })
+    expect(resolveCapabilityTarget('mdm', 'dataset')).toEqual({ status: 'catalog-unavailable' })
     markCatalogUnavailable('no-products')
-    expect(resolveCapabilityTarget('org', 'dataset')).toEqual({ status: 'catalog-unavailable' })
+    expect(resolveCapabilityTarget('mdm', 'dataset')).toEqual({ status: 'catalog-unavailable' })
   })
 
   it('该域无对应种类能力 → capability-missing', () => {
@@ -140,16 +140,16 @@ describe('按「业务域 + 能力种类」取址（07B 03_02）', () => {
     apply({
       ...DEMO_PROJECTION,
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
-        { name: 'other.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'other', frontendPrefix: 'other' },
+        { name: 'demo.mdm.dept-data', domain: 'mdm', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'other.mdm.dept-data', domain: 'mdm', kind: 'dataset', productKey: 'other', frontendPrefix: 'other' },
       ],
     })
-    expect(resolveCapabilityTarget('org', 'dataset')).toEqual({ status: 'ambiguous' })
+    expect(resolveCapabilityTarget('mdm', 'dataset')).toEqual({ status: 'ambiguous' })
   })
 
   it('出口组装：ok 时给出 `/api/{产品键}/v1/{域段}`，其余原样透传状态', () => {
     apply()
-    expect(resolveCapabilityEndpoint('org', 'dataset')).toEqual({
+    expect(resolveCapabilityEndpoint('mdm', 'dataset')).toEqual({
       status: 'ok',
       productKey: 'demo',
       frontendPrefix: 'demo',
@@ -157,7 +157,7 @@ describe('按「业务域 + 能力种类」取址（07B 03_02）', () => {
     })
     expect(resolveCapabilityEndpoint('sup', 'dataset')).toEqual({ status: 'capability-missing' })
     resetCatalog()
-    expect(resolveCapabilityEndpoint('org', 'dataset')).toEqual({ status: 'catalog-unavailable' })
+    expect(resolveCapabilityEndpoint('mdm', 'dataset')).toEqual({ status: 'catalog-unavailable' })
   })
 })
 
@@ -188,7 +188,7 @@ describe('零改动夹具：新增产品无需改前端代码（07B 03_02）', (
 
     apply()
     expect(productKeys()).toContain('demo')
-    expect(resolveCapabilityEndpoint('org', 'dataset')).toMatchObject({ endpoint: '/api/demo/v1/demo' })
+    expect(resolveCapabilityEndpoint('mdm', 'dataset')).toMatchObject({ endpoint: '/api/demo/v1/demo' })
 
     await new ProbeModuleApi().product('demo', 'demo').get('/data-source/dept-tree')
     expect(calls[0]?.url).toBe('/api/demo/v1/demo/data-source/dept-tree')

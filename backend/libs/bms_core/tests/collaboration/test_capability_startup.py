@@ -28,8 +28,8 @@ from bms_core.services.module_registry import (
 )
 
 _RECORD = CollaborationRecord(
-    name="demo.org.user-roles",
-    domain="org",
+    name="demo.mdm.user-roles",
+    domain="mdm",
     kind="read",
     contract_version="0.1.0",
     path="/api/v1/demo/user-roles",
@@ -92,7 +92,7 @@ async def _startup(declared: ConcurrentStableList[CapabilityUsage]) -> FastAPI:
 async def test_startup_rejects_unregistered_capability() -> None:
     """声明了未登记的能力 → 启动即失败，信息定位到能力名（不在运行期才暴露）。"""
     with pytest.raises(CatalogError, match="能力使用登记校验失败"):
-        await _startup(ConcurrentStableList((CapabilityUsage(name="demo.org.missing"),)))
+        await _startup(ConcurrentStableList((CapabilityUsage(name="demo.mdm.missing"),)))
 
 
 async def test_startup_rejects_write_path_degradation() -> None:
@@ -100,8 +100,8 @@ async def test_startup_rejects_write_path_degradation() -> None:
     register_collaboration_records(
         (
             CollaborationRecord(
-                name="demo.org.user-posts.assign",
-                domain="org",
+                name="demo.mdm.user-posts.assign",
+                domain="mdm",
                 kind="txn-branch",
                 contract_version="0.1.0",
                 path="/api/v1/demo/internal/user-posts/{user_id}",
@@ -116,7 +116,7 @@ async def test_startup_rejects_write_path_degradation() -> None:
     with pytest.raises(CatalogError, match="写 / 强一致能力不得声明降级"):
         await _startup(
             ConcurrentStableList(
-                (CapabilityUsage(name="demo.org.user-posts.assign", degrade=DEGRADE_EMPTY, reason="不该降级"),)
+                (CapabilityUsage(name="demo.mdm.user-posts.assign", degrade=DEGRADE_EMPTY, reason="不该降级"),)
             )
         )
 
@@ -124,15 +124,15 @@ async def test_startup_rejects_write_path_degradation() -> None:
 async def test_startup_accepts_valid_declaration() -> None:
     """合规声明正常启动，声明可在应用状态读到（同源同一份，不重复声明）。"""
     register_collaboration_records((_RECORD,))
-    register_domain_services(ConcurrentStableFrozenDict({"org": "mdm"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
 
     app = await _startup(
         ConcurrentStableList(
-            (CapabilityUsage(name="demo.org.user-roles", degrade=DEGRADE_EMPTY, reason="断链按无角色"),)
+            (CapabilityUsage(name="demo.mdm.user-roles", degrade=DEGRADE_EMPTY, reason="断链按无角色"),)
         )
     )
 
-    assert [usage.name for usage in app.state.capability_usages] == ["demo.org.user-roles"]
+    assert [usage.name for usage in app.state.capability_usages] == ["demo.mdm.user-roles"]
 
 
 async def test_startup_without_declaration_unchanged() -> None:

@@ -25,13 +25,13 @@ const SNAPSHOT = {
     { module_key: 'platform', service_key: 'platform', service_group: 'foundation', status: 'enabled' },
     { module_key: 'report', service_key: 'report', service_group: 'capability', status: 'enabled' },
     { module_key: 'biz', service_key: 'biz', service_group: 'product', status: 'enabled' },
-    { module_key: 'org', service_key: null, service_group: 'product', status: 'enabled' },
+    { module_key: 'mdm', service_key: null, service_group: 'product', status: 'enabled' },
   ],
   products: [{ product_key: 'demo', name: '演示产品', status: 'enabled' }],
   collaborations: [
     {
-      name: 'demo.org.dept-data',
-      domain: 'org',
+      name: 'demo.mdm.dept-data',
+      domain: 'mdm',
       kind: 'dataset',
       product_key: 'demo',
       frontend_prefix: 'demo',
@@ -85,7 +85,7 @@ describe('目录装载：请求与映射（07B 03_02）', () => {
     expect(catalogState()).toBe('ready')
     expect(productKeys()).toEqual(['demo'])
     expect(derivedServiceKeys()).toEqual(['platform', 'report'])
-    expect(resolveCapabilityEndpoint('org', 'dataset')).toEqual({
+    expect(resolveCapabilityEndpoint('mdm', 'dataset')).toEqual({
       status: 'ok',
       productKey: 'demo',
       frontendPrefix: 'demo',

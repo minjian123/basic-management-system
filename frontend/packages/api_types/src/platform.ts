@@ -3006,7 +3006,7 @@ export interface paths {
          * Query Users
          * @description 按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。
          *
-         *     供产品组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
+         *     供产品主数据域只读出口（字典数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
          *     取用户明细——**不跨库读** `sys_user`。仅接受持有本能力有效分配的服务票据；只读、不写库、不产事件；
          *     联系方式**原样返回**（脱敏归消费方产品出口）。
          *
@@ -3609,8 +3609,8 @@ export interface paths {
          * Apply Role Assignments
          * @description 角色保存编排（分段全量覆盖；跨服务原子）。
          *
-         *     `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；
-         *     `provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。
+         *     `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 跨产品域分支经参与端点）；
+         *     `provider = null`（dev / test）时顺序提交（platform 本地事务 → 跨产品域内部写通道）。
          *     权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。
          *
          *     Args:
@@ -3619,12 +3619,12 @@ export interface paths {
          *         uow: 请求级工作单元。
          *         config: 系统参数取数（角色码格式）。
          *         cache: 缓存能力域（角色 / 分配变更后权限版本递增）。
-         *         client: 服务间调用客户端（组织域分支执行 / 内部写通道）。
+         *         client: 服务间调用客户端（跨产品域分支执行 / 内部写通道）。
          *         manager: 事务管理器（`provider=null` 时为 Null 实现）。
          *         participant: 事务参与方（platform 自身分支进程内执行）。
          *         checker: 权限校验器（`role` 段命令式复校 `role:update`）。
          *         audit: 审计捕获器（三权拒绝留痕）。
-         *         idem_key: 幂等键请求头（透传给组织域内部写通道）。
+         *         idem_key: 幂等键请求头（透传给跨产品域内部写通道）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。
@@ -4448,8 +4448,8 @@ export interface paths {
          * Apply User Assignments
          * @description 用户保存编排（分段全量覆盖；跨服务原子）。
          *
-         *     `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；
-         *     `provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。
+         *     `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 跨产品域分支经参与端点）；
+         *     `provider = null`（dev / test）时顺序提交（platform 本地事务 → 跨产品域内部写通道）。
          *     权限码**分段校验**：`profile` 段另需 `user:update`。
          *
          *     Args:
@@ -4459,13 +4459,13 @@ export interface paths {
          *         hasher: 口令哈希器（占位：保持构造口径一致）。
          *         policy: 密码策略（占位）。
          *         outbox: 事务性发件箱存储。
-         *         client: 服务间调用客户端（组织域分支执行 / 内部写通道；提交后会话失效）。
+         *         client: 服务间调用客户端（跨产品域分支执行 / 内部写通道；提交后会话失效）。
          *         cache: 缓存能力域（角色分配变更后权限版本递增）。
          *         manager: 事务管理器（`provider=null` 时为 Null 实现）。
          *         participant: 事务参与方（platform 自身分支进程内执行）。
          *         checker: 权限校验器（`profile` 段命令式复校）。
          *         audit: 审计捕获（占位）。
-         *         idem_key: 幂等键请求头（透传给组织域内部写通道）。
+         *         idem_key: 幂等键请求头（透传给跨产品域内部写通道）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为用户详情、生效后角色清单与本次参与分段名。
@@ -7816,8 +7816,8 @@ export interface components {
          * InternalUserItem
          * @description 内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。
          *
-         *     用户＝系统账号，**不含组织字段**（部门 / 岗位关系归产品组织域，需求 07-11）——用户-部门关系由
-         *     产品自持（`org_user_dept`），不需 platform 回传。
+         *     用户＝系统账号，**不含部门 / 岗位字段**（部门 / 岗位关系归产品主数据域，需求 07-11）——用户-部门关系由
+         *     产品自持（用户-部门关系表），不需 platform 回传。
          */
         InternalUserItem: {
             /**
@@ -9608,7 +9608,7 @@ export interface components {
          * RoleAssignmentsResult
          * @description 角色保存编排结果（回带 platform 侧生效后集合）。
          *
-         *     组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
+         *     部门 / 岗位分配段的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
          *     XA 分支执行端点契约只回分支状态、不回业务集合。
          */
         RoleAssignmentsResult: {
@@ -9687,7 +9687,7 @@ export interface components {
             }[];
             /**
              * Data Source Key
-             * @description 字典标识（业务码字符串，如 org_dept / role）
+             * @description 字典标识（业务码字符串，如 dept / role）
              */
             data_source_key: string;
             /**
@@ -10399,7 +10399,7 @@ export interface components {
          * UserAssignmentsResult
          * @description 用户保存编排结果（回带 platform 侧生效后集合）。
          *
-         *     组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
+         *     部门 / 岗位分配段的生效后集合由调用方（前端）在保存成功后经产品读契约取回——
          *     XA 分支执行端点契约只回分支状态、不回业务集合。
          */
         UserAssignmentsResult: {

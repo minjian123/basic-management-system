@@ -39,7 +39,7 @@ PATH = "/api/v1/demo/user-roles"
 
 
 def _snapshot(tenant_id: int, unit_key: str) -> TopologySnapshot:
-    """构造单域快照（`org` → 给定单元）。
+    """构造单域快照（`mdm` → 给定单元）。
 
     Args:
         tenant_id: 租户主键。
@@ -51,7 +51,7 @@ def _snapshot(tenant_id: int, unit_key: str) -> TopologySnapshot:
     return TopologySnapshot(
         tenant_id=tenant_id,
         version=1,
-        entries=ConcurrentStableFrozenDict(ConcurrentStableDict({"org": TopologyEntry(unit_key=unit_key)}).to_list()),
+        entries=ConcurrentStableFrozenDict(ConcurrentStableDict({"mdm": TopologyEntry(unit_key=unit_key)}).to_list()),
     )
 
 
@@ -65,8 +65,8 @@ def _endpoint(target: CapabilityTarget) -> CapabilityEndpoint:
         CapabilityEndpoint: 取用结果（字段对地址无影响，取最小集）。
     """
     return CapabilityEndpoint(
-        name="demo.org.user-roles",
-        domain="org",
+        name="demo.mdm.user-roles",
+        domain="mdm",
         kind="read",
         contract_version="0.1.0",
         target=target,
@@ -76,7 +76,7 @@ def _endpoint(target: CapabilityTarget) -> CapabilityEndpoint:
 
 @pytest.fixture(autouse=True)
 def _isolate() -> Iterator[None]:
-    """每例复位拓扑进程态与域映射，并登记一个域（`org` → `mdm`）。
+    """每例复位拓扑进程态与域映射，并登记一个域（`mdm` → `mdm`）。
 
     Yields:
         None: 用例运行期。
@@ -85,7 +85,7 @@ def _isolate() -> Iterator[None]:
     reset_topology_resolver()
     reset_instance_context()
     reset_domain_services()
-    register_domain_services(ConcurrentStableFrozenDict({"org": "mdm"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
     yield
     reset_topology_snapshots()
     reset_topology_resolver()
@@ -121,7 +121,7 @@ def test_capability_request_carries_resolved_base_url() -> None:
     """用例 10：能力请求携带第二段解析出的单元地址；阶段 A 与按服务键派生同值。"""
     register_topology_snapshot(_snapshot(DEFAULT_TOPOLOGY_TENANT, "mdm"))
 
-    endpoint = _endpoint(resolve_for(DEFAULT_TOPOLOGY_TENANT, "org"))
+    endpoint = _endpoint(resolve_for(DEFAULT_TOPOLOGY_TENANT, "mdm"))
     request = build_capability_request(endpoint, method="GET")
 
     assert request.service == "mdm"
@@ -132,11 +132,11 @@ def test_capability_request_carries_resolved_base_url() -> None:
 def test_two_topologies_resolve_different_addresses() -> None:
     """用例 17：合并（单元 = 服务键）与拆分（单元 = `core`）两套夹具取址不同且各自正确。"""
     register_topology_snapshot(_snapshot(DEFAULT_TOPOLOGY_TENANT, "mdm"))
-    merged = build_capability_request(_endpoint(resolve_for(7, "org")), method="GET")
+    merged = build_capability_request(_endpoint(resolve_for(7, "mdm")), method="GET")
 
     reset_topology_snapshots()
     register_topology_snapshot(_snapshot(DEFAULT_TOPOLOGY_TENANT, "core"))
-    split = build_capability_request(_endpoint(resolve_for(7, "org")), method="GET")
+    split = build_capability_request(_endpoint(resolve_for(7, "mdm")), method="GET")
 
     assert build_service_url(merged) == "http://mdm:8000/api/v1/demo/user-roles"
     assert build_service_url(split) == "http://core:8000/api/v1/demo/user-roles"
@@ -149,12 +149,12 @@ def test_cross_tenant_addresses_do_not_leak() -> None:
     register_topology_snapshot(_snapshot(11, "core"))
     register_topology_snapshot(_snapshot(12, "grp-ops"))
 
-    eleven = resolve_for(11, "org")
-    twelve = resolve_for(12, "org")
+    eleven = resolve_for(11, "mdm")
+    twelve = resolve_for(12, "mdm")
 
     assert (eleven.unit_key, eleven.base_url) == ("core", "http://core:8000")
     assert (twelve.unit_key, twelve.base_url) == ("grp-ops", "http://grp-ops:8000")
-    assert resolve_for(DEFAULT_TOPOLOGY_TENANT, "org").unit_key == "mdm"
+    assert resolve_for(DEFAULT_TOPOLOGY_TENANT, "mdm").unit_key == "mdm"
 
 
 def test_target_base_url_is_the_only_address_source() -> None:
@@ -162,7 +162,7 @@ def test_target_base_url_is_the_only_address_source() -> None:
     register_topology_snapshot(_snapshot(DEFAULT_TOPOLOGY_TENANT, "core"))
     register_instance_context("billing", ConcurrentStableFrozenList(("core",)))
 
-    target = resolve_for(7, "org")
+    target = resolve_for(7, "mdm")
 
     assert target.mode == CapabilityMode.COLOCATED
     assert target.base_url == "http://core:8000"
@@ -175,7 +175,7 @@ def test_local_mode_marks_request_for_in_process_dispatch() -> None:
     register_topology_snapshot(_snapshot(DEFAULT_TOPOLOGY_TENANT, "mdm"))
     register_instance_context("mdm", None)
 
-    endpoint = _endpoint(resolve_for(7, "org"))
+    endpoint = _endpoint(resolve_for(7, "mdm"))
     request = build_capability_request(endpoint, method="GET")
 
     assert endpoint.target.mode == CapabilityMode.LOCAL
@@ -188,7 +188,7 @@ def test_colocated_mode_does_not_mark_request_local() -> None:
     register_topology_snapshot(_snapshot(DEFAULT_TOPOLOGY_TENANT, "mdm"))
     register_instance_context("billing", None)
 
-    endpoint = _endpoint(resolve_for(7, "org"))
+    endpoint = _endpoint(resolve_for(7, "mdm"))
 
     assert endpoint.target.mode == CapabilityMode.COLOCATED
     assert build_capability_request(endpoint, method="GET").local is False

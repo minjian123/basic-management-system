@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 组织复合选择弹窗（06_05）：左部门树 × 右人员 / 岗位列表 + 搜索 + 已选标签；确认回填受控值、取消恢复快照。
+// 远程字典复合选择弹窗（06_05）：左部门树 × 右人员 / 岗位列表 + 搜索 + 已选标签；确认回填受控值、取消恢复快照。
 import { ElCheckbox, ElDialog, ElInput, ElTree } from 'element-plus'
 import {
   DICT_DATA_EMPTY_TEXT,
@@ -34,7 +34,7 @@ interface Props {
   limit?: number
   /** 数据通路是否就绪。 */
   ready?: boolean
-  /** 组织数据源（未注入即占位零请求）。 */
+  /** 字典数据源（未注入即占位零请求）。 */
   source?: DictRemoteSourceAdapter
   /** 用户展示能力（缺省由投影内建花名册）。 */
   userDisplay?: BaseUserDisplay

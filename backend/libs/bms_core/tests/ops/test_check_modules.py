@@ -45,8 +45,8 @@ product_key = "demo"
 contract_version = "0.1.0"
 
 [[collaborations]]
-name = "demo.org.user-roles"
-domain = "org"
+name = "demo.mdm.user-roles"
+domain = "mdm"
 kind = "read"
 path = "/api/v1/demo/roles"
 contract_version = "0.1.0"
@@ -55,7 +55,7 @@ frontend_prefix = "demo"
 
 # 第九类：业务域声明（07B `04_02` 重开——域布局由清单声明，不再读 domain_layout.json）
 [[domains]]
-domain_key = "org"
+domain_key = "mdm"
 service_key = "demo"
 status = "planned"
 """
@@ -165,7 +165,7 @@ def test_check_manifests_covers_platform_and_errors(
     assert warnings == []
 
     bad = tmp_path / "bad.toml"
-    bad.write_text('product_key = "bad"\n\n[[collaborations]]\nname = "bad.org.x"\nkind = "read"\n', encoding="utf-8")
+    bad.write_text('product_key = "bad"\n\n[[collaborations]]\nname = "bad.mdm.x"\nkind = "read"\n', encoding="utf-8")
     errors, _ = check_modules.check_manifests([str(bad)])
     assert any("缺少必填字段" in error for error in errors)
     assert check_modules.main(ConcurrentStableList(["--offline", "--manifest", str(bad)])) == 1
@@ -438,7 +438,7 @@ def test_cross_repo_l1_contract_missing_path(tmp_path: Path, monkeypatch: pytest
         product_roots=[str(product_base)], manifests=(), allow_missing=False, keep_tmp=False
     )
 
-    assert any("访问面不在对端契约" in error and "demo.org.user-roles" in error for error in errors)
+    assert any("访问面不在对端契约" in error and "demo.mdm.user-roles" in error for error in errors)
     assert not any("L2 注册表" in line for line in lines)
 
 

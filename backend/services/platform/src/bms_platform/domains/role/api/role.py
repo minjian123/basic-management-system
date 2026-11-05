@@ -787,8 +787,8 @@ async def apply_role_assignments(
 ) -> ApiResponse[RoleAssignmentsResult]:
     """角色保存编排（分段全量覆盖；跨服务原子）。
 
-    `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；
-    `provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。
+    `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 跨产品域分支经参与端点）；
+    `provider = null`（dev / test）时顺序提交（platform 本地事务 → 跨产品域内部写通道）。
     权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。
 
     Args:
@@ -797,12 +797,12 @@ async def apply_role_assignments(
         uow: 请求级工作单元。
         config: 系统参数取数（角色码格式）。
         cache: 缓存能力域（角色 / 分配变更后权限版本递增）。
-        client: 服务间调用客户端（组织域分支执行 / 内部写通道）。
+        client: 服务间调用客户端（跨产品域分支执行 / 内部写通道）。
         manager: 事务管理器（`provider=null` 时为 Null 实现）。
         participant: 事务参与方（platform 自身分支进程内执行）。
         checker: 权限校验器（`role` 段命令式复校 `role:update`）。
         audit: 审计捕获器（三权拒绝留痕）。
-        idem_key: 幂等键请求头（透传给组织域内部写通道）。
+        idem_key: 幂等键请求头（透传给跨产品域内部写通道）。
 
     Returns:
         ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。

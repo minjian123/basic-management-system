@@ -35,7 +35,7 @@ _EVIDENCE_FILES = (
     "backend/libs/bms_core/tests/collaboration/test_capability_resolution.py",
     "backend/libs/bms_core/tests/collaboration/test_capability_grant.py",
     "frontend/packages/core/tests/catalog.spec.ts",
-    "frontend/packages/ui_ep/tests/field-org-select.spec.ts",
+    "frontend/packages/ui_ep/tests/field-dict-remote-select.spec.ts",
     "scripts/tools/ci/product_repos_setup.sh",
     "backend/ops/export_errcodes.py",
 )

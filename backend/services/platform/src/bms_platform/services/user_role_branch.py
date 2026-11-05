@@ -1,4 +1,4 @@
-"""组织域事务分支的公共换算（07B `03_01`）：分支三要素与内部写请求。
+"""跨产品域事务分支的公共换算（07B `03_01`）：分支三要素与内部写请求。
 
 用户保存编排与角色保存编排共用同一套换算，避免两处各写一份导致口径漂移：
 
@@ -24,7 +24,7 @@ __all__ = ["UserRoleBranch", "branch_op", "branch_target", "internal_write_reque
 
 
 class UserRoleBranch(NamedTuple):
-    """组织域分支三要素（分支标识 / 承载服务 / 租户库键；均取自已解析的能力声明）。
+    """跨产品域分支三要素（分支标识 / 承载服务 / 租户库键；均取自已解析的能力声明）。
 
     Attributes:
         branch_id: 事务参与者稳定短标识（声明 `branch_id`）。
@@ -42,13 +42,13 @@ def branch_target(
     *,
     platform_db_key: str,
 ) -> UserRoleBranch:
-    """取组织域分支三要素（分支标识 / 承载服务 / 租户库键）。
+    """取跨产品域分支三要素（分支标识 / 承载服务 / 租户库键）。
 
     同一保存请求的多段（如岗位 + 部门）须落在**同一分支**：声明若漂移（分支标识或承载服务不唯一）
     即 fail-closed，避免把一条事务拆成两个参与者、或在同一事务内撞标识。
 
     Args:
-        endpoints: 本次参与的组织域能力取用结果（非空）。
+        endpoints: 本次参与的跨产品域能力取用结果（非空）。
         platform_db_key: 平台租户库键（库键回退派生的基准）。
 
     Returns:
@@ -61,12 +61,12 @@ def branch_target(
     service_keys = sorted({endpoint.target.service_key for endpoint in endpoints})
     if len(branch_ids) != 1 or len(service_keys) != 1:
         raise CatalogError(
-            "组织域能力声明不一致（同一保存请求的各段须同一分支与承载服务）："
+            "跨产品域能力声明不一致（同一保存请求的各段须同一分支与承载服务）："
             f"branch_id={branch_ids}，service_key={service_keys}"
         )
     branch_id = branch_ids[0]
     if not branch_id:
-        raise CatalogError("组织域能力声明缺少 branch_id（写 / 强一致能力须声明事务分支标识）")
+        raise CatalogError("跨产品域能力声明缺少 branch_id（写 / 强一致能力须声明事务分支标识）")
     return UserRoleBranch(
         branch_id=branch_id,
         service_key=service_keys[0],
@@ -99,7 +99,7 @@ def internal_write_request(
     idempotency_key: str | None,
     tenant_id: str | None,
 ) -> ServiceRequest:
-    """构造组织域内部写通道请求（`provider=null` 顺序提交路径）。
+    """构造跨产品域内部写通道请求（`provider=null` 顺序提交路径）。
 
     Args:
         endpoint: 能力取用结果（承载服务与路径模板均取自声明）。
@@ -126,14 +126,14 @@ def internal_write_request(
 
 
 def _db_key(endpoint: CapabilityEndpoint, *, platform_db_key: str) -> str:
-    """组织域租户库键：拓扑解析有值取之，空集回退按承载服务键派生（与收编前逐字一致）。
+    """跨产品域租户库键：拓扑解析有值取之，空集回退按承载服务键派生（与收编前逐字一致）。
 
     Args:
         endpoint: 能力取用结果。
         platform_db_key: 平台租户库键。
 
     Returns:
-        str: 组织域租户库键。
+        str: 跨产品域租户库键。
     """
     if endpoint.target.db_keys:
         return endpoint.target.db_keys[0]

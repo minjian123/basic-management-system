@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// 组织选择字段（06_05 真实实现）：用户 / 岗位 / 部门三类远程搜索、多选与上限、只读回显、已删除 / 停用占位；
-// 数据通路经注入式组织数据源（未注入即占位零请求），保留 06_01 冻结对外契约（仅向后兼容新增）。
+// 远程字典选择字段（06_05 真实实现）：用户 / 岗位 / 部门三类远程搜索、多选与上限、只读回显、已删除 / 停用占位；
+// 数据通路经注入式字典数据源（未注入即占位零请求），保留 06_01 冻结对外契约（仅向后兼容新增）。
 import { ElOption, ElSelect } from 'element-plus'
 import {
   DICT_DATA_EMPTY_TEXT,
@@ -33,7 +33,7 @@ interface Props {
   ready?: boolean
   /** 静态选项（未注入数据源时的兼容通路，沿用 `06_01` 就绪语义）。 */
   options?: InputOptions
-  /** 多选（组织字段缺省多选）。 */
+  /** 多选（部门 / 岗位字段缺省多选）。 */
   multiple?: boolean
   /** 禁用。 */
   disabled?: boolean
@@ -45,7 +45,7 @@ interface Props {
   kind?: DictDataKind
   /** 可搜索（远程搜索）。 */
   searchable?: boolean
-  /** 组织数据源（未注入即占位零请求）。 */
+  /** 字典数据源（未注入即占位零请求）。 */
   source?: DictRemoteSourceAdapter
   /** 用户展示能力（缺省由投影内建花名册）。 */
   userDisplay?: BaseUserDisplay
@@ -83,7 +83,7 @@ const props = withDefaults(defineProps<Props>(), {
   options: () => [],
   multiple: true,
   disabled: false,
-  placeholder: '请选择组织',
+  placeholder: '请选择',
   degradeText: DICT_DATA_PLACEHOLDER_TEXT,
   kind: 'user',
   searchable: true,

@@ -23,7 +23,7 @@ def test_workspace_members_importable() -> None:
 def test_workspace_layout_present() -> None:
     """工作区骨架就位：libs/bms_core + 8 服务工程（入口 / 路由）+ 服务脚手架。
 
-    `org` 已随组织主数据归 mdm 产品服务（2026-10-07，bms 11_01）退出本工作区。
+    `mdm` 已随字典数据归 mdm 产品服务（2026-10-07，bms 11_01）退出本工作区。
     """
     assert (_BACKEND / "libs" / "bms_core" / "src" / "bms_core" / "core").is_dir()
     assert (_BACKEND / "libs" / "bms_core" / "src" / "bms_core" / "api").is_dir()

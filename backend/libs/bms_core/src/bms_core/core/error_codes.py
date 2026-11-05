@@ -3,7 +3,7 @@
 段位（《架构设计 · 接口与集成》「错误码分段」节，一经发布稳定不变）：
 
 - `1xxxx` 通用（参数校验 / 资源不存在 / 冲突 / 系统内部）
-- `2xxxx` 认证、`3xxxx` 用户与组织、`4xxxx` 系统配置、`5xxxx` 文件、
+- `2xxxx` 认证、`3xxxx` 用户与数据、`4xxxx` 系统配置、`5xxxx` 文件、
   `6xxxx` 工作流、`7xxxx` 通知 / 任务、`8xxxx` 开放 / 租户 / SSO、`9xxxx` 报表 / 审计
 - 业务模块扩展段 `10xxxx` 起（模块注册制，段号见 `sys_module.errcode_segment`），
   由产品仓库各自定义错误码（不得占用平台段）。
@@ -25,7 +25,7 @@ class ErrorSegment(IntEnum):
 
     GENERAL = 1
     AUTH = 2
-    USER_ORG = 3
+    USER_DATA = 3
     CONFIG = 4
     FILE = 5
     WORKFLOW = 6
@@ -110,9 +110,9 @@ class ErrorCode(IntEnum):
     ROLE_SCOPE_VALUE_INVALID = 30047
     ROLE_SEPARATION_CONFLICT = 30048
     ROLE_FIELD_MISMATCH = 30049
-    ORG_SOURCE_UNAVAILABLE = 30101
-    ORG_TARGET_UNSUPPORTED = 30102
-    ORG_DEPT_NOT_FOUND = 30103
+    DICT_DATA_SOURCE_UNAVAILABLE = 30101
+    DICT_DATA_TARGET_UNSUPPORTED = 30102
+    DICT_DATA_DEPT_NOT_FOUND = 30103
     CONFIG = 40001
     PLUGIN = 40002
     CATALOG = 40003

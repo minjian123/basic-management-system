@@ -163,20 +163,20 @@ describe('扫码登录页（Kiwi 2233）', () => {
   })
 
   it('确认无 redirect 且回跳目标合法时回跳原目标', async () => {
-    const { wrapper, router, pinia } = await mountQr('redirect=%2Forg%2Fusers')
+    const { wrapper, router, pinia } = await mountQr('redirect=%2Fmdm%2Fusers')
     useSessionStore(pinia).applyToken('token-1')
     wrapper.findComponent(SsoQrLoginPanel).vm.$emit('confirmed', {})
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/org/users')
+    expect(router.currentRoute.value.fullPath).toBe('/mdm/users')
     wrapper.unmount()
   })
 
   it('返回账号登录保留回跳目标', async () => {
-    const { wrapper, router } = await mountQr('redirect=%2Forg%2Fusers')
+    const { wrapper, router } = await mountQr('redirect=%2Fmdm%2Fusers')
     await wrapper.find('[data-test="sso-qr-back"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/login')
-    expect(router.currentRoute.value.query.redirect).toBe('/org/users')
+    expect(router.currentRoute.value.query.redirect).toBe('/mdm/users')
     wrapper.unmount()
   })
 })

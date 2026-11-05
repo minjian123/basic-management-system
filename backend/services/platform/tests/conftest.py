@@ -149,8 +149,8 @@ def isolate_catalog_records(
 _MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(
     (
         CollaborationRecord(
-            name="mdm.org.user-roles",
-            domain="org",
+            name="mdm.mdm.user-roles",
+            domain="mdm",
             kind="read",
             contract_version="0.1.0",
             path="/api/v1/mdm/user-roles",
@@ -159,8 +159,8 @@ _MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentSt
             default_consumers=ConcurrentStableFrozenList(("platform",)),
         ),
         CollaborationRecord(
-            name="mdm.org.user-posts.assign",
-            domain="org",
+            name="mdm.mdm.user-posts.assign",
+            domain="mdm",
             kind="txn-branch",
             contract_version="0.1.0",
             path="/api/v1/mdm/internal/user-posts/{user_id}",
@@ -171,8 +171,8 @@ _MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentSt
             default_consumers=ConcurrentStableFrozenList(("platform",)),
         ),
         CollaborationRecord(
-            name="mdm.org.user-depts.assign",
-            domain="org",
+            name="mdm.mdm.user-depts.assign",
+            domain="mdm",
             kind="txn-branch",
             contract_version="0.1.0",
             path="/api/v1/mdm/internal/user-depts/{user_id}",
@@ -183,8 +183,8 @@ _MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentSt
             default_consumers=ConcurrentStableFrozenList(("platform",)),
         ),
         CollaborationRecord(
-            name="mdm.org.role-posts.assign",
-            domain="org",
+            name="mdm.mdm.role-posts.assign",
+            domain="mdm",
             kind="txn-branch",
             contract_version="0.1.0",
             path="/api/v1/mdm/internal/role-posts/{role_id}",
@@ -195,8 +195,8 @@ _MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentSt
             default_consumers=ConcurrentStableFrozenList(("platform",)),
         ),
         CollaborationRecord(
-            name="mdm.org.role-depts.assign",
-            domain="org",
+            name="mdm.mdm.role-depts.assign",
+            domain="mdm",
             kind="txn-branch",
             contract_version="0.1.0",
             path="/api/v1/mdm/internal/role-depts/{role_id}",
@@ -215,7 +215,7 @@ CI 单仓没有产品仓清单（`product_manifests` 为空），而平台的跨
 记录（工作区已装载时同值幂等；声明改动后异值会被 `register_collaboration_records` 拒，属预期提醒）。
 """
 
-_MDM_PEER_DOMAINS: ConcurrentStableFrozenDict[str, str] = ConcurrentStableFrozenDict({"org": "mdm"})
+_MDM_PEER_DOMAINS: ConcurrentStableFrozenDict[str, str] = ConcurrentStableFrozenDict({"mdm": "mdm"})
 """对端能力承载域（能力寻址第二段的域布局来源；工作区由 mdm 仓 `domain_layout.json` 提供）。"""
 
 

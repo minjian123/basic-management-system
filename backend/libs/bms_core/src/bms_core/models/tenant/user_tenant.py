@@ -34,7 +34,7 @@ class SysUserTenant(BaseModel):
 
     tenant_id: Mapped[int] = mapped_column(SnowflakeId, comment="归属租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
     user_id: Mapped[int] = mapped_column(
-        SnowflakeId, comment="用户主键（跨服务逻辑外键 → 组织服务 sys_user.id，只持值）"
+        SnowflakeId, comment="用户主键（跨服务逻辑外键 → 主数据服务 sys_user.id，只持值）"
     )
     target_tenant_id: Mapped[int] = mapped_column(
         SnowflakeId, comment="可访问目标租户主键（同库逻辑外键 → sys_tenant.id，只持值）"

@@ -84,7 +84,7 @@ def _record(**overrides: object) -> ErrorCodeRecord:
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
         {
             "code": 390001,
-            "domain": "org",
+            "domain": "mdm",
             "http_status": 404,
             "message_key": "demo.error.dept_not_found",
             "severity": "warning",

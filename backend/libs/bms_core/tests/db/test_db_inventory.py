@@ -33,7 +33,7 @@ class _Recorder:
 @pytest.mark.kiwi_id(2178)
 def test_db_count_expected_and_active() -> None:
     """预期口径：平台服务库 = 服务数、服务租户库 = 服务数 × 租户数、归档 1；活跃口径按库键统计。"""
-    count = db_count_rows(ConcurrentStableList(["platform", "tenant", "org"]), ConcurrentStableList(["demo", "acme"]))
+    count = db_count_rows(ConcurrentStableList(["platform", "tenant", "mdm"]), ConcurrentStableList(["demo", "acme"]))
     assert count.platform == 3
     assert count.tenant == 6
     assert count.archive == 1
@@ -41,7 +41,7 @@ def test_db_count_expected_and_active() -> None:
     assert "共 10 个库" in count.describe()
 
     active = db_counts_by_kind(
-        ConcurrentStableList(["platform", "tenant_demo", "tenant_acme", "tenant_org_demo", "archive", "zzz_bad"])
+        ConcurrentStableList(["platform", "tenant_demo", "tenant_acme", "tenant_mdm_demo", "archive", "zzz_bad"])
     )
     assert active == {"platform": 1, "tenant": 3, "archive": 1}
 

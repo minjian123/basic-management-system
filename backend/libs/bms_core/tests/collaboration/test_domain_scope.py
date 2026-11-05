@@ -138,7 +138,7 @@ def test_domain_of_path_maps_registered_domain() -> None:
     assert domain_of_path("/api/v1/role/list") == "role"
     assert domain_of_path("/api/v1/role") == "role"
     assert domain_of_path("/api/v1/platform/internal/tenant-topologies") == UNKNOWN_DOMAIN, "服务级内部面不是域"
-    assert domain_of_path("/api/org/v1/role/list") == UNKNOWN_DOMAIN, "外部命名空间路径非内部形态"
+    assert domain_of_path("/api/mdm/v1/role/list") == UNKNOWN_DOMAIN, "外部命名空间路径非内部形态"
     assert domain_of_path("/health/live") == UNKNOWN_DOMAIN
     assert domain_of_path("") == UNKNOWN_DOMAIN
 

@@ -59,7 +59,7 @@ def test_build_chain_key_partitions_by_service_and_tenant() -> None:
     assert build_chain_key(service="platform", tenant="demo") == "platform:demo"
     assert build_chain_key(service="platform", tenant=None) == "platform:global"
     assert build_chain_key(service="platform", tenant="demo") != build_chain_key(service="platform", tenant="acme")
-    assert build_chain_key(service="platform", tenant="demo") != build_chain_key(service="org", tenant="demo")
+    assert build_chain_key(service="platform", tenant="demo") != build_chain_key(service="mdm", tenant="demo")
 
 
 @pytest.mark.kiwi_id(57)

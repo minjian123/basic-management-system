@@ -168,20 +168,21 @@ def test_require_closure_skips_already_collected_dependency() -> None:
 # ---- _fetch_row：列不在表中 ----
 
 
-def test_fetch_row_ignores_unknown_columns(tmp_path: Any) -> None:
+async def test_fetch_row_ignores_unknown_columns(tmp_path: Any) -> None:
     """`_fetch_row`：期望行的自然键含表中不存在的列 → 忽略该列（不抛错）。"""
-    url = f"sqlite:///{tmp_path / 'fr.db'}"
-    _create_sync(url, ConcurrentStableList([cast("Table", SysBusiness.__table__)]))
-    engine = create_engine(url)
+    url = f"sqlite+aiosqlite:///{tmp_path / 'fr.db'}"
+    await _create_async(url, ConcurrentStableList([cast("Table", SysBusiness.__table__)]))
+    engine = create_async_engine(url)
     try:
         expected = ExpectedRow(
             table="sys_business",
             key=ConcurrentStableFrozenDict({"code": "mdm", "no_such_column": "x"}),
             values=ConcurrentStableFrozenDict(),
         )
-        assert orchestrator._fetch_row(engine, expected) is None  # pyright: ignore[reportPrivateUsage]
+        async with engine.connect() as connection:
+            assert await orchestrator._fetch_row(connection, expected) is None  # pyright: ignore[reportPrivateUsage]
     finally:
-        engine.dispose()
+        await engine.dispose()
 
 
 # ---- _rolled_back：pending / 其它状态 ----

@@ -437,7 +437,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             owner="platform",
             domain="user",
             datasource=Datasource.TENANT,
-            note="用户（系统账号）最小模型（本地登录凭据 / 状态 / 锁定字段）；02_05 由组织服务租户库迁入",
+            note="用户（系统账号）最小模型（本地登录凭据 / 状态 / 锁定字段）；02_05 由主数据服务租户库迁入",
         ),
         TableRecord(
             table_name="sys_session",
@@ -451,7 +451,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             owner="platform",
             domain="user",
             datasource=Datasource.TENANT,
-            note="账号锁定记录（与 sys_user 同库；02_05 由组织服务租户库迁入）",
+            note="账号锁定记录（与 sys_user 同库；02_05 由主数据服务租户库迁入）",
         ),
         TableRecord(
             table_name="sys_role",

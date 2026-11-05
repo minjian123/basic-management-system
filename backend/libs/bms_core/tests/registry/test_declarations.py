@@ -43,7 +43,7 @@ from bms_core.services.module_registry import (
 )
 
 
-def _capability(name: str = "demo.org.user-roles", *, kind: str = "read", **kwargs: object) -> CollaborationRecord:
+def _capability(name: str = "demo.mdm.user-roles", *, kind: str = "read", **kwargs: object) -> CollaborationRecord:
     """构造能力记录（缺省合法读出口）。
 
     Args:
@@ -56,7 +56,7 @@ def _capability(name: str = "demo.org.user-roles", *, kind: str = "read", **kwar
     """
     base: Any = {
         "name": name,
-        "domain": "org",
+        "domain": "mdm",
         "kind": kind,
         "contract_version": "0.1.0",
         "path": "/api/v1/demo/roles",
@@ -146,7 +146,7 @@ def test_plan_creates_on_empty_registry() -> None:
     payload = _payload(
         products=ConcurrentStableFrozenList((ProductRecord(product_key="demo", name="演示产品"),)),
         collaborations=ConcurrentStableFrozenList((_capability(),)),
-        usages=ConcurrentStableFrozenList((CapabilityUsage(name="demo.org.user-roles"),)),
+        usages=ConcurrentStableFrozenList((CapabilityUsage(name="demo.mdm.user-roles"),)),
     )
 
     plan, conflicts = plan_declarations(payload, _snapshot())
@@ -185,12 +185,12 @@ def test_plan_updates_when_content_changed() -> None:
 def test_plan_retires_absent_records() -> None:
     """本次未声明的记录：进 `retired`。"""
     kept = _capability()
-    dropped = _capability(name="demo.org.dept-data", kind="dataset", data_source_key="demo_dept")
+    dropped = _capability(name="demo.mdm.dept-data", kind="dataset", data_source_key="demo_dept")
     payload = _payload(collaborations=ConcurrentStableFrozenList((kept,)))
 
     plan, _conflicts = plan_declarations(payload, _snapshot(collaborations=[kept, dropped]))
 
-    assert list(plan.retired.get("collaborations") or ()) == ["demo.org.dept-data"]
+    assert list(plan.retired.get("collaborations") or ()) == ["demo.mdm.dept-data"]
 
 
 def test_plan_rejects_cross_product_conflict() -> None:
@@ -233,14 +233,14 @@ def test_validate_accepts_well_formed_payload() -> None:
         collaborations=ConcurrentStableFrozenList(
             (_capability(default_consumers=ConcurrentStableFrozenList(("platform",))),)
         ),
-        usages=ConcurrentStableFrozenList((CapabilityUsage(name="demo.org.user-roles"),)),
+        usages=ConcurrentStableFrozenList((CapabilityUsage(name="demo.mdm.user-roles"),)),
     )
     warnings: ConcurrentStableList[str] = ConcurrentStableList()
 
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -266,7 +266,7 @@ def test_validate_rejects_unknown_domain_and_missing_element() -> None:
         ),
         collaborations=ConcurrentStableFrozenList(
             (
-                _capability(name="demo.org.user-posts", kind="txn-branch"),
+                _capability(name="demo.mdm.user-posts", kind="txn-branch"),
                 _capability(name="demo.unknown.roles", domain="nowhere"),
             )
         ),
@@ -275,7 +275,7 @@ def test_validate_rejects_unknown_domain_and_missing_element() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -290,8 +290,8 @@ def test_validate_rejects_duplicate_domain_within_payload() -> None:
     payload = _payload(
         domains=ConcurrentStableFrozenList(
             (
-                DomainEntry(domain_key="org", service_key="demo", status="planned"),
-                DomainEntry(domain_key="org", service_key="demo", status="planned"),
+                DomainEntry(domain_key="mdm", service_key="demo", status="planned"),
+                DomainEntry(domain_key="mdm", service_key="demo", status="planned"),
             )
         ),
     )
@@ -323,7 +323,7 @@ def test_validate_rejects_domain_with_unknown_service() -> None:
                 ),
             )
         ),
-        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="org", service_key="ghost", status="planned"),)),
+        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="mdm", service_key="ghost", status="planned"),)),
     )
 
     errors = validate_declarations(
@@ -340,10 +340,10 @@ def test_validate_rejects_domain_with_unknown_service() -> None:
 def test_validate_rejects_domain_cross_product_collision() -> None:
     """同一业务域被另一产品声明为**不同**承载服务：拒收（跨产品撞键）。"""
     payload = _payload(
-        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="org", service_key="demo", status="planned"),)),
+        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="mdm", service_key="demo", status="planned"),)),
     )
     current = _snapshot(
-        domains=[DomainEntry(domain_key="org", service_key="mdm", status="planned")],
+        domains=[DomainEntry(domain_key="mdm", service_key="mdm", status="planned")],
         owner="mdm",
     )
 
@@ -361,10 +361,10 @@ def test_validate_rejects_domain_cross_product_collision() -> None:
 def test_validate_warns_domain_shared_same_service() -> None:
     """同一业务域被另一产品声明为**同一**承载服务：放行并记警示（多产品共用）。"""
     payload = _payload(
-        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="org", service_key="mdm", status="planned"),)),
+        domains=ConcurrentStableFrozenList((DomainEntry(domain_key="mdm", service_key="mdm", status="planned"),)),
     )
     current = _snapshot(
-        domains=[DomainEntry(domain_key="org", service_key="mdm", status="planned")],
+        domains=[DomainEntry(domain_key="mdm", service_key="mdm", status="planned")],
         owner="mdm",
     )
     warnings: ConcurrentStableList[str] = ConcurrentStableList()
@@ -393,7 +393,7 @@ def test_validate_warns_unregistered_consumer() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform",)),
         warnings=warnings,
     )
@@ -405,7 +405,7 @@ def test_validate_warns_unregistered_consumer() -> None:
 def test_validate_rejects_unregistered_usage_and_write_degrade() -> None:
     """使用声明：未注册能力只告警；对写能力声明降级 / 缺理由仍拒收。"""
     write_capability = _capability(
-        name="demo.org.user-posts",
+        name="demo.mdm.user-posts",
         kind="txn-branch",
         branch_id="d",
         branch_op="demo.user-posts.assign",
@@ -414,9 +414,9 @@ def test_validate_rejects_unregistered_usage_and_write_degrade() -> None:
         collaborations=ConcurrentStableFrozenList((write_capability,)),
         usages=ConcurrentStableFrozenList(
             (
-                CapabilityUsage(name="demo.org.missing"),
-                CapabilityUsage(name="demo.org.user-posts", degrade="empty", reason="不该降级"),
-                CapabilityUsage(name="demo.org.user-posts", degrade="empty"),
+                CapabilityUsage(name="demo.mdm.missing"),
+                CapabilityUsage(name="demo.mdm.user-posts", degrade="empty", reason="不该降级"),
+                CapabilityUsage(name="demo.mdm.user-posts", degrade="empty"),
             )
         ),
     )
@@ -425,7 +425,7 @@ def test_validate_rejects_unregistered_usage_and_write_degrade() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -494,7 +494,7 @@ def test_validate_errcodes_segment_and_collision() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(errcodes=[other]),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -594,7 +594,7 @@ def test_plan_restores_retired_record() -> None:
     """曾退役的记录再次声明：进 `updated`（恢复）。"""
     record = _capability()
     snapshot = _snapshot(collaborations=[record])
-    snapshot.retired.set("collaborations", ConcurrentStableSet(("demo.org.user-roles",)))
+    snapshot.retired.set("collaborations", ConcurrentStableSet(("demo.mdm.user-roles",)))
     payload = _payload(collaborations=ConcurrentStableFrozenList((record,)))
 
     plan, _conflicts = plan_declarations(payload, snapshot)
@@ -610,7 +610,7 @@ def test_validate_service_key_must_be_declared() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -621,14 +621,14 @@ def test_validate_service_key_must_be_declared() -> None:
 def test_validate_warns_when_only_usages_declared() -> None:
     """只声明使用项：给出警示（不阻断）。"""
     payload = _payload(
-        usages=ConcurrentStableFrozenList((CapabilityUsage(name="demo.org.user-roles"),)),
+        usages=ConcurrentStableFrozenList((CapabilityUsage(name="demo.mdm.user-roles"),)),
     )
     warnings: ConcurrentStableList[str] = ConcurrentStableList()
 
     errors = validate_declarations(
         payload,
         _snapshot(collaborations=[_capability()]),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -659,7 +659,7 @@ def test_validate_service_key_declared_by_separate_service_row() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -672,9 +672,9 @@ def test_validate_collaboration_element_matrix() -> None:
     payload = _payload(
         collaborations=ConcurrentStableFrozenList(
             (
-                _capability(name="demo.org.codes-empty", kind="codes", path=None),
-                _capability(name="demo.org.dept-data", kind="dataset"),
-                _capability(name="demo.org.no-path", path=None),
+                _capability(name="demo.mdm.codes-empty", kind="codes", path=None),
+                _capability(name="demo.mdm.dept-data", kind="dataset"),
+                _capability(name="demo.mdm.no-path", path=None),
             )
         ),
     )
@@ -682,7 +682,7 @@ def test_validate_collaboration_element_matrix() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -699,7 +699,7 @@ def test_validate_codes_capability_with_permission_codes_passes() -> None:
         collaborations=ConcurrentStableFrozenList(
             (
                 _capability(
-                    name="demo.org.admin-codes",
+                    name="demo.mdm.admin-codes",
                     kind="codes",
                     path=None,
                     permission_codes=ConcurrentStableFrozenList(("demo:query",)),
@@ -711,7 +711,7 @@ def test_validate_codes_capability_with_permission_codes_passes() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -726,7 +726,7 @@ def test_validate_errcode_segment_from_registry_services() -> None:
             (
                 ErrorCodeRecord(
                     code=330031,
-                    domain="org",
+                    domain="mdm",
                     http_status=404,
                     message_key="demo.error.post_not_found",
                     severity="warning",
@@ -751,7 +751,7 @@ def test_validate_errcode_segment_from_registry_services() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(services=[existing_service]),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -765,7 +765,7 @@ def test_jsonable_converts_mapping_and_stable_collections() -> None:
     class _Record:
         """带映射与插入序集合要素的替身（含映射内嵌普通列表）。"""
 
-        name = "demo.org.x"
+        name = "demo.mdm.x"
         tables = ConcurrentStableFrozenDict({"a": "b", "list": ["x", "y"]})
         after = ConcurrentStableFrozenList(("s1", "s2"))
 
@@ -778,7 +778,7 @@ def test_jsonable_converts_mapping_and_stable_collections() -> None:
             "_Other",
             (),
             {
-                "name": "demo.org.x",
+                "name": "demo.mdm.x",
                 "tables": ConcurrentStableFrozenDict({"a": "c"}),
                 "after": ConcurrentStableFrozenList(("s1", "s2")),
             },
@@ -791,7 +791,7 @@ def test_validate_usage_degrades_rejected_modes() -> None:
     payload = _payload(
         collaborations=ConcurrentStableFrozenList((_capability(),)),
         usages=ConcurrentStableFrozenList(
-            (CapabilityUsage(name="demo.org.user-roles", degrade="stale", reason="旧副本"),)
+            (CapabilityUsage(name="demo.mdm.user-roles", degrade="stale", reason="旧副本"),)
         ),
         errcodes=ConcurrentStableFrozenList(
             (
@@ -812,7 +812,7 @@ def test_validate_usage_degrades_rejected_modes() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -838,7 +838,7 @@ def test_validate_ignores_current_service_without_segment() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(services=[segmentless]),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=ConcurrentStableList(),
     )
@@ -926,7 +926,7 @@ service_group = "product"
 product_key = "demo"
 
 [[usages]]
-name = "demo.org.roles"
+name = "demo.mdm.roles"
 degrade = "empty"
 reason = "断链按无角色"
 """
@@ -1009,7 +1009,7 @@ async def test_snapshot_from_wire_builds_registry_view() -> None:
     snapshot = await snapshot_from_wire(wire)
 
     assert len(snapshot.of("collaborations")) == 1
-    assert snapshot.owner_of("collaborations", "demo.org.user-roles") == "demo"
+    assert snapshot.owner_of("collaborations", "demo.mdm.user-roles") == "demo"
     assert len(snapshot.of("usages")) == 1
     assert snapshot.of("seeds") == []
 
@@ -1076,16 +1076,16 @@ def test_declaration_payload_of_and_snapshot_accessors() -> None:
     snapshot = _snapshot(collaborations=[_capability()])
 
     assert payload.of("seeds") == []
-    assert snapshot.hash_of("collaborations", "demo.org.user-roles") is not None
+    assert snapshot.hash_of("collaborations", "demo.mdm.user-roles") is not None
     assert snapshot.hash_of("collaborations", "missing") is None
-    assert snapshot.row_id("collaborations", "demo.org.user-roles") == 1
+    assert snapshot.row_id("collaborations", "demo.mdm.user-roles") == 1
     assert snapshot.row_id("collaborations", "missing") is None
-    assert snapshot.is_retired("collaborations", "demo.org.user-roles") is False
-    assert snapshot.owner_of("collaborations", "demo.org.user-roles") == "demo"
+    assert snapshot.is_retired("collaborations", "demo.mdm.user-roles") is False
+    assert snapshot.owner_of("collaborations", "demo.mdm.user-roles") == "demo"
     assert snapshot.owner_of("collaborations", "missing") is None
     assert snapshot.of("seeds") == []
     wire = declaration_wire("collaborations", _capability())
-    assert wire.get("name") == "demo.org.user-roles"
+    assert wire.get("name") == "demo.mdm.user-roles"
     assert wire.get("path") == "/api/v1/demo/roles"
 
 
@@ -1120,7 +1120,7 @@ def test_validate_service_row_shape_rejected_at_registration() -> None:
     errors = validate_declarations(
         bad_prefix,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1130,7 +1130,7 @@ def test_validate_service_row_shape_rejected_at_registration() -> None:
     errors = validate_declarations(
         bad_key,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1140,7 +1140,7 @@ def test_validate_service_row_shape_rejected_at_registration() -> None:
     errors = validate_declarations(
         bad_segment,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1158,7 +1158,7 @@ def test_validate_service_row_cross_product_uniqueness() -> None:
     errors = validate_declarations(
         payload,
         snapshot,
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1169,7 +1169,7 @@ def test_validate_service_row_cross_product_uniqueness() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(services=ConcurrentStableList((own_row,))),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1200,7 +1200,7 @@ def test_validate_seed_tables_only_platform() -> None:
     errors = validate_declarations(
         platform_payload,
         _snapshot(owner="platform"),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1214,7 +1214,7 @@ def test_validate_seed_tables_only_platform() -> None:
     errors = validate_declarations(
         platform_bad,
         _snapshot(owner="platform"),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1224,7 +1224,7 @@ def test_validate_seed_tables_only_platform() -> None:
     errors = validate_declarations(
         product_bad,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1245,7 +1245,7 @@ def test_validate_service_row_product_basis_from_payload() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )
@@ -1260,7 +1260,7 @@ def test_validate_service_row_product_basis_from_payload() -> None:
     errors = validate_declarations(
         cross_payload,
         registered,
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo", "other")),
         warnings=warnings,
     )
@@ -1283,7 +1283,7 @@ def test_validate_seed_tables_tolerates_illegal_db_key() -> None:
     errors = validate_declarations(
         payload,
         _snapshot(owner="platform"),
-        domain_services=ConcurrentStableDict({"org": "demo"}),
+        domain_services=ConcurrentStableDict({"mdm": "demo"}),
         consumer_keys=ConcurrentStableSet(("platform", "demo")),
         warnings=warnings,
     )

@@ -94,9 +94,9 @@ def test_role_dto_from_model() -> None:
     config: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     config.add(ConcurrentStableDict({"values": ["13"]}))
     scope = RoleDataScopeEntry.from_model(
-        SysDataScope(id=13, role_id=7, data_source_key="org_dept", policy_type="select", config=config)
+        SysDataScope(id=13, role_id=7, data_source_key="mdm_dept", policy_type="select", config=config)
     )
-    assert (scope.data_source_key, scope.policy_type) == ("org_dept", "select")
+    assert (scope.data_source_key, scope.policy_type) == ("mdm_dept", "select")
     assert cast("Any", scope.config)[0].get("values") == ["13"]
 
 

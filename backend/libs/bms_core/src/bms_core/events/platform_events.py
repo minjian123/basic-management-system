@@ -51,7 +51,7 @@ _USER_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
         "status": _STRING_REQUIRED,
     }
 )
-"""用户事件载荷：**不含 `dept_id`**（用户＝系统账号不落组织字段，组织关系归产品组织域，需求 `07-11`）。"""
+"""用户事件载荷：**不含 `dept_id`**（用户＝系统账号不落部门 / 岗位字段，关系归产品主数据域，需求 `07-11`）。"""
 
 _USER_EVENT_VERSION = "2.0.0"
 """用户事件契约版本：载荷删除 `dept_id`（破坏性变更，升主版本；随需求 `07-11`）。"""

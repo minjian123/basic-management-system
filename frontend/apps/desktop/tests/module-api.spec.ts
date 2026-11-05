@@ -162,7 +162,7 @@ describe('模块请求能力宿主实现（06_02 · Kiwi 2236）', () => {
     })
     configureRequestAdapter(createAxiosAdapter())
 
-    expect(() => createModuleApi().product('biz', 'org')).toThrowError()
+    expect(() => createModuleApi().product('biz', 'mdm')).toThrowError()
     expect(requestMock).not.toHaveBeenCalled()
     resetCatalog()
   })

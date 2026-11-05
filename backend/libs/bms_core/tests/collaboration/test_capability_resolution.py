@@ -34,8 +34,8 @@ from bms_core.services.module_registry import (
 
 def _record(
     *,
-    name: str = "demo.org.user-roles",
-    domain: str = "org",
+    name: str = "demo.mdm.user-roles",
+    domain: str = "mdm",
     kind: str = "read",
     path: str | None = "/api/v1/demo/user-roles",
     status: str = CollaborationStatus.ENABLED,
@@ -88,7 +88,7 @@ def _isolate_state() -> Iterator[None]:
     reset_collaboration_records()
     reset_domain_services()
     reset_topology_resolver()
-    register_domain_services(ConcurrentStableFrozenDict({"org": "mdm", "user": "platform"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm", "user": "platform"}))
     yield
     reset_collaboration_records()
     reset_domain_services()
@@ -99,10 +99,10 @@ def test_resolve_capability_returns_endpoint_with_target() -> None:
     """能力存在 → 取用：字段与清单一致，第二段按域布局派生承载服务键与基址（用例 1 / 4）。"""
     register_collaboration_records((_record(branch_op="demo.user-roles.read", branch_id="d"),))
 
-    endpoint = resolve_capability("demo.org.user-roles")
+    endpoint = resolve_capability("demo.mdm.user-roles")
 
-    assert endpoint.name == "demo.org.user-roles"
-    assert endpoint.domain == "org"
+    assert endpoint.name == "demo.mdm.user-roles"
+    assert endpoint.domain == "mdm"
     assert endpoint.kind == "read"
     assert endpoint.contract_version == "0.1.0"
     assert endpoint.path == "/api/v1/demo/user-roles"
@@ -111,7 +111,7 @@ def test_resolve_capability_returns_endpoint_with_target() -> None:
     assert endpoint.branch_op == "demo.user-roles.read"
     assert endpoint.branch_id == "d"
     assert endpoint.target.mode == CapabilityMode.REMOTE
-    assert endpoint.target.unit_key == "org"
+    assert endpoint.target.unit_key == "mdm"
     assert endpoint.target.service_key == "mdm"
     assert endpoint.target.base_url == "http://mdm:8000"
     assert endpoint.target.db_keys == []
@@ -121,8 +121,8 @@ def test_resolve_capability_returns_endpoint_with_target() -> None:
 
 def test_resolve_capability_missing_raises_with_name() -> None:
     """能力未声明 → 抛 `ParamError`（10001），信息含能力名；不返回空值（用例 2）。"""
-    with pytest.raises(ParamError, match=re.escape("能力未声明：demo.org.missing")) as exc:
-        resolve_capability("demo.org.missing")
+    with pytest.raises(ParamError, match=re.escape("能力未声明：demo.mdm.missing")) as exc:
+        resolve_capability("demo.mdm.missing")
 
     assert exc.value.code == 10001
     assert "请检查产品清单" in str(exc.value)
@@ -138,19 +138,19 @@ def test_resolve_capability_disabled_raises() -> None:
     """已声明但 `status=disabled` → 抛 `ParamError` 并注明状态（用例 17）。"""
     register_collaboration_records((_record(status=CollaborationStatus.DISABLED),))
 
-    with pytest.raises(ParamError, match=re.escape("能力已禁用（status=disabled）：demo.org.user-roles")):
-        resolve_capability("demo.org.user-roles")
+    with pytest.raises(ParamError, match=re.escape("能力已禁用（status=disabled）：demo.mdm.user-roles")):
+        resolve_capability("demo.mdm.user-roles")
 
 
 def test_resolve_capability_deprecated_returns() -> None:
     """`deprecated` 仍在弃用期内可取用（迁移窗口；替代能力名由快照段下发给消费方）。"""
     register_collaboration_records(
-        (_record(status=CollaborationStatus.DEPRECATED, replacement="demo.org.user-roles.v2"),)
+        (_record(status=CollaborationStatus.DEPRECATED, replacement="demo.mdm.user-roles.v2"),)
     )
 
-    endpoint = resolve_capability("demo.org.user-roles")
+    endpoint = resolve_capability("demo.mdm.user-roles")
 
-    assert endpoint.name == "demo.org.user-roles"
+    assert endpoint.name == "demo.mdm.user-roles"
     assert endpoint.path == "/api/v1/demo/user-roles"
 
 
@@ -159,7 +159,7 @@ def test_resolve_codes_capability_has_no_path() -> None:
     register_collaboration_records(
         (
             _record(
-                name="demo.org.admin-codes",
+                name="demo.mdm.admin-codes",
                 kind="codes",
                 path=None,
                 permission_codes=ConcurrentStableFrozenList(("demo:query",)),
@@ -167,7 +167,7 @@ def test_resolve_codes_capability_has_no_path() -> None:
         )
     )
 
-    endpoint = resolve_capability("demo.org.admin-codes")
+    endpoint = resolve_capability("demo.mdm.admin-codes")
 
     assert endpoint.path is None
     assert endpoint.permission_codes == ["demo:query"]
@@ -180,7 +180,7 @@ def test_resolve_write_capability_marks_write_path() -> None:
     register_collaboration_records(
         (
             _record(
-                name="demo.org.user-posts.assign",
+                name="demo.mdm.user-posts.assign",
                 kind="txn-branch",
                 path="/api/v1/demo/internal/user-posts/{user_id}",
                 branch_op="demo.user-posts.assign",
@@ -189,7 +189,7 @@ def test_resolve_write_capability_marks_write_path() -> None:
         )
     )
 
-    endpoint = resolve_capability("demo.org.user-posts.assign")
+    endpoint = resolve_capability("demo.mdm.user-posts.assign")
 
     assert endpoint.is_write_path is True
     assert endpoint.branch_op == "demo.user-posts.assign"
@@ -200,7 +200,7 @@ def test_default_topology_rejects_unregistered_domain() -> None:
     register_collaboration_records((_record(domain="nowhere"),))
 
     with pytest.raises(CatalogError, match="业务域未在部署拓扑登记：nowhere"):
-        resolve_capability("demo.org.user-roles")
+        resolve_capability("demo.mdm.user-roles")
 
 
 def test_topology_resolver_can_be_replaced() -> None:
@@ -228,30 +228,30 @@ def test_topology_resolver_can_be_replaced() -> None:
             )
 
     register_topology_resolver(_LocalResolver())
-    local = resolve_capability("demo.org.user-roles")
+    local = resolve_capability("demo.mdm.user-roles")
     assert local.target.mode == CapabilityMode.LOCAL
-    assert local.target.unit_key == "unit-org"
+    assert local.target.unit_key == "unit-mdm"
     assert local.target.db_keys == ["platform"]
 
     reset_topology_resolver()
-    assert resolve_capability("demo.org.user-roles").target.mode == CapabilityMode.REMOTE
+    assert resolve_capability("demo.mdm.user-roles").target.mode == CapabilityMode.REMOTE
 
 
 def test_domain_service_registry_derives_and_rejects_conflict() -> None:
     """域 → 服务键登记：视图只读副本、按域取服务键、同域异服务即拒。"""
-    assert service_key_for_domain("org") == "mdm"
+    assert service_key_for_domain("mdm") == "mdm"
     assert service_key_for_domain("nothing") is None
-    assert domain_service_view() == {"org": "mdm", "user": "platform"}
+    assert domain_service_view() == {"mdm": "mdm", "user": "platform"}
 
-    with pytest.raises(CatalogError, match="业务域承载服务冲突：'org'"):
-        register_domain_services(ConcurrentStableFrozenDict({"org": "other"}))
+    with pytest.raises(CatalogError, match="业务域承载服务冲突：'mdm'"):
+        register_domain_services(ConcurrentStableFrozenDict({"mdm": "other"}))
 
 
 def test_default_resolver_accepts_custom_template() -> None:
     """默认实现允许换基址模板（部署形态差异不改变解析协议）。"""
     resolver = DomainLayoutTopologyResolver(base_url_template="https://{service}.internal:8443/")
 
-    target = resolver.resolve("org")
+    target = resolver.resolve("mdm")
 
     assert target.base_url == "https://mdm.internal:8443"
     assert target.mode == CapabilityMode.REMOTE
@@ -261,7 +261,7 @@ def test_default_resolver_honors_registered_endpoints() -> None:
     """默认实现按已登记端点覆盖取基址（本机裸跑：回环别名替代 hosts 服务名）。"""
     register_service_endpoints(ConcurrentStableFrozenDict({"mdm": "http://127.0.0.6:8000"}))
     try:
-        target = DomainLayoutTopologyResolver().resolve("org")
+        target = DomainLayoutTopologyResolver().resolve("mdm")
 
         assert target.base_url == "http://127.0.0.6:8000"
         assert target.service_key == "mdm"

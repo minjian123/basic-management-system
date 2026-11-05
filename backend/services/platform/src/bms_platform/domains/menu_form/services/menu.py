@@ -240,7 +240,7 @@ class MenuFormService(BaseFrameworkObject):
     """菜单表单服务（菜单 / 表单 / 按钮 / 字段维护 + 元数据快照 + 缓存 + 事件）。
 
     组合本域仓储、**跨域只读读取器**（权限元数据）与只读探测（角色授权），跨域面以 Protocol 注入、
-    由 `bms_platform.wiring` 装配；继承框架对象层（口径同 `org` 服务的仓储直承型服务）。
+    由 `bms_platform.wiring` 装配；继承框架对象层（口径同主数据服务的仓储直承型服务）。
     """
 
     def __init__(

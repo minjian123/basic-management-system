@@ -89,7 +89,7 @@ class RecordingLogger:
 
 
 def _read_record(
-    *, name: str = "demo.org.user-roles", status: str = CollaborationStatus.ENABLED
+    *, name: str = "demo.mdm.user-roles", status: str = CollaborationStatus.ENABLED
 ) -> CollaborationRecord:
     """构造读类能力记录。
 
@@ -102,7 +102,7 @@ def _read_record(
     """
     return CollaborationRecord(
         name=name,
-        domain="org",
+        domain="mdm",
         kind="read",
         contract_version="0.1.0",
         path="/api/v1/demo/user-roles",
@@ -112,7 +112,7 @@ def _read_record(
     )
 
 
-def _write_record(*, name: str = "demo.org.user-posts.assign") -> CollaborationRecord:
+def _write_record(*, name: str = "demo.mdm.user-posts.assign") -> CollaborationRecord:
     """构造事务分支（写 / 强一致）能力记录。
 
     Args:
@@ -123,7 +123,7 @@ def _write_record(*, name: str = "demo.org.user-posts.assign") -> CollaborationR
     """
     return CollaborationRecord(
         name=name,
-        domain="org",
+        domain="mdm",
         kind="txn-branch",
         contract_version="0.1.0",
         path="/api/v1/demo/internal/user-posts/{user_id}",
@@ -144,7 +144,7 @@ def _isolate_state() -> Iterator[None]:
     reset_collaboration_records()
     reset_capability_usages()
     reset_domain_services()
-    register_domain_services(ConcurrentStableFrozenDict({"org": "mdm"}))
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
     register_collaboration_records((_read_record(), _write_record()))
     yield
     reset_collaboration_records()
@@ -155,7 +155,7 @@ def _isolate_state() -> Iterator[None]:
 def test_usage_registry_register_view_find_and_reset() -> None:
     """使用声明登记：幂等、视图只读副本、按名查找、复位清空。"""
     declaration = CapabilityUsage(
-        name="demo.org.user-roles", degrade=DEGRADE_EMPTY, reason="组织角色链缺失按无角色处理"
+        name="demo.mdm.user-roles", degrade=DEGRADE_EMPTY, reason="岗位 / 部门角色链缺失按无角色处理"
     )
 
     register_capability_usages("platform", (declaration,))
@@ -163,8 +163,8 @@ def test_usage_registry_register_view_find_and_reset() -> None:
 
     assert capability_usages("platform") == [declaration]
     assert capability_usage_view()["platform"] == [declaration]
-    assert find_capability_usage("platform", "demo.org.user-roles") == declaration
-    assert find_capability_usage("platform", "demo.org.other") is None
+    assert find_capability_usage("platform", "demo.mdm.user-roles") == declaration
+    assert find_capability_usage("platform", "demo.mdm.other") is None
     assert capability_usages("identity") == []
 
     reset_capability_usages()
@@ -173,12 +173,12 @@ def test_usage_registry_register_view_find_and_reset() -> None:
 
 def test_usage_registry_rejects_conflict_and_blank_consumer() -> None:
     """登记通道纪律：同消费方异值即拒、消费方标识为空即拒。"""
-    register_capability_usages("platform", (CapabilityUsage(name="demo.org.user-roles"),))
+    register_capability_usages("platform", (CapabilityUsage(name="demo.mdm.user-roles"),))
 
     with pytest.raises(CatalogError, match="能力使用登记冲突：'platform'"):
         register_capability_usages(
             "platform",
-            (CapabilityUsage(name="demo.org.user-roles", degrade=DEGRADE_EMPTY, reason="理由"),),
+            (CapabilityUsage(name="demo.mdm.user-roles", degrade=DEGRADE_EMPTY, reason="理由"),),
         )
 
     with pytest.raises(CatalogError, match="缺少消费方标识"):
@@ -188,8 +188,8 @@ def test_usage_registry_rejects_conflict_and_blank_consumer() -> None:
 def test_valid_declaration_passes_validation() -> None:
     """合规声明（读能力 + 有理由的 `empty` 降级）通过校验。"""
     usages = (
-        CapabilityUsage(name="demo.org.user-roles", degrade=DEGRADE_EMPTY, reason="断链时按无岗位角色处理"),
-        CapabilityUsage(name="demo.org.user-posts.assign"),
+        CapabilityUsage(name="demo.mdm.user-roles", degrade=DEGRADE_EMPTY, reason="断链时按无岗位角色处理"),
+        CapabilityUsage(name="demo.mdm.user-posts.assign"),
     )
 
     assert inspect_capability_usages("platform", usages) == []
@@ -198,14 +198,14 @@ def test_valid_declaration_passes_validation() -> None:
 
 def test_inspection_reports_each_violation() -> None:
     """装载期校验反例：模式非法 / 无理由 / `stale` / 重复 / 未登记 / 已禁用 / 写能力降级（用例 10~12）。"""
-    register_collaboration_records((_read_record(name="demo.org.dept-data", status=CollaborationStatus.DISABLED),))
+    register_collaboration_records((_read_record(name="demo.mdm.dept-data", status=CollaborationStatus.DISABLED),))
     usages = (
-        CapabilityUsage(name="demo.org.user-roles", degrade="degrade-me"),
-        CapabilityUsage(name="demo.org.user-roles", degrade=DEGRADE_EMPTY),
-        CapabilityUsage(name="demo.org.user-roles", degrade=DEGRADE_STALE, reason="旧副本"),
-        CapabilityUsage(name="demo.org.unknown"),
-        CapabilityUsage(name="demo.org.dept-data"),
-        CapabilityUsage(name="demo.org.user-posts.assign", degrade=DEGRADE_EMPTY, reason="写路径不该降级"),
+        CapabilityUsage(name="demo.mdm.user-roles", degrade="degrade-me"),
+        CapabilityUsage(name="demo.mdm.user-roles", degrade=DEGRADE_EMPTY),
+        CapabilityUsage(name="demo.mdm.user-roles", degrade=DEGRADE_STALE, reason="旧副本"),
+        CapabilityUsage(name="demo.mdm.unknown"),
+        CapabilityUsage(name="demo.mdm.dept-data"),
+        CapabilityUsage(name="demo.mdm.user-posts.assign", degrade=DEGRADE_EMPTY, reason="写路径不该降级"),
     )
 
     errors = inspect_capability_usages("platform", usages)
@@ -222,8 +222,8 @@ def test_inspection_reports_each_violation() -> None:
 
 def test_validation_raises_catalog_error() -> None:
     """校验失败即 `CatalogError`（装配期据此拒启），信息定位到能力名。"""
-    with pytest.raises(CatalogError, match=re.escape("能力使用登记校验失败：platform｜能力 demo.org.unknown")):
-        validate_capability_usages("platform", (CapabilityUsage(name="demo.org.unknown"),))
+    with pytest.raises(CatalogError, match=re.escape("能力使用登记校验失败：platform｜能力 demo.mdm.unknown")):
+        validate_capability_usages("platform", (CapabilityUsage(name="demo.mdm.unknown"),))
 
 
 async def test_call_capability_returns_call_result() -> None:
@@ -242,7 +242,7 @@ async def test_call_capability_returns_call_result() -> None:
         return endpoint.access_url()
 
     result = await call_capability(
-        "demo.org.user-roles",
+        "demo.mdm.user-roles",
         consumer="platform",
         metrics=metrics,
         call=_call,
@@ -259,7 +259,7 @@ async def test_call_capability_degrades_only_when_declared(
     """声明 `empty` 且调用失败 → 返回兜底值 + 一条结构化 WARNING + 降级指标计数（用例 7）。"""
     register_capability_usages(
         "platform",
-        (CapabilityUsage(name="demo.org.user-roles", degrade=DEGRADE_EMPTY, reason="断链时按无角色处理"),),
+        (CapabilityUsage(name="demo.mdm.user-roles", degrade=DEGRADE_EMPTY, reason="断链时按无角色处理"),),
     )
     metrics = RecordingMetrics()
     logger = RecordingLogger()
@@ -281,7 +281,7 @@ async def test_call_capability_degrades_only_when_declared(
         raise ServiceUnavailableError("下游不可达")
 
     result = await call_capability(
-        "demo.org.user-roles",
+        "demo.mdm.user-roles",
         consumer="platform",
         metrics=metrics,
         call=_boom,
@@ -292,13 +292,13 @@ async def test_call_capability_degrades_only_when_declared(
     assert metrics.counters == [
         (
             METRIC_CAPABILITY_DEGRADE,
-            {"capability": "demo.org.user-roles", "consumer": "platform", "mode": DEGRADE_EMPTY},
+            {"capability": "demo.mdm.user-roles", "consumer": "platform", "mode": DEGRADE_EMPTY},
         )
     ]
     assert len(logger.events) == 1
     event, fields = logger.events[0]
     assert event == "capability_degrade"
-    assert fields["capability"] == "demo.org.user-roles"
+    assert fields["capability"] == "demo.mdm.user-roles"
     assert fields["consumer"] == "platform"
     assert fields["degrade_mode"] == DEGRADE_EMPTY
     assert fields["reason"] == "断链时按无角色处理"
@@ -325,7 +325,7 @@ async def test_call_capability_raises_when_undeclared() -> None:
 
     with pytest.raises(ServiceUnavailableError, match="下游不可达"):
         await call_capability(
-            "demo.org.user-roles",
+            "demo.mdm.user-roles",
             consumer="platform",
             metrics=metrics,
             call=_boom,
@@ -337,7 +337,7 @@ async def test_call_capability_raises_when_undeclared() -> None:
 
 async def test_call_capability_raises_when_declared_none() -> None:
     """声明 `degrade=none`（显式不降级）同样上抛。"""
-    register_capability_usages("platform", (CapabilityUsage(name="demo.org.user-roles", degrade=DEGRADE_NONE),))
+    register_capability_usages("platform", (CapabilityUsage(name="demo.mdm.user-roles", degrade=DEGRADE_NONE),))
 
     async def _boom(endpoint: object) -> None:
         """恒抛下游不可用。
@@ -353,7 +353,7 @@ async def test_call_capability_raises_when_declared_none() -> None:
 
     with pytest.raises(ServiceUnavailableError):
         await call_capability(
-            "demo.org.user-roles",
+            "demo.mdm.user-roles",
             consumer="platform",
             metrics=RecordingMetrics(),
             call=_boom,
@@ -373,9 +373,9 @@ async def test_call_capability_counts_resolve_error_and_raises() -> None:
         """
         del endpoint
 
-    with pytest.raises(ParamError, match=re.escape("能力未声明：demo.org.missing")):
+    with pytest.raises(ParamError, match=re.escape("能力未声明：demo.mdm.missing")):
         await call_capability(
-            "demo.org.missing",
+            "demo.mdm.missing",
             consumer="platform",
             metrics=metrics,
             call=_unused,
@@ -383,7 +383,7 @@ async def test_call_capability_counts_resolve_error_and_raises() -> None:
         )
 
     assert metrics.counters == [
-        (METRIC_CAPABILITY_RESOLVE_ERROR, {"capability": "demo.org.missing", "consumer": "platform"})
+        (METRIC_CAPABILITY_RESOLVE_ERROR, {"capability": "demo.mdm.missing", "consumer": "platform"})
     ]
 
 
@@ -391,7 +391,7 @@ async def test_call_capability_without_metrics_still_degrades() -> None:
     """无指标器（测试 / 无监控环境）：降级仍生效（指标缺省跳过，日志照常）。"""
     register_capability_usages(
         "platform",
-        (CapabilityUsage(name="demo.org.user-roles", degrade=DEGRADE_EMPTY, reason="断链时按无角色处理"),),
+        (CapabilityUsage(name="demo.mdm.user-roles", degrade=DEGRADE_EMPTY, reason="断链时按无角色处理"),),
     )
 
     async def _boom(endpoint: object) -> None:
@@ -407,7 +407,7 @@ async def test_call_capability_without_metrics_still_degrades() -> None:
         raise ServiceUnavailableError("下游不可达")
 
     result = await call_capability(
-        "demo.org.user-roles",
+        "demo.mdm.user-roles",
         consumer="platform",
         metrics=None,
         call=_boom,

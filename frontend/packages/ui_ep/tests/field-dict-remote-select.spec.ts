@@ -2,7 +2,7 @@
 // kiwi_id: 2262
 // kiwi_id: 2363
 /**
- * 组织选择字段用例（06_05；出口切址 11_02）：契约套件（核心 + 投影）+ 五件 + 工具（防抖 / HTTP 数据源）
+ * 远程字典选择字段用例（06_05；出口切址 11_02）：契约套件（核心 + 投影）+ 五件 + 工具（防抖 / HTTP 数据源）
  * + 占位契约复用；HTTP 数据源端点经寻址契约组装为 **mdm 产品命名空间**（`/api/mdm/v1/mdm`）。
  */
 
@@ -192,9 +192,9 @@ function makeTarget(): DictRemoteSelectContractTarget {
   }
 }
 
-describeDictRemoteSelectContract('组织选择契约（useBaseDictRemoteSelect）', makeTarget)
+describeDictRemoteSelectContract('远程字典选择契约（useBaseDictRemoteSelect）', makeTarget)
 
-describePlaceholderFieldContract('占位字段契约（组织投影，06_01 复用）', () => {
+describePlaceholderFieldContract('占位字段契约（远程字典投影，06_01 复用）', () => {
   const scope = effectScope()
   const api = scope.run(() => useBaseDictRemoteSelect()) as UseBaseDictRemoteSelectResult
   return {
@@ -257,7 +257,7 @@ describe('DictRemoteSelectField', () => {
   it('占位降级：保留 06_01 冻结文案与属性', () => {
     const wrapper = mount(DictRemoteSelectField, { props: { modelValue: undefined }, global: { stubs } })
     expect(wrapper.attributes('data-degraded')).toBe('true')
-    expect(wrapper.find('[data-test="placeholder"]').text()).toContain('组织数据未就绪')
+    expect(wrapper.find('[data-test="placeholder"]').text()).toContain('字典数据未就绪')
   })
 
   it('就绪 + 数据源：展开触发首屏候选并渲染候选（含停用标记）', async () => {
@@ -431,7 +431,7 @@ describe('DictCompositePicker', () => {
   })
 })
 
-describe('工具：防抖与组织数据源', () => {
+describe('工具：防抖与字典数据源', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.useRealTimers()
@@ -459,7 +459,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -494,7 +494,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -515,7 +515,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -545,7 +545,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -570,7 +570,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -594,7 +594,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -652,7 +652,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.mdm.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })

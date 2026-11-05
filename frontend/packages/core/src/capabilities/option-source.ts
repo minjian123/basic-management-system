@@ -2,7 +2,7 @@
  * 选项源能力基类：加载 / 缓存与版本比对 / 搜索 / 回显（加载器由宿主注入，占位不请求）。
  *
  * 父基类 `BaseField`（经值链 `BaseValue → BaseField` 取得受控值与字段语义），
- * 供字典 / 组织 / 枚举 / 树 / 级联等字段族派生；`BaseOrgSelect` 即其下位组件基类。
+ * 供字典 / 远程字典 / 枚举 / 树 / 级联等字段族派生；`BaseDictRemoteSelect` 即其下位组件基类。
  */
 
 import { BaseField } from './field'

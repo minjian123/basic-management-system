@@ -4,7 +4,7 @@
 并由 `test_table_covers_every_default_constructible_exception` 反向枚举模块内所有子类做完整性自校验——
 将来新增可缺省构造的异常类而未登记本表，用例直接失败，不会像抽样清单那样静默留下覆盖率缺口。
 
-无法无参构造的段位基类（`UserOrgError` / `RoleError` / `MenuError` / `ConfigParamError` /
+无法无参构造的段位基类（`UserDataError` / `RoleError` / `MenuError` / `ConfigParamError` /
 `OidcError` / `FileError` / `ImportError` / `PrintError` / `ClientError` / `OpenTenantError` /
 `AccountLockError` / `GeneralError` / `TaskError`）不在此表：它们的 `__init__` 只做透传，
 覆盖由各自子类完成。

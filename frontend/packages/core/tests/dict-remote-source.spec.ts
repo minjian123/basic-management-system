@@ -1,6 +1,6 @@
 // kiwi_id: 2363
 /**
- * 组织数据源插件基类与注册表契约用例（06_05 / 07B 03_02）：
+ * 字典数据源插件基类与注册表契约用例（06_05 / 07B 03_02）：
  * 基类默认实现（未覆写即不请求）、注册项工厂字段、注册表同键拒重。
  */
 
@@ -11,7 +11,7 @@ import { BaseDictRemoteSource, DictRemoteSourceProvider, DictRemoteSourceRegistr
 /** 基类探针实现（不覆写任何方法，验证默认契约）。 */
 class ProbeDictRemoteSource extends BaseDictRemoteSource {}
 
-describe('组织数据源基类默认实现（06_05）', () => {
+describe('字典数据源基类默认实现（06_05）', () => {
   it('未覆写的方法一律返回 undefined（不请求）', async () => {
     const source = new ProbeDictRemoteSource()
 
@@ -24,7 +24,7 @@ describe('组织数据源基类默认实现（06_05）', () => {
   })
 })
 
-describe('组织数据源注册表（06_05）', () => {
+describe('字典数据源注册表（06_05）', () => {
   it('登记与按键取用；同键重复登记抛错', () => {
     const source = new ProbeDictRemoteSource()
     const provider = new DictRemoteSourceProvider('probe', () => source)

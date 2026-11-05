@@ -1,7 +1,7 @@
 """platform 内部用户只读出口测试（Kiwi 2257 / 2275）：服务层筛选 + 端点服务 JWT 鉴权 + 契约字段。
 
 覆盖任务 `02_06 平台用户只读出口内部契约`——`POST /api/v1/platform/internal/users/query`
-（`require_service("mdm")`，供 mdm 组织域只读出口取用户明细）；字段集断言随
+（`require_service("mdm")`，供 mdm 跨产品域只读出口取用户明细）；字段集断言随
 `02_01` 嵌套子任务 `_01 平台用户只读出口字段收口` 收口（**Kiwi 2275**：响应不含 `dept_id`）。
 """
 
@@ -186,7 +186,7 @@ async def test_internal_query_endpoint_requires_mdm_service(client: AsyncClient,
     assert item["status"] == "enabled"
     assert item["phone"] == "13800000001"
     assert item["email"] == "alice@example.com"
-    # 用户＝系统账号：不含组织字段（部门关系归 mdm，需求 07-11）
+    # 用户＝系统账号：不含部门 / 岗位字段（部门关系归 mdm，需求 07-11）
     assert "dept_id" not in item
     assert "password_hash" not in item and "locked_until" not in item
 

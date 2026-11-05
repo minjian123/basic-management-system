@@ -650,7 +650,7 @@ record_dirs = ["实施"]
 [rules.prototype]
 record_pattern = '^bms文档/项目/[^/]+/任务/.+/测试/[^/]+\.md$'
 context_pattern = '^bms文档/项目/[^/]+/任务/.+/(设计|实施|测试)/[^/]+\.md$'
-prototype_ref_pattern = "设计/((?:原型设计|组件设计)/[^\\s()\\[\\]\"'`<>|]*\\.html)"
+prototype_ref_pattern = "(设计/(?:原型设计|组件设计)/[^\\s()\\[\\]\"'`<>|{},]*\\.html)"
 ui_patterns = [
   '^frontend/apps/desktop/src/(views|components|layouts)/',
   '^frontend/packages/ui_ep/src/',

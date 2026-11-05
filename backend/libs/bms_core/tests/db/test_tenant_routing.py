@@ -153,12 +153,12 @@ async def test_session_routes_by_tenant_db_key(tmp_path: Path) -> None:
 async def test_platform_service_db_split_and_boundary(tmp_path: Path) -> None:
     """平台服务库按服务拆分（06_01）：各服务连自身 `bms_{service}`；跨服务取键越界被拒。"""
     settings = Settings()
-    settings.app.service = "org"
+    settings.app.service = "mdm"
     settings.database.platform.url_template = f"sqlite+aiosqlite:///{tmp_path}/bms_{{service}}.db"
     settings.database.tenants.url_template = f"sqlite+aiosqlite:///{tmp_path}/bms_{{service}}_{{tenant}}.db"
     factory = EngineFactory(settings)
-    assert factory.resolve_url("platform").endswith("/bms_org.db")
-    assert factory.resolve_url("tenant_demo").endswith("/bms_org_demo.db")
+    assert factory.resolve_url("platform").endswith("/bms_mdm.db")
+    assert factory.resolve_url("tenant_demo").endswith("/bms_mdm_demo.db")
 
     platform_key = "platform_platform"
     registry = EngineRegistry(factory)

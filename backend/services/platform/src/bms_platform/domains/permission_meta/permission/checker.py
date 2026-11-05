@@ -95,7 +95,7 @@ async def build_platform_source(request: Request) -> PlatformPermissionDataSourc
     service_client = cast("BaseServiceClient", request.app.state.service_client)
     metrics = cast("BaseMetrics | None", getattr(request.app.state, "metrics", None))
     ttl = DEFAULT_METADATA_TTL
-    require_org = False
+    require_dept_post = False
     # `options` 是基座契约集合 `ConcurrentStableDict`（非内建 dict），按 Mapping 读取
     raw_options: object = settings.permission.options
     if isinstance(raw_options, Mapping):
@@ -103,14 +103,14 @@ async def build_platform_source(request: Request) -> PlatformPermissionDataSourc
         raw_ttl = options.get("snapshot_ttl_seconds")
         if isinstance(raw_ttl, int) and not isinstance(raw_ttl, bool):
             ttl = raw_ttl
-        require_org = bool(options.get("require_org_roles", False))
+        require_dept_post = bool(options.get("require_dept_post_roles", False))
     resolvers_builder = cast("RoleResolversBuilder", request.app.state.role_resolvers_factory)
     grants_factory = cast("GrantsFactory", request.app.state.role_grant_factory)
     return PlatformPermissionDataSource(
         registry=registry,
         cache=cache,
         resolvers_factory=partial(
-            resolvers_builder, service_client=service_client, require_org=require_org, metrics=metrics
+            resolvers_builder, service_client=service_client, require_dept_post=require_dept_post, metrics=metrics
         ),
         grants_factory=grants_factory,
         field_provider_factory=build_static_field_provider,

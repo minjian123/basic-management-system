@@ -43,8 +43,8 @@ def _collaboration(
         CollaborationRecord: 能力记录。
     """
     return CollaborationRecord(
-        name="demo.org.user-roles",
-        domain="org",
+        name="demo.mdm.user-roles",
+        domain="mdm",
         kind=kind,
         contract_version=contract_version,
         path=path,

@@ -44,7 +44,7 @@ def _reset_product_registries() -> Iterator[None]:  # pyright: ignore[reportUnus
     """产品登记装载复位：装配期 / 注册投影写入的八类视图与域布局不跨用例残留。
 
     07B `04_02`：`check_modules` 跨仓档会在一次性库上跑注册（`project_registry` 投影八类视图）
-    并登记域布局，同进程后续用例（尤其平台服务的 `org → mdm`）会与之冲突，故复位面扩到全部视图。
+    并登记域布局，同进程后续用例（尤其平台服务的 `mdm → mdm`）会与之冲突，故复位面扩到全部视图。
 
     Yields:
         None: 用例运行期。

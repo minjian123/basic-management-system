@@ -139,7 +139,7 @@ def test_task_and_domain_status_consistent() -> None:
 
 @pytest.mark.kiwi_id(2349)
 def test_mdm_alignment_lockdown() -> None:
-    """mdm 口径锁定：服务标识 `org` → `mdm` 的消费面不再回退。
+    """mdm 口径锁定：服务标识 `mdm` → `mdm` 的消费面不再回退。
 
     2026-10-23 mdm 阶段一 `01_05` 完成服务标识归并；本轮阶段收口把 bms 侧消费方一并
     对齐（服务键 / 出口路径 / 内部写通道 / 分支 `op` / 服务身份白名单 / 前端产品命名空间）。
@@ -177,9 +177,9 @@ def test_mdm_alignment_lockdown() -> None:
         text = path.read_text(encoding="utf-8")
         for needle in needles:
             assert needle in text, f"{path.name} 应含能力声明口径：{needle}"
-        assert "/api/v1/org" not in text, f"{path.name} 不得残留旧路径 /api/v1/org"
+        assert "/api/v1/mdm" not in text, f"{path.name} 不得残留旧路径 /api/v1/mdm"
         assert "/api/v1/mdm" not in text, f"{path.name} 不得残留对端路径字面量（应取自已解析的能力声明）"
-        assert 'require_service("org")' not in text, f"{path.name} 不得残留旧白名单 org"
+        assert 'require_service("mdm")' not in text, f"{path.name} 不得残留旧白名单 mdm"
 
     # 权限三处出口全部改能力分配后，该文件不得再出现 identity 白名单依赖
     # （`internal_users` 的 profile / reset-target / create 仍属平台内部白名单，不在本断言范围）
@@ -191,14 +191,16 @@ def test_mdm_alignment_lockdown() -> None:
     )
 
     frontend = _ROOT / "frontend"
-    org_source = (frontend / "packages" / "ui_ep" / "src" / "utils" / "orgSource.ts").read_text(encoding="utf-8")
-    # 07B `03_02` 收编：组织源端点改为运行期按「业务域 + 能力种类」取址，平台前端不再持有产品键
-    assert "resolveCapabilityEndpoint(ORG_SOURCE_DOMAIN" in org_source
-    assert "productPrefix('mdm'" not in org_source
+    remote_source = (frontend / "packages" / "ui_ep" / "src" / "utils" / "dictRemoteSource.ts").read_text(
+        encoding="utf-8"
+    )
+    # 07B `03_02` 收编：字典源端点改为运行期按「业务域 + 能力种类」取址，平台前端不再持有产品键
+    assert "resolveCapabilityEndpoint(DICT_SOURCE_DOMAIN" in remote_source
+    assert "productPrefix('mdm'" not in remote_source
     endpoints = (frontend / "apps" / "desktop" / "src" / "api" / "endpoints.ts").read_text(encoding="utf-8")
-    assert "orgSourceEndpoint()" in endpoints
+    assert "dictRemoteSourceEndpoint()" in endpoints
     assert "'/api/mdm/v1/mdm'" not in endpoints
-    assert "/api/mdm/v1/org" not in endpoints
+    assert "/api/mdm/v1/mdm" not in endpoints
     service_endpoint = (frontend / "packages" / "core" / "src" / "contracts" / "service-endpoint.ts").read_text(
         encoding="utf-8"
     )

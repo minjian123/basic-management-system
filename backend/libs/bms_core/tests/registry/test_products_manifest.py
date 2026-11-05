@@ -88,8 +88,8 @@ strategies = ["select", "region"]
 status = "enabled"
 
 [[collaborations]]
-name = "demo.org.dept-data"
-domain = "org"
+name = "demo.mdm.dept-data"
+domain = "mdm"
 kind = "dataset"
 path = "/api/v1/demo/data-source/dept-tree"
 data_source_key = "demo_dept"
@@ -108,7 +108,7 @@ description = "管理面业务码与权限码"
 
 # 第九类：业务域声明（07B `04_02` 重开——域布局的唯一信息源，不再读 domain_layout.json）
 [[domains]]
-domain_key = "org"
+domain_key = "mdm"
 service_key = "demo"
 status = "planned"
 
@@ -122,7 +122,7 @@ status = "planned"
 _CONTRACT_PATHS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("/api/v1/demo/data-source/dept-tree",))
 """默认对端契约中的访问面路径。"""
 
-_DOMAINS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("org", "demo"))
+_DOMAINS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("mdm", "demo"))
 """默认域布局中的业务域标识。"""
 
 
@@ -307,7 +307,7 @@ def test_load_full_manifest(tmp_path: Path) -> None:
     assert data_source.strategies == ["select", "region"]
     assert data_source.cascade is True
     collaboration = manifest.collaborations[0]
-    assert collaboration.name == "demo.org.dept-data"
+    assert collaboration.name == "demo.mdm.dept-data"
     assert collaboration.kind == "dataset"
     assert collaboration.data_source_key == "demo_dept"
     assert collaboration.default_consumers == ["platform"]
@@ -436,7 +436,7 @@ def test_load_manifest_rejects_ownership_mismatch(tmp_path: Path) -> None:
         ),
         (
             "能力产品归属不符",
-            'product_key = "demo"\n\n[[collaborations]]\nname = "demo.org.x"\ndomain = "org"\n'
+            'product_key = "demo"\n\n[[collaborations]]\nname = "demo.mdm.x"\ndomain = "mdm"\n'
             'kind = "codes"\ncontract_version = "0.1.0"\npermission_codes = ["demo:query"]\n'
             'product_key = "other"\n',
         ),
@@ -540,7 +540,7 @@ def test_register_manifest_feeds_all_views(tmp_path: Path) -> None:
     assert "demo" in [record.product_key for record in product_catalog_view()]
     assert "demo" in [record.product_key for record in product_routes_view()]
     assert "demo_dept" in [record.data_source_key for record in data_source_records_view()]
-    assert "demo.org.dept-data" in [record.name for record in collaboration_catalog_view()]
+    assert "demo.mdm.dept-data" in [record.name for record in collaboration_catalog_view()]
     assert "demo-admin-codes" in [record.name for record in seed_catalog_view()]
 
 
@@ -619,7 +619,7 @@ def test_inspect_collaboration_duplicate_name(tmp_path: Path, monkeypatch: pytes
     _point_base(monkeypatch, tmp_path)
     first = _write(tmp_path, _TOML)
     other = _TOML.replace('product_key = "demo"', 'product_key = "other"').replace(
-        "demo.org.dept-data", "demo.org.dept-data"
+        "demo.mdm.dept-data", "demo.mdm.dept-data"
     )
     other = other.replace("demo_dept", "other_dept").replace("demo-admin-codes", "other-admin-codes")
     second = _write(tmp_path, other, name="other.toml")
@@ -629,7 +629,7 @@ def test_inspect_collaboration_duplicate_name(tmp_path: Path, monkeypatch: pytes
 
     errors = inspect_product_manifests(ConcurrentStableList([first, second])).errors
 
-    assert any("能力重名：demo.org.dept-data" in error for error in errors)
+    assert any("能力重名：demo.mdm.dept-data" in error for error in errors)
 
 
 def test_inspect_collaboration_same_name_same_value(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -663,14 +663,14 @@ def test_inspect_domain_not_registered(tmp_path: Path, monkeypatch: pytest.Monke
         monkeypatch: pytest monkeypatch 夹具。
     """
     _point_base(monkeypatch, tmp_path)
-    text = _TOML.replace('[[domains]]\ndomain_key = "org"\nservice_key = "demo"\nstatus = "planned"\n', "")
+    text = _TOML.replace('[[domains]]\ndomain_key = "mdm"\nservice_key = "demo"\nstatus = "planned"\n', "")
     path = _write(tmp_path, text)
     _write_contract(tmp_path)
     _install_seed_package(monkeypatch)
 
     errors = inspect_product_manifests(ConcurrentStableList([path])).errors
 
-    assert any("提供方业务域未登记（org）" in error for error in errors)
+    assert any("提供方业务域未登记（mdm）" in error for error in errors)
 
 
 def test_inspect_domain_without_service_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -683,7 +683,7 @@ def test_inspect_domain_without_service_key(tmp_path: Path, monkeypatch: pytest.
         monkeypatch: pytest monkeypatch 夹具。
     """
     _point_base(monkeypatch, tmp_path)
-    text = _TOML.replace('domain_key = "org"\nservice_key = "demo"', 'domain_key = "org"\nservice_key = "ghost"')
+    text = _TOML.replace('domain_key = "mdm"\nservice_key = "demo"', 'domain_key = "mdm"\nservice_key = "ghost"')
     path = _write(tmp_path, text)
     _write_contract(tmp_path)
     _install_seed_package(monkeypatch)
@@ -721,8 +721,8 @@ def test_inspect_domain_status_invalid(tmp_path: Path, monkeypatch: pytest.Monke
     """
     _point_base(monkeypatch, tmp_path)
     text = _TOML.replace(
-        'domain_key = "org"\nservice_key = "demo"\nstatus = "planned"',
-        'domain_key = "org"\nservice_key = "demo"\nstatus = "bogus"',
+        'domain_key = "mdm"\nservice_key = "demo"\nstatus = "planned"',
+        'domain_key = "mdm"\nservice_key = "demo"\nstatus = "bogus"',
     )
     path = _write(tmp_path, text)
     _write_contract(tmp_path)
@@ -763,14 +763,14 @@ def test_layout_registry_map_derived_from_manifests(tmp_path: Path, monkeypatch:
     """
     _point_base(monkeypatch, tmp_path)
     first = _write(tmp_path, _TOML, name="a.toml")
-    second_text = _TOML.replace('domain_key = "org"\nservice_key = "demo"', 'domain_key = "org"\nservice_key = "other"')
+    second_text = _TOML.replace('domain_key = "mdm"\nservice_key = "demo"', 'domain_key = "mdm"\nservice_key = "other"')
     second = _write(tmp_path, second_text, name="b.toml")
 
     inspection = inspect_product_manifests(ConcurrentStableList([first, second]))
 
     # 跨清单同域不同承载服务：警示（不静默），且取先出现的
     assert any("业务域跨清单承载服务冲突" in warning for warning in inspection.warnings)
-    assert inspection.domain_services["org"] == "demo"
+    assert inspection.domain_services["mdm"] == "demo"
 
 
 def test_domain_record_rejects_non_string_list(tmp_path: Path) -> None:
@@ -801,7 +801,7 @@ def test_domain_record_rejects_multi_public_api(tmp_path: Path) -> None:
 
 def test_domain_key_format_rejected(tmp_path: Path) -> None:
     """域标识格式非法：解析期拒（`DomainEntry` 是纯数据类，格式在清单解析处把关）。"""
-    text = _TOML.replace('domain_key = "org"', 'domain_key = "Bad-Domain"')
+    text = _TOML.replace('domain_key = "mdm"', 'domain_key = "Bad-Domain"')
     with pytest.raises(CatalogError, match="标识须匹配"):
         load_product_manifest(_write(tmp_path, text, name="badkey.toml"))
 
@@ -809,7 +809,7 @@ def test_domain_key_format_rejected(tmp_path: Path) -> None:
 def test_domain_duplicate_within_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """同一清单内业务域重复声明：装载校验拒收。"""
     _point_base(monkeypatch, tmp_path)
-    text = _TOML + '\n[[domains]]\ndomain_key = "org"\nservice_key = "demo"\nstatus = "planned"\n'
+    text = _TOML + '\n[[domains]]\ndomain_key = "mdm"\nservice_key = "demo"\nstatus = "planned"\n'
     path = _write(tmp_path, text)
     _write_contract(tmp_path)
     _install_seed_package(monkeypatch)
@@ -821,7 +821,7 @@ def test_domain_duplicate_within_manifest(tmp_path: Path, monkeypatch: pytest.Mo
 
 def test_domain_without_service_key_errors(tmp_path: Path) -> None:
     """域声明缺承载服务：解析期即拒（`service_key` 是必填，能力寻址第二段无解）。"""
-    text = _TOML.replace('domain_key = "org"\nservice_key = "demo"', 'domain_key = "org"')
+    text = _TOML.replace('domain_key = "mdm"\nservice_key = "demo"', 'domain_key = "mdm"')
     with pytest.raises(CatalogError, match="service_key"):
         load_product_manifest(_write(tmp_path, text, name="nosvc.toml"))
 
@@ -924,7 +924,7 @@ def test_inspect_kind_element_mismatch(tmp_path: Path, monkeypatch: pytest.Monke
     )
     for index, (message, body) in enumerate(cases):
         text = (
-            'product_key = "demo"\n\n[[collaborations]]\nname = "demo.org.x"\ndomain = "org"\n'
+            'product_key = "demo"\n\n[[collaborations]]\nname = "demo.mdm.x"\ndomain = "mdm"\n'
             f'contract_version = "0.2.0"\n{body}'
         )
         with pytest.raises(CatalogError, match=message):
@@ -942,10 +942,10 @@ def test_inspect_codes_kind_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     text = (
         'product_key = "demo"\n\n[[services]]\nmodule_key = "demo"\nname = "演示服务"\n'
         'table_prefix = "demo_"\nevent_domain = "demo"\ncontract_version = "0.2.0"\n\n'
-        '[[collaborations]]\nname = "demo.org.admin-codes"\ndomain = "org"\nkind = "codes"\n'
+        '[[collaborations]]\nname = "demo.mdm.admin-codes"\ndomain = "mdm"\nkind = "codes"\n'
         'contract_version = "0.2.0"\npermission_codes = ["demo:query", "demo:create"]\n'
         'default_consumers = ["platform"]\n'
-        '\n[[domains]]\ndomain_key = "org"\nservice_key = "demo"\nstatus = "planned"\n'
+        '\n[[domains]]\ndomain_key = "mdm"\nservice_key = "demo"\nstatus = "planned"\n'
     )
     path = _write(tmp_path, text)
     _write_contract(tmp_path, ConcurrentStableFrozenList())
@@ -967,7 +967,7 @@ def test_inspect_domain_without_domain_key(tmp_path: Path, monkeypatch: pytest.M
         monkeypatch: pytest monkeypatch 夹具。
     """
     _point_base(monkeypatch, tmp_path)
-    text = _TOML.replace('[[domains]]\ndomain_key = "org"\n', "[[domains]]\n")
+    text = _TOML.replace('[[domains]]\ndomain_key = "mdm"\n', "[[domains]]\n")
     path = _write(tmp_path, text)
     _write_contract(tmp_path)
     _install_seed_package(monkeypatch)
@@ -988,7 +988,7 @@ def test_inspect_service_without_service_key(tmp_path: Path, monkeypatch: pytest
     text = (
         'product_key = "demo"\n\n[[services]]\nmodule_key = "demo"\nname = "演示服务"\n'
         'table_prefix = "demo_"\nevent_domain = "demo"\n\n'
-        '[[collaborations]]\nname = "demo.org.admin-codes"\ndomain = "org"\nkind = "codes"\n'
+        '[[collaborations]]\nname = "demo.mdm.admin-codes"\ndomain = "mdm"\nkind = "codes"\n'
         'contract_version = "0.1.0"\npermission_codes = ["demo:query"]\n'
         'default_consumers = ["platform", "demo"]\n'
     )
@@ -1011,10 +1011,10 @@ def test_inspect_same_branch_id_same_domain(tmp_path: Path, monkeypatch: pytest.
         'product_key = "demo"\n\n[[services]]\nmodule_key = "demo"\nname = "演示服务"\n'
         'table_prefix = "demo_"\nevent_domain = "demo"\ncontract_version = "0.2.0"\n\n'
         '[[product_routes]]\nproduct_key = "demo"\ndomain = "mdm"\nservice_key = "demo"\n\n'
-        '[[collaborations]]\nname = "demo.org.user-posts.assign"\ndomain = "org"\nkind = "txn-branch"\n'
+        '[[collaborations]]\nname = "demo.mdm.user-posts.assign"\ndomain = "mdm"\nkind = "txn-branch"\n'
         'path = "/api/v1/demo/internal/user-posts/{user_id}"\nbranch_id = "m"\n'
         'branch_op = "demo.user-posts.assign"\ncontract_version = "0.2.0"\n\n'
-        '[[collaborations]]\nname = "demo.org.user-depts.assign"\ndomain = "org"\nkind = "txn-branch"\n'
+        '[[collaborations]]\nname = "demo.mdm.user-depts.assign"\ndomain = "mdm"\nkind = "txn-branch"\n'
         'path = "/api/v1/demo/internal/user-depts/{user_id}"\nbranch_id = "m"\n'
         'branch_op = "demo.user-depts.assign"\ncontract_version = "0.2.0"\n'
     )
@@ -1047,7 +1047,7 @@ def test_inspect_frontend_prefix_underivable(tmp_path: Path, monkeypatch: pytest
     base = (
         'product_key = "demo"\n\n[[services]]\nmodule_key = "demo"\nname = "演示服务"\n'
         'table_prefix = "demo_"\nevent_domain = "demo"\ncontract_version = "0.2.0"\n\n'
-        '[[collaborations]]\nname = "demo.org.dept-data"\ndomain = "org"\nkind = "dataset"\n'
+        '[[collaborations]]\nname = "demo.mdm.dept-data"\ndomain = "mdm"\nkind = "dataset"\n'
         'path = "/api/v1/demo/data-source/dept-tree"\ndata_source_key = "demo_dept"\n'
         'contract_version = "0.2.0"\n'
     )
@@ -1058,7 +1058,7 @@ def test_inspect_frontend_prefix_underivable(tmp_path: Path, monkeypatch: pytest
     multi = base.replace(
         'contract_version = "0.2.0"\n\n[[collaborations]]',
         'contract_version = "0.2.0"\n\n[[product_routes]]\nproduct_key = "demo"\ndomain = "mdm"\n'
-        'service_key = "demo"\n\n[[product_routes]]\nproduct_key = "demo"\ndomain = "org"\n'
+        'service_key = "demo"\n\n[[product_routes]]\nproduct_key = "demo"\ndomain = "crm"\n'
         'service_key = "demo"\n\n[[collaborations]]',
     )
     errors = inspect_product_manifests(ConcurrentStableList([_write(tmp_path, multi, name="multi-route.toml")])).errors
@@ -1085,7 +1085,7 @@ def test_inspect_collaboration_field_errors(tmp_path: Path) -> None:
         message, body = case[0], case[1]
         version = case[2] if len(case) > 2 else "0.2.0"
         text = (
-            'product_key = "demo"\n\n[[collaborations]]\nname = "demo.org.x"\ndomain = "org"\n'
+            'product_key = "demo"\n\n[[collaborations]]\nname = "demo.mdm.x"\ndomain = "mdm"\n'
             f'contract_version = "{version}"\n{body}'
         )
         with pytest.raises(CatalogError, match=message):
@@ -1252,15 +1252,15 @@ def test_inspect_branch_id_cross_domain(tmp_path: Path, monkeypatch: pytest.Monk
     _write_layout(tmp_path)
     _install_seed_package(monkeypatch)
     first = _TOML.replace(
-        '[[collaborations]]\nname = "demo.org.dept-data"\ndomain = "org"\nkind = "dataset"\n'
+        '[[collaborations]]\nname = "demo.mdm.dept-data"\ndomain = "mdm"\nkind = "dataset"\n'
         'path = "/api/v1/demo/data-source/dept-tree"\ndata_source_key = "demo_dept"\nfrontend_prefix = "demo"\n'
         'contract_version = "0.2.0"\ndefault_consumers = ["platform"]',
-        '[[collaborations]]\nname = "demo.org.user-posts.assign"\ndomain = "org"\nkind = "txn-branch"\n'
+        '[[collaborations]]\nname = "demo.mdm.user-posts.assign"\ndomain = "mdm"\nkind = "txn-branch"\n'
         'path = "/api/v1/demo/internal/user-posts/{user_id}"\nbranch_id = "m"\n'
         'branch_op = "demo.user-posts.assign"\ncontract_version = "0.2.0"\ndefault_consumers = ["platform"]',
     )
-    second = first.replace('domain = "org"', 'domain = "demo"').replace(
-        'name = "demo.org.user-posts.assign"', 'name = "demo.demo.role-posts.assign"'
+    second = first.replace('domain = "mdm"', 'domain = "demo"').replace(
+        'name = "demo.mdm.user-posts.assign"', 'name = "demo.demo.role-posts.assign"'
     )
     errors = inspect_product_manifests(
         ConcurrentStableList(
@@ -1314,7 +1314,7 @@ def test_inspect_type_tightening(tmp_path: Path) -> None:
         load_product_manifest(
             _write(
                 tmp_path,
-                'product_key = "demo"\n\n[[collaborations]]\nname = "demo.org.x"\ndomain = "org"\n'
+                'product_key = "demo"\n\n[[collaborations]]\nname = "demo.mdm.x"\ndomain = "mdm"\n'
                 'kind = "codes"\ncontract_version = "0.1.0"\npermission_codes = [1]\n',
                 name="codes.toml",
             )

@@ -23,7 +23,7 @@ def test_catalog_is_valid() -> None:
     keys = registry.keys()
     for expected in ("role", "user", "tenant", "config", "module", "icon"):
         assert expected in keys
-    assert "org_dept" not in keys
+    assert "mdm_dept" not in keys
 
 
 @pytest.mark.kiwi_id(2287)

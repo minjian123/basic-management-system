@@ -709,7 +709,7 @@
             "type": "integer"
           },
           "user_id": {
-            "description": "用户主键（org 服务 sys_user.id）",
+            "description": "用户主键（主数据服务 sys_user.id）",
             "title": "User Id",
             "type": "integer"
           }

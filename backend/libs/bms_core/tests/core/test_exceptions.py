@@ -14,7 +14,7 @@ from bms_core.core.exceptions import (
     NotFoundError,
     ParamError,
     PermissionError,
-    UserOrgError,
+    UserDataError,
 )
 from bms_core.schemas.common import ApiResponse
 
@@ -50,12 +50,12 @@ def test_subclass_codes_and_status() -> None:
 
 @pytest.mark.kiwi_id(31)
 def test_segment_base_classes() -> None:
-    """按段位分基：通用段子类继承 GeneralError；权限不足继承 UserOrgError。"""
+    """按段位分基：通用段子类继承 GeneralError；权限不足继承 UserDataError。"""
     for cls in (InternalError, ParamError, NotFoundError, ConflictError, ConcurrentConflictError):
         assert issubclass(cls, GeneralError)
     assert issubclass(GeneralError, BizError)
-    assert issubclass(UserOrgError, BizError)
-    assert issubclass(PermissionError, UserOrgError)
+    assert issubclass(UserDataError, BizError)
+    assert issubclass(PermissionError, UserDataError)
     assert issubclass(AuthError, BizError)
 
 
@@ -65,7 +65,7 @@ def test_error_segments() -> None:
     assert ErrorSegment.GENERAL == 1
     assert ErrorCode.NOT_FOUND // 10000 == ErrorSegment.GENERAL
     assert ErrorCode.AUTH // 10000 == ErrorSegment.AUTH
-    assert ErrorCode.PERMISSION // 10000 == ErrorSegment.USER_ORG
+    assert ErrorCode.PERMISSION // 10000 == ErrorSegment.USER_DATA
 
 
 @pytest.mark.kiwi_id(31)

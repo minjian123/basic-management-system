@@ -86,13 +86,13 @@ describe('ModuleTelemetry（Kiwi 982）', () => {
 describe('守卫决策记录聚合（Kiwi 2231）', () => {
   it('归入平台组 guards（不污染模块组），保持时间序', () => {
     const telemetry = new ModuleTelemetry()
-    telemetry.record({ kind: 'guard', decision: 'login', path: '/org/users', reason: 'no-session', at })
+    telemetry.record({ kind: 'guard', decision: 'login', path: '/mdm/users', reason: 'no-session', at })
     telemetry.record({ kind: 'guard', decision: 'allow', path: '/', reason: 'session-ready', at })
     telemetry.record({ kind: 'load', name: 'demo', version: '0.1.0', phase: 'resolve', durationMs: 1, ok: true, at })
 
     const snapshot = telemetry.snapshot()
     expect(snapshot.platform.guards.map((item) => [item.decision, item.path, item.reason])).toEqual([
-      ['login', '/org/users', 'no-session'],
+      ['login', '/mdm/users', 'no-session'],
       ['allow', '/', 'session-ready'],
     ])
     expect(Object.keys(snapshot.modules.demo).sort()).toEqual(['errors', 'load', 'version', 'vitals'])
@@ -103,7 +103,7 @@ describe('守卫决策记录聚合（Kiwi 2231）', () => {
     const reporter = new InMemoryModuleReporter()
     const telemetry = new ModuleTelemetry({ reporter })
 
-    telemetry.record({ kind: 'guard', decision: 'forbidden', path: '/org/users', reason: 'perm-denied', at })
+    telemetry.record({ kind: 'guard', decision: 'forbidden', path: '/mdm/users', reason: 'perm-denied', at })
 
     expect(reporter.records()).toHaveLength(1)
     expect(reporter.records()[0]?.kind).toBe('guard')

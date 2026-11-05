@@ -44,7 +44,7 @@ describe('blocksModuleFailure（Kiwi 2243）', () => {
   it('其他模块路由与平台自身路由：不阻断', () => {
     expect(blocked('/demo', 'demo')).toBe(false)
     expect(blocked('/', undefined)).toBe(false)
-    expect(blocked('/org/users', undefined)).toBe(false)
+    expect(blocked('/mdm/users', undefined)).toBe(false)
   })
 
   it('模块清单失败（modules.json）：不阻断宿主页面（保住登录与错误页可达）', () => {

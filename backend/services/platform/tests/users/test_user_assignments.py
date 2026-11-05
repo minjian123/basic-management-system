@@ -1,8 +1,8 @@
 """用户保存编排（`02_02/_02` · Kiwi 2278）：分段校验 + 双路径编排（顺序提交路径）+ 提交后副作用。
 
 覆盖：分段收集（`null` 不参与）与「主要项须落在集合内」（10001）；`provider=null` 顺序提交路径的
-编排顺序（platform 本地写入 → 组织域内部写通道 ×2）与提交后副作用（角色段 ⇒ 权限版本 +1；停用 ⇒
-会话失效尽力而为）；组织域**分支载荷**构造（同一分支内两 op）。
+编排顺序（platform 本地写入 → 跨产品域内部写通道 ×2）与提交后副作用（角色段 ⇒ 权限版本 +1；停用 ⇒
+会话失效尽力而为）；跨产品域**分支载荷**构造（同一分支内两 op）。
 XA 全局事务路径的真库两阶段由 CI `2pc` 作业与 `05_07` 收尾验证（本机无 docker / 无真库）。
 """
 
@@ -27,9 +27,9 @@ from bms_platform.domains.user.schemas.users import (
 )
 from bms_platform.domains.user.services.user_assignments import (
     UserAssignmentsService,
-    build_org_ops,
+    build_branch_ops,
     collect_segments,
-    resolve_org_endpoints,
+    resolve_branch_endpoints,
 )
 
 pytestmark = [pytest.mark.kiwi_id(2278)]
@@ -291,7 +291,7 @@ def test_collect_segments_and_primary_bounds() -> None:
 
 
 async def test_sequential_path_orders_writes_and_bumps_permission_version() -> None:
-    """`provider=null`（顺序提交）：本地写入 → 组织域内部写通道 ×2；角色段 ⇒ 权限版本 +1。"""
+    """`provider=null`（顺序提交）：本地写入 → 跨产品域内部写通道 ×2；角色段 ⇒ 权限版本 +1。"""
     client = _ClientSpy()
     service, writer, cache, sessions = _service(NullTransactionManager(), NullTransactionParticipant(), client)
 
@@ -341,13 +341,13 @@ async def test_sequential_path_revokes_sessions_when_disabled() -> None:
     assert client.requests == []
 
 
-def test_org_branch_ops_share_one_branch_request() -> None:
-    """组织域分支载荷：岗位 / 部门各一 op，同一分支（同一 `xid`）一次请求内按序执行。"""
+def test_mdm_branch_ops_share_one_branch_request() -> None:
+    """跨产品域分支载荷：岗位 / 部门各一 op，同一分支（同一 `xid`）一次请求内按序执行。"""
     req = UserAssignmentsRequest(
         user_posts=UserAssignmentPosts(post_ids=ConcurrentStableList([11, 12]), primary_post_id=12),
         user_depts=UserAssignmentDepts(dept_ids=ConcurrentStableList([21]), primary_dept_id=21),
     )
-    ops = build_org_ops(user_id=7, req=req, idempotency_key="k-1", endpoints=resolve_org_endpoints(req))
+    ops = build_branch_ops(user_id=7, req=req, idempotency_key="k-1", endpoints=resolve_branch_endpoints(req))
 
     assert [op for op, _args in ops] == ["mdm.user-posts.assign", "mdm.user-depts.assign"]
     posts_args = ops[0][1]

@@ -17,11 +17,11 @@ import {
 
 describe('resolveAuthRedirect（Kiwi 2191）', () => {
   it('已持令牌一律放行', () => {
-    expect(resolveAuthRedirect({ hasToken: true, path: '/org/users' })).toBeNull()
+    expect(resolveAuthRedirect({ hasToken: true, path: '/mdm/users' })).toBeNull()
   })
 
   it('无令牌且非公开路径 → 跳登录', () => {
-    expect(resolveAuthRedirect({ hasToken: false, path: '/org/users' })).toBe(DEFAULT_LOGIN_PATH)
+    expect(resolveAuthRedirect({ hasToken: false, path: '/mdm/users' })).toBe(DEFAULT_LOGIN_PATH)
   })
 
   it('公开白名单精确与子路径均放行', () => {
@@ -44,7 +44,7 @@ describe('resolveAuthRedirect（Kiwi 2191）', () => {
 describe('resolveAuthGuard（Kiwi 2231）', () => {
   it('未登录：公开页放行、受保护路径跳登录', () => {
     expect(resolveAuthGuard({ hasToken: false, path: '/login' })).toBe('allow')
-    expect(resolveAuthGuard({ hasToken: false, path: '/org/users' })).toBe('login')
+    expect(resolveAuthGuard({ hasToken: false, path: '/mdm/users' })).toBe('login')
   })
 
   it('路由声明为公开页（meta.public）时未登录也放行', () => {
@@ -52,17 +52,17 @@ describe('resolveAuthGuard（Kiwi 2231）', () => {
   })
 
   it('已登录未声明权限码 → 放行（零判定开销）', () => {
-    expect(resolveAuthGuard({ hasToken: true, path: '/org/users' })).toBe('allow')
+    expect(resolveAuthGuard({ hasToken: true, path: '/mdm/users' })).toBe('allow')
   })
 
   it('已登录：权限未装载 → 占位放行（RBAC 就绪前的口径）', () => {
-    const input = { hasToken: true, path: '/org/users', requiredPermissions: ['user:query'] }
+    const input = { hasToken: true, path: '/mdm/users', requiredPermissions: ['user:query'] }
     expect(resolveAuthGuard({ ...input, permissions: [], permissionsLoaded: false })).toBe('allow')
     expect(resolveAuthGuard({ ...input, permissionsLoaded: undefined })).toBe('allow')
   })
 
   it('已登录：权限已装载按「任一满足」判定，不满足 → forbidden', () => {
-    const input = { hasToken: true, path: '/org/users', requiredPermissions: ['user:query'], permissionsLoaded: true }
+    const input = { hasToken: true, path: '/mdm/users', requiredPermissions: ['user:query'], permissionsLoaded: true }
     expect(resolveAuthGuard({ ...input, permissions: ['user:query'] })).toBe('allow')
     expect(resolveAuthGuard({ ...input, permissions: ['user:query', 'user:edit'] })).toBe('allow')
     expect(resolveAuthGuard({ ...input, permissions: ['user:edit'] })).toBe('forbidden')
@@ -71,7 +71,7 @@ describe('resolveAuthGuard（Kiwi 2231）', () => {
 
   it('已登录：空权限码数组视为未声明 → 放行', () => {
     expect(
-      resolveAuthGuard({ hasToken: true, path: '/org/users', requiredPermissions: [], permissionsLoaded: true }),
+      resolveAuthGuard({ hasToken: true, path: '/mdm/users', requiredPermissions: [], permissionsLoaded: true }),
     ).toBe('allow')
   })
 
@@ -79,7 +79,7 @@ describe('resolveAuthGuard（Kiwi 2231）', () => {
     expect(
       resolveAuthGuard({
         hasToken: false,
-        path: '/org/users',
+        path: '/mdm/users',
         requiredPermissions: ['user:query'],
         permissionsLoaded: true,
       }),
@@ -112,9 +112,9 @@ describe('isPublicPath（Kiwi 2231）', () => {
 
 describe('buildLoginLocation（Kiwi 2231）', () => {
   it('受保护路径回带 redirect（原 fullPath 原样，含查询串与片段）', () => {
-    expect(buildLoginLocation('/org/users?page=2#row-3')).toEqual({
+    expect(buildLoginLocation('/mdm/users?page=2#row-3')).toEqual({
       path: DEFAULT_LOGIN_PATH,
-      query: { redirect: '/org/users?page=2#row-3' },
+      query: { redirect: '/mdm/users?page=2#row-3' },
     })
   })
 
@@ -137,8 +137,8 @@ describe('buildLoginLocation（Kiwi 2231）', () => {
 
 describe('resolveSafeRedirect（Kiwi 2231）', () => {
   it('合法站内相对路径原样返回（含查询串与片段）', () => {
-    expect(resolveSafeRedirect('/org/users')).toBe('/org/users')
-    expect(resolveSafeRedirect('/org/users?page=2#row-3')).toBe('/org/users?page=2#row-3')
+    expect(resolveSafeRedirect('/mdm/users')).toBe('/mdm/users')
+    expect(resolveSafeRedirect('/mdm/users?page=2#row-3')).toBe('/mdm/users?page=2#row-3')
   })
 
   it('外链 / 协议相对 / 危险协议一律回落', () => {
@@ -146,17 +146,17 @@ describe('resolveSafeRedirect（Kiwi 2231）', () => {
     expect(resolveSafeRedirect('http://evil.example.com')).toBe(DEFAULT_HOME_PATH)
     expect(resolveSafeRedirect('//evil.example.com')).toBe(DEFAULT_HOME_PATH)
     expect(resolveSafeRedirect('javascript:alert(1)')).toBe(DEFAULT_HOME_PATH)
-    expect(resolveSafeRedirect('org/users')).toBe(DEFAULT_HOME_PATH)
+    expect(resolveSafeRedirect('mdm/users')).toBe(DEFAULT_HOME_PATH)
   })
 
   it('反斜杠 / 控制字符 / 空值与非法类型回落', () => {
     expect(resolveSafeRedirect('\\\\evil\\x')).toBe(DEFAULT_HOME_PATH)
-    expect(resolveSafeRedirect('/org\u0000users')).toBe(DEFAULT_HOME_PATH)
+    expect(resolveSafeRedirect('/mdm\u0000users')).toBe(DEFAULT_HOME_PATH)
     expect(resolveSafeRedirect('')).toBe(DEFAULT_HOME_PATH)
     expect(resolveSafeRedirect('   ')).toBe(DEFAULT_HOME_PATH)
     expect(resolveSafeRedirect(null)).toBe(DEFAULT_HOME_PATH)
     expect(resolveSafeRedirect(undefined)).toBe(DEFAULT_HOME_PATH)
-    expect(resolveSafeRedirect({ path: '/org/users' })).toBe(DEFAULT_HOME_PATH)
+    expect(resolveSafeRedirect({ path: '/mdm/users' })).toBe(DEFAULT_HOME_PATH)
   })
 
   it('命中公开白名单回落（防回跳循环；按路径判定、忽略查询串）', () => {

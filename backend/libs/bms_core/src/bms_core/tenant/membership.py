@@ -91,7 +91,7 @@ class TenantMembershipGrantRequest(BaseSchema):
     """建立 / 复活关系入参（全字段显式；`owner_tenant_id` 为用户归属租户）。"""
 
     owner_tenant_id: int = Field(description="归属租户主键（用户建号 / 登录所在租户）")
-    user_id: int = Field(description="用户主键（org 服务 sys_user.id）")
+    user_id: int = Field(description="用户主键（主数据服务 sys_user.id）")
     target_tenant_id: int = Field(description="目标租户主键")
     source: str = Field(min_length=1, description="写入来源（super_admin / admin_create / import / sso_jit / …）")
 

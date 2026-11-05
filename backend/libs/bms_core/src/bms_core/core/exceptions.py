@@ -2,7 +2,7 @@
 
 - `BizError` 继承 `BaseFrameworkObject`（框架对象体系根：非数据对象 + `object_kind` 标识），同时是 `Exception`。
 - **段位基类**（按错误码段位分基）：`GeneralError`（1xxxx 通用）、`AuthError`（2xxxx 认证）、
-  `UserOrgError`（3xxxx 用户与组织）、`ConfigError`（4xxxx 系统配置）、`FileError`（5xxxx 文件）、
+  `UserDataError`（3xxxx 用户与数据）、`ConfigError`（4xxxx 系统配置）、`FileError`（5xxxx 文件）、
   `OpenTenantError`（8xxxx 开放 / 租户 / SSO）；新增同段位错误码继承对应段位基。
 - **段内子段基类**（同段位内的能力域细分）：`CaptchaError`（认证段验证码 `201xx` 子段）、
   `PrintError`（文件段打印与导出 PDF `502xx` 子段）；新增子段错误码继承对应子段基，
@@ -625,18 +625,18 @@ class RedisUnavailableError(GeneralError):
         super().__init__(ErrorCode.REDIS_UNAVAILABLE, message, http_status=503, data=data)
 
 
-class UserOrgError(BizError):
-    """用户与组织段（`3xxxx`）异常基类。"""
+class UserDataError(BizError):
+    """用户与数据段（`3xxxx`）异常基类。"""
 
 
-class PermissionError(UserOrgError):
+class PermissionError(UserDataError):
     """权限不足。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.PERMISSION, message, http_status=403, data=data)
 
 
-class PasswordPolicyViolationError(UserOrgError):
+class PasswordPolicyViolationError(UserDataError):
     """密码不符合复杂度策略（`30005` / 400；`data.violations` 为违规原因码清单）。"""
 
     def __init__(
@@ -657,7 +657,7 @@ class PasswordPolicyViolationError(UserOrgError):
         super().__init__(ErrorCode.PASSWORD_POLICY_VIOLATION, message, http_status=400, data=payload)
 
 
-class PasswordReusedError(UserOrgError):
+class PasswordReusedError(UserDataError):
     """新密码与近 N 次历史密码重复（`30006` / 400）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
@@ -670,7 +670,7 @@ class PasswordReusedError(UserOrgError):
         super().__init__(ErrorCode.PASSWORD_REUSED, message, http_status=400, data=data)
 
 
-class UserNotFoundError(UserOrgError):
+class UserNotFoundError(UserDataError):
     """用户不存在或已软删除（`30002` / 404）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
@@ -683,7 +683,7 @@ class UserNotFoundError(UserOrgError):
         super().__init__(ErrorCode.USER_NOT_FOUND, message, http_status=404, data=data)
 
 
-class UsernameExistsError(UserOrgError):
+class UsernameExistsError(UserDataError):
     """用户名已被占用（`30003` / 409；软删除后原账号可复用）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
@@ -696,7 +696,7 @@ class UsernameExistsError(UserOrgError):
         super().__init__(ErrorCode.USERNAME_EXISTS, message, http_status=409, data=data)
 
 
-class UserProtectedError(UserOrgError):
+class UserProtectedError(UserDataError):
     """内置管理员不可停用 / 删除，或操作人不得操作自身（`30009` / 403）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
@@ -709,7 +709,7 @@ class UserProtectedError(UserOrgError):
         super().__init__(ErrorCode.USER_PROTECTED, message, http_status=403, data=data)
 
 
-class UserSeparationConflictError(UserOrgError):
+class UserSeparationConflictError(UserDataError):
     """三权分立冲突：同一用户不得兼任两类内置管理员（`30010` / 403）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
@@ -722,7 +722,7 @@ class UserSeparationConflictError(UserOrgError):
         super().__init__(ErrorCode.USER_SEPARATION_CONFLICT, message, http_status=403, data=data)
 
 
-class UserReferencedError(UserOrgError):
+class UserReferencedError(UserDataError):
     """用户仍被角色 / 流程引用，禁止删除（`30011` / 409）。"""
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
@@ -735,8 +735,8 @@ class UserReferencedError(UserOrgError):
         super().__init__(ErrorCode.USER_REFERENCED, message, http_status=409, data=data)
 
 
-class AccountLockError(UserOrgError):
-    """账号锁定记录段（用户与组织段内子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+class AccountLockError(UserDataError):
+    """账号锁定记录段（用户与数据段内子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 
 
 class AccountLockNotFoundError(AccountLockError):
@@ -752,8 +752,8 @@ class AccountLockNotFoundError(AccountLockError):
         super().__init__(ErrorCode.ACCOUNT_LOCK_NOT_FOUND, message, data=data)
 
 
-class RoleError(UserOrgError):
-    """角色段（用户与组织段内子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+class RoleError(UserDataError):
+    """角色段（用户与数据段内子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 
 
 class RoleNotFoundError(RoleError):
