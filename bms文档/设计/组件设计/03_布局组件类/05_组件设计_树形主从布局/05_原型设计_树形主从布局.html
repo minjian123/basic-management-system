@@ -51,8 +51,8 @@
 
         <!-- 主区（树） -->
         <div class="md-master" :style="{ width: collapsed ? '0px' : masterWidth + 'px', padding: collapsed ? '0' : '10px', borderRight: collapsed ? 'none' : '1px solid #eaeef2' }">
-          <div class="mt-title">组织（主树）</div>
-          <el-input v-model="kw" size="small" placeholder="搜索组织" clearable style="margin-bottom:8px" />
+          <div class="mt-title">部门（主树）</div>
+          <el-input v-model="kw" size="small" placeholder="搜索部门" clearable style="margin-bottom:8px" />
           <el-tree :data="treeFiltered" node-key="id" default-expand-all :show-checkbox="checkable" :props="{ label: 'label', children: 'children' }"
             highlight-current :current-node-key="selectedId" @node-click="onSelect" @check="onCheck" />
           <div v-if="!treeFiltered.length" class="dp-hint" style="padding:10px;text-align:center">无匹配节点</div>
@@ -70,7 +70,7 @@
               <el-table :data="rows" size="small" border>
                 <el-table-column prop="id" label="ID" width="70" />
                 <el-table-column prop="name" label="姓名" />
-                <el-table-column prop="dept" label="组织" />
+                <el-table-column prop="dept" label="部门" />
                 <el-table-column prop="status" label="状态" width="90" />
               </el-table>
             </template>

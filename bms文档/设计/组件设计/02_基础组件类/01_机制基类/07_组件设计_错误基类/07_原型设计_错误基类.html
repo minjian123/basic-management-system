@@ -62,7 +62,7 @@
     setup: function () {
       var codes = [
         { code: 0, label: '0 成功（不构造错误）' },
-        { code: 30001, label: '30001 用户名已存在（3xxxx 用户组织）' },
+        { code: 30001, label: '30001 用户名已存在（3xxxx 用户与主数据）' },
         { code: 20001, label: '20001 认证过期（2xxxx 认证）' },
         { code: 10005, label: '10005 触发限流（1xxxx 通用）' },
         { code: 99999, label: '99999 未映射错误码' }
@@ -76,7 +76,7 @@
       var lastReport = { code: 0, at: 0 };
       function segOf(c) {
         var s = Math.floor(c / 10000);
-        return { 1: '1xxxx 通用（提示重试）', 2: '2xxxx 认证（刷新 / 跳登录）', 3: '3xxxx 用户组织（业务提示）', 4: '4xxxx 配置', 8: '8xxxx 开放·租户' }[s] || '未知段位（按通用处理）';
+        return { 1: '1xxxx 通用（提示重试）', 2: '2xxxx 认证（刷新 / 跳登录）', 3: '3xxxx 用户与主数据（业务提示）', 4: '4xxxx 配置', 8: '8xxxx 开放·租户' }[s] || '未知段位（按通用处理）';
       }
       function build() {
         var mapped = !!MESSAGES[code.value];

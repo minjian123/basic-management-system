@@ -37,7 +37,7 @@
 
       <div class="row" v-for="(c, i) in conditions" :key="i">
         <el-select v-model="c.field" size="small" style="width:140px">
-          <el-option label="用户名" value="username" /><el-option label="组织" value="deptId" /><el-option label="状态" value="status" />
+          <el-option label="用户名" value="username" /><el-option label="部门" value="deptId" /><el-option label="状态" value="status" />
         </el-select>
         <el-select v-model="c.operator" size="small" style="width:110px">
           <el-option label="包含 like" value="like" /><el-option label="等于 eq" value="eq" /><el-option label="属于 in" value="in" />

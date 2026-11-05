@@ -47,7 +47,7 @@
           <el-table v-if="active==='list'" :data="rows" size="small" border style="max-width:520px" @row-dblclick="open">
             <el-table-column prop="id" label="ID" width="70" />
             <el-table-column prop="name" label="用户名" />
-            <el-table-column prop="dept" label="组织" />
+            <el-table-column prop="dept" label="部门" />
           </el-table>
           <div v-else><b>详情：{{ currentName }}</b><div class="dp-hint" style="margin-top:6px">（详情组件在此渲染；默认只读，点「修改」进编辑态）</div></div>
         </div>

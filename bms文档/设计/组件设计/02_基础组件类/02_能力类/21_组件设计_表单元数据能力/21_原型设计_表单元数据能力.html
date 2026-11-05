@@ -65,7 +65,7 @@ version: {{ version || '—' }}　menuKey: {{ menuKey }}
       var META = {
         'user.form': { version: 12, fields: [
           { key: 'username', label: '用户名', type: 'text', rules: 'required / user:create' },
-          { key: 'deptId', label: '所属组织', type: 'dept-select', rules: 'required / user:create' },
+          { key: 'deptId', label: '所属部门', type: 'dept-select', rules: 'required / user:create' },
           { key: 'status', label: '状态', type: 'switch', rules: 'perm: editable' }
         ] },
         'order.form': { version: 5, fields: [

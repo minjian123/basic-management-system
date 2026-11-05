@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 远程字典选择字段（人员 / 岗位 / 组织复合）</title>
+<title>原型 · 远程字典选择字段（人员 / 岗位 / 部门 / 岗位复合）</title>
 <link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
 <style>
@@ -20,9 +20,9 @@
   .dp-metric { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; }
   .dp-metric .v { font-size: 14px; font-weight: 600; color: #0969da; word-break: break-all; }
   .dp-metric .k { font-size: 12px; color: #57606a; margin-top: 4px; }
-  .dp-org { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
-  .dp-org-tree { border: 1px solid #d0d7de; border-radius: 6px; padding: 8px; max-height: 260px; overflow: auto; }
-  @media (max-width: 768px) { .dp-metrics { grid-template-columns: repeat(1, 1fr); } .dp-org { grid-template-columns: 1fr; } }
+  .dp-dept-post { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
+  .dp-dept-post-tree { border: 1px solid #d0d7de; border-radius: 6px; padding: 8px; max-height: 260px; overflow: auto; }
+  @media (max-width: 768px) { .dp-metrics { grid-template-columns: repeat(1, 1fr); } .dp-dept-post { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -121,16 +121,16 @@
           <div class="dp-bar">
             <span class="proto-hint">复杂选择用弹窗承载：左部门树 + 右人员列表 + 搜索 + 已选标签</span>
           </div>
-          <div class="dp-org">
-            <div class="dp-org-tree">
+          <div class="dp-dept-post">
+            <div class="dp-dept-post-tree">
               <el-tree :data="deptTree" :props="{ label: 'name', children: 'children' }"
                 node-key="id" default-expand-all highlight-current @node-click="onDictDataDeptNodeClick"></el-tree>
             </div>
             <div>
-              <el-input v-model="orgKeyword" size="small" placeholder="搜索人员" style="margin-bottom:8px" clearable></el-input>
-              <el-table :data="orgUsers" size="small" border style="width:100%">
+              <el-input v-model="deptKeyword" size="small" placeholder="搜索人员" style="margin-bottom:8px" clearable></el-input>
+              <el-table :data="deptUsers" size="small" border style="width:100%">
                 <el-table-column width="42">
-                  <template #default="{ row }"><el-checkbox :model-value="orgSel.indexOf(row.id) >= 0" @change="toggleOrg(row.id)"></el-checkbox></template>
+                  <template #default="{ row }"><el-checkbox :model-value="deptSel.indexOf(row.id) >= 0" @change="toggleDept(row.id)"></el-checkbox></template>
                 </el-table-column>
                 <el-table-column prop="nickname" label="昵称" width="120"></el-table-column>
                 <el-table-column prop="username" label="用户名" min-width="120"></el-table-column>
@@ -138,8 +138,8 @@
             </div>
           </div>
           <div class="ep-section">已选人员</div>
-          <el-tag v-for="id in orgSel" :key="id" closable size="small" style="margin:2px 4px 2px 0" @close="toggleOrg(id)">{{ nameOf(id) }}</el-tag>
-          <span v-if="!orgSel.length" class="dp-hint">未选择</span>
+          <el-tag v-for="id in deptSel" :key="id" closable size="small" style="margin:2px 4px 2px 0" @close="toggleDept(id)">{{ nameOf(id) }}</el-tag>
+          <span v-if="!deptSel.length" class="dp-hint">未选择</span>
         </el-tab-pane>
 
         <!-- ④ 查询区 -->
@@ -232,20 +232,20 @@
         return allUsers.filter(function (u) { return u.deptId === filterDept.value; });
       });
 
-      // Org select
-      var orgKeyword = ref('');
-      var orgDept = ref('');
-      var orgSel = ref(['u3']);
-      function onDictDataDeptNodeClick(n) { orgDept.value = n.id; ElMessage.info('已选中部门：' + n.name); }
-      var orgUsers = computed(function () {
+      // 部门树选择
+      var deptKeyword = ref('');
+      var deptTreeId = ref('');
+      var deptSel = ref(['u3']);
+      function onDictDataDeptNodeClick(n) { deptTreeId.value = n.id; ElMessage.info('已选中部门：' + n.name); }
+      var deptUsers = computed(function () {
         var list = allUsers;
-        if (orgDept.value) list = list.filter(function (u) { return u.deptId.indexOf(orgDept.value) === 0 || u.deptId === orgDept.value; });
-        if (orgKeyword.value) list = list.filter(function (u) { return u.nickname.indexOf(orgKeyword.value) >= 0 || u.username.indexOf(orgKeyword.value) >= 0; });
+        if (deptTreeId.value) list = list.filter(function (u) { return u.deptId.indexOf(deptTreeId.value) === 0 || u.deptId === deptTreeId.value; });
+        if (deptKeyword.value) list = list.filter(function (u) { return u.nickname.indexOf(deptKeyword.value) >= 0 || u.username.indexOf(deptKeyword.value) >= 0; });
         return list;
       });
-      function toggleOrg(id) {
-        var i = orgSel.value.indexOf(id);
-        if (i >= 0) orgSel.value.splice(i, 1); else orgSel.value.push(id);
+      function toggleDept(id) {
+        var i = deptSel.value.indexOf(id);
+        if (i >= 0) deptSel.value.splice(i, 1); else deptSel.value.push(id);
       }
 
       // Query
@@ -258,7 +258,7 @@
         tab, readonly, deptTree, posts, allUsers,
         userOptions, userLoading, remoteSearch, findUser, nameOf, maskPhone, deptName,
         userVal, postVal, filterDept, includeChildren, filteredUsers,
-        orgKeyword, orgSel, onDictDataDeptNodeClick, orgUsers, toggleOrg,
+        deptKeyword, deptSel, onDictDataDeptNodeClick, deptUsers, toggleDept,
         qUser, qPost, doSearch, doReset
       };
     }
