@@ -37,6 +37,9 @@ def _load_release() -> ModuleType:
 
 release = _load_release()
 
+pytestmark = pytest.mark.kiwi_id(2431)
+"""Kiwi TCMS 用例编号（mdm `01_07` 组织主数据首次部署：发布入口通用参数与产品画像）。"""
+
 
 def test_default_profile_matches_bms_behaviour() -> None:
     """缺省画像 = bms 现役口径（compose / 容器名 / 标签变量 / 就绪路径 / 网关路径 / 建表命令）。"""
