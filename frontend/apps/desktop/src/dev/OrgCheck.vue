@@ -19,6 +19,7 @@ import {
   PostSelectField,
   UserSelectField,
   debounce,
+  ORG_SOURCE_DOMAIN,
   orgSourceEndpoint,
   orgSourceRegistry,
   registerOrgSource,
@@ -205,7 +206,7 @@ async function runChecks(): Promise<void> {
     products: [{ productKey: 'demo', status: 'enabled' }],
     services: [],
     collaborations: [
-      { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
     ],
     warnings: [],
   })

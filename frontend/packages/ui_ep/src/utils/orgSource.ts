@@ -1,7 +1,7 @@
 /**
  * 组织数据源：HTTP 内建实现 + 注册表默认实例（`fetch` 单一落点）。
  *
- * 端点**运行期取自平台目录快照**（`03_02`）：按「业务域 `org` + 能力种类 `dataset`」推导提供方产品键与
+ * 端点**运行期取自平台目录快照**（`03_02`）：按「组织域 + 能力种类 `dataset`」推导提供方产品键与
  * 前端命名空间域段，再经**寻址契约**组装为 `/api/{产品键}/v1/{域段}`——平台代码不持有产品键、不持有
  * 产品命名空间常量。路径为出口口径 `/data-source/{users,posts,dept-tree}` 与 `/resolve-names`
  * （**查询与批量回显分列两个出口**、**部门树一次性返回**）。
@@ -26,8 +26,8 @@ import {
   type OrgUserQuery,
 } from '@bms/core'
 
-/** 组织主数据所属**业务域**标识（非产品键；产品改名 / 新增产品不影响本常量）。 */
-export const ORG_SOURCE_DOMAIN = 'org'
+/** 组织主数据所属**业务域**标识（业务域与产品 / 服务同名；非产品键，取值由本常量单点持有）。 */
+export const ORG_SOURCE_DOMAIN = 'mdm' // product-literal:allow:组织数据源的业务域标识单点持有，运行期与平台目录同源
 
 /** 组织数据源对应的**能力种类**（数据源类能力；同域可能另有读出口与事务分支类）。 */
 export const ORG_SOURCE_CAPABILITY_KIND = 'dataset'

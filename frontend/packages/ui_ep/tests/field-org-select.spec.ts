@@ -35,6 +35,7 @@ import {
   createHttpOrgSource,
   appendOrgSearchParams,
   debounce,
+  ORG_SOURCE_DOMAIN,
   orgSourceEndpoint,
   orgSourceRegistry,
   registerOrgSource,
@@ -458,7 +459,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -493,7 +494,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -514,7 +515,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -544,7 +545,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -569,7 +570,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -593,7 +594,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -651,7 +652,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
