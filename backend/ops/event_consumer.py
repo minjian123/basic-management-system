@@ -41,6 +41,7 @@ from bms_core.events.consumer_records import (
     merge_event_consumer_records,
     validate_event_consumer_records,
 )
+from bms_core.events.platform_events import register_platform_event_contracts
 from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
@@ -92,6 +93,8 @@ def _records(factory: object, *, group_prefix: str) -> ConcurrentStableList[Even
         else ConcurrentStableList()
     )
     records = merge_event_consumer_records(declared, group_prefix=group_prefix)
+    # 诊断 / 单轮 / worker 均不经应用启动：平台事件契约在此幂等登记，保证声明校验同启动口径
+    register_platform_event_contracts()
     errors = validate_event_consumer_records(records)
     if errors:
         for error in errors:
