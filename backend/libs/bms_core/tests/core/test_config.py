@@ -468,6 +468,38 @@ def test_server_tls_pair_and_graceful_timeout(monkeypatch: pytest.MonkeyPatch) -
     assert Settings().server.graceful_timeout_seconds == 600
 
 
+@pytest.mark.kiwi_id(2419)
+def test_server_connection_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`[server]` 连接层四项：默认值与 hypercorn 缺省一致，边界越界即拒。"""
+    defaults = Settings().server
+    assert defaults.h2_max_concurrent_streams == 100
+    assert defaults.h2_max_header_list_size == 65_536
+    assert defaults.keep_alive_timeout_seconds == 5
+    assert defaults.keep_alive_max_requests == 1_000
+
+    monkeypatch.setenv("BMS_SERVER__H2_MAX_CONCURRENT_STREAMS", "0")
+    with pytest.raises(ValidationError, match="h2_max_concurrent_streams"):
+        Settings()
+    monkeypatch.setenv("BMS_SERVER__H2_MAX_CONCURRENT_STREAMS", "10001")
+    with pytest.raises(ValidationError, match="h2_max_concurrent_streams"):
+        Settings()
+
+    monkeypatch.setenv("BMS_SERVER__H2_MAX_HEADER_LIST_SIZE", "1023")
+    monkeypatch.delenv("BMS_SERVER__H2_MAX_CONCURRENT_STREAMS")
+    with pytest.raises(ValidationError, match="h2_max_header_list_size"):
+        Settings()
+
+    monkeypatch.setenv("BMS_SERVER__KEEP_ALIVE_TIMEOUT_SECONDS", "601")
+    monkeypatch.delenv("BMS_SERVER__H2_MAX_HEADER_LIST_SIZE")
+    with pytest.raises(ValidationError, match="keep_alive_timeout_seconds"):
+        Settings()
+
+    monkeypatch.setenv("BMS_SERVER__KEEP_ALIVE_MAX_REQUESTS", "0")
+    monkeypatch.delenv("BMS_SERVER__KEEP_ALIVE_TIMEOUT_SECONDS")
+    with pytest.raises(ValidationError, match="keep_alive_max_requests"):
+        Settings()
+
+
 def test_topology_domains_declaration_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     """`[topology].domains` 不得声明：域由拓扑解析，两处声明必然漂移（拒启并指明口径）。"""
     monkeypatch.setenv("BMS_TOPOLOGY__DOMAINS", '["role"]')

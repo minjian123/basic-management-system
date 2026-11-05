@@ -151,6 +151,18 @@ class ServerSettings(BaseSettings):
     graceful_timeout_seconds: int = Field(default=30, ge=1, le=600)
     """优雅停机等待在途的上限（秒；关闭监听后超过该时长即强制收尾）。"""
 
+    h2_max_concurrent_streams: int = Field(default=100, ge=1, le=10_000)
+    """单连接并发流上限（hypercorn `h2_max_concurrent_streams`，经 SETTINGS 下发给客户端）。"""
+
+    h2_max_header_list_size: int = Field(default=65_536, ge=1_024, le=1_048_576)
+    """单连接头部列表上限（字节；hypercorn `h2_max_header_list_size`）。"""
+
+    keep_alive_timeout_seconds: int = Field(default=5, ge=1, le=600)
+    """空闲连接回收阈值的秒数（无活跃流时；hypercorn `keep_alive_timeout`，到点直接关连接）。"""
+
+    keep_alive_max_requests: int = Field(default=1_000, ge=1, le=1_000_000)
+    """单连接请求数退休阈值（hypercorn `keep_alive_max_requests`，到量后连接退休并触发 GOAWAY）。"""
+
     @model_validator(mode="after")
     def _validate_tls_pair(self) -> ServerSettings:
         """校验 TLS 证书与私钥同给或同空。

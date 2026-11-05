@@ -105,6 +105,12 @@ def build_config(settings: Settings) -> Config:
     config.errorlog = None
     config.loglevel = settings.log.level
     config.graceful_timeout = float(settings.server.graceful_timeout_seconds)
+    # 连接层参数（03_04 起可配）：协议层并发流上限、头部列表上限、空闲回收与单连接退休。
+    # 默认值与 hypercorn 缺省一致，改配置才改变行为；应用层（如 msg 的连接预算）按这些值算派生阈值。
+    config.h2_max_concurrent_streams = settings.server.h2_max_concurrent_streams
+    config.h2_max_header_list_size = settings.server.h2_max_header_list_size
+    config.keep_alive_timeout = float(settings.server.keep_alive_timeout_seconds)
+    config.keep_alive_max_requests = settings.server.keep_alive_max_requests
     config.certfile = certfile or None
     config.keyfile = keyfile or None
     return config

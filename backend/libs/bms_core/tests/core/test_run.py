@@ -41,6 +41,27 @@ def test_build_config_uses_server_settings() -> None:
 
 
 @pytest.mark.kiwi_id(2419)
+def test_build_config_maps_connection_limits() -> None:
+    """连接层四项映射到 hypercorn（默认值与 hypercorn 缺省一致，改配置才改变行为）。"""
+    defaults = build_config(Settings())
+    assert defaults.h2_max_concurrent_streams == 100
+    assert defaults.h2_max_header_list_size == 65_536
+    assert defaults.keep_alive_timeout == 5.0
+    assert defaults.keep_alive_max_requests == 1_000
+
+    settings = Settings()
+    settings.server.h2_max_concurrent_streams = 256
+    settings.server.h2_max_header_list_size = 131_072
+    settings.server.keep_alive_timeout_seconds = 30
+    settings.server.keep_alive_max_requests = 10
+    config = build_config(settings)
+    assert config.h2_max_concurrent_streams == 256
+    assert config.h2_max_header_list_size == 131_072
+    assert config.keep_alive_timeout == 30.0
+    assert config.keep_alive_max_requests == 10
+
+
+@pytest.mark.kiwi_id(2419)
 def test_build_config_maps_tls(tmp_path: Path) -> None:
     """TLS 两字段映射到 hypercorn 配置（同给同空由 Settings 校验）。"""
     cert = tmp_path / "cert.pem"
