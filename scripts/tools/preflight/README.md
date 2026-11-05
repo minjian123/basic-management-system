@@ -14,6 +14,8 @@
 #   coverage_gate.py      覆盖率门禁：转发 `engkit coverage`
 #   diff_coverage_gate.py 改动行覆盖率门禁：转发 `engkit coverage-changed`（**提交环专用**：只判本次 diff
 #                         触达的可执行行；推送环仍走 coverage_gate 的模块级 100%）
+#   coverage_report.py    查覆盖率缺口的唯一入口：转发 `engkit coverage` / `engkit coverage-changed`，
+#                         缺口明细落 `.cache/coverage/gaps.txt`（模块级 `--module` / 改动行 `--changed`）
 #   parallel_jobs.py      `--jobs` 映射：转发 `engkit.preflight.jobs_args / describe`
 #   heavy_command_guard.py 重命令拦截：转发 `engkit.guard`（判定 / 提示 / pytest 插件入口）
 #   full_test_guard.py    全量测试守卫：转发 `engkit.guard`（开发期间一律拒绝；仅推送入口内部授权 / CI 放行）
