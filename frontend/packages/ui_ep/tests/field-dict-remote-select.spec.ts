@@ -8,17 +8,17 @@
 
 import {
   BaseUserDisplay,
-  ORG_SEARCH_DEBOUNCE,
+  DICT_DATA_SEARCH_DEBOUNCE,
   applyCatalogSnapshot,
   productPrefix,
   resetCatalog,
-  type OrgSourceAdapter,
+  type DictRemoteSourceAdapter,
 } from '@bms/core'
 import {
-  createOrgSourceStub,
-  describeOrgSelectContract,
+  createDictRemoteSourceStub,
+  describeDictRemoteSelectContract,
   describePlaceholderFieldContract,
-  type OrgSelectContractTarget,
+  type DictRemoteSelectContractTarget,
 } from '@bms/core/testing'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { effectScope, defineComponent } from 'vue'
@@ -26,21 +26,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   DeptTreeSelectField,
-  OrgCompositePicker,
-  OrgSelectField,
+  DictCompositePicker,
+  DictRemoteSelectField,
   PostSelectField,
   SelectInput,
   TreeSelectField,
   UserSelectField,
-  createHttpOrgSource,
-  appendOrgSearchParams,
+  createHttpDictRemoteSource,
+  appendDictSearchParams,
   debounce,
-  ORG_SOURCE_DOMAIN,
-  orgSourceEndpoint,
-  orgSourceRegistry,
-  registerOrgSource,
-  useBaseOrgSelect,
-  type UseBaseOrgSelectResult,
+  DICT_SOURCE_DOMAIN,
+  dictRemoteSourceEndpoint,
+  dictRemoteSourceRegistry,
+  registerDictRemoteSource,
+  useBaseDictRemoteSelect,
+  type UseBaseDictRemoteSelectResult,
 } from '../src'
 
 const ElSelectStub = {
@@ -126,9 +126,9 @@ const stubs = {
 }
 
 /** 投影契约目标（基类实例 ↔ 响应式面）。 */
-function makeTarget(): OrgSelectContractTarget {
+function makeTarget(): DictRemoteSelectContractTarget {
   const scope = effectScope()
-  const api = scope.run(() => useBaseOrgSelect()) as UseBaseOrgSelectResult
+  const api = scope.run(() => useBaseDictRemoteSelect()) as UseBaseDictRemoteSelectResult
   return {
     get ready() {
       return api.ready.value
@@ -167,7 +167,7 @@ function makeTarget(): OrgSelectContractTarget {
       return api.errorMessage.value
     },
     setReady: (value) => api.setReady(value),
-    setSource: (source) => api.setSource(source as OrgSourceAdapter | undefined),
+    setSource: (source) => api.setSource(source as DictRemoteSourceAdapter | undefined),
     setUserDisplay: (display) => api.setUserDisplay(display as BaseUserDisplay | undefined),
     setKind: (kind) => api.setKind(kind === 'post' ? 'post' : kind === 'dept' ? 'dept' : 'user'),
     setKeyword: (keyword) => api.setKeyword(keyword),
@@ -192,11 +192,11 @@ function makeTarget(): OrgSelectContractTarget {
   }
 }
 
-describeOrgSelectContract('组织选择契约（useBaseOrgSelect）', makeTarget)
+describeDictRemoteSelectContract('组织选择契约（useBaseDictRemoteSelect）', makeTarget)
 
 describePlaceholderFieldContract('占位字段契约（组织投影，06_01 复用）', () => {
   const scope = effectScope()
-  const api = scope.run(() => useBaseOrgSelect()) as UseBaseOrgSelectResult
+  const api = scope.run(() => useBaseDictRemoteSelect()) as UseBaseDictRemoteSelectResult
   return {
     get ready() {
       return api.ready.value
@@ -221,8 +221,8 @@ describe('投影薄适配与内建花名册', () => {
   it('响应式面随核心同步；syncValue 触发批量回显', async () => {
     const scope = effectScope()
     const api = scope.run(() =>
-      useBaseOrgSelect({ ready: true, multiple: true, source: createOrgSourceStub().source }),
-    ) as UseBaseOrgSelectResult
+      useBaseDictRemoteSelect({ ready: true, multiple: true, source: createDictRemoteSourceStub().source }),
+    ) as UseBaseDictRemoteSelectResult
     api.syncValue(['u1', 'u9'])
     await flushPromises()
     expect(api.requestCount.value).toBe(1)
@@ -240,29 +240,29 @@ describe('投影薄适配与内建花名册', () => {
     class CustomDisplay extends BaseUserDisplay {}
     const display = new CustomDisplay()
     const scope = effectScope()
-    const api = scope.run(() => useBaseOrgSelect({ userDisplay: display })) as UseBaseOrgSelectResult
+    const api = scope.run(() => useBaseDictRemoteSelect({ userDisplay: display })) as UseBaseDictRemoteSelectResult
     expect(api.userDisplay).toBe(display)
     scope.stop()
   })
 
   it('释放后调用安全', () => {
     const scope = effectScope()
-    const api = scope.run(() => useBaseOrgSelect({ ready: true, source: createOrgSourceStub().source })) as UseBaseOrgSelectResult
+    const api = scope.run(() => useBaseDictRemoteSelect({ ready: true, source: createDictRemoteSourceStub().source })) as UseBaseDictRemoteSelectResult
     scope.stop()
     expect(() => api.setReady(false)).not.toThrow()
   })
 })
 
-describe('OrgSelectField', () => {
+describe('DictRemoteSelectField', () => {
   it('占位降级：保留 06_01 冻结文案与属性', () => {
-    const wrapper = mount(OrgSelectField, { props: { modelValue: undefined }, global: { stubs } })
+    const wrapper = mount(DictRemoteSelectField, { props: { modelValue: undefined }, global: { stubs } })
     expect(wrapper.attributes('data-degraded')).toBe('true')
     expect(wrapper.find('[data-test="placeholder"]').text()).toContain('组织数据未就绪')
   })
 
   it('就绪 + 数据源：展开触发首屏候选并渲染候选（含停用标记）', async () => {
-    const stub = createOrgSourceStub()
-    const wrapper = mount(OrgSelectField, {
+    const stub = createDictRemoteSourceStub()
+    const wrapper = mount(DictRemoteSelectField, {
       props: { modelValue: undefined, ready: true, source: stub.source },
       global: { stubs },
     })
@@ -272,21 +272,21 @@ describe('OrgSelectField', () => {
     wrapper.findComponent(ElSelectStub).vm.$emit('visible-change', true)
     await flushPromises()
     expect(stub.calls).toContain('searchUsers')
-    expect(wrapper.find('[data-test="org-option-u1"]').text()).toContain('张三')
-    expect(wrapper.find('[data-test="org-marker-disabled"]').text()).toBe('停用')
+    expect(wrapper.find('[data-test="dict-remote-option-u1"]').text()).toContain('张三')
+    expect(wrapper.find('[data-test="dict-remote-marker-disabled"]').text()).toBe('停用')
   })
 
   it('远程搜索 300ms 防抖：期内合并、到期请求一次', async () => {
     vi.useFakeTimers()
-    const stub = createOrgSourceStub()
-    const wrapper = mount(OrgSelectField, {
+    const stub = createDictRemoteSourceStub()
+    const wrapper = mount(DictRemoteSelectField, {
       props: { modelValue: undefined, ready: true, source: stub.source },
       global: { stubs },
     })
     const remote = wrapper.findComponent(ElSelectStub).props('remoteMethod') as (keyword: string) => void
     remote('张')
     remote('张三')
-    await vi.advanceTimersByTimeAsync(ORG_SEARCH_DEBOUNCE - 1)
+    await vi.advanceTimersByTimeAsync(DICT_DATA_SEARCH_DEBOUNCE - 1)
     expect(stub.calls).not.toContain('searchUsers')
     await vi.advanceTimersByTimeAsync(1)
     await flushPromises()
@@ -296,8 +296,8 @@ describe('OrgSelectField', () => {
   })
 
   it('多选上限：超限截断并上抛', async () => {
-    const stub = createOrgSourceStub()
-    const wrapper = mount(OrgSelectField, {
+    const stub = createDictRemoteSourceStub()
+    const wrapper = mount(DictRemoteSelectField, {
       props: { modelValue: undefined, ready: true, source: stub.source, multiple: true, limit: 2 },
       global: { stubs },
     })
@@ -308,19 +308,19 @@ describe('OrgSelectField', () => {
   })
 
   it('只读回显：批量解析名称并折叠', async () => {
-    const stub = createOrgSourceStub()
-    const wrapper = mount(OrgSelectField, {
+    const stub = createDictRemoteSourceStub()
+    const wrapper = mount(DictRemoteSelectField, {
       props: { modelValue: ['u1', 'u2'], ready: true, source: stub.source, readonly: true, collapseAfter: 1 },
       global: { stubs },
     })
     await flushPromises()
-    expect(wrapper.find('[data-test="org-readonly"]').text()).toContain('张三')
-    expect(wrapper.find('[data-test="org-tag-overflow"]').text()).toBe('+1')
+    expect(wrapper.find('[data-test="dict-remote-readonly"]').text()).toContain('张三')
+    expect(wrapper.find('[data-test="dict-remote-tag-overflow"]').text()).toBe('+1')
   })
 
   it('kind=dept：内聚部门树件并加载树', async () => {
-    const stub = createOrgSourceStub()
-    const wrapper = mount(OrgSelectField, {
+    const stub = createDictRemoteSourceStub()
+    const wrapper = mount(DictRemoteSelectField, {
       props: { modelValue: undefined, ready: true, source: stub.source, kind: 'dept' },
       global: { stubs },
     })
@@ -330,7 +330,7 @@ describe('OrgSelectField', () => {
   })
 
   it('静态选项兼容通路：未注入数据源时沿用 SelectInput', () => {
-    const wrapper = mount(OrgSelectField, {
+    const wrapper = mount(DictRemoteSelectField, {
       props: { modelValue: 'a', ready: true, options: [{ label: '甲', value: 'a' }] },
       global: { stubs },
     })
@@ -340,7 +340,7 @@ describe('OrgSelectField', () => {
 
 describe('UserSelectField / PostSelectField', () => {
   it('人员选择：头像展示与部门过滤参数', async () => {
-    const stub = createOrgSourceStub()
+    const stub = createDictRemoteSourceStub()
     const wrapper = mount(UserSelectField, {
       props: { modelValue: undefined, ready: true, source: stub.source, deptId: 'd1', includeChildren: true },
       global: { stubs },
@@ -352,7 +352,7 @@ describe('UserSelectField / PostSelectField', () => {
   })
 
   it('岗位选择：编码展示', async () => {
-    const stub = createOrgSourceStub()
+    const stub = createDictRemoteSourceStub()
     const wrapper = mount(PostSelectField, {
       props: { modelValue: undefined, ready: true, source: stub.source },
       global: { stubs },
@@ -365,7 +365,7 @@ describe('UserSelectField / PostSelectField', () => {
 
 describe('DeptTreeSelectField', () => {
   it('一次性加载部门树并只读路径回显', async () => {
-    const stub = createOrgSourceStub()
+    const stub = createDictRemoteSourceStub()
     const wrapper = mount(DeptTreeSelectField, {
       props: { modelValue: 'd2', ready: true, source: stub.source, readonly: true },
       global: { stubs },
@@ -377,7 +377,7 @@ describe('DeptTreeSelectField', () => {
   })
 
   it('编辑态复用树选择件、映射节点并上抛含下级', async () => {
-    const stub = createOrgSourceStub()
+    const stub = createDictRemoteSourceStub()
     const wrapper = mount(DeptTreeSelectField, {
       props: { modelValue: undefined, ready: true, source: stub.source, showIncludeChildren: true },
       global: { stubs },
@@ -395,11 +395,11 @@ describe('DeptTreeSelectField', () => {
   })
 })
 
-describe('OrgCompositePicker', () => {
+describe('DictCompositePicker', () => {
   it('树 × 列表联动、搜索、勾选、确认回填与取消恢复', async () => {
     vi.useFakeTimers()
-    const stub = createOrgSourceStub()
-    const wrapper = mount(OrgCompositePicker, {
+    const stub = createDictRemoteSourceStub()
+    const wrapper = mount(DictCompositePicker, {
       props: { visible: true, modelValue: ['u1'], ready: true, source: stub.source },
       global: { stubs },
     })
@@ -413,7 +413,7 @@ describe('OrgCompositePicker', () => {
     expect(stub.queries.at(-1)).toMatchObject({ deptId: 'd1' })
 
     inputOf(wrapper).vm.$emit('update:modelValue', '张')
-    await vi.advanceTimersByTimeAsync(ORG_SEARCH_DEBOUNCE)
+    await vi.advanceTimersByTimeAsync(DICT_DATA_SEARCH_DEBOUNCE)
     await flushPromises()
     expect(stub.queries.at(-1)).toMatchObject({ keyword: '张' })
 
@@ -459,14 +459,14 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
-    expect(orgSourceEndpoint()).toBe(productPrefix('demo', 'demo'))
-    expect(orgSourceEndpoint()).toBe('/api/demo/v1/demo')
+    expect(dictRemoteSourceEndpoint()).toBe(productPrefix('demo', 'demo'))
+    expect(dictRemoteSourceEndpoint()).toBe('/api/demo/v1/demo')
     resetCatalog()
-    expect(orgSourceEndpoint()).toBeNull()
+    expect(dictRemoteSourceEndpoint()).toBeNull()
   })
 
   it('HTTP 数据源：端点不可用时不发请求（显式降级，不拼默认地址）', async () => {
@@ -477,14 +477,14 @@ describe('工具：防抖与组织数据源', () => {
     vi.stubGlobal('fetch', fetchMock)
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 
-    const result = await createHttpOrgSource().searchUsers({})
+    const result = await createHttpDictRemoteSource().searchUsers({})
 
     expect(result).toBeUndefined()
     expect(fetchMock).not.toHaveBeenCalled()
     expect(warn).toHaveBeenCalledTimes(1)
 
     // 再次调用不再重复告警（避免刷屏）
-    await expect(createHttpOrgSource().searchUsers({})).resolves.toBeUndefined()
+    await expect(createHttpDictRemoteSource().searchUsers({})).resolves.toBeUndefined()
     expect(warn).toHaveBeenCalledTimes(1)
     warn.mockRestore()
   })
@@ -494,7 +494,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -505,7 +505,7 @@ describe('工具：防抖与组织数据源', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    await createHttpOrgSource({ headers: () => ({ Authorization: 'Bearer t9' }) }).searchUsers({})
+    await createHttpDictRemoteSource({ headers: () => ({ Authorization: 'Bearer t9' }) }).searchUsers({})
 
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({ Authorization: 'Bearer t9' })
   })
@@ -515,7 +515,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -527,7 +527,7 @@ describe('工具：防抖与组织数据源', () => {
       }
     })
     vi.stubGlobal('fetch', fetchMock)
-    const source = createHttpOrgSource({ headers: { Authorization: 'Bearer x' } })
+    const source = createHttpDictRemoteSource({ headers: { Authorization: 'Bearer x' } })
     const result = await source.searchUsers({ keyword: '张', deptId: 'd1', includeChildren: true, status: 'enabled', page: 1, pageSize: 20 })
     expect(result).toMatchObject({ total: 1 })
     const url = String(fetchMock.mock.calls[0]?.[0])
@@ -545,7 +545,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -555,7 +555,7 @@ describe('工具：防抖与组织数据源', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await createHttpOrgSource().searchPosts({ deptId: 'd1', includeChildren: true })
+    const result = await createHttpDictRemoteSource().searchPosts({ deptId: 'd1', includeChildren: true })
 
     // 集合字段名差异（`items`）不影响解包（分页形态兼容）
     expect(result).toMatchObject({ items: [{ id: 'p1' }] })
@@ -570,7 +570,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -582,7 +582,7 @@ describe('工具：防抖与组织数据源', () => {
       }
     })
     vi.stubGlobal('fetch', fetchMock)
-    const source = createHttpOrgSource()
+    const source = createHttpDictRemoteSource()
     await source.resolveNames({ target: 'user', ids: ['u1', 'u2'] })
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/demo/v1/demo/resolve-names?target=user&id_in=u1%2Cu2')
     await source.loadDeptTree({ status: 'enabled' })
@@ -594,12 +594,12 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
     vi.stubGlobal('fetch', undefined)
-    const source = createHttpOrgSource()
+    const source = createHttpDictRemoteSource()
     await expect(source.searchUsers({})).resolves.toBeUndefined()
 
     vi.stubGlobal(
@@ -643,7 +643,7 @@ describe('工具：防抖与组织数据源', () => {
 
   it('查询参数：空值（undefined / null / 空串 / false）不进查询串，布尔真写 true', () => {
     const search = new URLSearchParams()
-    appendOrgSearchParams(search, { a: undefined, b: null, c: '', d: false, e: true, f: 1, g: 'x' })
+    appendDictSearchParams(search, { a: undefined, b: null, c: '', d: false, e: true, f: 1, g: 'x' })
     expect(search.toString()).toBe('e=true&f=1&g=x')
   })
 
@@ -652,7 +652,7 @@ describe('工具：防抖与组织数据源', () => {
       products: [{ productKey: 'demo', status: 'enabled' }],
       services: [],
       collaborations: [
-        { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+        { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
       ],
       warnings: [],
     })
@@ -662,16 +662,16 @@ describe('工具：防抖与组织数据源', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    await createHttpOrgSource().loadDeptTree({ status: '' })
+    await createHttpDictRemoteSource().loadDeptTree({ status: '' })
 
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe('/api/demo/v1/demo/data-source/dept-tree')
   })
 
   it('数据源注册表：自定义实现登记与同键拒重', () => {
-    registerOrgSource('store', createHttpOrgSource)
-    expect(orgSourceRegistry.keys()).toContain('store')
-    expect(() => registerOrgSource('store', createHttpOrgSource)).toThrow()
-    orgSourceRegistry.unregister('store')
+    registerDictRemoteSource('store', createHttpDictRemoteSource)
+    expect(dictRemoteSourceRegistry.keys()).toContain('store')
+    expect(() => registerDictRemoteSource('store', createHttpDictRemoteSource)).toThrow()
+    dictRemoteSourceRegistry.unregister('store')
   })
 })
 

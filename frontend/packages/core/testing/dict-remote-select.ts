@@ -8,33 +8,33 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { OrgSourceAdapter } from '../src'
+import type { DictRemoteSourceAdapter } from '../src'
 
 /** 契约用户（含停用项）。 */
-export const ORG_CONTRACT_USERS: readonly Record<string, unknown>[] = [
+export const DICT_DATA_CONTRACT_USERS: readonly Record<string, unknown>[] = [
   { id: 'u1', nickname: '张三', username: 'zhangsan', deptId: 'd2', status: 'enabled', phone: '138****8000', avatar: 'a.png' },
   { id: 'u2', nickname: '李四', username: 'lisi', deptId: 'd2', status: 'disabled' },
 ]
 
 /** 契约岗位。 */
-export const ORG_CONTRACT_POSTS: readonly Record<string, unknown>[] = [
+export const DICT_DATA_CONTRACT_POSTS: readonly Record<string, unknown>[] = [
   { id: 'p1', name: '研发经理', code: 'RD-MGR', deptId: 'd1', status: 'enabled' },
 ]
 
 /** 契约部门树（嵌套）。 */
-export const ORG_CONTRACT_DEPTS: readonly Record<string, unknown>[] = [
+export const DICT_DATA_CONTRACT_DEPTS: readonly Record<string, unknown>[] = [
   { id: 'd1', code: 'DEPT0001', name: '总部', status: 'enabled', children: [{ id: 'd2', code: 'DEPT0002', name: '研发部', status: 'enabled' }] },
 ]
 
 /** 契约回显引用（`u2` 停用；未列出的 id 视为已删除）。 */
-export const ORG_CONTRACT_REFS: readonly Record<string, unknown>[] = [
+export const DICT_DATA_CONTRACT_REFS: readonly Record<string, unknown>[] = [
   { id: 'u1', name: '张三', target: 'user', exists: true, status: 'enabled' },
   { id: 'u2', name: '李四', target: 'user', exists: true, status: 'disabled' },
   { id: 'u9', name: '', target: 'user', exists: false, status: 'disabled' },
 ]
 
 /** 契约选项（结构化最小面）。 */
-export interface OrgSelectContractItem {
+export interface DictRemoteSelectContractItem {
   /** 标识。 */
   id: string
   /** 名称。 */
@@ -46,7 +46,7 @@ export interface OrgSelectContractItem {
 }
 
 /** 契约部门树节点（结构化最小面）。 */
-export interface OrgSelectContractNode {
+export interface DictRemoteSelectContractNode {
   /** 标识。 */
   id: string
   /** 名称。 */
@@ -56,7 +56,7 @@ export interface OrgSelectContractNode {
 }
 
 /** 组织选择契约面（结构化；实现侧可用基类实例或投影适配器接入）。 */
-export interface OrgSelectContractTarget {
+export interface DictRemoteSelectContractTarget {
   /** 数据通路是否就绪。 */
   readonly ready: boolean
   /** 是否降级（占位）态。 */
@@ -70,9 +70,9 @@ export interface OrgSelectContractTarget {
   /** 候选总数。 */
   readonly total: number
   /** 候选与已选选项。 */
-  readonly items: readonly OrgSelectContractItem[]
+  readonly items: readonly DictRemoteSelectContractItem[]
   /** 部门树节点。 */
-  readonly deptNodes: readonly OrgSelectContractNode[]
+  readonly deptNodes: readonly DictRemoteSelectContractNode[]
   /** 选中标识。 */
   readonly selectedIds: readonly string[]
   /** 多选超限标记。 */
@@ -84,7 +84,7 @@ export interface OrgSelectContractTarget {
   /** 切换就绪态。 */
   setReady(value: boolean): void
   /** 注入 / 移除数据源。 */
-  setSource(source: OrgSourceAdapter | undefined): void
+  setSource(source: DictRemoteSourceAdapter | undefined): void
   /** 注入 / 移除用户展示能力。 */
   setUserDisplay(display: unknown): void
   /** 切换对象类型。 */
@@ -130,9 +130,9 @@ export interface OrgSelectContractTarget {
 }
 
 /** 数据源桩（记录调用轨迹与查询入参）。 */
-export interface OrgSourceStub {
+export interface DictRemoteSourceStub {
   /** 数据源实现。 */
-  source: OrgSourceAdapter
+  source: DictRemoteSourceAdapter
   /** 调用轨迹。 */
   calls: string[]
   /** 查询入参轨迹。 */
@@ -145,31 +145,31 @@ export interface OrgSourceStub {
  * @param overrides 覆盖方法。
  * @returns 数据源桩。
  */
-export function createOrgSourceStub(overrides: OrgSourceAdapter = {}): OrgSourceStub {
+export function createDictRemoteSourceStub(overrides: DictRemoteSourceAdapter = {}): DictRemoteSourceStub {
   const calls: string[] = []
   const queries: Record<string, unknown>[] = []
-  const source: OrgSourceAdapter = {
+  const source: DictRemoteSourceAdapter = {
     searchUsers: async (query) => {
       calls.push('searchUsers')
       queries.push({ ...query })
-      return { list: ORG_CONTRACT_USERS, total: ORG_CONTRACT_USERS.length }
+      return { list: DICT_DATA_CONTRACT_USERS, total: DICT_DATA_CONTRACT_USERS.length }
     },
     searchPosts: async (query) => {
       calls.push('searchPosts')
       queries.push({ ...query })
-      return { list: ORG_CONTRACT_POSTS, total: ORG_CONTRACT_POSTS.length }
+      return { list: DICT_DATA_CONTRACT_POSTS, total: DICT_DATA_CONTRACT_POSTS.length }
     },
     loadDeptTree: async (query) => {
       calls.push('loadDeptTree')
       queries.push({ ...query })
-      return ORG_CONTRACT_DEPTS
+      return DICT_DATA_CONTRACT_DEPTS
     },
     resolveNames: async (query) => {
       calls.push('resolveNames')
       queries.push({ ids: [...query.ids] })
       return query.ids.map(
         (id) =>
-          ORG_CONTRACT_REFS.find((ref) => ref.id === id) ?? {
+          DICT_DATA_CONTRACT_REFS.find((ref) => ref.id === id) ?? {
             id,
             name: '',
             target: query.target,
@@ -192,11 +192,11 @@ export function createOrgSourceStub(overrides: OrgSourceAdapter = {}): OrgSource
  * @param name 契约名。
  * @param create 目标工厂。
  */
-export function describeOrgSelectContract(name: string, create: () => OrgSelectContractTarget): void {
+export function describeDictRemoteSelectContract(name: string, create: () => DictRemoteSelectContractTarget): void {
   describe(name, () => {
     it('未就绪时降级且不产生请求', async () => {
       const target = create()
-      const stub = createOrgSourceStub()
+      const stub = createDictRemoteSourceStub()
       target.setSource(stub.source)
       expect(target.ready).toBe(false)
       expect(target.degraded).toBe(true)
@@ -224,7 +224,7 @@ export function describeOrgSelectContract(name: string, create: () => OrgSelectC
 
     it('三类派发：用户 / 岗位查询与部门树一次性加载', async () => {
       const target = create()
-      const stub = createOrgSourceStub()
+      const stub = createDictRemoteSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
 
@@ -255,7 +255,7 @@ export function describeOrgSelectContract(name: string, create: () => OrgSelectC
 
     it('查询参数：关键词 / 部门与含下级 / 状态 / 分页', async () => {
       const target = create()
-      const stub = createOrgSourceStub()
+      const stub = createDictRemoteSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
       target.setKind('user')
@@ -275,7 +275,7 @@ export function describeOrgSelectContract(name: string, create: () => OrgSelectC
 
     it('关键词结果短缓存：命中不重复请求，失效后重新请求', async () => {
       const target = create()
-      const stub = createOrgSourceStub()
+      const stub = createDictRemoteSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
       target.setKind('user')
@@ -295,7 +295,7 @@ export function describeOrgSelectContract(name: string, create: () => OrgSelectC
 
     it('批量回显：单请求、已删除 / 停用标记、已解析不重复请求', async () => {
       const target = create()
-      const stub = createOrgSourceStub()
+      const stub = createDictRemoteSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
       target.setKind('user')
@@ -347,7 +347,7 @@ export function describeOrgSelectContract(name: string, create: () => OrgSelectC
 
     it('用户展示花名册：用户选项汇入 BaseUserDisplay', async () => {
       const target = create()
-      const stub = createOrgSourceStub()
+      const stub = createDictRemoteSourceStub()
       const users: Record<string, { name: string; status?: string; deleted?: boolean }> = {}
       target.setUserDisplay({
         mergeUsers(items: readonly { id: string; name: string; status?: string; deleted?: boolean }[]) {
@@ -367,7 +367,7 @@ export function describeOrgSelectContract(name: string, create: () => OrgSelectC
 
     it('错误码与错误态', async () => {
       const target = create()
-      const stub = createOrgSourceStub({
+      const stub = createDictRemoteSourceStub({
         searchUsers: async () => {
           throw Object.assign(new Error('boom'), { code: 30101 })
         },
@@ -383,7 +383,7 @@ export function describeOrgSelectContract(name: string, create: () => OrgSelectC
     it('竞态：旧响应不覆盖新响应', async () => {
       let resolveFirst: ((value: unknown) => void) | undefined
       let call = 0
-      const stub = createOrgSourceStub({
+      const stub = createDictRemoteSourceStub({
         searchUsers: async () => {
           call += 1
           if (call === 1) {

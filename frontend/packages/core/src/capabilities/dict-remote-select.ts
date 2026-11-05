@@ -2,58 +2,58 @@
  * 组织选择族组件基类：用户 / 岗位 / 部门三类远程搜索、批量按 id 回显、缓存、
  * 已删除 / 停用占位、多选上限，以及部门树一次性加载。
  *
- * 全链：`BaseComponent → BasePlaceholderState → BaseValue → BaseField → BaseOptionSource → BaseOrgSelect → 具体件`。
- * 数据通路经注入式 `OrgSourceAdapter`（可替换实现经 `OrgSourceRegistry` 登记），**未注入即占位零请求**；
+ * 全链：`BaseComponent → BasePlaceholderState → BaseValue → BaseField → BaseOptionSource → BaseDictRemoteSelect → 具体件`。
+ * 数据通路经注入式 `DictRemoteSourceAdapter`（可替换实现经 `DictRemoteSourceRegistry` 登记），**未注入即占位零请求**；
  * 用户展示经注入的 `BaseUserDisplay` 花名册解析；核心不依赖 Vue / DOM / 浏览器 API。
  */
 
 import { BaseOptionSource } from './option-source'
 import type { BaseUserDisplay, UserDisplayInfo } from './user-display'
-import type { OrgSourceAdapter, OrgPostQuery, OrgUserQuery } from './org-source'
+import type { DictRemoteSourceAdapter, DictPostQuery, DictUserQuery } from './dict-remote-source'
 import {
-  ORG_DEFAULT_PAGE_SIZE,
-  ORG_EMPTY_VALUE,
-  ORG_LOAD_ERROR_TEXT,
-  ORG_LIMIT_DEFAULT,
-  ORG_CACHE_MAX,
-  applyOrgSelection,
-  buildOrgResolveQuery,
-  clampOrgPage,
-  findOrgDeptPath,
-  findOrgItem,
-  isOrgErrorCode,
-  mergeOrgItems,
-  normalizeOrgIds,
-  normalizeOrgKeyword,
-  normalizeOrgNameRefs,
-  normalizeOrgSearchQuery,
-  orgCacheKey,
-  orgItemLabel,
-  orgLimitText,
-  orgSelectionText,
-  orgTagSummary,
-  parseOrgDeptTree,
-  parseOrgPage,
-  removeOrgId,
-  resolveOrgErrorText,
-  type OrgDeptNode,
-  type OrgKind,
-  type OrgOptionItem,
-  type OrgSearchQuery,
-  type OrgStatus,
-  type OrgTagSummary,
-} from '../domain/org'
+  DICT_DATA_DEFAULT_PAGE_SIZE,
+  DICT_DATA_EMPTY_VALUE,
+  DICT_DATA_LOAD_ERROR_TEXT,
+  DICT_DATA_LIMIT_DEFAULT,
+  DICT_DATA_CACHE_MAX,
+  applyDictDataSelection,
+  buildDictDataResolveQuery,
+  clampDictDataPage,
+  findDictDataDeptPath,
+  findDictDataItem,
+  isDictDataErrorCode,
+  mergeDictDataItems,
+  normalizeDictDataIds,
+  normalizeDictDataKeyword,
+  normalizeDictDataNameRefs,
+  normalizeDictDataSearchQuery,
+  dictDataCacheKey,
+  dictDataItemLabel,
+  dictDataLimitText,
+  dictDataSelectionText,
+  dictDataTagSummary,
+  parseDictDataDeptTree,
+  parseDictDataPage,
+  removeDictDataId,
+  resolveDictDataErrorText,
+  type DictDataDeptNode,
+  type DictDataKind,
+  type DictDataOptionItem,
+  type DictDataSearchQuery,
+  type DictDataStatus,
+  type DictDataTagSummary,
+} from '../domain/dict-data'
 
 /** 组织选择族组件基类（抽象）。 */
-export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> {
+export abstract class BaseDictRemoteSelect extends BaseOptionSource<string | string[]> {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'org_select'
+  override readonly identifier: string = 'dict_remote_select'
   /** 依赖登记。 */
   override readonly depends = ['option_source', 'user_display']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 对象类型。 */
-  kind: OrgKind = 'user'
+  kind: DictDataKind = 'user'
   /** 搜索关键词。 */
   keyword = ''
   /** 部门过滤标识。 */
@@ -61,19 +61,19 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
   /** 部门过滤是否含下级。 */
   includeChildren = false
   /** 状态过滤（空串不限定）。 */
-  status: OrgStatus | '' = ''
+  status: DictDataStatus | '' = ''
   /** 是否多选。 */
   multiple = false
   /** 多选上限（0 不限）。 */
-  limit: number = ORG_LIMIT_DEFAULT
+  limit: number = DICT_DATA_LIMIT_DEFAULT
   /** 候选页码（自 1；复合选择分页用）。 */
   page = 1
   /** 候选总数（服务端返回，非有限值回落当前条数）。 */
   total = 0
   /** 候选与已选富对象（常驻内存，按 id 合并）。 */
-  readonly items: OrgOptionItem[] = []
+  readonly items: DictDataOptionItem[] = []
   /** 部门树（一次性加载，会话缓存）。 */
-  readonly deptNodes: OrgDeptNode[] = []
+  readonly deptNodes: DictDataDeptNode[] = []
   /** 多选超限标记。 */
   limitExceeded = false
   /** 错误码。 */
@@ -81,12 +81,12 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
   /** 错误文案。 */
   errorMessage = ''
   /** 组织数据源（注入式；未注入即占位零请求）。 */
-  source: OrgSourceAdapter | undefined
+  source: DictRemoteSourceAdapter | undefined
   /** 用户展示能力（注入引用；用户姓名 / 头像 / 状态 / 部门路径统一经其解析）。 */
   userDisplay: BaseUserDisplay | undefined
 
   /** 关键词结果短缓存（键 → 候选）。 */
-  readonly #cache = new Map<string, OrgOptionItem[]>()
+  readonly #cache = new Map<string, DictDataOptionItem[]>()
   /** 候选请求序号（防旧响应覆盖）。 */
   #listSeq = 0
   /** 回显请求序号。 */
@@ -113,11 +113,11 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
 
   /** 选中标识（受控值归一）。 */
   get selectedIds(): string[] {
-    return normalizeOrgIds(this.value, this.multiple)
+    return normalizeDictDataIds(this.value, this.multiple)
   }
 
   /** 选中项（未解析项以标识占位，回显不丢值）。 */
-  get selectedItems(): OrgOptionItem[] {
+  get selectedItems(): DictDataOptionItem[] {
     return this.selectedIds.map((id) => this.itemOf(id) ?? this.placeholderOf(id))
   }
 
@@ -148,7 +148,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param source 数据源适配器；`undefined` 表示移除。
    */
-  setSource(source: OrgSourceAdapter | undefined): void {
+  setSource(source: DictRemoteSourceAdapter | undefined): void {
     this.source = source
     this.emitUpdate()
   }
@@ -169,7 +169,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param kind 对象类型。
    */
-  setKind(kind: OrgKind): void {
+  setKind(kind: DictDataKind): void {
     this.kind = kind
     this.keyword = ''
     this.page = 1
@@ -189,7 +189,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    * @param keyword 关键词。
    */
   setKeyword(keyword: string): void {
-    this.keyword = normalizeOrgKeyword(keyword)
+    this.keyword = normalizeDictDataKeyword(keyword)
     this.page = 1
     this.emitUpdate()
   }
@@ -213,7 +213,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param status 状态（空串不限定）。
    */
-  setStatus(status: OrgStatus | ''): void {
+  setStatus(status: DictDataStatus | ''): void {
     this.status = status
     this.page = 1
     this.#cache.clear()
@@ -227,7 +227,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    */
   setMultiple(value: boolean): void {
     this.multiple = value
-    const ids = normalizeOrgIds(this.value, value)
+    const ids = normalizeDictDataIds(this.value, value)
     this.setValue(value ? ids : ids[0])
     this.emitUpdate()
   }
@@ -238,7 +238,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    * @param limit 上限。
    */
   setLimit(limit: number): void {
-    this.limit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : ORG_LIMIT_DEFAULT
+    this.limit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : DICT_DATA_LIMIT_DEFAULT
     this.emitUpdate()
   }
 
@@ -248,7 +248,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    * @param page 页码。
    */
   setPage(page: number): void {
-    this.page = clampOrgPage(page)
+    this.page = clampDictDataPage(page)
     this.emitUpdate()
   }
 
@@ -281,12 +281,12 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
     }
     const current = this.selectedIds
     if (current.includes(id)) {
-      this.setValue(removeOrgId(current, id))
+      this.setValue(removeDictDataId(current, id))
       this.limitExceeded = false
       this.emitUpdate()
       return
     }
-    const result = applyOrgSelection(current, [id], { multiple: true, limit: this.limit })
+    const result = applyDictDataSelection(current, [id], { multiple: true, limit: this.limit })
     this.limitExceeded = result.exceeded
     this.setValue(result.ids)
     this.emitUpdate()
@@ -298,7 +298,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    * @param id 标识。
    */
   remove(id: string): void {
-    const ids = removeOrgId(this.selectedIds, id)
+    const ids = removeDictDataId(this.selectedIds, id)
     this.limitExceeded = false
     this.setValue(this.multiple ? ids : ids[0])
     this.emitUpdate()
@@ -326,7 +326,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
       return
     }
     const query = this.searchQuery()
-    const cacheKey = orgCacheKey(this.kind, query)
+    const cacheKey = dictDataCacheKey(this.kind, query)
     const cached = this.#cache.get(cacheKey)
     if (cached !== undefined) {
       this.applyCandidates(cached)
@@ -343,12 +343,12 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
     try {
       const raw =
         this.kind === 'user'
-          ? await source.searchUsers?.(query as OrgUserQuery)
-          : await source.searchPosts?.(query as OrgPostQuery)
+          ? await source.searchUsers?.(query as DictUserQuery)
+          : await source.searchPosts?.(query as DictPostQuery)
       if (token !== this.#listSeq) {
         return
       }
-      const page = parseOrgPage(raw, this.kind)
+      const page = parseDictDataPage(raw, this.kind)
       this.total = page.total
       this.cacheSet(cacheKey, page.items)
       this.applyCandidates(page.items)
@@ -362,7 +362,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
         return
       }
       this.loading = false
-      this.applyError(error, 'BaseOrgSelect.load')
+      this.applyError(error, 'BaseDictRemoteSelect.load')
       this.emitUpdate()
     }
   }
@@ -375,7 +375,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    */
   async resolve(ids?: readonly string[]): Promise<void> {
     const source = this.source
-    const targets = normalizeOrgIds(ids ?? this.selectedIds, true)
+    const targets = normalizeDictDataIds(ids ?? this.selectedIds, true)
     if (
       !this.ready ||
       source === undefined ||
@@ -384,7 +384,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
     ) {
       return
     }
-    const pending = targets.filter((id) => findOrgItem(this.items, id) === undefined)
+    const pending = targets.filter((id) => findDictDataItem(this.items, id) === undefined)
     if (pending.length === 0) {
       return
     }
@@ -399,7 +399,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
       if (token !== this.#resolveSeq) {
         return
       }
-      const refs = normalizeOrgNameRefs(raw, this.kind)
+      const refs = normalizeDictDataNameRefs(raw, this.kind)
       this.applyItems(refs)
       this.syncUserDisplay()
       this.loading = false
@@ -409,7 +409,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
         return
       }
       this.loading = false
-      this.applyError(error, 'BaseOrgSelect.resolve')
+      this.applyError(error, 'BaseDictRemoteSelect.resolve')
       this.emitUpdate()
     }
   }
@@ -438,7 +438,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
       if (token !== this.#treeSeq) {
         return
       }
-      const nodes = parseOrgDeptTree(raw)
+      const nodes = parseDictDataDeptTree(raw)
       this.deptNodes.splice(0, this.deptNodes.length, ...nodes)
       this.#deptLoaded = true
       this.applyItems([...this.items])
@@ -450,7 +450,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
         return
       }
       this.loading = false
-      this.applyError(error, 'BaseOrgSelect.loadDeptTree')
+      this.applyError(error, 'BaseDictRemoteSelect.loadDeptTree')
       this.emitUpdate()
     }
   }
@@ -460,8 +460,8 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param id 标识。
    */
-  itemOf(id: string): OrgOptionItem | undefined {
-    return findOrgItem(this.items, id)
+  itemOf(id: string): DictDataOptionItem | undefined {
+    return findDictDataItem(this.items, id)
   }
 
   /**
@@ -471,13 +471,13 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    */
   labelOf(id: string): string {
     const item = this.itemOf(id)
-    return item === undefined ? id : orgItemLabel(item)
+    return item === undefined ? id : dictDataItemLabel(item)
   }
 
   /** 选中回显文本（「、」连接；空值「—」）。 */
   selectionText(): string {
     const items = this.selectedItems
-    return items.length === 0 ? ORG_EMPTY_VALUE : orgSelectionText(items)
+    return items.length === 0 ? DICT_DATA_EMPTY_VALUE : dictDataSelectionText(items)
   }
 
   /**
@@ -485,13 +485,13 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param maxVisible 可见上限（缺省按默认折叠阈值）。
    */
-  tagSummary(maxVisible?: number): OrgTagSummary {
-    return orgTagSummary(this.selectedItems, maxVisible)
+  tagSummary(maxVisible?: number): DictDataTagSummary {
+    return dictDataTagSummary(this.selectedItems, maxVisible)
   }
 
   /** 多选上限提示文案。 */
   limitText(): string {
-    return orgLimitText(this.kind, this.limit)
+    return dictDataLimitText(this.kind, this.limit)
   }
 
   /**
@@ -499,7 +499,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param kind 指定 `dept` 时另清部门树；缺省仅清候选缓存。
    */
-  invalidate(kind?: OrgKind): void {
+  invalidate(kind?: DictDataKind): void {
     this.#cache.clear()
     if (kind === undefined || kind === 'dept') {
       this.deptNodes.splice(0, this.deptNodes.length)
@@ -514,7 +514,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    * @param value 值（单值 / 数组）。
    */
   override getLabel(value: string | string[]): string | undefined {
-    const ids = normalizeOrgIds(value, true)
+    const ids = normalizeDictDataIds(value, true)
     if (ids.length === 0) {
       return undefined
     }
@@ -533,21 +533,21 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
   }
 
   /** 当前归一化查询。 */
-  searchQuery(): OrgSearchQuery {
-    return normalizeOrgSearchQuery({
+  searchQuery(): DictDataSearchQuery {
+    return normalizeDictDataSearchQuery({
       kind: this.kind,
       keyword: this.keyword,
       deptId: this.deptId,
       includeChildren: this.includeChildren,
       status: this.status,
       page: this.page,
-      pageSize: ORG_DEFAULT_PAGE_SIZE,
+      pageSize: DICT_DATA_DEFAULT_PAGE_SIZE,
     })
   }
 
   /** 当前批量回显参数（与后端出口同源）。 */
   resolveParams(ids?: readonly string[]): Record<string, unknown> {
-    return buildOrgResolveQuery(this.kind, ids ?? this.selectedIds)
+    return buildDictDataResolveQuery(this.kind, ids ?? this.selectedIds)
   }
 
   /**
@@ -555,7 +555,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param id 标识。
    */
-  private placeholderOf(id: string): OrgOptionItem {
+  private placeholderOf(id: string): DictDataOptionItem {
     return { id, name: '', kind: this.kind, status: 'enabled', deleted: false }
   }
 
@@ -564,7 +564,7 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param item 选项。
    */
-  private toDisplayInfo(item: OrgOptionItem): UserDisplayInfo {
+  private toDisplayInfo(item: DictDataOptionItem): UserDisplayInfo {
     return {
       id: item.id,
       name: item.name === '' ? item.id : item.name,
@@ -580,11 +580,11 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param item 选项。
    */
-  private withDeptPath(item: OrgOptionItem): OrgOptionItem {
+  private withDeptPath(item: DictDataOptionItem): DictDataOptionItem {
     if (item.deptPath !== undefined || item.deptId === undefined || this.deptNodes.length === 0) {
       return item
     }
-    const path = findOrgDeptPath(this.deptNodes, item.deptId)
+    const path = findDictDataDeptPath(this.deptNodes, item.deptId)
     return path.length === 0 ? item : { ...item, deptPath: path.join(' / ') }
   }
 
@@ -593,9 +593,9 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param candidates 候选列表。
    */
-  private applyCandidates(candidates: readonly OrgOptionItem[]): void {
-    const keep = this.selectedItems.filter((item) => findOrgItem(candidates, item.id) === undefined)
-    this.applyItems(mergeOrgItems(keep, candidates))
+  private applyCandidates(candidates: readonly DictDataOptionItem[]): void {
+    const keep = this.selectedItems.filter((item) => findDictDataItem(candidates, item.id) === undefined)
+    this.applyItems(mergeDictDataItems(keep, candidates))
   }
 
   /**
@@ -603,13 +603,13 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    *
    * @param incoming 增量列表。
    */
-  private applyItems(incoming: readonly OrgOptionItem[]): void {
-    const next = mergeOrgItems(this.items, incoming.map((item) => this.withDeptPath(item)))
+  private applyItems(incoming: readonly DictDataOptionItem[]): void {
+    const next = mergeDictDataItems(this.items, incoming.map((item) => this.withDeptPath(item)))
     this.items.splice(0, this.items.length, ...next)
     this.options.splice(
       0,
       this.options.length,
-      ...next.map((item) => ({ value: item.id, label: orgItemLabel(item) })),
+      ...next.map((item) => ({ value: item.id, label: dictDataItemLabel(item) })),
     )
     this.dataVersion += 1
   }
@@ -620,12 +620,12 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    * @param key 缓存键。
    * @param items 候选列表。
    */
-  private cacheSet(key: string, items: readonly OrgOptionItem[]): void {
+  private cacheSet(key: string, items: readonly DictDataOptionItem[]): void {
     if (this.#cache.has(key)) {
       this.#cache.delete(key)
     }
     this.#cache.set(key, items.map((item) => ({ ...item })))
-    while (this.#cache.size > ORG_CACHE_MAX) {
+    while (this.#cache.size > DICT_DATA_CACHE_MAX) {
       const oldest = this.#cache.keys().next().value
       if (oldest === undefined) {
         break
@@ -642,9 +642,9 @@ export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> 
    */
   private applyError(error: unknown, scope: string): void {
     this.errorCode = readErrorCode(error)
-    this.errorMessage = isOrgErrorCode(this.errorCode)
-      ? resolveOrgErrorText(this.errorCode)
-      : ORG_LOAD_ERROR_TEXT
+    this.errorMessage = isDictDataErrorCode(this.errorCode)
+      ? resolveDictDataErrorText(this.errorCode)
+      : DICT_DATA_LOAD_ERROR_TEXT
     this.reportError(error, { scope })
   }
 

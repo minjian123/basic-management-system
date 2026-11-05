@@ -18,6 +18,7 @@ import CaptchaField from '../components/field/CaptchaField.vue'
 import CascadeField from '../components/field/CascadeField.vue'
 import DateTimeField from '../components/field/DateTimeField.vue'
 import DictSelectField from '../components/field/DictSelectField.vue'
+import DictTreeField from '../components/field/DictTreeField.vue'
 import FileUploadField from '../components/field/FileUploadField.vue'
 import ImageUploadField from '../components/field/ImageUploadField.vue'
 import MultilingualNameField from '../components/field/MultilingualNameField.vue'
@@ -25,7 +26,7 @@ import MultilingualTextField from '../components/field/MultilingualTextField.vue
 import NumberField from '../components/field/NumberField.vue'
 import OptionSetField from '../components/field/OptionSetField.vue'
 import OptionSetMultiField from '../components/field/OptionSetMultiField.vue'
-import OrgSelectField from '../components/field/OrgSelectField.vue'
+import DictRemoteSelectField from '../components/field/DictRemoteSelectField.vue'
 import PercentField from '../components/field/PercentField.vue'
 import RichTextField from '../components/field/RichTextField.vue'
 import SwitchField from '../components/field/SwitchField.vue'
@@ -61,8 +62,9 @@ const BUILTIN_WIDGETS: Readonly<Record<string, Component>> = {
   'image_upload': ImageUploadField,
   richtext: RichTextField,
   'tree_select': TreeSelectField,
-  'org_select': OrgSelectField,
+  'dict_remote_select': DictRemoteSelectField,
   'dict_select': DictSelectField,
+  'dict_tree': DictTreeField,
   'dict_multi': DictSelectField,
   transfer: TransferField,
   cascader: CascadeField,
@@ -138,7 +140,8 @@ export const MULTIPLE_WIDGETS: readonly FormWidget[] = [
   'tag',
   'transfer',
   'tags',
-  'org_select',
+  'dict_remote_select',
+  'dict_tree',
   'dict_multi',
   'file_upload',
   'image_upload',

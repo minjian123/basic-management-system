@@ -38,7 +38,7 @@ def build_consistency_key(*, scope: str, tenant: str | None = None) -> str:
     """构建一致性屏障键（规范 `bms:{租户|global}:consistency:{scope}`）。
 
     Args:
-        scope: 收敛域键（如 `perm` 表权限、`org` 表组织）。
+        scope: 收敛域键（如 `perm` 表权限、`dept` 表组织）。
         tenant: 租户标识；None 表示全局键。
 
     Returns:

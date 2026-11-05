@@ -2,32 +2,32 @@
 // 组织复合选择弹窗（06_05）：左部门树 × 右人员 / 岗位列表 + 搜索 + 已选标签；确认回填受控值、取消恢复快照。
 import { ElCheckbox, ElDialog, ElInput, ElTree } from 'element-plus'
 import {
-  ORG_EMPTY_TEXT,
-  ORG_PLACEHOLDER_TEXT,
-  ORG_SEARCH_DEBOUNCE,
-  orgTagSummary,
-  toOrgTreeNodes,
+  DICT_DATA_EMPTY_TEXT,
+  DICT_DATA_PLACEHOLDER_TEXT,
+  DICT_DATA_SEARCH_DEBOUNCE,
+  dictDataTagSummary,
+  toDictDataTreeNodes,
   type BaseUserDisplay,
-  type OrgKind,
-  type OrgSourceAdapter,
-  type OrgTreeNode,
+  type DictDataKind,
+  type DictRemoteSourceAdapter,
+  type DictDataTreeNode,
 } from '@bms/core'
 import { computed, onScopeDispose, ref, watch } from 'vue'
 
-import { useBaseOrgSelect } from '../../composables/useBaseOrgSelect'
+import { useBaseDictRemoteSelect } from '../../composables/useBaseDictRemoteSelect'
 import { debounce } from '../../utils/debounce'
 import EmptyState from '../feedback/EmptyState.vue'
 
 /** 字段值类型。 */
-export type OrgCompositeValue = string | string[] | undefined
+export type DictCompositeValue = string | string[] | undefined
 
 interface Props {
   /** 显隐（受控）。 */
   visible?: boolean
   /** 值（受控；多选为数组）。 */
-  modelValue?: OrgCompositeValue
+  modelValue?: DictCompositeValue
   /** 对象类型（人员 / 岗位）。 */
-  kind?: OrgKind
+  kind?: DictDataKind
   /** 多选（缺省多选）。 */
   multiple?: boolean
   /** 多选上限（0 不限）。 */
@@ -35,7 +35,7 @@ interface Props {
   /** 数据通路是否就绪。 */
   ready?: boolean
   /** 组织数据源（未注入即占位零请求）。 */
-  source?: OrgSourceAdapter
+  source?: DictRemoteSourceAdapter
   /** 用户展示能力（缺省由投影内建花名册）。 */
   userDisplay?: BaseUserDisplay
   /** 标题。 */
@@ -65,21 +65,21 @@ const props = withDefaults(defineProps<Props>(), {
   pageSize: 20,
   includeChildren: false,
   placeholder: '搜索',
-  degradeText: ORG_PLACEHOLDER_TEXT,
-  emptyText: ORG_EMPTY_TEXT,
+  degradeText: DICT_DATA_PLACEHOLDER_TEXT,
+  emptyText: DICT_DATA_EMPTY_TEXT,
 })
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
-  'update:modelValue': [value: OrgCompositeValue]
-  change: [value: OrgCompositeValue]
+  'update:modelValue': [value: DictCompositeValue]
+  change: [value: DictCompositeValue]
   confirm: []
   cancel: []
   retry: []
   'limit-exceed': [limit: number]
 }>()
 
-const api = useBaseOrgSelect({
+const api = useBaseDictRemoteSelect({
   ready: props.ready,
   kind: props.kind === 'post' ? 'post' : 'user',
   multiple: props.multiple,
@@ -145,12 +145,12 @@ const loadDebounced = debounce(() => {
   api.setPage(1)
   page.value = 1
   void api.load()
-}, ORG_SEARCH_DEBOUNCE)
+}, DICT_DATA_SEARCH_DEBOUNCE)
 onScopeDispose(() => loadDebounced.cancel())
 
-const treeNodes = computed<OrgTreeNode[]>(() => toOrgTreeNodes(api.deptNodes.value))
+const treeNodes = computed<DictDataTreeNode[]>(() => toDictDataTreeNodes(api.deptNodes.value))
 const pageCount = computed(() => Math.max(1, Math.ceil(api.total.value / Math.max(1, props.pageSize))))
-const tag = computed(() => orgTagSummary(api.selectedItems.value, 3))
+const tag = computed(() => dictDataTagSummary(api.selectedItems.value, 3))
 
 /**
  * 搜索输入（300ms 防抖）。
@@ -187,7 +187,7 @@ function onNext(): void {
  *
  * @param node 树节点。
  */
-function onDeptClick(node: OrgTreeNode): void {
+function onDeptClick(node: DictDataTreeNode): void {
   activeDept.value = node.key
   api.setDeptFilter(node.key, props.includeChildren)
   page.value = 1
@@ -231,8 +231,8 @@ function onRetry(): void {
 
 <template>
   <el-dialog
-    class="bms-org-composite-picker"
-    data-test="org-composite-picker"
+    class="bms-dict-composite-picker"
+    data-test="dict-composite-picker"
     :model-value="visible"
     :title="title"
     width="720px"
@@ -244,8 +244,8 @@ function onRetry(): void {
       </slot>
     </div>
 
-    <div v-else class="bms-org-composite-picker__body">
-      <div class="bms-org-composite-picker__tree" data-test="composite-tree">
+    <div v-else class="bms-dict-composite-picker__body">
+      <div class="bms-dict-composite-picker__tree" data-test="composite-tree">
         <el-tree
           :data="treeNodes"
           node-key="key"
@@ -255,20 +255,20 @@ function onRetry(): void {
           @node-click="onDeptClick"
         />
       </div>
-      <div class="bms-org-composite-picker__list">
+      <div class="bms-dict-composite-picker__list">
         <el-input
-          class="bms-org-composite-picker__search"
+          class="bms-dict-composite-picker__search"
           data-test="composite-search"
           :model-value="api.keyword.value"
           :placeholder="placeholder"
           clearable
           @update:model-value="onSearchInput"
         />
-        <div v-if="api.items.value.length > 0" class="bms-org-composite-picker__rows">
+        <div v-if="api.items.value.length > 0" class="bms-dict-composite-picker__rows">
           <div
             v-for="item in api.items.value"
             :key="item.id"
-            class="bms-org-composite-picker__row"
+            class="bms-dict-composite-picker__row"
             :data-test="`composite-row-${item.id}`"
           >
             <el-checkbox
@@ -277,14 +277,14 @@ function onRetry(): void {
               :data-test="`composite-check-${item.id}`"
               @update:model-value="onToggle(item.id)"
             />
-            <span class="bms-org-composite-picker__name">{{ api.labelOf(item.id) }}</span>
-            <span v-if="item.code" class="bms-org-composite-picker__code">{{ item.code }}</span>
+            <span class="bms-dict-composite-picker__name">{{ api.labelOf(item.id) }}</span>
+            <span v-if="item.code" class="bms-dict-composite-picker__code">{{ item.code }}</span>
           </div>
         </div>
         <slot v-else name="empty">
           <empty-state type="result" data-test="composite-empty" :description="emptyText" />
         </slot>
-        <div class="bms-org-composite-picker__pager">
+        <div class="bms-dict-composite-picker__pager">
           <button type="button" data-test="composite-page-prev" :disabled="page <= 1" @click="onPrev">上一页</button>
           <span data-test="composite-page">{{ page }} / {{ pageCount }}</span>
           <button type="button" data-test="composite-page-next" :disabled="page >= pageCount" @click="onNext">下一页</button>
@@ -292,8 +292,8 @@ function onRetry(): void {
       </div>
     </div>
 
-    <div class="bms-org-composite-picker__tags" data-test="composite-tags">
-      <span v-for="item in tag.visible" :key="item.id" class="bms-org-composite-picker__tag" :data-test="`composite-tag-${item.id}`">
+    <div class="bms-dict-composite-picker__tags" data-test="composite-tags">
+      <span v-for="item in tag.visible" :key="item.id" class="bms-dict-composite-picker__tag" :data-test="`composite-tag-${item.id}`">
         {{ api.labelOf(item.id) }}
         <button type="button" :aria-label="`移除 ${api.labelOf(item.id)}`" @click="onToggle(item.id)">×</button>
       </span>
@@ -313,65 +313,65 @@ function onRetry(): void {
 </template>
 
 <style scoped>
-.bms-org-composite-picker__body {
+.bms-dict-composite-picker__body {
   display: flex;
   gap: var(--bms-spacing-lg);
   min-height: 320px;
 }
-.bms-org-composite-picker__tree {
+.bms-dict-composite-picker__tree {
   width: 240px;
   padding: var(--bms-spacing-sm);
   overflow: auto;
-  border: 1px solid var(--bms-org-border);
+  border: 1px solid var(--bms-dict-remote-border);
   border-radius: var(--bms-radius-md);
-  background: var(--bms-org-panel-bg);
+  background: var(--bms-dict-remote-panel-bg);
 }
-.bms-org-composite-picker__list {
+.bms-dict-composite-picker__list {
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: var(--bms-spacing-sm);
 }
-.bms-org-composite-picker__rows {
+.bms-dict-composite-picker__rows {
   flex: 1;
   overflow: auto;
 }
-.bms-org-composite-picker__row {
+.bms-dict-composite-picker__row {
   display: flex;
   align-items: center;
   gap: var(--bms-spacing-sm);
   padding: var(--bms-spacing-sm);
   border-radius: var(--bms-radius-sm);
 }
-.bms-org-composite-picker__row:hover {
-  background: var(--bms-org-option-hover-bg);
+.bms-dict-composite-picker__row:hover {
+  background: var(--bms-dict-remote-option-hover-bg);
 }
-.bms-org-composite-picker__code {
+.bms-dict-composite-picker__code {
   color: var(--bms-color-text-secondary);
   font-size: 12px;
 }
-.bms-org-composite-picker__pager {
+.bms-dict-composite-picker__pager {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: var(--bms-spacing-md);
 }
-.bms-org-composite-picker__tags {
+.bms-dict-composite-picker__tags {
   display: flex;
   flex-wrap: wrap;
   gap: var(--bms-spacing-sm);
   margin-top: var(--bms-spacing-md);
 }
-.bms-org-composite-picker__tag {
+.bms-dict-composite-picker__tag {
   display: inline-flex;
   align-items: center;
   gap: var(--bms-spacing-sm);
   padding: 0 var(--bms-spacing-sm);
-  background: var(--bms-org-tag-bg);
-  border: 1px solid var(--bms-org-border);
+  background: var(--bms-dict-remote-tag-bg);
+  border: 1px solid var(--bms-dict-remote-border);
   border-radius: var(--bms-radius-sm);
 }
-.bms-org-composite-picker__tag button {
+.bms-dict-composite-picker__tag button {
   color: var(--bms-color-text-secondary);
   background: transparent;
   border: none;

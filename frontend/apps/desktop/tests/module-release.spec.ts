@@ -401,27 +401,27 @@ describe('跨仓模块产物接入（Kiwi 2258）', () => {
   })
 
   it('仓外工程目录发布：四关校验通过 → 归档 → 清单登记 → 留痕来源 external', () => {
-    createExternalProject('mdm_org')
+    createExternalProject('mdm')
 
-    const result = publishModule({ root, name: 'mdm_org', moduleDir: externalDir, by: 'tester' })
+    const result = publishModule({ root, name: 'mdm', moduleDir: externalDir, by: 'tester' })
 
     expect(result.action).toBe('publish')
     expect(result.source).toBe('external')
     expect(result.version).toBe('0.1.0')
-    expect(result.entry).toBe('http://localhost:5002/mdm_org/0.1.0/remoteEntry.js')
-    expect(existsSync(join(root, 'releases/mdm_org/0.1.0/remoteEntry.js'))).toBe(true)
-    expect(existsSync(join(root, 'releases/mdm_org/0.1.0/module.meta.json'))).toBe(true)
+    expect(result.entry).toBe('http://localhost:5002/mdm/0.1.0/remoteEntry.js')
+    expect(existsSync(join(root, 'releases/mdm/0.1.0/remoteEntry.js'))).toBe(true)
+    expect(existsSync(join(root, 'releases/mdm/0.1.0/module.meta.json'))).toBe(true)
     expect(readManifest(root).entries).toEqual([
       {
-        name: 'mdm_org',
-        entry: 'http://localhost:5002/mdm_org/0.1.0/remoteEntry.js',
+        name: 'mdm',
+        entry: 'http://localhost:5002/mdm/0.1.0/remoteEntry.js',
         version: '0.1.0',
         mode: 'remote',
         enabled: true,
       },
     ])
     expect(readReleaseLog(root).records[0]).toMatchObject({
-      module: 'mdm_org',
+      module: 'mdm',
       action: 'publish',
       source: 'external',
     })
@@ -439,56 +439,56 @@ describe('跨仓模块产物接入（Kiwi 2258）', () => {
   })
 
   it('失败矩阵：目录不存在 / 缺工程清单 / 缺产物入口 / 版本不一致 / 缺 sourcemap / 缺预算提示', () => {
-    expect(() => publishModule({ root, name: 'mdm_org', moduleDir: join(externalDir, 'missing') })).toThrow(
+    expect(() => publishModule({ root, name: 'mdm', moduleDir: join(externalDir, 'missing') })).toThrow(
       /模块工程目录不存在/,
     )
 
     mkdirSync(join(externalDir, 'dist'), { recursive: true })
-    expect(() => publishModule({ root, name: 'mdm_org', moduleDir: externalDir })).toThrow(/缺少 package\.json/)
+    expect(() => publishModule({ root, name: 'mdm', moduleDir: externalDir })).toThrow(/缺少 package\.json/)
 
     rmSync(join(externalDir, 'dist'), { recursive: true, force: true })
-    createExternalProject('mdm_org')
-    writeJson(join(externalDir, 'dist/module.meta.json'), { name: 'mdm_org', version: '9.9.9', contractVersion: 1 })
-    expect(() => publishModule({ root, name: 'mdm_org', moduleDir: externalDir })).toThrow(
+    createExternalProject('mdm')
+    writeJson(join(externalDir, 'dist/module.meta.json'), { name: 'mdm', version: '9.9.9', contractVersion: 1 })
+    expect(() => publishModule({ root, name: 'mdm', moduleDir: externalDir })).toThrow(
       /产物元数据版本与 package.json 不一致/,
     )
 
-    createExternalProject('mdm_org')
+    createExternalProject('mdm')
     rmSync(join(externalDir, 'dist/remoteEntry.js.map'))
-    expect(() => publishModule({ root, name: 'mdm_org', moduleDir: externalDir })).toThrow(/sourcemap/)
+    expect(() => publishModule({ root, name: 'mdm', moduleDir: externalDir })).toThrow(/sourcemap/)
 
-    createExternalProject('mdm_org')
+    createExternalProject('mdm')
     rmSync(join(externalDir, 'budget.json'))
-    expect(() => publishModule({ root, name: 'mdm_org', moduleDir: externalDir })).toThrow(/budget\.json/)
-    expect(existsSync(join(root, 'releases/mdm_org'))).toBe(false)
+    expect(() => publishModule({ root, name: 'mdm', moduleDir: externalDir })).toThrow(/budget\.json/)
+    expect(existsSync(join(root, 'releases/mdm'))).toBe(false)
   })
 
   it('隔离关：仓外工程无 src 只跑产物面；带 src 违规按同口径拦截', () => {
-    createExternalProject('mdm_org')
-    expect(() => publishModule({ root, name: 'mdm_org', moduleDir: externalDir })).not.toThrow()
+    createExternalProject('mdm')
+    expect(() => publishModule({ root, name: 'mdm', moduleDir: externalDir })).not.toThrow()
 
-    createExternalProject('mdm_org', { withSource: true })
+    createExternalProject('mdm', { withSource: true })
     writeText(join(externalDir, 'src/index.ts'), 'Object.prototype.hacked = true\n')
-    expect(() => publishModule({ root, name: 'mdm_org', moduleDir: externalDir })).toThrow(/隔离|G1|全局原型/)
+    expect(() => publishModule({ root, name: 'mdm', moduleDir: externalDir })).toThrow(/隔离|G1|全局原型/)
   })
 
   it('共享关：仓外工程依赖未登记白名单即拒（同一白名单口径）', () => {
-    createExternalProject('mdm_org')
+    createExternalProject('mdm')
     writeJson(join(externalDir, 'package.json'), {
-      name: '@mdm/module-mdm_org',
+      name: '@mdm/module-mdm',
       version: '0.1.0',
       dependencies: { lodash: '^4.17.21' },
     })
 
-    expect(() => publishModule({ root, name: 'mdm_org', moduleDir: externalDir })).toThrow(/lodash 未登记/)
+    expect(() => publishModule({ root, name: 'mdm', moduleDir: externalDir })).toThrow(/lodash 未登记/)
   })
 
   it('清单护栏：跨仓远端条目放行并分类；mode: local 缺本地工程仍拒', () => {
-    createExternalProject('mdm_org')
-    publishModule({ root, name: 'mdm_org', moduleDir: externalDir })
+    createExternalProject('mdm')
+    publishModule({ root, name: 'mdm', moduleDir: externalDir })
 
     expect(checkModuleManifest({ frontendDir: root })).toEqual([])
-    expect(classifyManifestEntries(root)).toEqual({ local: [], external: ['mdm_org'] })
+    expect(classifyManifestEntries(root)).toEqual({ local: [], external: ['mdm'] })
 
     writeJson(join(root, 'apps/desktop/public/modules.json'), [
       { name: 'legacy', entry: 'legacy', version: '1.0.0', mode: 'local' },

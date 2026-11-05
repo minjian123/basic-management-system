@@ -55,7 +55,7 @@ domain_shared_paths = [
   "backend/services/*/src/*/services/demo_service.py",
   "backend/services/*/src/*/services/i18n_text.py",
   "backend/services/*/src/*/services/metadata_cache.py",
-  "backend/services/*/src/*/services/org_branch.py",
+  "backend/services/*/src/*/services/user_role_branch.py",
   "backend/services/*/src/*/services/platform_client.py",
   "backend/services/*/src/*/services/seed_branch_handlers.py",
   "backend/services/*/src/*/permission/source.py",

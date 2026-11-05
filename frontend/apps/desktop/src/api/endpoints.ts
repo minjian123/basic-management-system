@@ -1,7 +1,7 @@
 /** 能力源端点解析：按「域 → 服务前缀」单一来源为各能力源注入 endpoint 与令牌头。 */
 
 import { servicePrefix, serviceUrl, type ServiceKey } from '@bms/core'
-import { orgSourceEndpoint } from '@bms/ui_ep'
+import { dictRemoteSourceEndpoint } from '@bms/ui_ep'
 
 import { getAccessToken } from './token'
 
@@ -41,11 +41,11 @@ export function dictSourceOptions(): SourceEndpointOptions {
  * 组织主数据源选项（**端点运行期取自平台目录快照**）。
  *
  * 组织主数据归**产品服务**（经产品命名空间 `/api/{产品键}/v1/{域段}` 对外），平台不再持有产品键与
- * 命名空间常量：端点由 `@bms/ui_ep` 的 `orgSourceEndpoint()` 按「业务域 + 能力种类」从目录推导
+ * 命名空间常量：端点由 `@bms/ui_ep` 的 `dictRemoteSourceEndpoint()` 按「业务域 + 能力种类」从目录推导
  * （`03_02`）。目录不可用 / 未接入 / 目标不唯一时**不返回端点**（消费方进入降级，不发起请求）。
  */
-export function orgSourceOptions(): SourceEndpointOptions {
-  const endpoint = orgSourceEndpoint()
+export function dictRemoteSourceOptions(): SourceEndpointOptions {
+  const endpoint = dictRemoteSourceEndpoint()
   return endpoint === null ? { headers: authHeaders } : { endpoint, headers: authHeaders }
 }
 

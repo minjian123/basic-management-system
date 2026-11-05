@@ -2,7 +2,7 @@
 
 import { createApp } from 'vue'
 
-import OrgCheck from './OrgCheck.vue'
+import DictRemoteSelectCheck from './DictRemoteSelectCheck.vue'
 import '../styles/index'
 
-createApp(OrgCheck).mount('#app')
+createApp(DictRemoteSelectCheck).mount('#app')

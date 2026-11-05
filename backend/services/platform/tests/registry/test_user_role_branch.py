@@ -1,6 +1,6 @@
 """组织域分支换算用例（07B `03_01`）。
 
-覆盖 `bms_platform.services.org_branch` 的三个公开换算：分支三要素、分支动作名、内部写请求。
+覆盖 `bms_platform.services.user_role_branch` 的三个公开换算：分支三要素、分支动作名、内部写请求。
 端点取自**真实注册视图**（conftest 已登记 mdm 对端能力），错误分支用 `dataclasses.replace` 构造，
 避免手搓结构体与声明漂移。
 """
@@ -17,7 +17,7 @@ from bms_core.core.concurrent import (
 )
 from bms_core.core.exceptions import CatalogError
 from bms_core.db.keys import TENANT_DB_KEY_PREFIX, build_tenant_db_key
-from bms_platform.services.org_branch import branch_op, branch_target, internal_write_request
+from bms_platform.services.user_role_branch import branch_op, branch_target, internal_write_request
 
 _POSTS = "mdm.org.user-posts.assign"
 _DEPTS = "mdm.org.user-depts.assign"

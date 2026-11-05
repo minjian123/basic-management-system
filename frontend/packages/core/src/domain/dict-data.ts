@@ -2,81 +2,81 @@
  * 组织（用户 / 岗位 / 部门）领域纯函数与数据模型：归一 / 查询参数 / 结果解析 / 缓存键 /
  * 选择与上限 / 已删除与停用标记 / 标签摘要 / 部门路径与树节点 / 错误码文案。
  *
- * 与后端组织主数据出口（`/api/v1/org/users|posts|dept-tree|resolve-names`）契约同源；
+ * 与后端组织主数据出口（部门 / 岗位 / 人员三类出口）契约同源；
  * 不触 DOM、不请求、不依赖渲染框架与第三方库。
  */
 
-/** 组织对象类型（与后端 `ORG_TARGETS` 同源）。 */
-export const ORG_TARGETS = ['user', 'post', 'dept'] as const
+/** 组织对象类型（与后端 `DICT_DATA_TARGETS` 同源）。 */
+export const DICT_DATA_TARGETS = ['user', 'post', 'dept'] as const
 
 /** 组织对象类型。 */
-export type OrgKind = (typeof ORG_TARGETS)[number]
+export type DictDataKind = (typeof DICT_DATA_TARGETS)[number]
 
-/** 组织对象状态（与后端 `ORG_STATUSES` 同源）。 */
-export const ORG_STATUSES = ['enabled', 'disabled'] as const
+/** 组织对象状态（与后端 `DICT_DATA_STATUSES` 同源）。 */
+export const DICT_DATA_STATUSES = ['enabled', 'disabled'] as const
 
 /** 组织对象状态。 */
-export type OrgStatus = (typeof ORG_STATUSES)[number]
+export type DictDataStatus = (typeof DICT_DATA_STATUSES)[number]
 
 /** 远程搜索防抖（毫秒；组件设计 300ms）。 */
-export const ORG_SEARCH_DEBOUNCE = 300
+export const DICT_DATA_SEARCH_DEBOUNCE = 300
 
-/** 组织列表缺省页长（与后端 `DEFAULT_ORG_PAGE_SIZE` 同源；下拉限制条数）。 */
-export const ORG_DEFAULT_PAGE_SIZE = 20
+/** 组织列表缺省页长（与后端 `DEFAULT_DICT_DATA_PAGE_SIZE` 同源；下拉限制条数）。 */
+export const DICT_DATA_DEFAULT_PAGE_SIZE = 20
 
 /** 页长上限。 */
-export const ORG_PAGE_SIZE_MAX = 100
+export const DICT_DATA_PAGE_SIZE_MAX = 100
 
 /** 关键词长度上限（码点）。 */
-export const ORG_KEYWORD_MAX = 100
+export const DICT_DATA_KEYWORD_MAX = 100
 
 /** 关键词结果短缓存键上限（超出按最早写入淘汰）。 */
-export const ORG_CACHE_MAX = 50
+export const DICT_DATA_CACHE_MAX = 50
 
 /** 标签折叠阈值（超过即折叠为「首项 +N」；≤ 0 表示不折叠）。 */
-export const ORG_TAG_COLLAPSE_DEFAULT = 1
+export const DICT_DATA_TAG_COLLAPSE_DEFAULT = 1
 
 /** 多选上限缺省值（0 表示不限）。 */
-export const ORG_LIMIT_DEFAULT = 0
+export const DICT_DATA_LIMIT_DEFAULT = 0
 
 /** 选中回显连接符。 */
-export const ORG_JOIN = '、'
+export const DICT_DATA_JOIN = '、'
 
 /** 空值占位。 */
-export const ORG_EMPTY_VALUE = '—'
+export const DICT_DATA_EMPTY_VALUE = '—'
 
 /** 已删除标记。 */
-export const ORG_DELETED_MARK = '已删除'
+export const DICT_DATA_DELETED_MARK = '已删除'
 
 /** 停用标记。 */
-export const ORG_DISABLED_MARK = '停用'
+export const DICT_DATA_DISABLED_MARK = '停用'
 
 /** 占位文案（`ready=false` 降级）。 */
-export const ORG_PLACEHOLDER_TEXT = '组织数据未就绪（占位）'
+export const DICT_DATA_PLACEHOLDER_TEXT = '组织数据未就绪（占位）'
 
 /** 空态文案。 */
-export const ORG_EMPTY_TEXT = '暂无匹配的组织数据'
+export const DICT_DATA_EMPTY_TEXT = '暂无匹配的组织数据'
 
 /** 加载失败兜底文案（非组织错误码时）。 */
-export const ORG_LOAD_ERROR_TEXT = '组织数据加载失败'
+export const DICT_DATA_LOAD_ERROR_TEXT = '组织数据加载失败'
 
 /** 组织查询错误码文案（30101 ~ 30103，与架构 09 错误码分段同源）。 */
-export const ORG_ERROR_TEXTS: Readonly<Record<number, string>> = {
+export const DICT_DATA_ERROR_TEXTS: Readonly<Record<number, string>> = {
   30101: '组织数据源不可用',
   30102: '不支持的回显目标类型',
   30103: '部门不存在',
 }
 
 /** 统一组织选项项（用户 / 岗位 / 部门的展示最小面）。 */
-export interface OrgOptionItem {
+export interface DictDataOptionItem {
   /** 标识。 */
   id: string
   /** 名称。 */
   name: string
   /** 对象类型。 */
-  kind: OrgKind
+  kind: DictDataKind
   /** 状态。 */
-  status: OrgStatus
+  status: DictDataStatus
   /** 是否已删除（出口 `exists=false`）。 */
   deleted: boolean
   /** 头像地址（用户）。 */
@@ -98,7 +98,7 @@ export interface OrgOptionItem {
 }
 
 /** 部门树节点。 */
-export interface OrgDeptNode {
+export interface DictDataDeptNode {
   /** 节点标识。 */
   id: string
   /** 名称。 */
@@ -108,17 +108,17 @@ export interface OrgDeptNode {
   /** 父节点标识（根为空）。 */
   parentId?: string
   /** 状态。 */
-  status: OrgStatus
+  status: DictDataStatus
   /** 是否已删除。 */
   deleted: boolean
   /** 排序。 */
   sort?: number
   /** 嵌套子级。 */
-  children?: OrgDeptNode[]
+  children?: DictDataDeptNode[]
 }
 
 /** 树字段件节点（结构兼容 `TreeSelectField` 的 `TreeFieldNode`）。 */
-export interface OrgTreeNode {
+export interface DictDataTreeNode {
   /** 节点键。 */
   key: string
   /** 文案（含已删除 / 停用标记）。 */
@@ -126,13 +126,13 @@ export interface OrgTreeNode {
   /** 是否禁用（停用 / 已删除节点）。 */
   disabled?: boolean
   /** 子节点。 */
-  children?: OrgTreeNode[]
+  children?: DictDataTreeNode[]
 }
 
 /** 组织查询输入（件 / 族基类侧）。 */
-export interface OrgSearchInput {
+export interface DictDataSearchInput {
   /** 对象类型。 */
-  kind: OrgKind
+  kind: DictDataKind
   /** 关键词。 */
   keyword?: string
   /** 部门过滤。 */
@@ -140,7 +140,7 @@ export interface OrgSearchInput {
   /** 是否含下级。 */
   includeChildren?: boolean
   /** 状态过滤。 */
-  status?: OrgStatus | ''
+  status?: DictDataStatus | ''
   /** 页码（自 1）。 */
   page?: number
   /** 页长。 */
@@ -148,7 +148,7 @@ export interface OrgSearchInput {
 }
 
 /** 归一化查询（件 / 族基类 → 数据源适配器；字段为 camelCase，线参数由出口适配器映射）。 */
-export interface OrgSearchQuery {
+export interface DictDataSearchQuery {
   /** 关键词（已归一）。 */
   keyword: string
   /** 部门过滤（已去空白）。 */
@@ -156,7 +156,7 @@ export interface OrgSearchQuery {
   /** 是否含下级。 */
   includeChildren: boolean
   /** 状态过滤（空串不限定）。 */
-  status: OrgStatus | ''
+  status: DictDataStatus | ''
   /** 页码（已夹取）。 */
   page: number
   /** 页长（已夹取）。 */
@@ -164,7 +164,7 @@ export interface OrgSearchQuery {
 }
 
 /** 选择应用选项。 */
-export interface OrgSelectionOptions {
+export interface DictDataSelectionOptions {
   /** 是否多选。 */
   multiple: boolean
   /** 多选上限（0 不限）。 */
@@ -172,7 +172,7 @@ export interface OrgSelectionOptions {
 }
 
 /** 选择应用结果。 */
-export interface OrgSelectionResult {
+export interface DictDataSelectionResult {
   /** 归一后的选中标识。 */
   ids: string[]
   /** 是否因超出上限被截断。 */
@@ -180,28 +180,28 @@ export interface OrgSelectionResult {
 }
 
 /** 分页解析结果。 */
-export interface OrgPageResult {
+export interface DictDataPageResult {
   /** 条目。 */
-  items: OrgOptionItem[]
+  items: DictDataOptionItem[]
   /** 总数（非有限值回落条数）。 */
   total: number
 }
 
 /** 标签摘要。 */
-export interface OrgTagSummary {
+export interface DictDataTagSummary {
   /** 可见项。 */
-  visible: OrgOptionItem[]
+  visible: DictDataOptionItem[]
   /** 折叠溢出数。 */
   overflow: number
 }
 
 /**
- * 归一组织对象类型（`org` 视为 `dept`）。
+ * 归一组织对象类型（`org` 字段类型视为 `dept`）。
  *
  * @param value 原始值。
  * @returns 类型或 `undefined`。
  */
-export function normalizeOrgKind(value: unknown): OrgKind | undefined {
+export function normalizeDictDataKind(value: unknown): DictDataKind | undefined {
   if (typeof value !== 'string') {
     return undefined
   }
@@ -209,7 +209,7 @@ export function normalizeOrgKind(value: unknown): OrgKind | undefined {
   if (text === 'org' || text === 'dept') {
     return 'dept'
   }
-  return (ORG_TARGETS as readonly string[]).includes(text) ? (text as OrgKind) : undefined
+  return (DICT_DATA_TARGETS as readonly string[]).includes(text) ? (text as DictDataKind) : undefined
 }
 
 /**
@@ -218,8 +218,8 @@ export function normalizeOrgKind(value: unknown): OrgKind | undefined {
  * @param fieldType 字段类型。
  * @returns 类型或 `undefined`。
  */
-export function orgKindOfFieldType(fieldType: string): OrgKind | undefined {
-  return normalizeOrgKind(fieldType)
+export function dictDataKindOfFieldType(fieldType: string): DictDataKind | undefined {
+  return normalizeDictDataKind(fieldType)
 }
 
 /**
@@ -228,7 +228,7 @@ export function orgKindOfFieldType(fieldType: string): OrgKind | undefined {
  * @param value 原始值。
  * @returns 状态。
  */
-export function normalizeOrgStatus(value: unknown): OrgStatus {
+export function normalizeDictDataStatus(value: unknown): DictDataStatus {
   return value === 'disabled' ? 'disabled' : 'enabled'
 }
 
@@ -239,7 +239,7 @@ export function normalizeOrgStatus(value: unknown): OrgStatus {
  * @param kind 对象类型。
  * @returns 归一结果或 `undefined`。
  */
-export function normalizeOrgItem(raw: unknown, kind: OrgKind): OrgOptionItem | undefined {
+export function normalizeDictDataItem(raw: unknown, kind: DictDataKind): DictDataOptionItem | undefined {
   const record = asRecord(raw)
   if (record === undefined) {
     return undefined
@@ -251,11 +251,11 @@ export function normalizeOrgItem(raw: unknown, kind: OrgKind): OrgOptionItem | u
   const name =
     readText(record.nickname) || readText(record.name) || readText(record.username) || id
   const deleted = record.exists === false || readBool(record.deleted)
-  const item: OrgOptionItem = {
+  const item: DictDataOptionItem = {
     id,
     name,
     kind,
-    status: normalizeOrgStatus(record.status),
+    status: normalizeDictDataStatus(record.status),
     deleted,
   }
   const avatar = readText(record.avatar)
@@ -299,9 +299,9 @@ export function normalizeOrgItem(raw: unknown, kind: OrgKind): OrgOptionItem | u
  * @param kind 对象类型。
  * @returns 归一列表。
  */
-export function normalizeOrgItems(raw: unknown, kind: OrgKind): OrgOptionItem[] {
+export function normalizeDictDataItems(raw: unknown, kind: DictDataKind): DictDataOptionItem[] {
   return readArray(raw).flatMap((item) => {
-    const normalized = normalizeOrgItem(item, kind)
+    const normalized = normalizeDictDataItem(item, kind)
     return normalized === undefined ? [] : [normalized]
   })
 }
@@ -312,7 +312,7 @@ export function normalizeOrgItems(raw: unknown, kind: OrgKind): OrgOptionItem[] 
  * @param raw 原始树。
  * @returns 部门树节点。
  */
-export function normalizeOrgDeptTree(raw: unknown): OrgDeptNode[] {
+export function normalizeDictDataDeptTree(raw: unknown): DictDataDeptNode[] {
   return readArray(raw).flatMap((item) => {
     const record = asRecord(item)
     if (record === undefined) {
@@ -322,10 +322,10 @@ export function normalizeOrgDeptTree(raw: unknown): OrgDeptNode[] {
     if (id === '') {
       return []
     }
-    const node: OrgDeptNode = {
+    const node: DictDataDeptNode = {
       id,
       name: readText(record.name) || id,
-      status: normalizeOrgStatus(record.status),
+      status: normalizeDictDataStatus(record.status),
       deleted: record.exists === false || readBool(record.deleted),
     }
     const code = readText(record.code)
@@ -339,7 +339,7 @@ export function normalizeOrgDeptTree(raw: unknown): OrgDeptNode[] {
     if (typeof record.sort === 'number' && Number.isFinite(record.sort)) {
       node.sort = record.sort
     }
-    const children = normalizeOrgDeptTree(record.children)
+    const children = normalizeDictDataDeptTree(record.children)
     if (children.length > 0) {
       node.children = children
     }
@@ -354,14 +354,14 @@ export function normalizeOrgDeptTree(raw: unknown): OrgDeptNode[] {
  * @param kind 对象类型（结果缺 `target` 时回落）。
  * @returns 归一选项列表。
  */
-export function normalizeOrgNameRefs(raw: unknown, kind: OrgKind = 'user'): OrgOptionItem[] {
+export function normalizeDictDataNameRefs(raw: unknown, kind: DictDataKind = 'user'): DictDataOptionItem[] {
   return readArray(raw).flatMap((item) => {
     const record = asRecord(item)
     if (record === undefined) {
       return []
     }
-    const itemKind = normalizeOrgKind(record.target) ?? kind
-    const normalized = normalizeOrgItem(item, itemKind)
+    const itemKind = normalizeDictDataKind(record.target) ?? kind
+    const normalized = normalizeDictDataItem(item, itemKind)
     return normalized === undefined ? [] : [normalized]
   })
 }
@@ -373,7 +373,7 @@ export function normalizeOrgNameRefs(raw: unknown, kind: OrgKind = 'user'): OrgO
  * @param multiple 是否多选（缺省按数组口径归一）。
  * @returns 标识数组。
  */
-export function normalizeOrgIds(value: unknown, multiple = true): string[] {
+export function normalizeDictDataIds(value: unknown, multiple = true): string[] {
   void multiple
   const raw = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value]
   const ids: string[] = []
@@ -394,16 +394,16 @@ export function normalizeOrgIds(value: unknown, multiple = true): string[] {
  * @param options 选择选项。
  * @returns 应用结果（含超限标记）。
  */
-export function applyOrgSelection(
+export function applyDictDataSelection(
   current: readonly string[],
   incoming: unknown,
-  options: OrgSelectionOptions,
-): OrgSelectionResult {
-  const next = normalizeOrgIds(incoming, true)
+  options: DictDataSelectionOptions,
+): DictDataSelectionResult {
+  const next = normalizeDictDataIds(incoming, true)
   if (!options.multiple) {
     return { ids: next.slice(0, 1), exceeded: false }
   }
-  const limit = options.limit ?? ORG_LIMIT_DEFAULT
+  const limit = options.limit ?? DICT_DATA_LIMIT_DEFAULT
   const ids = [...current]
   let exceeded = false
   for (const id of next) {
@@ -426,7 +426,7 @@ export function applyOrgSelection(
  * @param id 待移除标识。
  * @returns 新数组。
  */
-export function removeOrgId(ids: readonly string[], id: string): string[] {
+export function removeDictDataId(ids: readonly string[], id: string): string[] {
   return ids.filter((item) => item !== id)
 }
 
@@ -437,11 +437,11 @@ export function removeOrgId(ids: readonly string[], id: string): string[] {
  * @param incoming 增量列表。
  * @returns 合并结果。
  */
-export function mergeOrgItems(
-  base: readonly OrgOptionItem[],
-  incoming: readonly OrgOptionItem[],
-): OrgOptionItem[] {
-  const merged = new Map<string, OrgOptionItem>()
+export function mergeDictDataItems(
+  base: readonly DictDataOptionItem[],
+  incoming: readonly DictDataOptionItem[],
+): DictDataOptionItem[] {
+  const merged = new Map<string, DictDataOptionItem>()
   for (const item of base) {
     merged.set(item.id, { ...item })
   }
@@ -459,7 +459,7 @@ export function mergeOrgItems(
  * @param id 标识。
  * @returns 选项或 `undefined`。
  */
-export function findOrgItem(items: readonly OrgOptionItem[], id: string): OrgOptionItem | undefined {
+export function findDictDataItem(items: readonly DictDataOptionItem[], id: string): DictDataOptionItem | undefined {
   return items.find((item) => item.id === id)
 }
 
@@ -471,15 +471,15 @@ export function findOrgItem(items: readonly OrgOptionItem[], id: string): OrgOpt
  * @param item 选项。
  * @returns 展示文案。
  */
-export function orgItemLabel(item: OrgOptionItem): string {
+export function dictDataItemLabel(item: DictDataOptionItem): string {
   const name = item.name === '' ? item.id : item.name
   const hasDeptCode = item.kind === 'dept' && item.code !== undefined && item.code !== ''
   const withCode = hasDeptCode ? `${name} (${item.code})` : name
   if (item.deleted) {
-    return `${withCode}（${ORG_DELETED_MARK}）`
+    return `${withCode}（${DICT_DATA_DELETED_MARK}）`
   }
   if (item.status === 'disabled') {
-    return `${withCode}（${ORG_DISABLED_MARK}）`
+    return `${withCode}（${DICT_DATA_DISABLED_MARK}）`
   }
   return withCode
 }
@@ -490,11 +490,11 @@ export function orgItemLabel(item: OrgOptionItem): string {
  * @param items 选中项。
  * @returns 回显文本。
  */
-export function orgSelectionText(items: readonly OrgOptionItem[]): string {
+export function dictDataSelectionText(items: readonly DictDataOptionItem[]): string {
   if (items.length === 0) {
-    return ORG_EMPTY_VALUE
+    return DICT_DATA_EMPTY_VALUE
   }
-  return items.map((item) => orgItemLabel(item)).join(ORG_JOIN)
+  return items.map((item) => dictDataItemLabel(item)).join(DICT_DATA_JOIN)
 }
 
 /**
@@ -504,10 +504,10 @@ export function orgSelectionText(items: readonly OrgOptionItem[]): string {
  * @param maxVisible 可见上限（≤ 0 不折叠）。
  * @returns 可见项与溢出数。
  */
-export function orgTagSummary(
-  items: readonly OrgOptionItem[],
-  maxVisible: number = ORG_TAG_COLLAPSE_DEFAULT,
-): OrgTagSummary {
+export function dictDataTagSummary(
+  items: readonly DictDataOptionItem[],
+  maxVisible: number = DICT_DATA_TAG_COLLAPSE_DEFAULT,
+): DictDataTagSummary {
   const visibleMax = maxVisible > 0 ? maxVisible : items.length
   const visible = items.slice(0, visibleMax)
   return { visible, overflow: items.length - visible.length }
@@ -519,7 +519,7 @@ export function orgTagSummary(
  * @param kind 对象类型。
  * @returns 展示名。
  */
-export function orgKindLabel(kind: OrgKind): string {
+export function dictDataKindLabel(kind: DictDataKind): string {
   return kind === 'user' ? '用户' : kind === 'post' ? '岗位' : '部门'
 }
 
@@ -530,7 +530,7 @@ export function orgKindLabel(kind: OrgKind): string {
  * @param limit 上限。
  * @returns 提示文案。
  */
-export function orgLimitText(kind: OrgKind, limit: number): string {
+export function dictDataLimitText(kind: DictDataKind, limit: number): string {
   const unit = kind === 'user' ? '人' : kind === 'post' ? '个岗位' : '个部门'
   return `最多选择 ${limit} ${unit}`
 }
@@ -541,14 +541,14 @@ export function orgLimitText(kind: OrgKind, limit: number): string {
  * @param input 查询输入。
  * @returns 归一化查询。
  */
-export function normalizeOrgSearchQuery(input: OrgSearchInput): OrgSearchQuery {
+export function normalizeDictDataSearchQuery(input: DictDataSearchInput): DictDataSearchQuery {
   return {
-    keyword: normalizeOrgKeyword(input.keyword ?? ''),
+    keyword: normalizeDictDataKeyword(input.keyword ?? ''),
     deptId: (input.deptId ?? '').trim(),
     includeChildren: input.includeChildren === true,
     status: input.status === undefined ? '' : input.status,
-    page: clampOrgPage(input.page ?? 1),
-    pageSize: clampOrgPageSize(input.pageSize ?? ORG_DEFAULT_PAGE_SIZE),
+    page: clampDictDataPage(input.page ?? 1),
+    pageSize: clampDictDataPageSize(input.pageSize ?? DICT_DATA_DEFAULT_PAGE_SIZE),
   }
 }
 
@@ -558,12 +558,12 @@ export function normalizeOrgSearchQuery(input: OrgSearchInput): OrgSearchQuery {
  * @param input 查询输入（原始或已归一）。
  * @returns 查询参数。
  */
-export function buildOrgSearchQuery(input: OrgSearchInput | OrgSearchQuery): Record<string, unknown> {
+export function buildDictDataSearchQuery(input: DictDataSearchInput | DictDataSearchQuery): Record<string, unknown> {
   const query: Record<string, unknown> = {
-    page: clampOrgPage(input.page ?? 1),
-    size: clampOrgPageSize(input.pageSize ?? ORG_DEFAULT_PAGE_SIZE),
+    page: clampDictDataPage(input.page ?? 1),
+    size: clampDictDataPageSize(input.pageSize ?? DICT_DATA_DEFAULT_PAGE_SIZE),
   }
-  const keyword = normalizeOrgKeyword(input.keyword ?? '')
+  const keyword = normalizeDictDataKeyword(input.keyword ?? '')
   if (keyword !== '') {
     query.keyword = keyword
   }
@@ -587,7 +587,7 @@ export function buildOrgSearchQuery(input: OrgSearchInput | OrgSearchQuery): Rec
  * @param ids 标识列表。
  * @returns 查询参数。
  */
-export function buildOrgResolveQuery(kind: OrgKind, ids: readonly string[]): Record<string, unknown> {
+export function buildDictDataResolveQuery(kind: DictDataKind, ids: readonly string[]): Record<string, unknown> {
   return { target: kind, id_in: [...ids].join(',') }
 }
 
@@ -598,10 +598,10 @@ export function buildOrgResolveQuery(kind: OrgKind, ids: readonly string[]): Rec
  * @param kind 对象类型。
  * @returns 条目与总数。
  */
-export function parseOrgPage(raw: unknown, kind: OrgKind): OrgPageResult {
-  const list = readOrgList(raw)
-  const items = normalizeOrgItems(list, kind)
-  return { items, total: readOrgTotal(raw, items.length) }
+export function parseDictDataPage(raw: unknown, kind: DictDataKind): DictDataPageResult {
+  const list = readDictList(raw)
+  const items = normalizeDictDataItems(list, kind)
+  return { items, total: readDictTotal(raw, items.length) }
 }
 
 /**
@@ -610,8 +610,8 @@ export function parseOrgPage(raw: unknown, kind: OrgKind): OrgPageResult {
  * @param raw 原始结果。
  * @returns 部门树节点。
  */
-export function parseOrgDeptTree(raw: unknown): OrgDeptNode[] {
-  return normalizeOrgDeptTree(readOrgList(raw))
+export function parseDictDataDeptTree(raw: unknown): DictDataDeptNode[] {
+  return normalizeDictDataDeptTree(readDictList(raw))
 }
 
 /**
@@ -621,7 +621,7 @@ export function parseOrgDeptTree(raw: unknown): OrgDeptNode[] {
  * @param query 归一化查询。
  * @returns 缓存键。
  */
-export function orgCacheKey(kind: OrgKind, query: OrgSearchQuery): string {
+export function dictDataCacheKey(kind: DictDataKind, query: DictDataSearchQuery): string {
   const entries = Object.entries(query)
     .filter(([, value]) => value !== undefined && value !== '' && value !== false)
     .sort(([left], [right]) => left.localeCompare(right))
@@ -636,12 +636,12 @@ export function orgCacheKey(kind: OrgKind, query: OrgSearchQuery): string {
  * @param id 部门标识。
  * @returns 名称路径（未命中返回空数组）。
  */
-export function findOrgDeptPath(nodes: readonly OrgDeptNode[], id: string): string[] {
+export function findDictDataDeptPath(nodes: readonly DictDataDeptNode[], id: string): string[] {
   for (const node of nodes) {
     if (node.id === id) {
       return [node.name]
     }
-    const childPath = findOrgDeptPath(node.children ?? [], id)
+    const childPath = findDictDataDeptPath(node.children ?? [], id)
     if (childPath.length > 0) {
       return [node.name, ...childPath]
     }
@@ -655,9 +655,9 @@ export function findOrgDeptPath(nodes: readonly OrgDeptNode[], id: string): stri
  * @param nodes 部门树。
  * @returns 树件节点。
  */
-export function toOrgTreeNodes(nodes: readonly OrgDeptNode[]): OrgTreeNode[] {
+export function toDictDataTreeNodes(nodes: readonly DictDataDeptNode[]): DictDataTreeNode[] {
   return nodes.map((node) => {
-    const label = orgItemLabel({
+    const label = dictDataItemLabel({
       id: node.id,
       name: node.name,
       kind: 'dept',
@@ -665,8 +665,8 @@ export function toOrgTreeNodes(nodes: readonly OrgDeptNode[]): OrgTreeNode[] {
       deleted: node.deleted,
       ...(node.code === undefined ? {} : { code: node.code }),
     })
-    const children = toOrgTreeNodes(node.children ?? [])
-    const treeNode: OrgTreeNode = {
+    const children = toDictDataTreeNodes(node.children ?? [])
+    const treeNode: DictDataTreeNode = {
       key: node.id,
       label,
       disabled: node.deleted || node.status === 'disabled',
@@ -684,45 +684,45 @@ export function toOrgTreeNodes(nodes: readonly OrgDeptNode[]): OrgTreeNode[] {
  * @param text 关键词。
  * @returns 是否为空。
  */
-export function isBlankOrgKeyword(text: string): boolean {
+export function isBlankDictDataKeyword(text: string): boolean {
   return text.trim() === ''
 }
 
 /**
- * 归一关键词（去首尾空白并按 `ORG_KEYWORD_MAX` 截断码点）。
+ * 归一关键词（去首尾空白并按 `DICT_DATA_KEYWORD_MAX` 截断码点）。
  *
  * @param text 关键词。
  * @param max 长度上限。
  * @returns 归一关键词。
  */
-export function normalizeOrgKeyword(text: string, max: number = ORG_KEYWORD_MAX): string {
+export function normalizeDictDataKeyword(text: string, max: number = DICT_DATA_KEYWORD_MAX): string {
   return [...text.trim()].slice(0, max).join('')
 }
 
 /**
- * 夹取页码（1 ~ `ORG_PAGE_SIZE_MAX`，非法回落 1）。
+ * 夹取页码（1 ~ `DICT_DATA_PAGE_SIZE_MAX`，非法回落 1）。
  *
  * @param page 页码。
  * @returns 夹取结果。
  */
-export function clampOrgPage(page: number): number {
+export function clampDictDataPage(page: number): number {
   if (!Number.isFinite(page)) {
     return 1
   }
-  return Math.min(Math.max(Math.floor(page), 1), ORG_PAGE_SIZE_MAX)
+  return Math.min(Math.max(Math.floor(page), 1), DICT_DATA_PAGE_SIZE_MAX)
 }
 
 /**
- * 夹取页长（1 ~ `ORG_PAGE_SIZE_MAX`，非法回落缺省）。
+ * 夹取页长（1 ~ `DICT_DATA_PAGE_SIZE_MAX`，非法回落缺省）。
  *
  * @param size 页长。
  * @returns 夹取结果。
  */
-export function clampOrgPageSize(size: number): number {
+export function clampDictDataPageSize(size: number): number {
   if (!Number.isFinite(size)) {
-    return ORG_DEFAULT_PAGE_SIZE
+    return DICT_DATA_DEFAULT_PAGE_SIZE
   }
-  return Math.min(Math.max(Math.floor(size), 1), ORG_PAGE_SIZE_MAX)
+  return Math.min(Math.max(Math.floor(size), 1), DICT_DATA_PAGE_SIZE_MAX)
 }
 
 /**
@@ -731,7 +731,7 @@ export function clampOrgPageSize(size: number): number {
  * @param code 错误码。
  * @returns 是否命中。
  */
-export function isOrgErrorCode(code: unknown): boolean {
+export function isDictDataErrorCode(code: unknown): boolean {
   return typeof code === 'number' && Number.isInteger(code) && code >= 30101 && code <= 30103
 }
 
@@ -741,11 +741,11 @@ export function isOrgErrorCode(code: unknown): boolean {
  * @param code 错误码。
  * @returns 文案（未知码回落「组织数据不可用」）。
  */
-export function resolveOrgErrorText(code: number | undefined): string {
+export function resolveDictDataErrorText(code: number | undefined): string {
   if (code === undefined) {
     return ''
   }
-  return ORG_ERROR_TEXTS[code] ?? '组织数据不可用'
+  return DICT_DATA_ERROR_TEXTS[code] ?? '组织数据不可用'
 }
 
 /**
@@ -818,7 +818,7 @@ function readArray(raw: unknown): unknown[] {
  * @param raw 原始值。
  * @returns 列表。
  */
-function readOrgList(raw: unknown): unknown[] {
+function readDictList(raw: unknown): unknown[] {
   const record = asRecord(raw)
   if (record !== undefined && !Array.isArray(record.list) && record.data !== undefined && !Array.isArray(record.data)) {
     return readArray(record.data)
@@ -833,7 +833,7 @@ function readOrgList(raw: unknown): unknown[] {
  * @param fallback 回落值。
  * @returns 总数。
  */
-function readOrgTotal(raw: unknown, fallback: number): number {
+function readDictTotal(raw: unknown, fallback: number): number {
   const record = asRecord(raw)
   if (record === undefined) {
     return fallback

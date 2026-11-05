@@ -70,7 +70,8 @@ export type FormWidget =
   | 'image_upload'
   | 'richtext'
   | 'tree_select'
-  | 'org_select'
+  | 'dict_tree'
+  | 'dict_remote_select'
   | 'dict_select'
   | 'dict_multi'
   | 'transfer'
@@ -102,7 +103,8 @@ export const FIELD_WIDGETS: readonly FormWidget[] = [
   'image_upload',
   'richtext',
   'tree_select',
-  'org_select',
+  'dict_tree',
+  'dict_remote_select',
   'dict_select',
   'dict_multi',
   'transfer',
@@ -133,11 +135,11 @@ export const FIELD_WIDGET_MAP: Readonly<Record<string, FormWidget>> = {
   file: 'file_upload',
   image: 'image_upload',
   richtext: 'richtext',
-  dept: 'org_select',
+  dept: 'dict_tree',
   tree: 'tree_select',
-  user: 'org_select',
-  post: 'org_select',
-  org: 'org_select',
+  user: 'dict_remote_select',
+  post: 'dict_remote_select',
+  org: 'dict_remote_select',
   dict: 'dict_select',
   dict_multi: 'dict_multi',
   transfer: 'transfer',

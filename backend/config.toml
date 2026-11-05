@@ -33,7 +33,7 @@ port = 8000
 # 工作进程数
 workers = 1
 # 按服务的 worker 数覆盖（连接预算按服务核算用；键取服务标识，缺省回落 workers）
-# workers_by_service = { platform = 4, org = 4 }
+# workers_by_service = { platform = 4, mdm = 4 }
 # TLS（可选；certfile / keyfile 同给或同空；空=明文，支持 h2c prior knowledge）
 # certfile = ""
 # keyfile = ""
@@ -129,7 +129,7 @@ exempt_role_types = ["system", "platform_admin"]
 # prod 覆盖为 false：改经 ops 显式建表入口（ops.init_schema）先建表后起服务
 auto_create = true
 # 库名前缀（平台库 {prefix}_{service} / 服务租户库 {prefix}_{service}_{code} / 归档库 {prefix}_archive 的统一来源）
-# 默认 bms（基座既有口径，现有部署零影响）；产品部署可配自有前缀（如 mdm → mdm_org / mdm_org_{code} / mdm_archive）
+# 默认 bms（基座既有口径，现有部署零影响）；产品部署可配自有前缀（如 mdm → mdm / mdm_{code} / mdm_archive）
 name_prefix = "bms"
 # SQLite 相对文件路径统一基址（env BMS_DATABASE__SQLITE_DIR；空串＝沿用当前工作目录语义）
 # 非空时仅对 SQLite 方言的相对文件路径生效，相对基址以本文件所在 backend/ 为锚、首次解析自动建目录；
@@ -150,7 +150,7 @@ replicas = []
 # 该库最大连接数（0 = 不校验连接预算；超限仅启动告警不阻断）
 max_connections = 0
 # 按服务的最大连接数覆盖（每服务独立库口径，键取服务标识，缺省回落 max_connections）
-# max_connections_by_service = { platform = 200, org = 100 }
+# max_connections_by_service = { platform = 200, mdm = 100 }
 [database.platform.pool]
 # 连接池参数（SQLite 不生效）
 pool_size = 5
@@ -171,7 +171,7 @@ url_template = ""
 replicas = []
 max_connections = 0
 # 按服务的最大连接数覆盖（服务租户库按服务库分别核算，缺省回落 max_connections）
-# max_connections_by_service = { platform = 200, org = 100 }
+# max_connections_by_service = { platform = 200, mdm = 100 }
 [database.tenants.pool]
 pool_size = 5
 max_overflow = 10

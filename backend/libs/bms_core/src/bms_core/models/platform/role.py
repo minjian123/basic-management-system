@@ -5,7 +5,7 @@
 - 跨库 / 跨服务逻辑引用（只存 ID，不 join、不建物理外键）：
   - 授权目标 `sys_menu` / `sys_form` / `sys_permission` 在 **platform 平台库**（同服务、不同库）→
     校验经平台侧元数据完成；
-  - `sys_user_role.user_id` 指向 **org 服务租户库**的 `sys_user`（跨服务）→ 有效性经 org 只读接口核验。
+  - `sys_user_role.user_id` 指向 **组织服务租户库**的 `sys_user`（跨服务）→ 有效性经 org 只读接口核验。
 - 来源标记：`source_menu_id = 0` 表示「表单级直接授予」（不用 NULL，规避唯一约束在 NULL 上的跨库语义差异）。
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_role` 等 5 表）。
 """
@@ -119,7 +119,7 @@ class SysUserRole(BaseModel):
     )
 
     role_id: Mapped[int] = mapped_column(SnowflakeId, comment="角色主键（逻辑外键 sys_role.id，同库）")
-    user_id: Mapped[int] = mapped_column(SnowflakeId, comment="用户主键（跨服务逻辑外键 sys_user.id，org 服务租户库）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, comment="用户主键（跨服务逻辑外键 sys_user.id，组织服务租户库）")
 
 
 class SysRolePermission(BaseModel):
@@ -203,7 +203,7 @@ class SysDataScope(BaseModel):
 
     role_id: Mapped[int] = mapped_column(SnowflakeId, comment="角色主键（逻辑外键 sys_role.id，同库）")
     data_source_key: Mapped[str] = mapped_column(
-        String(64), comment="数据源标识（业务码字符串，如 org_dept / role / wms_bin；登记于统一数据源登记）"
+        String(64), comment="数据源标识（业务码字符串，如 dept / role / wms_bin；登记于统一数据源登记）"
     )
     policy_type: Mapped[str] = mapped_column(String(16), comment="策略类型（select/region/match/extension）")
     config: Mapped[ConcurrentStableList[ConcurrentStableDict[str, object]]] = mapped_column(

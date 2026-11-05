@@ -45,13 +45,13 @@ DEFAULT_MAX_AGE_DAYS = 90
 """密码有效期天数（平台默认；`password.max_age_days` 覆盖）。"""
 
 ACCOUNT_INACTIVE_LOCK_DAYS = 180
-"""未登录自动锁定天数（平台默认；`account.inactive_lock_days` 覆盖；供 org 扫描消费）。"""
+"""未登录自动锁定天数（平台默认；`account.inactive_lock_days` 覆盖；供组织服务扫描消费）。"""
 
 PASSWORD_HISTORY_COUNT_KEY = "password.history_count"
 """历史密码条数配置键。"""
 
 PASSWORD_MAX_AGE_DAYS_KEY = "password.max_age_days"
-"""密码有效期天数配置键（供 org 登录判定 / 扫描共享）。"""
+"""密码有效期天数配置键（供组织服务登录判定 / 扫描共享）。"""
 
 _UPPER_RE = re.compile(r"[A-Z]")
 _LOWER_RE = re.compile(r"[a-z]")

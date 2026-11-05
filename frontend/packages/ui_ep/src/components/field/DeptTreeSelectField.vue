@@ -1,16 +1,16 @@
 <script setup lang="ts">
 // 部门树选择字段（06_05）：部门树一次性加载、单选 / 多选、路径回显、含下级透传；数据范围与脱敏由出口实现侧强制（前端不二次过滤）。
 import {
-  ORG_EMPTY_TEXT,
-  ORG_PLACEHOLDER_TEXT,
-  findOrgDeptPath,
-  toOrgTreeNodes,
-  type OrgSourceAdapter,
-  type OrgStatus,
+  DICT_DATA_EMPTY_TEXT,
+  DICT_DATA_PLACEHOLDER_TEXT,
+  findDictDataDeptPath,
+  toDictDataTreeNodes,
+  type DictRemoteSourceAdapter,
+  type DictDataStatus,
 } from '@bms/core'
 import { computed, watch } from 'vue'
 
-import { useBaseOrgSelect } from '../../composables/useBaseOrgSelect'
+import { useBaseDictRemoteSelect } from '../../composables/useBaseDictRemoteSelect'
 import TreeSelectField from './TreeSelectField.vue'
 
 /** 字段值类型。 */
@@ -22,11 +22,11 @@ interface Props {
   /** 数据通路是否就绪。 */
   ready?: boolean
   /** 组织数据源（未注入即占位零请求）。 */
-  source?: OrgSourceAdapter
+  source?: DictRemoteSourceAdapter
   /** 多选。 */
   multiple?: boolean
   /** 状态过滤（空串不限定）。 */
-  status?: OrgStatus | ''
+  status?: DictDataStatus | ''
   /** 含下级（查询区过滤参数）。 */
   includeChildren?: boolean
   /** 是否展示「含下级」勾选。 */
@@ -59,8 +59,8 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   readonly: false,
   placeholder: '请选择部门',
-  degradeText: ORG_PLACEHOLDER_TEXT,
-  emptyText: ORG_EMPTY_TEXT,
+  degradeText: DICT_DATA_PLACEHOLDER_TEXT,
+  emptyText: DICT_DATA_EMPTY_TEXT,
   errorMessage: '',
 })
 
@@ -72,7 +72,7 @@ const emit = defineEmits<{
   invalid: [message: string]
 }>()
 
-const api = useBaseOrgSelect({
+const api = useBaseDictRemoteSelect({
   ready: props.ready,
   kind: 'dept',
   multiple: props.multiple,
@@ -113,11 +113,11 @@ api.onValueChange((next) => {
   emit('change', next)
 })
 
-const treeNodes = computed(() => toOrgTreeNodes(api.deptNodes.value))
+const treeNodes = computed(() => toDictDataTreeNodes(api.deptNodes.value))
 
 const readonlyPaths = computed(() =>
   api.selectedIds.value.map((id) => {
-    const path = findOrgDeptPath(api.deptNodes.value, id)
+    const path = findDictDataDeptPath(api.deptNodes.value, id)
     return path.length > 0 ? path.join(' / ') : api.labelOf(id)
   }),
 )

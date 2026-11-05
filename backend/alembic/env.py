@@ -121,7 +121,7 @@ def _database_url(series: MigrationSeries) -> str:
     if env_url:
         return env_url
     db_key = x_args.get("db_key") or None
-    # 命令行显式指定库键 = 运维通道（允许跨单元键，如 platform_platform / tenant_org_acme）
+    # 命令行显式指定库键 = 运维通道（允许跨单元键，如 platform_platform / tenant_mdm_acme）
     return series_url(series, get_settings(), db_key=db_key, allow_cross_service=bool(db_key))
 
 

@@ -419,7 +419,7 @@ _HEADER = (
 def gateway_services() -> ConcurrentStableList[ModuleRecord]:
     """参与网关的服务行（`service_key` 非空且 `status=enabled`）——upstream 与产品级路由的目标集。
 
-    含产品分组服务：产品级路由的 `upstream_id` 即产品服务标识，需要其 upstream（如 `org:8000`）；
+    含产品分组服务：产品级路由的 `upstream_id` 即产品服务标识，需要其 upstream（如 `xxxxx:8000`）；
     **服务级路由另取 `platform_route_services()`**（排除产品分组，见其说明）。
 
     Returns:
@@ -437,7 +437,7 @@ def platform_route_services() -> ConcurrentStableList[ModuleRecord]:
 
     产品服务的对外入口只经产品命名空间 `/api/{product_key}/v1/{domain}/...`（架构 09「独立服务接入
     骨架」节、12_02 §5）；故服务级命名空间不为产品服务生成路由——避免同一服务出现
-    `/api/org/v1`（服务级）与 `/api/{product_key}/v1/org`（产品级）双路径并存、对外契约口径混乱。
+    `/api/{service_key}/v1`（服务级）与 `/api/{product_key}/v1/{domain}`（产品级）双路径并存、对外契约口径混乱。
 
     Returns:
         tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的服务登记行。

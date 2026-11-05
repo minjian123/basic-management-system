@@ -9,7 +9,7 @@ import {
   CaptchaField,
   DictSelectField,
   FileUploadField,
-  OrgSelectField,
+  DictRemoteSelectField,
   useFieldPlaceholder,
 } from '../src'
 
@@ -83,7 +83,7 @@ describe('占位组件', () => {
     expect(dict.find('[data-test="placeholder"]').text()).toContain('字典数据未就绪')
     expect(dict.findComponent(ElSelectStub).exists()).toBe(false)
 
-    const org = mount(OrgSelectField, { props: { modelValue: undefined }, global: { stubs } })
+    const org = mount(DictRemoteSelectField, { props: { modelValue: undefined }, global: { stubs } })
     expect(org.find('[data-test="placeholder"]').text()).toContain('组织数据未就绪')
   })
 

@@ -17,11 +17,11 @@ import {
 import FormRendererBody from '../src/components/form_render/FormRendererBody.vue'
 import CaptchaField from '../src/components/field/CaptchaField.vue'
 import DictSelectField from '../src/components/field/DictSelectField.vue'
+import DictTreeField from '../src/components/field/DictTreeField.vue'
 import FileUploadField from '../src/components/field/FileUploadField.vue'
 import ImageUploadField from '../src/components/field/ImageUploadField.vue'
 import OptionSetField from '../src/components/field/OptionSetField.vue'
 import OptionSetMultiField from '../src/components/field/OptionSetMultiField.vue'
-import OrgSelectField from '../src/components/field/OrgSelectField.vue'
 
 /** 字段清单样例。 */
 const fields: FormField[] = [
@@ -192,7 +192,7 @@ describe('utils/formWidgets 分发映射', () => {
   it('重控件按语义键解析到对应组件（富文本 / 文件 / 组织 / 穿梭 / 级联）', () => {
     expect(getFieldWidget('richtext')).toBeDefined()
     expect(getFieldWidget('file')).toBeDefined()
-    expect(getFieldWidget('org_select')).toBeDefined()
+    expect(getFieldWidget('dict_remote_select')).toBeDefined()
     expect(getFieldWidget('transfer')).toBeDefined()
     expect(getFieldWidget('cascader')).toBeDefined()
     // 同键稳定返回同一组件对象（映射表为常量）。
@@ -213,8 +213,8 @@ describe('utils/formWidgets 分发映射', () => {
   })
 
   it('组织字段协同（06_05）：dept 映射组织件、kind 透传、多选语义单一来源', () => {
-    expect(MULTIPLE_WIDGETS).toContain('org_select')
-    const orgMeta: LayoutEffective = {
+    expect(MULTIPLE_WIDGETS).toContain('dict_remote_select')
+    const dictMeta: LayoutEffective = {
       ...meta,
       fields: [
         { key: 'dept', label: '部门', type: 'dept', group: 'platform', status: 'active' },
@@ -227,14 +227,14 @@ describe('utils/formWidgets 分发映射', () => {
         },
       },
     }
-    const plan = buildRenderPlan({ ...orgMeta, permissions: {} }, { mode: 'edit' })
+    const plan = buildRenderPlan({ ...dictMeta, permissions: {} }, { mode: 'edit' })
     const wrapper = mount(FormRendererBody, {
       props: { mode: 'edit', plan, modelValue: {}, details: {}, permissions: {} },
       global: { stubs: { DataTable: true } },
     })
-    const deptField = wrapper.findComponent(OrgSelectField)
+    const deptField = wrapper.findComponent(DictTreeField)
     expect(deptField.exists()).toBe(true)
-    expect(deptField.props('kind')).toBe('dept')
+    expect(deptField.props('dataSourceKey')).toBe('')
     expect(deptField.props('multiple')).toBe(true)
   })
 

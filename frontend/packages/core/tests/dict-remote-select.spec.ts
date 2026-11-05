@@ -4,30 +4,30 @@
 import {
   BaseField,
   BaseOptionSource,
-  BaseOrgSelect,
+  BaseDictRemoteSelect,
   BaseUserDisplay,
-  normalizeOrgDeptTree,
-  normalizeOrgKind,
-  orgItemLabel,
-  toOrgTreeNodes,
-  type OrgSourceAdapter,
+  normalizeDictDataDeptTree,
+  normalizeDictDataKind,
+  dictDataItemLabel,
+  toDictDataTreeNodes,
+  type DictRemoteSourceAdapter,
 } from '@bms/core'
 import {
-  createOrgSourceStub,
-  describeOrgSelectContract,
-  type OrgSelectContractTarget,
+  createDictRemoteSourceStub,
+  describeDictRemoteSelectContract,
+  type DictRemoteSelectContractTarget,
 } from '@bms/core/testing'
 import { describe, expect, it } from 'vitest'
 
 /** 具体组织选择族（可实例化）。 */
-class OrgSelectState extends BaseOrgSelect {}
+class DictSelectState extends BaseDictRemoteSelect {}
 
 /** 具体用户展示（可实例化）。 */
 class UserDisplayState extends BaseUserDisplay {}
 
 /** 契约目标（基类实例适配）。 */
-function makeTarget(): OrgSelectContractTarget {
-  const base = new OrgSelectState()
+function makeTarget(): DictRemoteSelectContractTarget {
+  const base = new DictSelectState()
   return {
     get ready() {
       return base.ready
@@ -66,9 +66,9 @@ function makeTarget(): OrgSelectContractTarget {
       return base.errorMessage
     },
     setReady: (value) => base.setReady(value),
-    setSource: (source) => base.setSource(source as OrgSourceAdapter | undefined),
+    setSource: (source) => base.setSource(source as DictRemoteSourceAdapter | undefined),
     setUserDisplay: (display) => base.setUserDisplay(display as BaseUserDisplay | undefined),
-    setKind: (kind) => base.setKind(normalizeOrgKind(kind) ?? 'user'),
+    setKind: (kind) => base.setKind(normalizeDictDataKind(kind) ?? 'user'),
     setKeyword: (keyword) => base.setKeyword(keyword),
     setDeptFilter: (deptId, includeChildren) => base.setDeptFilter(deptId, includeChildren),
     setStatus: (status) => base.setStatus(status === 'enabled' || status === 'disabled' ? status : ''),
@@ -80,7 +80,7 @@ function makeTarget(): OrgSelectContractTarget {
     load: () => base.load(),
     resolve: (ids) => base.resolve(ids),
     loadDeptTree: () => base.loadDeptTree(),
-    invalidate: (kind) => base.invalidate(kind === undefined ? undefined : normalizeOrgKind(kind)),
+    invalidate: (kind) => base.invalidate(kind === undefined ? undefined : normalizeDictDataKind(kind)),
     toggle: (id) => base.toggle(id),
     remove: (id) => base.remove(id),
     clearSelection: () => base.clearSelection(),
@@ -91,20 +91,20 @@ function makeTarget(): OrgSelectContractTarget {
   }
 }
 
-describeOrgSelectContract('组织选择契约（BaseOrgSelect）', makeTarget)
+describeDictRemoteSelectContract('组织选择契约（BaseDictRemoteSelect）', makeTarget)
 
-describe('BaseOrgSelect 继承链与身份', () => {
+describe('BaseDictRemoteSelect 继承链与身份', () => {
   it('挂链 BaseOptionSource → BaseField，能力键与依赖登记一致', () => {
-    const base = new OrgSelectState()
+    const base = new DictSelectState()
     expect(base).toBeInstanceOf(BaseOptionSource)
     expect(base).toBeInstanceOf(BaseField)
-    expect(base.identifier).toBe('org_select')
+    expect(base.identifier).toBe('dict_remote_select')
     expect(base.depends).toEqual(['option_source', 'user_display'])
   })
 
   it('继承选项源语义（options / getLabel / dataVersion 同步）', async () => {
-    const stub = createOrgSourceStub()
-    const base = new OrgSelectState()
+    const stub = createDictRemoteSourceStub()
+    const base = new DictSelectState()
     base.setReady(true)
     base.setSource(stub.source)
     await base.load()
@@ -116,8 +116,8 @@ describe('BaseOrgSelect 继承链与身份', () => {
   })
 
   it('本地搜索（继承）与远程搜索（load）互不影响', async () => {
-    const stub = createOrgSourceStub()
-    const base = new OrgSelectState()
+    const stub = createDictRemoteSourceStub()
+    const base = new DictSelectState()
     base.setReady(true)
     base.setSource(stub.source)
     await base.load()
@@ -129,10 +129,10 @@ describe('BaseOrgSelect 继承链与身份', () => {
   })
 })
 
-describe('BaseOrgSelect 缓存与释放', () => {
+describe('BaseDictRemoteSelect 缓存与释放', () => {
   it('部门树一次性加载并会话缓存；invalidate(dept) 后重取', async () => {
-    const stub = createOrgSourceStub()
-    const base = new OrgSelectState()
+    const stub = createDictRemoteSourceStub()
+    const base = new DictSelectState()
     base.setReady(true)
     base.setSource(stub.source)
     base.setKind('dept')
@@ -150,8 +150,8 @@ describe('BaseOrgSelect 缓存与释放', () => {
   })
 
   it('空部门树亦视为已加载（不重复请求）', async () => {
-    const stub = createOrgSourceStub({ loadDeptTree: async () => [] })
-    const base = new OrgSelectState()
+    const stub = createDictRemoteSourceStub({ loadDeptTree: async () => [] })
+    const base = new DictSelectState()
     base.setReady(true)
     base.setSource(stub.source)
     await base.loadDeptTree()
@@ -161,8 +161,8 @@ describe('BaseOrgSelect 缓存与释放', () => {
   })
 
   it('候选缓存上限内复用；切换类型清空候选', async () => {
-    const stub = createOrgSourceStub()
-    const base = new OrgSelectState()
+    const stub = createDictRemoteSourceStub()
+    const base = new DictSelectState()
     base.setReady(true)
     base.setSource(stub.source)
     await base.load()
@@ -177,7 +177,7 @@ describe('BaseOrgSelect 缓存与释放', () => {
   })
 
   it('查询参数（归一后 camelCase；含部门与状态）', () => {
-    const base = new OrgSelectState()
+    const base = new DictSelectState()
     base.setKeyword('  张 ')
     base.setDeptFilter(' d1 ', true)
     base.setStatus('enabled')
@@ -193,11 +193,11 @@ describe('BaseOrgSelect 缓存与释放', () => {
   })
 })
 
-describe('BaseOrgSelect 用户展示与部门路径', () => {
+describe('BaseDictRemoteSelect 用户展示与部门路径', () => {
   it('用户选项汇入 BaseUserDisplay 花名册（状态映射 / 部门路径补全）', async () => {
-    const stub = createOrgSourceStub()
+    const stub = createDictRemoteSourceStub()
     const display = new UserDisplayState()
-    const base = new OrgSelectState()
+    const base = new DictSelectState()
     base.setReady(true)
     base.setSource(stub.source)
     base.setUserDisplay(display)
@@ -210,9 +210,9 @@ describe('BaseOrgSelect 用户展示与部门路径', () => {
   })
 
   it('岗位类型不汇入用户花名册', async () => {
-    const stub = createOrgSourceStub()
+    const stub = createDictRemoteSourceStub()
     const display = new UserDisplayState()
-    const base = new OrgSelectState()
+    const base = new DictSelectState()
     base.setReady(true)
     base.setSource(stub.source)
     base.setUserDisplay(display)
@@ -224,7 +224,7 @@ describe('BaseOrgSelect 用户展示与部门路径', () => {
 
 describe('部门编码展示（mdm 出口 code）', () => {
   it('归一保留部门编码；未返回 code 的旧出口回落为无编码', () => {
-    const tree = normalizeOrgDeptTree([
+    const tree = normalizeDictDataDeptTree([
       {
         id: 'd1',
         code: 'DEPT0001',
@@ -238,7 +238,7 @@ describe('部门编码展示（mdm 出口 code）', () => {
   })
 
   it('树件 label 附部门编码（标记在编码之后）；无编码时只显名称', () => {
-    const nodes = toOrgTreeNodes([
+    const nodes = toDictDataTreeNodes([
       { id: 'd1', code: 'DEPT0001', name: '总部', status: 'enabled', deleted: false },
       { id: 'd2', code: 'DEPT0002', name: '研发部', status: 'disabled', deleted: false },
       { id: 'd3', name: '无编码部门', status: 'enabled', deleted: false },
@@ -249,7 +249,7 @@ describe('部门编码展示（mdm 出口 code）', () => {
   })
 
   it('非部门类型的编码不拼进 label（岗位编码仍单独展示）', () => {
-    const label = orgItemLabel({
+    const label = dictDataItemLabel({
       id: 'p1',
       name: '研发经理',
       kind: 'post',

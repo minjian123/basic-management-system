@@ -634,7 +634,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         configure_logging(settings)
 
         # 全局标注依赖 `get_masker`：请求期把掩码器写入 `current_masker`（`BaseSchema` 序列化期取用），
-        # 请求结束复位；一处生效即覆盖全部服务全部路由，无需逐路由挂载（org 路由重复挂载由依赖缓存去重）。
+        # 请求结束复位；一处生效即覆盖全部服务全部路由，无需逐路由挂载（产品路由重复挂载由依赖缓存去重）。
         # 文档端点按 `[app].docs_enabled`（基线开、生产关）注册：关闭时三端点 404，契约走 CI 快照。
         docs_enabled = settings.app.docs_enabled
         app = FastAPI(

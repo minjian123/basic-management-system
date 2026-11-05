@@ -7,45 +7,45 @@
  * （**查询与批量回显分列两个出口**、**部门树一次性返回**）。
  * 目录不可用（或该域无数据源类能力 / 目标不唯一）时端点解析为 `null`：**不发请求**、不拼默认地址，
  * 由消费方进入降级（禁用并提示）。
- * 宿主可经 `registerOrgSource` 登记定制实现（如组织 store 版）或覆盖内建键。
+ * 宿主可经 `registerDictRemoteSource` 登记定制实现（如组织 store 版）或覆盖内建键。
  */
 
 import {
   BaseError,
-  BaseOrgSource,
-  OrgSourceProvider,
-  OrgSourceRegistry,
-  buildOrgResolveQuery,
-  buildOrgSearchQuery,
+  BaseDictRemoteSource,
+  DictRemoteSourceProvider,
+  DictRemoteSourceRegistry,
+  buildDictDataResolveQuery,
+  buildDictDataSearchQuery,
   resolveCapabilityEndpoint,
-  type OrgDeptTreeQuery,
-  type OrgKind,
-  type OrgPostQuery,
-  type OrgResolveQuery,
-  type OrgSourceOptions,
-  type OrgUserQuery,
+  type DictDeptTreeQuery,
+  type DictDataKind,
+  type DictPostQuery,
+  type DictResolveQuery,
+  type DictRemoteSourceOptions,
+  type DictUserQuery,
 } from '@bms/core'
 
 /** 组织主数据所属**业务域**标识（业务域与产品 / 服务同名；非产品键，取值由本常量单点持有）。 */
-export const ORG_SOURCE_DOMAIN = 'mdm' // product-literal:allow:组织数据源的业务域标识单点持有，运行期与平台目录同源
+export const DICT_SOURCE_DOMAIN = 'mdm' // product-literal:allow:组织数据源的业务域标识单点持有，运行期与平台目录同源
 
 /** 组织数据源对应的**能力种类**（数据源类能力；同域可能另有读出口与事务分支类）。 */
-export const ORG_SOURCE_CAPABILITY_KIND = 'dataset'
+export const DICT_SOURCE_CAPABILITY_KIND = 'dataset'
 
 /** 降级文案：目录不可用（请求失败 / 结构不合规 / 产品为空 / 有警示）。 */
-export const ORG_DEGRADE_UNAVAILABLE_TEXT = '组织数据暂不可用，请稍后重试'
+export const DICT_DEGRADE_UNAVAILABLE_TEXT = '组织数据暂不可用，请稍后重试'
 
 /** 降级文案：目录正常但未登记组织数据源类能力。 */
-export const ORG_DEGRADE_NOT_INTEGRATED_TEXT = '未接入组织主数据'
+export const DICT_DEGRADE_NOT_INTEGRATED_TEXT = '未接入组织主数据'
 
 /** 降级文案：同一业务域存在多组数据源目标（不猜、不挑选）。 */
-export const ORG_DEGRADE_AMBIGUOUS_TEXT = '组织数据源配置不唯一'
+export const DICT_DEGRADE_AMBIGUOUS_TEXT = '组织数据源配置不唯一'
 
 /** 端点缺失告警是否已输出（避免每次取数刷屏）。 */
 let endpointWarningEmitted = false
 
 /** 链路内默认组织数据源注册表实例（宿主可登记定制实现或覆盖内建键）。 */
-export const orgSourceRegistry = new OrgSourceRegistry()
+export const dictRemoteSourceRegistry = new DictRemoteSourceRegistry()
 
 /**
  * 登记组织数据源实现。
@@ -53,26 +53,26 @@ export const orgSourceRegistry = new OrgSourceRegistry()
  * @param key 数据源键（同键拒重）。
  * @param create 数据源工厂。
  */
-export function registerOrgSource(
+export function registerDictRemoteSource(
   key: string,
-  create: (options: OrgSourceOptions) => BaseOrgSource | Promise<BaseOrgSource>,
+  create: (options: DictRemoteSourceOptions) => BaseDictRemoteSource | Promise<BaseDictRemoteSource>,
 ): void {
-  orgSourceRegistry.register(new OrgSourceProvider(key, create))
+  dictRemoteSourceRegistry.register(new DictRemoteSourceProvider(key, create))
 }
 
 /** HTTP 内建组织数据源（未覆盖的方法不请求）。 */
-class HttpOrgSource extends BaseOrgSource {
+class HttpDictRemoteSource extends BaseDictRemoteSource {
   /** 实现名。 */
   override readonly pluginName: string = 'http'
   /** 装载选项（端点 / 请求头）。 */
-  readonly #options: OrgSourceOptions
+  readonly #options: DictRemoteSourceOptions
 
   /**
    * 构造 HTTP 数据源。
    *
    * @param options 装载选项。
    */
-  constructor(options: OrgSourceOptions = {}) {
+  constructor(options: DictRemoteSourceOptions = {}) {
     super()
     this.#options = options
   }
@@ -83,7 +83,7 @@ class HttpOrgSource extends BaseOrgSource {
    * @param query 查询入参。
    * @returns 原始结果。
    */
-  override async searchUsers(query: OrgUserQuery): Promise<unknown> {
+  override async searchUsers(query: DictUserQuery): Promise<unknown> {
     return this.#get('/data-source/users', this.#searchParams('user', query))
   }
 
@@ -93,7 +93,7 @@ class HttpOrgSource extends BaseOrgSource {
    * @param query 查询入参。
    * @returns 原始结果。
    */
-  override async searchPosts(query: OrgPostQuery): Promise<unknown> {
+  override async searchPosts(query: DictPostQuery): Promise<unknown> {
     return this.#get('/data-source/posts', this.#searchParams('post', query))
   }
 
@@ -103,7 +103,7 @@ class HttpOrgSource extends BaseOrgSource {
    * @param query 查询入参。
    * @returns 原始结果。
    */
-  override async loadDeptTree(query: OrgDeptTreeQuery): Promise<unknown> {
+  override async loadDeptTree(query: DictDeptTreeQuery): Promise<unknown> {
     return this.#get(
       '/data-source/dept-tree',
       query.status === undefined || query.status === '' ? {} : { status: query.status },
@@ -116,8 +116,8 @@ class HttpOrgSource extends BaseOrgSource {
    * @param query 查询入参。
    * @returns 原始结果。
    */
-  override async resolveNames(query: OrgResolveQuery): Promise<unknown> {
-    return this.#get('/resolve-names', buildOrgResolveQuery(query.target, query.ids))
+  override async resolveNames(query: DictResolveQuery): Promise<unknown> {
+    return this.#get('/resolve-names', buildDictDataResolveQuery(query.target, query.ids))
   }
 
   /**
@@ -126,8 +126,8 @@ class HttpOrgSource extends BaseOrgSource {
    * @param kind 对象类型。
    * @param query 查询入参。
    */
-  #searchParams(kind: OrgKind, query: OrgUserQuery | OrgPostQuery): Record<string, unknown> {
-    return buildOrgSearchQuery({
+  #searchParams(kind: DictDataKind, query: DictUserQuery | DictPostQuery): Record<string, unknown> {
+    return buildDictDataSearchQuery({
       kind,
       keyword: query.keyword,
       deptId: query.deptId,
@@ -151,17 +151,17 @@ class HttpOrgSource extends BaseOrgSource {
       return undefined
     }
     // 端点：显式覆盖优先；否则按目录取址（**经寻址契约组装**，不自拼前缀）。解析为 null 即降级不发请求
-    const resolved = this.#options.endpoint ?? orgSourceEndpoint()
+    const resolved = this.#options.endpoint ?? dictRemoteSourceEndpoint()
     if (resolved === null) {
       if (!endpointWarningEmitted) {
         endpointWarningEmitted = true
-        console.warn('[org-source] 组织数据源端点不可用（目录未就绪或未登记数据源类能力）：已跳过请求')
+        console.warn('[dict-remote-source] 组织数据源端点不可用（目录未就绪或未登记数据源类能力）：已跳过请求')
       }
       return undefined
     }
     const endpoint = resolved.replace(/\/+$/, '')
     const search = new URLSearchParams()
-    appendOrgSearchParams(search, params)
+    appendDictSearchParams(search, params)
     const query = search.size > 0 ? `?${search.toString()}` : ''
     const headers = typeof this.#options.headers === 'function' ? this.#options.headers() : this.#options.headers
     const response = await fetchFn(`${endpoint}${path}${query}`, { method: 'GET', headers })
@@ -181,7 +181,7 @@ class HttpOrgSource extends BaseOrgSource {
  * @param search 目标参数集（就地写入）。
  * @param params 参数映射。
  */
-export function appendOrgSearchParams(search: URLSearchParams, params: Record<string, unknown>): void {
+export function appendDictSearchParams(search: URLSearchParams, params: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '' || value === false) {
       continue
@@ -193,29 +193,29 @@ export function appendOrgSearchParams(search: URLSearchParams, params: Record<st
 /**
  * 组织数据源默认端点（**运行期取自平台目录快照**）。
  *
- * 按「业务域 `org` + 能力种类 `dataset`」解析提供方产品键与前端域段，经寻址契约组装为
+ * 按「业务域 + 能力种类 `dataset`」解析提供方产品键与前端域段，经寻址契约组装为
  * `/api/{产品键}/v1/{域段}`——产品服务只经产品命名空间对外暴露，页面 / 插件**不得自拼** `/api/...`
  * 前缀（前端架构 §9 治理表）。
  *
  * @returns 端点前缀；目录未就绪 / 该域无数据源类能力 / 目标不唯一时返回 `null`（调用方进入降级）。
  */
-export function orgSourceEndpoint(): string | null {
-  const target = resolveCapabilityEndpoint(ORG_SOURCE_DOMAIN, ORG_SOURCE_CAPABILITY_KIND)
+export function dictRemoteSourceEndpoint(): string | null {
+  const target = resolveCapabilityEndpoint(DICT_SOURCE_DOMAIN, DICT_SOURCE_CAPABILITY_KIND)
   return target.status === 'ok' ? target.endpoint : null
 }
 
 /**
  * 创建 HTTP 内建组织数据源。
  *
- * @param options 装载选项（`endpoint` 缺省＝按目录取址，见 `orgSourceEndpoint`）。
+ * @param options 装载选项（`endpoint` 缺省＝按目录取址，见 `dictRemoteSourceEndpoint`）。
  * @returns 数据源实例。
  */
-export function createHttpOrgSource(options: OrgSourceOptions = {}): BaseOrgSource {
-  return new HttpOrgSource(options)
+export function createHttpDictRemoteSource(options: DictRemoteSourceOptions = {}): BaseDictRemoteSource {
+  return new HttpDictRemoteSource(options)
 }
 
 /** 登记内建 HTTP 数据源（默认键，宿主可覆盖）。 */
-registerOrgSource('http', createHttpOrgSource)
+registerDictRemoteSource('http', createHttpDictRemoteSource)
 
 /**
  * 解统一响应包装（`{ code, message, data }`；非包装原样返回；业务码非 0 / 200 抛错）。

@@ -169,7 +169,7 @@
     {
       // 「全套」的后端成员（本地开发主形态）：由 `python3 scripts/tools/dev/本地全套.py up` 起**三个**服务
       // （按各仓 deploy/local_stack.toml 装载：缺省 tenant/platform/identity/mdm；同一 8000 + loopback 别名，与服务基址模板 http://{service}:8000 同形，
-      // 并加载 `deploy/.dev-keys.local` 的开发密钥；`org` 已归 mdm 产品服务）。服务是后台进程——本终端
+      // 并加载 `deploy/.dev-keys.local` 的开发密钥；组织服务已归 mdm 产品服务）。服务是后台进程——本终端
       // 只承载会话，关掉不影响服务；停服务请用任务 `dev:后端本地全套·停`。
       // **日常不必启动本项**：复合项「全套（本机全套 + 宿主 + Chromium）」已改为经前置任务链静默拉起全套服务；
       // 本项仅在「只想单独起后端、且接受一个终端面板」时使用（node-terminal 会话必然占终端）。
@@ -231,7 +231,7 @@
         "bulk-theme-tenant-check.html",
         "permission-config-check.html",
         "icon-code-check.html",
-        "org-check.html",
+        "dict-remote-select-check.html",
         "file-check.html",
         "search-check.html",
         "notice-check.html",

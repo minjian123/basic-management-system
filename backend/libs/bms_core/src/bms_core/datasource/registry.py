@@ -8,7 +8,7 @@
 - **登记项**：`DataSourceRecord` = （`data_source_key` 数据源标识 / `name` 名称 / `kind` 类型 /
   `data_source` 数据出口 / `origin` 来源 / `product_key` 产品标识 / `path` 产品取数路径 /
   `allowlist` 字段白名单 / `cascade` 是否级联 / `strategies` 可用策略集合 / `status` 状态）。
-  数据源标识为**业务码字符串**（如 `role` / `sys_user` / `org_dept` / `region`）。
+  数据源标识为**业务码字符串**（如 `role` / `sys_user` / `dept` / `region`）。
 - **单一来源与注入**（口径同服务目录 `ModuleRegistry`、`form_key` 清单 `FormRegistry`）：
   `DATA_SOURCE_CATALOG` 是 bms 侧**构建期清单**；各项目在**构建期注入**自身登记项；应用工厂经
   `merge_data_source_records()` 拼接清单与注入记录，构造入参进入 `DataSourceRegistry`
@@ -87,7 +87,7 @@ class DataSourceRecord(BaseValueObject):
     """数据源登记记录（构建期清单 / 注入清单的不可变条目）。
 
     Attributes:
-        data_source_key: 数据源标识（业务码字符串，如 `role` / `user` / `org_dept`），全局唯一。
+        data_source_key: 数据源标识（业务码字符串，如 `role` / `user` / `dept`），全局唯一。
         name: 名称（数据权限左列 / 通用页面显示；多语言随所有者域下发）。
         data_source: 数据出口标识（统一出口按此路由到具体实现，如 `platform` / `{产品}.{域}.{表}`）。
         kind: 类型（`dict` 字典 / `form` 表单，预留其它）。

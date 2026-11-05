@@ -269,18 +269,19 @@ export {
   type DateTimeValue,
 } from './components/field/DateTimeField.vue'
 export { default as DictSelectField, type DictFieldValue } from './components/field/DictSelectField.vue'
+export { default as DictTreeField, type DictTreeFieldValue } from './components/field/DictTreeField.vue'
 export { default as FileUploadField, type UploadFieldItem } from './components/field/FileUploadField.vue'
 export { default as ImageUploadField } from './components/field/ImageUploadField.vue'
 export { default as FileListField } from './components/field/FileListField.vue'
 export { default as ImageCropDialog } from './components/field/ImageCropDialog.vue'
-export { default as OrgSelectField, type OrgFieldValue } from './components/field/OrgSelectField.vue'
+export { default as DictRemoteSelectField, type DictRemoteFieldValue } from './components/field/DictRemoteSelectField.vue'
 export { default as UserSelectField, type UserFieldValue } from './components/field/UserSelectField.vue'
 export { default as PostSelectField, type PostFieldValue } from './components/field/PostSelectField.vue'
 export { default as DeptTreeSelectField, type DeptFieldValue } from './components/field/DeptTreeSelectField.vue'
 export {
-  default as OrgCompositePicker,
-  type OrgCompositeValue,
-} from './components/field/OrgCompositePicker.vue'
+  default as DictCompositePicker,
+  type DictCompositeValue,
+} from './components/field/DictCompositePicker.vue'
 export { default as DictCascaderField, type DictCascadeValue } from './components/field/DictCascaderField.vue'
 export { default as DictLabel } from './components/field/DictLabel.vue'
 export { default as DictAdvancedQuery } from './components/field/DictAdvancedQuery.vue'
@@ -438,24 +439,24 @@ export {
 } from './composables/useBaseAiAssistant'
 export { useBaseSearch, type UseBaseSearchOptions, type UseBaseSearchResult } from './composables/useBaseSearch'
 export {
-  useBaseOrgSelect,
-  type OrgSelectValue,
-  type UseBaseOrgSelectOptions,
-  type UseBaseOrgSelectResult,
-} from './composables/useBaseOrgSelect'
+  useBaseDictRemoteSelect,
+  type DictRemoteSelectValue,
+  type UseBaseDictRemoteSelectOptions,
+  type UseBaseDictRemoteSelectResult,
+} from './composables/useBaseDictRemoteSelect'
 export { debounce, type DebouncedFunction } from './utils/debounce'
 export {
-  ORG_DEGRADE_AMBIGUOUS_TEXT,
-  ORG_DEGRADE_NOT_INTEGRATED_TEXT,
-  ORG_DEGRADE_UNAVAILABLE_TEXT,
-  ORG_SOURCE_CAPABILITY_KIND,
-  ORG_SOURCE_DOMAIN,
-  appendOrgSearchParams,
-  createHttpOrgSource,
-  orgSourceEndpoint,
-  orgSourceRegistry,
-  registerOrgSource,
-} from './utils/orgSource'
+  DICT_DEGRADE_AMBIGUOUS_TEXT,
+  DICT_DEGRADE_NOT_INTEGRATED_TEXT,
+  DICT_DEGRADE_UNAVAILABLE_TEXT,
+  DICT_SOURCE_CAPABILITY_KIND,
+  DICT_SOURCE_DOMAIN,
+  appendDictSearchParams,
+  createHttpDictRemoteSource,
+  dictRemoteSourceEndpoint,
+  dictRemoteSourceRegistry,
+  registerDictRemoteSource,
+} from './utils/dictRemoteSource'
 export {
   useBaseCaptcha,
   type UseBaseCaptchaOptions,

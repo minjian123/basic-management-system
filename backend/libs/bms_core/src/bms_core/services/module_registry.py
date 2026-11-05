@@ -1040,7 +1040,7 @@ class ProductRouteRecord(BaseValueObject):
     """归属产品标识（须在 `PRODUCT_CATALOG` 登记）。"""
 
     domain: str
-    """外部域段（产品命名空间首段，如 `org`；全局唯一、小写标识符）。"""
+    """外部域段（产品命名空间首段，如 `dept`；全局唯一、小写标识符）。"""
 
     service_key: str
     """上游服务标识（须在 `SERVICE_CATALOG` 登记为产品分组行且 `product_key` 一致）。"""

@@ -5,13 +5,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { applyCatalogSnapshot, resetCatalog } from '@bms/core'
+import { DICT_SOURCE_DOMAIN } from '@bms/ui_ep'
 
 import {
   aiStreamEndpoint,
   authHeaders,
   captchaSourceOptions,
   dictSourceOptions,
-  orgSourceOptions,
+  dictRemoteSourceOptions,
   searchEngineOptions,
   sourceEndpoint,
   uploadTransportOptions,
@@ -19,7 +20,7 @@ import {
 import { setAccessToken } from '@/api/token'
 
 /** 组织数据源目录夹具（虚构产品 `demo`：一个数据源类能力 + 平台服务行）。 */
-const ORG_CATALOG = {
+const DICT_DATA_CATALOG = {
   products: [{ productKey: 'demo', status: 'enabled' }],
   services: [
     { serviceKey: 'platform', serviceGroup: 'foundation', status: 'enabled' },
@@ -29,7 +30,7 @@ const ORG_CATALOG = {
     { serviceKey: 'notification', serviceGroup: 'capability', status: 'enabled' },
   ],
   collaborations: [
-    { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+    { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
   ],
   warnings: [],
 }
@@ -41,9 +42,9 @@ afterEach(() => {
 
 describe('能力源端点按服务分流（Kiwi 2191）', () => {
   it('各能力源 endpoint 指向对应服务', () => {
-    applyCatalogSnapshot(ORG_CATALOG)
+    applyCatalogSnapshot(DICT_DATA_CATALOG)
     expect(dictSourceOptions().endpoint).toBe('/api/platform/v1')
-    expect(orgSourceOptions().endpoint).toBe('/api/demo/v1/demo')
+    expect(dictRemoteSourceOptions().endpoint).toBe('/api/demo/v1/demo')
     expect(captchaSourceOptions().endpoint).toBe('/api/identity/v1')
     expect(uploadTransportOptions().endpoint).toBe('/api/file/v1')
     expect(searchEngineOptions().endpoint).toBe('/api/search/v1')
@@ -51,9 +52,9 @@ describe('能力源端点按服务分流（Kiwi 2191）', () => {
   })
 
   it('组织数据源端点按目录取址：目录不可用时不给端点（消费方降级、不发起请求）', () => {
-    expect(orgSourceOptions().endpoint).toBeUndefined()
-    applyCatalogSnapshot({ ...ORG_CATALOG, collaborations: [] })
-    expect(orgSourceOptions().endpoint).toBeUndefined()
+    expect(dictRemoteSourceOptions().endpoint).toBeUndefined()
+    applyCatalogSnapshot({ ...DICT_DATA_CATALOG, collaborations: [] })
+    expect(dictRemoteSourceOptions().endpoint).toBeUndefined()
     resetCatalog()
   })
 

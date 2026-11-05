@@ -1,42 +1,42 @@
-/** 组织选择投影：把核心组织选择族组件基类 `BaseOrgSelect` 投影为组合式（远程搜索 / 批量回显 / 缓存 / 多选与上限 / 部门树）。 */
+/** 组织选择投影：把核心组织选择族组件基类 `BaseDictRemoteSelect` 投影为组合式（远程搜索 / 批量回显 / 缓存 / 多选与上限 / 部门树）。 */
 
 import {
-  BaseOrgSelect,
+  BaseDictRemoteSelect,
   BaseUserDisplay,
-  ORG_EMPTY_VALUE,
-  normalizeOrgIds,
-  orgLimitText,
-  orgSelectionText,
-  type OrgDeptNode,
-  type OrgKind,
-  type OrgOptionItem,
-  type OrgSourceAdapter,
-  type OrgStatus,
-  type OrgTagSummary,
+  DICT_DATA_EMPTY_VALUE,
+  normalizeDictDataIds,
+  dictDataLimitText,
+  dictDataSelectionText,
+  type DictDataDeptNode,
+  type DictDataKind,
+  type DictDataOptionItem,
+  type DictRemoteSourceAdapter,
+  type DictDataStatus,
+  type DictDataTagSummary,
 } from '@bms/core'
 import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
 /** 具体组织选择族（可实例化）。 */
-class OrgSelectState extends BaseOrgSelect {}
+class DictSelectState extends BaseDictRemoteSelect {}
 
 /** 具体用户展示（内建花名册通道）。 */
 class UserDisplayState extends BaseUserDisplay {}
 
 /** 字段值类型（单值 / 多选数组）。 */
-export type OrgSelectValue = string | number | (string | number)[]
+export type DictRemoteSelectValue = string | number | (string | number)[]
 
-/** `useBaseOrgSelect` 选项。 */
-export interface UseBaseOrgSelectOptions {
+/** `useBaseDictRemoteSelect` 选项。 */
+export interface UseBaseDictRemoteSelectOptions {
   /** 数据通路是否就绪（缺省 false）。 */
   ready?: boolean
   /** 对象类型（缺省 user）。 */
-  kind?: OrgKind
+  kind?: DictDataKind
   /** 是否多选。 */
   multiple?: boolean
   /** 多选上限（0 不限）。 */
   limit?: number
   /** 初始值。 */
-  value?: OrgSelectValue
+  value?: DictRemoteSelectValue
   /** 初始关键词。 */
   keyword?: string
   /** 部门过滤。 */
@@ -44,19 +44,19 @@ export interface UseBaseOrgSelectOptions {
   /** 部门过滤是否含下级。 */
   includeChildren?: boolean
   /** 状态过滤。 */
-  status?: OrgStatus | ''
+  status?: DictDataStatus | ''
   /** 组织数据源（未注入即占位零请求）。 */
-  source?: OrgSourceAdapter
+  source?: DictRemoteSourceAdapter
   /** 用户展示能力（缺省内建花名册实例）。 */
   userDisplay?: BaseUserDisplay
   /** 件级禁用。 */
   disabled?: boolean
 }
 
-/** `useBaseOrgSelect` 返回面（与核心方法一一对应的响应式面）。 */
-export interface UseBaseOrgSelectResult {
+/** `useBaseDictRemoteSelect` 返回面（与核心方法一一对应的响应式面）。 */
+export interface UseBaseDictRemoteSelectResult {
   /** 组织选择族实例。 */
-  select: BaseOrgSelect
+  select: BaseDictRemoteSelect
   /** 内建用户展示花名册实例。 */
   userDisplay: BaseUserDisplay
   /** 是否就绪（响应式）。 */
@@ -70,9 +70,9 @@ export interface UseBaseOrgSelectResult {
   /** 受控值（响应式）。 */
   value: Ref<string | string[] | undefined>
   /** 候选与已选选项（响应式）。 */
-  items: Ref<OrgOptionItem[]>
+  items: Ref<DictDataOptionItem[]>
   /** 部门树节点（响应式）。 */
-  deptNodes: Ref<OrgDeptNode[]>
+  deptNodes: Ref<DictDataDeptNode[]>
   /** 关键词（响应式）。 */
   keyword: Ref<string>
   /** 加载态（响应式）。 */
@@ -96,11 +96,11 @@ export interface UseBaseOrgSelectResult {
   /** 候选总数（响应式）。 */
   total: Ref<number>
   /** 对象类型（响应式）。 */
-  kind: Ref<OrgKind>
+  kind: Ref<DictDataKind>
   /** 是否多选（响应式）。 */
   multiple: Ref<boolean>
   /** 状态过滤（响应式）。 */
-  status: Ref<OrgStatus | ''>
+  status: Ref<DictDataStatus | ''>
   /** 部门过滤（响应式）。 */
   deptId: Ref<string>
   /** 部门过滤是否含下级（响应式）。 */
@@ -108,7 +108,7 @@ export interface UseBaseOrgSelectResult {
   /** 选中标识（响应式）。 */
   selectedIds: Ref<string[]>
   /** 选中项（响应式）。 */
-  selectedItems: Ref<OrgOptionItem[]>
+  selectedItems: Ref<DictDataOptionItem[]>
   /** 选中回显文本（响应式）。 */
   selectionText: ComputedRef<string>
   /** 多选上限提示文案（响应式）。 */
@@ -116,17 +116,17 @@ export interface UseBaseOrgSelectResult {
   /** 切换就绪态。 */
   setReady(value: boolean): void
   /** 注入 / 移除数据源。 */
-  setSource(source: OrgSourceAdapter | undefined): void
+  setSource(source: DictRemoteSourceAdapter | undefined): void
   /** 注入 / 移除用户展示能力。 */
   setUserDisplay(display: BaseUserDisplay | undefined): void
   /** 切换对象类型。 */
-  setKind(kind: OrgKind): void
+  setKind(kind: DictDataKind): void
   /** 设置关键词。 */
   setKeyword(keyword: string): void
   /** 设置部门过滤。 */
   setDeptFilter(deptId: string, includeChildren?: boolean): void
   /** 设置状态过滤。 */
-  setStatus(status: OrgStatus | ''): void
+  setStatus(status: DictDataStatus | ''): void
   /** 设置多选。 */
   setMultiple(value: boolean): void
   /** 设置多选上限。 */
@@ -136,9 +136,9 @@ export interface UseBaseOrgSelectResult {
   /** 同步多选超限标记。 */
   setLimitExceeded(value: boolean): void
   /** 设置值（归一）。 */
-  setValue(value: OrgSelectValue | undefined): void
+  setValue(value: DictRemoteSelectValue | undefined): void
   /** 同步受控值并触发批量回显（件层 `modelValue` 监听用）。 */
-  syncValue(value: OrgSelectValue | undefined): void
+  syncValue(value: DictRemoteSelectValue | undefined): void
   /** 选中 / 取消选中。 */
   toggle(id: string): void
   /** 移除选中项。 */
@@ -152,11 +152,11 @@ export interface UseBaseOrgSelectResult {
   /** 加载部门树。 */
   loadDeptTree(): Promise<void>
   /** 失效缓存。 */
-  invalidate(kind?: OrgKind): void
+  invalidate(kind?: DictDataKind): void
   /** 按标识取展示文案。 */
   labelOf(id: string): string
   /** 选中标签摘要。 */
-  tagSummary(maxVisible?: number): OrgTagSummary
+  tagSummary(maxVisible?: number): DictDataTagSummary
   /** 订阅值变更。 */
   onValueChange(listener: (value: string | string[] | undefined) => void): () => void
 }
@@ -167,8 +167,8 @@ export interface UseBaseOrgSelectResult {
  * @param options 选项。
  * @returns 组织选择族实例与响应式面。
  */
-export function useBaseOrgSelect(options: UseBaseOrgSelectOptions = {}): UseBaseOrgSelectResult {
-  const select = new OrgSelectState()
+export function useBaseDictRemoteSelect(options: UseBaseDictRemoteSelectOptions = {}): UseBaseDictRemoteSelectResult {
+  const select = new DictSelectState()
   const userDisplay = options.userDisplay ?? new UserDisplayState()
   const localDisabled = ref(options.disabled ?? false)
 
@@ -205,8 +205,8 @@ export function useBaseOrgSelect(options: UseBaseOrgSelectOptions = {}): UseBase
   const degraded = ref(select.degraded)
   const requestCount = ref(select.requestCount)
   const value = ref(select.value)
-  const items = ref<OrgOptionItem[]>([...select.items])
-  const deptNodes = ref<OrgDeptNode[]>([...select.deptNodes])
+  const items = ref<DictDataOptionItem[]>([...select.items])
+  const deptNodes = ref<DictDataDeptNode[]>([...select.deptNodes])
   const keyword = ref(select.keyword)
   const loading = ref(select.loading)
   const errorCode = ref(select.errorCode)
@@ -215,13 +215,13 @@ export function useBaseOrgSelect(options: UseBaseOrgSelectOptions = {}): UseBase
   const limit = ref(select.limit)
   const page = ref(select.page)
   const total = ref(select.total)
-  const kind = ref<OrgKind>(select.kind)
+  const kind = ref<DictDataKind>(select.kind)
   const multiple = ref(select.multiple)
-  const status = ref<OrgStatus | ''>(select.status)
+  const status = ref<DictDataStatus | ''>(select.status)
   const deptId = ref(select.deptId)
   const includeChildren = ref(select.includeChildren)
   const selectedIds = ref<string[]>(select.selectedIds)
-  const selectedItems = ref<OrgOptionItem[]>(select.selectedItems)
+  const selectedItems = ref<DictDataOptionItem[]>(select.selectedItems)
 
   /** 同步核心实例状态到响应式面。 */
   function sync(): void {
@@ -265,11 +265,11 @@ export function useBaseOrgSelect(options: UseBaseOrgSelectOptions = {}): UseBase
   const errorText = computed(() => errorMessage.value)
   const empty = computed(() => !loading.value && errorCode.value === undefined && items.value.length === 0)
   const selectionText = computed(() =>
-    selectedItems.value.length === 0 ? ORG_EMPTY_VALUE : orgSelectionText(selectedItems.value),
+    selectedItems.value.length === 0 ? DICT_DATA_EMPTY_VALUE : dictDataSelectionText(selectedItems.value),
   )
-  const limitText = computed(() => orgLimitText(kind.value, limit.value))
+  const limitText = computed(() => dictDataLimitText(kind.value, limit.value))
 
-  const api: UseBaseOrgSelectResult = {
+  const api: UseBaseDictRemoteSelectResult = {
     select,
     userDisplay,
     ready,
@@ -342,8 +342,8 @@ export function useBaseOrgSelect(options: UseBaseOrgSelectOptions = {}): UseBase
  * @param multiple 是否多选（多选时空数组归一为 `undefined`）。
  * @returns 核心值。
  */
-function toBaseValue(value: OrgSelectValue | undefined, multiple: boolean): string | string[] | undefined {
-  const ids = normalizeOrgIds(value, multiple)
+function toBaseValue(value: DictRemoteSelectValue | undefined, multiple: boolean): string | string[] | undefined {
+  const ids = normalizeDictDataIds(value, multiple)
   if (ids.length === 0) {
     return undefined
   }

@@ -6,16 +6,16 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { BaseOrgSource, OrgSourceProvider, OrgSourceRegistry } from '../src'
+import { BaseDictRemoteSource, DictRemoteSourceProvider, DictRemoteSourceRegistry } from '../src'
 
 /** 基类探针实现（不覆写任何方法，验证默认契约）。 */
-class ProbeOrgSource extends BaseOrgSource {}
+class ProbeDictRemoteSource extends BaseDictRemoteSource {}
 
 describe('组织数据源基类默认实现（06_05）', () => {
   it('未覆写的方法一律返回 undefined（不请求）', async () => {
-    const source = new ProbeOrgSource()
+    const source = new ProbeDictRemoteSource()
 
-    expect(source.pluginKey).toBe('org-source')
+    expect(source.pluginKey).toBe('dict-remote-source')
     expect(source.pluginName).toBe('base')
     await expect(source.searchUsers({})).resolves.toBeUndefined()
     await expect(source.searchPosts({})).resolves.toBeUndefined()
@@ -26,15 +26,15 @@ describe('组织数据源基类默认实现（06_05）', () => {
 
 describe('组织数据源注册表（06_05）', () => {
   it('登记与按键取用；同键重复登记抛错', () => {
-    const source = new ProbeOrgSource()
-    const provider = new OrgSourceProvider('probe', () => source)
-    const registry = new OrgSourceRegistry()
+    const source = new ProbeDictRemoteSource()
+    const provider = new DictRemoteSourceProvider('probe', () => source)
+    const registry = new DictRemoteSourceRegistry()
 
     expect(provider.key).toBe('probe')
     expect(provider.create({ endpoint: '/api/demo/v1/demo' })).toBe(source)
 
     registry.register(provider)
     expect(registry.get('probe')).toBe(provider)
-    expect(() => registry.register(new OrgSourceProvider('probe', () => source))).toThrow()
+    expect(() => registry.register(new DictRemoteSourceProvider('probe', () => source))).toThrow()
   })
 })

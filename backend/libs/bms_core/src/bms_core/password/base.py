@@ -82,7 +82,7 @@ class BasePasswordPolicy(BasePluggable, ABC):
     async def history_count(self) -> int:
         """历史密码不可重复比对条数（非抽象派生方法；缺省平台默认，真实实现按租户读 `sys_config`）。
 
-        调用方（如 org 改密路径）据此决定写入 `pwd_history` 的保留条数与比对范围；
+        调用方（如组织服务改密路径）据此决定写入 `pwd_history` 的保留条数与比对范围；
         既有实现不覆写即取默认值，向后兼容。
 
         Returns:

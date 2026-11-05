@@ -2,28 +2,28 @@
 // 开发态核对页（06_05 / 出口切址 11_02）：组织选择字段族（统一件 / 人员 / 岗位 / 部门树 / 复合弹窗）
 // 实例 + 13 项自检上屏（本页不进构建产物）。
 import {
-  BaseOrgSource,
-  ORG_PLACEHOLDER_TEXT,
-  ORG_SEARCH_DEBOUNCE,
+  BaseDictRemoteSource,
+  DICT_DATA_PLACEHOLDER_TEXT,
+  DICT_DATA_SEARCH_DEBOUNCE,
   applyCatalogSnapshot,
-  orgTagSummary,
+  dictDataTagSummary,
   productPrefix,
   resetCatalog,
-  toOrgTreeNodes,
-  type OrgSourceAdapter,
+  toDictDataTreeNodes,
+  type DictRemoteSourceAdapter,
 } from '@bms/core'
 import {
   DeptTreeSelectField,
-  OrgCompositePicker,
-  OrgSelectField,
+  DictCompositePicker,
+  DictRemoteSelectField,
   PostSelectField,
   UserSelectField,
   debounce,
-  ORG_SOURCE_DOMAIN,
-  orgSourceEndpoint,
-  orgSourceRegistry,
-  registerOrgSource,
-  useBaseOrgSelect,
+  DICT_SOURCE_DOMAIN,
+  dictRemoteSourceEndpoint,
+  dictRemoteSourceRegistry,
+  registerDictRemoteSource,
+  useBaseDictRemoteSelect,
 } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { nextTick, ref } from 'vue'
@@ -49,7 +49,7 @@ const calls: string[] = []
 const queries: Record<string, unknown>[] = []
 
 /** 桩数据源（记录调用与查询入参）。 */
-const source: OrgSourceAdapter = {
+const source: DictRemoteSourceAdapter = {
   searchUsers: async (query) => {
     calls.push('searchUsers')
     queries.push({ ...query })
@@ -73,7 +73,7 @@ const source: OrgSourceAdapter = {
 }
 
 /** 自定义数据源（注册表登记示例）。 */
-class CheckStoreSource extends BaseOrgSource {
+class CheckStoreSource extends BaseDictRemoteSource {
   /** 实现名。 */
   override readonly pluginName: string = 'check-store'
   /**
@@ -85,10 +85,10 @@ class CheckStoreSource extends BaseOrgSource {
     return { list: [{ id: 's1', nickname: '店长', status: 'enabled' }], total: 1 }
   }
 }
-registerOrgSource('check-store', () => new CheckStoreSource())
+registerDictRemoteSource('check-store', () => new CheckStoreSource())
 
 /** 主实例（用户类型多选 limit=2）。 */
-const api = useBaseOrgSelect({
+const api = useBaseDictRemoteSelect({
   ready: true,
   kind: 'user',
   multiple: true,
@@ -97,7 +97,7 @@ const api = useBaseOrgSelect({
 })
 
 /** 页面受控值（统一件 / 复合弹窗）。 */
-const orgValue = ref<string[]>([])
+const dictValue = ref<string[]>([])
 const compositeVisible = ref(true)
 const compositeValue = ref<string[]>(['u1'])
 
@@ -114,7 +114,7 @@ async function runChecks(): Promise<void> {
   }
 
   // 1. 占位降级与零请求
-  const placeholderApi = useBaseOrgSelect({ ready: false, multiple: true, source })
+  const placeholderApi = useBaseDictRemoteSelect({ ready: false, multiple: true, source })
   const beforePlaceholder = placeholderApi.requestCount.value
   await placeholderApi.load()
   add('占位降级且零请求', placeholderApi.degraded.value && placeholderApi.requestCount.value === beforePlaceholder)
@@ -127,7 +127,7 @@ async function runChecks(): Promise<void> {
   debounced()
   debounced()
   await new Promise((resolve) => setTimeout(resolve, 80))
-  add(`远程搜索防抖（件层按 ${ORG_SEARCH_DEBOUNCE}ms 调度）`, debouncedCalls === 1)
+  add(`远程搜索防抖（件层按 ${DICT_DATA_SEARCH_DEBOUNCE}ms 调度）`, debouncedCalls === 1)
 
   // 3. 用户候选首屏加载（同时取脱敏值样例）
   await api.load()
@@ -141,7 +141,7 @@ async function runChecks(): Promise<void> {
   // 5. 标签折叠（首项 +N）
   api.setValue(['u1', 'u2', 'u3'])
   await api.resolve()
-  const summary = orgTagSummary(api.selectedItems.value, 1)
+  const summary = dictDataTagSummary(api.selectedItems.value, 1)
   add('标签折叠为「首项 +N」', summary.visible.length === 1 && summary.overflow === 2)
 
   // 6. 批量回显（一次请求 + 缓存常驻）
@@ -178,14 +178,14 @@ async function runChecks(): Promise<void> {
   // 10. 部门树一次性加载与路径回显
   api.setKind('dept')
   await api.loadDeptTree()
-  const pathPass = api.deptNodes.value.length === 1 && toOrgTreeNodes(api.deptNodes.value)[0]?.label === '总部'
+  const pathPass = api.deptNodes.value.length === 1 && toDictDataTreeNodes(api.deptNodes.value)[0]?.label === '总部'
   api.setValue('d2')
   await api.resolve()
   add('部门树一次性加载与路径回显', pathPass && api.deptNodes.value[0]?.children?.[0]?.name === '研发部')
 
   // 11. 组织复合选择（勾选启用项并确认回填）
   await nextTick()
-  const composite = document.querySelector('[data-test="org-composite-picker"]')
+  const composite = document.querySelector('[data-test="dict-composite-picker"]')
   const checkbox = document.querySelector('[data-test="composite-check-u3"] input')
   if (checkbox instanceof HTMLElement) {
     checkbox.click()
@@ -199,20 +199,20 @@ async function runChecks(): Promise<void> {
   add('组织复合选择勾选与确认回填', composite !== null && compositeValue.value.includes('u3'))
 
   // 12. 数据源可替换（注册表登记与默认键）
-  add('数据源可替换（默认键 http + 自定义登记）', orgSourceRegistry.get('http') !== undefined && orgSourceRegistry.get('check-store') !== undefined)
+  add('数据源可替换（默认键 http + 自定义登记）', dictRemoteSourceRegistry.get('http') !== undefined && dictRemoteSourceRegistry.get('check-store') !== undefined)
 
   // 13. 出口取址（03_02）：组织数据源端点由目录快照按「业务域 + 能力种类」推导，平台不持有产品键
   applyCatalogSnapshot({
     products: [{ productKey: 'demo', status: 'enabled' }],
     services: [],
     collaborations: [
-      { name: 'demo.org.dept-data', domain: ORG_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      { name: 'demo.org.dept-data', domain: DICT_SOURCE_DOMAIN, kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
     ],
     warnings: [],
   })
-  const resolved = orgSourceEndpoint()
+  const resolved = dictRemoteSourceEndpoint()
   resetCatalog()
-  const degraded = orgSourceEndpoint()
+  const degraded = dictRemoteSourceEndpoint()
   add(
     '组织数据源端点由目录推导（虚构产品 /api/demo/v1/demo）；目录复位后显式降级为 null',
     resolved === productPrefix('demo', 'demo') && resolved === '/api/demo/v1/demo' && degraded === null,
@@ -228,10 +228,10 @@ void runChecks()
   <main style="padding: 16px; font-family: sans-serif">
     <h1>组织选择字段核对页（06-5）</h1>
     <section data-check-scope="org" style="margin-bottom: 16px; max-width: 480px">
-      <org-select-field v-model="orgValue" :ready="true" :source="source" :multiple="true" :limit="0" :show-avatar="true" />
+      <dict-remote-select-field v-model="dictValue" :ready="true" :source="source" :multiple="true" :limit="0" :show-avatar="true" />
     </section>
     <section data-check-scope="user" style="margin-bottom: 16px; max-width: 480px">
-      <user-select-field v-model="orgValue" :ready="true" :source="source" :multiple="true" :limit="0" :dept-id="'d1'" />
+      <user-select-field v-model="dictValue" :ready="true" :source="source" :multiple="true" :limit="0" :dept-id="'d1'" />
     </section>
     <section data-check-scope="post" style="margin-bottom: 16px; max-width: 480px">
       <post-select-field :model-value="undefined" :ready="true" :source="source" :multiple="true" />
@@ -240,13 +240,13 @@ void runChecks()
       <dept-tree-select-field :model-value="undefined" :ready="true" :source="source" />
     </section>
     <section data-check-scope="readonly" style="margin-bottom: 16px; max-width: 480px">
-      <org-select-field :model-value="['u1', 'u2', 'u3']" :ready="true" :source="source" readonly :collapse-after="1" />
+      <dict-remote-select-field :model-value="['u1', 'u2', 'u3']" :ready="true" :source="source" readonly :collapse-after="1" />
     </section>
     <section style="margin-bottom: 16px">
-      <org-composite-picker v-model:visible="compositeVisible" v-model="compositeValue" :ready="true" :source="source" />
+      <dict-composite-picker v-model:visible="compositeVisible" v-model="compositeValue" :ready="true" :source="source" />
     </section>
     <section style="margin-bottom: 16px">
-      <p data-test="placeholder">{{ ORG_PLACEHOLDER_TEXT }}</p>
+      <p data-test="placeholder">{{ DICT_DATA_PLACEHOLDER_TEXT }}</p>
       <el-button @click="api.setReady(!api.ready.value)">切换就绪 / 降级</el-button>
     </section>
     <section style="margin-top: 16px">

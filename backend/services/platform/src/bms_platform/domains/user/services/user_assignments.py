@@ -72,7 +72,7 @@ from bms_platform.domains.user.schemas.users import (
 )
 from bms_platform.domains.user.services.user_sessions import REASON_USER_DISABLED, UserSessionClient
 from bms_platform.domains.user.services.users_admin import USER_STATUSES, USER_UPDATED_EVENT
-from bms_platform.services.org_branch import OrgBranch, branch_op, branch_target, internal_write_request
+from bms_platform.services.user_role_branch import UserRoleBranch, branch_op, branch_target, internal_write_request
 
 if TYPE_CHECKING:
     from bms_core.db.session import DbSession
@@ -83,7 +83,7 @@ USER_ASSIGNMENTS_OP = "sys.user.assignments"
 BRANCH_ID_PLATFORM = "p"
 """platform 分支标识（同一全局事务内唯一，≤ 16 字符）。"""
 
-ORG_SERVICE_SCOPE = "组织域"
+DICT_DATA_SERVICE_SCOPE = "组织域"
 """组织域称谓（分支标识 / 承载服务 / 库键 / 动作名一律取自已解析的能力声明）。"""
 
 BRANCH_EXECUTE_PATH = "/api/v1/txn/branches"
@@ -448,7 +448,7 @@ class UserAssignmentsService(BaseFrameworkObject):
             if state != BRANCH_PREPARED:
                 raise TransactionUnavailableError(f"platform 分支未就绪：{state}")
             if branch is not None:
-                await self._execute_org_branches(
+                await self._execute_user_role_branches(
                     xid=self._xid_of(txn, branch.branch_id),
                     branch=branch,
                     endpoints=endpoints,
@@ -461,11 +461,11 @@ class UserAssignmentsService(BaseFrameworkObject):
             await self._manager.rollback(txn.global_txn_id)
             raise
 
-    async def _execute_org_branches(
+    async def _execute_user_role_branches(
         self,
         *,
         xid: str,
-        branch: OrgBranch | None,
+        branch: UserRoleBranch | None,
         endpoints: ConcurrentStableList[CapabilityEndpoint],
         user_id: int,
         req: UserAssignmentsRequest,
@@ -512,7 +512,7 @@ class UserAssignmentsService(BaseFrameworkObject):
         )
         state = _branch_state(response)
         if state != BRANCH_PREPARED:
-            raise TransactionUnavailableError(f"{ORG_SERVICE_SCOPE}分支未就绪：{state}")
+            raise TransactionUnavailableError(f"{DICT_DATA_SERVICE_SCOPE}分支未就绪：{state}")
 
     async def _apply_sequential(
         self,

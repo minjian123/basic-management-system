@@ -3,7 +3,7 @@
 // 由 FormRenderer 异步懒加载的独立分包入口（分包标记 `data-subpackage="renderer"`）。
 // 字段仅做分发与组合（控件本体归字段类与基础控件类）；重控件经 utils/formWidgets 二次懒加载。
 import type { FieldPermission, FieldRendererRegistry, RenderDetailColumn, RenderFieldPlan, RenderPlan } from '@bms/core'
-import { MASK_TEXT, displayFieldText, orgKindOfFieldType, resolveFieldRenderState } from '@bms/core'
+import { MASK_TEXT, displayFieldText, dictDataKindOfFieldType, resolveFieldRenderState } from '@bms/core'
 import { ElButton, ElInput, ElRadioButton, ElRadioGroup } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
@@ -251,10 +251,10 @@ function isMultiple(field: RenderFieldPlan): boolean {
  * @param field 字段渲染项。
  */
 function extraProps(field: RenderFieldPlan): Record<string, unknown> {
-  if (field.widget === 'org_select') {
-    return { kind: orgKindOfFieldType(field.base.type) ?? 'user' }
+  if (field.widget === 'dict_remote_select') {
+    return { kind: dictDataKindOfFieldType(field.base.type) ?? 'user' }
   }
-  if (isDictReferenced(field)) {
+  if (isDictReferenced(field) || field.widget === 'dict_tree') {
     return { dataSourceKey: field.base.dataSourceKey ?? '' }
   }
   const optionSetForm = optionSetFormOf(field)

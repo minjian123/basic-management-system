@@ -2,18 +2,18 @@
 // 人员选择字段（06_05）：远程搜索、多选与上限、部门过滤（含下级）、头像展示、只读回显、已删除 / 停用占位。
 import { ElOption, ElSelect } from 'element-plus'
 import {
-  ORG_EMPTY_TEXT,
-  ORG_PLACEHOLDER_TEXT,
-  ORG_SEARCH_DEBOUNCE,
-  normalizeOrgIds,
-  orgTagSummary,
+  DICT_DATA_EMPTY_TEXT,
+  DICT_DATA_PLACEHOLDER_TEXT,
+  DICT_DATA_SEARCH_DEBOUNCE,
+  normalizeDictDataIds,
+  dictDataTagSummary,
   type BaseUserDisplay,
-  type OrgSourceAdapter,
-  type OrgStatus,
+  type DictRemoteSourceAdapter,
+  type DictDataStatus,
 } from '@bms/core'
 import { computed, onScopeDispose, watch } from 'vue'
 
-import { useBaseOrgSelect } from '../../composables/useBaseOrgSelect'
+import { useBaseDictRemoteSelect } from '../../composables/useBaseDictRemoteSelect'
 import { debounce } from '../../utils/debounce'
 import EmptyState from '../feedback/EmptyState.vue'
 
@@ -26,7 +26,7 @@ interface Props {
   /** 数据通路是否就绪。 */
   ready?: boolean
   /** 组织数据源（未注入即占位零请求）。 */
-  source?: OrgSourceAdapter
+  source?: DictRemoteSourceAdapter
   /** 用户展示能力（缺省由投影内建花名册）。 */
   userDisplay?: BaseUserDisplay
   /** 多选（缺省多选）。 */
@@ -38,7 +38,7 @@ interface Props {
   /** 部门过滤是否含下级。 */
   includeChildren?: boolean
   /** 状态过滤（空串不限定）。 */
-  status?: OrgStatus | ''
+  status?: DictDataStatus | ''
   /** 下拉是否展示头像。 */
   showAvatar?: boolean
   /** 可搜索（远程搜索）。 */
@@ -78,8 +78,8 @@ const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   required: false,
   placeholder: '请选择人员',
-  degradeText: ORG_PLACEHOLDER_TEXT,
-  emptyText: ORG_EMPTY_TEXT,
+  degradeText: DICT_DATA_PLACEHOLDER_TEXT,
+  emptyText: DICT_DATA_EMPTY_TEXT,
   errorMessage: '',
 })
 
@@ -91,7 +91,7 @@ const emit = defineEmits<{
   'limit-exceed': [limit: number]
 }>()
 
-const api = useBaseOrgSelect({
+const api = useBaseDictRemoteSelect({
   ready: props.ready,
   kind: 'user',
   multiple: props.multiple,
@@ -145,10 +145,10 @@ api.onValueChange((next) => {
 
 const loadDebounced = debounce(() => {
   void api.load()
-}, ORG_SEARCH_DEBOUNCE)
+}, DICT_DATA_SEARCH_DEBOUNCE)
 onScopeDispose(() => loadDebounced.cancel())
 
-const tag = computed(() => orgTagSummary(api.selectedItems.value, 1))
+const tag = computed(() => dictDataTagSummary(api.selectedItems.value, 1))
 
 const internalError = computed(() => {
   if (props.errorMessage !== '') {
@@ -201,7 +201,7 @@ function onSelectUpdate(next: unknown): void {
     api.setValue(single === undefined || single === null ? undefined : String(single))
     return
   }
-  const desired = normalizeOrgIds(next, true)
+  const desired = normalizeDictDataIds(next, true)
   const limited = props.limit > 0 ? desired.slice(0, props.limit) : desired
   const exceeded = desired.length > limited.length
   api.setLimitExceeded(exceeded)
@@ -335,8 +335,8 @@ function toFieldValue(value: string | string[] | undefined): UserFieldValue | un
 .bms-user-select-field__label,
 .bms-user-select-field__overflow {
   padding: 0 var(--bms-spacing-sm);
-  background: var(--bms-org-tag-bg);
-  border: 1px solid var(--bms-org-border);
+  background: var(--bms-dict-remote-tag-bg);
+  border: 1px solid var(--bms-dict-remote-border);
   border-radius: var(--bms-radius-sm);
 }
 .bms-user-select-field__retry {

@@ -150,7 +150,7 @@ class BaseTenantSelfService(BasePluggable, ABC):
         Args:
             current_code: 当前租户编码（调用方从解析链上下文传入；实现负责标注）。
             tenant_id: 当前租户主键（雪花 id；即用户**归属租户**，可访问关系取数键）。
-            user_id: 当前登录用户主键（org 服务 `sys_user.id`）。
+            user_id: 当前登录用户主键（组织服务 `sys_user.id`）。
 
         Returns:
             TenantSelfOverview: 租户列表 + 当前租户编码 + 是否多租户。
@@ -165,7 +165,7 @@ class BaseTenantSelfService(BasePluggable, ABC):
         Args:
             code: 目标租户编码。
             tenant_id: 当前租户主键（雪花 id；即用户**归属租户**）。
-            user_id: 当前登录用户主键（org 服务 `sys_user.id`）。
+            user_id: 当前登录用户主键（组织服务 `sys_user.id`）。
 
         Returns:
             TenantSwitchResult: 切换结果（生效方式 / 是否需重发令牌 / 令牌）。
