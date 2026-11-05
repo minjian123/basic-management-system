@@ -7,14 +7,30 @@
 用法::
 
     python3 scripts/tools/deploy/release.py bootstrap [--env-file deploy/.env]
-    python3 scripts/tools/deploy/release.py gateway
+    python3 scripts/tools/deploy/release.py gateway [--render]
     python3 scripts/tools/deploy/release.py deploy --service platform --tag v0.2.0
     python3 scripts/tools/deploy/release.py deploy --all --tag <sha 或 vX.Y.Z>
     python3 scripts/tools/deploy/release.py deploy --all --tag <tag> --skip-gateway-check
+    python3 scripts/tools/deploy/release.py provision [--service mdm]
+    python3 scripts/tools/deploy/release.py exec --service mdm -- python -m ops.seed_platform --tenant demo
     python3 scripts/tools/deploy/release.py rollback --service platform [--to <tag>]
     python3 scripts/tools/deploy/release.py status [--service platform]
     python3 scripts/tools/deploy/release.py health-gate --service platform
     python3 scripts/tools/deploy/release.py prune --keep 30
+
+**产品仓复用（跨仓，2026-11-05）**：同一入口也用于产品服务部署，产品侧只给**通用参数**
+（`--repo-root` / `--deploy-dir` / `--compose-file` / `--services` / `--container-name` / `--tag-env` /
+`--image-prefix-env` / `--health-path` / `--gateway-path` / `--init-command` / `--provision-command`），
+命令实现里不出现产品字面量。示例（mdm 首次部署）::
+
+    python3 ~/bms/scripts/tools/deploy/release.py \
+      --repo-root ~/mdm --deploy-dir ~/mdm/deploy --compose-file compose/mdm.yml \
+      --services mdm --container-name mdm --tag-env MDM_TAG \
+      --image-prefix-env MDM_REGISTRY_IMAGE_PREFIX \
+      --gateway-path /api/mdm/v1/mdm/__gate__ \
+      --init-command "python -m ops.migrate {tenants}" \
+      --provision-command "python -m ops.provision {tenants}" \
+      deploy --service mdm --tag <sha> --skip-gateway-check --skip-gateway-probe
 
 口径（详见 `bms文档/项目/02_后端基座与服务化地基/任务/09_多服务CI-CD与契约门禁/09_…_02_…/设计/`）：
 
@@ -39,6 +55,7 @@ import ast
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -46,6 +63,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -58,6 +76,7 @@ if str(_SRC_ROOT) not in sys.path:
 
 from bms_core.core.concurrent import (  # noqa: E402
     ConcurrentStableDict,
+    ConcurrentStableFrozenList,
     ConcurrentStableList,
     ConcurrentStableSet,
 )
@@ -130,6 +149,103 @@ GATEWAY_SMOKE_PASS: ConcurrentStableSet[int] = ConcurrentStableSet({200, 201, 20
 
 _SEMVER_RE = re.compile(r"^v\d+\.\d+\.\d+$")
 _SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+@dataclass(frozen=True)
+class Profile:
+    """部署画像：把「bms 平台默认」与「产品仓（mdm 等）」的差异收敛为参数。
+
+    CLI 只给值、不写产品字面量——新增产品部署只需给一组参数，发布 / 回滚 / 门禁 / 台账仍走同一实现。
+
+    Attributes:
+        repo_root: 仓库根（`ops` 脚本定位与只读挂载基准）。
+        compose_file: compose 文件（相对 `deploy-dir`）。
+        services: 需补齐镜像标签的服务全集（bms 为已启用平台服务；产品为单服务）。
+        container_template: 容器名模板（`{service}` 占位）。
+        tag_env_template: 镜像标签环境变量名模板（`{service}` / `{SERVICE}` 占位）。
+        image_prefix_env: 镜像前缀环境变量名。
+        health_path: 容器内就绪探测路径。
+        gateway_path_template: 网关冒烟路径模板（`{service}` 占位）。
+        init_command: 建表 / 迁移命令模板；占位符 `{service}` / `{tenant}` / `{tenants}` / `{tenants_or_all}`。
+        provision_command: 建库命令模板（同上占位符；空表示不支持 `provision`）。
+        db_grant_pattern: 应用账号授权库模式（`bootstrap` 用）。
+    """
+
+    repo_root: Path = REPO_ROOT
+    compose_file: str = COMPOSE_FILE
+    services: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList(SERVICES))
+    container_template: str = "bms-{service}"
+    tag_env_template: str = "BMS_TAG_{SERVICE}"
+    image_prefix_env: str = "REGISTRY_IMAGE_PREFIX"
+    health_path: str = "/readyz"
+    gateway_path_template: str = GATEWAY_SMOKE_PATH
+    init_command: ConcurrentStableFrozenList[str] = field(
+        default_factory=lambda: ConcurrentStableFrozenList(
+            ["python", "-m", "ops.init_schema", "--service", "{service}", "{tenants_or_all}"]
+        )
+    )
+    provision_command: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList())
+    db_grant_pattern: str = "bms\\_%"
+
+    def container_name(self, service: str) -> str:
+        """容器名（按模板渲染）。
+
+        Args:
+            service: 服务标识。
+
+        Returns:
+            str: 容器名。
+        """
+        return self.container_template.format(service=service)
+
+    def tag_env(self, service: str) -> str:
+        """镜像标签环境变量名。
+
+        Args:
+            service: 服务标识。
+
+        Returns:
+            str: 变量名（如 `BMS_TAG_PLATFORM` / `MDM_TAG`）。
+        """
+        return self.tag_env_template.format(service=service, SERVICE=service.upper())
+
+    def gateway_path(self, service: str) -> str:
+        """网关冒烟路径。
+
+        Args:
+            service: 服务标识。
+
+        Returns:
+            str: 路径（如 `/api/platform/v1/__gate__`）。
+        """
+        return self.gateway_path_template.format(service=service)
+
+
+def render_commands(
+    template: ConcurrentStableFrozenList[str], *, service: str, tenants: ConcurrentStableList[str]
+) -> ConcurrentStableList[ConcurrentStableList[str]]:
+    """把命令模板渲染为「待执行命令」清单。
+
+    占位符口径：`{service}` 服务标识；`{tenants}` 展开为 `--code X --code Y`（无租户为空）；
+    `{tenants_or_all}` 同上，但无租户时展开为 `--all-tenants`；含 `{tenant}` 时**逐租户**各一条命令。
+
+    Args:
+        template: 命令模板（已按 shell 词法拆好）。
+        service: 服务标识。
+        tenants: 租户编码清单。
+
+    Returns:
+        ConcurrentStableList[ConcurrentStableList[str]]: 待执行命令清单。
+    """
+    joined = " ".join(template)
+    flags = " ".join(f"--code {tenant}" for tenant in tenants)
+    if "{tenant}" in joined:
+        return ConcurrentStableList(
+            ConcurrentStableList(shlex.split(joined.format(service=service, tenant=tenant, tenants=flags)))
+            for tenant in tenants
+        )
+    rendered = joined.format(service=service, tenants=flags, tenants_or_all=flags or "--all-tenants")
+    return ConcurrentStableList([ConcurrentStableList(shlex.split(rendered))])
 
 
 # ---------------------------------------------------------------------------
@@ -306,11 +422,14 @@ def build_manifest(
 # ---------------------------------------------------------------------------
 # 注册表对账（07B `02_06`）
 # ---------------------------------------------------------------------------
-def gateway_check_args() -> ConcurrentStableList[str]:
-    """对账容器内的命令：按**注册表**重渲并与仓库生成件比对。
+def gateway_check_args(*, render: bool = False) -> ConcurrentStableList[str]:
+    """对账 / 重渲容器内的命令。
 
     `--from-registry` 省略 `--url`：容器内按配置解析平台库（与 `ops.check_modules` 同口径），
-    不在宿主传凭据；`--root` 指向只读挂载点（见 `GATEWAY_CHECK_ROOT`）。
+    不在宿主传凭据；`--root` 指向只读 / 可写挂载点（见 `GATEWAY_CHECK_ROOT`）。
+
+    Args:
+        render: True 时执行 `render`（按注册表重渲并写回仓库生成件）；False 为 `check`（零漂移比对）。
 
     Returns:
         ConcurrentStableList[str]: 容器内命令参数。
@@ -320,7 +439,7 @@ def gateway_check_args() -> ConcurrentStableList[str]:
             "python",
             "-m",
             "ops.gateway_config",
-            "check",
+            "render" if render else "check",
             "--from-registry",
             "--root",
             GATEWAY_CHECK_ROOT,
@@ -328,16 +447,18 @@ def gateway_check_args() -> ConcurrentStableList[str]:
     )
 
 
-def gateway_check_volumes(deploy_dir: Path) -> ConcurrentStableList[str]:
-    """对账容器的只读挂载（宿主 `deploy/` → `<GATEWAY_CHECK_ROOT>/deploy`）。
+def gateway_check_volumes(deploy_dir: Path, *, render: bool = False) -> ConcurrentStableList[str]:
+    """对账 / 重渲容器的挂载（宿主 `deploy/` → `<GATEWAY_CHECK_ROOT>/deploy`）。
 
     Args:
         deploy_dir: deploy 目录。
+        render: True 时以读写挂载（需写回 `gateway/apisix.yaml`）。
 
     Returns:
         ConcurrentStableList[str]: `-v` 挂载声明。
     """
-    return ConcurrentStableList([f"{Path(deploy_dir).resolve()}:{GATEWAY_CHECK_ROOT}/deploy:ro"])
+    mode = "" if render else ":ro"
+    return ConcurrentStableList([f"{Path(deploy_dir).resolve()}:{GATEWAY_CHECK_ROOT}/deploy{mode}"])
 
 
 # ---------------------------------------------------------------------------
@@ -363,14 +484,16 @@ def _base_env(env_file: Path) -> ConcurrentStableDict[str, str]:
     return merged
 
 
-def _fill_service_tags(deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> ConcurrentStableDict[str, str]:
-    """补齐所有服务的 `BMS_TAG_<SERVICE>`（compose 需全部变量方可插值；台账当前版本兜底）。
+def _fill_service_tags(
+    profile: Profile, deploy_dir: Path, env: ConcurrentStableDict[str, str]
+) -> ConcurrentStableDict[str, str]:
+    """补齐所有服务的镜像标签（compose 需全部变量方可插值；台账当前版本兜底）。
 
     取值优先：进程 / `.env` 已有 > 服务台账 `current.tag` > `BMS_IMAGE_TAG`。
     """
     result = ConcurrentStableDict(env)
-    for service in SERVICES:
-        key = f"BMS_TAG_{service.upper()}"
+    for service in profile.services:
+        key = profile.tag_env(service)
         if result.get(key):
             continue
         ledger = _load_ledger(deploy_dir, service)
@@ -380,9 +503,9 @@ def _fill_service_tags(deploy_dir: Path, env: ConcurrentStableDict[str, str]) ->
     return result
 
 
-def _ensure_registry_login(env: ConcurrentStableDict[str, str], *, stdout=print) -> None:
+def _ensure_registry_login(profile: Profile, env: ConcurrentStableDict[str, str], *, stdout=print) -> None:
     """best-effort 登录 GitLab Registry（有 token 时；失败不中止，交由 compose 拉取时报错）。"""
-    prefix = env.get("REGISTRY_IMAGE_PREFIX", "")
+    prefix = env.get(profile.image_prefix_env, "")
     host = prefix.split("/", 1)[0]
     token = env.get("GITLAB_API_TOKEN", "")
     if not host or not token:
@@ -402,6 +525,7 @@ def _ensure_registry_login(env: ConcurrentStableDict[str, str], *, stdout=print)
 
 
 def _compose_proc(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     args: ConcurrentStableList[str],
@@ -412,6 +536,7 @@ def _compose_proc(
     """执行 `docker compose`（cwd = deploy 目录），返回进程结果。
 
     Args:
+        profile: 部署画像（决定 compose 文件）。
         deploy_dir: deploy 目录。
         env: 子进程环境（含 `.env` 与标签覆盖）。
         args: compose 子命令参数。
@@ -424,7 +549,7 @@ def _compose_proc(
     Raises:
         RuntimeError: `raise_on_error` 且退出码非零。
     """
-    cmd = ["docker", "compose", "-f", COMPOSE_FILE, "--env-file", ".env", *args]
+    cmd = ["docker", "compose", "-f", profile.compose_file, "--env-file", ".env", *args]
     proc = subprocess.run(
         cmd,
         cwd=deploy_dir,
@@ -440,6 +565,7 @@ def _compose_proc(
 
 
 def _compose(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     args: ConcurrentStableList[str],
@@ -449,6 +575,7 @@ def _compose(
     """执行 `docker compose`（cwd = deploy 目录），失败即抛错。
 
     Args:
+        profile: 部署画像。
         deploy_dir: deploy 目录。
         env: 子进程环境（含 `.env` 与标签覆盖）。
         args: compose 子命令参数。
@@ -457,10 +584,11 @@ def _compose(
     Returns:
         str: stdout（capture 时）。
     """
-    return _compose_proc(deploy_dir, env, args, capture=capture).stdout or ""
+    return _compose_proc(profile, deploy_dir, env, args, capture=capture).stdout or ""
 
 
 def _compose_run(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     service: str,
@@ -476,6 +604,7 @@ def _compose_run(
     子进程环境只用于 compose 插值）；`volumes` 经 `-v host:container[:ro]` 追加挂载。
 
     Args:
+        profile: 部署画像。
         deploy_dir: deploy 目录。
         env: 子进程环境。
         service: 运行镜像对应的服务名。
@@ -494,7 +623,7 @@ def _compose_run(
     for volume in volumes or ():
         args.update(["-v", volume])
     args.update([service, *command])
-    return _compose_proc(deploy_dir, run_env, args, raise_on_error=raise_on_error).returncode
+    return _compose_proc(profile, deploy_dir, run_env, args, raise_on_error=raise_on_error).returncode
 
 
 def _ledger_path(deploy_dir: Path, service: str) -> Path:
@@ -549,12 +678,15 @@ def _wait_container_healthy(container: str, timeout: float) -> bool:
     return False
 
 
-def _wait_readyz(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, timeout: float) -> bool:
-    """等待服务 `/readyz` 返回 200（容器内探测）。"""
+def _wait_readyz(
+    profile: Profile, deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, timeout: float
+) -> bool:
+    """等待服务就绪端点返回 200（容器内探测）。"""
+    path = profile.health_path
     script = (
         "import sys,urllib.request\n"
         "try:\n"
-        "    r=urllib.request.urlopen('http://127.0.0.1:8000/readyz',timeout=3)\n"
+        f"    r=urllib.request.urlopen('http://127.0.0.1:8000{path}',timeout=3)\n"
         "    sys.exit(0 if r.status==200 else 1)\n"
         "except Exception:\n"
         "    sys.exit(1)\n"
@@ -566,7 +698,7 @@ def _wait_readyz(deploy_dir: Path, env: ConcurrentStableDict[str, str], service:
                 "docker",
                 "compose",
                 "-f",
-                COMPOSE_FILE,
+                profile.compose_file,
                 "--env-file",
                 ".env",
                 "exec",
@@ -588,10 +720,10 @@ def _wait_readyz(deploy_dir: Path, env: ConcurrentStableDict[str, str], service:
     return False
 
 
-def _check_gateway(env: ConcurrentStableDict[str, str], service: str, timeout: float) -> bool:
+def _check_gateway(profile: Profile, env: ConcurrentStableDict[str, str], service: str, timeout: float) -> bool:
     """经网关探测服务路由可达（不依赖登录；200/401/403/404 视为可达）。"""
     port = env.get("GATEWAY_HTTP_PORT", "8088")
-    url = f"http://127.0.0.1:{port}" + GATEWAY_SMOKE_PATH.format(service=service)
+    url = f"http://127.0.0.1:{port}" + profile.gateway_path(service)
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             status = resp.status
@@ -603,21 +735,32 @@ def _check_gateway(env: ConcurrentStableDict[str, str], service: str, timeout: f
     return status in GATEWAY_SMOKE_PASS
 
 
-def health_gate(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, *, stdout=print) -> bool:
-    """三步健康门禁（容器健康 → `/readyz` → 网关路由可达）。"""
+def health_gate(
+    profile: Profile,
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    service: str,
+    *,
+    stdout=print,
+    skip_gateway_probe: bool = False,
+) -> bool:
+    """三步健康门禁（容器健康 → 就绪端点 → 网关路由可达）。"""
     timeout = float(env.get("BMS_GATE_TIMEOUT", "90"))
     smoke_timeout = float(env.get("BMS_GATEWAY_SMOKE_TIMEOUT", "30"))
-    container = f"bms-{service}"
+    container = profile.container_name(service)
     if not _wait_container_healthy(container, timeout):
         stdout(f"[gate] {service}：容器未就绪（{container} 非 healthy）")
         return False
-    if not _wait_readyz(deploy_dir, env, service, timeout):
-        stdout(f"[gate] {service}：/readyz 未返回 200")
+    if not _wait_readyz(profile, deploy_dir, env, service, timeout):
+        stdout(f"[gate] {service}：{profile.health_path} 未返回 200")
         return False
-    if not _check_gateway(env, service, smoke_timeout):
+    if skip_gateway_probe:
+        stdout(f"[gate] {service}：跳过网关可达探测（--skip-gateway-probe）")
+        return True
+    if not _check_gateway(profile, env, service, smoke_timeout):
         stdout(f"[gate] {service}：网关路由不可达")
         return False
-    stdout(f"[gate] {service}：门禁通过（healthy + /readyz 200 + 网关可达）")
+    stdout(f"[gate] {service}：门禁通过（healthy + {profile.health_path} 200 + 网关可达）")
     return True
 
 
@@ -643,14 +786,15 @@ def _ledger_tag(deploy_dir: Path, service: str, fallback: str) -> str:
 
 
 def _service_env(
-    deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str
+    profile: Profile, deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str
 ) -> ConcurrentStableDict[str, str]:
     """构造 compose 子进程环境：**所有**服务标签齐全（compose 会解析整份文件）。
 
     目标服务用新 tag；其余取各自台账当前 tag（缺失回落新 tag）。不补齐会让
-    `docker compose up -d <服务>` 因其它服务 `BMS_TAG_*` 缺失直接报错。
+    `docker compose up -d <服务>` 因其它服务镜像标签缺失直接报错。
 
     Args:
+        profile: 部署画像。
         deploy_dir: deploy 目录。
         env: 基础环境（含 `.env`）。
         service: 目标服务。
@@ -660,62 +804,64 @@ def _service_env(
         ConcurrentStableDict[str, str]: 补齐后的子进程环境。
     """
     run_env = ConcurrentStableDict(env)
-    for name in SERVICES:
+    for name in profile.services:
         run_env.set(
-            f"BMS_TAG_{name.upper()}",
+            profile.tag_env(name),
             tag if name == service else _ledger_tag(deploy_dir, name, tag),
         )
     return run_env
 
 
-def _compose_services(deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> ConcurrentStableList[str]:
+def _compose_services(
+    profile: Profile, deploy_dir: Path, env: ConcurrentStableDict[str, str]
+) -> ConcurrentStableList[str]:
     """列出 compose 文件内全部服务名。
 
     Args:
+        profile: 部署画像。
         deploy_dir: deploy 目录。
         env: 已补齐标签的子进程环境。
 
     Returns:
         ConcurrentStableList[str]: 服务名清单。
     """
-    output = _compose(deploy_dir, env, ConcurrentStableList(["config", "--services"]), capture=True)
+    output = _compose(profile, deploy_dir, env, ConcurrentStableList(["config", "--services"]), capture=True)
     return ConcurrentStableList(line.strip() for line in output.splitlines() if line.strip())
 
 
-def _up(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str) -> None:
+def _up(profile: Profile, deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str) -> None:
     """以指定标签起（或更新）服务容器（含同镜像的 `-jobs` 容器）。"""
-    run_env = _service_env(deploy_dir, env, service, tag)
+    run_env = _service_env(profile, deploy_dir, env, service, tag)
     targets = ConcurrentStableList([service])
     jobs = f"{service}-jobs"
-    if jobs in _compose_services(deploy_dir, run_env):
+    if jobs in _compose_services(profile, deploy_dir, run_env):
         targets.add(jobs)
-    _compose(deploy_dir, run_env, ConcurrentStableList(["up", "-d", "--no-deps", *targets]))
+    _compose(profile, deploy_dir, run_env, ConcurrentStableList(["up", "-d", "--no-deps", *targets]))
 
 
 def _init_schema(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     service: str,
     tag: str,
     tenants: ConcurrentStableList[str],
 ) -> None:
-    """以目标标签镜像跑一次性建表容器（建表先行）。"""
-    run_env = _service_env(deploy_dir, env, service, tag)
-    args = ConcurrentStableList(["python", "-m", "ops.init_schema", "--service", service])
-    if tenants:
-        for tenant in tenants:
-            args.update(["--code", tenant])
-    else:
-        args.add("--all-tenants")
-    _compose_run(deploy_dir, run_env, service, args)
+    """以目标标签镜像跑一次性建表 / 迁移命令（建表先行）。"""
+    run_env = _service_env(profile, deploy_dir, env, service, tag)
+    for command in render_commands(profile.init_command, service=service, tenants=tenants):
+        _compose_run(profile, deploy_dir, run_env, service, command)
 
 
 def _deploy_one(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     service: str,
     tag: str,
     actor: str,
+    *,
+    skip_gateway_probe: bool = False,
 ) -> bool:
     """单服务部署：建表 → 起容器 → 门禁 → 台账；门禁失败自动回滚。"""
     ledger = _load_ledger(deploy_dir, service)
@@ -723,10 +869,10 @@ def _deploy_one(
     old_current = raw_old_current if isinstance(raw_old_current, Mapping) else None
     tenants = ConcurrentStableList(t for t in (env.get("BMS_DEPLOY_TENANTS", "demo,acme") or "").split(",") if t)
     print(f"[deploy] {service} → {tag}：建表先行")
-    _init_schema(deploy_dir, env, service, tag, tenants)
+    _init_schema(profile, deploy_dir, env, service, tag, tenants)
     print(f"[deploy] {service} → {tag}：起容器")
-    _up(deploy_dir, env, service, tag)
-    if health_gate(deploy_dir, env, service):
+    _up(profile, deploy_dir, env, service, tag)
+    if health_gate(profile, deploy_dir, env, service, skip_gateway_probe=skip_gateway_probe):
         new_ledger = rotate_ledger(ledger, tag=tag, actor=actor, at=_now())
         new_ledger.set("service", service)
         _save_ledger(deploy_dir, service, new_ledger)
@@ -763,8 +909,8 @@ def _deploy_one(
         )
         return False
     old_tag = str(old_current["tag"])
-    _up(deploy_dir, env, service, old_tag)
-    ok = health_gate(deploy_dir, env, service)
+    _up(profile, deploy_dir, env, service, old_tag)
+    ok = health_gate(profile, deploy_dir, env, service)
     _append_log(
         deploy_dir,
         ConcurrentStableDict(
@@ -783,6 +929,7 @@ def _deploy_one(
 
 
 def _rollback_one(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     service: str,
@@ -795,8 +942,8 @@ def _rollback_one(
     raw_old_current = ledger.get("current")
     old_current = raw_old_current if isinstance(raw_old_current, Mapping) else None
     print(f"[rollback] {service} → {target}")
-    _up(deploy_dir, env, service, target)
-    ok = health_gate(deploy_dir, env, service)
+    _up(profile, deploy_dir, env, service, target)
+    ok = health_gate(profile, deploy_dir, env, service)
     if ok:
         new_ledger = rotate_ledger(ledger, tag=target, actor=actor, at=_now())
         new_ledger.set("service", service)
@@ -818,8 +965,8 @@ def _rollback_one(
     return ok
 
 
-def _ensure_app_user(deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> None:
-    """经 mysql 容器 root 创建应用账号并按 `bms\\_%` 库授权（幂等）。"""
+def _ensure_app_user(profile: Profile, deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> None:
+    """经 mysql 容器 root 创建应用账号并按画像的库模式授权（幂等）。"""
     user = env.get("BMS_APP_DB_USER", "bms_app")
     password = env.get("BMS_APP_DB_PASSWORD") or env.get("BMS_DATABASE__PLATFORM__PASSWORD", "")
     root_pw = env.get("MYSQL_ROOT_PASSWORD", "")
@@ -831,9 +978,10 @@ def _ensure_app_user(deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> N
     sql = (
         f"CREATE USER IF NOT EXISTS '{user}'@'%' IDENTIFIED BY '{literal}'; "
         f"ALTER USER '{user}'@'%' IDENTIFIED BY '{literal}'; "
-        f"GRANT ALL PRIVILEGES ON `bms\\_%`.* TO '{user}'@'%'; FLUSH PRIVILEGES;"
+        f"GRANT ALL PRIVILEGES ON `{profile.db_grant_pattern}`.* TO '{user}'@'%'; FLUSH PRIVILEGES;"
     )
     _compose(
+        profile,
         deploy_dir,
         env,
         ConcurrentStableList(
@@ -853,6 +1001,7 @@ def _ensure_app_user(deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> N
 
 
 def cmd_bootstrap(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     *,
@@ -866,19 +1015,19 @@ def cmd_bootstrap(
     image_tag = env.get("BMS_IMAGE_TAG", "")
     if image_tag:
         for service in services:
-            env.set(f"BMS_TAG_{service.upper()}", image_tag)
+            env.set(profile.tag_env(service), image_tag)
     print("[bootstrap] 1/4 应用账号与授权")
-    _ensure_registry_login(env)
-    _ensure_app_user(deploy_dir, env)
+    _ensure_registry_login(profile, env)
+    _ensure_app_user(profile, deploy_dir, env)
     print("[bootstrap] 2/4 建库（按服务 × 租户）")
     admin_url = f"mysql+aiomysql://root:{urllib.parse.quote(env.get('MYSQL_ROOT_PASSWORD', ''), safe='')}@mysql:3306"
     provision = ConcurrentStableList(["python", "-m", "ops.provision_tenant", "--admin-url", admin_url])
     for tenant in tenants:
         provision.update(["--code", tenant])
-    _compose_run(deploy_dir, env, _run_image_of("ops.provision_tenant"), provision)
+    _compose_run(profile, deploy_dir, env, _run_image_of(profile, "ops.provision_tenant"), provision)
     print("[bootstrap] 3/4 建表（按服务）")
     for service in services:
-        _init_schema(deploy_dir, env, service, _bootstrap_tag(env, service), tenants)
+        _init_schema(profile, deploy_dir, env, service, _bootstrap_tag(profile, env, service), tenants)
     print("[bootstrap] 4/4 种子（统一编排：平台 + 产品同构声明，一个 XA 全局事务）")
     # 07B `02_03`：种子由**统一编排入口**执行（原 3 条独立脚本已并入）。
     # 约束：XA 分支要求参与方在线，故本步骤须在服务已起、未接流量时执行——
@@ -895,10 +1044,11 @@ _RUN_IMAGE_MODULE_PREFIX = "ops."
 """`ops` 脚本模块名前缀（`python -m ops.<script>`）。"""
 
 
-def _ops_script_path(module: str) -> Path:
+def _ops_script_path(profile: Profile, module: str) -> Path:
     """取 `ops` 脚本源码路径。
 
     Args:
+        profile: 部署画像（决定仓库根）。
         module: 模块名（`ops.seed_module`）。
 
     Returns:
@@ -910,19 +1060,20 @@ def _ops_script_path(module: str) -> Path:
     if not module.startswith(_RUN_IMAGE_MODULE_PREFIX):
         raise RuntimeError(f"仅支持 ops 脚本（收到 {module!r}）")
     name = module[len(_RUN_IMAGE_MODULE_PREFIX) :].replace(".", "/")
-    path = REPO_ROOT / "backend" / "ops" / f"{name}.py"
+    path = profile.repo_root / "backend" / "ops" / f"{name}.py"
     if not path.is_file():
         raise RuntimeError(f"ops 脚本不存在：{path}")
     return path
 
 
-def _run_image_of(module: str) -> str:
+def _run_image_of(profile: Profile, module: str) -> str:
     """读取 `ops` 脚本声明的运行镜像（标准库 `ast` 静态读取，部署机无需后端虚拟环境）。
 
     口径：`RUN_IMAGE` 为脚本内的机器可读声明（`platform` / `tenant` / `txn` / `ci` / `*`）；
     取值为 `*` 时回落 platform 镜像（任意服务镜像均可运行该脚本）。
 
     Args:
+        profile: 部署画像。
         module: 模块名（`ops.seed_module`）。
 
     Returns:
@@ -931,7 +1082,7 @@ def _run_image_of(module: str) -> str:
     Raises:
         RuntimeError: 脚本未声明 `RUN_IMAGE`、声明值非法或声明为 `ci`（无对应部署镜像）。
     """
-    path = _ops_script_path(module)
+    path = _ops_script_path(profile, module)
     tree = ast.parse(path.read_text(encoding="utf-8"))
     declared = ""
     for node in tree.body:
@@ -953,15 +1104,16 @@ def _run_image_of(module: str) -> str:
     return declared
 
 
-def _bootstrap_tag(env: ConcurrentStableDict[str, str], service: str) -> str:
+def _bootstrap_tag(profile: Profile, env: ConcurrentStableDict[str, str], service: str) -> str:
     """bootstrap 建表所用镜像标签（缺省取 `.env` 的 BMS_IMAGE_TAG；无则报错）。"""
-    tag = env.get(f"BMS_TAG_{service.upper()}") or env.get("BMS_IMAGE_TAG", "")
+    tag = env.get(profile.tag_env(service)) or env.get("BMS_IMAGE_TAG", "")
     if not tag:
-        raise RuntimeError(f"bootstrap 需镜像标签：请设置 BMS_IMAGE_TAG 或 BMS_TAG_{service.upper()}")
+        raise RuntimeError(f"bootstrap 需镜像标签：请设置 BMS_IMAGE_TAG 或 {profile.tag_env(service)}")
     return tag
 
 
 def cmd_seed(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     *,
@@ -991,7 +1143,9 @@ def cmd_seed(
         args.update(["--dry-run"])
     # 编排的业务退出码（0 成功 / 1 冲突 / 2 执行失败 / 3 前置错误）须原样透出，
     # 故关闭「非零即抛」——否则调用方拿到的是异常而非可区分的退出码。
-    code = _compose_run(deploy_dir, env, _run_image_of("ops.seed_platform"), args, raise_on_error=False)
+    code = _compose_run(
+        profile, deploy_dir, env, _run_image_of(profile, "ops.seed_platform"), args, raise_on_error=False
+    )
     if code != 0:
         print(f"[seed] 编排未通过（退出码 {code}）：整体已回滚，无脏数据", file=sys.stderr)
         return code
@@ -999,22 +1153,34 @@ def cmd_seed(
     return 0
 
 
-def cmd_gateway_check(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, stdout=print) -> int:
-    """注册表对账（07B `02_06`）：platform 镜像内按注册表重渲，与仓库生成件逐字比对。
+def cmd_gateway_check(
+    profile: Profile,
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    *,
+    render: bool = False,
+    stdout=print,
+) -> int:
+    """注册表对账 / 重渲（07B `02_06`）：platform 镜像内按注册表取数。
+
+    - 缺省（`check`）：重渲结果与仓库生成件**逐字比对**，校验声明漂移 + 生成件忘重生成；
+    - `render=True`：按注册表**写回** `deploy/gateway/apisix.yaml`（APISIX standalone 文件轮询
+      自动热加载），用于「产品声明刚上报、路由尚未生成」的首次接入。
 
     部署流水线把「注册表是权威」落到实处：`deploy/gateway/apisix.yaml` 必须与**平台库注册表**
-    的渲染结果一致（`--from-manifest` 与 `--from-registry` 产物由用例守住逐字相等），
-    因此本步骤既校验声明漂移，也校验「仓库生成件忘了重生成」。
+    的渲染结果一致（`--from-manifest` 与 `--from-registry` 产物由用例守住逐字相等）。
 
     Args:
+        profile: 部署画像。
         deploy_dir: deploy 目录。
         env: 部署环境变量。
+        render: True 时重渲写回（False 为对账）。
         stdout: 输出函数。
 
     Returns:
-        int: 退出码（0 一致；1 不一致 / 注册表不可读；2 缺 platform 镜像标签）。
+        int: 退出码（0 一致 / 成功；1 不一致 / 注册表不可读；2 缺 platform 镜像标签）。
     """
-    tag = env.get("BMS_TAG_PLATFORM") or env.get("BMS_IMAGE_TAG", "")
+    tag = env.get(profile.tag_env(GATEWAY_CHECK_IMAGE)) or env.get("BMS_IMAGE_TAG", "")
     if not tag:
         print(
             "错误：注册表对账需 platform 镜像标签（台账无 current 时请先设 BMS_TAG_PLATFORM / BMS_IMAGE_TAG）",
@@ -1022,29 +1188,34 @@ def cmd_gateway_check(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, 
         )
         return 2
     run_env = ConcurrentStableDict(env)
-    run_env.set("BMS_TAG_PLATFORM", tag)
-    stdout(f"[gateway] 注册表对账：platform:{tag}（--from-registry ↔ deploy/gateway/apisix.yaml）")
+    run_env.set(profile.tag_env(GATEWAY_CHECK_IMAGE), tag)
+    action = "重渲" if render else "对账"
+    stdout(f"[gateway] 注册表{action}：platform:{tag}（--from-registry → deploy/gateway/apisix.yaml）")
     code = _compose_run(
+        profile,
         deploy_dir,
         run_env,
         GATEWAY_CHECK_IMAGE,
-        gateway_check_args(),
-        volumes=gateway_check_volumes(deploy_dir),
+        gateway_check_args(render=render),
+        volumes=gateway_check_volumes(deploy_dir, render=render),
         raise_on_error=False,
     )
     if code != 0:
         print(
-            "[gateway] 对账未通过：注册表渲染结果与仓库生成件不一致（或注册表不可读 / 未建表）——"
-            "先确认平台已启动完成注册，必要时按注册表重生成："
-            "`uv run python -m ops.gateway_config render --from-registry`",
+            f"[gateway] {action}未通过：注册表不可读 / 未建表，或渲染结果与仓库生成件不一致——"
+            "确认平台已启动完成注册后再试",
             file=sys.stderr,
         )
         return 1
-    stdout("[gateway] 对账通过：注册表渲染结果与仓库生成件逐字一致")
+    if render:
+        stdout("[gateway] 重渲完成：deploy/gateway/apisix.yaml 已按注册表写回（APISIX 文件轮询热加载）")
+    else:
+        stdout("[gateway] 对账通过：注册表渲染结果与仓库生成件逐字一致")
     return 0
 
 
 def cmd_deploy(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     *,
@@ -1052,6 +1223,7 @@ def cmd_deploy(
     tag: str,
     actor: str,
     skip_gateway_check: bool = False,
+    skip_gateway_probe: bool = False,
 ) -> int:
     """部署（注册表对账 → 建表 → 起容器 → 门禁 → 台账；失败自动回滚）。
 
@@ -1061,7 +1233,7 @@ def cmd_deploy(
     if not tag:
         print("错误：deploy 必须显式 --tag（不可变标签，禁 latest）", file=sys.stderr)
         return 2
-    _ensure_registry_login(env)
+    _ensure_registry_login(profile, env)
     if skip_gateway_check:
         print("[deploy] 跳过注册表对账（--skip-gateway-check）：仅限首部署 / 应急，部署后请跑 gateway 复核")
         _append_log(
@@ -1079,7 +1251,7 @@ def cmd_deploy(
             ),
         )
     else:
-        gateway_code = cmd_gateway_check(deploy_dir, env)
+        gateway_code = cmd_gateway_check(profile, deploy_dir, env)
         _append_log(
             deploy_dir,
             ConcurrentStableDict(
@@ -1099,11 +1271,82 @@ def cmd_deploy(
             return 1
     ok = True
     for service in services:
-        ok = _deploy_one(deploy_dir, env, service, tag, actor) and ok
+        ok = (
+            _deploy_one(
+                profile,
+                deploy_dir,
+                env,
+                service,
+                tag,
+                actor,
+                skip_gateway_probe=skip_gateway_probe,
+            )
+            and ok
+        )
     return 0 if ok else 1
 
 
+def cmd_provision(
+    profile: Profile,
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    *,
+    services: ConcurrentStableList[str],
+) -> int:
+    """建库（首次部署第 ② 步）：按画像的建库命令在目标镜像内执行（幂等）。
+
+    Args:
+        profile: 部署画像。
+        deploy_dir: deploy 目录。
+        env: 部署环境变量。
+        services: 目标服务清单。
+
+    Returns:
+        int: 退出码（0 成功；1 建库失败；2 画像未声明建库命令）。
+    """
+    if not profile.provision_command:
+        print("错误：当前画像未声明 --provision-command（无法建库）", file=sys.stderr)
+        return 2
+    tenants = ConcurrentStableList(t for t in (env.get("BMS_DEPLOY_TENANTS", "demo,acme") or "").split(",") if t)
+    _ensure_registry_login(profile, env)
+    code = 0
+    for service in services:
+        run_env = _service_env(profile, deploy_dir, env, service, env.get(profile.tag_env(service), ""))
+        for command in render_commands(profile.provision_command, service=service, tenants=tenants):
+            print(f"[provision] {service}：{' '.join(command)}")
+            code = _compose_run(profile, deploy_dir, run_env, service, command, raise_on_error=False) or code
+    return 0 if code == 0 else 1
+
+
+def cmd_exec(
+    profile: Profile,
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    *,
+    service: str,
+    command: ConcurrentStableList[str],
+) -> int:
+    """通用一次性执行（种子 / 排障）：在目标服务镜像内跑给定命令，退出码原样透出。
+
+    Args:
+        profile: 部署画像。
+        deploy_dir: deploy 目录。
+        env: 部署环境变量。
+        service: 目标服务。
+        command: 容器内命令。
+
+    Returns:
+        int: 容器内命令退出码（2 表示未给命令）。
+    """
+    if not command:
+        print("错误：exec 需在 `--` 之后给出容器内命令", file=sys.stderr)
+        return 2
+    run_env = _service_env(profile, deploy_dir, env, service, env.get(profile.tag_env(service), ""))
+    return _compose_run(profile, deploy_dir, run_env, service, command, raise_on_error=False)
+
+
 def cmd_rollback(
+    profile: Profile,
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     *,
@@ -1112,8 +1355,8 @@ def cmd_rollback(
     actor: str,
 ) -> int:
     """一键回滚（切换上一 tag / 指定 tag；不 downgrade）。"""
-    _ensure_registry_login(env)
-    return 0 if _rollback_one(deploy_dir, env, service, to, actor) else 1
+    _ensure_registry_login(profile, env)
+    return 0 if _rollback_one(profile, deploy_dir, env, service, to, actor) else 1
 
 
 def cmd_status(
@@ -1137,7 +1380,9 @@ def cmd_status(
     return 0
 
 
-def cmd_prune(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, keep: int, dry_run: bool) -> int:
+def cmd_prune(
+    profile: Profile, deploy_dir: Path, env: ConcurrentStableDict[str, str], *, keep: int, dry_run: bool
+) -> int:
     """清理超窗 SHA 标签（semver 永久保留）。"""
     api = env.get("GITLAB_API_URL", "").rstrip("/")
     token = env.get("GITLAB_API_TOKEN", "")
@@ -1151,7 +1396,7 @@ def cmd_prune(deploy_dir: Path, env: ConcurrentStableDict[str, str], *, keep: in
     headers = ConcurrentStableDict({"PRIVATE-TOKEN": token})
     repos = _api_get(f"{api}/projects/{project}/registry/repositories?per_page=100", headers)
     total = 0
-    for service in SERVICES:
+    for service in profile.services:
         repo = _find_repo(repos, service)
         if repo is None:
             continue
@@ -1214,12 +1459,48 @@ def _api_delete(url: str, headers: ConcurrentStableDict[str, str]) -> None:
 def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
     """解析命令行参数。"""
     parser = argparse.ArgumentParser(description="BMS 服务部署 / 回滚 / 门禁 / 数据引导 CLI（09_02）")
-    parser.add_argument(
-        "--deploy-dir",
-        default=str(REPO_ROOT / "deploy"),
-        help="deploy 目录（默认仓库 deploy/）",
-    )
+    # ---- 部署画像（产品仓复用同一入口时只给值，不写产品字面量）----
+    parser.add_argument("--repo-root", default=str(REPO_ROOT), help="仓库根（`ops` 脚本定位；默认脚本所在仓）")
+    parser.add_argument("--deploy-dir", default="", help="deploy 目录（默认 <repo-root>/deploy）")
     parser.add_argument("--env-file", default="", help="环境变量文件（默认 <deploy-dir>/.env）")
+    parser.add_argument("--compose-file", default=COMPOSE_FILE, help=f"compose 文件（默认 {COMPOSE_FILE}）")
+    parser.add_argument(
+        "--services",
+        default=",".join(SERVICES),
+        help="需补齐镜像标签的服务全集（逗号分隔；产品部署传自己的服务键）",
+    )
+    parser.add_argument(
+        "--container-name",
+        default="bms-{service}",
+        help="容器名模板（默认 bms-{service}；产品镜像常与 compose 服务同名，传 {service}）",
+    )
+    parser.add_argument(
+        "--tag-env",
+        default="BMS_TAG_{SERVICE}",
+        help="镜像标签环境变量名模板（默认 BMS_TAG_{SERVICE}）",
+    )
+    parser.add_argument(
+        "--image-prefix-env",
+        default="REGISTRY_IMAGE_PREFIX",
+        help="镜像前缀环境变量名（默认 REGISTRY_IMAGE_PREFIX）",
+    )
+    parser.add_argument("--health-path", default="/readyz", help="容器内就绪探测路径（默认 /readyz）")
+    parser.add_argument(
+        "--gateway-path",
+        default=GATEWAY_SMOKE_PATH,
+        help=f"网关冒烟路径模板（默认 {GATEWAY_SMOKE_PATH}）",
+    )
+    parser.add_argument(
+        "--init-command",
+        default="python -m ops.init_schema --service {service} {tenants_or_all}",
+        help="建表 / 迁移命令模板（占位符 {service} / {tenant} / {tenants} / {tenants_or_all}）",
+    )
+    parser.add_argument(
+        "--provision-command",
+        default="",
+        help="建库命令模板（同上占位符；缺省不支持 provision）",
+    )
+    parser.add_argument("--db-grant-pattern", default="bms\\_%", help="应用账号授权库模式（bootstrap 用）")
     parser.add_argument(
         "--actor",
         default=os.environ.get("USER", "unknown"),
@@ -1231,13 +1512,12 @@ def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
     bootstrap.add_argument(
         "--service",
         action="append",
-        choices=SERVICES,
         default=[],
         help="限定服务（可重复；缺省全部启用服务）",
     )
 
     deploy = sub.add_parser("deploy", help="部署（注册表对账 → 建表 → 起容器 → 门禁 → 台账）")
-    deploy.add_argument("--service", choices=SERVICES, help="目标服务")
+    deploy.add_argument("--service", help="目标服务")
     deploy.add_argument("--all", action="store_true", help="全部已启用服务")
     deploy.add_argument("--tag", default="", help="目标镜像标签（必填；禁 latest）")
     deploy.add_argument(
@@ -1245,22 +1525,40 @@ def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
         action="store_true",
         help="跳过注册表对账（仅限首部署 / 应急；跳过记入发布日志）",
     )
+    deploy.add_argument(
+        "--skip-gateway-probe",
+        action="store_true",
+        help="容器门禁跳过「网关可达」探测（首部署路由尚未生成时用）",
+    )
 
-    sub.add_parser("gateway", help="注册表对账（platform 镜像内 --from-registry ↔ 仓库生成件）")
+    provision = sub.add_parser("provision", help="建库（按 --provision-command；仅首部署）")
+    provision.add_argument("--service", help="目标服务（缺省首位服务）")
+
+    gateway = sub.add_parser("gateway", help="注册表对账 / 重渲（platform 镜像内 --from-registry）")
+    gateway.add_argument("--render", action="store_true", help="按注册表重渲并写回生成件（APISIX 热加载）")
 
     seed = sub.add_parser("seed", help="种子统一编排（须在 deploy 之后执行；一个 XA 全局事务）")
     seed.add_argument("--tenant", required=True, help="目标租户")
     seed.add_argument("--dry-run", action="store_true", help="只做装载 + 排序 + 冲突预检")
 
+    exec_parser = sub.add_parser("exec", help="在目标服务镜像内执行一次性命令（种子 / 排障）")
+    exec_parser.add_argument("--service", required=True, help="目标服务")
+    exec_parser.add_argument("exec_command", nargs=argparse.REMAINDER, help="容器内命令（`--` 之后）")
+
     rollback = sub.add_parser("rollback", help="一键回滚（切换上一 tag / --to）")
-    rollback.add_argument("--service", choices=SERVICES, required=True, help="目标服务")
+    rollback.add_argument("--service", required=True, help="目标服务")
     rollback.add_argument("--to", default="", help="目标标签（缺省取台账上一版本）")
 
     status = sub.add_parser("status", help="打印版本台账")
-    status.add_argument("--service", choices=SERVICES, help="目标服务（缺省全部）")
+    status.add_argument("--service", help="目标服务（缺省全部）")
 
     gate = sub.add_parser("health-gate", help="单独跑健康门禁")
-    gate.add_argument("--service", choices=SERVICES, required=True, help="目标服务")
+    gate.add_argument("--service", required=True, help="目标服务")
+    gate.add_argument(
+        "--skip-gateway-probe",
+        action="store_true",
+        help="跳过「网关可达」探测（只验容器健康 + 就绪端点）",
+    )
 
     prune = sub.add_parser("prune", help="清理超窗 SHA 标签（semver 永久保留）")
     prune.add_argument(
@@ -1273,55 +1571,105 @@ def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _profile_of(args: argparse.Namespace) -> Profile:
+    """由命令行参数构造部署画像。
+
+    Args:
+        args: 命令行参数。
+
+    Returns:
+        Profile: 部署画像。
+
+    Raises:
+        ValueError: 服务清单为空（`--all` 时以 compose 内服务为准，由调用方补齐）。
+    """
+    return Profile(
+        repo_root=Path(args.repo_root).resolve(),
+        compose_file=args.compose_file,
+        services=ConcurrentStableFrozenList(item for item in args.services.split(",") if item),
+        container_template=args.container_name,
+        tag_env_template=args.tag_env,
+        image_prefix_env=args.image_prefix_env,
+        health_path=args.health_path,
+        gateway_path_template=args.gateway_path,
+        init_command=ConcurrentStableFrozenList(shlex.split(args.init_command)),
+        provision_command=ConcurrentStableFrozenList(
+            shlex.split(args.provision_command) if args.provision_command else []
+        ),
+        db_grant_pattern=args.db_grant_pattern,
+    )
+
+
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """CLI 入口。"""
     args = _parse_args(argv)
-    deploy_dir = Path(args.deploy_dir).resolve()
+    profile = _profile_of(args)
+    deploy_dir = Path(args.deploy_dir).resolve() if args.deploy_dir else profile.repo_root / "deploy"
     env_file = Path(args.env_file) if args.env_file else deploy_dir / ".env"
-    env = _fill_service_tags(deploy_dir, _base_env(env_file))
     if not deploy_dir.is_dir():
         print(f"错误：deploy 目录不存在：{deploy_dir}", file=sys.stderr)
         return 2
+    env = _fill_service_tags(profile, deploy_dir, _base_env(env_file))
     try:
         if args.command == "bootstrap":
-            services = ConcurrentStableList(args.service) if args.service else ConcurrentStableList(SERVICES)
-            return cmd_bootstrap(deploy_dir, env, services=services, actor=args.actor)
+            services = ConcurrentStableList(args.service) if args.service else ConcurrentStableList(profile.services)
+            return cmd_bootstrap(profile, deploy_dir, env, services=services, actor=args.actor)
         if args.command == "deploy":
-            services = (
-                ConcurrentStableList(SERVICES)
-                if args.all
-                else (ConcurrentStableList([args.service]) if args.service else ConcurrentStableList())
-            )
+            if args.all:
+                services = _compose_services(profile, deploy_dir, _fill_service_tags(profile, deploy_dir, env))
+            else:
+                services = ConcurrentStableList([args.service]) if args.service else ConcurrentStableList()
             if not services:
                 print("错误：deploy 需 --service 或 --all", file=sys.stderr)
                 return 2
             return cmd_deploy(
+                profile,
                 deploy_dir,
                 env,
                 services=services,
                 tag=args.tag,
                 actor=args.actor,
                 skip_gateway_check=args.skip_gateway_check,
+                skip_gateway_probe=args.skip_gateway_probe,
             )
+        if args.command == "provision":
+            services = (
+                ConcurrentStableList([args.service]) if args.service else ConcurrentStableList(profile.services[:1])
+            )
+            return cmd_provision(profile, deploy_dir, env, services=services)
         if args.command == "gateway":
-            return cmd_gateway_check(deploy_dir, env)
+            return cmd_gateway_check(profile, deploy_dir, env, render=args.render)
         if args.command == "seed":
             return cmd_seed(
+                profile,
                 deploy_dir,
                 env,
                 tenant=args.tenant,
                 dry_run=args.dry_run,
                 actor=args.actor,
             )
+        if args.command == "exec":
+            command = ConcurrentStableList(item for item in args.exec_command if item != "--")
+            return cmd_exec(profile, deploy_dir, env, service=args.service, command=command)
         if args.command == "rollback":
-            return cmd_rollback(deploy_dir, env, service=args.service, to=args.to, actor=args.actor)
+            return cmd_rollback(profile, deploy_dir, env, service=args.service, to=args.to, actor=args.actor)
         if args.command == "status":
-            services = ConcurrentStableList([args.service]) if args.service else ConcurrentStableList(SERVICES)
+            services = ConcurrentStableList([args.service]) if args.service else ConcurrentStableList(profile.services)
             return cmd_status(deploy_dir, env, services=services)
         if args.command == "health-gate":
-            return 0 if health_gate(deploy_dir, env, args.service) else 1
+            return (
+                0
+                if health_gate(
+                    profile,
+                    deploy_dir,
+                    env,
+                    args.service,
+                    skip_gateway_probe=args.skip_gateway_probe,
+                )
+                else 1
+            )
         if args.command == "prune":
-            return cmd_prune(deploy_dir, env, keep=args.keep, dry_run=args.dry_run)
+            return cmd_prune(profile, deploy_dir, env, keep=args.keep, dry_run=args.dry_run)
     except (RuntimeError, ValueError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
