@@ -12,7 +12,7 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy import Table
+from sqlalchemy import Table, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
@@ -74,6 +74,10 @@ async def profile_state(tenant_db: str, shared_tenant_engine: AsyncEngine, clien
         factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
         async with factory() as db:
             await seed_i18n_in_session(db)
+            # 本用例依赖 zh-CN / en-US 启用：其他 i18n 用例可能临时停用，这里显式复位，避免跨用例脏状态
+            await db.execute(
+                update(SysI18nLocale).where(SysI18nLocale.code.in_(("zh-CN", "en-US"))).values(status="enabled")
+            )
             await _reset_user(db)
             await client.put("/api/v1/i18n/cache/invalidate")
             yield

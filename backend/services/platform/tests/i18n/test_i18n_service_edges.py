@@ -137,8 +137,11 @@ async def test_delete_last_enabled_language(client: AsyncClient, shared_tenant_e
     assert resp.json()["code"] == 44004
     async with factory() as db:
         await db.execute(
-            update(SysI18nLocale).where(SysI18nLocale.code == "zh-CN").values(status="enabled", is_default=True)
+            update(SysI18nLocale)
+            .where(SysI18nLocale.code.in_(("zh-CN", "en-US")))
+            .values(status="enabled", is_default=False)
         )
+        await db.execute(update(SysI18nLocale).where(SysI18nLocale.code == "zh-CN").values(is_default=True))
         await db.commit()
 
 
