@@ -314,6 +314,42 @@
       },
       "sourcemap": true,
       "source": "external"
+    },
+    {
+      "at": "2026-11-05T05:18:21.637Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "mdm_org",
+      "version": "0.1.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/mdm_org/0.1.0/remoteEntry.js",
+      "contractVersion": 2,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 12.2,
+        "largestGzipKb": 6.3,
+        "asyncChunkCount": 17
+      },
+      "sourcemap": true,
+      "source": "external"
+    },
+    {
+      "at": "2026-11-05T14:21:59.816Z",
+      "by": "unknown",
+      "action": "publish",
+      "module": "mdm",
+      "version": "0.1.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/mdm/0.1.0/remoteEntry.js",
+      "contractVersion": 2,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 12.2,
+        "largestGzipKb": 6.3,
+        "asyncChunkCount": 17
+      },
+      "sourcemap": true,
+      "source": "external"
     }
   ]
 }
