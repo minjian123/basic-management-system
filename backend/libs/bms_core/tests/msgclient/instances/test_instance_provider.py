@@ -156,6 +156,23 @@ def test_snapshot_is_cached_within_ttl_and_refreshed_after() -> None:
     assert refreshed.revision == 2
 
 
+def test_ttl_refresh_with_unchanged_addresses_keeps_revision() -> None:
+    """快照到期重解析但地址未变：revision 不递增（避免选择器无谓清理状态）。"""
+    settings = _settings()
+    _set_instances(settings, "msg", [A])
+    clock = FakeClock()
+    provider = ServiceCatalogInstanceProvider(settings=settings, clock=clock, ttl_ms=30_000)
+
+    first = provider.resolve("platform")
+    assert first.revision == 1
+
+    clock.advance(30_000)
+    again = provider.resolve("platform")
+    assert tuple(again.addresses) == (A,)
+    assert again.revision == 1
+    assert again.fetched_at_ms == clock.now_ms()
+
+
 def test_ttl_zero_disables_cache() -> None:
     """`ttl_ms=0` 每次重解析（用例与排障用）。"""
     settings = _settings()
