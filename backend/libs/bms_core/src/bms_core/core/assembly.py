@@ -46,7 +46,7 @@ from bms_core.consistency.redis import RedisConsistencyBarrier
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import PluginError
+from bms_core.core.exceptions import ConfigError, PluginError
 from bms_core.core.factory import BasePluginFactory
 from bms_core.core.logging import get_logger
 from bms_core.core.plugin import (
@@ -58,6 +58,7 @@ from bms_core.core.plugin import (
 )
 from bms_core.core.resources import ResourceManager
 from bms_core.core.roots import BaseValueObject
+from bms_core.core.service_endpoints import normalize_service_endpoints
 from bms_core.dashboard.base import BaseDashboardCardRegistry
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
@@ -109,6 +110,10 @@ from bms_core.masking.default import DefaultMasker, MaskerOptions
 from bms_core.masking.null import NullMasker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.metrics.prometheus import PrometheusMetrics
+from bms_core.msgclient.adapter.event_publisher import MsgEventPublisher
+from bms_core.msgclient.adapter.policy import default_circuit
+from bms_core.msgclient.adapter.service_client import MsgServiceClient
+from bms_core.msgclient.rpc import RpcClient, StaticInstanceProvider
 from bms_core.notification.base import BaseNotificationCenter
 from bms_core.notify.base import BaseNotifier
 from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
@@ -461,9 +466,11 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("token_verifier", "unified", UnifiedTokenVerifierFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
+    register_plugin("service_client", MSG_PROVIDER_NAME, MsgServiceClientFactory(settings))
     register_plugin("tenant_module", "remote", RemoteTenantModuleGateFactory(settings, app))
     register_plugin("tenant_guard", "source", SourceTenantGuardFactory(app))
     register_plugin("event", "rocketmq", RocketMqEventPublisherFactory(settings))
+    register_plugin("event", MSG_PROVIDER_NAME, MsgEventPublisherFactory(settings))
     register_plugin("event_consumer", "rocketmq", RocketMqEventConsumerGroupFactory(settings, app))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
@@ -1446,6 +1453,139 @@ class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):
         )
 
 
+MSG_PROVIDER_NAME = "msg"
+"""消息平台适配的插件实现名（`[service_client].provider` / `[event].provider` 取值）。"""
+
+MSG_ENDPOINT_KEY = "msg"
+"""消息平台实例地址在 `[service_client].endpoints` 里的覆盖键（**不是** bms 服务目录的服务键）。"""
+
+MSG_NAMESPACE_OPTION = "namespace"
+"""事件命名空间配置键（`[event].options.namespace`；msg 侧按已启用 `module_key` 校验，空串会被判 `350010`）。"""
+
+_HTTP_SCHEMES = ("http://", "https://")
+"""允许的实例基址协议前缀。"""
+
+
+def msg_base_url(settings: Settings) -> str:
+    """解析消息平台实例基址（端点覆盖 → 基址模板派生），不可用即拒启。
+
+    显式覆盖优先于模板：容器部署走模板（服务名即 DNS），本机裸跑由开发脚本按
+    `[service_client].endpoints` 注入回环地址，不需要改 hosts。
+
+    Args:
+        settings: 应用配置。
+
+    Returns:
+        str: 实例基址（不含尾斜线）。
+
+    Raises:
+        ConfigError: 覆盖非法 / 模板缺 `{service}` 占位 / 派生结果非 `http(s)`（provider = "msg"
+            时属配置缺失，不静默回落到 `http`）。
+    """
+    override = normalize_service_endpoints(settings.service_client.endpoints).get(MSG_ENDPOINT_KEY)
+    if override:
+        return override
+    template = str(settings.service_client.options.get(SERVICE_CLIENT_OPTION_BASE_URL) or DEFAULT_BASE_URL_TEMPLATE)
+    if "{service}" not in template:
+        raise ConfigError(
+            f'[service_client].provider = "{MSG_PROVIDER_NAME}" 但消息平台实例地址不可用：'
+            f"[service_client].endpoints.{MSG_ENDPOINT_KEY} 未配置，且 options.base_url_template 无 "
+            f"{{service}} 占位（{template!r}）"
+        )
+    base = template.replace("{service}", MSG_ENDPOINT_KEY).rstrip("/")
+    if not base.startswith(_HTTP_SCHEMES):
+        raise ConfigError(
+            f'[service_client].provider = "{MSG_PROVIDER_NAME}" 但消息平台实例地址非法：{base!r}（须为 http(s) 地址）'
+        )
+    return base
+
+
+def msg_namespace(settings: Settings) -> str:
+    """解析事件命名空间（`[event].options.namespace` → `[app].service`），空即拒启。
+
+    命名空间在 msg 侧必须是一个**已启用的 `module_key`**，空串会被判 `350010`；因此缺省回落
+    调用方服务标识（本服务在服务目录里的键），两者都空视为配置缺失。
+
+    Args:
+        settings: 应用配置。
+
+    Returns:
+        str: 命名空间。
+
+    Raises:
+        ConfigError: 两处均为空（provider = "msg" 时属配置缺失）。
+    """
+    namespace = str(settings.event.options.get(MSG_NAMESPACE_OPTION) or settings.app.service or "").strip()
+    if not namespace:
+        raise ConfigError(
+            f'[event].provider = "{MSG_PROVIDER_NAME}" 但消息平台命名空间未配置：'
+            f"[event].options.{MSG_NAMESPACE_OPTION} 为空且 [app].service 为空（命名空间须为已启用 module_key）"
+        )
+    return namespace
+
+
+class MsgServiceClientFactory(BasePluginFactory[MsgServiceClient]):
+    """消息平台服务间调用实现工厂（注入 RPC 客户端与韧性件）。
+
+    构造需 `settings` ⇒ 不参与插件注册表自动收集，只经 `register_plugin` 显式登记
+    （与 `HttpServiceClientFactory` 同款）。
+    """
+
+    plugin_key: str = "service_client"
+    plugin_name: str = MSG_PROVIDER_NAME
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（含 `[service_client]` 与各韧性能力选择）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> MsgServiceClient:
+        """构造服务间调用实现（解析实例地址、限流器与服务 JWT 签发者）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MsgServiceClient: 服务间调用实现。
+
+        Raises:
+            ConfigError: 消息平台实例地址不可用（装配期即拒启，不静默回落 `http`）。
+        """
+        base_url = msg_base_url(self._settings)
+        rate_limiter = cast(
+            "BaseRateLimiter",
+            resolve_plugin(
+                "rate_limiter",
+                self._settings.rate_limiter.provider,
+                expected_version=BaseRateLimiter.contract_version,
+            ),
+        )
+        service_token = cast(
+            "BaseServiceTokenIssuer",
+            resolve_plugin(
+                "service_token",
+                self._settings.service_token.provider,
+                expected_version=BaseServiceTokenIssuer.contract_version,
+            ),
+        )
+        attach_service_token = bool(
+            self._settings.service_client.options.get(SERVICE_CLIENT_OPTION_ATTACH_TOKEN) or False
+        )
+        return MsgServiceClient(
+            rpc_client=RpcClient(
+                StaticInstanceProvider([base_url]),
+                circuit=default_circuit(),
+            ),
+            rate_limiter=rate_limiter,
+            token_issuer=service_token,
+            attach_service_token=attach_service_token,
+            caller=self._settings.app.service or "",
+        )
+
+
 class MarkerEdgeTrustFactory(BasePluginFactory[MarkerEdgeTrust]):
     """边缘信任标记实现工厂（期望值取 `[edge].options.gateway_identity`，缺省基座常量）。"""
 
@@ -1595,6 +1735,43 @@ class RocketMqEventPublisherFactory(BasePluginFactory[RocketMqEventPublisher]):
             RocketMqEventPublisher: 发布实例。
         """
         return RocketMqEventPublisher.from_settings(self._settings)
+
+
+class MsgEventPublisherFactory(BasePluginFactory[MsgEventPublisher]):
+    """消息平台事件发布实现工厂（数据面 `/api/v1/msg/publish`）。
+
+    地址与命名空间在装配期解析：缺失即拒启（不静默回落 `null` 发布器——那会让「事件发不出去」
+    变成运行期静默丢事件）。构造需 `settings` ⇒ 只经 `register_plugin` 显式登记。
+    """
+
+    plugin_key: str = "event"
+    plugin_name: str = MSG_PROVIDER_NAME
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（含 `[event]` 与 `[service_client]`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> MsgEventPublisher:
+        """构造发布实例。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MsgEventPublisher: 发布实例。
+
+        Raises:
+            ConfigError: 实例地址或命名空间不可用（装配期即拒启）。
+        """
+        return MsgEventPublisher(
+            base_url=msg_base_url(self._settings),
+            namespace=msg_namespace(self._settings),
+            tenant=None,
+        )
 
 
 class SqlOutboxStoreFactory(BasePluginFactory[SqlOutboxStore]):

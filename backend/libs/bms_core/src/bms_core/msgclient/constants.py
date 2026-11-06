@@ -13,6 +13,12 @@ MS_PER_SECOND = 1_000
 
 # 协议码（Q24：码值不变，只把符号名通用化；完整产品码表仍由各产品仓自持）
 RPC_DEADLINE_EXCEEDED_CODE = 350004
+RPC_RATE_LIMITED_CODE = 350005
+"""生产限流码（04-4 `transient` / business 层）：适配层据此单列 `RateLimitError`（`10005`）。
+
+它是「瞬时故障」里唯一有独立 bms 语义的码——其余瞬时码一律归 `ServiceUnavailableError`，
+所以映射层按码分流只此一处（不是重写码表）。
+"""
 FRAME_INVALID_CODE = 350018
 PAYLOAD_TOO_LARGE_CODE = 350006
 VERSION_UNSUPPORTED_CODE = 350019

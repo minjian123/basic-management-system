@@ -29,6 +29,9 @@ from bms_core.fallback.base import BaseFallbackPolicy, FallbackAction
 from bms_core.oauth.token import BaseServiceTokenIssuer, ServiceTokenSpec
 from bms_core.ratelimit.base import BaseRateLimiter
 from bms_core.servicecall.base import (
+    AUTHORIZATION_HEADER as AUTHORIZATION_HEADER,
+)
+from bms_core.servicecall.base import (
     BaseServiceClient,
     ServiceRequest,
     ServiceResponse,
@@ -39,9 +42,6 @@ from bms_core.servicecall.base import (
 )
 
 __all__ = ["AUTHORIZATION_HEADER", "HttpServiceClient"]
-
-AUTHORIZATION_HEADER = "authorization"
-"""授权头（小写；出站剥离入站授权头后按需附服务 JWT）。"""
 
 LOCAL_BASE_URL = "http://local"
 """直调基址（ASGI 传输只取路径与查询串，主机名仅占位、不发包）。"""

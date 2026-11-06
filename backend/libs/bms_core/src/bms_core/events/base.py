@@ -16,6 +16,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
 )
 from bms_core.core.config import Settings
+from bms_core.core.exceptions import OutboxDeliveryError
 from bms_core.core.objects import BaseDataContract, BaseTallyContract
 from bms_core.core.plugin import (
     DEFAULT_CONTRACT_VERSION,
@@ -33,6 +34,24 @@ DEFAULT_EVENT_VERSION = "1.0.0"
 
 DEFAULT_CONSUME_BATCH = 32
 """单轮消费拉取上限（`[event_consumer].batch_size` 缺省）。"""
+
+
+class EventPublishError(OutboxDeliveryError):
+    """事件投递失败（复用发件箱投递段 `10009`）。
+
+    由投递器 `mark_failed` 按失败分支处理：指数退避重试，超限转死信（**提供方不在此处重试**）。
+    归位在本模块（07B `06_01` 步 2）：多个发布实现（`rocketmq` / `msg`）要抛同一个异常，
+    定义在任一实现模块里都会让另一个实现反向 import。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化。
+
+        Args:
+            message: 可读提示。
+            data: 随附数据（事件类型 / topic / 原始错误等）。
+        """
+        super().__init__(message, data=data)
 
 
 @dataclass

@@ -15,51 +15,22 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from collections.abc import Callable
 from typing import Any
 
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import OutboxDeliveryError
 from bms_core.core.logging import get_logger
 from bms_core.events.base import EventEnvelope, EventPublisher
+from bms_core.events.base import EventPublishError as EventPublishError
 from bms_core.events.topic import ATTR_EVENT_ID, encode_event, event_attributes, topic_for
+from bms_core.events.topic import current_traceparent as current_traceparent
 
 __all__ = ["EventPublishError", "RocketMqEventPublisher", "current_traceparent"]
 
 _LOGGER = get_logger("bms")
-
-_TRACEPARENT_KEY = "traceparent"
-"""W3C 链路上下文键（`opentelemetry.propagate` 的 carrier 键）。"""
-
-
-class EventPublishError(OutboxDeliveryError):
-    """事件投递失败（复用发件箱投递段 `10009`）。
-
-    由投递器 `mark_failed` 按失败分支处理：指数退避重试，超限转死信（不在此处重试）。
-    """
-
-    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
-        super().__init__(message, data=data)
-
-
-def current_traceparent() -> str | None:
-    """取当前 OTel 链路的 W3C `traceparent`（无 OTel / 无活动 span 返回 None）。
-
-    Returns:
-        str | None: `traceparent` 头值。
-    """
-    try:
-        from opentelemetry import propagate
-    except Exception:  # pragma: no cover - 依赖缺失时退化为只透传 trace_id
-        return None
-    carrier: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-    try:
-        propagate.inject(carrier)
-    except Exception:  # pragma: no cover - 上下文损坏时不阻断发布
-        return None
-    return carrier.get(_TRACEPARENT_KEY)
 
 
 class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
@@ -97,6 +68,13 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
         self._producer_factory = producer_factory
         self._message_factory = message_factory
         self._producers: ConcurrentStableDict[str, Any] = ConcurrentStableDict()
+        self._producer_guard = threading.Lock()
+        """producer 创建的互斥锁。
+
+        `_producer()` 在**工作线程**里被调用（`asyncio.to_thread`），并发发布时多个线程会同时
+        看到「该 topic 还没有 producer」而各建一个——消息因此散到不同 producer 实例上，
+        逐条看都发出去了，按 producer 统计却「丢消息」。锁只保护创建路径，热路径仍是一次读。
+        """
         self._config: Any = None
 
     @property
@@ -206,12 +184,12 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
         Returns:
             Any: producer 实例（官方 SDK 对象或测试替身）。
         """
-        existing = self._producers.get(topic)
-        if existing is not None:
+        with self._producer_guard:
+            existing = self._producers.get(topic)
+            if existing is None:
+                existing = self._producer_factory(topic) if self._producer_factory else self._sdk_producer(topic)
+                self._producers[topic] = existing
             return existing
-        producer = self._producer_factory(topic) if self._producer_factory else self._sdk_producer(topic)
-        self._producers[topic] = producer
-        return producer
 
     def _sdk_producer(self, topic: str) -> Any:
         """用官方 SDK 创建 producer 并启动（延迟导入）。
@@ -232,7 +210,7 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
             )
         return self._create_sdk_producer(topic)  # pragma: no cover - 真机路径（集成用例覆盖）
 
-    def _create_sdk_producer(self, topic: str) -> Any:  # pragma: no cover
+    def _create_sdk_producer(self, topic: str) -> Any:  # pragma: no cover - 真机路径（需 broker 与 SDK，集成用例覆盖）
         """用官方 SDK 创建并启动 producer（**真机路径**，由集成用例覆盖）。
 
         Args:
@@ -255,7 +233,7 @@ class RocketMqEventPublisher(EventPublisher, BaseAsyncResource):
         _LOGGER.info("rocketmq_producer_started", topic=topic, endpoints=self._endpoints)
         return producer
 
-    def _client_configuration(self) -> Any:  # pragma: no cover
+    def _client_configuration(self) -> Any:  # pragma: no cover - 真机路径（SDK 配置构造，集成用例覆盖）
         """构造（并缓存）客户端配置。
 
         Returns:

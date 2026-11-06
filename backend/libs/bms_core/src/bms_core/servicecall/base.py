@@ -41,6 +41,7 @@ from bms_core.ratelimit.base import RateLimitRule, build_rate_limit_key
 from bms_core.services.service_contract import service_enabled
 
 __all__ = [
+    "AUTHORIZATION_HEADER",
     "DEFAULT_BASE_URL_TEMPLATE",
     "DEFAULT_CALL_TIMEOUT",
     "DEFAULT_MAX_RETRIES",
@@ -64,7 +65,6 @@ __all__ = [
 
 DEFAULT_CALL_TIMEOUT = 5.0
 """默认调用超时（秒）；服务间调用宜快速失败，短于外部出站默认超时。"""
-
 DEFAULT_MAX_RETRIES = 2
 """默认最大重试次数（不含首次；共 3 次尝试）。"""
 
@@ -85,6 +85,13 @@ SERVICE_CLIENT_OPTION_ATTACH_TOKEN = "attach_service_token"
 
 SERVICE_CALL_DEPENDENCY_PREFIX = "service:"
 """熔断 / 降级依赖标识前缀（`service:<服务标识>`，供 `BaseCircuitBreaker` / `BaseFallbackPolicy`）。"""
+
+AUTHORIZATION_HEADER = "authorization"
+"""授权头（小写）：出站**一律剥离入站值**，需要时改附基座自签服务 JWT。
+
+归位在本模块（07B `06_01` 步 2）：`http` 与 `msg` 两个实现都要做同一件事，定义在任一实现
+模块里都会让另一个实现反向 import。
+"""
 
 
 def service_dependency(service: str) -> str:

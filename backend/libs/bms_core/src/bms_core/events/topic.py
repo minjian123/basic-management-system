@@ -33,6 +33,7 @@ __all__ = [
     "TOPIC_MAX_SEGMENTS",
     "TOPIC_PREFIX",
     "TOPIC_SEPARATOR",
+    "current_traceparent",
     "decode_event",
     "encode_event",
     "event_attributes",
@@ -143,6 +144,28 @@ def event_attributes(event: EventEnvelope, *, traceparent: str | None = None) ->
         }
     )
     return ConcurrentStableDict({key: value for key, value in candidates.items() if value})
+
+
+def current_traceparent() -> str | None:
+    """取当前 OTel 链路的 W3C `traceparent`（无 OTel / 无活动 span 返回 None）。
+
+    归位在本模块（07B `06_01` 步 2）：多个发布实现（`rocketmq` / `msg`）都要透传链路上下文，
+    放在任一实现模块里都会让另一个实现反向 import；依赖缺失 / 上下文损坏时退化为只透传
+    `trace_id`，**不阻断发布**。
+
+    Returns:
+        str | None: `traceparent` 头值。
+    """
+    try:
+        from opentelemetry import propagate
+    except Exception:  # pragma: no cover - 依赖缺失时退化为只透传 trace_id
+        return None
+    carrier: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    try:
+        propagate.inject(carrier)
+    except Exception:  # pragma: no cover - 上下文损坏时不阻断发布
+        return None
+    return carrier.get(ATTR_TRACEPARENT)
 
 
 def decode_event(body: bytes | str, attributes: ConcurrentStableDict[str, str] | None = None) -> EventEnvelope:
