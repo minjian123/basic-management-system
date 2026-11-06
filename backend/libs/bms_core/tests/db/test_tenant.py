@@ -1,6 +1,9 @@
 """多租户上下文与解析编排测试（Kiwi 1019）：键助手 / 解析链 / 豁免 / 上下文。"""
 
+from types import SimpleNamespace
+
 import pytest
+from starlette.requests import Request
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import (
@@ -16,6 +19,7 @@ from bms_core.db.tenant import (
     build_tenant_db_key,
     current_tenant_context,
     current_tenant_id_str,
+    get_tenant,
     is_exempt_path,
     is_local_hostname,
     is_tenant_code,
@@ -302,3 +306,48 @@ def test_current_tenant_id_str_prefers_full_context() -> None:
         reset_current_tenant(code_token)
 
     assert current_tenant_id_str() is None
+
+
+@pytest.mark.kiwi_id(2443)
+async def test_get_tenant_state_and_fallback() -> None:
+    """请求级依赖：请求态已有租户直接返回；缺失时按解析链（含内部 id 头）就地解析。"""
+    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=1002)
+    source = _RecordingSource(ConcurrentStableDict({"acme": acme}))
+    settings = SimpleNamespace(tenant=SimpleNamespace(exempt_paths=(), deferred_paths=(), allow_demo_fallback=False))
+    app = SimpleNamespace(state=SimpleNamespace(settings=settings, tenant_source=source))
+
+    direct = Request(
+        {"type": "http", "method": "GET", "path": "/api/v1/x", "headers": [], "app": app, "state": {"tenant": acme}}
+    )
+    assert await get_tenant(direct) is acme
+
+    fallback = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/v1/x",
+            "headers": [(b"x-tenant-id", b"1002")],
+            "app": app,
+            "state": {},
+        }
+    )
+    assert await get_tenant(fallback) is acme
+    assert source.calls[-1] == ("id", "1002")
+
+
+@pytest.mark.kiwi_id(2443)
+async def test_resolve_builtin_lookup_and_deferred_path() -> None:
+    """内置兜底只认演示租户；延迟解析路径在 prod 口径下无来源置空（不硬拒）。"""
+    assert await resolve_request_tenant(path="/api/v1/x", header="demo", source=None) == DEMO_TENANT
+    with pytest.raises(TenantNotFoundError):
+        await resolve_request_tenant(path="/api/v1/x", header="acme", source=None)
+
+    assert (
+        await resolve_request_tenant(
+            path="/api/v1/auth/login",
+            source=None,
+            deferred_paths=("/api/v1/auth/login",),
+            allow_demo_fallback=False,
+        )
+        is None
+    )
