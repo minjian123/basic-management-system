@@ -6,7 +6,7 @@
   信任时按契约回写网关验证过的身份、置请求态 `edge_identity` 与 `current_user_id`；
   `[edge].require_gateway_identity` 开且非豁免路径缺失可信身份时就地拒绝（网关旁路，直接 401）；
   装配次序先于租户解析，使信任模式下租户身份只采信网关注入值。见 `bms_core/edge/`。
-- `TenantMiddleware`：纯 ASGI 中间件——全局租户解析（子域名 → `X-Tenant-ID` → token 租户位），
+- `TenantMiddleware`：纯 ASGI 中间件——全局租户解析（子域名 → `X-Tenant-ID`（code / id）→ token 租户位），
   写请求态 `tenant` 与租户上下文变量；豁免路径放行；未知 / 停用租户就地转统一错误响应（不进入下游）。
 - `RequestLoggingMiddleware`：纯 ASGI 中间件——每请求生成 `request_id`（uuid4 hex）并解析 `client_ip` 写入上下文；
   请求结束输出单行访问日志（普通 INFO `request`，超 `slow_request_ms` 整行 WARNING `slow_request`）；
@@ -152,8 +152,8 @@ class TraceIdMiddleware(BaseMiddleware):
 class TenantMiddleware(BaseMiddleware):
     """租户解析全局中间件（纯 ASGI）：解析链 → 请求态与租户上下文；未知 / 停用租户就地拒绝。
 
-    - 来源次序（首个命中即止）：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（按 `code` 查）
-      → token 租户位（请求态，认证阶段写入）；
+    - 来源次序（首个命中即止）：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（字母开头按 `code`、纯数字按 `id` 查）
+      → token 租户位（请求态，认证阶段写入）；内部服务调用统一传 id，外部门户 / 网关传 code；
     - 来源形态先于取数（06_04）：IP 字面量（IPv4 / IPv6）与 `localhost` 主机名、形态非法的域名 /
       编码一律视为未命中，不送入租户源（避免脏值派生非法库名或冒泡 5xx）；
     - 豁免路径（`[tenant].exempt_paths`，精确匹配）不解析、不设置上下文；

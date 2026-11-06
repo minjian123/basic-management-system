@@ -7,12 +7,13 @@
   （键形态与库名单一来源归 `db/keys.py`，06_01）：上下文携带**相对键** `tenant_{code}`，
   随运行服务解析为 `bms_{service}_{code}`；**禁止全局单例持有租户引擎**，引擎一律经
   `EngineRegistry` 按库键取用。
-- 解析链：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（按 `code` 查）→ 令牌租户位（雪花 id，
-  按 `by_id` 查；认证阶段写入请求态即自然生效）；真实取数 / 缓存 / 停用回收见
-  `app/db/tenant_source.py` 的 `TenantSource`。
+- 解析链：子域名（按注册表 `domain` 查）→ `X-Tenant-ID`（按 `code` / `id` 查：字母开头为编码、
+  纯数字为主键）→ 令牌租户位（雪花 id，按 `by_id` 查；认证阶段写入请求态即自然生效）；
+  真实取数 / 缓存 / 停用回收见 `app/db/tenant_source.py` 的 `TenantSource`。
 - 无来源回落策略由调用方传入（`allow_demo_fallback`）：dev/test 兜底演示租户、prod 拒绝。
 - **来源形态校验（06_04）**：子域名来源排除 IP 字面量（IPv4 / IPv6）与本机名，且须为 ≥ 三段合法域名；
-  请求头来源须为合法租户编码形态、令牌来源须为合法租户主键形态（雪花 id）；形态非法一律视为未命中（不回退成 5xx）。
+  请求头来源须为合法租户编码或主键形态（**内部服务调用统一传 id，外部门户 / 网关传 code**）、
+  令牌来源须为合法租户主键形态（雪花 id）；形态非法一律视为未命中（不回退成 5xx）。
 - `get_tenant`：请求级依赖，优先读请求态（全局中间件已解析），键缺失时就地按同一编排解析。
 """
 
@@ -202,7 +203,7 @@ def is_tenant_code(value: str) -> bool:
     """是否为形态合法的租户编码。
 
     Args:
-        value: 待校验值（`X-Tenant-ID` / 兜底来源值）。
+        value: 待校验值（外部来源的租户编码；内部调用应传主键）。
 
     Returns:
         bool: 合法 True。
@@ -348,7 +349,7 @@ def _usable_code(value: str | None) -> str | None:
     """来源值可用作租户编码时原样返回，否则 None（形态非法等同未提供来源）。
 
     Args:
-        value: 来源值（`X-Tenant-ID`）。
+        value: 来源值（请求头 / 兜底来源值）。
 
     Returns:
         str | None: 可用值；缺失或形态非法 None。
@@ -360,7 +361,7 @@ def _usable_id(value: str | None) -> str | None:
     """来源值可用作租户主键时原样返回，否则 None（形态非法等同未提供来源）。
 
     Args:
-        value: 来源值（令牌租户位）。
+        value: 来源值（请求头 / 令牌租户位）。
 
     Returns:
         str | None: 可用值；缺失或形态非法 None。
@@ -382,13 +383,14 @@ async def resolve_request_tenant(
     """按解析链解析请求租户（子域名 → 请求头 → 令牌租户位）。
 
     **形态先于取数**：子域名来源经 `tenant_hostname`（IP 字面量 / `localhost` / 非法域名一律 None），
-    请求头来源经 `is_tenant_code`、令牌来源经 `is_tenant_id` 校验——形态非法的来源值**等同未提供**
-    （不送入租户源），从而不会派生出非法库名、也不会由请求侧脏值触发 5xx。
+    请求头来源经 `is_tenant_code` / `is_tenant_id`（字母开头为编码、纯数字为主键）、令牌来源经
+    `is_tenant_id` 校验——形态非法的来源值**等同未提供**（不送入租户源），从而不会派生出非法库名、
+    也不会由请求侧脏值触发 5xx。
 
     Args:
         path: 请求路径（豁免判定）。
         host: Host 头（子域名来源）。
-        header: `X-Tenant-ID` 请求头（租户**编码**）。
+        header: `X-Tenant-ID` 请求头（外部网关传租户**编码**，内部服务调用传租户**主键**）。
         token_tenant_id: 令牌内租户主键（雪花 id 字符串；认证阶段写入请求态）。
         source: 租户源（真实查库）；None 时仅内置演示租户可用（未经中间件装配的场景）。
         exempt_paths: 豁免路径集合。
@@ -408,13 +410,14 @@ async def resolve_request_tenant(
     for kind, value in (
         ("domain", hostname),
         ("code", _usable_code(header)),
+        ("id", _usable_id(header)),
         ("id", _usable_id(token_tenant_id)),
     ):
         if not value:
             continue
         if source is None:
             if kind != "code":
-                raise TenantNotFoundError(f"缺少租户源，无法解析令牌租户主键：{value}")
+                raise TenantNotFoundError(f"缺少租户源，无法解析租户主键：{value}")
             return _builtin_lookup(value)
         if kind == "domain":
             return await source.by_domain(value)

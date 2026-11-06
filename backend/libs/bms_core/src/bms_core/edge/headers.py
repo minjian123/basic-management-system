@@ -40,7 +40,10 @@ USER_SUBJECT_HEADER = "X-User-Subject"
 """网关注入的外部用户主体头（IdP `sub`，字符串；阶段六映射前唯一用户标识，07_03 新增）。"""
 
 TENANT_ID_HEADER = "X-Tenant-Id"
-"""网关注入的租户编码头（与租户解析链既有 `X-Tenant-ID` 同头，大小写不敏感）。"""
+"""租户定位头（与租户解析链 `X-Tenant-ID` 同头，大小写不敏感）。
+
+外部门户 / 网关注入租户编码，内部服务调用可传租户主键（雪花 id）。
+"""
 
 USER_SCOPES_HEADER = "X-User-Scopes"
 """网关注入的 scope 集合头（逗号分隔）。"""

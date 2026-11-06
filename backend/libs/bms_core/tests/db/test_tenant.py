@@ -172,6 +172,37 @@ async def test_resolve_series_priority_and_kinds() -> None:
     assert await resolve_request_tenant(path="/healthz", host="demo.bms.example.com", source=source) is None
 
 
+@pytest.mark.kiwi_id(2443)
+async def test_resolve_header_accepts_tenant_id_and_code() -> None:
+    """请求头双形态（返修）：纯数字按租户主键 `by_id`、字母开头按编码 `by_code`；次序与非法值不变。"""
+    demo = TenantContext(
+        code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com", tenant_id=1001
+    )
+    acme = TenantContext(
+        code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com", tenant_id=1002
+    )
+    source = _RecordingSource(ConcurrentStableDict({"demo": demo, "acme": acme}))
+
+    hit = await resolve_request_tenant(path="/api/v1/x", header="1002", source=source)
+    assert hit == acme
+    assert source.calls[-1] == ("id", "1002")
+
+    # 请求头命中优先于令牌租户位（与编码形态同一优先级）
+    hit = await resolve_request_tenant(path="/api/v1/x", header="1002", token_tenant_id="1001", source=source)
+    assert hit == acme
+    assert source.calls[-1] == ("id", "1002")
+
+    # 编码形态不受影响（外部门户 / 网关口径）
+    hit = await resolve_request_tenant(path="/api/v1/x", header="acme", token_tenant_id="1002", source=source)
+    assert hit == acme
+    assert source.calls[-1] == ("code", "acme")
+
+    # 非法形态仍等同未提供：dev 回落演示租户
+    hit = await resolve_request_tenant(path="/api/v1/x", header="127.0.0.1", source=source)
+    assert hit == demo
+    assert source.calls[-1] == ("code", "demo")
+
+
 @pytest.mark.kiwi_id(1019)
 async def test_resolve_fallback_and_rejection() -> None:
     """无来源：dev 经租户源取演示租户 / 源不可用回落内置；prod（关闭回落）拒绝。"""
