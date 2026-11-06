@@ -24,6 +24,7 @@ from enum import IntEnum, IntFlag
 from typing import Any
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.roots import BaseValueObject
 from bms_core.msgclient.codec import decode_header, encode_header
 from bms_core.msgclient.errors import MsgFrameInvalidError, MsgPayloadTooLargeError, MsgVersionUnsupportedError
 
@@ -147,7 +148,7 @@ class FrameFlags(IntFlag):
 
 
 @dataclass(frozen=True)
-class Frame:
+class Frame(BaseValueObject):
     """一帧解码结果（`payload` 是对原缓冲的切片视图，不复制）。"""
 
     frame_type: int
@@ -167,7 +168,7 @@ class Frame:
 
 
 @dataclass(frozen=True)
-class FrameBatch:
+class FrameBatch(BaseValueObject):
     """一次解码的结果（`consumed` 为完整帧占用的字节数，剩余即不完整尾包）。"""
 
     frames: ConcurrentStableList[Frame]

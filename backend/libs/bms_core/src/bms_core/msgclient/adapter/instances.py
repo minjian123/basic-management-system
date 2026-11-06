@@ -12,6 +12,7 @@ from __future__ import annotations
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.roots import BaseFrameworkObject
 from bms_core.core.service_endpoints import (
     normalize_service_endpoints,
     normalize_service_instances,
@@ -95,7 +96,7 @@ def msg_instance_addresses(settings: Settings) -> ConcurrentStableFrozenList[str
     return _addresses_of(settings, MSG_ENDPOINT_KEY)
 
 
-class ServiceCatalogInstanceProvider:
+class ServiceCatalogInstanceProvider(BaseFrameworkObject):
     """bms 配置来源：按来源键解析实例，TTL 内返回缓存快照。
 
     - 映射表：`mapping.get(service)` → `mapping.get("*")` → `default_source_key`；

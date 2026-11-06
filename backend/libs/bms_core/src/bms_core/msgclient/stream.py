@@ -33,6 +33,7 @@ from types import TracebackType
 from typing import Self
 
 from bms_core.core.logging import get_logger
+from bms_core.core.roots import BaseFrameworkObject
 from bms_core.msgclient.constants import MS_PER_SECOND, RPC_STREAM_CLIENT_IDLE_MS
 from bms_core.msgclient.errors import MsgError
 from bms_core.msgclient.frame import Frame, FrameFlags, FrameType, decode_frames
@@ -67,7 +68,7 @@ _LOGGER = get_logger("bms_core.msgclient")
 给「我不看了」，两条靠 `request_id` / `stream_id` 对账。"""
 
 
-class RpcStream:
+class RpcStream(BaseFrameworkObject):
     """一条流式调用的句柄（单消费者；`async for` + `async with` + `aclose()`）。"""
 
     def __init__(

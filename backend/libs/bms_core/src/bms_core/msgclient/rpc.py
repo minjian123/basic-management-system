@@ -32,7 +32,9 @@ from uuid import uuid4
 from bms_core.circuit.base import BaseCircuitBreaker
 from bms_core.circuit.null import NullCircuitBreaker
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
+from bms_core.core.exceptions import BizError
 from bms_core.core.logging import get_logger
+from bms_core.core.roots import BaseFrameworkObject
 from bms_core.msgclient.circuit import rpc_dependency
 from bms_core.msgclient.constants import (
     RPC_CLIENT_TIMEOUT_SLACK_MS,
@@ -107,7 +109,7 @@ __all__ = [
 _LOGGER = get_logger("bms_core.msgclient")
 
 
-class RpcCallError(Exception):
+class RpcCallError(BizError):
     """调用失败（承载服务端给的服务端判定，客户端不自行分类）。
 
     **`retryable` 与 `layer` 照搬服务端**：服务端 `classify()` 是唯一出处。客户端再维护一张码表，
@@ -138,9 +140,7 @@ class RpcCallError(Exception):
             attempts: 实际尝试次数（重试层回填；任务 §2.7）。
             backoff_ms: 已发生的退避序列（重试层回填）。
         """
-        super().__init__(message)
-        self.code = code
-        self.message = message
+        super().__init__(code, message)
         self.retryable = retryable
         self.layer = layer
         self.category = category
@@ -429,7 +429,7 @@ def _request_frame(
     )
 
 
-class RpcClient:
+class RpcClient(BaseFrameworkObject):
     """最小 RPC 客户端（一元调用；连接复用由传输层承担）。"""
 
     def __init__(

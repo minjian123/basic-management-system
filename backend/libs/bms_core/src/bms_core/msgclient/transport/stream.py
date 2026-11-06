@@ -27,6 +27,7 @@ import asyncio
 from collections import deque
 from typing import TYPE_CHECKING
 
+from bms_core.core.roots import BaseFrameworkObject
 from bms_core.msgclient.transport.base import (
     PHASE_AWAIT_HEADERS,
     PHASE_READ_BODY,
@@ -90,7 +91,7 @@ def abort_reason_of(exc: BaseException) -> str:
     return CLOSE_ERROR
 
 
-class H2Stream:
+class H2Stream(BaseFrameworkObject):
     """单条 h2 流（一请求一响应；流式时逐块读）。"""
 
     __slots__ = (

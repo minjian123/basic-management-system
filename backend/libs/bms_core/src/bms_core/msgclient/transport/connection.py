@@ -28,6 +28,7 @@ import h2.events
 import h2.exceptions
 import h2.settings
 
+from bms_core.core.roots import BaseFrameworkObject
 from bms_core.msgclient.transport.base import (
     PHASE_CONNECT,
     PHASE_READ_BODY,
@@ -50,7 +51,7 @@ _RECEIVE_WINDOW_BYTES = 16 * 1024 * 1024
 """本端接收窗口（一次提到 16 MiB）：一元响应上限 1 MiB，逐帧调窗会白花一串往返。"""
 
 
-class H2ClientConnection:
+class H2ClientConnection(BaseFrameworkObject):
     """一条 HTTP/2 客户端连接（一元的多路复用载体）。"""
 
     READ_NUM_BYTES = 64 * 1024

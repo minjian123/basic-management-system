@@ -29,8 +29,9 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
     ConcurrentStableSet,
 )
+from bms_core.core.exceptions import BizError
 from bms_core.core.logging import get_logger
-from bms_core.core.roots import BaseValueObject
+from bms_core.core.roots import BaseDataContract, BaseFrameworkObject, BaseValueObject
 from bms_core.msgclient.constants import (
     RPC_INSTANCE_EVICT_TTL_MS,
     RPC_INSTANCE_FAILURE_THRESHOLD,
@@ -194,8 +195,12 @@ class InstancePoolView(BaseValueObject):
     """当前快照是否过期。"""
 
 
-class InstanceUnavailable(Exception):
-    """来源为空 / 全部摘除 / 探测在途（内部异常，由 RPC 层映射为 `InstanceUnavailableError`）。"""
+class InstanceUnavailable(BizError):
+    """来源为空 / 全部摘除 / 探测在途（内部异常，由 RPC 层映射为 `InstanceUnavailableError`）。
+
+    **不新增产品码**：`code=0`，对外一致性由 `InstanceUnavailableError`（`RpcCallError` 子类）承担；
+    继承 `BizError` 以满足「异常须落在统一异常体系」的基座规则。
+    """
 
     def __init__(self, message: str, *, pool_key: str | None = None, reason: str = "") -> None:
         """初始化。
@@ -205,7 +210,7 @@ class InstanceUnavailable(Exception):
             pool_key: 池标识（可空）。
             reason: 机器可读原因（`empty_snapshot` / `all_evicted` / `probe_in_flight` / ...）。
         """
-        super().__init__(message)
+        super().__init__(0, message)
         self.pool_key = pool_key
         self.reason = reason
 
@@ -228,7 +233,7 @@ class InstanceProvider(Protocol):
         ...
 
 
-class StaticInstanceProvider:
+class StaticInstanceProvider(BaseFrameworkObject):
     """静态地址列表来源（单地址即单元素列表）。
 
     `revision` 恒 0、`fetched_at_ms` 恒 0：静态列表不会变化，选择器不需要清理状态。地址去尾斜线、
@@ -264,7 +269,7 @@ class StaticInstanceProvider:
 
 
 @dataclass
-class _InstanceState:
+class _InstanceState(BaseDataContract):
     """单个实例的可变健康 / 在途状态。"""
 
     failures: int = 0
@@ -274,7 +279,7 @@ class _InstanceState:
 
 
 @dataclass
-class _Pool:
+class _Pool(BaseDataContract):
     """单个池的可变状态。"""
 
     key: str
@@ -285,7 +290,7 @@ class _Pool:
     stale: bool = False
 
 
-class InstanceSelector:
+class InstanceSelector(BaseFrameworkObject):
     """实例选择器：策略 + 健康 + 在途计数（同步；不碰 IO）。"""
 
     def __init__(

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from bms_core.circuit.base import BaseCircuitBreaker, CircuitState
 from bms_core.core.logging import get_logger
+from bms_core.core.roots import BaseDataContract
 from bms_core.msgclient.retry import CircuitPolicy, Clock
 from bms_core.servicecall.base import service_dependency
 
@@ -36,7 +37,7 @@ def rpc_dependency(service: str) -> str:
 
 
 @dataclass
-class _Entry:
+class _Entry(BaseDataContract):
     """单个依赖的熔断状态（首期进程内，不跨实例）。"""
 
     state: CircuitState = CircuitState.CLOSED

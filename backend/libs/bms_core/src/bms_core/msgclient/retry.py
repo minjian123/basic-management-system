@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
-from bms_core.core.roots import BaseValueObject
+from bms_core.core.exceptions import BizError
+from bms_core.core.roots import BaseDataContract, BaseFrameworkObject, BaseValueObject
 from bms_core.msgclient.constants import (
     MS_PER_SECOND,
     RPC_CIRCUIT_FAILURE_THRESHOLD,
@@ -113,7 +114,7 @@ class CircuitPolicy(BaseValueObject):
 
 
 @dataclass
-class RetryBudget:
+class RetryBudget(BaseDataContract):
     """一次调用链剩余的可重试次数（可变：每次重试递减）。
 
     **不是 frozen**：预算的本质就是被消费；跨协程共享同一实例，所有跳看到同一份余额。
@@ -176,7 +177,7 @@ class JitterSource(Protocol):
         ...
 
 
-class SystemClock:
+class SystemClock(BaseFrameworkObject):
     """生产时钟：`time.monotonic()` + `asyncio.sleep`。"""
 
     def now_ms(self) -> int:
@@ -196,7 +197,7 @@ class SystemClock:
         await asyncio.sleep(ms / MS_PER_SECOND)
 
 
-class SystemJitter:
+class SystemJitter(BaseFrameworkObject):
     """生产抖动源：`random.randint`。"""
 
     def uniform(self, low: int, high: int) -> int:
@@ -253,14 +254,14 @@ def compute_backoff_ms(attempt: int, policy: RetryPolicy, jitter: JitterSource) 
 
 
 @dataclass(frozen=True)
-class RetryDecision:
+class RetryDecision(BaseValueObject):
     """一次「允许重试」的判定结果。"""
 
     delay_ms: int
     """本次应等待的毫秒（已含 `Retry-After` 取 max 与封顶）。"""
 
 
-class RpcRetryBlockedError(Exception):
+class RpcRetryBlockedError(BizError):
     """非幂等且无幂等键：重试被阻止（本地异常，不新增产品码）。
 
     携带最终错误对象，调用方能同时拿到原始码 / `category` / 尝试次数 / 退避序列。
@@ -272,7 +273,7 @@ class RpcRetryBlockedError(Exception):
         Args:
             error: 触发阻止的 `RpcCallError`（带尝试记录）。
         """
-        super().__init__("非幂等且无幂等键的 RPC 调用不允许自动重试")
+        super().__init__(0, "非幂等且无幂等键的 RPC 调用不允许自动重试")
         self.error = error
 
 

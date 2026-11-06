@@ -24,6 +24,7 @@ from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import Protocol
 
+from bms_core.core.exceptions import BizError
 from bms_core.core.roots import BaseValueObject
 
 __all__ = [
@@ -66,8 +67,21 @@ PHASE_UNKNOWN = "unknown"
 """未标注阶段：保守按「可能已执行」处理，不换实例。"""
 
 
-class RpcTransportError(Exception):
-    """传输层错误基类（与业务判定无关：码与分类一律由 `RpcClient` 映射）。"""
+class RpcTransportError(BizError):
+    """传输层错误基类（与业务判定无关：码与分类一律由 `RpcClient` 映射）。
+
+    **归位基座异常体系**：协议层不新增产品码，统一 `code=0` 由 `RpcClient` 分类后交给适配层映射；
+    继承 `BizError` 只为满足「所有自定义类必须继承基类、异常须落在统一异常体系」的硬规则，
+    捕获语义仍按本层四条梯度。
+    """
+
+    def __init__(self, message: str) -> None:
+        """初始化。
+
+        Args:
+            message: 可读提示。
+        """
+        super().__init__(0, message)
 
 
 class RpcTransportTimeoutError(RpcTransportError):

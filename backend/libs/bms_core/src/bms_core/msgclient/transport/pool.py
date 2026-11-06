@@ -28,6 +28,7 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from bms_core.core.logging import get_logger
+from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
 from bms_core.msgclient.constants import MS_PER_SECOND
 from bms_core.msgclient.transport.base import (
     PHASE_AWAIT_HEADERS,
@@ -58,7 +59,7 @@ _SUPPORTED_SCHEMES = ("http", "https")
 
 
 @dataclass(frozen=True)
-class _Origin:
+class _Origin(BaseValueObject):
     """解析后的实例基址。"""
 
     base: str
@@ -122,7 +123,7 @@ def _log_cancel(*, request: RpcHttpRequest, stream: H2Stream, reason: str, start
     )
 
 
-class _H2TransportStream:
+class _H2TransportStream(BaseFrameworkObject):
     """`TransportStream` 的生产实现（把 `H2Stream` 的读 / 中止面收窄给句柄层）。
 
     **只转发，不加语义**：句柄层要的是「读到一块 / 发中止」，`close_reason` 与 `status` 都留在传输层
@@ -206,7 +207,7 @@ class _StreamOpener(AbstractAsyncContextManager[TransportStream]):
         return None
 
 
-class H2Transport:
+class H2Transport(BaseFrameworkObject):
     """按 origin 分池的 h2 传输（`RpcTransport` 的生产实现）。"""
 
     def __init__(
