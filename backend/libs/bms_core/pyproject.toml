@@ -46,6 +46,10 @@ dependencies = [
     "openpyxl>=3.1.5",
     # PDF 单据 / 列表产物（04_02）：reportlab 纯 Python 渲染（无系统库依赖，支持 Python 3.14）
     "reportlab>=4.4",
+    # RPC 协议客户端（07B 06_01 步 1 上移）：帧头 msgpack 编解码 + HTTP/2 自持连接（精确取消）。
+    # 协议链归位基座后由 bms-core 直接 import，显式声明而非依赖 hypercorn 的传递依赖。
+    "msgpack>=1.1",
+    "h2>=4.1",
 ]
 
 [project.optional-dependencies]

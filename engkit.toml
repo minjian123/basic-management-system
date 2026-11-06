@@ -115,6 +115,12 @@ test_dir_suffix = "/services/tenant/tests/"
 match_prefix = "backend/services/txn/src/bms_txn/domains/"
 test_dir_suffix = "/services/txn/tests/"
 
+# 07B 06_01 步 1：消息平台协议链上移到 bms_core/msgclient（通用能力，无上层服务目录）。
+# 改该能力域任一实现 ⇒ 并入同构的 libs 层 msgclient 测试目录，避免选测按导入关系漏掉。
+[[rules.backend.extra_tests]]
+match_prefix = "backend/libs/bms_core/src/bms_core/msgclient/"
+test_dir_suffix = "/libs/bms_core/tests/msgclient/"
+
 [rules.frontend.global]
 exact = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json", ".npmrc"]
 prefixes = ["scripts/"]

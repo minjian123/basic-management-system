@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-11-01",
+  "generated_at": "2026-11-06",
   "entries": [
     {
       "file": "backend/libs/bms_core/src/bms_core/jobs/client.py",
@@ -52,6 +52,202 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/circuit.py",
+      "line": "self._entries: dict[str, _Entry] = {}",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/codec.py",
+      "line": "def encode_header(header: Mapping[str, Any]) -> bytes:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/frame.py",
+      "line": "header: Mapping[str, Any]",
+      "container": "Mapping",
+      "position": "class_field",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/frame.py",
+      "line": "header: Mapping[str, Any],",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/payload.py",
+      "line": "KNOWN_COMPRESSIONS: tuple[str, ...] = (",
+      "container": "tuple",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/payload.py",
+      "line": "KNOWN_CONTENT_TYPES: Mapping[str, str] = MappingProxyType(",
+      "container": "Mapping",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/retry.py",
+      "line": "def parse_retry_after(headers: tuple[tuple[str, str], ...]) -> int | None:",
+      "container": "tuple",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
+      "line": "backoff_ms: list[int] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
+      "line": "backoff_ms: tuple[int, ...] = (),",
+      "container": "tuple",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
+      "line": "def __init__(self, endpoints: Sequence[str]) -> None:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
+      "line": "def error_of_frame(header: Mapping[str, Any], *, budget_ms: int | None = None) -> RpcCallError:",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
+      "line": "headers: Mapping[str, str] | None = None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
+      "line": "headers: Mapping[str, str] | None,",
+      "container": "Mapping",
+      "position": "signature_param",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
+      "line": "request_headers: list[tuple[str, str]] = [(\"content-type\", FRAME_CONTENT_TYPE)]",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
+      "line": "self._endpoints: tuple[str, ...] = tuple(endpoint.rstrip(\"/\") for endpoint in endpoints)",
+      "container": "tuple",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/stream.py",
+      "line": "self._pending: deque[RpcReply] = deque()",
+      "container": "deque",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/base.py",
+      "line": "headers: tuple[tuple[str, str], ...]",
+      "container": "tuple",
+      "position": "class_field",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/connection.py",
+      "line": "def _on_headers(self, stream: H2Stream, raw: list[tuple[bytes, bytes]]) -> None:",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/connection.py",
+      "line": "def _request_headers(self, request: RpcHttpRequest) -> list[tuple[bytes, bytes]]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/connection.py",
+      "line": "headers: list[tuple[str, str]] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/connection.py",
+      "line": "pairs: list[tuple[bytes, bytes]] = [",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/connection.py",
+      "line": "self._streams: dict[int, H2Stream] = {}",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/pool.py",
+      "line": "opened: list[H2Stream] = []",
+      "container": "list",
+      "position": "local",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/pool.py",
+      "line": "self._connecting: dict[str, asyncio.Task[H2ClientConnection]] = {}",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/pool.py",
+      "line": "self._connections: dict[str, H2ClientConnection] = {}",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/stream.py",
+      "line": "def on_headers(self, status: int, headers: tuple[tuple[str, str], ...]) -> None:",
+      "container": "tuple",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/stream.py",
+      "line": "self._chunks: deque[bytes] = deque()",
+      "container": "deque",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/src/bms_core/msgclient/transport/stream.py",
+      "line": "self._headers: tuple[tuple[str, str], ...] = ()",
+      "container": "tuple",
+      "position": "local",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/src/bms_core/schemas/job.py",
       "line": "payload: dict[str, object] = Field(default_factory=dict, description=\"负载 JSON 对象\")",
       "container": "dict",
@@ -63,6 +259,286 @@
       "line": "specs: dict[str, JobTypeSpec] = {",
       "container": "dict",
       "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/protocol/test_vectors.py",
+      "line": "def _assert_frame(frame: Frame, expected: dict[str, Any]) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/protocol/test_vectors.py",
+      "line": "def _assert_limit_vector(case: dict[str, Any]) -> None:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/protocol/test_vectors.py",
+      "line": "def _load(path: Path) -> dict[str, Any]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/protocol/test_vectors.py",
+      "line": "def _pad_header(header: dict[str, Any], target: int) -> str:",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/test_rpc_retry_policy.py",
+      "line": "def test_parse_retry_after(headers: tuple[tuple[str, str], ...], expected: int | None) -> None:",
+      "container": "tuple",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/test_rpc_retry_policy.py",
+      "line": "options: dict[str, object] = {",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/test_rpc_stream.py",
+      "line": "def _events(logs: Sequence[Any], name: str) -> list[Any]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/test_rpc_stream.py",
+      "line": "def _events(logs: Sequence[Any], name: str) -> list[Any]:",
+      "container": "list",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/test_rpc_stream.py",
+      "line": "def _split(request_id: str) -> tuple[bytes, ...]:",
+      "container": "tuple",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/test_rpc_stream.py",
+      "line": "headers: dict[str, str] | None = None,",
+      "container": "dict",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/transport/test_transport_cancel.py",
+      "line": "HEADERS: tuple[tuple[str, str], ...] = ((\"content-type\", \"application/x-msg-frame\"),)",
+      "container": "tuple",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/transport/test_transport_cancel.py",
+      "line": "def _cancel_event(events: Sequence[Mapping[str, object]]) -> Mapping[str, object]:",
+      "container": "Mapping",
+      "position": "signature_return",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/transport/test_transport_cancel.py",
+      "line": "def _cancel_event(events: Sequence[Mapping[str, object]]) -> Mapping[str, object]:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/transport/test_transport_cancel.py",
+      "line": "self.aborted: list[int] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/transport/test_transport_errors.py",
+      "line": "HEADERS: tuple[tuple[str, str], ...] = ((\"content-type\", \"application/x-msg-frame\"),)",
+      "container": "tuple",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/transport/test_transport_pool.py",
+      "line": "HEADERS: tuple[tuple[str, str], ...] = ((\"content-type\", \"application/x-msg-frame\"),)",
+      "container": "tuple",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/transport/test_transport_stream.py",
+      "line": "HEADERS: tuple[tuple[str, str], ...] = ((\"content-type\", \"application/x-msg-frame\"),)",
+      "container": "tuple",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/transport/test_transport_stream_read.py",
+      "line": "HEADERS: tuple[tuple[str, str], ...] = ((\"content-type\", \"application/x-msg-frame\"),)",
+      "container": "tuple",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/h2_server.py",
+      "line": "self.bodies: dict[int, bytearray] = {}",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/h2_server.py",
+      "line": "self.frames: list[tuple[str, int, int]] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/h2_server.py",
+      "line": "self.paths: dict[int, str] = {}",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/h2_server.py",
+      "line": "self.tasks: set[asyncio.Task[None]] = set()",
+      "container": "set",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_retry.py",
+      "line": "def __init__(self, values: Sequence[int]) -> None:",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_retry.py",
+      "line": "header: dict[str, object] = {",
+      "container": "dict",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_retry.py",
+      "line": "self.calls: list[tuple[int, int]] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_retry.py",
+      "line": "self.sleeps: list[int] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "aborts: list[str | None] | None = None,",
+      "container": "list",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "async def _receive(self) -> dict[str, Any]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "async def _send(self, message: MutableMapping[str, Any]) -> None:",
+      "container": "MutableMapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "async def receive() -> MutableMapping[str, Any]:",
+      "container": "MutableMapping",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "async def send_message(message: MutableMapping[str, Any]) -> None:",
+      "container": "MutableMapping",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "chunks: Sequence[bytes],",
+      "container": "Sequence",
+      "position": "signature_param",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "collected: MutableMapping[str, Any] = {\"status\": 0, \"headers\": (), \"body\": bytearray()}",
+      "container": "MutableMapping",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "def _scope_of(request: RpcHttpRequest) -> dict[str, Any]:",
+      "container": "dict",
+      "position": "signature_return",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "self.aborts: list[str | None] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "self.aborts: list[str | None] = [] if aborts is None else aborts",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "self.open_requests: list[RpcHttpRequest] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "self.requests: list[RpcHttpRequest] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "self.streams: list[ScriptedStream] = []",
+      "container": "list",
+      "position": "local",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient_support/rpc_transport.py",
+      "line": "stream_chunks: Sequence[bytes] | Callable[[RpcHttpRequest], Sequence[bytes]] = (),",
+      "container": "Sequence",
+      "position": "signature_param",
       "count": 1
     },
     {
