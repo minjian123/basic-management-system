@@ -73,7 +73,7 @@ def test_error_of_http_413_and_unknown_status() -> None:
     payload_413 = _error_of(RpcHttpResponse(status=413, headers=(), body=b"", stream_id=1))
     assert payload_413.code == 350006 and payload_413.retryable is False
     other = _error_of(RpcHttpResponse(status=502, headers=(), body=b"", stream_id=2))
-    assert other.code == 0 and "502" in other.message
+    assert other.code == 0 and "502" in (other.message or "")
 
 
 def test_reply_of_rejects_broken_and_wrong_type_frames() -> None:
