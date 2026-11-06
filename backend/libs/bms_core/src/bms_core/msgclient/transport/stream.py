@@ -28,6 +28,9 @@ from collections import deque
 from typing import TYPE_CHECKING
 
 from bms_core.msgclient.transport.base import (
+    PHASE_AWAIT_HEADERS,
+    PHASE_READ_BODY,
+    PHASE_RESET,
     RpcHttpResponse,
     RpcTransportClosedError,
     RpcTransportError,
@@ -189,7 +192,10 @@ class H2Stream:
         Args:
             error_code: h2 错误码。
         """
-        self._error = RpcTransportClosedError(f"对端中止了 h2 流（error_code={error_code}）")
+        self._error = RpcTransportClosedError(
+            f"对端中止了 h2 流（error_code={error_code}）",
+            phase=PHASE_AWAIT_HEADERS if self._status == 0 else PHASE_READ_BODY,
+        )
         self._finished = True
         self._close_reason = CLOSE_PEER_RESET
         self._event.set()
@@ -201,7 +207,14 @@ class H2Stream:
         Args:
             exc: 传输层错误（连接关闭 / 协议错）。
         """
-        self._error = exc
+        self._error = (
+            RpcTransportClosedError(
+                str(exc),
+                phase=PHASE_AWAIT_HEADERS if self._status == 0 else PHASE_READ_BODY,
+            )
+            if isinstance(exc, RpcTransportClosedError)
+            else exc
+        )
         self._finished = True
         self._close_reason = CLOSE_CONNECTION_ERROR
         self._event.set()
@@ -300,7 +313,10 @@ class H2Stream:
             # 拿到「被中止了」而不是「正常结束」（前者才是事实）。这里直接覆盖、不判 `_error`：
             # `sent` 为真意味着本流还在流表里（没被 reset / 连接故障收口过），此时不可能已有错误；
             # 即使将来出现，本地中止也是更晚、更准确的那条原因。
-            self._error = RpcTransportClosedError(f"本流已被本地中止（reason={reason or 'cleanup'}）")
+            self._error = RpcTransportClosedError(
+                f"本流已被本地中止（reason={reason or 'cleanup'}）",
+                phase=PHASE_RESET,
+            )
         # 无论发没发帧都要唤醒读者：正卡在 `read_chunk()` 的调用方不该等它自己的超时才醒。
         self._chunk_event.set()
         return sent

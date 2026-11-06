@@ -6,6 +6,12 @@
 from __future__ import annotations
 
 from bms_core.msgclient.transport.base import (
+    PHASE_AWAIT_HEADERS,
+    PHASE_CONNECT,
+    PHASE_READ_BODY,
+    PHASE_RESET,
+    PHASE_SEND,
+    PHASE_UNKNOWN,
     RpcHttpRequest,
     RpcHttpResponse,
     RpcRequestTrace,
@@ -21,6 +27,12 @@ from bms_core.msgclient.transport.base import (
 from bms_core.msgclient.transport.pool import H2Transport
 
 __all__ = [
+    "PHASE_AWAIT_HEADERS",
+    "PHASE_CONNECT",
+    "PHASE_READ_BODY",
+    "PHASE_RESET",
+    "PHASE_SEND",
+    "PHASE_UNKNOWN",
     "H2Transport",
     "RpcHttpRequest",
     "RpcHttpResponse",

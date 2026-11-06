@@ -558,10 +558,14 @@ public_paths = ["/api/identity/v1/auth/login", "/api/identity/v1/auth/refresh", 
 [service_client]
 # 服务间同步调用实现选择（插件化配置；http = httpx 真实实现、空串 = null 占位不外呼）
 provider = "http"
-# 非敏感选项（base_url_template = 目标基址模板，占位 {service}；缺省 Compose DNS http://{service}:8000）
+# 非敏感选项（base_url_template = 目标基址模板，占位 {service}；缺省 Compose DNS http://{service}:8000；
+# instance_strategy = msg RPC 实例选择策略，round_robin / least_inflight，缺省 round_robin）
 # attach_service_token = 出站是否剥离入站 Authorization 并附自签服务 JWT（缺省 false；认证链路要求 true，
 #   由服务 JWT 承载服务身份与 tenant claim，目标服务经边缘信任解析）
 options = { attach_service_token = true }
+# 多实例地址（服务键 → 地址列表；优先于 endpoints 与 base_url_template；不配置时行为不变）
+# [service_client.instances]
+# msg = ["http://msg-1:8000", "http://msg-2:8000"]
 
 [identity_provider]
 # 身份源实现选择（插件化配置；空串 = null 占位不连外部 IdP；oidc = 真实 OIDC 客户端；cas = 真实 CAS 客户端）

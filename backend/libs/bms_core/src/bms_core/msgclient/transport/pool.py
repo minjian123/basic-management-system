@@ -30,6 +30,8 @@ from urllib.parse import urlsplit
 from bms_core.core.logging import get_logger
 from bms_core.msgclient.constants import MS_PER_SECOND
 from bms_core.msgclient.transport.base import (
+    PHASE_AWAIT_HEADERS,
+    PHASE_CONNECT,
     RpcHttpRequest,
     RpcHttpResponse,
     RpcTransportClosedError,
@@ -254,7 +256,7 @@ class H2Transport:
             asyncio.CancelledError: 调用方取消（本流中止后原样上抛）。
         """
         if self._closed:
-            raise RpcTransportClosedError("传输层已关闭")
+            raise RpcTransportClosedError("传输层已关闭", phase=PHASE_CONNECT)
         origin = _parse_origin(request.origin)
         # 流一注册就收下：请求体发送中被取消时 `send_request` 会抛，返回值拿不到，只能经 `on_open` 持有。
         opened: list[H2Stream] = []
@@ -311,7 +313,7 @@ class H2Transport:
             asyncio.CancelledError: 打开期间被取消（本流中止后原样上抛）。
         """
         if self._closed:
-            raise RpcTransportClosedError("传输层已关闭")
+            raise RpcTransportClosedError("传输层已关闭", phase=PHASE_CONNECT)
         origin = _parse_origin(request.origin)
         # 与 `send()` 同一手法：流一注册就收下（发请求体时被取消会让 `send_request` 抛，返回值拿不到）。
         opened: list[H2Stream] = []
@@ -336,7 +338,10 @@ class H2Transport:
             # 走到这里说明是路由 / 权限 / 网关层的问题。此时响应体不是帧流，交给句柄层只会得到
             # 「无收尾帧」这种误导性的协议错，不如在打开阶段就说清状态码。
             opened[0].abort(CLOSE_ERROR)
-            raise RpcTransportClosedError(f"RPC 流端点返回 HTTP {status}：{request.target}")
+            raise RpcTransportClosedError(
+                f"RPC 流端点返回 HTTP {status}：{request.target}",
+                phase=PHASE_AWAIT_HEADERS,
+            )
         return _H2TransportStream(stream)
 
     async def aclose(self) -> None:
@@ -424,7 +429,7 @@ class H2Transport:
             else:
                 reader, writer = await asyncio.open_connection(origin.host, origin.port)
         except OSError as exc:
-            raise RpcTransportClosedError(f"连接 {origin.base} 失败：{exc}") from exc
+            raise RpcTransportClosedError(f"连接 {origin.base} 失败：{exc}", phase=PHASE_CONNECT) from exc
         connection = H2ClientConnection(
             origin=origin.base,
             authority=origin.authority,

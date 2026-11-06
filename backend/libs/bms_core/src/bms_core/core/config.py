@@ -32,7 +32,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.id_bits import MAX_WORKER_ID
 from bms_core.core.paths import resolve_backend_root
-from bms_core.core.service_endpoints import normalize_service_endpoints
+from bms_core.core.service_endpoints import normalize_service_endpoints, normalize_service_instances
 from bms_core.permission.profile import DEFAULT_PROFILE, ensure_profile_supported, normalize_profile
 from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
@@ -1022,6 +1022,16 @@ class ServiceClientSettings(PluginSelection):
     )
     """服务端点覆盖（服务键 → 基址；空表 = 按 `base_url_template` 派生）。"""
 
+    instances: Annotated[
+        ConcurrentStableDict[str, ConcurrentStableList[str]],
+        CONTRACT_COLLECTION,
+    ] = Field(default_factory=CONTRACT_STABLE_DICT)
+    """多实例地址（服务键 → 地址列表；优先于 `endpoints` 与 `base_url_template`）。
+
+    显式空列表 / 非 `http(s)` 地址即拒启（`ConfigError`）；不配置时回落 `endpoints` → 模板，
+    行为与引入该字段前完全一致。
+    """
+
     @model_validator(mode="after")
     def _validate_endpoints(self) -> ServiceClientSettings:
         """校验端点覆盖合法（非法即拒启，不静默回落模板）。
@@ -1033,6 +1043,7 @@ class ServiceClientSettings(PluginSelection):
             ConfigError: 服务键为空，或基址不是 `http(s)://` 绝对地址。
         """
         normalize_service_endpoints(self.endpoints)
+        normalize_service_instances(self.instances)
         return self
 
 

@@ -20,7 +20,7 @@ from bms_core.core.exceptions import BizError, ParamError, RateLimitError, Servi
 from bms_core.msgclient.adapter.policy import default_circuit
 from bms_core.msgclient.adapter.service_client import MsgServiceClient
 from bms_core.msgclient.frame import decode_frame
-from bms_core.msgclient.rpc import RpcClient, StaticInstanceProvider
+from bms_core.msgclient.rpc import RpcClient, StaticInstanceSelector
 from bms_core.msgclient.transport import RpcHttpRequest, RpcHttpResponse, RpcTransportError
 from bms_core.oauth.token import BaseServiceTokenIssuer, ServiceTokenSpec
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule
@@ -84,7 +84,7 @@ def _client(
 ) -> MsgServiceClient:
     """构造带脚本传输的 `MsgServiceClient`（缺省空限流器）。"""
     rpc = RpcClient(
-        StaticInstanceProvider([BASE_URL]),
+        StaticInstanceSelector([BASE_URL]),
         transport=ScriptedRpcTransport(handler=recorder),
         circuit=default_circuit(),
     )

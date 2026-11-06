@@ -9,6 +9,11 @@ bms 的端口契约；端口域（`servicecall` / `events`）只承诺语义，�
 """
 
 from bms_core.msgclient.adapter.event_publisher import MsgEventPublisher
+from bms_core.msgclient.adapter.instances import (
+    MSG_ENDPOINT_KEY,
+    ServiceCatalogInstanceProvider,
+    msg_instance_addresses,
+)
 from bms_core.msgclient.adapter.mapping import method_of, query_headers, request_payload, to_bms_error
 from bms_core.msgclient.adapter.policy import (
     PolicyCircuitBreaker,
@@ -21,13 +26,16 @@ from bms_core.msgclient.adapter.policy import (
 from bms_core.msgclient.adapter.service_client import MsgServiceClient
 
 __all__ = [
+    "MSG_ENDPOINT_KEY",
     "MsgEventPublisher",
     "MsgServiceClient",
     "PolicyCircuitBreaker",
+    "ServiceCatalogInstanceProvider",
     "circuit_scope",
     "deadline_ms_of",
     "default_circuit",
     "method_of",
+    "msg_instance_addresses",
     "query_headers",
     "release_circuit",
     "request_payload",

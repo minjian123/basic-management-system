@@ -58,7 +58,6 @@ from bms_core.core.plugin import (
 )
 from bms_core.core.resources import ResourceManager
 from bms_core.core.roots import BaseValueObject
-from bms_core.core.service_endpoints import normalize_service_endpoints
 from bms_core.dashboard.base import BaseDashboardCardRegistry
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
@@ -111,9 +110,20 @@ from bms_core.masking.null import NullMasker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.metrics.prometheus import PrometheusMetrics
 from bms_core.msgclient.adapter.event_publisher import MsgEventPublisher
+from bms_core.msgclient.adapter.instances import (
+    MSG_ENDPOINT_KEY,
+    ServiceCatalogInstanceProvider,
+    msg_instance_addresses,
+)
 from bms_core.msgclient.adapter.policy import default_circuit
 from bms_core.msgclient.adapter.service_client import MsgServiceClient
-from bms_core.msgclient.rpc import RpcClient, StaticInstanceProvider
+from bms_core.msgclient.instances import (
+    InstancePolicy,
+    InstanceStrategy,
+    InstanceUnavailable,
+    selector_for,
+)
+from bms_core.msgclient.rpc import RpcClient
 from bms_core.notification.base import BaseNotificationCenter
 from bms_core.notify.base import BaseNotifier
 from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
@@ -1456,21 +1466,18 @@ class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):
 MSG_PROVIDER_NAME = "msg"
 """消息平台适配的插件实现名（`[service_client].provider` / `[event].provider` 取值）。"""
 
-MSG_ENDPOINT_KEY = "msg"
-"""消息平台实例地址在 `[service_client].endpoints` 里的覆盖键（**不是** bms 服务目录的服务键）。"""
-
 MSG_NAMESPACE_OPTION = "namespace"
 """事件命名空间配置键（`[event].options.namespace`；msg 侧按已启用 `module_key` 校验，空串会被判 `350010`）。"""
 
-_HTTP_SCHEMES = ("http://", "https://")
-"""允许的实例基址协议前缀。"""
+MSG_INSTANCE_STRATEGY_OPTION = "instance_strategy"
+"""实例选择策略配置键（`[service_client].options.instance_strategy`；`round_robin` / `least_inflight`）。"""
 
 
 def msg_base_url(settings: Settings) -> str:
-    """解析消息平台实例基址（端点覆盖 → 基址模板派生），不可用即拒启。
+    """解析消息平台实例基址（instances → 端点覆盖 → 基址模板），不可用即拒启。
 
-    显式覆盖优先于模板：容器部署走模板（服务名即 DNS），本机裸跑由开发脚本按
-    `[service_client].endpoints` 注入回环地址，不需要改 hosts。
+    多实例时取**第一个**实例：事件发布侧（JSON `/api/v1/msg/publish`）的负载均衡 / 故障切换不在
+    04-6 范围；RPC 侧由 `InstanceSelector` 轮询 / 最少在途。单实例行为与引入多实例前完全一致。
 
     Args:
         settings: 应用配置。
@@ -1479,25 +1486,9 @@ def msg_base_url(settings: Settings) -> str:
         str: 实例基址（不含尾斜线）。
 
     Raises:
-        ConfigError: 覆盖非法 / 模板缺 `{service}` 占位 / 派生结果非 `http(s)`（provider = "msg"
-            时属配置缺失，不静默回落到 `http`）。
+        ConfigError: 地址不可用 / 非法（provider = "msg" 时属配置缺失，不静默回落到 `http`）。
     """
-    override = normalize_service_endpoints(settings.service_client.endpoints).get(MSG_ENDPOINT_KEY)
-    if override:
-        return override
-    template = str(settings.service_client.options.get(SERVICE_CLIENT_OPTION_BASE_URL) or DEFAULT_BASE_URL_TEMPLATE)
-    if "{service}" not in template:
-        raise ConfigError(
-            f'[service_client].provider = "{MSG_PROVIDER_NAME}" 但消息平台实例地址不可用：'
-            f"[service_client].endpoints.{MSG_ENDPOINT_KEY} 未配置，且 options.base_url_template 无 "
-            f"{{service}} 占位（{template!r}）"
-        )
-    base = template.replace("{service}", MSG_ENDPOINT_KEY).rstrip("/")
-    if not base.startswith(_HTTP_SCHEMES):
-        raise ConfigError(
-            f'[service_client].provider = "{MSG_PROVIDER_NAME}" 但消息平台实例地址非法：{base!r}（须为 http(s) 地址）'
-        )
-    return base
+    return msg_instance_addresses(settings)[0]
 
 
 def msg_namespace(settings: Settings) -> str:
@@ -1522,6 +1513,29 @@ def msg_namespace(settings: Settings) -> str:
             f"[event].options.{MSG_NAMESPACE_OPTION} 为空且 [app].service 为空（命名空间须为已启用 module_key）"
         )
     return namespace
+
+
+def msg_instance_policy(settings: Settings) -> InstancePolicy:
+    """解析实例选择策略（`[service_client].options.instance_strategy`）。
+
+    Args:
+        settings: 应用配置。
+
+    Returns:
+        InstancePolicy: 选择 / 摘除参数（缺省轮询 + 仓内常量）。
+
+    Raises:
+        ConfigError: 策略取值非法（拒启，不静默回落轮询）。
+    """
+    raw = str(settings.service_client.options.get(MSG_INSTANCE_STRATEGY_OPTION) or InstanceStrategy.ROUND_ROBIN.value)
+    try:
+        strategy = InstanceStrategy(raw)
+    except ValueError as exc:
+        allowed = " / ".join(item.value for item in InstanceStrategy)
+        raise ConfigError(
+            f"[service_client].options.{MSG_INSTANCE_STRATEGY_OPTION} = {raw!r} 非法（可选 {allowed}）"
+        ) from exc
+    return InstancePolicy(strategy=strategy)
 
 
 class MsgServiceClientFactory(BasePluginFactory[MsgServiceClient]):
@@ -1554,7 +1568,13 @@ class MsgServiceClientFactory(BasePluginFactory[MsgServiceClient]):
         Raises:
             ConfigError: 消息平台实例地址不可用（装配期即拒启，不静默回落 `http`）。
         """
-        base_url = msg_base_url(self._settings)
+        provider = ServiceCatalogInstanceProvider(settings=self._settings)
+        try:
+            # 启动期校验：模板缺占位 / 实例列表为空 / 地址非法都在装配期拒启。
+            provider.resolve(MSG_ENDPOINT_KEY)
+        except InstanceUnavailable as exc:
+            raise ConfigError(f"消息平台实例不可用：{exc}") from exc
+        selector = selector_for(provider, policy=msg_instance_policy(self._settings))
         rate_limiter = cast(
             "BaseRateLimiter",
             resolve_plugin(
@@ -1576,7 +1596,7 @@ class MsgServiceClientFactory(BasePluginFactory[MsgServiceClient]):
         )
         return MsgServiceClient(
             rpc_client=RpcClient(
-                StaticInstanceProvider([base_url]),
+                selector,
                 circuit=default_circuit(),
             ),
             rate_limiter=rate_limiter,

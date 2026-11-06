@@ -27,6 +27,12 @@ from typing import Protocol
 from bms_core.core.roots import BaseValueObject
 
 __all__ = [
+    "PHASE_AWAIT_HEADERS",
+    "PHASE_CONNECT",
+    "PHASE_READ_BODY",
+    "PHASE_RESET",
+    "PHASE_SEND",
+    "PHASE_UNKNOWN",
     "RpcHttpRequest",
     "RpcHttpResponse",
     "RpcRequestTrace",
@@ -41,6 +47,25 @@ __all__ = [
 ]
 
 
+PHASE_CONNECT = "connect"
+"""建连 / 连接不可用：请求一个字节都没发出（确定未执行）。"""
+
+PHASE_SEND = "send"
+"""请求体发送失败：帧未完整写出，服务端不会进入 handler（确定未执行）。"""
+
+PHASE_AWAIT_HEADERS = "await_headers"
+"""已发请求、尚未收到响应头：可能已执行（结果未知）。"""
+
+PHASE_READ_BODY = "read_body"
+"""已收到响应头、读体中断：可能已执行（结果未知）。"""
+
+PHASE_RESET = "reset"
+"""本地中止 / 对端 reset 本流：可能已执行（结果未知）。"""
+
+PHASE_UNKNOWN = "unknown"
+"""未标注阶段：保守按「可能已执行」处理，不换实例。"""
+
+
 class RpcTransportError(Exception):
     """传输层错误基类（与业务判定无关：码与分类一律由 `RpcClient` 映射）。"""
 
@@ -50,7 +75,34 @@ class RpcTransportTimeoutError(RpcTransportError):
 
 
 class RpcTransportClosedError(RpcTransportError):
-    """连接被关闭、GOAWAY 拒收、对端 reset 本流、连接池满（映射为 transport 层 `RpcCallError`）。"""
+    """连接被关闭、GOAWAY 拒收、对端 reset 本流、连接池满（映射为 transport 层 `RpcCallError`）。
+
+    **为什么带 `phase`**：04-6 的「换实例」只允许发生在「确定未执行」的错误上。连接建立失败与
+    读体中断在异常类型上原本无法区分，一个可以安全换实例，另一个可能已经执行过。`phase` 把
+    「请求走到哪一步」变成异常的一部分，判定只在一个地方做（`RpcClient._may_have_executed`）。
+
+    默认 `unknown` 是**保守值**：遗漏标注时按「可能已执行」处理，宁可少换一次实例，也不重放一次
+    已提交的调用。
+    """
+
+    def __init__(self, message: str, *, phase: str = PHASE_UNKNOWN) -> None:
+        """初始化。
+
+        Args:
+            message: 可读提示。
+            phase: 失败阶段（`PHASE_*`；默认 `unknown`）。
+        """
+        super().__init__(message)
+        self.phase = phase
+
+    @property
+    def may_have_been_sent(self) -> bool:
+        """请求是否可能已完整提交（决定能否安全换实例）。
+
+        Returns:
+            bool: `connect` / `send` 为 False；其余阶段为 True。
+        """
+        return self.phase not in (PHASE_CONNECT, PHASE_SEND)
 
 
 class RpcTransportProtocolError(RpcTransportError):

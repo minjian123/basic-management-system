@@ -29,6 +29,9 @@ import h2.exceptions
 import h2.settings
 
 from bms_core.msgclient.transport.base import (
+    PHASE_CONNECT,
+    PHASE_READ_BODY,
+    PHASE_SEND,
     RpcHttpRequest,
     RpcTransportClosedError,
     RpcTransportError,
@@ -162,12 +165,12 @@ class H2ClientConnection:
             asyncio.CancelledError: 发送期间被取消（流会被中止，不留半截）。
         """
         if not self.is_available:
-            raise RpcTransportClosedError(f"连接不可用：{self._origin}")
+            raise RpcTransportClosedError(f"连接不可用：{self._origin}", phase=PHASE_CONNECT)
         await self._wait_for_capacity()
         try:
             stream_id = self._h2.get_next_available_stream_id()
         except h2.exceptions.NoAvailableStreamIDError:  # pragma: no cover - 2^31 条流后不可达，属协议上限
-            raise RpcTransportClosedError(f"h2 stream id 用尽：{self._origin}") from None
+            raise RpcTransportClosedError(f"h2 stream id 用尽：{self._origin}", phase=PHASE_CONNECT) from None
         stream = H2Stream(self, stream_id)
         self._streams[stream_id] = stream
         on_open(stream)
@@ -228,15 +231,18 @@ class H2ClientConnection:
             body: 请求体字节。
         """
         view = memoryview(body)
-        while view:
-            window = await self._wait_for_window(stream_id)
-            chunk = view[: min(window, self._h2.max_outbound_frame_size)]
-            view = view[len(chunk) :]
-            self._h2.send_data(stream_id, bytes(chunk))
+        try:
+            while view:
+                window = await self._wait_for_window(stream_id)
+                chunk = view[: min(window, self._h2.max_outbound_frame_size)]
+                view = view[len(chunk) :]
+                self._h2.send_data(stream_id, bytes(chunk))
+                self._flush()
+                await self._writer.drain()
+            self._h2.end_stream(stream_id)
             self._flush()
-            await self._writer.drain()
-        self._h2.end_stream(stream_id)
-        self._flush()
+        except OSError as exc:
+            raise RpcTransportClosedError(f"请求体发送失败：{exc}", phase=PHASE_SEND) from exc
 
     async def _wait_for_window(self, stream_id: int) -> int:
         """等到本流有可用发送窗口（对端初始 64 KiB，1 MiB 参数必须等 `WINDOW_UPDATE`）。
@@ -268,7 +274,7 @@ class H2ClientConnection:
             while True:
                 data = await self._reader.read(self.READ_NUM_BYTES)
                 if not data:
-                    raise RpcTransportClosedError(f"h2 连接被对端关闭：{self._origin}")
+                    raise RpcTransportClosedError(f"h2 连接被对端关闭：{self._origin}", phase=PHASE_READ_BODY)
                 self._dispatch(self._h2.receive_data(data))
                 self._flush()
         except Exception as exc:

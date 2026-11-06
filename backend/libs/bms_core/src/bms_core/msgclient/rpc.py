@@ -24,14 +24,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Protocol, Self, cast
+from typing import TYPE_CHECKING, Any, Self, cast
 from uuid import uuid4
 
 from bms_core.circuit.base import BaseCircuitBreaker
 from bms_core.circuit.null import NullCircuitBreaker
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.core.logging import get_logger
 from bms_core.msgclient.circuit import rpc_dependency
 from bms_core.msgclient.constants import (
@@ -51,6 +51,15 @@ from bms_core.msgclient.frame import (
     decode_frame,
     encode_frame,
 )
+from bms_core.msgclient.instances import (
+    InstanceLease,
+    InstanceOutcome,
+    InstanceProvider,
+    InstanceSelector,
+    InstanceUnavailable,
+    StaticInstanceProvider,
+    StaticInstanceSelector,
+)
 from bms_core.msgclient.naming import ensure_rpc_name
 from bms_core.msgclient.retry import (
     Clock,
@@ -69,6 +78,7 @@ from bms_core.msgclient.transport import (
     RpcHttpResponse,
     RpcRequestTrace,
     RpcTransport,
+    RpcTransportClosedError,
     RpcTransportError,
     RpcTransportProtocolError,
     RpcTransportTimeoutError,
@@ -79,12 +89,17 @@ if TYPE_CHECKING:  # pragma: no cover - 仅类型检查期
     from bms_core.msgclient.stream import RpcStream
 
 __all__ = [
+    "InstanceLease",
+    "InstanceOutcome",
     "InstanceProvider",
+    "InstanceSelector",
+    "InstanceUnavailableError",
     "RetryPolicy",
     "RpcCallError",
     "RpcCallTimeoutError",
     "RpcClient",
     "StaticInstanceProvider",
+    "StaticInstanceSelector",
     "error_of_frame",
     "frame_headers",
 ]
@@ -160,47 +175,36 @@ class RpcCallTimeoutError(RpcCallError):
         self.budget_ms = budget_ms
 
 
-class InstanceProvider(Protocol):
-    """实例地址来源（首期单地址实现，04-6 换 DNS / 服务目录实现，签名不变）。"""
+class InstanceUnavailableError(RpcCallError):
+    """无可用 RPC 实例（来源为空 / 全部摘除 / 半开探测在途）。
 
-    def next(self) -> str:
-        """取下一个实例地址（含 scheme 与端口，不带尾斜线）。
-
-        Returns:
-            str: 实例基址，如 `http://msg:8000`。
-        """
-        ...
-
-
-class StaticInstanceProvider:
-    """静态地址列表 + 轮询（单地址即单元素列表）。
-
-    轮询而不是随机：确定性、易断言——04-6 加「最少在途」时才需要随机化或计数。
+    **不新增产品码**：沿用 transport 层 `code=0` + `category=transient`，适配层仍按 `RpcCallError`
+    捕获；`retryable=True` 让 04-4 在预算内再试（下一次 `acquire` 可能拿到已恢复实例）。
     """
 
-    def __init__(self, endpoints: Sequence[str]) -> None:
+    def __init__(
+        self,
+        message: str = "无可用 RPC 实例",
+        *,
+        pool_key: str | None = None,
+        reason: str = "",
+    ) -> None:
         """初始化。
 
         Args:
-            endpoints: 实例基址列表（至少一个）。
-
-        Raises:
-            ValueError: 列表为空。
+            message: 可读提示。
+            pool_key: 池标识（排障用）。
+            reason: 机器可读原因（`empty_snapshot` / `all_evicted` / `probe_in_flight` / ...）。
         """
-        if not endpoints:
-            raise ValueError("InstanceProvider 至少需要一个实例地址")
-        self._endpoints: tuple[str, ...] = tuple(endpoint.rstrip("/") for endpoint in endpoints)
-        self._index = 0
-
-    def next(self) -> str:
-        """取下一个实例地址（插入序轮询）。
-
-        Returns:
-            str: 实例基址。
-        """
-        endpoint = self._endpoints[self._index]
-        self._index = (self._index + 1) % len(self._endpoints)
-        return endpoint
+        super().__init__(
+            0,
+            message,
+            retryable=True,
+            layer="transport",
+            category=ErrorCategory.TRANSIENT,
+        )
+        self.pool_key = pool_key
+        self.reason = reason
 
 
 def _error_of(response: RpcHttpResponse) -> RpcCallError:
@@ -430,7 +434,7 @@ class RpcClient:
 
     def __init__(
         self,
-        instances: InstanceProvider,
+        selector: InstanceSelector,
         *,
         tenant: str | None = None,
         deadline_ms: int | None = None,
@@ -443,7 +447,8 @@ class RpcClient:
         """初始化。
 
         Args:
-            instances: 实例地址来源（`StaticInstanceProvider` 或 04-6 的实现）。
+            selector: 实例选择器（来源 + 策略 + 健康；由 `selector_for(...)` 或
+                `StaticInstanceSelector(...)` 构造）。
             tenant: 缺省租户编码（写进 `X-Tenant-ID`；服务端仍以解析链结果为准）。跨租户调用时
                 用 `call(tenant=...)` 覆盖。
             deadline_ms: 单次调用缺省预算（毫秒；None 取 `RPC_DEFAULT_TIMEOUT_MS`）。
@@ -456,7 +461,7 @@ class RpcClient:
         Raises:
             ParamError: 预算取值非法（`10001`）。
         """
-        self._instances = instances
+        self._selector = selector
         self._tenant = tenant
         self._deadline_ms = validate_budget_ms(deadline_ms, default=RPC_DEFAULT_TIMEOUT_MS)
         self._transport: RpcTransport = transport if transport is not None else H2Transport()
@@ -468,6 +473,7 @@ class RpcClient:
     async def _attempt(
         self,
         *,
+        origin: str,
         service: str,
         method: str,
         payload: bytes,
@@ -482,6 +488,7 @@ class RpcClient:
         """发一次请求并解释响应（不含重试；`call()` 的重试循环唯一调用点）。
 
         Args:
+            origin: 本次尝试的实例基址（由选择器给出）。
             service: 服务标识。
             method: 方法名。
             payload: 调用参数原始字节。
@@ -501,6 +508,7 @@ class RpcClient:
             RpcCallError: 错误帧 / 非 200 / 响应不可解析。
         """
         request = self._http_request(
+            origin=origin,
             request_id=uuid4().hex,
             service=service,
             method=method,
@@ -586,6 +594,8 @@ class RpcClient:
         attempts = 0
         backoff_ms: list[int] = []
         dependency = rpc_dependency(service)
+        excluded: ConcurrentStableSet[str] = ConcurrentStableSet()
+        preferred: str | None = None
         try:
             if not await self._circuit.allow(dependency):
                 raise RpcCallError(
@@ -596,7 +606,12 @@ class RpcClient:
                 )
             while True:
                 try:
+                    lease = self._selector.acquire(service, exclude=excluded, preferred=preferred)
+                except InstanceUnavailable as exc:
+                    raise self._unavailable(service, exc) from exc
+                try:
                     reply = await self._attempt(
+                        origin=lease.origin,
                         service=service,
                         method=method,
                         payload=payload,
@@ -609,9 +624,22 @@ class RpcClient:
                         retry_budget=chain_budget.remaining,
                     )
                 except RpcCallError as exc:
+                    self._selector.release(lease, self._outcome_of(exc))
                     await self._circuit.record_failure(dependency)
                     exc.attempts = attempts + 1
                     exc.backoff_ms = tuple(backoff_ms)
+                    if lease.probe:
+                        # 半开探测失败不重试：续摘由 `release` 已经完成，继续重试等于绕过「半开只放一个」。
+                        _LOGGER.info(
+                            "msg_rpc_retry_stopped",
+                            service=service,
+                            method=method,
+                            attempts=exc.attempts,
+                            category=str(exc.category),
+                            code=exc.code,
+                            reason="probe_failed",
+                        )
+                        raise
                     decision = decide_retry(
                         exc,
                         attempts=attempts,
@@ -641,15 +669,83 @@ class RpcClient:
                         category=str(exc.category),
                         budget_remaining=chain_budget.remaining,
                     )
+                    if self._may_have_executed(exc):
+                        # 结果未知：只允许回到原实例，不能换个实例重放一个可能已执行的调用。
+                        preferred = lease.origin
+                    else:
+                        preferred = None
+                        excluded.add(lease.origin)
                     backoff_ms.append(decision.delay_ms)
                     chain_budget.consume()
                     await self._clock.sleep_ms(decision.delay_ms)
                     attempts += 1
                     continue
+                except BaseException:
+                    # 取消 / 未预期异常：租约必须归还，否则在途计数泄漏。
+                    self._selector.release(lease)
+                    raise
+                self._selector.release(lease, InstanceOutcome.SUCCESS)
                 await self._circuit.record_success(dependency)
                 return reply
         finally:
             release_budget(token)
+
+    def _unavailable(self, service: str, exc: InstanceUnavailable) -> InstanceUnavailableError:
+        """把内部「无可用实例」映射为对外 `RpcCallError` 子类。
+
+        Args:
+            service: 服务标识。
+            exc: 内部异常。
+
+        Returns:
+            InstanceUnavailableError: 待抛出的错误。
+        """
+        return InstanceUnavailableError(
+            f"无可用 RPC 实例：{service}（reason={exc.reason or 'unknown'}）",
+            pool_key=exc.pool_key,
+            reason=exc.reason,
+        )
+
+    @staticmethod
+    def _outcome_of(error: RpcCallError) -> InstanceOutcome:
+        """把一次失败折算为实例健康反馈。
+
+        **错误帧 / 4xx / 5xx 都算 SUCCESS**：实例回了响应，说明它可达；业务错不是实例不健康。
+        只有传输失败（含本地超时）记 FAILURE，协议错记 NEUTRAL（可能是版本 / 编解码问题，不归咎实例）。
+
+        Args:
+            error: 本次失败。
+
+        Returns:
+            InstanceOutcome: 实例健康反馈。
+        """
+        cause = error.__cause__
+        if isinstance(cause, (RpcTransportTimeoutError, RpcTransportClosedError)):
+            return InstanceOutcome.FAILURE
+        if error.layer == "protocol":
+            return InstanceOutcome.NEUTRAL
+        return InstanceOutcome.SUCCESS
+
+    @staticmethod
+    def _may_have_executed(error: RpcCallError) -> bool:
+        """本次失败是否「可能已执行」（决定能否换实例）。
+
+        Args:
+            error: 本次失败。
+
+        Returns:
+            bool: 可能已执行为 True（禁止换实例）。
+        """
+        cause = error.__cause__
+        if isinstance(cause, RpcTransportClosedError):
+            return cause.may_have_been_sent
+        if isinstance(cause, (RpcTransportTimeoutError, RpcTransportProtocolError, RpcTransportError)):
+            return True
+        if error.code == int(RPC_DEADLINE_EXCEEDED_CODE):
+            return True
+        if error.category is ErrorCategory.UNKNOWN:
+            return True
+        return error.layer == "protocol"
 
     def stream(
         self,
@@ -701,21 +797,34 @@ class RpcClient:
         ensure_rpc_name(service, method)
         budget = validate_budget_ms(deadline_ms, default=self._deadline_ms)
         request_id = uuid4().hex
-        request = self._http_request(
-            request_id=request_id,
-            service=service,
-            method=method,
-            payload=payload,
-            headers=headers,
-            trace_id=trace_id,
-            caller=caller,
-            budget=budget,
-            tenant=tenant,
-            suffix="/stream",
-        )
+
+        def make_request(origin: str) -> RpcHttpRequest:
+            """按选中的实例基址组装流式请求（打开时才调用）。
+
+            Args:
+                origin: 实例基址。
+
+            Returns:
+                RpcHttpRequest: 传输层请求。
+            """
+            return self._http_request(
+                origin=origin,
+                request_id=request_id,
+                service=service,
+                method=method,
+                payload=payload,
+                headers=headers,
+                trace_id=trace_id,
+                caller=caller,
+                budget=budget,
+                tenant=tenant,
+                suffix="/stream",
+            )
+
         return RpcStream(
             transport=self._transport,
-            request=request,
+            selector=self._selector,
+            request_factory=make_request,
             request_id=request_id,
             service=service,
             method=method,
@@ -725,6 +834,7 @@ class RpcClient:
     def _http_request(
         self,
         *,
+        origin: str,
         request_id: str,
         service: str,
         method: str,
@@ -741,6 +851,7 @@ class RpcClient:
         """构造传输层请求（一元与流式共用；`suffix` 决定走哪个端点）。
 
         Args:
+            origin: 实例基址（由 `InstanceSelector` 选定）。
             request_id: 请求标识。
             service: 服务标识。
             method: 方法名。
@@ -764,7 +875,7 @@ class RpcClient:
         if effective_tenant:
             request_headers.append((RPC_TENANT_HEADER, effective_tenant))
         return RpcHttpRequest(
-            origin=self._instances.next(),
+            origin=origin,
             target=f"/rpc/{service}/{method}{suffix}",
             headers=tuple(request_headers),
             body=_request_frame(

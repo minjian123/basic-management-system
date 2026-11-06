@@ -21,7 +21,7 @@ from bms_core.msgclient.naming import ensure_rpc_name
 from bms_core.msgclient.rpc import (
     RpcCallError,
     RpcClient,
-    StaticInstanceProvider,
+    StaticInstanceSelector,
     _error_of,
     _reply_of,
     _request_header,
@@ -65,7 +65,7 @@ def test_ensure_rpc_name_rejects_both_shapes() -> None:
 def test_static_instance_provider_rejects_empty() -> None:
     """实例源至少要有一个地址。"""
     with pytest.raises(ValueError, match="至少需要一个实例地址"):
-        StaticInstanceProvider([])
+        StaticInstanceSelector([])
 
 
 def test_error_of_http_413_and_unknown_status() -> None:
@@ -132,7 +132,7 @@ class _BrokenTransport:
 async def test_attempt_maps_transport_failures(protocol: bool) -> None:
     """协议错与连接错分别映射到 protocol / transport 层错误。"""
     client = RpcClient(
-        StaticInstanceProvider(["http://127.0.0.1:1"]),
+        StaticInstanceSelector(["http://127.0.0.1:1"]),
         transport=_BrokenTransport(protocol=protocol),  # type: ignore[arg-type]
     )
     with pytest.raises(RpcCallError) as caught:
@@ -144,7 +144,7 @@ async def test_rpc_client_async_context_closes_transport() -> None:
     """`async with` 进出分别返回自身与关闭传输。"""
     transport = _BrokenTransport(protocol=True)
     client = RpcClient(
-        StaticInstanceProvider(["http://127.0.0.1:1"]),
+        StaticInstanceSelector(["http://127.0.0.1:1"]),
         transport=transport,  # type: ignore[arg-type]
     )
     async with client as entered:
@@ -160,7 +160,7 @@ def test_frame_headers_iterates_multiple_entries() -> None:
 async def test_call_with_explicit_idempotency_key_skips_auto_generation() -> None:
     """显式给键时跳过自动生成分支（`key is None` 为假）。"""
     client = RpcClient(
-        StaticInstanceProvider(["http://127.0.0.1:1"]),
+        StaticInstanceSelector(["http://127.0.0.1:1"]),
         transport=_BrokenTransport(protocol=True),  # type: ignore[arg-type]
     )
     with pytest.raises(RpcCallError):

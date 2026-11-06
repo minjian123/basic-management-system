@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import deque
+from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from types import TracebackType
 from typing import Self
@@ -35,7 +36,19 @@ from bms_core.core.logging import get_logger
 from bms_core.msgclient.constants import MS_PER_SECOND, RPC_STREAM_CLIENT_IDLE_MS
 from bms_core.msgclient.errors import MsgError
 from bms_core.msgclient.frame import Frame, FrameFlags, FrameType, decode_frames
-from bms_core.msgclient.rpc import RpcCallError, RpcCallTimeoutError, error_of_frame, frame_headers
+from bms_core.msgclient.instances import (
+    InstanceLease,
+    InstanceOutcome,
+    InstanceSelector,
+    InstanceUnavailable,
+)
+from bms_core.msgclient.rpc import (
+    InstanceUnavailableError,
+    RpcCallError,
+    RpcCallTimeoutError,
+    error_of_frame,
+    frame_headers,
+)
 from bms_core.msgclient.transport import (
     RpcHttpRequest,
     RpcTransport,
@@ -61,7 +74,8 @@ class RpcStream:
         self,
         *,
         transport: RpcTransport,
-        request: RpcHttpRequest,
+        selector: InstanceSelector,
+        request_factory: Callable[[str], RpcHttpRequest],
         request_id: str,
         service: str,
         method: str,
@@ -71,18 +85,22 @@ class RpcStream:
 
         Args:
             transport: 传输层（用例注入替身，生产是 `H2Transport`）。
-            request: 已组装好的传输层请求（`target` 指向 `/stream`）。
+            selector: 实例选择器（打开时才 acquire，选中的 origin 交给 `request_factory`）。
+            request_factory: 按实例基址组装请求（复用 `RpcClient._http_request`，不重写组帧）。
             request_id: 本次请求标识（逐帧校验用）。
-            service: 服务标识（日志用）。
+            service: 服务标识（日志与选择用）。
             method: 方法名（日志用）。
             budget_ms: 整条流的预算（毫秒；只随请求发给服务端，不做本地倒计时）。
         """
         self._transport = transport
-        self._request = request
+        self._selector = selector
+        self._request_factory = request_factory
         self._request_id = request_id
         self._service = service
         self._method = method
         self._budget_ms = budget_ms
+        self._lease: InstanceLease | None = None
+        self._lease_released = False
         self._opener: AbstractAsyncContextManager[TransportStream] | None = None
         self._stream: TransportStream | None = None
         # 切帧缓冲挂在句柄上而不是 `__anext__` 的局部变量：一帧可能横跨两次 `read()`，局部变量
@@ -173,10 +191,15 @@ class RpcStream:
     async def _open(self) -> TransportStream:
         """打开流（幂等：已打开直接返回）。
 
+        **打开时才选实例**：`RpcClient.stream()` 只构造句柄与请求工厂，一个字节都不发；`acquire` 与
+        `request_factory(lease.origin)` 都在这里执行。打开成功 / 失败都反馈实例健康，但流开始读之后
+        的错误不摘除实例（业务错 / 空闲超时不是实例不健康）。
+
         Returns:
             TransportStream: 可逐块读的传输流。
 
         Raises:
+            InstanceUnavailableError: 无可用实例。
             RpcCallTimeoutError: 打开阶段超时。
             RpcCallError: 传输 / 协议层失败，或流端点返回非 200。
         """
@@ -184,22 +207,62 @@ class RpcStream:
             return self._stream
         if self._closed:
             raise RpcCallError(0, f"RPC 流已关闭：{self._service}.{self._method}", layer="transport")
-        opener = self._transport.open_stream(self._request)
+        try:
+            lease = self._selector.acquire(self._service)
+        except InstanceUnavailable as exc:
+            raise InstanceUnavailableError(
+                f"无可用 RPC 实例：{self._service}（reason={exc.reason or 'unknown'}）",
+                pool_key=exc.pool_key,
+                reason=exc.reason,
+            ) from exc
+        self._lease = lease
+        self._lease_released = False
+        opener = self._transport.open_stream(self._request_factory(lease.origin))
         try:
             stream = await opener.__aenter__()
         except RpcTransportTimeoutError as exc:
+            self._release_failed(InstanceOutcome.FAILURE)
             raise RpcCallTimeoutError(
                 f"RPC 流打开超时（{self._budget_ms} ms）：{self._service}.{self._method}",
                 budget_ms=self._budget_ms,
             ) from exc
         except RpcTransportProtocolError as exc:
+            self._release_failed(InstanceOutcome.NEUTRAL)
             raise RpcCallError(0, f"RPC 流不可解析：{exc}", layer="protocol") from exc
         except RpcTransportError as exc:
+            self._release_failed(InstanceOutcome.FAILURE)
             raise RpcCallError(0, f"RPC 流打开失败：{exc}", layer="transport") from exc
+        except BaseException:
+            # 取消 / 未预期异常：租约必须归还，否则在途计数泄漏。
+            self._release_failed(InstanceOutcome.FAILURE)
+            raise
         self._opener = opener
         self._stream = stream
         self._started_at = time.monotonic()
+        self._selector.report(lease, InstanceOutcome.SUCCESS)
         return stream
+
+    def _release_failed(self, outcome: InstanceOutcome) -> None:
+        """打开失败：反馈健康并归还租约（幂等）。
+
+        Args:
+            outcome: 失败类型（`FAILURE` / `NEUTRAL`）。
+        """
+        lease = self._lease
+        if lease is None or self._lease_released:  # pragma: no cover - 打开失败只走一次
+            return
+        self._lease_released = True
+        self._selector.release(lease, outcome)
+        self._lease = None
+
+    def _release_lease(self) -> None:
+        """释放租约（只减在途；健康已在打开阶段反馈；幂等）。"""
+        lease = self._lease
+        if lease is None or self._lease_released:
+            return
+        self._lease_released = True
+        self._selector.release(lease)
+        self._lease = None
 
     async def _fill(self, stream: TransportStream) -> None:
         """读一块字节进缓冲；`None` 即「`END_STREAM` 但没收到收尾帧」。
@@ -332,6 +395,7 @@ class RpcStream:
         self._abort(CLOSE_CANCELLED)
         if self._opener is not None:
             await self._opener.__aexit__(None, None, None)
+        self._release_lease()
 
     def _abort(self, reason: str) -> bool:
         """中止本流并记一条取消事件（**唯一出口**，幂等）。
@@ -360,6 +424,7 @@ class RpcStream:
             elapsed_ms=int((time.monotonic() - self._started_at) * MS_PER_SECOND),
             frames=self._frames,
         )
+        self._release_lease()
         return sent
 
     def _log_finished(self) -> None:
@@ -375,3 +440,4 @@ class RpcStream:
             seq_max=self._frames - 1 if self._frames else None,
             duration_ms=int((time.monotonic() - self._started_at) * MS_PER_SECOND),
         )
+        self._release_lease()

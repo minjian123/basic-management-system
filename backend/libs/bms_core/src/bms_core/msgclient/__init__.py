@@ -9,13 +9,24 @@
 
 from bms_core.msgclient.circuit import InProcessCircuitBreaker
 from bms_core.msgclient.errors import ErrorCategory, Outcome
+from bms_core.msgclient.instances import (
+    InstanceLease,
+    InstanceOutcome,
+    InstancePolicy,
+    InstanceProvider,
+    InstanceSelector,
+    InstanceSnapshot,
+    InstanceStrategy,
+    StaticInstanceProvider,
+    StaticInstanceSelector,
+    selector_for,
+)
 from bms_core.msgclient.retry import CircuitPolicy, RetryBudget, RetryPolicy
 from bms_core.msgclient.rpc import (
-    InstanceProvider,
+    InstanceUnavailableError,
     RpcCallError,
     RpcCallTimeoutError,
     RpcClient,
-    StaticInstanceProvider,
 )
 from bms_core.msgclient.stream import RpcStream
 
@@ -23,7 +34,14 @@ __all__ = [
     "CircuitPolicy",
     "ErrorCategory",
     "InProcessCircuitBreaker",
+    "InstanceLease",
+    "InstanceOutcome",
+    "InstancePolicy",
     "InstanceProvider",
+    "InstanceSelector",
+    "InstanceSnapshot",
+    "InstanceStrategy",
+    "InstanceUnavailableError",
     "Outcome",
     "RetryBudget",
     "RetryPolicy",
@@ -32,4 +50,6 @@ __all__ = [
     "RpcClient",
     "RpcStream",
     "StaticInstanceProvider",
+    "StaticInstanceSelector",
+    "selector_for",
 ]

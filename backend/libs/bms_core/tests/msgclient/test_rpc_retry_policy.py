@@ -37,7 +37,7 @@ from bms_core.msgclient.rpc import (
     RpcCallError,
     RpcCallTimeoutError,
     RpcClient,
-    StaticInstanceProvider,
+    StaticInstanceSelector,
     error_of_frame,
 )
 
@@ -57,7 +57,7 @@ def _client(transport: object, **kwargs: object) -> RpcClient:
     Returns:
         RpcClient: 客户端。
     """
-    return RpcClient(StaticInstanceProvider([BASE_URL]), transport=transport, **kwargs)  # type: ignore[arg-type]
+    return RpcClient(StaticInstanceSelector([BASE_URL]), transport=transport, **kwargs)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------

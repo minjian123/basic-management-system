@@ -14,12 +14,19 @@
 不静默回落模板——静默回落会把「配错了」伪装成「名字解析不通」，排障成本极高。
 """
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import ConfigError
 
 __all__ = [
     "ServiceEndpointSource",
+    "ServiceInstanceSource",
     "normalize_service_endpoints",
+    "normalize_service_instances",
     "register_service_endpoints",
     "reset_service_endpoints",
     "service_base_url",
@@ -30,6 +37,12 @@ _SCHEMES = ("http://", "https://")
 
 ServiceEndpointSource = ConcurrentStableDict[str, str] | ConcurrentStableFrozenDict[str, str]
 """端点覆盖来源形态（配置字段是可变的 `ConcurrentStableDict`，归一后转不可变冻结表）。"""
+
+ServiceInstanceSource = (
+    ConcurrentStableDict[str, ConcurrentStableList[str]]
+    | ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]]
+)
+"""多实例地址来源形态（服务键 → 地址列表；配置字段是 `ConcurrentStableDict[str, ConcurrentStableList]`）。"""
 
 
 def normalize_service_endpoints(
@@ -58,6 +71,42 @@ def normalize_service_endpoints(
             raise ConfigError(f"服务端点覆盖须为 http(s) 绝对地址：{service} → {raw_base!r}")
         normalized[service] = base
     return ConcurrentStableFrozenDict[str, str](normalized)
+
+
+def normalize_service_instances(
+    instances: ServiceInstanceSource | None,
+) -> ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]]:
+    """校验并归一多实例地址（服务键 → 地址列表）。
+
+    与 `normalize_service_endpoints` 同口径：服务键去首尾空白、地址去尾斜线并按插入序去重；**显式空
+    列表视为配置错误**（表达「这个来源没有实例」应删掉该项，而不是写空数组让调用方猜是否回落）。
+
+    Args:
+        instances: 原始多实例表（`[service_client].instances`；None / 空表表示不配置）。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, tuple[str, ...]]: 归一后的地址表。
+
+    Raises:
+        ConfigError: 服务键为空、地址列表为空，或地址不是 `http(s)://` 绝对地址。
+    """
+    if not instances:
+        return ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]]()
+    normalized: ConcurrentStableDict[str, ConcurrentStableFrozenList[str]] = ConcurrentStableDict()
+    for raw_service, raw_addresses in instances.items():
+        service = str(raw_service).strip()
+        if not service:
+            raise ConfigError(f"多实例配置的服务键不得为空：{raw_service!r}")
+        addresses = ConcurrentStableFrozenList(
+            dict.fromkeys(str(address).strip().rstrip("/") for address in raw_addresses)
+        )
+        if not addresses:
+            raise ConfigError(f"多实例配置的地址列表不得为空：{service}")
+        for base in addresses:
+            if not base.startswith(_SCHEMES):
+                raise ConfigError(f"多实例配置须为 http(s) 绝对地址：{service} → {base!r}")
+        normalized[service] = addresses
+    return ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]](normalized)
 
 
 _service_endpoints: ConcurrentStableFrozenDict[str, str] = ConcurrentStableFrozenDict[str, str]()

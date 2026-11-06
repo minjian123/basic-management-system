@@ -12,6 +12,7 @@ import pytest
 from fastapi import FastAPI
 
 from bms_core.core import assembly
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.plugin import default_plugin_registry, resolve_plugin
@@ -19,6 +20,7 @@ from bms_core.core.resources import ResourceManager
 from bms_core.events.base import EventPublisher
 from bms_core.msgclient.adapter.event_publisher import MsgEventPublisher
 from bms_core.msgclient.adapter.service_client import MsgServiceClient
+from bms_core.msgclient.instances import InstanceUnavailable
 from bms_core.servicecall.base import SERVICE_CLIENT_OPTION_BASE_URL, BaseServiceClient
 
 pytestmark = pytest.mark.kiwi_id(2441)
@@ -52,6 +54,35 @@ def test_base_url_prefers_endpoint_override() -> None:
     """有端点覆盖时用覆盖值（本机裸跑由开发脚本注入，不改 hosts）。"""
     settings = _settings(endpoint="http://127.0.0.1:9100/")
     assert assembly.msg_base_url(settings) == "http://127.0.0.1:9100"
+
+
+def test_base_url_prefers_instances_list() -> None:
+    """多实例列表优先于端点覆盖与模板（事件发布取第一个）。"""
+    settings = _settings()
+    settings.service_client.instances["msg"] = ConcurrentStableList(["http://a:8000", "http://b:8000"])
+    settings.service_client.endpoints["msg"] = "http://endpoint:8000"
+    assert assembly.msg_base_url(settings) == "http://a:8000"
+
+
+def test_instance_policy_defaults_to_round_robin() -> None:
+    """未配置策略时缺省轮询。"""
+    policy = assembly.msg_instance_policy(_settings())
+    assert policy.strategy.value == "round_robin"
+
+
+def test_instance_policy_accepts_least_inflight() -> None:
+    """配置 `least_inflight` 生效。"""
+    settings = _settings()
+    settings.service_client.options.set(assembly.MSG_INSTANCE_STRATEGY_OPTION, "least_inflight")
+    assert assembly.msg_instance_policy(settings).strategy.value == "least_inflight"
+
+
+def test_instance_policy_rejects_unknown_value() -> None:
+    """非法策略拒启（不静默回落轮询）。"""
+    settings = _settings()
+    settings.service_client.options.set(assembly.MSG_INSTANCE_STRATEGY_OPTION, "random")
+    with pytest.raises(ConfigError, match="instance_strategy"):
+        assembly.msg_instance_policy(settings)
 
 
 def test_base_url_falls_back_to_template() -> None:
@@ -99,6 +130,19 @@ def test_service_client_factory_creates_msg_client(assembled: Settings) -> None:
     client = assembly.MsgServiceClientFactory(assembled).create()
     assert isinstance(client, MsgServiceClient)
     assert client.plugin_name == "msg"
+
+
+def test_service_client_factory_rejects_unavailable_instances(
+    assembled: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """目录不可用：装配期拒启（不把错误推迟到首次调用）。"""
+
+    def _raise(self: object, service: str) -> object:
+        raise InstanceUnavailable("empty", pool_key="msg", reason="empty_snapshot")
+
+    monkeypatch.setattr(assembly.ServiceCatalogInstanceProvider, "resolve", _raise)
+    with pytest.raises(ConfigError, match="实例不可用"):
+        assembly.MsgServiceClientFactory(assembled).create()
 
 
 def test_event_publisher_factory_creates_msg_publisher() -> None:

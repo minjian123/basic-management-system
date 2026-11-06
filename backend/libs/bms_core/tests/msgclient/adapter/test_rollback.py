@@ -24,7 +24,7 @@ from bms_core.fallback.null import NullFallbackPolicy
 from bms_core.msgclient.adapter.policy import default_circuit
 from bms_core.msgclient.adapter.service_client import MsgServiceClient
 from bms_core.msgclient.frame import decode_frame
-from bms_core.msgclient.rpc import RpcClient, StaticInstanceProvider
+from bms_core.msgclient.rpc import RpcClient, StaticInstanceSelector
 from bms_core.msgclient.transport import RpcHttpRequest, RpcHttpResponse, RpcTransportError
 from bms_core.ratelimit.null import NullRateLimiter
 from bms_core.servicecall.http import HttpServiceClient
@@ -69,7 +69,7 @@ def _msg_client(transport: ScriptedRpcTransport) -> MsgServiceClient:
     """构造走脚本帧传输的 `MsgServiceClient`（零退避时钟，避免用例真的睡）。"""
     return MsgServiceClient(
         rpc_client=RpcClient(
-            StaticInstanceProvider([BASE_URL]),
+            StaticInstanceSelector([BASE_URL]),
             transport=transport,
             circuit=default_circuit(),
             clock=FakeClock(),
