@@ -34,10 +34,12 @@ async def test_list_contract(client: AsyncClient) -> None:
         group = by_key[plugin_key]
         assert group["provider"] == "null"
         assert group["implementations"] == [{"plugin_name": "null", "contract_version": "0.1.0", "status": "active"}]
-    # 事件发布：缺省 null（未配 provider），真实实现 rocketmq 已登记（01_01 事件总线）
+    # 事件发布：缺省 null（未配 provider），真实实现 rocketmq 已登记（01_01 事件总线）；
+    # msg 由 07B 06_01 步 2 登记（`MsgEventPublisherFactory`，`[event].provider = "msg"` 时启用）
     event = by_key["event"]
     assert event["provider"] == "null"
     assert event["implementations"] == [
+        {"plugin_name": "msg", "contract_version": "0.1.0", "status": "registered"},
         {"plugin_name": "null", "contract_version": "0.1.0", "status": "active"},
         {"plugin_name": "rocketmq", "contract_version": "0.1.0", "status": "registered"},
     ]
