@@ -107,6 +107,8 @@ def build_operation_event(
     error_msg: str | None,
     occurred_at: datetime | None = None,
     trace_id: str | None = None,
+    module_key: str | None = None,
+    resource_key: str | None = None,
 ) -> EventEnvelope:
     """构造操作日志事件信封。
 
@@ -127,6 +129,8 @@ def build_operation_event(
         error_msg: 错误摘要。
         occurred_at: 事件时间；None 取当前 UTC。
         trace_id: 链路 id。
+        module_key: 模块注册键（作用域第二级；无作用域事件为空，不写载荷）。
+        resource_key: 资源标识（作用域第三级；模块级作用域为空，不写载荷）。
 
     Returns:
         EventEnvelope: 事件信封（信封租户位与载荷同值）。
@@ -142,6 +146,8 @@ def build_operation_event(
         }
     )
     _put(payload, "tenant_id", tenant_id)
+    _put(payload, "module_key", module_key)
+    _put(payload, "resource_key", resource_key)
     _put(payload, "user_id", None if user_id is None else str(user_id))
     _put(payload, "username", username)
     _put(payload, "query", query)

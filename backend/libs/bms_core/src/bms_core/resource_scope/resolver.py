@@ -17,15 +17,17 @@
 
 import asyncio
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import cast
 
 from fastapi import Request
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
+from bms_core.core.context import reset_scope_context, set_scope_context
 from bms_core.core.exceptions import (
     ConfigError,
     ParamError,
@@ -75,17 +77,30 @@ _LOGGER = get_logger("bms.scope_resolver")
 
 @dataclass(frozen=True)
 class ResolvedScope(BaseValueObject):
-    """解析成功的作用域（不可变）：租户上下文 + 三级标识 + 命中的类型记录。
+    """解析成功的作用域（不可变）：租户上下文 + 三级标识 + 命中的类型记录 + 产品扩展位。
 
     Attributes:
         tenant: 已通过可用性判定的租户上下文。
         key: 三级标识（`01_1` 值对象）。
         resource_type: 命中的资源类型记录；模块级作用域为 `None`。
+        extensions: 产品自定义扩展（只读映射；`compare=False`，不参与相等与哈希）。
     """
 
     tenant: TenantContext
     key: ResourceScopeKey
     resource_type: ScopeResourceTypeRecord | None = None
+    extensions: Mapping[str, object] = field(  # bare-collections:allow（只读映射，构造即冻结）
+        default_factory=dict[str, object], compare=False
+    )
+
+    def __post_init__(self) -> None:
+        """冻结扩展位为只读映射（构造后不可改）。
+
+        Raises:
+            TypeError: 扩展位不是映射形态。
+        """
+        if not isinstance(self.extensions, MappingProxyType):
+            object.__setattr__(self, "extensions", MappingProxyType(dict(self.extensions)))
 
     @property
     def tenant_id(self) -> int:
@@ -132,6 +147,19 @@ class ResolvedScope(BaseValueObject):
             str: `{tenant_id}/{module_key}/{resource_key}`。
         """
         return self.key.as_text()
+
+    def with_extensions(self, **values: object) -> ResolvedScope:
+        """附加产品扩展位，返回**新实例**（原实例不变）。
+
+        Args:
+            **values: 扩展键值（覆盖同名键；不传则复制原扩展位）。
+
+        Returns:
+            ResolvedScope: 新作用域（`tenant` / `key` / `resource_type` 不变）。
+        """
+        merged: dict[str, object] = dict(self.extensions)  # bare-collections:allow（局部缓冲，随即冻结）
+        merged.update(values)
+        return ResolvedScope(tenant=self.tenant, key=self.key, resource_type=self.resource_type, extensions=merged)
 
 
 class BaseScopeResolver(BasePluggable, ABC):
@@ -220,6 +248,8 @@ class BaseScopeResolver(BasePluggable, ABC):
     ) -> ResolvedScope:
         """异步循环守卫：每轮调用一次（结论与 `require` 相同，语义显式）。
 
+        通过后写入上下文（覆盖上一轮），供本轮循环体取用。
+
         Args:
             target: 租户定位（语义同 `resolve`）。
             module_key: 模块注册键。
@@ -230,13 +260,15 @@ class BaseScopeResolver(BasePluggable, ABC):
         Returns:
             ResolvedScope: 已通过校验的作用域。
         """
-        return await self.require(
+        scope = await self.require(
             target,
             module_key=module_key,
             resource_type=resource_type,
             resource_key=resource_key,
             owner_tenant_id=owner_tenant_id,
         )
+        set_scope_context(scope)
+        return scope
 
     @asynccontextmanager
     async def batch(
@@ -248,7 +280,7 @@ class BaseScopeResolver(BasePluggable, ABC):
         resource_key: str | None = None,
         owner_tenant_id: int | None = None,
     ) -> AsyncGenerator[ResolvedScope]:
-        """批处理前置检查：进入时校验一次，批内不再回源。
+        """批处理前置检查：进入时校验一次并写入上下文，批内不再回源，退出复位。
 
         Args:
             target: 租户定位（语义同 `resolve`）。
@@ -260,13 +292,56 @@ class BaseScopeResolver(BasePluggable, ABC):
         Yields:
             ResolvedScope: 已通过校验的作用域。
         """
-        yield await self.require(
+        scope = await self.require(
             target,
             module_key=module_key,
             resource_type=resource_type,
             resource_key=resource_key,
             owner_tenant_id=owner_tenant_id,
         )
+        token = set_scope_context(scope)
+        try:
+            yield scope
+        finally:
+            reset_scope_context(token)
+
+    @asynccontextmanager
+    async def frame(
+        self,
+        target: TenantTarget | None = None,
+        *,
+        module_key: str,
+        resource_type: str | None = None,
+        resource_key: str | None = None,
+        owner_tenant_id: int | None = None,
+    ) -> AsyncGenerator[ResolvedScope]:
+        """数据面帧入口：逐帧判定，帧内写入上下文，退出复位。
+
+        与 `require` 的区别：`require` 是纯判定、返回后无法复位，若由它写上下文会把上一帧的作用域
+        残留给下一帧；本入口用 `Token` 在 `finally` 复位，异常路径同样复位（嵌套按 LIFO 正确）。
+
+        Args:
+            target: 租户定位（语义同 `resolve`）。
+            module_key: 模块注册键。
+            resource_type: 资源类型标识。
+            resource_key: 资源标识。
+            owner_tenant_id: 资源归属租户。
+
+        Yields:
+            ResolvedScope: 已通过校验的作用域。
+        """
+        scope = await self.require(
+            target,
+            module_key=module_key,
+            resource_type=resource_type,
+            resource_key=resource_key,
+            owner_tenant_id=owner_tenant_id,
+        )
+        token = set_scope_context(scope)
+        try:
+            yield scope
+        finally:
+            reset_scope_context(token)
 
     def require_sync(
         self,
@@ -611,12 +686,14 @@ def require_scope(
         """
         resource_key = _read_resource(request, resource_from=resource_from, param=resource_param)
         owner_tenant_id = _read_owner(request) if owner else None
-        return await get_scope_resolver(request).require(
+        scope = await get_scope_resolver(request).require(
             module_key=module_key,
             resource_type=resource_type,
             resource_key=resource_key,
             owner_tenant_id=owner_tenant_id,
         )
+        set_scope_context(scope)
+        return scope
 
     return _dependency
 

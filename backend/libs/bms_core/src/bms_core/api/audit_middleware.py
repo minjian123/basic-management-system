@@ -26,7 +26,7 @@ from bms_core.audit.emit import AuditEventEmitter
 from bms_core.audit.events import build_operation_event
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import AuditLogSettings, Settings
-from bms_core.core.context import get_current_user_id
+from bms_core.core.context import get_current_user_id, get_scope_context
 from bms_core.core.logging import mask_sensitive
 from bms_core.db.tenant import TenantContext
 
@@ -278,6 +278,7 @@ class OperationAuditMiddleware(BaseMiddleware):
         identity = state.get("edge_identity")
         identity_user = getattr(identity, "user_id", None)
         user_id = identity_user if isinstance(identity_user, int) else get_current_user_id()
+        scope_context = get_scope_context()
         event = build_operation_event(
             tenant_id=tenant_id,
             user_id=user_id,
@@ -294,5 +295,7 @@ class OperationAuditMiddleware(BaseMiddleware):
             status=status,
             error_msg=error_msg,
             trace_id=cast("str | None", state.get("trace_id")),
+            module_key=scope_context.module_key if scope_context is not None else None,
+            resource_key=scope_context.resource_key if scope_context is not None else None,
         )
         await emitter.emit(event)

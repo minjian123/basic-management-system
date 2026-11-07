@@ -7,15 +7,22 @@
 - `read_only`：只读上下文标记（读写分离路由依据），占位默认 False。
 - `current_masker`：当前请求的掩码器（`BaseSchema` 序列化期掩码依据），占位默认 None。
 - `current_trace_id` / `current_span_id`：链路追踪上下文（日志关联与链路贯穿依据），占位默认 None。
+- `current_scope`：当前作用域（`tenant_id / module_key / resource_key` 三级值对象与产品扩展位；请求级 /
+  批次级生命周期，由 `require_scope` 依赖、`per_round` / `batch` / `frame` 入口写入，退出即复位）。
 - 认证 / 日志 / 多租户 / 脱敏 / 链路阶段接入后设置对应变量。
 """
 
+from collections.abc import Generator
+from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING
+
+from bms_core.core.exceptions import ConfigError
 
 if TYPE_CHECKING:
     from bms_core.db.tenant import TenantContext
     from bms_core.masking.base import BaseMasker
+    from bms_core.resource_scope.resolver import ResolvedScope
 
 current_user_id: ContextVar[int | None] = ContextVar("current_user_id", default=None)
 current_tenant: ContextVar[str | None] = ContextVar("current_tenant", default=None)
@@ -29,6 +36,8 @@ current_trace_id: ContextVar[str | None] = ContextVar("current_trace_id", defaul
 current_span_id: ContextVar[str | None] = ContextVar("current_span_id", default=None)
 current_request_id: ContextVar[str | None] = ContextVar("current_request_id", default=None)
 current_client_ip: ContextVar[str | None] = ContextVar("current_client_ip", default=None)
+current_scope: ContextVar[ResolvedScope | None] = ContextVar("current_scope", default=None)
+"""当前作用域（三级标识 + 产品扩展位；只读值对象，请求级 / 批次级生命周期）。"""
 
 
 def set_current_user_id(user_id: int | None) -> Token[int | None]:
@@ -329,3 +338,67 @@ def get_current_client_ip() -> str | None:
         str | None: 来源 IP；不在请求内为 None。
     """
     return current_client_ip.get()
+
+
+def set_scope_context(scope: ResolvedScope | None) -> Token[ResolvedScope | None]:
+    """设置当前作用域上下文。
+
+    Args:
+        scope: 已通过校验的作用域；None 表示清除。
+
+    Returns:
+        Token: 复位令牌。
+    """
+    return current_scope.set(scope)
+
+
+def reset_scope_context(token: Token[ResolvedScope | None]) -> None:
+    """复位当前作用域上下文。
+
+    Args:
+        token: `set_scope_context` 返回的令牌。
+    """
+    current_scope.reset(token)
+
+
+def get_scope_context() -> ResolvedScope | None:
+    """当前作用域上下文。
+
+    Returns:
+        ResolvedScope | None: 作用域；无则 None（未声明作用域的路由恒为 None）。
+    """
+    return current_scope.get()
+
+
+def require_scope_context() -> ResolvedScope:
+    """取当前作用域；无则直接失败（fail-closed）。
+
+    业务模块只经本函数取作用域——不回落到「重新解析」，也不以空作用域放行。
+
+    Returns:
+        ResolvedScope: 当前作用域。
+
+    Raises:
+        ConfigError: 当前上下文没有作用域（入口未声明 `require_scope` / `frame` / `batch`）。
+    """
+    scope = current_scope.get()
+    if scope is None:
+        raise ConfigError("当前上下文没有作用域：入口需声明 `require_scope` 依赖或使用 `frame` / `batch`")
+    return scope
+
+
+@contextmanager
+def scope_context(scope: ResolvedScope) -> Generator[ResolvedScope]:
+    """作用域上下文管理器（同步）：进入写入、退出复位（异常路径同样复位）。
+
+    Args:
+        scope: 已通过校验的作用域。
+
+    Yields:
+        ResolvedScope: 同一作用域。
+    """
+    token = set_scope_context(scope)
+    try:
+        yield scope
+    finally:
+        reset_scope_context(token)
