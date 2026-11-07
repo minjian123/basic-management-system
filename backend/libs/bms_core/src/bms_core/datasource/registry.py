@@ -36,6 +36,8 @@ from bms_core.datasource.keys import DataSourceKey
 __all__ = [
     "DATA_SOURCE_CATALOG",
     "DATA_SOURCE_KEY_PATTERN",
+    "QUOTA_PERIODS",
+    "QUOTA_UNITS",
     "DataSourceKind",
     "DataSourceOrigin",
     "DataSourceRecord",
@@ -51,6 +53,12 @@ _FIELD_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 DATA_SOURCE_KEY_PATTERN = "^[a-z][a-z0-9_]*$"
 """数据源标识 / 白名单字段名格式（业务码字符串）。"""
 
+QUOTA_UNITS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("count", "bytes", "qps", "rpm", "percent"))
+"""配额单位取值（07D `02_03`；投影契约字段语义统一）。"""
+
+QUOTA_PERIODS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("none", "hour", "day", "month"))
+"""配额周期取值（`none` = 瞬时无周期）。"""
+
 
 class DataSourceStatus(StrEnum):
     """数据源登记项状态。"""
@@ -60,10 +68,14 @@ class DataSourceStatus(StrEnum):
 
 
 class DataSourceKind(StrEnum):
-    """数据源类型（数据形态；预留其它）。"""
+    """数据源类型（数据形态）。
+
+    `quota` 为**配额只读投影**（07D `02_03`）：产品自维护配额值与执行点，平台只读装载展示。
+    """
 
     DICT = "dict"
     FORM = "form"
+    QUOTA = "quota"
 
 
 class DataSourceOrigin(StrEnum):
@@ -113,6 +125,21 @@ class DataSourceRecord(BaseValueObject):
         default_factory=lambda: ConcurrentStableFrozenList[str]((DataSourceStrategy.SELECT.value,))
     )
     status: str = DataSourceStatus.ENABLED.value
+
+    quota_dimensions: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
+    """配额维度键（`kind = quota` 时非空；如 `topic_count` / `storage_bytes`）。"""
+
+    quota_unit: str | None = None
+    """配额单位（`count` / `bytes` / `qps` / `rpm` / `percent`）。"""
+
+    quota_period: str | None = None
+    """配额周期（`none` / `hour` / `day` / `month`）。"""
+
+    quota_soft_limit: int | None = None
+    """软限（告警线；`None` = 产品侧未设）。"""
+
+    quota_hard_limit: int | None = None
+    """硬限（拒绝线；`None` = 不限）。"""
 
 
 DATA_SOURCE_CATALOG: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFrozenList(
@@ -359,4 +386,49 @@ class DataSourceRegistry(BaseFrameworkObject):
             for strategy in record.strategies:
                 if strategy not in valid_strategies:
                     issues.add(f"策略取值非法：{record.data_source_key!r} → {strategy!r}")
+            if record.kind == DataSourceKind.QUOTA.value:
+                issues.update(_quota_issues(record))
         return issues
+
+
+def _quota_issues(record: DataSourceRecord) -> ConcurrentStableList[str]:
+    """配额投影条目校验（`kind = quota`；07D `02_03`）。
+
+    Args:
+        record: 数据源登记条目。
+
+    Returns:
+        ConcurrentStableList[str]: 问题描述（空 = 通过）。
+    """
+    issues: ConcurrentStableList[str] = ConcurrentStableList()
+    key = record.data_source_key
+    if record.origin != DataSourceOrigin.PRODUCT.value:
+        issues.add(f"配额投影须由产品声明：{key!r} → {record.origin!r}")
+    if not record.path or not record.path.startswith("/api/v1/"):
+        issues.add(f"配额投影取数路径须为内部公开契约完整路径（/api/v1/…）：{key!r} → {record.path!r}")
+    if not record.quota_dimensions:
+        issues.add(f"配额维度缺失：{key!r}")
+    seen_dimensions: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for dimension in record.quota_dimensions:
+        if not _DATA_SOURCE_KEY_RE.match(dimension):
+            issues.add(f"配额维度键格式非法：{key!r} → {dimension!r}")
+        if dimension in seen_dimensions:
+            issues.add(f"配额维度键重复：{key!r} → {dimension!r}")
+        seen_dimensions.add(dimension)
+    if record.quota_unit not in QUOTA_UNITS:
+        issues.add(f"配额单位取值非法：{key!r} → {record.quota_unit!r}（合法：{'/'.join(QUOTA_UNITS)}）")
+    if record.quota_period not in QUOTA_PERIODS:
+        issues.add(f"配额周期取值非法：{key!r} → {record.quota_period!r}（合法：{'/'.join(QUOTA_PERIODS)}）")
+    if record.quota_soft_limit is not None and record.quota_soft_limit < 0:
+        issues.add(f"配额软限不得为负：{key!r} → {record.quota_soft_limit}")
+    if record.quota_hard_limit is not None and record.quota_hard_limit < 0:
+        issues.add(f"配额硬限不得为负：{key!r} → {record.quota_hard_limit}")
+    if (
+        record.quota_soft_limit is not None
+        and record.quota_hard_limit is not None
+        and record.quota_soft_limit > record.quota_hard_limit
+    ):
+        issues.add(f"配额软限不得大于硬限：{key!r} → {record.quota_soft_limit} > {record.quota_hard_limit}")
+    if record.product_key and record.data_source and record.data_source.split(".", 1)[0] != record.product_key:
+        issues.add(f"取数实现首段须为声明方产品键：{key!r} → {record.data_source!r}（产品 {record.product_key}）")
+    return issues

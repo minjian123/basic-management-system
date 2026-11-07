@@ -454,6 +454,7 @@ def record_from_wire(kind: str, data: ConcurrentStableDict[str, object]) -> obje
             product_key=str(data.get("product_key") or ""),
             segment=str(data.get("segment") or ""),
             status=str(data.get("status") or "enabled"),
+            maps_from=ConcurrentStableFrozenList(int(item) for item in cast("Any", data.get("maps_from") or ())),
         )
     if kind == "usages":
         return CapabilityUsage(
@@ -635,6 +636,7 @@ _ELEMENT_FIELDS: ConcurrentStableDict[str, ConcurrentStableFrozenList[str]] = Co
                 "product_key",
                 "segment",
                 "status",
+                "maps_from",
             )
         ),
         "usages": ConcurrentStableFrozenList(("name", "degrade", "reason")),

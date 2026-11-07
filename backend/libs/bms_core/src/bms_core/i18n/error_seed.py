@@ -183,6 +183,7 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (82010, "模块未启用", "Module is not enabled"),
         (82011, "资源类型未注册或不可用", "Resource type is not registered"),
         (82012, "资源越界", "Resource out of scope"),
+        (82013, "无权访问该资源", "Resource access denied"),
         (80101, "OIDC 请求非法", "Invalid OIDC request"),
         (80102, "OIDC 客户端非法", "Invalid OIDC client"),
         (80103, "OIDC 授权许可非法", "Invalid OIDC grant"),

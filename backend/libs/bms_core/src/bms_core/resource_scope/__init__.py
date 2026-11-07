@@ -1,9 +1,16 @@
-"""作用域资源归属能力域（07D `01_01` / `01_02`）：三级作用域值对象、资源类型注册视图与解析校验。
+"""作用域资源归属能力域（07D `01_01` / `01_02` / `02_01` / `02_05`）。
 
-对外统一从本包导入（`from bms_core.resource_scope import ResourceScopeKey`）；
+三级作用域值对象、资源类型注册视图、解析校验、第四步规则链（`scope_rule`）与资源级 ACL 端口
+（`resource_acl`）。对外统一从本包导入（`from bms_core.resource_scope import ResourceScopeKey`）；
 与 `bms_core/scope/`（数据范围）职责正交，见 `base.py` 模块文档。
 """
 
+from bms_core.resource_scope.acl import (
+    AclContext,
+    BaseResourceAcl,
+    get_resource_acl,
+    require_resource_access,
+)
 from bms_core.resource_scope.base import (
     DEFAULT_RESOURCE_KEY_MAX_LENGTH,
     MAX_RESOURCE_KEY_LENGTH,
@@ -29,7 +36,7 @@ from bms_core.resource_scope.base import (
     scope_resource_type_view,
     scope_resource_types_of,
 )
-from bms_core.resource_scope.null import NullScopeResolver
+from bms_core.resource_scope.null import NullResourceAcl, NullScopeResolver
 from bms_core.resource_scope.resolver import (
     SOURCE_SCOPE_RESOLVER,
     BaseScopeResolver,
@@ -37,11 +44,21 @@ from bms_core.resource_scope.resolver import (
     SourceScopeResolver,
     SourceScopeResolverFactory,
     get_scope_resolver,
+    read_scope_owner,
+    read_scope_resource,
     require_scope,
+)
+from bms_core.resource_scope.rules import (
+    EMPTY_SCOPE_RULE_CHAIN,
+    BaseScopeRule,
+    NullScopeRule,
+    ScopeRuleChain,
+    build_scope_rule_chain,
 )
 
 __all__ = [
     "DEFAULT_RESOURCE_KEY_MAX_LENGTH",
+    "EMPTY_SCOPE_RULE_CHAIN",
     "MAX_RESOURCE_KEY_LENGTH",
     "MODULE_KEY_RE",
     "REMOVAL_POLICIES",
@@ -56,16 +73,27 @@ __all__ = [
     "SCOPE_RESOURCE_RETIRED",
     "SCOPE_RESOURCE_STATUSES",
     "SOURCE_SCOPE_RESOLVER",
+    "AclContext",
+    "BaseResourceAcl",
     "BaseScopeResolver",
+    "BaseScopeRule",
+    "NullResourceAcl",
     "NullScopeResolver",
+    "NullScopeRule",
     "ResolvedScope",
     "ResourceScopeKey",
     "ScopeResourceTypeRecord",
+    "ScopeRuleChain",
     "SourceScopeResolver",
     "SourceScopeResolverFactory",
+    "build_scope_rule_chain",
     "find_scope_resource_type",
+    "get_resource_acl",
     "get_scope_resolver",
+    "read_scope_owner",
+    "read_scope_resource",
     "register_scope_resource_types",
+    "require_resource_access",
     "require_scope",
     "reset_scope_resource_types",
     "scope_resource_type_issues",

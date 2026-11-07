@@ -155,6 +155,7 @@ from bms_core.ratelimit.redis import RedisRateLimiter
 from bms_core.redis.base import REDIS_CLIENT_PLUGIN_KEY, BaseRedisClient
 from bms_core.redis.redis import RedisRedisClient
 from bms_core.replay.base import BaseReplayGuard
+from bms_core.resource_scope.acl import BaseResourceAcl
 from bms_core.resource_scope.resolver import BaseScopeResolver, SourceScopeResolverFactory
 from bms_core.scope.base import DataScope
 from bms_core.scope.rbac import register_rbac_data_scope
@@ -256,6 +257,7 @@ _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.ratelimit.null",
         "bms_core.redis.null",
         "bms_core.replay.null",
+        "bms_core.resource_scope.null",
         "bms_core.scope.null",
         "bms_core.search.null",
         "bms_core.security.null",
@@ -378,6 +380,7 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("tenant_module", BaseTenantModuleGate, "tenant_module", "tenant_module_gate"),
         PluginWiring("tenant_guard", BaseTenantGuard, "tenant_guard", "tenant_guard"),
         PluginWiring("scope_resolver", BaseScopeResolver, "scope_resolver", "scope_resolver"),
+        PluginWiring("resource_acl", BaseResourceAcl, "resource_acl", "resource_acl"),
         PluginWiring("tenant_resources", BaseTenantResourceHandler, "tenant_resources", "tenant_resources"),
         PluginWiring("print_template", BasePrintTemplateProvider, "print_template", "print_template"),
         PluginWiring("print_exporter", BasePrintExporter, "print_exporter", "print_exporter"),

@@ -25,7 +25,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import CHAR, Boolean, DateTime, Integer, SmallInteger, String, Text, UniqueConstraint
+from sqlalchemy import CHAR, BigInteger, Boolean, DateTime, Integer, SmallInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel, SnowflakeId
@@ -76,6 +76,17 @@ class SysDataSource(BaseModel):
     allowlist: Mapped[str | None] = mapped_column(Text, nullable=True, comment="允许下发字段（JSON 数组）")
     cascade: Mapped[bool] = mapped_column(Boolean, default=False, comment="是否级联取数")
     strategies: Mapped[str | None] = mapped_column(Text, nullable=True, comment="取数策略（JSON 数组）")
+    quota_dimensions: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="配额维度键（JSON 数组；kind=quota）"
+    )
+    quota_unit: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, comment="配额单位（count/bytes/qps/rpm/percent）"
+    )
+    quota_period: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, comment="配额周期（none/hour/day/month）"
+    )
+    quota_soft_limit: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="配额软限（告警线）")
+    quota_hard_limit: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="配额硬限（拒绝线）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/retired）")
     content_hash: Mapped[str] = mapped_column(CHAR(64), comment="声明要素稳定哈希（未变不写）")
 
@@ -185,6 +196,9 @@ class SysErrcode(BaseModel):
     severity: Mapped[str] = mapped_column(String(16), comment="严重级（info/warning/error）")
     description: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="中文描述（回退与审计读用）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/retired）")
+    maps_from: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="承接的基座码（JSON 整数数组；07D 02_02）"
+    )
     content_hash: Mapped[str] = mapped_column(CHAR(64), comment="声明要素稳定哈希（未变不写）")
     parent_id: Mapped[int | None] = mapped_column(
         SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"

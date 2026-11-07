@@ -39,6 +39,7 @@ from bms_core.api.middleware import (
     TenantMiddleware,
     TraceIdMiddleware,
 )
+from bms_core.audit.classes import AuditClass, merge_audit_classes
 from bms_core.cache.base import CacheRegion
 from bms_core.catalog.loader import is_catalog_authority, load_catalog_snapshot
 from bms_core.collaboration.bootstrap import bootstrap_remote_topologies
@@ -51,7 +52,7 @@ from bms_core.collaboration.usage import (
     capability_usages as registered_capability_usages,
 )
 from bms_core.core.assembly import assemble_base_plugins, assemble_plugins, register_platform_plugins
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings, get_settings, validate_startup
 from bms_core.core.exceptions import CatalogError, EventContractError
 from bms_core.core.factory import BaseApplicationFactory, register_factory, resolve_factory
@@ -77,6 +78,7 @@ from bms_core.events.consumer_records import (
     validate_event_consumer_records,
 )
 from bms_core.events.contracts import default_event_contract_registry, validate_event_registry
+from bms_core.extension.base import ExtensionRequirement, verify_extension_requirements
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.masking.base import get_masker
 from bms_core.metrics.base import BaseMetrics
@@ -599,6 +601,28 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             settings: 应用配置（可变）。
         """
 
+    def extension_requirements(self) -> ConcurrentStableList[ExtensionRequirement]:
+        """本服务声明的扩展点需求（子类覆写；缺省空 = 不声明任何扩展点）。
+
+        **声明即契约**：`required=True` 的实现必须在 `configure_plugins()` 内登记，否则启动拒启
+        （`verify_extension_requirements()` 在注册表冻结后核对）；可选项缺失按声明跳过并记 `INFO`。
+        声明顺序即同 `order` 下的执行序（如 `scope_rule` 规则链）。
+
+        Returns:
+            ConcurrentStableList[ExtensionRequirement]: 有序需求清单。
+        """
+        return ConcurrentStableList(())
+
+    def audit_classes(self) -> ConcurrentStableDict[str, AuditClass]:
+        """本服务的留痕类别（子类覆写；缺省空 = 全用基座缺省类别）。
+
+        合并结果写 `app.state.audit_classes`，供业务按 `audit_class_for(action, classes)` 取值。
+
+        Returns:
+            ConcurrentStableDict[str, AuditClass]: 覆盖 / 追加的类别（同名覆盖）。
+        """
+        return ConcurrentStableDict()
+
     def configure_plugins(self, app: FastAPI, settings: Settings) -> None:
         """服务侧**插件登记**钩子（默认空实现；须在建注册表之前）。
 
@@ -714,11 +738,18 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.catalog_degraded = False
         app.state.ownership_degraded = False
 
+        # 扩展点声明（07D 02）：产品声明「需要哪些扩展点」→ 供规则链构造与装配期核对
+        extension_requirements = self.extension_requirements()
+        app.state.extension_requirements = extension_requirements
+        app.state.audit_classes = merge_audit_classes(self.audit_classes())
+
         # 工厂 / 插件装配前置：平台实现登记 → 服务侧插件登记 → 注册表构建 → 关键工厂解析（可替换，配置选择）
         register_platform_plugins(settings, app, app.state.resources)
         self.configure_plugins(app, settings)
         register_db_tenant_self_service(app)  # 登记 / 按应用刷新租户自助真实实现工厂（11_01）
         build_plugin_registry()
+        # 扩展点核对（07D 02-1）：必需项缺失即拒启，可选项缺失按声明跳过（注册表须已冻结）
+        verify_extension_requirements(extension_requirements, product_label=self.service_name)
         register_factory("engine_factory", "default", EngineFactory)
         register_factory("session_factory", "default", SessionFactory)
         register_factory("id_generator", "default", IdGeneratorFactory)

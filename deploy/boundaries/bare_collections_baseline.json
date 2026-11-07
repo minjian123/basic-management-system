@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-11-06",
+  "generated_at": "2026-11-07",
   "entries": [
     {
       "file": "backend/libs/bms_core/src/bms_core/jobs/client.py",
@@ -116,13 +116,6 @@
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
-      "line": "def __init__(self, endpoints: Sequence[str]) -> None:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
       "line": "def error_of_frame(header: Mapping[str, Any], *, budget_ms: int | None = None) -> RpcCallError:",
       "container": "Mapping",
       "position": "signature_param",
@@ -146,13 +139,6 @@
       "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
       "line": "request_headers: list[tuple[str, str]] = [(\"content-type\", FRAME_CONTENT_TYPE)]",
       "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/msgclient/rpc.py",
-      "line": "self._endpoints: tuple[str, ...] = tuple(endpoint.rstrip(\"/\") for endpoint in endpoints)",
-      "container": "tuple",
       "position": "local",
       "count": 1
     },

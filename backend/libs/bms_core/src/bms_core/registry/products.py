@@ -61,7 +61,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
     ConcurrentStableSet,
 )
-from bms_core.core.error_codes import ErrorCode
+from bms_core.core.error_codes import ERROR_CODE_HTTP_STATUS, ErrorCode
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseValueObject
@@ -128,6 +128,21 @@ _ERROR_CODE_SEVERITIES: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenS
 _ERROR_CODE_STATUSES: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(("enabled", "disabled"))
 """错误码状态取值（`disabled` 仅影响手册口径，渲染仍参与）。"""
 _ERROR_CODE_HTTP_RANGE = (100, 599)
+_PLATFORM_STATUS_BY_CODE: ConcurrentStableFrozenDict[int, int] = ConcurrentStableFrozenDict(
+    {int(member): status for member, status in ERROR_CODE_HTTP_STATUS.items()}
+)
+"""平台码 → HTTP 状态（`ERROR_CODE_HTTP_STATUS` 的整数键投影；映射校验用）。"""
+
+_ERROR_MAPPING_FORBIDDEN_SOURCES: ConcurrentStableFrozenSet[int] = ConcurrentStableFrozenSet(
+    (
+        int(ErrorCode.INTERNAL),
+        int(ErrorCode.DATABASE_UNAVAILABLE),
+        int(ErrorCode.SERVICE_UNAVAILABLE),
+        int(ErrorCode.REDIS_UNAVAILABLE),
+        int(ErrorCode.TRANSACTION_UNAVAILABLE),
+    )
+)
+"""禁止被产品码承接的基座码（系统性失败：不得改写成业务成功 / 参数错误，架构 41 §5.2 边界）。"""
 """传输层状态允许区间（含端点）。"""
 CONTRACT_ERROR_CODES_KEY = "x-error-codes"
 """契约扩展键：端点可能返回的错误码（整数数组，operation 级；07B `02_05`）。"""
@@ -454,10 +469,39 @@ def _data_source_record(raw: object, *, product_key: str, scope: str) -> DataSou
         strategies=_strings(data.get("strategies"), scope=scope, key="strategies")
         or ConcurrentStableFrozenList(("select",)),
         status=str(data.get("status") or "enabled"),
+        quota_dimensions=_strings(data.get("quota_dimensions"), scope=scope, key="quota_dimensions"),
+        quota_unit=_optional_str(data, "quota_unit"),
+        quota_period=_optional_str(data, "quota_period"),
+        quota_soft_limit=_optional_int(data, "quota_soft_limit", scope=scope),
+        quota_hard_limit=_optional_int(data, "quota_hard_limit", scope=scope),
     )
     if record.product_key != product_key:
         raise CatalogError(f"产品清单数据源产品归属不符：{scope} → {record.product_key!r}（应为 {product_key!r}）")
     return record
+
+
+def _optional_int(  # bare-collections:allow（清单原始映射入参）
+    data: Mapping[str, object], key: str, *, scope: str
+) -> int | None:
+    """读取可选整数字段（缺省 / 空串为 `None`）。
+
+    Args:
+        data: 原始映射。
+        key: 字段名。
+        scope: 错误信息作用域。
+
+    Returns:
+        int | None: 整数值；未提供为 `None`。
+
+    Raises:
+        CatalogError: 值非整数。
+    """
+    raw = data.get(key)
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise CatalogError(f"产品清单结构非法：{scope} → {key} 须为整数（现 {type(raw).__name__}）")
+    return int(raw)
 
 
 def _require_collaboration_elements(
@@ -742,7 +786,58 @@ def _error_code_record(raw: object, *, product_key: str, segment: str, scope: st
         product_key=product_key,
         segment=segment,
         status=status,
+        maps_from=_maps_from(
+            data.get("maps_from"),
+            scope=record_scope,
+            target_code=code,
+            target_status=int(raw_status),
+        ),
     )
+
+
+def _maps_from(
+    raw: object,
+    *,
+    scope: str,
+    target_code: int,
+    target_status: int,
+) -> ConcurrentStableFrozenList[int]:
+    """解析并校验 `maps_from`（07D `02_02` 校验 M1 ~ M4）。
+
+    Args:
+        raw: 原始值（`None` / 数组）。
+        scope: 错误信息作用域。
+        target_code: 承接方产品码（本记录自身）。
+        target_status: 承接方 HTTP 状态（本记录声明值）。
+
+    Returns:
+        ConcurrentStableFrozenList[int]: 基座码清单（去重保序）。
+
+    Raises:
+        CatalogError: 源码形态非法 / 未登记 / 与目标同码 / 状态语义不一致 / 属系统性失败禁止表。
+    """
+    if raw is None:
+        return ConcurrentStableFrozenList[int]()
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        raise CatalogError(f"{scope}：maps_from 须为整数数组")
+    collected: ConcurrentStableList[int] = ConcurrentStableList()
+    for item in cast("Sequence[object]", raw):
+        if isinstance(item, bool) or not isinstance(item, int):
+            raise CatalogError(f"{scope}：maps_from 元素须为整数（现 {type(item).__name__}）")
+        source = int(item)
+        if not 10000 <= source <= 99999:
+            raise CatalogError(f"{scope}：maps_from 源须为 5 位平台码（{source}）")
+        if source not in _PLATFORM_STATUS_BY_CODE:
+            raise CatalogError(f"{scope}：maps_from 源未在平台错误码登记（{source}）")
+        declared = _PLATFORM_STATUS_BY_CODE[source]
+        if declared != target_status:
+            raise CatalogError(f"{scope}：映射不得改变状态语义（{source}→{declared}，本码 {target_status}）")
+        if source in _ERROR_MAPPING_FORBIDDEN_SOURCES:
+            raise CatalogError(f"{scope}：maps_from 不得承接系统性失败码（{source}）")
+        if source in collected:
+            raise CatalogError(f"{scope}：maps_from 重复声明同一源码（{source}）")
+        collected.add(source)
+    return ConcurrentStableFrozenList[int](collected)
 
 
 def _records(raw: object, *, scope: str) -> ConcurrentStableList[object]:
@@ -1684,8 +1779,18 @@ def _validate_error_codes(
         if module.errcode_segment:
             segments.setdefault(module.errcode_segment, module.product_key or module.service_key or "platform")
     seen: ConcurrentStableDict[int, tuple[ErrorCodeRecord, Path]] = ConcurrentStableDict()
+    mapping_owners: ConcurrentStableDict[int, tuple[int, str]] = ConcurrentStableDict()
     for manifest, source in zip(manifests, sources, strict=True):
         for record in manifest.error_codes:
+            for mapped_source in record.maps_from:
+                owner = mapping_owners.get(mapped_source)
+                if owner is None:
+                    mapping_owners.set(mapped_source, (record.code, record.product_key))
+                elif owner[0] != record.code:
+                    errors.add(
+                        f"错误码映射同源撞码：{mapped_source} 被 {owner[1]}/{owner[0]} 与 "
+                        f"{record.product_key}/{record.code} 同时承接（同源只允许一个目标码）"
+                    )
             if record.code in platform_codes:
                 errors.add(f"{source}｜错误码 {record.code}：与平台错误码撞码")
             existing = seen.get(record.code)

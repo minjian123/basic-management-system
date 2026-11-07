@@ -1694,6 +1694,17 @@ class ScopeResourceOutOfBoundsError(OpenTenantError):
         super().__init__(ErrorCode.SCOPE_RESOURCE_OUT_OF_BOUNDS, message, http_status=403, data=data)
 
 
+class ResourceAccessDeniedError(OpenTenantError):
+    """资源级授权拒绝（`82013` / 403；产品资源级 ACL 拒绝，07D `02_05`）。
+
+    **对外不区分「资源不存在」与「无权访问」**：两条路径同码同文案，防止借拒绝差异探测资源存在性；
+    内部由产品 ACL 实现记录真实原因。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.RESOURCE_ACCESS_DENIED, message, http_status=403, data=data)
+
+
 class OidcError(OpenTenantError):
     """OIDC Provider 子段（开放 / 租户 / SSO 段内 `8010x`）异常基类。
 

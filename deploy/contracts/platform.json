@@ -3557,10 +3557,11 @@
         "type": "object"
       },
       "DataSourceKind": {
-        "description": "数据源类型（数据形态；预留其它）。",
+        "description": "数据源类型（数据形态）。\n\n`quota` 为**配额只读投影**（07D `02_03`）：产品自维护配额值与执行点，平台只读装载展示。",
         "enum": [
           "dict",
-          "form"
+          "form",
+          "quota"
         ],
         "title": "DataSourceKind",
         "type": "string"
@@ -28546,6 +28547,131 @@
         "summary": "Trigger Task",
         "tags": [
           "task"
+        ]
+      }
+    },
+    "/api/v1/tenant-quotas/projections": {
+      "get": {
+        "description": "租户配额投影视图（按租户取产品只读投影）。\n\n需要 `tenant-quota:query` 权限。\n\nArgs:\n    request: 请求对象（取服务间调用客户端；并声明读取审计）。\n    tenant_id: 租户主键（雪花 id）。\n    module_key: 模块键过滤（可选）。\n    resource_key: 资源标识过滤（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为投影条目数组（与 `/scope-resource-types` 同风格）。",
+        "operationId": "list_quota_projections_api_v1_tenant_quotas_projections_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "module_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Module Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resource Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Quota Projections",
+        "tags": [
+          "tenant-quota"
         ]
       }
     },

@@ -50,6 +50,7 @@ from bms_core.resource_scope.base import (
     ScopeResourceTypeRecord,
     find_scope_resource_type,
 )
+from bms_core.resource_scope.rules import EMPTY_SCOPE_RULE_CHAIN, ScopeRuleChain, build_scope_rule_chain
 from bms_core.services.module_registry import ModuleRecord, ModuleStatus, service_catalog_view
 from bms_core.tenant.guard import BaseTenantGuard, TenantTarget
 
@@ -173,6 +174,23 @@ class BaseScopeResolver(BasePluggable, ABC):
     plugin_key: str = "scope_resolver"
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
+
+    def __init__(self, *, rule_chain: ScopeRuleChain | None = None) -> None:
+        """初始化（可选注入第四步规则链）。
+
+        Args:
+            rule_chain: 有序规则链；`None` 表示空链（不做第四步产品规则，与改造前等价）。
+        """
+        self._rule_chain: ScopeRuleChain = EMPTY_SCOPE_RULE_CHAIN if rule_chain is None else rule_chain
+
+    @property
+    def rule_chain(self) -> ScopeRuleChain:
+        """第四步规则链（`scope_rule` 扩展点声明驱动）。
+
+        Returns:
+            ScopeRuleChain: 规则链（空链表示无产品规则）。
+        """
+        return self._rule_chain
 
     @abstractmethod
     async def resolve(
@@ -382,15 +400,19 @@ class BaseScopeResolver(BasePluggable, ABC):
         raise ConfigError("require_sync 不可在运行中的事件循环内调用；请改用 `await require(...)`")
 
     def verify(self, scope: ResolvedScope) -> None:
-        """扩展钩子（缺省空实现）：产品在四步校验后追加自有规则。
+        """第四步：产品规则（`scope_rule` 规则链；缺省空链）。
+
+        子类覆写本方法仍生效：需要规则链同时执行的，覆写内应调 `super().verify(scope)`
+        （既有写法「只覆写不调 super」保持原语义，规则链不执行）。
 
         Args:
             scope: 已通过前四步校验的作用域。
 
         Raises:
-            BizError: 产品自定义拒绝（由子类抛出，基类原样冒泡）。
+            BizError: 规则拒绝（原样冒泡）。
+            InternalError: 规则抛非业务异常（fail-closed）。
         """
-        return None
+        self._rule_chain.verify(scope)
 
 
 class SourceScopeResolver(BaseScopeResolver):
@@ -398,12 +420,19 @@ class SourceScopeResolver(BaseScopeResolver):
 
     plugin_name: str = SOURCE_SCOPE_RESOLVER
 
-    def __init__(self, *, guard_provider: Callable[[], BaseTenantGuard]) -> None:
+    def __init__(
+        self,
+        *,
+        guard_provider: Callable[[], BaseTenantGuard],
+        rule_chain: ScopeRuleChain | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             guard_provider: 租户可用性守卫提供者（**惰性取**，避免捕获装配期的旧实例）。
+            rule_chain: 第四步规则链（`scope_rule` 扩展点声明驱动；`None` 为空链）。
         """
+        super().__init__(rule_chain=rule_chain)
         self._guard_provider = guard_provider
 
     async def resolve(
@@ -620,7 +649,9 @@ class SourceScopeResolverFactory(BasePluginFactory[SourceScopeResolver]):
             SourceScopeResolver: 解析器实例。
         """
         del options
-        return SourceScopeResolver(guard_provider=_guard_reader(self._app))
+        requirements = getattr(getattr(self._app, "state", None), "extension_requirements", None)
+        chain = build_scope_rule_chain(requirements or ())
+        return SourceScopeResolver(guard_provider=_guard_reader(self._app), rule_chain=chain)
 
 
 def get_scope_resolver(request: Request) -> BaseScopeResolver:
@@ -684,8 +715,8 @@ def require_scope(
         Returns:
             ResolvedScope: 已通过校验的作用域。
         """
-        resource_key = _read_resource(request, resource_from=resource_from, param=resource_param)
-        owner_tenant_id = _read_owner(request) if owner else None
+        resource_key = read_scope_resource(request, resource_from=resource_from, param=resource_param)
+        owner_tenant_id = read_scope_owner(request) if owner else None
         scope = await get_scope_resolver(request).require(
             module_key=module_key,
             resource_type=resource_type,
@@ -698,7 +729,7 @@ def require_scope(
     return _dependency
 
 
-def _read_resource(request: Request, *, resource_from: str, param: str) -> str:
+def read_scope_resource(request: Request, *, resource_from: str, param: str) -> str:
     """按位置读取资源标识。
 
     Args:
@@ -719,7 +750,7 @@ def _read_resource(request: Request, *, resource_from: str, param: str) -> str:
     return str(value)
 
 
-def _read_owner(request: Request) -> int | None:
+def read_scope_owner(request: Request) -> int | None:
     """读取可选的归属租户查询参数。
 
     Args:

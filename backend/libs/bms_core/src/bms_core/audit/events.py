@@ -11,8 +11,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
+from bms_core.audit.base import RecordRef, with_audit_extensions
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.events.base import EventEnvelope
 
@@ -109,6 +111,8 @@ def build_operation_event(
     trace_id: str | None = None,
     module_key: str | None = None,
     resource_key: str | None = None,
+    record_ref: RecordRef | None = None,
+    extensions: Mapping[str, object] | None = None,  # bare-collections:allow（只读映射入参）
 ) -> EventEnvelope:
     """构造操作日志事件信封。
 
@@ -131,9 +135,14 @@ def build_operation_event(
         trace_id: 链路 id。
         module_key: 模块注册键（作用域第二级；无作用域事件为空，不写载荷）。
         resource_key: 资源标识（作用域第三级；模块级作用域为空，不写载荷）。
+        record_ref: 记录级定位（涉及具体记录的操作才给；07D `02_04`）。
+        extensions: 产品自定义标量字段（键不得占用标准字段名；07D `02_04`）。
 
     Returns:
         EventEnvelope: 事件信封（信封租户位与载荷同值）。
+
+    Raises:
+        ParamError: 记录级定位或扩展位非法（10001）。
     """
     occurred = normalize_occurred_at(occurred_at)
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
@@ -156,13 +165,17 @@ def build_operation_event(
     _put(payload, "user_agent", user_agent)
     _put(payload, "cost_time", cost_time)
     _put(payload, "error_msg", error_msg)
-    return EventEnvelope(
-        event_type=OPERATION_LOG_EVENT,
-        payload=payload,
-        tenant_id=tenant_id,
-        trace_id=trace_id,
-        occurred_at=occurred,
-        aggregate_key=audit_aggregate_key(tenant_id),
+    return with_audit_extensions(
+        EventEnvelope(
+            event_type=OPERATION_LOG_EVENT,
+            payload=payload,
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            occurred_at=occurred,
+            aggregate_key=audit_aggregate_key(tenant_id),
+        ),
+        record_ref=record_ref,
+        extensions=extensions,
     )
 
 

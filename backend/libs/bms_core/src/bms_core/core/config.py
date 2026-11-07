@@ -876,6 +876,17 @@ class ScopeResolverSettings(PluginSelection):
     """实现名（缺省 `source`；空串解析到 `null` 占位，调用即 `ConfigError`）。"""
 
 
+class ResourceAclSettings(PluginSelection):
+    """资源级授权（段 `[resource_acl]`；任务 `07D 02_05`）。
+
+    资源级 ACL 属产品特有扩展，基座**不实现通用引擎**：`null`（缺省）为占位实现，**调用即报错**
+    （fail-closed，不静默放行）；产品声明 `resource_acl` 扩展点后须选自有实现名。
+    """
+
+    provider: str = "null"
+    """实现名（缺省 `null`；产品接入后改自有实现名，如 `msg`）。"""
+
+
 class TracerSettings(PluginSelection):
     """链路配置（`[tracer]`；在能力选择之外追加 OTLP 端点 / 采样 / 导出参数）。
 
@@ -1820,6 +1831,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     rate_limiter: PluginSelection = Field(default_factory=PluginSelection)
     realtime_publisher: PluginSelection = Field(default_factory=PluginSelection)
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
+    resource_acl: ResourceAclSettings = Field(default_factory=ResourceAclSettings)
     rocketmq: RocketMqSettings = Field(default_factory=RocketMqSettings)
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
     scope_resolver: ScopeResolverSettings = Field(default_factory=ScopeResolverSettings)

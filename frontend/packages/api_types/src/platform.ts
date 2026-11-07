@@ -4106,6 +4106,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenant-quotas/projections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Quota Projections
+         * @description 租户配额投影视图（按租户取产品只读投影）。
+         *
+         *     需要 `tenant-quota:query` 权限。
+         *
+         *     Args:
+         *         request: 请求对象（取服务间调用客户端；并声明读取审计）。
+         *         tenant_id: 租户主键（雪花 id）。
+         *         module_key: 模块键过滤（可选）。
+         *         resource_key: 资源标识过滤（可选）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为投影条目数组（与 `/scope-resource-types` 同风格）。
+         */
+        get: operations["list_quota_projections_api_v1_tenant_quotas_projections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenant-topologies": {
         parameters: {
             query?: never;
@@ -6662,10 +6693,12 @@ export interface components {
         };
         /**
          * DataSourceKind
-         * @description 数据源类型（数据形态；预留其它）。
+         * @description 数据源类型（数据形态）。
+         *
+         *     `quota` 为**配额只读投影**（07D `02_03`）：产品自维护配额值与执行点，平台只读装载展示。
          * @enum {string}
          */
-        DataSourceKind: "dict" | "form";
+        DataSourceKind: "dict" | "form" | "quota";
         /**
          * DataSourceListResponse
          * @description 统一数据源登记清单响应（保序：构建期清单序 + 注入序）。
@@ -23748,6 +23781,84 @@ export interface operations {
             path: {
                 task_id: number;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_quota_projections_api_v1_tenant_quotas_projections_get: {
+        parameters: {
+            query: {
+                tenant_id: number;
+                module_key?: string | null;
+                resource_key?: string | null;
+            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;

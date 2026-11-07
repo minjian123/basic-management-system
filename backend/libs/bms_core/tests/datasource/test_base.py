@@ -170,7 +170,7 @@ def test_layer_inheritance_and_contract() -> None:
     assert issubclass(BaseDictDataSource, BaseGenericDataSource)
     assert issubclass(BaseGenericDataSource, BaseFrameworkObject)
     assert BaseDictDataSource.DICT_FIELDS == ("code", "name", "parent_id", "sort", "status")
-    assert {item.value for item in DataSourceKind} == {"dict", "form"}
+    assert {item.value for item in DataSourceKind} == {"dict", "form", "quota"}
 
 
 @pytest.mark.kiwi_id(2288)

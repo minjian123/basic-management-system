@@ -296,6 +296,11 @@ class DeclarationRepository(BaseDbRepository[Any]):
             row.allowlist = _json_list(data.allowlist)
             row.cascade = data.cascade
             row.strategies = _json_list(data.strategies)
+            row.quota_dimensions = _json_list(data.quota_dimensions)
+            row.quota_unit = data.quota_unit
+            row.quota_period = data.quota_period
+            row.quota_soft_limit = data.quota_soft_limit
+            row.quota_hard_limit = data.quota_hard_limit
             row.status = data.status
         elif kind == "collaborations":
             row.name = data.name
@@ -335,6 +340,7 @@ class DeclarationRepository(BaseDbRepository[Any]):
             row.message_key = data.message_key
             row.severity = data.severity
             row.description = data.description
+            row.maps_from = _json_int_list(data.maps_from)
             row.status = "enabled"
         elif kind == "domains":
             row.domain_key = data.domain_key
@@ -393,6 +399,11 @@ class DeclarationRepository(BaseDbRepository[Any]):
                 allowlist=_frozen_list(data.allowlist),
                 cascade=bool(data.cascade),
                 strategies=_frozen_list(data.strategies),
+                quota_dimensions=_frozen_list(data.quota_dimensions),
+                quota_unit=data.quota_unit,
+                quota_period=data.quota_period,
+                quota_soft_limit=data.quota_soft_limit,
+                quota_hard_limit=data.quota_hard_limit,
                 status=str(data.status),
             )
         if kind == "collaborations":
@@ -454,6 +465,7 @@ class DeclarationRepository(BaseDbRepository[Any]):
             product_key=str(data.product_key),
             segment=str(data.segment),
             status=str(data.status),
+            maps_from=_frozen_int_list(data.maps_from),
         )
 
 
@@ -485,6 +497,45 @@ def _json_list(values: object) -> str:
     import json
 
     return json.dumps([str(item) for item in cast("Any", values)], ensure_ascii=False)
+
+
+def _json_int_list(values: object) -> str | None:
+    """把整数集合写成 JSON 数组文本（空集写 `None`，避免无意义 `[]` 占位）。
+
+    Args:
+        values: 整数集合（`ConcurrentStableFrozenList[int]` 等）。
+
+    Returns:
+        str | None: JSON 文本；空集为 `None`。
+    """
+    import json
+
+    items = [int(item) for item in cast("Any", values)]
+    if not items:
+        return None
+    return json.dumps(items, ensure_ascii=False)
+
+
+def _frozen_int_list(raw: object) -> Any:
+    """把 JSON 数组文本读回整数冻结集合。
+
+    Args:
+        raw: JSON 数组文本（None 视为空）。
+
+    Returns:
+        Any: `ConcurrentStableFrozenList[int]`。
+    """
+    import json
+
+    from bms_core.core.concurrent import ConcurrentStableFrozenList
+
+    if not raw:
+        return ConcurrentStableFrozenList()
+    try:
+        parsed = json.loads(str(raw))
+    except json.JSONDecodeError as exc:
+        raise CatalogError(f"注册表 JSON 字段损坏（应为整数数组）：{raw!r}") from exc
+    return ConcurrentStableFrozenList(int(str(item)) for item in cast("list[object]", parsed))
 
 
 def _json_mapping(values: object) -> str:

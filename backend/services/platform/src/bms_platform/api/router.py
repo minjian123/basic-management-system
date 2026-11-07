@@ -35,6 +35,7 @@ from bms_platform.domains.platform_registry.api import (
     products,
     releases,
     scope_resources,
+    tenant_quotas,
     tenant_topologies,
 )
 from bms_platform.domains.platform_registry.api import dict as dict_api
@@ -92,6 +93,8 @@ api_router = mount_service_routers(
             permission_meta.permission_router,
             # 作用域资源类型运营面（07D `01_01`）：查询 + 运营期停用 / 恢复
             scope_resources.router,
+            # 租户配额只读视图（07D `02_03`）：产品配额投影，平台只读、不双写
+            tenant_quotas.router,
             # 能力分配授权（07B `02_04`）：管理面 + 内部授权视图（新增路由追加在末尾，契约快照仅追加）
             capability_grants.router,
             internal_capability_grants.router,

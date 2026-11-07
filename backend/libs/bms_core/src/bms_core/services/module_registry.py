@@ -413,6 +413,15 @@ class ErrorCodeRecord(BaseValueObject):
     status: str = CollaborationStatus.ENABLED
     """状态（`enabled` / `disabled`）；`disabled` 仅影响手册口径，渲染仍参与（码位保留不复用）。"""
 
+    maps_from: ConcurrentStableFrozenList[int] = dataclass_field(
+        default_factory=lambda: ConcurrentStableFrozenList[int]()
+    )
+    """承接的基座码（07D `02_02`：`[[errcodes]].maps_from`；空 = 不做映射）。
+
+    装载期校验：源码须为已登记平台码、状态语义一致（`M3`）、不得属系统性失败禁止表（`M4`）、
+    同一源码全局唯一（`M5`）。运行期由 `error_code_mapping_view()` 汇总为 `源码 → 目标码` 视图。
+    """
+
 
 def _platform_error_code_records() -> ConcurrentStableFrozenDict[int, ErrorCodeRecord]:
     """平台错误码适配为登记记录（枚举为唯一事实源，只读投影）。
@@ -445,6 +454,9 @@ PLATFORM_ERROR_CODE_RECORDS: ConcurrentStableFrozenDict[int, ErrorCodeRecord] = 
 _INJECTED_ERROR_CODES: ConcurrentStableDict[int, ErrorCodeRecord] = ConcurrentStableDict()
 """产品清单装载的错误码记录（`code` → 记录）。"""
 
+_ERROR_CODE_MAPPINGS: ConcurrentStableDict[int, int] = ConcurrentStableDict()
+"""声明式错误码映射视图（`源码（平台码）→ 目标码（产品码）`；07D `02_02`）。"""
+
 
 def register_error_code_records(records: Iterable[ErrorCodeRecord]) -> None:
     """装载产品错误码记录（幂等：同 `code` 同值覆盖、异值即拒）。
@@ -462,11 +474,26 @@ def register_error_code_records(records: Iterable[ErrorCodeRecord]) -> None:
         if existing is not None and existing != record:
             raise CatalogError(f"错误码记录同码异值：{record.code}（已装载 {existing!r}，新 {record!r}）")
         _INJECTED_ERROR_CODES.set(record.code, record)
+        for source in record.maps_from:
+            _ERROR_CODE_MAPPINGS.set(int(source), record.code)
 
 
 def reset_error_code_records() -> None:
-    """清空已装载的错误码记录（测试隔离用；生产路径不调用）。"""
+    """清空已装载的错误码记录与映射视图（测试隔离用；生产路径不调用）。"""
     _INJECTED_ERROR_CODES.clear()
+    _ERROR_CODE_MAPPINGS.clear()
+
+
+def error_code_mapping_view() -> ConcurrentStableDict[int, int]:
+    """声明式映射视图（`源码 → 目标码`；每次返回新字典）。
+
+    存储以源码为键（同源只可能有一个目标码），跨产品同源冲突由装载期校验拦截，
+    因此此处不再做第二道判定（不留不可达分支）。
+
+    Returns:
+        ConcurrentStableDict[int, int]: 映射视图副本。
+    """
+    return ConcurrentStableDict(_ERROR_CODE_MAPPINGS)
 
 
 def error_code_view() -> ConcurrentStableDict[int, ErrorCodeRecord]:
