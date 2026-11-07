@@ -19,7 +19,7 @@ from bms_core.collaboration.usage import CapabilityUsage
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import CatalogError
 from bms_core.models.base import BaseModel
-from bms_core.models.platform.declaration import SysCollaboration
+from bms_core.models.platform.declaration import SysCollaboration, SysErrcode
 from bms_core.registry.declarations import (
     DeclarationPayload,
     RegistrySnapshot,
@@ -246,6 +246,28 @@ async def test_corrupt_json_raises(session: AsyncSession) -> None:
     await session.commit()
 
     with pytest.raises(CatalogError, match="JSON 字段损坏"):
+        await repository.load_snapshot()
+
+
+async def test_maps_from_round_trips_as_int_list(session: AsyncSession) -> None:
+    """`maps_from` 非空：写侧落整数数组、读侧还原（07D `02_02` 承接的基座码）。"""
+    repository = DeclarationRepository(session)
+    payload = _payload()
+    errcode = replace(payload.errcodes[0], maps_from=ConcurrentStableFrozenList((80002, 80001)))
+    await _apply(repository, replace(payload, errcodes=ConcurrentStableFrozenList((errcode,))))
+
+    snapshot = await repository.load_snapshot()
+    assert list(snapshot.of("errcodes")[0].maps_from) == [80002, 80001]
+
+
+async def test_corrupt_maps_from_json_raises(session: AsyncSession) -> None:
+    """`maps_from` 库内损坏：抛 `CatalogError`（不静默退化为「不做映射」）。"""
+    repository = DeclarationRepository(session)
+    await _apply(repository, _payload())
+    await session.execute(update(SysErrcode).values(maps_from="not-json"))
+    await session.commit()
+
+    with pytest.raises(CatalogError, match="整数数组"):
         await repository.load_snapshot()
 
 

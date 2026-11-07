@@ -213,6 +213,15 @@ async def test_reader_maps_ok_and_default() -> None:
     assert by_key["storage_bytes"].usage is None
 
 
+async def test_reader_takes_soft_and_hard_limit_from_product() -> None:
+    """产品给出软 / 硬限：以产品值为准，不回落声明值。"""
+    payload = {"items": [{"quota_key": "topic_count", "usage": 2, "soft_limit": 5, "hard_limit": 8}]}
+    reader = QuotaProjectionReader(lambda: _StubClient(_response(payload)))
+    items = await reader.read(ConcurrentStableList((_record(),)), tenant_id=1)
+    by_key = {item.quota_key: item for item in items}
+    assert (by_key["topic_count"].soft_limit, by_key["topic_count"].hard_limit) == (5, 8)
+
+
 async def test_reader_marks_exceeded() -> None:
     """用量达到硬限 → `exceeded`。"""
     payload = {"items": [{"quota_key": "topic_count", "usage": 100}]}

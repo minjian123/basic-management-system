@@ -155,6 +155,13 @@ def test_without_extensions_payload_has_no_keys() -> None:
     assert "extensions" not in event.payload
 
 
+def test_extensions_without_record_ref_write_only_extensions() -> None:
+    """只给扩展位、不给记录级定位：只写 `extensions`（记录级分支取假，另一键不出现）。"""
+    event = with_audit_extensions(_event(), extensions={"channel": "sms"})
+    assert "record_ref" not in event.payload
+    assert dict(event.payload["extensions"].items()) == {"channel": "sms"}  # type: ignore[union-attr]
+
+
 def test_operation_event_carries_extensions() -> None:
     """操作事件：给则写 `record_ref` / `extensions`，标准字段不受影响。"""
     event = build_operation_event(
