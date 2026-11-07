@@ -1,6 +1,6 @@
-"""产品声明注册表模型（07B `02_06`）：跨产品协同八类声明的**权威落点**。
+"""产品声明注册表模型（07B `02_06`）：跨产品协同十类声明的**权威落点**。
 
-六张表（一表一类），与既有 `sys_module`（服务行）/ `sys_product`（产品档案）共同构成注册表：
+八张表（一表一类），与既有 `sys_module`（服务行）/ `sys_product`（产品档案）共同构成注册表：
 
 | 表 | 承载 |
 | --- | --- |
@@ -11,10 +11,11 @@
 | `sys_seed` | 数据种子声明（第六类记录） |
 | `sys_errcode` | 错误码声明（第七类记录） |
 | `sys_domain` | 业务域声明（第九类记录；07B `04_02` 重开） |
+| `sys_scope_resource_type` | 作用域资源类型声明（第十类记录；07D `01_01`） |
 
 口径：
 
-- 归属：六表归 `platform` 服务、库类别 `platform`（链 `platform:platform`，库 `bms_platform`），
+- 归属：八表归 `platform` 服务、库类别 `platform`（链 `platform:platform`，库 `bms_platform`），
   由 `bms_core/services/table_registry.py::TABLE_OWNERSHIP` 单一来源登记；
 - 写入口**唯一**：产品注册通道（`PUT /api/v1/internal/declarations`）与平台自身清单注册；
 - 退役不删行：本次全量注册未出现的记录置 `status = retired`，历史保留；
@@ -22,7 +23,9 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_*.md`）。
 """
 
-from sqlalchemy import CHAR, Boolean, Integer, SmallInteger, String, Text, UniqueConstraint
+from datetime import datetime
+
+from sqlalchemy import CHAR, Boolean, DateTime, Integer, SmallInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel, SnowflakeId
@@ -34,6 +37,7 @@ __all__ = [
     "SysDomain",
     "SysErrcode",
     "SysProductRoute",
+    "SysScopeResourceType",
     "SysSeed",
 ]
 
@@ -185,3 +189,41 @@ class SysErrcode(BaseModel):
     parent_id: Mapped[int | None] = mapped_column(
         SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
+
+
+class SysScopeResourceType(BaseModel):
+    """作用域资源类型声明（`sys_scope_resource_type`）：第十类记录，三级作用域第三级约束（07D `01_01`）。
+
+    - **声明态与运营态分列**：`status` 由声明写（enabled / disabled / retired），`admin_status` 只由
+      运营期停用接口写——声明重放不覆盖运营态，避免「下次注册把紧急停用冲回来」；
+    - **不落 `module_key` 列**：模块键与类型短名由 `resource_type_key`（`{module_key}.{kind}`）前缀派生，
+      单一事实源，避免幂等漂移；
+    - `declaration_version` 为声明版本（内容变更 +1，注册通道派生），与 `BaseModel.version`（乐观锁）无关。
+    """
+
+    __tablename__ = "sys_scope_resource_type"
+    __table_args__ = (
+        UniqueConstraint("resource_type_key", "deleted_at", name="uq_sys_scope_resource_type_key_deleted_at"),
+    )
+
+    resource_type_key: Mapped[str] = mapped_column(String(128), comment="类型标识（{module_key}.{kind}，全局唯一）")
+    name: Mapped[str] = mapped_column(String(64), comment="显示名（人读，如「主题」）")
+    name_pattern: Mapped[str] = mapped_column(String(128), comment="resource_key 取值正则")
+    max_length: Mapped[int] = mapped_column(Integer, default=64, comment="resource_key 最大长度（1~255）")
+    retention_days: Mapped[int] = mapped_column(Integer, default=0, comment="保留期（天；0=永久保留）")
+    removal_policy: Mapped[str] = mapped_column(
+        String(16), default="archive", comment="到期处置（archive 归档 / purge 物理删除）"
+    )
+    product_key: Mapped[str] = mapped_column(String(32), comment="声明方产品键（跨库逻辑外键 → sys_product）")
+    status: Mapped[str] = mapped_column(
+        String(16), default="enabled", comment="声明态（enabled/disabled/retired；退役由未声明表达）"
+    )
+    admin_status: Mapped[str] = mapped_column(
+        String(16), default="enabled", comment="运营态（enabled/disabled；声明重放不写）"
+    )
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最近运营期停用时间（UTC）")
+    disabled_by: Mapped[int | None] = mapped_column(
+        SnowflakeId, nullable=True, comment="停用操作人（平台租户 sys_user.id）"
+    )
+    declaration_version: Mapped[int] = mapped_column(Integer, default=1, comment="声明版本（内容变更 +1）")
+    content_hash: Mapped[str] = mapped_column(CHAR(64), comment="声明要素稳定哈希（未变不写）")

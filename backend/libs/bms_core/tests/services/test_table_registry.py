@@ -127,6 +127,8 @@ def test_owned_tables_and_chain_derivation() -> None:
             "sys_product_route",
             # 第九类声明（07B `04_02` 重开）：业务域声明
             "sys_domain",
+            # 第十类声明（07D `01_01`）：作用域资源类型声明
+            "sys_scope_resource_type",
             # 租户部署拓扑（07C `02_01`）：租户 × 业务域 → 部署单元
             "sys_tenant_topology",
             # 发布清单两表（07C `04_01`）：一次发布的行 + 逐域版本快照

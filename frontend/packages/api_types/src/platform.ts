@@ -3854,6 +3854,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scope-resource-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scope Resource Types
+         * @description 作用域资源类型清单（只读，未退役全量；含已停用项）。
+         *
+         *     需要 `scope-resource:query` 权限。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为类型记录数组。
+         */
+        get: operations["list_scope_resource_types_api_v1_scope_resource_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scope-resource-types/{resource_type_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set Scope Resource Type Status
+         * @description 设置运营态（停用 / 恢复；只改运营态，不动产品声明）。
+         *
+         *     需要 `scope-resource:manage` 权限；幂等（同值不写库、不记审计）；变更后重建进程内视图。
+         *
+         *     Args:
+         *         resource_type_key: 类型标识（`{module_key}.{kind}`）。
+         *         req: 运营态变更请求。
+         *         uow: 平台库工作单元（写事务边界）。
+         *         audit: 审计捕获器。
+         *         context: 入站身份（操作人取 `user_id`）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为变更后的类型记录。
+         *
+         *     Raises:
+         *         ParamError: 运营态取值非法 / 类型已退役（10001）。
+         *         NotFoundError: 类型未登记（10002）。
+         */
+        patch: operations["set_scope_resource_type_status_api_v1_scope_resource_types__resource_type_key__patch"];
+        trace?: never;
+    };
     "/api/v1/tasks": {
         parameters: {
             query?: never;
@@ -6292,7 +6356,8 @@ export interface components {
          *     口径：
          *
          *     - `modules` 恒下发（服务目录本体，来源不变）；
-         *     - `products` / `collaborations` 仅在 `with` 中声明的段下发，未声明为空数组（不额外查询、不多暴露）；
+         *     - `products` / `collaborations` / `resource_types` 仅在 `with` 中声明的段下发，未声明为空数组
+         *       （不额外查询、不多暴露）；
          *     - `snapshot_version` 为带参形态的契约版本（形态变更时递增，便于消费方识别，避免与数组形态混用）；
          *     - `warnings` 承载降级提示（如产品声明未装载），不静默。
          */
@@ -6303,6 +6368,8 @@ export interface components {
             modules: components["schemas"]["ModuleResponse"][];
             /** Products */
             products: components["schemas"]["ProductSnapshotItem"][];
+            /** Resource Types */
+            resource_types: components["schemas"]["ScopeResourceTypeSnapshotItem"][];
             /** Snapshot Version */
             snapshot_version: string;
             /** Warnings */
@@ -10020,6 +10087,46 @@ export interface components {
              * @description 客户端版本（乐观锁比对）
              */
             version: number;
+        };
+        /**
+         * ScopeResourceTypeSnapshotItem
+         * @description 带参快照的作用域资源类型段（07D `01_01`；产品与平台进程重建视图共用）。
+         *
+         *     `status` 为**有效态**（声明态与运营态同时启用才算 `enabled`）；`declaration_version` 供消费方
+         *     判定新旧，`admin_status` 单独下发以便定位是「产品声明停用」还是「平台运营停用」。
+         */
+        ScopeResourceTypeSnapshotItem: {
+            /** Admin Status */
+            admin_status: string;
+            /** Declaration Version */
+            declaration_version: number;
+            /** Max Length */
+            max_length: number;
+            /** Name */
+            name: string;
+            /** Name Pattern */
+            name_pattern: string;
+            /** Product Key */
+            product_key: string;
+            /** Removal Policy */
+            removal_policy: string;
+            /** Resource Type Key */
+            resource_type_key: string;
+            /** Retention Days */
+            retention_days: number;
+            /** Status */
+            status: string;
+        };
+        /**
+         * ScopeResourceTypeStatusRequest
+         * @description 运营态变更请求（幂等：与现值一致时不写库、不记审计）。
+         */
+        ScopeResourceTypeStatusRequest: {
+            /**
+             * Admin Status
+             * @description 运营态（enabled / disabled）
+             */
+            admin_status: string;
         };
         /**
          * SeedOrchestrationRequestSchema
@@ -17755,7 +17862,7 @@ export interface operations {
     catalog_snapshot_api_v1_modules_snapshot_get: {
         parameters: {
             query?: {
-                /** @description 附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约 */
+                /** @description 附带段（逗号分隔多值：modules / products / collaborations / resource_types）；缺省保持原数组契约 */
                 with?: string | null;
             };
             header?: never;
@@ -22872,6 +22979,152 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_scope_resource_types_api_v1_scope_resource_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    set_scope_resource_type_status_api_v1_scope_resource_types__resource_type_key__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 类型标识（{module_key}.{kind}，如 msg.topic） */
+                resource_type_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeResourceTypeStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description 未认证 */

@@ -1,4 +1,4 @@
-"""schemas 层服务目录契约：服务 / 模块登记记录响应，以及带参快照的产品段与能力段。"""
+"""schemas 层服务目录契约：服务 / 模块登记记录响应，以及带参快照的产品段 / 能力段 / 作用域资源类型段。"""
 
 from typing import Annotated
 
@@ -58,13 +58,33 @@ class CollaborationSnapshotItem(BaseSchema):
     replacement: str | None
 
 
+class ScopeResourceTypeSnapshotItem(BaseSchema):
+    """带参快照的作用域资源类型段（07D `01_01`；产品与平台进程重建视图共用）。
+
+    `status` 为**有效态**（声明态与运营态同时启用才算 `enabled`）；`declaration_version` 供消费方
+    判定新旧，`admin_status` 单独下发以便定位是「产品声明停用」还是「平台运营停用」。
+    """
+
+    resource_type_key: str
+    name: str
+    name_pattern: str
+    max_length: int
+    retention_days: int
+    removal_policy: str
+    product_key: str
+    status: str
+    admin_status: str
+    declaration_version: int
+
+
 class CatalogSnapshotResponse(BaseSchema):
     """带参快照响应（`GET /api/v1/modules/snapshot?with=`；**缺省形态仍为 `ModuleResponse` 数组**）。
 
     口径：
 
     - `modules` 恒下发（服务目录本体，来源不变）；
-    - `products` / `collaborations` 仅在 `with` 中声明的段下发，未声明为空数组（不额外查询、不多暴露）；
+    - `products` / `collaborations` / `resource_types` 仅在 `with` 中声明的段下发，未声明为空数组
+      （不额外查询、不多暴露）；
     - `snapshot_version` 为带参形态的契约版本（形态变更时递增，便于消费方识别，避免与数组形态混用）；
     - `warnings` 承载降级提示（如产品声明未装载），不静默。
     """
@@ -72,5 +92,6 @@ class CatalogSnapshotResponse(BaseSchema):
     modules: Annotated[ConcurrentStableList[ModuleResponse], CONTRACT_COLLECTION]
     products: Annotated[ConcurrentStableList[ProductSnapshotItem], CONTRACT_COLLECTION]
     collaborations: Annotated[ConcurrentStableList[CollaborationSnapshotItem], CONTRACT_COLLECTION]
+    resource_types: Annotated[ConcurrentStableList[ScopeResourceTypeSnapshotItem], CONTRACT_COLLECTION]
     snapshot_version: str
     warnings: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION]

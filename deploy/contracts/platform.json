@@ -2992,7 +2992,7 @@
       },
       "CatalogSnapshotResponse": {
         "additionalProperties": false,
-        "description": "带参快照响应（`GET /api/v1/modules/snapshot?with=`；**缺省形态仍为 `ModuleResponse` 数组**）。\n\n口径：\n\n- `modules` 恒下发（服务目录本体，来源不变）；\n- `products` / `collaborations` 仅在 `with` 中声明的段下发，未声明为空数组（不额外查询、不多暴露）；\n- `snapshot_version` 为带参形态的契约版本（形态变更时递增，便于消费方识别，避免与数组形态混用）；\n- `warnings` 承载降级提示（如产品声明未装载），不静默。",
+        "description": "带参快照响应（`GET /api/v1/modules/snapshot?with=`；**缺省形态仍为 `ModuleResponse` 数组**）。\n\n口径：\n\n- `modules` 恒下发（服务目录本体，来源不变）；\n- `products` / `collaborations` / `resource_types` 仅在 `with` 中声明的段下发，未声明为空数组\n  （不额外查询、不多暴露）；\n- `snapshot_version` 为带参形态的契约版本（形态变更时递增，便于消费方识别，避免与数组形态混用）；\n- `warnings` 承载降级提示（如产品声明未装载），不静默。",
         "properties": {
           "collaborations": {
             "items": {
@@ -3015,6 +3015,13 @@
             "title": "Products",
             "type": "array"
           },
+          "resource_types": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeResourceTypeSnapshotItem"
+            },
+            "title": "Resource Types",
+            "type": "array"
+          },
           "snapshot_version": {
             "title": "Snapshot Version",
             "type": "string"
@@ -3031,6 +3038,7 @@
           "modules",
           "products",
           "collaborations",
+          "resource_types",
           "snapshot_version",
           "warnings"
         ],
@@ -8935,6 +8943,84 @@
           "version"
         ],
         "title": "RoleUpdateRequest",
+        "type": "object"
+      },
+      "ScopeResourceTypeSnapshotItem": {
+        "additionalProperties": false,
+        "description": "带参快照的作用域资源类型段（07D `01_01`；产品与平台进程重建视图共用）。\n\n`status` 为**有效态**（声明态与运营态同时启用才算 `enabled`）；`declaration_version` 供消费方\n判定新旧，`admin_status` 单独下发以便定位是「产品声明停用」还是「平台运营停用」。",
+        "properties": {
+          "admin_status": {
+            "title": "Admin Status",
+            "type": "string"
+          },
+          "declaration_version": {
+            "title": "Declaration Version",
+            "type": "integer"
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_pattern": {
+            "title": "Name Pattern",
+            "type": "string"
+          },
+          "product_key": {
+            "title": "Product Key",
+            "type": "string"
+          },
+          "removal_policy": {
+            "title": "Removal Policy",
+            "type": "string"
+          },
+          "resource_type_key": {
+            "title": "Resource Type Key",
+            "type": "string"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_type_key",
+          "name",
+          "name_pattern",
+          "max_length",
+          "retention_days",
+          "removal_policy",
+          "product_key",
+          "status",
+          "admin_status",
+          "declaration_version"
+        ],
+        "title": "ScopeResourceTypeSnapshotItem",
+        "type": "object"
+      },
+      "ScopeResourceTypeStatusRequest": {
+        "additionalProperties": false,
+        "description": "运营态变更请求（幂等：与现值一致时不写库、不记审计）。",
+        "properties": {
+          "admin_status": {
+            "description": "运营态（enabled / disabled）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Admin Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "admin_status"
+        ],
+        "title": "ScopeResourceTypeStatusRequest",
         "type": "object"
       },
       "SeedOrchestrationRequestSchema": {
@@ -20214,7 +20300,7 @@
         "operationId": "catalog_snapshot_api_v1_modules_snapshot_get",
         "parameters": [
           {
-            "description": "附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约",
+            "description": "附带段（逗号分隔多值：modules / products / collaborations / resource_types）；缺省保持原数组契约",
             "in": "query",
             "name": "with",
             "required": false,
@@ -20227,7 +20313,7 @@
                   "type": "null"
                 }
               ],
-              "description": "附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约",
+              "description": "附带段（逗号分隔多值：modules / products / collaborations / resource_types）；缺省保持原数组契约",
               "title": "With"
             }
           }
@@ -27375,6 +27461,183 @@
         "summary": "Unassign User",
         "tags": [
           "roles"
+        ]
+      }
+    },
+    "/api/v1/scope-resource-types": {
+      "get": {
+        "description": "作用域资源类型清单（只读，未退役全量；含已停用项）。\n\n需要 `scope-resource:query` 权限。\n\nArgs:\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应，data 为类型记录数组。",
+        "operationId": "list_scope_resource_types_api_v1_scope_resource_types_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Scope Resource Types",
+        "tags": [
+          "scope-resource"
+        ]
+      }
+    },
+    "/api/v1/scope-resource-types/{resource_type_key}": {
+      "patch": {
+        "description": "设置运营态（停用 / 恢复；只改运营态，不动产品声明）。\n\n需要 `scope-resource:manage` 权限；幂等（同值不写库、不记审计）；变更后重建进程内视图。\n\nArgs:\n    resource_type_key: 类型标识（`{module_key}.{kind}`）。\n    req: 运营态变更请求。\n    uow: 平台库工作单元（写事务边界）。\n    audit: 审计捕获器。\n    context: 入站身份（操作人取 `user_id`）。\n\nReturns:\n    ApiResponse: 统一响应，data 为变更后的类型记录。\n\nRaises:\n    ParamError: 运营态取值非法 / 类型已退役（10001）。\n    NotFoundError: 类型未登记（10002）。",
+        "operationId": "set_scope_resource_type_status_api_v1_scope_resource_types__resource_type_key__patch",
+        "parameters": [
+          {
+            "description": "类型标识（{module_key}.{kind}，如 msg.topic）",
+            "in": "path",
+            "name": "resource_type_key",
+            "required": true,
+            "schema": {
+              "description": "类型标识（{module_key}.{kind}，如 msg.topic）",
+              "title": "Resource Type Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScopeResourceTypeStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Set Scope Resource Type Status",
+        "tags": [
+          "scope-resource"
         ]
       }
     },

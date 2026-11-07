@@ -9,7 +9,7 @@
 - **离线**：网关配置生成（`ops.gateway_config`）按 `[registry].product_manifests` 装载后合并；
 - **缺省降级**：未配置清单 / 文件不存在时为空清单（平台路由照常生成），不静默使用旧值。
 
-清单格式为 **toml**（直接切换，**不留 json 兼容分支**），七段并列（除 `product_key` 外均可缺省）：
+清单格式为 **toml**（直接切换，**不留 json 兼容分支**），十段并列（除 `product_key` 外均可缺省）：
 
 ```toml
 product_key = "demo"
@@ -21,9 +21,12 @@ product_key = "demo"
 [[collaborations]]    # 能力（第五类记录）
 [[seeds]]             # 默认数据种子（第六类记录）
 [[errcodes]]          # 错误码（第七类记录，07B `02_05`）
+[[usages]]            # 消费方使用声明（第八类记录，07B `02_06`）
+[[domains]]           # 业务域（第九类记录，07B `04_02`）
+[[resource_types]]    # 作用域资源类型（第十类记录，07D `01_01`）
 ```
 
-**装载期七类校验**（载体 `inspect_product_manifests()`，任一不满足即拒启）：能力重名 / 提供方业务域
+**装载期十类校验**（载体 `inspect_product_manifests()`，任一不满足即拒启）：能力重名 / 提供方业务域
 未登记 / 归属不符 / 访问面不在对端契约 / 契约版本不兼容 / 种子入口不可解析 / 错误码段位与撞码；
 另有 `kind` 要素匹配、`branch_id` 长度与业务域一致性、`default_consumers` 登记、错误码契约反向
 对账（两档）等补充校验。校验实现唯一——装配期（`load_product_manifests()`）与离线门禁
@@ -65,6 +68,12 @@ from bms_core.core.objects import BaseValueObject
 from bms_core.core.paths import resolve_backend_root
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 from bms_core.datasource.registry import DataSourceRecord, register_data_source_records
+from bms_core.resource_scope import (
+    DEFAULT_RESOURCE_KEY_MAX_LENGTH,
+    RESOURCE_KEY_PATTERN_DEFAULT,
+    ScopeResourceTypeRecord,
+    scope_resource_type_issues,
+)
 from bms_core.services.module_registry import (
     PRODUCT_CATALOG,
     SERVICE_CATALOG,
@@ -73,6 +82,7 @@ from bms_core.services.module_registry import (
     CollaborationStatus,
     ErrorCodeRecord,
     ModuleRecord,
+    ModuleStatus,
     ProductRecord,
     ProductRouteRecord,
     SeedRecord,
@@ -177,7 +187,7 @@ JOB_STATUSES = ("enabled", "deprecated", "retired")
 
 @dataclass(frozen=True)
 class ProductManifest(BaseValueObject):
-    """产品登记清单（六类记录 + 产品档案）。
+    """产品登记清单（十类记录 + 产品档案）。
 
     Attributes:
         product_key: 清单归属产品标识（文件中所有记录须与之一致）。
@@ -221,6 +231,11 @@ class ProductManifest(BaseValueObject):
 
     jobs: ConcurrentStableFrozenList[JobDeclaration] = field(default_factory=lambda: ConcurrentStableFrozenList())
     """作业类型声明（`[[jobs]]`，01_03）：平台装载进 `sys_job_type` 目录。"""
+
+    resource_types: ConcurrentStableFrozenList[ScopeResourceTypeRecord] = field(
+        default_factory=lambda: ConcurrentStableFrozenList()
+    )
+    """作用域资源类型声明（`[[resource_types]]`，07D `01_01`）：第十类记录，三级作用域第三级约束。"""
 
 
 @dataclass(frozen=True)
@@ -870,6 +885,10 @@ def _build_manifest(root: ConcurrentStableDict[str, object], *, path: Path) -> P
     jobs: ConcurrentStableList[JobDeclaration] = ConcurrentStableList(
         _job_record(raw, scope="jobs") for raw in _records(root.get("jobs"), scope="jobs")
     )
+    resource_types: ConcurrentStableList[ScopeResourceTypeRecord] = ConcurrentStableList(
+        _resource_type_record(raw, scope="resource_types", product_key=product_key)
+        for raw in _records(root.get("resource_types"), scope="resource_types")
+    )
     return ProductManifest(
         product_key=product_key,
         products=ConcurrentStableFrozenList(products),
@@ -885,6 +904,7 @@ def _build_manifest(root: ConcurrentStableDict[str, object], *, path: Path) -> P
             _str_list(root.get("domain_shared_paths"), scope="domain_shared_paths")
         ),
         jobs=ConcurrentStableFrozenList(jobs),
+        resource_types=ConcurrentStableFrozenList(resource_types),
     )
 
 
@@ -953,6 +973,37 @@ def _domain_record(raw: object, *, scope: str) -> DomainEntry:
         paths=ConcurrentStableFrozenList(paths),
         public_api=ConcurrentStableFrozenList(public_api),
         name=str(data.get("name") or ""),
+    )
+
+
+def _resource_type_record(raw: object, *, scope: str, product_key: str) -> ScopeResourceTypeRecord:
+    """构造作用域资源类型记录（第十类记录，07D `01_01`）。
+
+    清单字段：`key`（类型标识 `{module_key}.{kind}`）/ `name` / `name_pattern` / `max_length` /
+    `retention_days` / `removal_policy` / `status`；`product_key` 取清单归属（声明方不手写）。
+    形态、模块键归属与命名规则由装载期校验判定（`_check_resource_types`）。
+
+    Args:
+        raw: 原始映射。
+        scope: 错误信息作用域。
+        product_key: 清单归属产品键。
+
+    Returns:
+        ScopeResourceTypeRecord: 类型记录。
+
+    Raises:
+        CatalogError: 缺必填字段或数值字段类型非法。
+    """
+    data = _as_mapping(raw)
+    return ScopeResourceTypeRecord(
+        resource_type_key=str(_require(data, "key", scope=scope)),
+        name=str(_require(data, "name", scope=scope)),
+        name_pattern=str(data.get("name_pattern") or RESOURCE_KEY_PATTERN_DEFAULT),
+        max_length=_positive_int(data, "max_length", DEFAULT_RESOURCE_KEY_MAX_LENGTH, scope=scope),
+        retention_days=_non_negative_int(data, "retention_days", 0, scope=scope),
+        removal_policy=str(data.get("removal_policy") or "archive"),
+        product_key=product_key,
+        status=str(data.get("status") or "enabled"),
     )
 
 
@@ -1540,6 +1591,40 @@ def _validate_manifest_entries(
                 warnings=warnings,
             )
         )
+    if manifest.resource_types:
+        errors.update(_check_resource_types(manifest, label=label))
+    return errors
+
+
+def _check_resource_types(manifest: ProductManifest, *, label: str) -> ConcurrentStableList[str]:
+    """作用域资源类型（第十类记录，07D `01_01`）的装载期形态与归属校验。
+
+    离线口径只认**本清单**服务行（本地看不到别的产品）；「模块键已登记且启用」的完整判定
+    （含注册表已登记行）归注册通道的 `validate_scope_resource_types()`。
+
+    Args:
+        manifest: 清单。
+        label: 错误信息前缀。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    module_keys: ConcurrentStableSet[str] = ConcurrentStableSet(service.module_key for service in manifest.services)
+    enabled_keys: ConcurrentStableSet[str] = ConcurrentStableSet(
+        service.module_key for service in manifest.services if service.status == ModuleStatus.ENABLED
+    )
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for resource_type in manifest.resource_types:
+        prefix = f"{label}｜资源类型 {resource_type.resource_type_key}"
+        if resource_type.resource_type_key in seen:
+            errors.add(f"{prefix}：同一份清单内类型标识重复")
+            continue
+        seen.add(resource_type.resource_type_key)
+        issues = scope_resource_type_issues(resource_type, module_keys=module_keys)
+        errors.update(f"{label}｜{issue}" for issue in issues)
+        if resource_type.module_key in module_keys and resource_type.module_key not in enabled_keys:
+            errors.add(f"{prefix}：所属模块键未启用（{resource_type.module_key}；清单服务行须 enabled）")
     return errors
 
 

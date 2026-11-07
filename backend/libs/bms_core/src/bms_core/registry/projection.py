@@ -25,6 +25,11 @@ from bms_core.datasource.registry import (
     reset_data_source_records,
 )
 from bms_core.registry.declarations import RegistrySnapshot, declaration_key
+from bms_core.resource_scope import (
+    ScopeResourceTypeRecord,
+    register_scope_resource_types,
+    reset_scope_resource_types,
+)
 from bms_core.services.module_registry import (
     PRODUCT_CATALOG,
     SEED_CATALOG,
@@ -53,10 +58,13 @@ __all__ = ["project_registry"]
 
 
 def project_registry(view: RegistrySnapshot) -> None:
-    """把注册表快照整体投影进进程内视图族（仅 `enabled` 记录）。
+    """把注册表快照整体投影进进程内视图族（未退役记录）。
 
     Args:
-        view: 注册表快照（八类记录 + 退役标记 + 声明方）。
+        view: 注册表快照（十类记录 + 退役标记 + 声明方）。
+
+    说明：`_enabled()` 的语义是「未退役」——`status = disabled` 的记录仍会进入视图，
+    由各视图自行判定（如作用域资源类型要区分「未注册」与「已停用」）。
     """
     reset_product_records()
     reset_service_records()
@@ -66,6 +74,7 @@ def project_registry(view: RegistrySnapshot) -> None:
     reset_seed_records()
     reset_error_code_records()
     reset_capability_usages()
+    reset_scope_resource_types()
     register_product_records(
         cast("Iterable[ProductRecord]", _without_constants(view, "products", _constant_product_keys()))
     )
@@ -79,6 +88,7 @@ def project_registry(view: RegistrySnapshot) -> None:
     register_error_code_records(cast("Iterable[ErrorCodeRecord]", _enabled(view, "errcodes")))
     _project_usages(view)
     _project_domains(view)
+    _project_scope_resource_types(view)
 
 
 def _project_domains(view: RegistrySnapshot) -> None:
@@ -192,3 +202,15 @@ def _project_usages(view: RegistrySnapshot) -> None:
         # 消费者视图（`capability_usage_view()`）是「声明方 → 声明列表」的登记位；
         # 注册表是权威来源，这里按声明方覆盖登记（退役项已在 `_enabled` 过滤）
         register_capability_usages(declarer, usages)
+
+
+def _project_scope_resource_types(view: RegistrySnapshot) -> None:
+    """按注册表快照重建作用域资源类型视图（第十类，07D `01_01`）。
+
+    与其它类同样整表重建；差别只在于视图**保留 `disabled`**（作用域校验要区分「未注册」与
+    「已停用」，两类失败码不同），仅排除 `retired`——`_enabled()` 即该语义。
+
+    Args:
+        view: 注册表快照。
+    """
+    register_scope_resource_types(cast("Iterable[ScopeResourceTypeRecord]", _enabled(view, "resource_types")))

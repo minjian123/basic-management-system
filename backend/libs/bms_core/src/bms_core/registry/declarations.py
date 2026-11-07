@@ -2,14 +2,14 @@
 
 本模块只做纯逻辑（无 IO、无进程级状态），供注册服务端与用例共用：
 
-- `DeclarationPayload`：一个产品的**八类声明全集**（注册协议载荷）；
-- `RegistrySnapshot`：注册表现状（八类，键 → 记录 + 指纹 + 状态）；
+- `DeclarationPayload`：一个产品的**十类声明全集**（注册协议载荷）；
+- `RegistrySnapshot`：注册表现状（十类，键 → 记录 + 指纹 + 状态）；
 - `plan_declarations()`：整体对账 → `DeclarationPlan`（新增 / 覆盖 / 未变 / 退役）；
 - `validate_declarations()`：跨产品一致性校验（对着注册表现状，而非「本次装载了哪些清单」）。
 
 口径：
 
-- **单次全量**：产品每次注册都提交自己八类声明的全集，未出现的记录退役（不删行）；
+- **单次全量**：产品每次注册都提交自己十类声明的全集，未出现的记录退役（不删行）；
 - **内容未变不写**：按 `content_hash` 判定，避免重启即写库；
 - **跨产品撞键即拒**：同一业务键被其他产品占用属配置冲突，不静默覆盖。
 """
@@ -37,10 +37,12 @@ from bms_core.core.exceptions import CatalogError
 from bms_core.core.objects import BaseValueObject
 from bms_core.datasource.registry import DataSourceRecord
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
+from bms_core.resource_scope import ScopeResourceTypeRecord, scope_resource_type_issues
 from bms_core.services.module_registry import (
     CollaborationRecord,
     ErrorCodeRecord,
     ModuleRecord,
+    ModuleStatus,
     ProductRecord,
     ProductRouteRecord,
     SeedRecord,
@@ -60,6 +62,7 @@ __all__ = [
     "record_from_wire",
     "validate_declarations",
     "validate_declared_services",
+    "validate_scope_resource_types",
     "validate_seed_tables",
 ]
 
@@ -74,9 +77,11 @@ DECLARATION_KINDS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
         "errcodes",
         "usages",
         "domains",
+        "resource_types",
     )
 )
-"""九类声明（顺序即注册协议与视图投影口径；第九类 `domains` 为 07B `04_02` 重开新增）。"""
+"""十类声明（顺序即注册协议与视图投影口径；第九类 `domains` 为 07B `04_02` 重开新增，
+第十类 `resource_types` 为 07D `01_01` 新增：三级作用域的第三级类型约束）。"""
 
 _KIND_KEYS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
     {
@@ -89,6 +94,7 @@ _KIND_KEYS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
         "errcodes": "code",
         "usages": "name",
         "domains": "domain_key",
+        "resource_types": "resource_type_key",
     }
 )
 """各类声明的业务键字段名（跨产品唯一性判定用）。"""
@@ -191,7 +197,7 @@ class RegistrySnapshot(BaseValueObject):
 
 @dataclass(frozen=True)
 class DeclarationPayload(BaseValueObject):
-    """一个产品的八类声明全集（注册协议载荷）。"""
+    """一个产品的十类声明全集（注册协议载荷）。"""
 
     product_key: str
     """声明方产品键（注册只能写自己名下记录）。"""
@@ -217,6 +223,10 @@ class DeclarationPayload(BaseValueObject):
     errcodes: ConcurrentStableFrozenList[ErrorCodeRecord] = field(default_factory=lambda: ConcurrentStableFrozenList())
     usages: ConcurrentStableFrozenList[CapabilityUsage] = field(default_factory=lambda: ConcurrentStableFrozenList())
     domains: ConcurrentStableFrozenList[DomainEntry] = field(default_factory=lambda: ConcurrentStableFrozenList())
+    resource_types: ConcurrentStableFrozenList[ScopeResourceTypeRecord] = field(
+        default_factory=lambda: ConcurrentStableFrozenList()
+    )
+    """作用域资源类型声明（第十类记录；07D `01_01`）。"""
 
     def of(self, kind: str) -> ConcurrentStableList[Any]:
         """取某类声明。
@@ -336,6 +346,7 @@ def from_manifest(manifest: object) -> DeclarationPayload:
         errcodes=ConcurrentStableFrozenList(data.error_codes),
         usages=ConcurrentStableFrozenList(data.usages),
         domains=ConcurrentStableFrozenList(getattr(data, "domains", ()) or ()),
+        resource_types=ConcurrentStableFrozenList(getattr(data, "resource_types", ()) or ()),
     )
 
 
@@ -458,6 +469,19 @@ def record_from_wire(kind: str, data: ConcurrentStableDict[str, object]) -> obje
             paths=ConcurrentStableFrozenList(str(item) for item in cast("Any", data.get("paths") or ())),
             public_api=ConcurrentStableFrozenList(str(item) for item in cast("Any", data.get("public_api") or ())),
         )
+    if kind == "resource_types":
+        return ScopeResourceTypeRecord(
+            resource_type_key=str(data.get("resource_type_key") or ""),
+            name=str(data.get("name") or ""),
+            name_pattern=str(data.get("name_pattern") or ""),
+            max_length=int(cast("Any", data.get("max_length") or 0)),
+            retention_days=int(cast("Any", data.get("retention_days") or 0)),
+            removal_policy=str(data.get("removal_policy") or "archive"),
+            product_key=str(data.get("product_key") or ""),
+            status=str(data.get("status") or "enabled"),
+            admin_status=str(data.get("admin_status") or "enabled"),
+            declaration_version=int(cast("Any", data.get("declaration_version") or 1)),
+        )
     raise CatalogError(f"未知的声明类别：{kind}（取值 {'/'.join(DECLARATION_KINDS)}）")
 
 
@@ -486,7 +510,13 @@ def declaration_wire(kind: str, record: object) -> ConcurrentStableDict[str, obj
     Returns:
         ConcurrentStableDict[str, object]: 要素映射（只含声明要素，不含行主键与审计字段）。
     """
-    return _record_payload(kind, record)
+    payload = _record_payload(kind, record)
+    if kind == "resource_types":
+        # 运营态与声明版本随快照下发（产品进程据此判定有效态与新旧的必要条件），
+        # 但**不进内容指纹**：否则运营期停用会被下次注册判成「内容已变」并冲掉。
+        payload["admin_status"] = str(getattr(record, "admin_status", "enabled"))
+        payload["declaration_version"] = int(getattr(record, "declaration_version", 1))
+    return payload
 
 
 def declaration_key(kind: str, record: object) -> str:
@@ -609,9 +639,25 @@ _ELEMENT_FIELDS: ConcurrentStableDict[str, ConcurrentStableFrozenList[str]] = Co
         ),
         "usages": ConcurrentStableFrozenList(("name", "degrade", "reason")),
         "domains": ConcurrentStableFrozenList(("domain_key", "service_key", "status", "paths", "public_api")),
+        "resource_types": ConcurrentStableFrozenList(
+            (
+                "resource_type_key",
+                "name",
+                "name_pattern",
+                "max_length",
+                "retention_days",
+                "removal_policy",
+                "product_key",
+                "status",
+            )
+        ),
     }
 )
-"""各类声明的**指纹要素**（顺序稳定；只含声明要素，不含运行期派生字段）。"""
+"""各类声明的**指纹要素**（顺序稳定；只含声明要素，不含运行期派生字段）。
+
+`resource_types` 刻意**不含** `admin_status` / `declaration_version`：前者是运营态（由停用接口写），
+后者随内容变更派生——两者入指纹会让「运营期停用」被下次注册判成内容变化而回写。
+"""
 
 
 def _record_payload(kind: str, record: object) -> ConcurrentStableDict[str, object]:
@@ -867,6 +913,8 @@ def validate_declarations(
     errors.update(validate_seed_tables(payload))
     # 业务域声明（第九类，07B `04_02` 重开）：承载服务须在本次声明或注册表中；跨产品不得撞键
     errors.update(_validate_declared_domains(payload, current, label=label, warnings=warnings))
+    # 作用域资源类型（第十类，07D `01_01`）：模块键归属与启用、形态、跨产品唯一
+    errors.update(validate_scope_resource_types(payload, current, label=label))
     for record in payload.collaborations:
         prefix = f"{label}｜能力 {record.name}"
         owner_domain = domain_services.get(record.domain)
@@ -895,6 +943,57 @@ def validate_declarations(
         if usage.degrade != "none" and registered_capabilities.get(usage.name) in WRITE_KINDS:
             errors.add(f"{prefix}：写 / 强一致能力不得声明降级（kind={registered_capabilities.get(usage.name)}）")
     _validate_errcodes(payload, current, warnings=warnings, errors=errors, label=label)
+    return errors
+
+
+def validate_scope_resource_types(
+    payload: DeclarationPayload,
+    current: RegistrySnapshot,
+    *,
+    label: str,
+) -> ConcurrentStableList[str]:
+    """注册期作用域资源类型校验（第十类记录，07D `01_01`）。
+
+    校验项：
+
+    1. **模块键归属本产品**：类型标识第一段须在「本次声明的服务行 ∪ 注册表已登记本产品服务行」中
+       （机制自带的归属约束，防挂到别的产品的模块键上）；
+    2. **模块键已登记且启用**：命中注册表但 `status != enabled` 即拒（**登记态**，租户开关不在此判）；
+    3. **形态与命名规则**：委托 `scope_resource_type_issues()`（V1 / V5 / V6 / V7，唯一实现）；
+    4. **跨产品唯一**：同键已被别的产品注册即拒；同一份声明内重复同样拒。
+
+    Args:
+        payload: 本次全量声明。
+        current: 注册表现状。
+        label: 错误信息前缀。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细（空 = 通过）。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    allowed: ConcurrentStableSet[str] = ConcurrentStableSet(record.module_key for record in payload.services)
+    enabled: ConcurrentStableSet[str] = ConcurrentStableSet(
+        record.module_key for record in payload.services if record.status == ModuleStatus.ENABLED
+    )
+    for record in current.of("services"):
+        if current.owner_of("services", record.module_key) != payload.product_key:
+            continue
+        allowed.add(record.module_key)
+        if record.status == ModuleStatus.ENABLED:
+            enabled.add(record.module_key)
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for resource_type in payload.resource_types:
+        prefix = f"{label}｜资源类型 {resource_type.resource_type_key}"
+        if resource_type.resource_type_key in seen:
+            errors.add(f"{prefix}：同一份声明内类型标识重复")
+            continue
+        seen.add(resource_type.resource_type_key)
+        errors.update(f"{label}｜{issue}" for issue in scope_resource_type_issues(resource_type, module_keys=allowed))
+        if resource_type.module_key in allowed and resource_type.module_key not in enabled:
+            errors.add(f"{prefix}：所属模块键未启用（{resource_type.module_key}；须已登记且 enabled）")
+        owner = current.owner_of("resource_types", resource_type.resource_type_key)
+        if owner is not None and owner != payload.product_key:
+            errors.add(f"{prefix}：类型标识已被产品 {owner} 注册（全局唯一，不得跨产品复用）")
     return errors
 
 

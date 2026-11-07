@@ -118,15 +118,16 @@ async def test_snapshot_without_params_keeps_array_contract(client: AsyncClient)
 async def test_snapshot_with_segments_returns_products_and_collaborations(
     client: AsyncClient, demo_catalog_entries: None
 ) -> None:
-    """带参：三段 + `snapshot_version`；能力段不含 `path` 与授权信息，`codes` / `disabled` 不下发。"""
+    """带参：四段 + `snapshot_version`；能力段不含 `path` 与授权信息，`codes` / `disabled` 不下发。"""
     client.headers.update(auth_headers())
 
     response = await client.get("/api/v1/modules/snapshot", params={"with": "products,collaborations"})
 
     assert response.status_code == 200
     data = response.json()["data"]
-    assert set(data) == {"modules", "products", "collaborations", "snapshot_version", "warnings"}
-    assert data["snapshot_version"] == "2"
+    assert set(data) == {"modules", "products", "collaborations", "resource_types", "snapshot_version", "warnings"}
+    assert data["snapshot_version"] == "3"
+    assert data["resource_types"] == [], "未请求作用域资源类型段时为空数组"
     assert [item["module_key"] for item in data["modules"]] == [module.module_key for module in service_catalog_view()]
 
     demo_products = [item for item in data["products"] if item["product_key"] == "demo"]

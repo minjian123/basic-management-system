@@ -1,6 +1,6 @@
-"""产品声明注册表仓储（07B `02_06`）：八类声明的读取与落库。
+"""产品声明注册表仓储（07B `02_06`）：十类声明的读取与落库。
 
-- 归属：读写平台服务库 `bms_platform`（`sys_module` / `sys_product` + 六张声明表）；
+- 归属：读写平台服务库 `bms_platform`（`sys_module` / `sys_product` + 八张声明表）；
 - 写入口**唯一**：产品注册通道（`DeclarationRegistryService`）；会话随构造注入，事务边界由调用方负责；
 - 退役不删行：本次未声明的记录置 `status = retired`（历史保留，便于回滚与对账）；
 - 内容指纹：每次写入按要素重算 `content_hash`，供「内容未变不写」判定。
@@ -22,6 +22,7 @@ from bms_core.models.platform.declaration import (
     SysDomain,
     SysErrcode,
     SysProductRoute,
+    SysScopeResourceType,
     SysSeed,
 )
 from bms_core.registry.declarations import (
@@ -32,6 +33,7 @@ from bms_core.registry.declarations import (
     declaration_key,
 )
 from bms_core.repositories.base_db_repository import BaseDbRepository
+from bms_core.resource_scope import ScopeResourceTypeRecord
 from bms_core.services.module_registry import (
     CollaborationRecord,
     CollaborationStatus,
@@ -56,11 +58,13 @@ _NEW_MODELS: ConcurrentStableDict[str, type[Any]] = ConcurrentStableDict(
         "seeds": SysSeed,
         "errcodes": SysErrcode,
         "domains": SysDomain,
+        "resource_types": SysScopeResourceType,
     }
 )
-"""七张声明表对应的 ORM 模型（服务行 / 产品档案走既有 `sys_module` / `sys_product`）。
+"""八张声明表对应的 ORM 模型（服务行 / 产品档案走既有 `sys_module` / `sys_product`）。
 
-07B `04_02` 重开新增 `domains`（第九类：业务域声明）。
+07B `04_02` 重开新增 `domains`（第九类：业务域声明）；07D `01_01` 新增 `resource_types`
+（第十类：作用域资源类型声明）。
 """
 
 
@@ -204,6 +208,7 @@ class DeclarationRepository(BaseDbRepository[Any]):
             "errcodes": "code",
             "usages": "capability_name",
             "domains": "domain_key",
+            "resource_types": "resource_type_key",
         }[kind]
 
     @staticmethod
@@ -337,6 +342,16 @@ class DeclarationRepository(BaseDbRepository[Any]):
             row.status = data.status
             row.paths = _json_list(data.paths)
             row.public_api = _json_list(data.public_api)
+        elif kind == "resource_types":
+            row.resource_type_key = data.resource_type_key
+            row.name = data.name
+            row.name_pattern = data.name_pattern
+            row.max_length = data.max_length
+            row.retention_days = data.retention_days
+            row.removal_policy = data.removal_policy
+            row.status = data.status
+            # 声明版本按内容变更派生（新建 1，覆盖 +1）；运营态列（admin_status / disabled_*）不在此写
+            row.declaration_version = 1 if creating else int(row.declaration_version) + 1
         row.content_hash = content_hash_of(kind, record)
 
     def _to_record(self, kind: str, row: object) -> object:
@@ -427,6 +442,8 @@ class DeclarationRepository(BaseDbRepository[Any]):
                 paths=_frozen_list(data.paths),
                 public_api=_frozen_list(data.public_api),
             )
+        if kind == "resource_types":
+            return ScopeResourceTypeRecord.from_row(data)
         return ErrorCodeRecord(
             code=int(data.code),
             domain=str(data.domain),

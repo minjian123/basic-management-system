@@ -26,12 +26,14 @@ from bms_core.api.deps import get_platform_read_db
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import NotFoundError, ParamError
 from bms_core.db.session import DbSession
+from bms_core.resource_scope import scope_resource_type_view
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.module import (
     CatalogSnapshotResponse,
     CollaborationSnapshotItem,
     ModuleResponse,
     ProductSnapshotItem,
+    ScopeResourceTypeSnapshotItem,
 )
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
 from bms_core.services.module_registry import (
@@ -60,17 +62,20 @@ WithQuery = Annotated[
     str | None,
     Query(
         alias="with",
-        description="附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约",
+        description="附带段（逗号分隔多值：modules / products / collaborations / resource_types）；缺省保持原数组契约",
     ),
 ]
 
-SNAPSHOT_SEGMENTS: ConcurrentStableSet[str] = ConcurrentStableSet(("modules", "products", "collaborations"))
+SNAPSHOT_SEGMENTS: ConcurrentStableSet[str] = ConcurrentStableSet(
+    ("modules", "products", "collaborations", "resource_types")
+)
 """带参快照可接受的段名（集合外的值按参数非法拒绝，不静默回退数组契约）。"""
 
-CATALOG_SNAPSHOT_VERSION = "2"
+CATALOG_SNAPSHOT_VERSION = "3"
 """带参快照的契约版本（形态变更时递增；缺省数组形态不带该字段）。
 
 `"2"`（2026-10-28，`03_02`）：能力段增 `kind` 字段（前端按「业务域 + 种类」取址）。
+`"3"`（2026-11-07，07D `01_01`）：增 `resource_types` 段（作用域资源类型，三级作用域第三级约束）。
 """
 
 
@@ -144,6 +149,7 @@ async def catalog_snapshot(
         modules=modules,
         products=_product_segment(segments),
         collaborations=_collaboration_segment(segments, warnings),
+        resource_types=_resource_type_segment(segments),
         snapshot_version=CATALOG_SNAPSHOT_VERSION,
         warnings=warnings,
     )
@@ -199,6 +205,35 @@ def _module_response(row: object, *, base_keys: ConcurrentStableSet[str] | None 
     keys = ConcurrentStableSet(tenant_base_module_keys()) if base_keys is None else base_keys
     payload = ModuleResponse.model_validate(row)
     return payload.model_copy(update={"tenant_base": payload.module_key in keys})
+
+
+def _resource_type_segment(segments: ConcurrentStableSet[str]) -> ConcurrentStableList[ScopeResourceTypeSnapshotItem]:
+    """取作用域资源类型段（仅请求时下发；`retired` 不在视图内，`status` 下发有效态）。
+
+    Args:
+        segments: 请求的段名集合。
+
+    Returns:
+        ConcurrentStableList[ScopeResourceTypeSnapshotItem]: 资源类型段。
+    """
+    if "resource_types" not in segments:
+        return ConcurrentStableList()
+    records = scope_resource_type_view()
+    return ConcurrentStableList(
+        ScopeResourceTypeSnapshotItem(
+            resource_type_key=record.resource_type_key,
+            name=record.name,
+            name_pattern=record.name_pattern,
+            max_length=record.max_length,
+            retention_days=record.retention_days,
+            removal_policy=record.removal_policy,
+            product_key=record.product_key,
+            status=record.status,
+            admin_status=record.admin_status,
+            declaration_version=record.declaration_version,
+        )
+        for record in records.values()
+    )
 
 
 def _requested_segments(raw: str | None) -> ConcurrentStableSet[str]:
