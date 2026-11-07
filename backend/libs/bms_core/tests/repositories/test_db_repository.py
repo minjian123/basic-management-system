@@ -1,9 +1,10 @@
 """DB 仓储真实实现测试（Kiwi 1050）：共享平台库验证 CRUD / 作用域 / 软删 / 租户 / 乐观锁 / 分页排序；
 keyset 游标见 Kiwi 1078。
 
-单库叠加口径（04-6-2）：库用会话级共享平台库（`shared_platform_engine`），本文件的两张测试表
+单库叠加口径（04-6-2）：库用会话级共享平台库（`shared_platform_engine`），本文件的三张测试表
 幂等建在共享库上；数据一律走 `rollback_session`，用例结束整体回滚——只撤本用例写入，
-故「精确总数」断言语义不变。
+故「精确总数」断言语义不变。唯一例外是乐观锁并发用例（需真实提交），它独占 `test_db_lock_item`，
+不往被精确计数的 `test_db_item` 落盘行。
 """
 
 from collections.abc import AsyncIterator
@@ -48,6 +49,20 @@ class DbItem(BaseModel):
     rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
+class LockItem(BaseModel):
+    """测试模型：乐观锁并发用例专用表。
+
+    该用例需要两个**真实**会话并真实提交（回滚会话无法模拟并发提交），提交行会在本进程内
+    对其他用例可见；单库叠加下 `test_db_item` 的断言是全表精确条数，故让它独占一张无人计数的表，
+    不与其他用例争同一张表的可见行。
+    """
+
+    __tablename__ = "test_db_lock_item"
+
+    name: Mapped[str] = mapped_column(String(32))
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 class ScopedNote(BaseModel):
     """测试模型：含 `tenant_id`（同库多租户维度）。"""
 
@@ -76,6 +91,19 @@ class HardDeleteItemRepository(BaseDbRepository[DbItem]):
     """测试仓储：关闭软删（`delete` 物理删）。"""
 
     model = DbItem
+    soft_delete_enabled = False
+
+
+class LockItemRepository(BaseDbRepository[LockItem]):
+    """测试仓储：乐观锁并发用例（默认软删，独占表）。"""
+
+    model = LockItem
+
+
+class HardDeleteLockItemRepository(BaseDbRepository[LockItem]):
+    """测试仓储：乐观锁并发用例的收尾清理（关闭软删，物理删自己写入的行）。"""
+
+    model = LockItem
     soft_delete_enabled = False
 
 
@@ -137,7 +165,11 @@ def _create_table(table: Table, connection: Connection) -> None:
 async def engine(shared_platform_engine: AsyncEngine) -> AsyncEngine:
     """共享平台库引擎：幂等建本文件的测试两表（不建库、不删表）。"""
     async with shared_platform_engine.begin() as connection:
-        for table in (cast("Table", DbItem.__table__), cast("Table", ScopedNote.__table__)):
+        for table in (
+            cast("Table", DbItem.__table__),
+            cast("Table", LockItem.__table__),
+            cast("Table", ScopedNote.__table__),
+        ):
             await connection.run_sync(partial(_create_table, table))
     return shared_platform_engine
 
@@ -443,16 +475,17 @@ async def test_tenant_scope_edge_branches(session: AsyncSession) -> None:
 async def test_optimistic_lock_conflict(session_factory: async_sessionmaker[AsyncSession], ns: Namespace) -> None:
     """并发旧版本更新 flush 触发 StaleDataError，仓储转 ConcurrentConflictError（409）。
 
-    本用例需要两个**真实**会话（回滚会话无法模拟并发提交），故数据会落盘：编码用命名空间
-    前缀保证不与他人冲突，结束时物理删掉自己写入的行（删自己的数据是允许的）。
+    本用例需要两个**真实**会话（回滚会话无法模拟并发提交），故数据会落盘：写入 `test_db_lock_item`
+    ——一张只服务本用例的表（`test_db_item` 被其他用例做全表精确条数断言，落盘行会污染它们）；
+    编码仍用命名空间前缀，结束时物理删掉自己写入的行。
     """
     name = ns.code("lock")
     async with session_factory() as first, session_factory() as second:
-        first_repo = DbItemRepository(first)
+        first_repo = LockItemRepository(first)
         created = await first_repo.create(name=name)
         await first.commit()
 
-        second_repo = DbItemRepository(second)
+        second_repo = LockItemRepository(second)
         stale = await second_repo.get(created.id)
         assert stale is not None and stale.version == 1
         assert await first_repo.update(created.id, name=f"{name}-first") is not None
@@ -461,7 +494,7 @@ async def test_optimistic_lock_conflict(session_factory: async_sessionmaker[Asyn
             await second_repo.update(created.id, name=f"{name}-second")
 
     async with session_factory() as cleanup:
-        assert await HardDeleteItemRepository(cleanup).hard_delete(created.id) is True
+        assert await HardDeleteLockItemRepository(cleanup).hard_delete(created.id) is True
         await cleanup.commit()
 
 
