@@ -32,12 +32,12 @@ from bms_core.tenant.lifecycle import (
     TENANT_DELETED,
     TENANT_SUSPENDED,
     BaseTenantResourceHandler,
-    NullTenantResourceHandler,
     TenantLifecycleContext,
     TenantLifecycleDispatcher,
     build_tenant_lifecycle_event,
     get_tenant_resource_handler,
 )
+from bms_core.tenant.null import NullTenantResourceHandler
 
 pytestmark = pytest.mark.kiwi_id(2449)
 

@@ -20,12 +20,11 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.audit.events import audit_aggregate_key
-from bms_core.core.capability import BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError, EventContractError
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.events.base import EventEnvelope
 from bms_core.events.platform_events import TENANT_ID_PAYLOAD_KEY
@@ -44,7 +43,6 @@ __all__ = [
     "TENANT_LIFECYCLE_EVENT_TYPES",
     "TENANT_SUSPENDED",
     "BaseTenantResourceHandler",
-    "NullTenantResourceHandler",
     "TenantLifecycleContext",
     "TenantLifecycleDispatcher",
     "build_tenant_lifecycle_event",
@@ -222,87 +220,7 @@ class BaseTenantResourceHandler(BasePluggable, ABC):
         return None
 
 
-class NullTenantResourceHandler(BaseTenantResourceHandler, BaseNullObject):
-    """占位实现：四动作 no-op，账本为进程内字典（开发期 / 用例专用）。
-
-    生产装配必须显式选产品实现——占位不动资源，删除事件会被「处理成功」而不清理，
-    因此每次动作记一条 WARNING（`tenant_resource_action_skipped`）便于发现漏配。
-    """
-
-    def __init__(self) -> None:
-        """初始化进程内账本。"""
-        self._applied: ConcurrentStableDict[tuple[int, str], int] = ConcurrentStableDict()
-
-    async def applied_version(self, *, tenant_id: int, action: str) -> int:
-        """读取进程内账本。
-
-        Args:
-            tenant_id: 租户主键。
-            action: 动作名。
-
-        Returns:
-            int: 已处理版本；无记录 `-1`。
-        """
-        return self._applied.get((tenant_id, action), -1)
-
-    async def mark_applied(self, *, tenant_id: int, action: str, version: int) -> None:
-        """写入进程内账本。
-
-        Args:
-            tenant_id: 租户主键。
-            action: 动作名。
-            version: 已处理版本。
-        """
-        self._applied.set((tenant_id, action), int(version))
-
-    async def on_created(self, context: TenantLifecycleContext) -> None:
-        """占位：记录漏配告警。
-
-        Args:
-            context: 生命周期上下文。
-        """
-        self._warn(context)
-
-    async def on_suspended(self, context: TenantLifecycleContext) -> None:
-        """占位：记录漏配告警。
-
-        Args:
-            context: 生命周期上下文。
-        """
-        self._warn(context)
-
-    async def on_activated(self, context: TenantLifecycleContext) -> None:
-        """占位：记录漏配告警。
-
-        Args:
-            context: 生命周期上下文。
-        """
-        self._warn(context)
-
-    async def on_deleted(self, context: TenantLifecycleContext) -> None:
-        """占位：记录漏配告警（资源未清理）。
-
-        Args:
-            context: 生命周期上下文。
-        """
-        self._warn(context)
-
-    def _warn(self, context: TenantLifecycleContext) -> None:
-        """记录「未配置产品资源实现」告警。
-
-        Args:
-            context: 生命周期上下文。
-        """
-        _LOGGER.warning(
-            "tenant_resource_action_skipped",
-            tenant_id=context.tenant_id,
-            action=context.action,
-            version=context.version,
-            detail="tenant_resources 配置为占位实现，资源动作未执行",
-        )
-
-
-class TenantLifecycleDispatcher:
+class TenantLifecycleDispatcher(BaseFrameworkObject):
     """生命周期事件分发器：校验 → 版本判定 → 动作 → 记账。
 
     只做路由与幂等，不做重试：动作失败原样上抛，交给消费组的退避重试与死信。

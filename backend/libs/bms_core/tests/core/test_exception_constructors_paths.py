@@ -188,6 +188,11 @@ _EXCEPTIONS: ConcurrentStableList[tuple[type[BizError], int, int]] = ConcurrentS
         (exceptions.WecomAuthError, 20058, 400),
         (exceptions.WecomConfigError, 20057, 503),
         (exceptions.WecomUnavailableError, 20059, 503),
+        (exceptions.ScopeModuleNotRegisteredError, 82009, 400),
+        (exceptions.ScopeModuleDisabledError, 82010, 403),
+        (exceptions.ScopeResourceTypeNotRegisteredError, 82011, 400),
+        (exceptions.ScopeResourceOutOfBoundsError, 82012, 403),
+        (exceptions.ResourceAccessDeniedError, 82013, 403),
     )
 )
 

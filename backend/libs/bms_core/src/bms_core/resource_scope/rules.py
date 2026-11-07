@@ -21,7 +21,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from bms_core.core.capability import BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import BizError, ConfigError, InternalError
 from bms_core.core.logging import get_logger
@@ -35,7 +34,6 @@ if TYPE_CHECKING:
 __all__ = [
     "EMPTY_SCOPE_RULE_CHAIN",
     "BaseScopeRule",
-    "NullScopeRule",
     "ScopeRuleChain",
     "build_scope_rule_chain",
 ]
@@ -80,20 +78,6 @@ class BaseScopeRule(BasePluggable, ABC):
             BizError: 产品自定义拒绝（码由产品声明，渲染由统一单点）。
         """
         ...
-
-
-class NullScopeRule(BaseScopeRule, BaseNullObject):
-    """占位规则：不做任何判定（仅开发期显式占位；生产声明它等于「显式不做第四步校验」）。"""
-
-    plugin_name: str = NULL_PLUGIN_NAME
-
-    def verify(self, scope: ResolvedScope) -> None:
-        """空判定。
-
-        Args:
-            scope: 已通过前四步的作用域（忽略）。
-        """
-        del scope
 
 
 @dataclass(frozen=True)

@@ -36,7 +36,7 @@ from bms_core.resource_scope.base import (
     scope_resource_type_view,
     scope_resource_types_of,
 )
-from bms_core.resource_scope.null import NullResourceAcl, NullScopeResolver
+from bms_core.resource_scope.null import NullResourceAcl, NullScopeResolver, NullScopeRule
 from bms_core.resource_scope.resolver import (
     SOURCE_SCOPE_RESOLVER,
     BaseScopeResolver,
@@ -51,7 +51,6 @@ from bms_core.resource_scope.resolver import (
 from bms_core.resource_scope.rules import (
     EMPTY_SCOPE_RULE_CHAIN,
     BaseScopeRule,
-    NullScopeRule,
     ScopeRuleChain,
     build_scope_rule_chain,
 )

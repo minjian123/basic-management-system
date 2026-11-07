@@ -33,7 +33,8 @@ from bms_core.resource_scope.base import (
     register_scope_resource_types,
     reset_scope_resource_types,
 )
-from bms_core.resource_scope.rules import BaseScopeRule, NullScopeRule
+from bms_core.resource_scope.null import NullScopeRule
+from bms_core.resource_scope.rules import BaseScopeRule
 from bms_core.services.module_registry import (
     ModuleRecord,
     register_service_records,

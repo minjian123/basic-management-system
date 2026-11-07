@@ -16,12 +16,13 @@ from tests.contracts.support import build_snapshot
 pytestmark = pytest.mark.kiwi_id(567)
 
 _SNAPSHOT = build_snapshot()
-_NON_WIRING_PLUGIN_KEYS = frozenset({"event_handler", "error_mapper"})
+_NON_WIRING_PLUGIN_KEYS = frozenset({"event_handler", "error_mapper", "scope_rule"})
 """无装配接线但有 null 占位的插件域：事件**处理器**轨（`EventConsumer`）与错误码覆盖（`error_mapper`）。
 
 处理器由消费组按声明装配、不经配置选择实现，故不进 `PLUGIN_WIRINGS`；但保留 `null` 占位实现，
 供「无处理器」场景与既有测试替身使用。`error_mapper` 按 `[error_mapper].provider` 惰性解析、
-空串即不覆盖，同样不进 `PLUGIN_WIRINGS`。
+空串即不覆盖，同样不进 `PLUGIN_WIRINGS`。`scope_rule` 由产品 `extension_requirements()`
+声明启用、不经 provider 接线，同属此类。
 """
 _CASES: ConcurrentStableList[tuple[str, str, object]] = ConcurrentStableList(
     (

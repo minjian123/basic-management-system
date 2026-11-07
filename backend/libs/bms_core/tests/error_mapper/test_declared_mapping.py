@@ -19,6 +19,7 @@ from bms_core.api.errors import build_error_response
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import TenantSuspendedError
+from bms_core.core.plugin import default_plugin_registry
 from bms_core.error_mapper.base import apply_error_mapper
 from bms_core.services.module_registry import (
     ErrorCodeRecord,
@@ -55,7 +56,7 @@ def _record(*, maps_from: ConcurrentStableFrozenList[int] | None = None) -> Erro
     )
 
 
-def _scope(*, provider: str = "demo") -> Any:
+def _scope(*, provider: str = "") -> Any:
     """构造最小 ASGI scope（带装配 settings）。
 
     Args:
@@ -81,14 +82,19 @@ def _scope(*, provider: str = "demo") -> Any:
 
 @pytest.fixture(autouse=True)
 def _reset_records() -> Iterator[None]:
-    """每例前后清空装载的码与映射视图。
+    """每例前后清空装载的码、映射视图与插件注册表。
+
+    全量同进程时其他套件登记的 `demo` 覆盖器会泄漏到本文件，使「未声明映射不改写」
+    误走插件兜底；清空注册表后全量与单跑结论一致。
 
     Yields:
         None: 用例运行期。
     """
+    default_plugin_registry().reset()
     reset_error_code_records()
     yield
     reset_error_code_records()
+    default_plugin_registry().reset()
 
 
 def test_declared_mapping_view_registered() -> None:

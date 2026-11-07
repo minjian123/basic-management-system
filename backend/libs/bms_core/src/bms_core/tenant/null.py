@@ -5,8 +5,9 @@
 """
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.logging import get_logger
 from bms_core.db.tenant import DEMO_TENANT, TenantContext
 from bms_core.tenant.base import (
     TENANT_SWITCH_MODES,
@@ -18,8 +19,9 @@ from bms_core.tenant.base import (
     build_tenant_db_key,
 )
 from bms_core.tenant.guard import BaseTenantGuard, TenantTarget
+from bms_core.tenant.lifecycle import BaseTenantResourceHandler, TenantLifecycleContext
 
-__all__ = ["NullTenantGuard", "NullTenantSelfService"]
+__all__ = ["NullTenantGuard", "NullTenantResourceHandler", "NullTenantSelfService"]
 
 
 class NullTenantSelfService(BaseTenantSelfService, BaseNullObject):
@@ -112,4 +114,87 @@ class NullTenantGuard(BaseTenantGuard, BaseNullObject):
         raise ConfigError(
             '租户可用性守卫未启用：请设置 [tenant_guard].provider = "source"（或产品实现的登记名）；'
             f"拒绝校验租户 {target.label}"
+        )
+
+
+_LOGGER = get_logger("bms.tenant_resources")
+
+
+class NullTenantResourceHandler(BaseTenantResourceHandler, BaseNullObject):
+    """占位实现：四动作 no-op，账本为进程内字典（开发期 / 用例专用）。
+
+    生产装配必须显式选产品实现——占位不动资源，删除事件会被「处理成功」而不清理，
+    因此每次动作记一条 WARNING（`tenant_resource_action_skipped`）便于发现漏配。
+    """
+
+    def __init__(self) -> None:
+        """初始化进程内账本。"""
+        self._applied: ConcurrentStableDict[tuple[int, str], int] = ConcurrentStableDict()
+
+    async def applied_version(self, *, tenant_id: int, action: str) -> int:
+        """读取进程内账本。
+
+        Args:
+            tenant_id: 租户主键。
+            action: 动作名。
+
+        Returns:
+            int: 已处理版本；无记录 `-1`。
+        """
+        return self._applied.get((tenant_id, action), -1)
+
+    async def mark_applied(self, *, tenant_id: int, action: str, version: int) -> None:
+        """写入进程内账本。
+
+        Args:
+            tenant_id: 租户主键。
+            action: 动作名。
+            version: 已处理版本。
+        """
+        self._applied.set((tenant_id, action), int(version))
+
+    async def on_created(self, context: TenantLifecycleContext) -> None:
+        """占位：记录漏配告警。
+
+        Args:
+            context: 生命周期上下文。
+        """
+        self._warn(context)
+
+    async def on_suspended(self, context: TenantLifecycleContext) -> None:
+        """占位：记录漏配告警。
+
+        Args:
+            context: 生命周期上下文。
+        """
+        self._warn(context)
+
+    async def on_activated(self, context: TenantLifecycleContext) -> None:
+        """占位：记录漏配告警。
+
+        Args:
+            context: 生命周期上下文。
+        """
+        self._warn(context)
+
+    async def on_deleted(self, context: TenantLifecycleContext) -> None:
+        """占位：记录漏配告警（资源未清理）。
+
+        Args:
+            context: 生命周期上下文。
+        """
+        self._warn(context)
+
+    def _warn(self, context: TenantLifecycleContext) -> None:
+        """记录「未配置产品资源实现」告警。
+
+        Args:
+            context: 生命周期上下文。
+        """
+        _LOGGER.warning(
+            "tenant_resource_action_skipped",
+            tenant_id=context.tenant_id,
+            action=context.action,
+            version=context.version,
+            detail="tenant_resources 配置为占位实现，资源动作未执行",
         )

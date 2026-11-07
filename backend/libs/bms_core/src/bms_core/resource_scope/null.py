@@ -7,11 +7,13 @@
 
 from bms_core.core.capability import BaseNullObject
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.plugin import NULL_PLUGIN_NAME
 from bms_core.resource_scope.acl import AclContext, BaseResourceAcl
 from bms_core.resource_scope.resolver import BaseScopeResolver, ResolvedScope
+from bms_core.resource_scope.rules import BaseScopeRule
 from bms_core.tenant.guard import TenantTarget
 
-__all__ = ["NullResourceAcl", "NullScopeResolver"]
+__all__ = ["NullResourceAcl", "NullScopeResolver", "NullScopeRule"]
 
 
 class NullScopeResolver(BaseScopeResolver, BaseNullObject):
@@ -69,3 +71,17 @@ class NullResourceAcl(BaseResourceAcl, BaseNullObject):
             f"module_key={ctx.module_key} resource_type={ctx.resource_type} "
             f"resource_key={ctx.resource_key} action={action}"
         )
+
+
+class NullScopeRule(BaseScopeRule, BaseNullObject):
+    """占位规则：不做任何判定（仅开发期显式占位；生产声明它等于「显式不做第四步校验」）。"""
+
+    plugin_name: str = NULL_PLUGIN_NAME
+
+    def verify(self, scope: ResolvedScope) -> None:
+        """空判定。
+
+        Args:
+            scope: 已通过前四步的作用域（忽略）。
+        """
+        del scope
