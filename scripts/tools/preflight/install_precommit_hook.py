@@ -78,6 +78,9 @@ def hook_content(root: Path) -> str:
         '    echo "[precommit] 未找到后端虚拟环境解释器：$PY（先建 venv 或重跑安装脚本）" >&2\n'
         "    exit 0\n"
         "fi\n"
+        "# 行尾自愈：把「已暂存且被写成 CRLF」的文件改回 LF 并重新暂存（写侧默认值不可控，\n"
+        "# 这一步保证提交前工作树与暂存区一致为 LF；失败不阻断，后面 eol 步骤会复判）。\n"
+        '"$PY" -m engkit eol --fix-staged >/dev/null 2>&1 || true\n'
         '"$PY" "$GATE" "$@"\n'
         f"{MARKER_END}\n"
     )
