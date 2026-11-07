@@ -155,6 +155,7 @@ from bms_core.ratelimit.redis import RedisRateLimiter
 from bms_core.redis.base import REDIS_CLIENT_PLUGIN_KEY, BaseRedisClient
 from bms_core.redis.redis import RedisRedisClient
 from bms_core.replay.base import BaseReplayGuard
+from bms_core.resource_scope.resolver import BaseScopeResolver, SourceScopeResolverFactory
 from bms_core.scope.base import DataScope
 from bms_core.scope.rbac import register_rbac_data_scope
 from bms_core.search.base import BaseSearchIndex
@@ -375,6 +376,7 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("tenant_self_service", BaseTenantSelfService, "tenant_self_service", "tenant_self_service"),
         PluginWiring("tenant_module", BaseTenantModuleGate, "tenant_module", "tenant_module_gate"),
         PluginWiring("tenant_guard", BaseTenantGuard, "tenant_guard", "tenant_guard"),
+        PluginWiring("scope_resolver", BaseScopeResolver, "scope_resolver", "scope_resolver"),
         PluginWiring("print_template", BasePrintTemplateProvider, "print_template", "print_template"),
         PluginWiring("print_exporter", BasePrintExporter, "print_exporter", "print_exporter"),
         PluginWiring("icon_registry", BaseIconRegistry, "icon_registry", "icon_registry"),
@@ -479,6 +481,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("service_client", MSG_PROVIDER_NAME, MsgServiceClientFactory(settings))
     register_plugin("tenant_module", "remote", RemoteTenantModuleGateFactory(settings, app))
     register_plugin("tenant_guard", "source", SourceTenantGuardFactory(app))
+    register_plugin("scope_resolver", "source", SourceScopeResolverFactory(app))
     register_plugin("event", "rocketmq", RocketMqEventPublisherFactory(settings))
     register_plugin("event", MSG_PROVIDER_NAME, MsgEventPublisherFactory(settings))
     register_plugin("event_consumer", "rocketmq", RocketMqEventConsumerGroupFactory(settings, app))

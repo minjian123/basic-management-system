@@ -114,6 +114,10 @@ ttl = 5
 # 租户可用性守卫（任务 04_02）：source = 复用租户源（停用即时生效）；null = 占位，调用即报错（fail-closed）
 provider = "source"
 
+[scope_resolver]
+# 作用域解析与校验（07D 01-2）：source = 复用租户守卫 + 进程内只读视图；null = 占位，调用即报错（fail-closed）
+provider = "source"
+
 [tenant_quota]
 # 租户配额默认值（开通播种；平台租户不播种）
 default_user_count = 500

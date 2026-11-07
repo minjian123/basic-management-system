@@ -853,6 +853,17 @@ class TenantGuardSettings(PluginSelection):
     """实现名（缺省 `source`；空串解析到 `null` 占位，调用即 `ConfigError`）。"""
 
 
+class ScopeResolverSettings(PluginSelection):
+    """作用域解析与校验（段 `[scope_resolver]`；任务 `07D 01_02`）。
+
+    `provider = "source"`（缺省）时复用租户可用性守卫与进程内只读视图（模块目录 + 作用域资源类型）；
+    `null` 为占位实现，**调用即报错**（fail-closed，不静默放行）。
+    """
+
+    provider: str = "source"
+    """实现名（缺省 `source`；空串解析到 `null` 占位，调用即 `ConfigError`）。"""
+
+
 class TracerSettings(PluginSelection):
     """链路配置（`[tracer]`；在能力选择之外追加 OTLP 端点 / 采样 / 导出参数）。
 
@@ -1799,6 +1810,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
     rocketmq: RocketMqSettings = Field(default_factory=RocketMqSettings)
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
+    scope_resolver: ScopeResolverSettings = Field(default_factory=ScopeResolverSettings)
     search_index: PluginSelection = Field(default_factory=PluginSelection)
     service_client: ServiceClientSettings = Field(default_factory=ServiceClientSettings)
     service_token: ServiceTokenSettings = Field(default_factory=ServiceTokenSettings)

@@ -99,6 +99,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "realtime_publisher",
         "replay_guard",
         "scope_checker",
+        "scope_resolver",
         "search_index",
         "service_client",
         "service_token",

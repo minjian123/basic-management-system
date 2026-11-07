@@ -1,4 +1,4 @@
-"""作用域资源归属能力域（07D `01_01`）：三级作用域值对象与资源类型注册视图。
+"""作用域资源归属能力域（07D `01_01` / `01_02`）：三级作用域值对象、资源类型注册视图与解析校验。
 
 对外统一从本包导入（`from bms_core.resource_scope import ResourceScopeKey`）；
 与 `bms_core/scope/`（数据范围）职责正交，见 `base.py` 模块文档。
@@ -29,6 +29,16 @@ from bms_core.resource_scope.base import (
     scope_resource_type_view,
     scope_resource_types_of,
 )
+from bms_core.resource_scope.null import NullScopeResolver
+from bms_core.resource_scope.resolver import (
+    SOURCE_SCOPE_RESOLVER,
+    BaseScopeResolver,
+    ResolvedScope,
+    SourceScopeResolver,
+    SourceScopeResolverFactory,
+    get_scope_resolver,
+    require_scope,
+)
 
 __all__ = [
     "DEFAULT_RESOURCE_KEY_MAX_LENGTH",
@@ -45,10 +55,18 @@ __all__ = [
     "SCOPE_RESOURCE_ENABLED",
     "SCOPE_RESOURCE_RETIRED",
     "SCOPE_RESOURCE_STATUSES",
+    "SOURCE_SCOPE_RESOLVER",
+    "BaseScopeResolver",
+    "NullScopeResolver",
+    "ResolvedScope",
     "ResourceScopeKey",
     "ScopeResourceTypeRecord",
+    "SourceScopeResolver",
+    "SourceScopeResolverFactory",
     "find_scope_resource_type",
+    "get_scope_resolver",
     "register_scope_resource_types",
+    "require_scope",
     "reset_scope_resource_types",
     "scope_resource_type_issues",
     "scope_resource_type_key",

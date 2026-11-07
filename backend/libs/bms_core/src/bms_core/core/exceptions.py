@@ -1666,6 +1666,34 @@ class TenantModuleDisabledError(OpenTenantError):
         super().__init__(ErrorCode.TENANT_MODULE_DISABLED, message, http_status=403, data=data)
 
 
+class ScopeModuleNotRegisteredError(OpenTenantError):
+    """作用域模块键未在模块注册中登记（`82009` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.SCOPE_MODULE_NOT_REGISTERED, message, http_status=400, data=data)
+
+
+class ScopeModuleDisabledError(OpenTenantError):
+    """作用域模块键已登记但未启用（`82010` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.SCOPE_MODULE_DISABLED, message, http_status=403, data=data)
+
+
+class ScopeResourceTypeNotRegisteredError(OpenTenantError):
+    """作用域资源类型未注册或已停用（`82011` / 400；对外不区分两者）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.SCOPE_RESOURCE_TYPE_NOT_REGISTERED, message, http_status=400, data=data)
+
+
+class ScopeResourceOutOfBoundsError(OpenTenantError):
+    """作用域资源取值越界或归属不符（`82012` / 403；不回显登记规则）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.SCOPE_RESOURCE_OUT_OF_BOUNDS, message, http_status=403, data=data)
+
+
 class OidcError(OpenTenantError):
     """OIDC Provider 子段（开放 / 租户 / SSO 段内 `8010x`）异常基类。
 
