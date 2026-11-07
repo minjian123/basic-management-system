@@ -82,4 +82,4 @@ async def test_data_sources_contract_schema() -> None:
     components = schema["components"]["schemas"]
     assert set(components["DataSourceResponse"]["properties"]) == _ITEM_FIELDS
     assert components["DataSourceResponse"]["properties"]["is_dict"]["type"] == "boolean"
-    assert components["DataSourceKind"]["enum"] == ["dict", "form"]
+    assert components["DataSourceKind"]["enum"] == ["dict", "form", "quota"]
