@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
-from bms_core.core.exceptions import NotFoundError, ParamError
+from bms_core.core.exceptions import ConfigError, NotFoundError, ParamError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.events.base import EventEnvelope
 from bms_core.models.base import BaseModel
@@ -255,3 +255,15 @@ async def test_list_records_excludes_retired(session: AsyncSession) -> None:
     assert records == []
     row = await _row(session)
     assert row.status == "retired", "退役不删行"
+
+
+async def test_disable_without_audit_or_uow_follows_assembly_contract(session: AsyncSession) -> None:
+    """无审计器：停用照常生效（不写审计）；无工作单元：写路径 `ConfigError`（fail-fast）。"""
+    await _apply(session, _payload(_TYPE))
+    record = await ScopeResourceTypeService(session, uow=DbUnitOfWork(session)).set_admin_status(
+        "demo.topic", SCOPE_RESOURCE_DISABLED, actor=None
+    )
+    assert record.admin_status == SCOPE_RESOURCE_DISABLED
+
+    with pytest.raises(ConfigError):
+        await ScopeResourceTypeService(session).set_admin_status("demo.topic", SCOPE_RESOURCE_ENABLED)

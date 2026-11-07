@@ -103,6 +103,27 @@ def test_validate_jobs_reports_duplicate_in_same_manifest() -> None:
     assert any("同一清单内作业类型重复声明" in item for item in errors)
 
 
+def test_validate_jobs_allows_same_type_same_service_across_manifests() -> None:
+    """对账：跨清单同作业类型且同提供方服务——放行（同服务多清单共用执行者）。"""
+    first = SimpleNamespace(
+        product_key="demo",
+        services=[SimpleNamespace(service_key="demo")],
+        domains=[SimpleNamespace(domain_key="demo")],
+        jobs=[SimpleNamespace(job_type="demo.echo", service="demo", domain="demo")],
+    )
+    second = SimpleNamespace(
+        product_key="other",
+        services=[SimpleNamespace(service_key="demo")],
+        domains=[SimpleNamespace(domain_key="demo")],
+        jobs=[SimpleNamespace(job_type="demo.echo", service="demo", domain="demo")],
+    )
+    errors = products._validate_jobs(  # pyright: ignore[reportPrivateUsage]
+        cast("ConcurrentStableList[ProductManifest]", ConcurrentStableList([first, second])),
+        ConcurrentStableList([Path("a.toml"), Path("b.toml")]),
+    )
+    assert errors == []
+
+
 def test_validate_jobs_accepts_consistent_manifest() -> None:
     """对账：声明一致时无错误。"""
     manifest = SimpleNamespace(
