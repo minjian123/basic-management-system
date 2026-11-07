@@ -38,6 +38,11 @@
 | `cascade` | BOOLEAN | 否 | 默认 false | 是否级联取数（父子联动） |
 | `strategies` | TEXT | 是 | JSON 数组 | 支持的取数策略（`select` / `region` / `match`） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `retired`） |
+| `quota_dimensions` | TEXT | 是 | JSON 数组 | 配额维度键（`kind=quota` 时非空，07D `02_03`） |
+| `quota_unit` | VARCHAR(16) | 是 | — | 配额单位（`count` / `bytes` / `qps` / `rpm` / `percent`） |
+| `quota_period` | VARCHAR(16) | 是 | — | 配额周期（`none` / `hour` / `day` / `month`） |
+| `quota_soft_limit` | DECIMAL(38,0) | 是 | — | 软限（告警线；空 = 未设） |
+| `quota_hard_limit` | DECIMAL(38,0) | 是 | — | 硬限（拒绝线；空 = 不限） |
 | `content_hash` | CHAR(64) | 否 | 索引 | 内容稳定哈希（未变不写） |
 | `created_at` / `created_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 创建时间 / 创建人 |
 | `updated_at` / `updated_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 更新时间 / 更新人 |
@@ -56,5 +61,11 @@
 - **分片 / 归档**：均不（行数量级为「产品数 × 数据源数」）。
 - **建表**：随 `platform:platform` 链幂等建表；运维 / CI 经 `ops.init_schema`。
 - **数据来源**：注册通道写入（平台内建源 + 产品自持源同一入口）。
+
+## 5. 变更记录 <a id="revlog"></a>
+
+| 日期 | 版本 | 变更 | 作者 |
+| --- | --- | --- | --- |
+| 2026-11-07 | v2 | 新增配额投影五字段与 `kind=quota`（07D `02_03`：产品配额只读回显） | minjian |
 
 > 本文档依《[文档生成规范](../../../规范/文档生成规范.md)》与《[数据库开发规范](../../../规范/数据库开发规范.md)》编写

@@ -36,6 +36,7 @@
 | `severity` | VARCHAR(16) | 否 | — | 严重级（`info` / `warning` / `error`） |
 | `description` | VARCHAR(255) | 是 | — | 中文描述（文案缺失时的回退与审计读用） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `retired`） |
+| `maps_from` | TEXT | 是 | JSON 整数数组 | 承接的基座码（07D `02_02`；`[[errcodes]].maps_from`，装载期校验：已登记 5 位平台码 / 状态语义一致 / 非系统性失败码 / 同源全局唯一） |
 | `content_hash` | CHAR(64) | 否 | 索引 | 内容稳定哈希（未变不写） |
 | `created_at` / `created_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 创建时间 / 创建人 |
 | `updated_at` / `updated_by` | DATETIME / DECIMAL(38,0) | 否 / 是 | 审计 | 更新时间 / 更新人 |
@@ -55,5 +56,11 @@
 - **分片 / 归档**：均不（行数量级为「产品数 × 码数」，百级）。
 - **建表**：随 `platform:platform` 链幂等建表；运维 / CI 经 `ops.init_schema`。
 - **数据来源**：注册通道写入；平台自身码仍以 `ErrorCode` 枚举为源（注册即对账），合并视图在运行期拼接。
+
+## 5. 变更记录 <a id="revlog"></a>
+
+| 日期 | 版本 | 变更 | 作者 |
+| --- | --- | --- | --- |
+| 2026-11-07 | v2 | 新增 `maps_from`（07D `02_02`：声明式错误码映射，`[[errcodes]].maps_from`） | minjian |
 
 > 本文档依《[文档生成规范](../../../规范/文档生成规范.md)》与《[数据库开发规范](../../../规范/数据库开发规范.md)》编写
