@@ -12,6 +12,7 @@
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -175,6 +176,29 @@ def test_record_derives_module_and_kind_and_accepts() -> None:
     assert record.accepts("Topic") is False, "命名规则不命中即拒"
 
 
+def test_record_tolerates_malformed_key_and_row_defaults() -> None:
+    """容错口径：标识不含点时短名回落整串；行缺运营态 / 声明版本列时取缺省值。"""
+    malformed = ScopeResourceTypeRecord(resource_type_key="topic", name="主题")
+
+    assert malformed.module_key == "topic"
+    assert malformed.resource_kind == "topic"
+
+    row = SimpleNamespace(
+        resource_type_key="demo.topic",
+        name="主题",
+        name_pattern=r"^[a-z]+$",
+        max_length=8,
+        retention_days=0,
+        removal_policy="archive",
+        product_key="demo",
+        status="enabled",
+    )
+    restored = ScopeResourceTypeRecord.from_row(row)
+
+    assert restored.admin_status == "enabled"
+    assert restored.declaration_version == 1
+
+
 def test_manifest_parses_resource_types(tmp_path: Path) -> None:
     """清单解析：`[[resource_types]]` 落记录，`product_key` 由清单归属注入、缺省值可省。"""
     path = _manifest_file(
@@ -278,6 +302,24 @@ name = "主题"
 name_pattern = "^(ab+)?c$"
 """,
     )
+    bounded = _inspection_errors(
+        tmp_path,
+        """
+[[resource_types]]
+key = "demo.topic"
+name = "主题"
+name_pattern = "^(ab){2,4}$"
+""",
+    )
+    repeated = _inspection_errors(
+        tmp_path,
+        """
+[[resource_types]]
+key = "demo.topic"
+name = "主题"
+name_pattern = "^(ab)+$"
+""",
+    )
     unbounded = _inspection_errors(
         tmp_path,
         """
@@ -289,6 +331,8 @@ name_pattern = "^(a+){2,}$"
     )
 
     assert optional == []
+    assert bounded == [], "有界重复分组不视为嵌套无界量词"
+    assert repeated == [], "无界量词作用于无内层量词的分组不视为嵌套"
     assert any("嵌套无界量词" in error for error in unbounded)
 
 

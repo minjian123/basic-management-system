@@ -410,12 +410,11 @@ def _has_nested_unbounded(pattern: str) -> bool:
     Returns:
         bool: 存在嵌套无界量词为 True。
     """
-    for match in _GROUP_QUANTIFIED.finditer(pattern):
-        body, quantifier = match.group(1), match.group(2)
-        unbounded_quantifier = quantifier in ("*", "+") or re.fullmatch(r"\{\d+,\}", quantifier) is not None
-        if unbounded_quantifier and _UNBOUNDED_BODY.search(body):
-            return True
-    return False
+    return any(
+        (quantifier in ("*", "+") or re.fullmatch(r"\{\d+,\}", quantifier) is not None)
+        and _UNBOUNDED_BODY.search(body) is not None
+        for body, quantifier in _GROUP_QUANTIFIED.findall(pattern)
+    )
 
 
 @lru_cache(maxsize=128)
