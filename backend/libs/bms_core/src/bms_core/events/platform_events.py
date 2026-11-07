@@ -3,8 +3,8 @@
 - 覆盖平台域事件（`sys` / `wf` / `file` / `notification` / `tenant` / `identity` 事件域）；
 - 产品域事件（`pur` / `pay` / `sale` / `wh` / `sup` / `cw`）由产品仓库随服务实现声明，本模块不代声明；
 - 字段取「事件模型清单」的「主要载荷」列（字段级规格为对外契约，新增只增不删、必须可选）；
-- **租户事件**（`tenant.created` / `tenant.suspended` / `tenant.activated`）契约版本 `2.0.0`：
-  负载租户位由 `tenant_code`（编码）改 `tenant_id`（雪花 id 十进制字符串）；
+- **租户事件**（`tenant.created` / `tenant.suspended` / `tenant.activated` / `tenant.deleted`）契约版本 `2.1.0`：
+  负载租户位由 `tenant_code` 改 `tenant_id`（雪花 id 十进制字符串）；`2.1.0` 增可选 `version` 与 `tenant.deleted`；
 - 经 `register_platform_event_contracts()` 幂等登记进默认注册表（应用装配与快照 CLI 共用）。
 
 > 事件命名规则（首段为已登记事件域）见《命名规范》「基础设施命名」节；契约规则见
@@ -41,8 +41,9 @@ TENANT_ID_PAYLOAD_KEY = "tenant_id"
 （三条租户事件契约升主版本 `2.0.0`）。
 """
 
-_TENANT_EVENT_VERSION = "2.0.0"
-"""租户事件契约版本：负载租户位由 `tenant_code`（编码）改 `tenant_id`（雪花 id），破坏性变更升主版本。"""
+_TENANT_EVENT_VERSION = "2.1.0"
+"""租户事件契约版本：`2.0.0` 把负载租户位由 `tenant_code`（编码）改 `tenant_id`（雪花 id，破坏性变更升主版本）；
+`2.1.0` 增可选 `version`（版本戳）并新增 `tenant.deleted`（主版本内只增不删，订阅方按主版本兼容）。"""
 
 _USER_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
     {
@@ -69,6 +70,8 @@ _TENANT_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDic
         TENANT_ID_PAYLOAD_KEY: _STRING_REQUIRED,
         "db_key": _STRING_REQUIRED,
         "status": _STRING_REQUIRED,
+        # 版本戳（`sys_tenant.version` 乐观锁值）：业务级幂等键的第三段；旧生产者可不带（按 0 处理）。
+        "version": _INTEGER_OPTIONAL,
     }
 )
 
@@ -272,6 +275,12 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
             event_type="tenant.activated",
             version=_TENANT_EVENT_VERSION,
             description="租户启用",
+            fields=ConcurrentStableFrozenDict(_TENANT_PAYLOAD),
+        ),
+        EventContract(
+            event_type="tenant.deleted",
+            version=_TENANT_EVENT_VERSION,
+            description="租户删除（产品按保留期归档或清理资源）",
             fields=ConcurrentStableFrozenDict(_TENANT_PAYLOAD),
         ),
         EventContract(

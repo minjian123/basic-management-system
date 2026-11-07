@@ -540,9 +540,13 @@
         "tenant_id": {
           "required": true,
           "type": "string"
+        },
+        "version": {
+          "required": false,
+          "type": "integer"
         }
       },
-      "version": "2.0.0"
+      "version": "2.1.0"
     },
     {
       "deprecated": false,
@@ -560,9 +564,37 @@
         "tenant_id": {
           "required": true,
           "type": "string"
+        },
+        "version": {
+          "required": false,
+          "type": "integer"
         }
       },
-      "version": "2.0.0"
+      "version": "2.1.0"
+    },
+    {
+      "deprecated": false,
+      "description": "租户删除（产品按保留期归档或清理资源）",
+      "event_type": "tenant.deleted",
+      "fields": {
+        "db_key": {
+          "required": true,
+          "type": "string"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "tenant_id": {
+          "required": true,
+          "type": "string"
+        },
+        "version": {
+          "required": false,
+          "type": "integer"
+        }
+      },
+      "version": "2.1.0"
     },
     {
       "deprecated": false,
@@ -580,9 +612,13 @@
         "tenant_id": {
           "required": true,
           "type": "string"
+        },
+        "version": {
+          "required": false,
+          "type": "integer"
         }
       },
-      "version": "2.0.0"
+      "version": "2.1.0"
     },
     {
       "deprecated": false,

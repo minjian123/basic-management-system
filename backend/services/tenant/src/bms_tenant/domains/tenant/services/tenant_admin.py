@@ -224,13 +224,15 @@ class TenantAdminService(BaseFrameworkObject):
 
         Args:
             row: 注册行。
-            event_type: 事件类型（`tenant.created` / `tenant.suspended` / `tenant.activated`）。
+            event_type: 事件类型（`tenant.created` / `tenant.suspended` / `tenant.activated` / `tenant.deleted`）。
         """
         payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
             {
                 "tenant_id": str(row.id),
                 "db_key": await self._repo.db_basis(int(row.id)) or row.code,
                 "status": row.status,
+                # 版本戳：消费侧业务级幂等键的第三段（`tenant_id + 事件类型 + version`）。
+                "version": int(row.version),
             }
         )
         await self._outbox.enqueue(

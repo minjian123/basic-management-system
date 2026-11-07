@@ -178,6 +178,7 @@ from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage
 from bms_core.tasks.base import BaseTask
 from bms_core.tenant.base import BaseTenantSelfService
 from bms_core.tenant.guard import BaseTenantGuard, SourceTenantGuardFactory
+from bms_core.tenant.lifecycle import BaseTenantResourceHandler
 from bms_core.tenant_module.base import BaseTenantModuleGate
 from bms_core.tenant_module.remote import RemoteTenantModuleGate, build_remote_gate
 from bms_core.tracing.base import BaseTracer
@@ -377,6 +378,7 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("tenant_module", BaseTenantModuleGate, "tenant_module", "tenant_module_gate"),
         PluginWiring("tenant_guard", BaseTenantGuard, "tenant_guard", "tenant_guard"),
         PluginWiring("scope_resolver", BaseScopeResolver, "scope_resolver", "scope_resolver"),
+        PluginWiring("tenant_resources", BaseTenantResourceHandler, "tenant_resources", "tenant_resources"),
         PluginWiring("print_template", BasePrintTemplateProvider, "print_template", "print_template"),
         PluginWiring("print_exporter", BasePrintExporter, "print_exporter", "print_exporter"),
         PluginWiring("icon_registry", BaseIconRegistry, "icon_registry", "icon_registry"),

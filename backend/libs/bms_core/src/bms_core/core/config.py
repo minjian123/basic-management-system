@@ -853,6 +853,18 @@ class TenantGuardSettings(PluginSelection):
     """实现名（缺省 `source`；空串解析到 `null` 占位，调用即 `ConfigError`）。"""
 
 
+class TenantResourcesSettings(PluginSelection):
+    """产品资源动作（段 `[tenant_resources]`；任务 `07D 01_04`）。
+
+    `null`（缺省）为占位实现：四类动作 no-op、账本在进程内——**基座自身不承载产品资源**，
+    因此缺省不报错；产品接入时须显式选自有实现，否则删除事件会被「处理成功」而不清理资源
+    （占位实现每次动作记 WARNING 便于发现漏配）。
+    """
+
+    provider: str = "null"
+    """实现名（缺省 `null`；产品经 `configure_plugins()` 登记自有实现名后覆盖）。"""
+
+
 class ScopeResolverSettings(PluginSelection):
     """作用域解析与校验（段 `[scope_resolver]`；任务 `07D 01_02`）。
 
@@ -1827,6 +1839,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     tenant_membership: TenantMembershipSettings = Field(default_factory=TenantMembershipSettings)
     tenant_module: TenantModuleSettings = Field(default_factory=TenantModuleSettings)
     tenant_guard: TenantGuardSettings = Field(default_factory=TenantGuardSettings)
+    tenant_resources: TenantResourcesSettings = Field(default_factory=TenantResourcesSettings)
     tenant_quota: TenantQuotaSettings = Field(default_factory=TenantQuotaSettings)
     platform_tenant: PlatformTenantSettings = Field(default_factory=PlatformTenantSettings)
     tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)

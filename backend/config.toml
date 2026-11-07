@@ -118,6 +118,10 @@ provider = "source"
 # 作用域解析与校验（07D 01-2）：source = 复用租户守卫 + 进程内只读视图；null = 占位，调用即报错（fail-closed）
 provider = "source"
 
+[tenant_resources]
+# 产品资源动作（07D 01-4）：null = 占位（四动作 no-op，基座自身无产品资源）；产品接入时显式选自有实现
+provider = "null"
+
 [tenant_quota]
 # 租户配额默认值（开通播种；平台租户不播种）
 default_user_count = 500
