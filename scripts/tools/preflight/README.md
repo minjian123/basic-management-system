@@ -27,8 +27,7 @@
 #
 # 用法（在 bms 仓库根）
 #   python3 scripts/tools/preflight/测试改动内容.py           # 开发环：只跑 git 改动相关（推荐改 bug 即测）
-#   python3 scripts/tools/preflight/推送.py                # 推送入口：预检通过即推送（档位按待推提交自动选）
-#   python3 scripts/tools/preflight/推送.py --check        # 只跑预检、不推送（唯一出口）
+#   python3 scripts/tools/preflight/推送.py                # 推送入口：预检通过即推送（档位按待推提交自动选；无「只验不推」出口）
 #   python3 scripts/tools/preflight/推送.py --full         # 全量静态 + 全部自测 + 定向用例（不含全量测试；全量测试只在 CI）
 #   python3 scripts/tools/preflight/推送.py --jobs 4       # 并行档位（auto 缺省 / 正整数 / off）
 #

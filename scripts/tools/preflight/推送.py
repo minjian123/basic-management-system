@@ -3,7 +3,7 @@
 
 用法::
 
-    python3 scripts/tools/preflight/推送.py [bms 仓库根] [--check] [--full]
+    python3 scripts/tools/preflight/推送.py [bms 仓库根] [--full]
                                           [--remote origin] [--branch main]
                                           [--jobs auto|N|off]
                                           [--budget-seconds N] [--step-seconds N]
@@ -13,7 +13,7 @@
 
 闸门：工作树有未提交改动（含未跟踪文件）即拒绝——推送前的工作树本就应当是干净的。
 预检**不再是独立命令**：本地手动调用 `engkit preflight` 一律拒绝（CI 环境除外），
-`--check` 是「只跑预检、不推送」的唯一出口。
+**不提供「只跑预检、不推送」的出口**（`--check` 已于 2026-11-07 移除）：预检只能由推送或 CI 触发。
 
 步骤清单在仓根 `engkit.toml` 的 `[[preflight.steps]]` 声明；口径见 engkit 文档
 《工程化工具包说明》与《AI开发规范》「开发环 / 推送环」节。
@@ -28,11 +28,13 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from engkit_boot import config_path, forward, pop_root  # noqa: E402
+from engkit_boot import config_path, forward, pop_root  # noqa: E402  (须先注入 scripts 目录)
 
-from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList  # noqa: E402
 
-_VALUE_OPTIONS = ("--root", "--config", "--jobs", "--budget-seconds", "--step-seconds", "--remote", "--branch")
+_VALUE_OPTIONS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
+    ("--root", "--config", "--jobs", "--budget-seconds", "--step-seconds", "--remote", "--branch")
+)
 """带取值的选项（其取值不算位置参数）。"""
 
 

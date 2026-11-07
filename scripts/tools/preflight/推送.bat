@@ -1,7 +1,7 @@
 @echo off
 rem Push entry (Windows): run preflight, then push only if it passes
 rem tier is picked from the pending commits (docs only -> fast, code -> scoped)
-rem usage: 推送.bat [--check] [--full] [--remote origin] [--branch <branch>]
+rem usage: 推送.bat [--full] [--remote origin] [--branch <branch>]
 setlocal
 set "SCRIPT_DIR=%~dp0"
 
