@@ -12,7 +12,7 @@
 | 覆盖模块 | 26-租户管理 |
 | 上游依据 | 《架构设计 · 数据架构》「数据分布」节、《架构设计 · 多租户路由》「租户解析链」节、[需求 02-15](../../../项目/01_项目骨架/需求/02_需求_后端基座.md#r02-15) |
 | ORM 模型 | `bms_core/models/tenant/tenant.py::SysTenant`（继承 `BaseModel`；基座共享模型，14_01 下沉；06_03 由共享基座库迁出） |
-| 状态 | 已落库（平台链迁移 `0001_sys_tenant_module`，2026-09-22；`db_key` 改可空见 `0005_sys_tenant_db_key_nullable`，2026-09-23；种子见 `ops/seed_tenant.py`；`kind` / `status` / 域名唯一见 2026-10-20 v6，随 `tenant:platform` 链幂等建表） |
+| 状态 | 已落库（平台链迁移 `0001_sys_tenant_module`，2026-09-22；`db_key` 改可空见 `0005_sys_tenant_db_key_nullable`，2026-09-23；种子见 `ops/seed_tenant.py`；`kind` / `status` / 域名唯一见 2026-10-20 v6，随 `tenant:platform` 链幂等建表；v9 两列与 `idx_sys_tenant_purge_at` 随任务 `04_03-01` 落地，结构以模型为唯一事实源） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[架构 12-多租户路由](../../架构设计/12_架构设计_子系统_多租户路由.md) |
 
 ## 2. 字段 <a id="fields"></a>
@@ -28,8 +28,10 @@
 | `name` | VARCHAR(128) | 否 | — | 租户名称 · **系统字段**：名称 |
 | `domain` | VARCHAR(255) | 是 | `uq_sys_tenant_domain_deleted_at (domain, deleted_at)` | 子域名（`{domain}`；域名唯一，冲突 `82004`） |
 | `db_key` | VARCHAR(64) | 是 | — | **已废弃**（06_01 起不再写入）：服务化后库键由 `tenant_{service}_{code}` 派生，注册表不持有数据源键；存量取值保留但不再被消费 |
-| `status` | VARCHAR(16) | 否 | — | 状态（`provisioning` 开通中 / `active` 启用 / `suspended` 停用） |
+| `status` | VARCHAR(16) | 否 | — | 状态（`provisioning` 开通中 / `active` 启用 / `suspended` 停用 / `deleted` 已注销——保留期内可恢复，注销不写 `deleted_at`） |
 | `expire_at` | DATETIME | 是 | — | 到期时间（UTC） |
+| `deletion_requested_at` | DATETIME | 是 | — | 注销申请时刻（UTC）；恢复时清空。审计与「保留期从哪天起算」的可见依据 |
+| `purge_at` | DATETIME | 是 | — | 保留期截止（UTC）；**为空 = 尚未进入清理倒计时**（归档未就绪 / 归档失败 / 待回填），清理作业只认非空且已到期 |
 | `parent_id` | DECIMAL(38,0) | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 |
@@ -45,6 +47,7 @@
 | `uq_sys_tenant_code_deleted_at` | 唯一 | `(code, deleted_at)` | 租户编码唯一（软删除后可复用） |
 | `uq_sys_tenant_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
 | `uq_sys_tenant_domain_deleted_at` | 唯一 | `(domain, deleted_at)` | 子域名唯一（子域名租户路由；冲突 `82004`；允许未配置域名的多行 NULL） |
+| `idx_sys_tenant_purge_at` | 普通 | `(status, purge_at)` | 清理扫描（`status = deleted AND purge_at <= now`）与回填扫描（`status = deleted AND purge_at IS NULL`）共用 |
 
 - 无物理外键；租户库按命名约定 `bms_{service}_{tenant}` 由「服务标识 + 租户编码」派生（键 `tenant_{service}_{code}`），注册表不再持有数据源键。
 - `kind = platform` 的平台租户全局唯一一条，由 `[platform_tenant].code` 确定并随引导创建；业务租户列表、唯一启用租户兜底与租户切换一律排除平台租户。
@@ -67,4 +70,5 @@
 | 2026-10-20 | v6 | 增 `kind`（`business` / `platform`，平台租户）；`status` 取值增 `provisioning`；`idx_sys_tenant_domain` 改 `uq_sys_tenant_domain_deleted_at` 复合唯一（需求 07-7 / 任务 `04_01`） | minjian |
 | 2026-10-22 | v7 | ORM 模型落点迁基座共享 `bms_core/models/tenant/tenant.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 | 2026-11-01 | v8 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
+| 2026-11-08 | v9 | 增 `deletion_requested_at` / `purge_at`（注销时刻与保留期截止）+ `idx_sys_tenant_purge_at`；`status` 取值增 `deleted`；注销**不软删**（`deleted_at` 保持 NULL 到物理清理）。任务 `04_03` 子任务 `-01` | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
