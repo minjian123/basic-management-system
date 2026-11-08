@@ -1,5 +1,7 @@
 """服务应用装配基座测试（Kiwi 1206）：身份 / 路由与探针挂载 / 钩子 / 生命周期。"""
 
+from collections.abc import Iterator
+
 import pytest
 from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -9,8 +11,21 @@ from bms_core.api.base import BaseRouter, mount_service_routers
 from bms_core.application import BaseServiceApplicationFactory, service_lifespan
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
+from bms_core.core.plugin import default_plugin_registry
 
 _probe_router = BaseRouter(key="probe", prefix="/probe")
+
+
+@pytest.fixture(autouse=True)
+def _fresh_plugin_registry() -> Iterator[None]:
+    """每个用例前后解除插件注册表冻结：装配会 `build()` 注册表，并行下同 worker 顺序敏感。
+
+    Yields:
+        None: 用例运行期。
+    """
+    default_plugin_registry().reset()
+    yield
+    default_plugin_registry().reset()
 
 
 @_probe_router.get("/ping")
