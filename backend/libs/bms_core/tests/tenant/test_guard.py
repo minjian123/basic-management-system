@@ -57,17 +57,21 @@ class _StubSource:
         """
         self.error = error
         self.calls: ConcurrentStableList[str] = ConcurrentStableList()
+        self.readonly_calls: ConcurrentStableList[bool] = ConcurrentStableList()
 
-    async def by_code(self, code: str) -> TenantContext:
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按编码取上下文。"""
+        self.readonly_calls.add(readonly)
         return self._hit(f"code:{code}")
 
-    async def by_domain(self, domain: str) -> TenantContext:
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
         """按子域名取上下文。"""
+        self.readonly_calls.add(readonly)
         return self._hit(f"domain:{domain}")
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按主键取上下文。"""
+        self.readonly_calls.add(readonly)
         return self._hit(f"id:{tenant_id}")
 
     async def single_active(self) -> TenantContext | None:

@@ -94,11 +94,12 @@ class _StubGuard(BaseTenantGuard):
         self._context = context or _context()
         self._error = error
 
-    async def resolve(self, target: TenantTarget) -> TenantContext:
+    async def resolve(self, target: TenantTarget, *, readonly: bool = False) -> TenantContext:
         """按预置结果返回或抛错。
 
         Args:
             target: 租户定位（占位忽略）。
+            readonly: 只读通道（占位忽略）。
 
         Returns:
             TenantContext: 预置上下文。
@@ -106,7 +107,7 @@ class _StubGuard(BaseTenantGuard):
         Raises:
             Exception: 预置异常。
         """
-        del target
+        del target, readonly
         if self._error is not None:
             raise self._error
         return self._context

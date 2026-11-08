@@ -62,16 +62,17 @@ class _StubGuard(BaseTenantGuard):
 
     plugin_name: str = "rules_stub"
 
-    async def resolve(self, target: TenantTarget) -> TenantContext:
+    async def resolve(self, target: TenantTarget, *, readonly: bool = False) -> TenantContext:
         """返回演示租户上下文。
 
         Args:
             target: 租户定位（忽略）。
+            readonly: 只读通道（忽略）。
 
         Returns:
             TenantContext: 演示上下文。
         """
-        del target
+        del target, readonly
         return TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=_TENANT_ID)
 
 

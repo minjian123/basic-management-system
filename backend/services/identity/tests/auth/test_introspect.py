@@ -88,18 +88,21 @@ class _FailingIssuer(BaseServiceTokenIssuer):
 class _TenantSource:
     """占位租户源：按令牌主键反解租户编码（introspect 注入 `X-Tenant-Id` 依据）。"""
 
-    async def by_code(self, code: str) -> TenantContext:
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按编码取租户（仅 acme）。"""
+        del readonly
         if code == "acme":
             return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
         raise TenantNotFoundError(f"未知租户：{code}")
 
-    async def by_domain(self, domain: str) -> TenantContext:
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
         """按子域名取租户（本用例不使用）。"""
+        del readonly
         raise TenantNotFoundError(f"未知域名：{domain}")
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按租户主键（雪花 id 字符串）取租户（仅 acme）。"""
+        del readonly
         if tenant_id == "2002":
             return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
         raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
@@ -116,15 +119,17 @@ class _TenantSource:
 class _BrokenTenantSource(_TenantSource):
     """占位租户源：按令牌主键反解即抛非业务异常（租户注册契约异常口径）。"""
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按租户主键反解即抛异常。
 
         Args:
             tenant_id: 租户主键字符串。
+            readonly: 只读通道（本替身恒失败，忽略该形参）。
 
         Raises:
             RuntimeError: 固定失败（模拟租户注册契约异常）。
         """
+        del readonly
         raise RuntimeError(f"租户注册契约不可达：{tenant_id}")
 
 

@@ -33,15 +33,17 @@ API_LOGIN = "/api/v1/auth/login"
 class _KeylessTenantSource(FakeTenantSource):
     """租户源替身：按编码解析出**无雪花主键**的租户上下文（演示兜底口径）。"""
 
-    async def by_code(self, code: str) -> TenantContext:
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按编码取无主键租户。
 
         Args:
             code: 租户编码。
+            readonly: 只读通道（本替身恒返回演示租户，忽略该形参）。
 
         Returns:
             TenantContext: 无 `tenant_id` 的租户上下文。
         """
+        del readonly
         return TenantContext(code=code, db_key="tenant_demo", name="演示租户")
 
 

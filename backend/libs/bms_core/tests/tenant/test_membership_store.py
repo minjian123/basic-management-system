@@ -332,11 +332,12 @@ class _FakeStore:
 class _FakeTenants:
     """租户源替身：按编码 / 主键返回固定租户上下文（结构上满足 `TenantLookup`）。"""
 
-    async def by_code(self, code: str) -> TenantContext:
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按编码取租户上下文。
 
         Args:
             code: 租户编码。
+            readonly: 只读通道（本替身状态恒可用，忽略该形参）。
 
         Returns:
             TenantContext: 租户上下文。
@@ -350,22 +351,24 @@ class _FakeTenants:
             return TenantContext(code=code, db_key=f"tenant_{code}", name=name, tenant_id=tenant_id)
         raise TenantNotFoundError(f"未知租户：{code}")
 
-    async def by_domain(self, domain: str) -> TenantContext:
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
         """按域名取租户上下文（替身不支持）。
 
         Args:
             domain: 子域名。
+            readonly: 只读通道（替身不支持，忽略该形参）。
 
         Raises:
             TenantNotFoundError: 恒未命中（404 / 80001）。
         """
         raise TenantNotFoundError(f"未知租户域名：{domain}")
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按主键取租户上下文。
 
         Args:
             tenant_id: 租户主键字符串。
+            readonly: 只读通道（本替身状态恒可用，忽略该形参）。
 
         Returns:
             TenantContext: 租户上下文。

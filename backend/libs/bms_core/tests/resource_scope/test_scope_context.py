@@ -69,16 +69,17 @@ class _StubGuard(BaseTenantGuard):
 
     plugin_name: str = "stub_context"
 
-    async def resolve(self, target: TenantTarget) -> TenantContext:
+    async def resolve(self, target: TenantTarget, *, readonly: bool = False) -> TenantContext:
         """返回预置上下文。
 
         Args:
             target: 租户定位（占位忽略）。
+            readonly: 只读通道（占位忽略）。
 
         Returns:
             TenantContext: 预置上下文。
         """
-        del target
+        del target, readonly
         return _context()
 
 

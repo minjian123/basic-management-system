@@ -37,26 +37,30 @@ class _RecordingSource:
     def __init__(self, tenants: ConcurrentStableDict[str, TenantContext] | None = None) -> None:
         self.tenants = tenants if tenants is not None else ConcurrentStableDict[str, TenantContext]()
         self.calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+        self.readonly_calls: ConcurrentStableList[bool] = ConcurrentStableList()
 
-    async def by_code(self, code: str) -> TenantContext:
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按编码取租户（记账）。"""
         self.calls.add(("code", code))
+        self.readonly_calls.add(readonly)
         tenant = self.tenants.get(code)
         if tenant is None:
             raise TenantNotFoundError(f"未知租户：{code}")
         return tenant
 
-    async def by_domain(self, domain: str) -> TenantContext:
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
         """按子域名取租户（记账）。"""
         self.calls.add(("domain", domain))
+        self.readonly_calls.add(readonly)
         for tenant in self.tenants.values():
             if tenant.domain == domain:
                 return tenant
         raise TenantNotFoundError(f"未知租户域名：{domain}")
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按租户主键（雪花 id 字符串）取租户（记账）。"""
         self.calls.add(("id", tenant_id))
+        self.readonly_calls.add(readonly)
         for tenant in self.tenants.values():
             if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
                 return tenant
