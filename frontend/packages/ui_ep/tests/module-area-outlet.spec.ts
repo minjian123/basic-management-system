@@ -30,7 +30,7 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
       props: { area: 'layout.header', registries },
     })
 
-    expect(wrapper.attributes('data-area')).toBe('layout.header')
+    expect(wrapper.find('[data-area]').attributes('data-area')).toBe('layout.header')
     expect(wrapper.findAll('span').map((item) => item.text())).toEqual(['先', '后'])
   })
 
@@ -49,7 +49,7 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
     registries.pageArea.register(new PageAreaProvider('demo:entry', 'layout.header', textComponent('entry', '入口'), 10))
 
     const wrapper = mount(ModuleAreaOutlet, { props: { area: 'layout.header', registries } })
-    expect(wrapper.attributes('data-variant')).toBe('inline')
+    expect(wrapper.find('[data-variant]').attributes('data-variant')).toBe('inline')
     expect(wrapper.findAll('span').map((item) => item.text())).toEqual(['入口'])
 
     // 样式契约（jsdom 不算布局，故断言样式块）：`inline` 形态声明 `max-height` + `overflow: hidden`
@@ -109,7 +109,7 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
       props: { area: 'sys.user.detail.tabs', registries, variant: 'tabs' },
     })
 
-    expect(wrapper.attributes('data-variant')).toBe('tabs')
+    expect(wrapper.find('[data-variant]').attributes('data-variant')).toBe('tabs')
     expect(wrapper.findAll('.el-tabs__item').map((item) => item.text())).toEqual([
       '基本信息',
       '用户扩展示例',
@@ -118,8 +118,7 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
     expect(wrapper.find('.el-tabs__item').classes()).toContain('is-active')
   })
 
-  it('tabs 形态：tabType 透传到 el-tabs（未给则用默认形态）', () => {
-    const registries = createRegistries()
+  it('tabs 形态：tabType 透传到 el-tabs（未给则用默认形态）', () => {    const registries = createRegistries()
     registries.pageArea.register(
       new PageAreaProvider('demo:basic', 'sys.user.detail.tabs', textComponent('basic', '基本信息内容'), 10, {
         title: '基本信息',
@@ -299,5 +298,30 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
 
     await wrapper.setProps({ permissionCodes: ['demo:edit'] })
     expect(wrapper.findAll('span').map((item) => item.text())).toEqual(['受限项'])
+  })
+
+  it('panes 形态：直接产出宿主 el-tabs 的子页签（不包一层容器）', () => {
+    const registries = createRegistries()
+    registries.pageArea.register(
+      new PageAreaProvider('demo:quota', 'sys.record.detail.tabs', textComponent('quota', '消息配额'), 10, {
+        title: '消息配额',
+      }),
+    )
+    const wrapper = mount(ModuleAreaOutlet, {
+      props: { area: 'sys.record.detail.tabs', registries, variant: 'panes' },
+      global: {
+        stubs: {
+          ElTabPane: {
+            name: 'ElTabPane',
+            props: ['name'],
+            template: '<section class="el-tab-pane" :data-name="name"><slot /></section>',
+          },
+        },
+      },
+    })
+    const panes = wrapper.findAll('.el-tab-pane')
+    expect(panes).toHaveLength(1)
+    expect(panes[0].text()).toContain('消息配额')
+    expect(wrapper.find('[data-area]').exists()).toBe(false)
   })
 })

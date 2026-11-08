@@ -16,6 +16,8 @@ import {
   type TenantModuleItem,
   type TenantQuotaItem,
 } from '@/api/tenantAdmin'
+import { registries, registriesRevision } from '@/module/registries'
+import { useSessionStore } from '@/stores/session'
 
 import { moduleStatusLabel, quotaLabel, quotaUnit, tenantStatusLabel, tenantStatusTag } from './tenant/labels'
 
@@ -25,6 +27,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ saved: [tenant: TenantDetail]; dirty: [dirty: boolean]; close: [] }>()
+
+const session = useSessionStore()
 
 /** 当前子页签（骨架件受控键：`detail` / `quota` / `sys`）。 */
 const section = ref<string>('detail')
@@ -255,7 +259,15 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
 
 <template>
   <div data-test="tenant-record">
-    <dict-record-layout v-model="section" :info="sysInfo" :disabled="!editing">
+    <dict-record-layout
+      v-model="section"
+      :info="sysInfo"
+      :disabled="!editing"
+      :module-registries="registries"
+      :module-revision="registriesRevision"
+      :module-permission-codes="session.codes"
+      module-empty-text="暂无消息配额数据：无「消息配额」查询权限或消息平台插件未加载"
+    >
       <template #toolbar>
         <el-button
           v-if="editing || dirty"

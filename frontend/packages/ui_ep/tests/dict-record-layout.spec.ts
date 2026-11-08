@@ -2,6 +2,7 @@
 /** 字典记录页骨架件用例（08_01 / 08_02）：工具栏 / 首行三字段 / 其余字段 / 业务 Tab / 系统信息扩展位插槽与 Tab 顺序、只读绑定、系统信息内置。 */
 
 import { mount } from '@vue/test-utils'
+import { createRegistries } from '@bms/core'
 import { describe, expect, it } from 'vitest'
 
 import { DictRecordLayout } from '../src'
@@ -115,5 +116,57 @@ describe('DictRecordLayout（08_01）', () => {
 
     await readonly.find('[data-test="tabs-change"]').trigger('click')
     expect(readonly.emitted('update:modelValue')).toEqual([['sys']])
+  })
+
+  it('通用模块区域：默认 `sys.record.detail.tabs`，上下文由 formKey / id 派生', () => {
+    const ModuleAreaOutletStub = {
+      name: 'ModuleAreaOutlet',
+      props: ['area', 'variant', 'registries', 'revision', 'permissionCodes', 'context', 'emptyText'],
+      template: '<div data-test="module-area-stub" />',
+    }
+    const registries = createRegistries()
+    const wrapper = mount(DictRecordLayout, {
+      props: {
+        modelValue: 'detail',
+        info: { id: '7', formKey: 'tenant' },
+        moduleRegistries: registries,
+        moduleRevision: 3,
+        modulePermissionCodes: ['msg:query'],
+      },
+      global: { stubs: { ...stubs, ModuleAreaOutlet: ModuleAreaOutletStub } },
+    })
+    const outlet = wrapper.findComponent({ name: 'ModuleAreaOutlet' })
+    expect(outlet.props('area')).toBe('sys.record.detail.tabs')
+    expect(outlet.props('variant')).toBe('panes')
+    expect(outlet.props('revision')).toBe(3)
+    expect(outlet.props('permissionCodes')).toEqual(['msg:query'])
+    expect(outlet.props('context')).toEqual({ formKey: 'tenant', recordId: '7' })
+  })
+
+  it('模块区域可覆盖标识 / 上下文，或关闭顶层页签渲染', () => {
+    const ModuleAreaOutletStub = {
+      name: 'ModuleAreaOutlet',
+      props: ['area', 'variant', 'registries', 'revision', 'permissionCodes', 'context', 'emptyText'],
+      template: '<div data-test="module-area-stub" />',
+    }
+    const wrapper = mount(DictRecordLayout, {
+      props: {
+        modelValue: 'detail',
+        info: { id: '1', formKey: 'role' },
+        moduleArea: 'sys.role.detail.assign',
+        moduleRegistries: createRegistries(),
+        moduleContext: { roleId: 'r1' },
+      },
+      global: { stubs: { ...stubs, ModuleAreaOutlet: ModuleAreaOutletStub } },
+    })
+    const outlet = wrapper.findComponent({ name: 'ModuleAreaOutlet' })
+    expect(outlet.props('area')).toBe('sys.role.detail.assign')
+    expect(outlet.props('context')).toEqual({ roleId: 'r1' })
+
+    const off = mount(DictRecordLayout, {
+      props: { modelValue: 'detail', info: { id: '1' }, moduleRegistries: createRegistries(), moduleTabs: false },
+      global: { stubs: { ...stubs, ModuleAreaOutlet: ModuleAreaOutletStub } },
+    })
+    expect(off.findComponent({ name: 'ModuleAreaOutlet' }).exists()).toBe(false)
   })
 })

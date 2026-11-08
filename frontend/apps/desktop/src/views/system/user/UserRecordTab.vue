@@ -8,7 +8,6 @@
 import {
   DictRecordLayout,
   EmptyState,
-  ModuleAreaOutlet,
   type HostSubmitterEntry,
   type HostSubmitterSegment,
   type HostSubmitterRegistrar,
@@ -42,8 +41,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{ saved: [user: UserDetail]; dirty: [dirty: boolean]; close: [] }>()
 
-/** 具名插槽标识（`{域}.{页面}.{区域}`）：用户记录页「用户分配」页签内的插件挂接位。 */
-const USER_ASSIGN_SLOT = 'sys.user.detail.tabs'
 /** 新增态标识。 */
 const NEW_KEY = 'new'
 
@@ -77,9 +74,7 @@ const form = ref<{ username: string; name: string; phone: string; email: string;
 const detailDirty = ref(false)
 /** 插件提交器（宿主收草稿）。 */
 const submitters = ref<HostSubmitterEntry[]>([])
-/**
- * 已停用（分配只读）。
- */
+/** 已停用（分配只读提示）。 */
 const disabledAccount = computed(() => !isNew.value && form.value.status === 'disabled')
 /** 载入时的基础资料基线（用于判定「基础资料是否真的改过」）。 */
 const baseline = ref<{ name: string; phone: string; email: string; status: UserStatus }>({
@@ -357,7 +352,18 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
 
 <template>
   <div data-test="user-record">
-    <dict-record-layout v-model="section" :info="sysInfo" :disabled="!editing">
+    <dict-record-layout
+      v-model="section"
+      :info="sysInfo"
+      :disabled="!editing"
+      module-area="sys.user.detail.tabs"
+      :module-tabs="!isNew"
+      :module-registries="registries"
+      :module-revision="registriesRevision"
+      :module-permission-codes="session.codes"
+      :module-context="slotContext"
+      module-empty-text="暂无可用的分配项：无「用户分配」权限或分配插件未加载"
+    >
       <template #toolbar>
         <template v-if="isNew">
           <el-button type="primary" :loading="saving" data-test="user-record-save" @click="save">保存</el-button>
@@ -431,35 +437,16 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
             </el-form-item>
           </el-col>
         </el-row>
-      </template>
-
-      <template #extra-tabs>
-        <el-tab-pane label="用户分配" name="assign">
-          <empty-state
-            v-if="isNew"
-            type="data"
-            title="用户创建后可分配"
-            description="保存建号成功后，可在此分配角色 / 岗位 / 部门。"
-            data-test="user-assign-new-hint"
-          />
-          <template v-else>
-            <p v-if="disabledAccount" class="user-record__hint" data-test="user-assign-disabled-hint">
-              账号已停用：分配只读（仅启用账号可持有角色 / 岗位 / 部门分配），请先启用后再分配。
-            </p>
-            <!-- 具名插槽：平台内建「角色分配」与产品插件的岗位 / 部门插件同槽并列（缺失即不渲染，不报错） -->
-            <module-area-outlet
-              :area="USER_ASSIGN_SLOT"
-              variant="tabs"
-              tab-type="card"
-              empty-text="暂无可用的分配项：无「用户分配」权限或分配插件未加载"
-              :registries="registries"
-              :revision="registriesRevision"
-              :permission-codes="session.codes"
-              :context="slotContext"
-              data-test="user-assign-slot"
-            />
-          </template>
-        </el-tab-pane>
+        <empty-state
+          v-if="isNew"
+          type="data"
+          title="用户创建后可分配"
+          description="保存建号成功后，可在此分配角色 / 岗位 / 部门。"
+          data-test="user-assign-new-hint"
+        />
+        <p v-if="disabledAccount" class="user-record__hint" data-test="user-assign-disabled-hint">
+          账号已停用：分配只读（仅启用账号可持有角色 / 岗位 / 部门分配），请先启用后再分配。
+        </p>
       </template>
 
       <template #sys-extra>

@@ -193,7 +193,7 @@ describe('用户记录页（02_02 · Kiwi 2277）', () => {
     listUserIdentities.mockRejectedValue(new Error('identity 服务不可用'))
     const wrapper = await mountRecord()
 
-    await wrapper.findAll('.el-tabs__item')[2]!.trigger('click')
+    await wrapper.findAll('.el-tabs__item').at(-1)!.trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-test="user-record-identities"]').text()).toContain('该用户未绑定任何 SSO 身份')
     expect(ElMessage.error).not.toHaveBeenCalled()
@@ -486,7 +486,7 @@ describe('用户记录页（02_02 · Kiwi 2277）', () => {
 
   it('系统信息页签：渲染系统信息面板与 SSO 身份表', async () => {
     const wrapper = await mountRecord()
-    await wrapper.findAll('.el-tabs__item')[2]!.trigger('click')
+    await wrapper.findAll('.el-tabs__item').at(-1)!.trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-test="sys-info-panel"]').exists()).toBe(true)
@@ -516,7 +516,7 @@ describe('用户记录页 · 字典记录页骨架对齐（08_02 · Kiwi 2294）
 
     expect(wrapper.find('[data-test="dict-record-layout"]').exists()).toBe(true)
     const labels = wrapper.findAllComponents({ name: 'ElTabPane' }).map((pane) => pane.props('label'))
-    expect(labels).toEqual(['详细信息', '用户分配', '系统信息'])
+    expect(labels).toEqual(['详细信息', '系统信息'])
   })
 
   it('详细信息首行三字段（用户名 / 姓名 / 状态）三列等宽且顺序固定，其余字段排首行之后', async () => {

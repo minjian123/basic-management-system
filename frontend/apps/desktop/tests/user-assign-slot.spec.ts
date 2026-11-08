@@ -91,8 +91,7 @@ describe('用户记录页「用户分配」页签挂接（02_02/_01）', () => {
 
     const outlet = wrapper.findComponent(ModuleAreaOutlet)
     expect(outlet.exists()).toBe(true)
-    expect(outlet.props('variant')).toBe('tabs')
-    expect(outlet.props('tabType')).toBe('card')
+    expect(outlet.props('variant')).toBe('panes')
     expect(outlet.props('area')).toBe('sys.user.detail.tabs')
     // 挂接位上下文：注入 `userId` 与宿主提交器通道（供插件登记草稿）
     const context = outlet.props('context') as Record<string, unknown>
@@ -114,7 +113,7 @@ describe('用户记录页「用户分配」页签挂接（02_02/_01）', () => {
     expect(wrapper.find('[data-test="user-assign-disabled-hint"]').exists()).toBe(true)
   })
 
-  it('权限缺省：区域项全被过滤时不留空白，给出空态文案', async () => {
+  it('权限缺省：区域项全被过滤时不留空白（panes 形态不产空页签）', async () => {
     useSessionStore().codes = []
     const wrapper = await mountRecord({
       id: '7',
@@ -126,7 +125,7 @@ describe('用户记录页「用户分配」页签挂接（02_02/_01）', () => {
       updated_at: '2026-10-09T00:00:00',
     })
 
-    expect(wrapper.find('[data-test="module-area-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="module-area-pane"]').exists()).toBe(false)
   })
 
   it('新增态：不渲染插件挂接位，提示创建后可分配', async () => {

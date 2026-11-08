@@ -21,8 +21,8 @@ interface Props {
   registries: FrontendRegistries
   /** 装配版本号（装配 / 释放后自增，用于重算）。 */
   revision?: number
-  /** 形态（缺省 `inline`）。 */
-  variant?: 'inline' | 'tabs'
+  /** 形态（缺省 `inline`；`panes` 为宿主 `el-tabs` 内的页签集合）。 */
+  variant?: 'inline' | 'tabs' | 'panes'
   /**
    * `tabs` 形态的页签类型（透传给 `el-tabs`；缺省 `''`＝默认 `line`）。
    *
@@ -88,7 +88,24 @@ function tabTitle(item: ModuleAreaItem): string {
 </script>
 
 <template>
-  <div v-show="!hidden" class="bms-module-area-outlet" :data-area="area" :data-variant="variant">
+  <!-- `panes` 形态：直接产出宿主 `el-tabs` 的子页签（不能包一层 div，Element Plus 只收 `el-tab-pane` 子节点） -->
+  <template v-if="variant === 'panes'">
+    <el-tab-pane
+      v-for="item in hidden ? [] : items"
+      :key="item.key"
+      :name="item.key"
+      data-test="module-area-pane"
+    >
+      <template #label>
+        <span class="bms-module-area-tab-label">
+          <icon-renderer v-if="item.icon" :name="item.icon" :registry="registries.icon" fallback="" />
+          {{ tabTitle(item) }}
+        </span>
+      </template>
+      <component :is="resolve(item.component)" />
+    </el-tab-pane>
+  </template>
+  <div v-else v-show="!hidden" class="bms-module-area-outlet" :data-area="area" :data-variant="variant">
     <!-- 空态补白：区域项全被过滤（无权限 / 无来源）时给出文案，避免「整块空白」被误判为缺陷 -->
     <p
       v-if="variant === 'tabs' && isEmpty && emptyText"
