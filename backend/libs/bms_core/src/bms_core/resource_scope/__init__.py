@@ -8,6 +8,7 @@
 from bms_core.resource_scope.acl import (
     AclContext,
     BaseResourceAcl,
+    current_roles,
     get_resource_acl,
     require_resource_access,
 )
@@ -86,6 +87,7 @@ __all__ = [
     "SourceScopeResolver",
     "SourceScopeResolverFactory",
     "build_scope_rule_chain",
+    "current_roles",
     "find_scope_resource_type",
     "get_resource_acl",
     "get_scope_resolver",

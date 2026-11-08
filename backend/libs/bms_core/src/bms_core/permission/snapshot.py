@@ -8,7 +8,7 @@
 4. 权限概要（`/api/v1/menus/my` 供数）。
 
 **对后代的接口承诺**：核心字段（`permission_codes` / `granted_menu_ids` / `granted_form_ids` /
-`data_scopes` / `field_perms` / `tier` / `profile`）语义**不得变更**；后代新增维度一律放 `extensions`
+`role_ids` / `data_scopes` / `field_perms` / `tier` / `profile`）语义**不得变更**；后代新增维度一律放 `extensions`
 （见《02_04 详细设计》§11.2 接缝 5）。
 
 **`tier` 与 `profile` 的区别（易混）**：`tier` 是主体层级的**豁免标记**（超管 / 系统管理员 → 校验恒真）；
@@ -54,6 +54,8 @@ class PermissionSnapshot(BaseDataContract):
     """已授予的菜单入口 ID 集合（入口可见性判定）。"""
     granted_form_ids: ConcurrentStableSet[int] = field(default_factory=lambda: ConcurrentStableSet[int]())
     """已授予的表单 ID 集合（入口可见性判定；勾菜单连带 + 表单级直接授予）。"""
+    role_ids: ConcurrentStableSet[int] = field(default_factory=lambda: ConcurrentStableSet[int]())
+    """主体链收敛后的角色主键集合（资源级 ACL 角色主体判定用；空集表示无角色）。"""
     data_scopes: ConcurrentStableList[ConcurrentStableDict[str, object]] = field(
         default_factory=lambda: ConcurrentStableList[ConcurrentStableDict[str, object]]()
     )
@@ -119,6 +121,7 @@ class PermissionSnapshot(BaseDataContract):
         payload.set("permission_codes", list(self.permission_codes))
         payload.set("granted_menu_ids", list(self.granted_menu_ids))
         payload.set("granted_form_ids", list(self.granted_form_ids))
+        payload.set("role_ids", list(self.role_ids))
         payload.set("data_scopes", [dict(item) for item in self.data_scopes])
         payload.set(
             "field_perms",
@@ -152,6 +155,10 @@ class PermissionSnapshot(BaseDataContract):
         menus.update(item for item in _as_list(row.get("granted_menu_ids")) if isinstance(item, int))
         forms = ConcurrentStableSet[int]()
         forms.update(item for item in _as_list(row.get("granted_form_ids")) if isinstance(item, int))
+        roles = ConcurrentStableSet[int]()
+        roles.update(
+            item for item in _as_list(row.get("role_ids")) if isinstance(item, int) and not isinstance(item, bool)
+        )
         scopes: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
         for item in _as_list(row.get("data_scopes")):
             scopes.add(_as_stable(item))
@@ -171,6 +178,7 @@ class PermissionSnapshot(BaseDataContract):
             permission_codes=permissions,
             granted_menu_ids=menus,
             granted_form_ids=forms,
+            role_ids=roles,
             data_scopes=scopes,
             field_perms=fields,
             extensions=_as_stable(row.get("extensions")),

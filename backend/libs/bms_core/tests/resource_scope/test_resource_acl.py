@@ -17,7 +17,7 @@ from typing import Any, cast
 import pytest
 from starlette.requests import Request
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import (
     reset_current_tenant_id,
     reset_tenant_context,
@@ -34,8 +34,9 @@ from bms_core.core.exceptions import (
 )
 from bms_core.db.tenant import TenantContext
 from bms_core.extension import RESOURCE_ACL_KEY, ExtensionRequirement
+from bms_core.permission.snapshot import PermissionSnapshot, set_current_permission_snapshot
 from bms_core.resource_scope import acl as acl_module
-from bms_core.resource_scope.acl import AclContext, BaseResourceAcl, require_resource_access
+from bms_core.resource_scope.acl import AclContext, BaseResourceAcl, current_roles, require_resource_access
 from bms_core.resource_scope.base import ResourceScopeKey
 from bms_core.resource_scope.null import NullResourceAcl
 from bms_core.resource_scope.resolver import ResolvedScope
@@ -59,6 +60,7 @@ class _RecordingAcl(BaseResourceAcl):
             deny: 是否拒绝。
         """
         self._deny = deny
+        self.last_ctx: AclContext | None = None
 
     def check(self, ctx: AclContext, *, action: str) -> None:
         """记录调用（必要时拒绝）。
@@ -70,6 +72,7 @@ class _RecordingAcl(BaseResourceAcl):
         Raises:
             ResourceAccessDeniedError: 预置拒绝。
         """
+        self.last_ctx = ctx
         _CALLS.add(f"acl:{action}:{ctx.resource_key}")
         if self._deny:
             raise ResourceAccessDeniedError()
@@ -215,8 +218,10 @@ def _reset_context() -> Iterator[None]:
     """
     token = set_tenant_context(TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=_TENANT_ID))
     id_token = set_current_tenant_id(str(_TENANT_ID))
+    set_current_permission_snapshot(None)
     _CALLS.clear()
     yield
+    set_current_permission_snapshot(None)
     reset_current_tenant_id(id_token)
     reset_tenant_context(token)
     _CALLS.clear()
@@ -272,6 +277,31 @@ async def test_undeclared_acl_skips_check(monkeypatch: pytest.MonkeyPatch) -> No
     scope = await dependency(_request(state=state, path_params={"resource_key": "orders"}))
     assert scope.key.resource_key == "orders"
     assert list(_CALLS) == ["rbac:demo:manage", "scope"]
+
+
+async def test_acl_context_includes_snapshot_roles(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`AclContext.roles` 由权限快照的角色主键填充（十进制字符串、升序）。"""
+    acl = _RecordingAcl()
+    _patch(monkeypatch, acl=acl)
+    set_current_permission_snapshot(PermissionSnapshot(role_ids=ConcurrentStableSet({12, 11})))
+    dependency = require_resource_access("demo:manage", module_key="demo", action="manage")
+    await dependency(_request(state=_declared(), path_params={"resource_key": "orders"}))
+    assert acl.last_ctx is not None
+    assert list(acl.last_ctx.roles) == ["11", "12"]
+
+
+def test_current_roles_without_snapshot() -> None:
+    """无权限快照 / 无角色：`current_roles()` 返回空（不抛错）。"""
+    set_current_permission_snapshot(None)
+    assert list(current_roles()) == []
+    set_current_permission_snapshot(PermissionSnapshot())
+    assert list(current_roles()) == []
+
+
+def test_current_roles_sorted_strings() -> None:
+    """角色主键转十进制字符串并按数值升序（避免 10 < 2 的字典序错误）。"""
+    set_current_permission_snapshot(PermissionSnapshot(role_ids=ConcurrentStableSet({2, 10})))
+    assert list(current_roles()) == ["2", "10"]
 
 
 async def test_null_acl_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:

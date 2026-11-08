@@ -35,6 +35,7 @@ from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.extension.base import RESOURCE_ACL_KEY, ExtensionRequirement
 from bms_core.permission.base import require_permission
+from bms_core.permission.snapshot import get_current_permission_snapshot
 from bms_core.resource_scope.base import ResourceScopeKey
 from bms_core.resource_scope.resolver import (
     ResolvedScope,
@@ -46,6 +47,7 @@ from bms_core.resource_scope.resolver import (
 __all__ = [
     "AclContext",
     "BaseResourceAcl",
+    "current_roles",
     "get_resource_acl",
     "require_resource_access",
 ]
@@ -71,10 +73,11 @@ class AclContext(BaseValueObject):
     """操作人主键（服务身份为 `None`）。"""
 
     roles: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
-    """角色键（**本期恒为空**：权限检查器未暴露角色集合，产品如需角色按 `user_id` 自取）。
+    """角色主键集合（十进制字符串；取自权限快照 `PermissionSnapshot.role_ids`）。
 
-    保留该字段是为了上收（基座统一授权）时补注入而不改契约；不得据此替代 RBAC 判定
-    ——本上下文只在 RBAC 通过后才产生。
+    由 `current_roles()` 统一读取：资源级 ACL 用它匹配 `role` 主体。为空表示当前请求
+    无角色（服务身份 / 未装载权限快照）；**不得据此替代 RBAC 判定**——本上下文只在
+    RBAC 通过后才产生。
     """
 
 
@@ -98,6 +101,20 @@ class BaseResourceAcl(BasePluggable, ABC):
             ResourceAccessDeniedError: 拒绝（82013 / 403；不区分资源是否存在）。
         """
         ...
+
+
+def current_roles() -> ConcurrentStableFrozenList[str]:
+    """取当前请求的角色主键集合（十进制字符串；无权限快照返回空）。
+
+    唯一出口：`require_resource_access` 与产品 ACL 守卫共用，避免各自读快照导致口径分叉。
+
+    Returns:
+        ConcurrentStableFrozenList[str]: 角色主键字符串（升序、去重）；无快照 / 无角色为空。
+    """
+    snapshot = get_current_permission_snapshot()
+    if snapshot is None:
+        return ConcurrentStableFrozenList()
+    return ConcurrentStableFrozenList(str(role_id) for role_id in sorted(snapshot.role_ids))
 
 
 def get_resource_acl(request: Request) -> BaseResourceAcl:
@@ -211,6 +228,7 @@ def require_resource_access(
                 resource_type=resource_type,
                 resource_key=resource_key,
                 user_id=get_current_user_id(),
+                roles=current_roles(),
             )
             # ② 形态校验（不查登记表）：只保证交给 ACL 的标识是合法形态，登记态判定在 ④
             ResourceScopeKey(tenant_id=ctx.tenant_id, module_key=module_key, resource_key=resource_key)

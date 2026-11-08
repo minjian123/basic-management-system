@@ -271,6 +271,7 @@ class PermissionEngine(BaseFrameworkObject):
             permission_codes=granted.permission_codes,
             granted_menu_ids=granted.menu_ids,
             granted_form_ids=granted.form_ids,
+            role_ids=ConcurrentStableSet(data.role_ids),
             data_scopes=self._data_scope_rules(data),
             field_perms=data.field_perms,
         )

@@ -215,6 +215,7 @@ async def test_aggregate_skips_metadata_when_no_roles() -> None:
     snapshot = await engine.compute(user_id=5, version=1)
     assert list(snapshot.permission_codes) == []
     assert list(snapshot.granted_menu_ids) == []
+    assert list(snapshot.role_ids) == []
     assert list(snapshot.granted_form_ids) == []
     assert list(snapshot.data_scopes) == []
     assert list(snapshot.field_perms) == []
@@ -273,6 +274,7 @@ async def test_snapshot_for_caches_and_reuses() -> None:
     second = await engine.snapshot_for(user_id=5, tenant_id="1001")
     assert sorted(first.permission_codes) == ["role:grant"]
     assert sorted(second.permission_codes) == ["role:grant"]
+    assert list(first.role_ids) == [1]
     assert first is second
     assert source.subject_calls == 1
 

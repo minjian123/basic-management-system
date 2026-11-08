@@ -45,6 +45,7 @@ def test_from_payload_accepts_stable_list_payload() -> None:
                 "permission_codes": ConcurrentStableList(["role:grant", 7]),
                 "granted_menu_ids": ConcurrentStableList([1, "x", True]),
                 "granted_form_ids": ConcurrentStableList([2, 3]),
+                "role_ids": ConcurrentStableList([31, "x", True, 32]),
                 "data_scopes": ConcurrentStableList([ConcurrentStableDict({"policy_type": "all"})]),
                 "field_perms": ConcurrentStableList([ConcurrentStableDict({"form_id": 5, "field_key": "name"})]),
             }
@@ -53,6 +54,7 @@ def test_from_payload_accepts_stable_list_payload() -> None:
     assert snapshot.permission_codes == ConcurrentStableSet({"role:grant"})
     assert snapshot.granted_menu_ids == ConcurrentStableSet({1})
     assert snapshot.granted_form_ids == ConcurrentStableSet({2, 3})
+    assert snapshot.role_ids == ConcurrentStableSet({31, 32})
     assert list(snapshot.data_scopes) == [{"policy_type": "all"}]
     assert snapshot.field_state(5, "name") == (True, True)
 
@@ -68,6 +70,7 @@ def test_from_payload_falls_back_on_bad_types() -> None:
     assert snapshot.tier == TIER_STANDARD
     assert snapshot.extensions == ConcurrentStableDict()
     assert snapshot.permission_codes == ConcurrentStableSet()
+    assert snapshot.role_ids == ConcurrentStableSet()
 
 
 @pytest.mark.kiwi_id(2269)
@@ -89,6 +92,7 @@ def test_payload_roundtrip_and_field_state() -> None:
         permission_codes=ConcurrentStableSet({"role:grant"}),
         granted_menu_ids=ConcurrentStableSet({11}),
         granted_form_ids=ConcurrentStableSet({22}),
+        role_ids=ConcurrentStableSet({33, 34}),
         data_scopes=ConcurrentStableList([ConcurrentStableDict({"policy_type": "self"})]),
         field_perms=ConcurrentStableList(
             [FieldPermission(form_id=1, field_key="secret", visible=False, editable=False)]
