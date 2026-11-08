@@ -108,6 +108,18 @@ services:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_TENANT:-13}
 
+  tenant-jobs:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-tenant:${BMS_TAG_TENANT:?BMS_TAG_TENANT required}
+    container_name: bms-tenant-jobs
+    command: ["python", "-m", "bms_tenant.jobs"]
+    expose: []
+    healthcheck: *jobs-healthcheck
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_TENANT_JOBS:-104}
+      BMS_APP__SERVICE: tenant
+
   file:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-file:${BMS_TAG_FILE:?BMS_TAG_FILE required}

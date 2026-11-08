@@ -1,0 +1,136 @@
+"""租户服务作业 worker 入口：`python -m bms_tenant.jobs`。
+
+- 声明本服务 handler（`tenant.purge` / `tenant.purge.scan`）与类型参数；
+- 扫描本服务平台链 + 租户链，抢占并执行本服务声明的作业；
+- `--once` 只跑一轮（诊断 / 冒烟）；长驻由容器命令承载。
+
+为何需要独立 worker：清理作业的负载是「删某租户的库」，只能由 tenant 服务在自己的运维通道里做；
+放在 HTTP 进程里做会跟请求超时 / 重启耦合，且删库耗时不进作业记录就丢了重试依据。
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import contextlib
+
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.config import Settings, get_settings
+from bms_core.db.engine import EngineFactory
+from bms_core.db.registry import EngineRegistry
+from bms_core.db.session import SessionFactory
+from bms_core.jobs.keys import JobDbKeys
+from bms_core.jobs.limits import JobLimits
+from bms_core.jobs.registry import JobHandlerRegistry
+from bms_core.jobs.runner import JobRunner
+from bms_core.jobs.signal import JobChangeSignal
+from bms_core.jobs.worker import JobWorker
+from bms_core.workerid.lease import worker_id_lease_sync
+from bms_tenant.domains.tenant.jobs import SERVICE_KEY, job_handlers, job_specs
+
+__all__ = ["build_runner", "build_worker", "main"]
+
+
+def _registry() -> JobHandlerRegistry:
+    """构造并装载本服务 handler 注册表。
+
+    Returns:
+        JobHandlerRegistry: 注册表。
+    """
+    registry = JobHandlerRegistry()
+    registry.load(job_handlers())
+    return registry
+
+
+def build_runner() -> JobRunner:
+    """构造租户服务作业提交器（进程内提交 / 内部端点）。
+
+    Returns:
+        JobRunner: 作业提交器。
+    """
+    return JobRunner(
+        registry=_registry(),
+        specs=dict(job_specs()),
+        limits=JobLimits(get_settings().jobs),
+    )
+
+
+def build_worker(settings: Settings | None = None) -> tuple[JobWorker, EngineRegistry]:
+    """构造租户服务作业消费者与引擎注册表（调用方负责释放）。
+
+    Args:
+        settings: 应用配置；None 取全局单例。
+
+    Returns:
+        tuple[JobWorker, EngineRegistry]: worker 与引擎注册表。
+    """
+    resolved = settings if settings is not None else get_settings()
+    factory = EngineFactory(resolved)
+    engine_registry = EngineRegistry(factory)
+    # 租户注册库 `platform_tenant` 归本单元，但作业 worker 仍需枚举**全部**租户库（含其他服务的），
+    # 故租户链枚举单独用只解析地址的工厂；作业执行仍走严格归属的 engine_registry。
+    registry_factory = EngineFactory(resolved, allow_cross_service=True)
+    worker = JobWorker(
+        service_key=SERVICE_KEY,
+        registry=_registry(),
+        specs=dict(job_specs()),
+        limits=JobLimits(resolved.jobs),
+        engine_registry=engine_registry,
+        db_keys=JobDbKeys(
+            registry_factory=registry_factory,
+            service_key=SERVICE_KEY,
+            ttl_seconds=resolved.jobs.tenant_cache_ttl_seconds,
+        ),
+        session_factory=SessionFactory(),
+        signal=JobChangeSignal(channel=resolved.jobs.change_channel),
+        worker_id=resolved.jobs.worker_id or None,
+        heartbeat_path=resolved.jobs.heartbeat_path,
+    )
+    return worker, engine_registry
+
+
+async def _run(args: argparse.Namespace) -> int:
+    """运行 worker（单轮或长驻）。
+
+    Args:
+        args: 命令行参数。
+
+    Returns:
+        int: 退出码。
+    """
+    worker, engine_registry = build_worker()
+    try:
+        if args.once:
+            report = await worker.run_once()
+            print(f"单轮抢占 {report.claimed} 条 / 执行 {report.executed} 条 / 回收 {report.requeued} 条")
+            return 0
+        print(f"作业 worker 启动：{worker.worker_id}")
+        await worker.run_forever()
+    except KeyboardInterrupt:
+        print("作业 worker 收到中断，已退出")
+    finally:
+        await worker.aclose()
+        await engine_registry.aclose()
+    return 0
+
+
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
+    """入口。
+
+    Args:
+        argv: 命令行参数（None 取 `sys.argv`）。
+
+    Returns:
+        int: 退出码。
+    """
+    parser = argparse.ArgumentParser(prog="bms_tenant.jobs", description="租户服务作业 worker")
+    parser.add_argument("--once", action="store_true", help="只跑一轮即退出（诊断 / 冒烟）")
+    args = parser.parse_args(None if argv is None else list(argv))
+    # WorkerId 租约（03_06）：作业 worker 同样会写库生成雪花 ID，入口取号、退出释放
+    with contextlib.suppress(KeyboardInterrupt), worker_id_lease_sync():
+        return asyncio.run(_run(args))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

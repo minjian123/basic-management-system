@@ -47,7 +47,12 @@ from bms_tenant.domains.tenant.schemas.tenant_admin import (
 from bms_tenant.domains.tenant.services.tenant_module import TenantModuleService
 from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
-__all__ = ["DEFAULT_RETENTION_DAYS", "DELETION_RETENTION_KEY", "TenantAdminService"]
+__all__ = [
+    "DEFAULT_RETENTION_DAYS",
+    "DELETION_RETENTION_KEY",
+    "TenantAdminService",
+    "parse_retention_days",
+]
 
 DELETION_RETENTION_KEY = "tenant.deletion.retention_days"
 """保留期系统参数键（`sys_config`；改配置即时生效，无需重启）。"""
@@ -343,16 +348,7 @@ class TenantAdminService(BaseFrameworkObject):
         """
         if self._config is None:
             return DEFAULT_RETENTION_DAYS
-        raw = await self._config.get(DELETION_RETENTION_KEY, str(DEFAULT_RETENTION_DAYS))
-        try:
-            days = int(raw)
-        except ValueError:
-            _LOGGER.warning("tenant_retention_invalid", value=raw, fallback=DEFAULT_RETENTION_DAYS)
-            return DEFAULT_RETENTION_DAYS
-        if days <= 0:
-            _LOGGER.warning("tenant_retention_invalid", value=raw, fallback=DEFAULT_RETENTION_DAYS)
-            return DEFAULT_RETENTION_DAYS
-        return days
+        return parse_retention_days(await self._config.get(DELETION_RETENTION_KEY, str(DEFAULT_RETENTION_DAYS)))
 
     async def _purge_at(self, now: datetime) -> datetime | None:
         """算保留期截止；归档能力未就绪时留空（由清理扫描回填，不阻塞注销）。
@@ -395,6 +391,28 @@ class TenantAdminService(BaseFrameworkObject):
         if row is None:
             raise TenantAdminNotFoundError("租户不存在或已删除")
         return row
+
+
+def parse_retention_days(raw: str | None) -> int:
+    """解析保留期天数（缺失 / 非整数 / 非正数回落缺省 30 并告警，不阻断注销或清理）。
+
+    Args:
+        raw: 参数原文（`sys_config` 值）。
+
+    Returns:
+        int: 保留期天数（恒 > 0）。
+    """
+    if raw is None:
+        return DEFAULT_RETENTION_DAYS
+    try:
+        days = int(raw)
+    except ValueError:
+        _LOGGER.warning("tenant_retention_invalid", value=raw, fallback=DEFAULT_RETENTION_DAYS)
+        return DEFAULT_RETENTION_DAYS
+    if days <= 0:
+        _LOGGER.warning("tenant_retention_invalid", value=raw, fallback=DEFAULT_RETENTION_DAYS)
+        return DEFAULT_RETENTION_DAYS
+    return days
 
 
 def _now() -> datetime:

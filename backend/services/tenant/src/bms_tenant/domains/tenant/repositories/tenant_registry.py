@@ -3,13 +3,16 @@
 - 只读：`by_code` / `by_domain` / `by_id`（软删除过滤）——供本服务本地租户源与只读契约接口复用；
   库名基 `db_basis` 经对照表 `sys_tenant_database` 取数（`db_basis()`）；
 - 写路径：`create` / `update_status`（开通 / 停用）——`create` 同事务写 `sys_tenant` + `sys_tenant_database`
-  （开通流程「先写注册 + 对照，再建库 / 迁移」）；本期只落状态变更入口，保证「版本键失效」有调用点。
+  （开通流程「先写注册 + 对照，再建库 / 迁移」）；本期只落状态变更入口，保证「版本键失效」有调用点；
+- **清理路径**（`04_03-02`）：`purge_due` / `purge_pending` / `backfill_purge_at` / `purge_row` ——
+  只服务到期清理与保留期回填，不改状态机（状态仍由 `set_deleted` / `restore` 承担）。
 """
 
 from datetime import datetime
 
 from sqlalchemy import delete, func, select
 
+from bms_core.config.models import SysConfig
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
@@ -26,6 +29,9 @@ __all__ = ["TenantRegistryRepository"]
 
 _ACTIVE_STATUS = TENANT_STATUS_ACTIVE
 """启用租户状态取值（与 `sys_tenant.status` 口径一致）。"""
+
+_DELETED_STATUS = TENANT_STATUS_DELETED
+"""已注销状态取值（清理扫描的唯一入口状态，与 `sys_tenant.status` 口径一致）。"""
 
 
 class TenantRegistryRepository(BaseFrameworkObject):
@@ -243,8 +249,91 @@ class TenantRegistryRepository(BaseFrameworkObject):
         Args:
             tenant_id: 租户主键。
         """
+        await self.purge_row(tenant_id)
+
+    async def purge_row(self, tenant_id: int) -> None:
+        """物理删除注册行与库名对照（注销清理终态；与开通失败清理**同一删法**）。
+
+        Args:
+            tenant_id: 租户主键。
+        """
         await self._session.execute(delete(SysTenantDatabase).where(SysTenantDatabase.tenant_id == tenant_id))
         await self._session.execute(delete(SysTenant).where(SysTenant.id == tenant_id))
+
+    async def purge_due(self, *, now: datetime, limit: int) -> ConcurrentStableList[SysTenant]:
+        """取**已到期**的注销租户（`status = deleted`、`purge_at` 非空且 <= 当前时刻）。
+
+        `deleted_at` 必须为空：注销不软删，一旦软删说明行已不在注册视图内，不再参与清理。
+
+        Args:
+            now: 当前时刻（UTC naive）。
+            limit: 单批上限。
+
+        Returns:
+            ConcurrentStableList[SysTenant]: 注册行（按 `purge_at` 升序，最早到期先清）。
+        """
+        statement = (
+            select(SysTenant)
+            .where(
+                SysTenant.status == _DELETED_STATUS,
+                SysTenant.purge_at.is_not(None),
+                SysTenant.purge_at <= now,
+                SysTenant.deleted_at.is_(None),
+            )
+            .order_by(SysTenant.purge_at, SysTenant.id)
+            .limit(limit)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def purge_pending(self, *, limit: int) -> ConcurrentStableList[SysTenant]:
+        """取**保留期待回填**的注销租户（`status = deleted` 且 `purge_at` 为空）。
+
+        Args:
+            limit: 单批上限。
+
+        Returns:
+            ConcurrentStableList[SysTenant]: 注册行（按注销时刻升序，先注销先回填）。
+        """
+        statement = (
+            select(SysTenant)
+            .where(
+                SysTenant.status == _DELETED_STATUS,
+                SysTenant.purge_at.is_(None),
+                SysTenant.deleted_at.is_(None),
+            )
+            .order_by(SysTenant.deletion_requested_at, SysTenant.id)
+            .limit(limit)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def backfill_purge_at(self, row: SysTenant, *, purge_at: datetime) -> SysTenant:
+        """回填保留期截止（归档能力就绪后从当下起算，给足新保留期）。
+
+        Args:
+            row: 注册行。
+            purge_at: 新的保留期截止（UTC naive）。
+
+        Returns:
+            SysTenant: 更新后的注册行。
+        """
+        row.purge_at = purge_at
+        await self._session.flush()
+        return row
+
+    async def config_value(self, key: str) -> str | None:
+        """取平台库系统参数值（未软删；缺失返回 None）。
+
+        保留期等租户侧平台参数落在 tenant 服务平台库 `sys_config`；清理扫描在 worker 内无请求态，
+        故按会话直读（不经请求态参数取数，避免装配面依赖）。
+
+        Args:
+            key: 参数键（如 `tenant.deletion.retention_days`）。
+
+        Returns:
+            str | None: 参数值；未登记 / 已删返回 None（调用方回落代码缺省）。
+        """
+        statement = select(SysConfig.value).where(SysConfig.config_key == key, SysConfig.deleted_at.is_(None)).limit(1)
+        return (await self._session.execute(statement)).scalar_one_or_none()
 
     async def set_deleted(self, row: SysTenant, *, requested_at: datetime, purge_at: datetime | None) -> SysTenant:
         """置「已注销」并记保留期时点（**不软删**：`deleted_at` 保持 NULL 到物理清理）。

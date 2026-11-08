@@ -1,6 +1,6 @@
 """内置任务：清单登记 + 执行体（已落地的做真实动作，未落地的仍是占位）。
 
-七条内置任务在 `sys_task` 里有定义（种子入库）、有 cron、有执行记录：
+八条内置任务在 `sys_task` 里有定义（种子入库）、有 cron、有执行记录：
 
 - **孤儿分片清理**（03_01 已落地）：执行体为**触发型**——经服务间调用驱动 file 服务的内部清理端点
   （扫描 / 清理 / 置 `orphan` 全在 file 域，基座不跨库写文件表），返回执行摘要；
@@ -8,6 +8,8 @@
   `platform.export.cleanup` 与 `print.artifact.cleanup` 作业；两者业务目的同族但数据零耦合
   （不同服务、不同 key 空间、不同保留期参数），故拆为两条独立任务，各自 cron 与任务日志；
 - **审计链巡检**（06_01 落地）：触发型——向 platform 服务提交校验请求，逐类日志校验当前保留期内分片链。
+- **注销租户清理**（04_03 落地）：提交型——向 tenant 服务提交 `tenant.purge.scan`；扫描 / 删库 / 发事件全在
+  tenant 服务（基座不跨库删库），本执行体只负责「按日触发一次」。
 - 其余两条仍是占位实现：返回 `skipped` 并在 `message` 里写明归口任务号。理由见详细设计 §4.6：
 
 - 「只登记不执行」会让 handler 白名单直接拒掉、触发即失败，`sys_task_log` 只剩失败记录，
@@ -44,6 +46,7 @@ __all__ = [
     "run_cleanup_orphan_parts",
     "run_cleanup_print_artifacts",
     "run_precreate_shard_tables",
+    "run_purge_deleted_tenants",
     "run_purge_soft_deleted",
     "run_verify_audit_chain",
 ]
@@ -59,6 +62,9 @@ PLATFORM_SERVICE_KEY = "platform"
 
 REPORT_SERVICE_KEY = "report"
 """报表打印服务标识（打印产物清理作业的提供方）。"""
+
+TENANT_SERVICE_KEY = "tenant"
+"""租户服务标识（注销租户清理作业的提供方）。"""
 
 AUDIT_VERIFY_PATH = "/api/v1/platform/internal/audit/verify"
 """审计链校验内部端点（06_01，platform 服务）。"""
@@ -147,6 +153,14 @@ BUILTIN_TASK_SPECS: ConcurrentStableList[BuiltinTaskSpec] = ConcurrentStableList
             handler=f"{_HANDLER_MODULE}:run_purge_soft_deleted",
             owner="13（回收站）、14（归档）",
             summary="过期回收站数据物理清理",
+        ),
+        BuiltinTaskSpec(
+            code="purge_deleted_tenants",
+            name="注销租户清理",
+            cron="0 2 * * *",
+            handler=f"{_HANDLER_MODULE}:run_purge_deleted_tenants",
+            owner="04_03（经 tenant.purge.scan 作业执行）",
+            summary="回填保留期并清理到期注销租户（逐库删库、落 tenant.purged）",
         ),
     )
 )
@@ -347,6 +361,23 @@ async def run_verify_audit_chain(ctx: TaskContext) -> TaskResult:
             return TaskResult.failed(f"审计链断裂（{log_type}）：{broken}", output=broken)
         checked.add(f"{log_type}:{data.get('checked_records', 0)}")
     return TaskResult.success("审计链校验通过", output=";".join(checked))
+
+
+async def run_purge_deleted_tenants(ctx: TaskContext) -> TaskResult:
+    """注销租户清理（提交型：向 tenant 服务提交 `tenant.purge.scan` 作业）。
+
+    扫描 / 回填 / 逐库删 / 发 `tenant.purged` 全在 tenant 服务（基座不跨库删库）；本执行体只做
+    「按日触发一次」，作业侧按到期租户逐个提交 `tenant.purge`，单租户失败互不影响。
+
+    Args:
+        ctx: 执行上下文（平台级任务，无租户）。
+
+    Returns:
+        TaskResult: 成功带作业标识；下游不可用为失败（由调度器按策略重试提交）。
+    """
+    return await _submit_cleanup(
+        service_key=TENANT_SERVICE_KEY, job_type="tenant.purge.scan", label="注销租户清理", ctx=ctx
+    )
 
 
 async def run_purge_soft_deleted(ctx: TaskContext) -> TaskResult:

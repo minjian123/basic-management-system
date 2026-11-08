@@ -7,6 +7,7 @@
 """
 
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
@@ -24,6 +25,8 @@ from bms_core.models.tenant.tenant import (
 from bms_tenant.domains.tenant.services.tenant_admin import (
     DEFAULT_RETENTION_DAYS,
     DELETION_RETENTION_KEY,
+    TenantAdminService,
+    parse_retention_days,
 )
 
 from .test_tenant_admin import _override_platform, _seed_tenant  # pyright: ignore[reportPrivateUsage]
@@ -249,3 +252,26 @@ def test_retention_config_key_contract() -> None:
     """保留期参数键与缺省值（配置口径的唯一来源，改键即改行为）。"""
     assert DELETION_RETENTION_KEY == "tenant.deletion.retention_days"
     assert DEFAULT_RETENTION_DAYS == 30
+
+
+def test_parse_retention_days_fallbacks() -> None:
+    """保留期解析：缺失 / 非整数 / 非正数一律回落缺省，合法值照用。"""
+    assert parse_retention_days(None) == DEFAULT_RETENTION_DAYS
+    assert parse_retention_days("abc") == DEFAULT_RETENTION_DAYS
+    assert parse_retention_days("0") == DEFAULT_RETENTION_DAYS
+    assert parse_retention_days("-3") == DEFAULT_RETENTION_DAYS
+    assert parse_retention_days("7") == 7
+
+
+async def test_admin_defaults_without_config_and_settings() -> None:
+    """未装配参数取数 / 应用配置时：保留期回落缺省、归档判定为未就绪。"""
+    service = TenantAdminService(
+        session=cast("Any", object()),
+        modules=cast("Any", object()),
+        quotas=cast("Any", object()),
+        outbox=cast("Any", object()),
+        config=None,
+        settings=None,
+    )
+    assert await service._retention_days() == DEFAULT_RETENTION_DAYS  # pyright: ignore[reportPrivateUsage]
+    assert service._archive_ready() is False  # pyright: ignore[reportPrivateUsage]

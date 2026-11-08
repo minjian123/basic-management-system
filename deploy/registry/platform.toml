@@ -630,3 +630,29 @@ backoff_seconds = 0
 concurrency = 1
 payload_version = "1.0.0"
 status = "enabled"
+
+[[jobs]]
+job_type = "tenant.purge.scan"
+service = "tenant"
+domain = "tenant"
+handler = "bms_tenant.domains.tenant.jobs:TenantPurgeScanJob"
+description = "扫描到期注销租户：回填保留期并逐租户提交 tenant.purge（04_03-02）"
+timeout_seconds = 600
+max_attempts = 3
+backoff_seconds = 60
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
+job_type = "tenant.purge"
+service = "tenant"
+domain = "tenant"
+handler = "bms_tenant.domains.tenant.jobs:TenantPurgeJob"
+description = "清理到期注销租户：逐库删库、删注册行并落 tenant.purged（04_03-02）"
+timeout_seconds = 1800
+max_attempts = 3
+backoff_seconds = 120
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"

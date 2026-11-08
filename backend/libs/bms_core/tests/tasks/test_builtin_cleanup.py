@@ -99,6 +99,22 @@ async def test_task_submits_cleanup_job(monkeypatch: pytest.MonkeyPatch) -> None
     assert str(call["idempotency_key"]).startswith("file.cleanup_orphans:9:")
 
 
+async def test_purge_deleted_tenants_submits_tenant_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """注销租户清理：平台级任务向 tenant 服务提交 `tenant.purge.scan`（不带租户位）。"""
+    fake = _FakeJobClient(object())
+    monkeypatch.setattr(builtin, "JobInternalClient", _job_client_factory(fake))
+    monkeypatch.setattr(builtin, "build_service_client", lambda: object())
+
+    result = await builtin.run_purge_deleted_tenants(_ctx(tenant_id=None))
+
+    assert result.status == "success"
+    call = fake.calls[0]
+    assert call["service_key"] == "tenant"
+    assert call["job_type"] == "tenant.purge.scan"
+    assert call["tenant_id"] is None
+    assert str(call["idempotency_key"]).startswith("tenant.purge.scan:platform:")
+
+
 async def test_task_fails_when_submit_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     """提交失败（下游不可用）：返回失败态（由调度器按策略重试提交），不抛异常。"""
     fake = _FakeJobClient(object(), error=ServiceUnavailableError("down"))
