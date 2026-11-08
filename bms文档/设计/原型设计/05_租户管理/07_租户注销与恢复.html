@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 租户注销与恢复</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .proto-demo { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+  .demo-select { height: 24px; border: 1px solid #c8ced6; border-radius: 4px; background: #fff; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">租户管理 · 租户注销与恢复</span>
+  <span class="proto-demo">原型演示 · 后端拒绝场景：
+    <select id="demoReject" class="demo-select">
+      <option value="none">不拒绝（正常注销）</option>
+      <option value="mismatch">租户编码不匹配</option>
+      <option value="state">当前状态不允许</option>
+      <option value="closed">已过保留期</option>
+    </select>
+  </span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏 -->
+      <div class="ep-toolbar">
+        <el-button type="primary" @click="toast('原型演示：跳转租户开通页')">开通租户</el-button>
+        <el-button @click="toast('已刷新')">刷新</el-button>
+        <span class="ep-side proto-hint">平台超管运营视图 · 注销后立即断服务、保留期内可恢复、到期数据被清理</span>
+      </div>
+
+      <!-- ② 筛选：关键字 240px 起、状态含「已注销」 -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：租户编码/名称" clearable style="width:100%"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <!-- ③ 表格：操作列按状态给「停用/启用 · 注销 · 恢复」 -->
+      <el-empty v-if="filtered.length === 0" description="未找到匹配租户" style="padding:40px 0">
+        <el-button @click="resetFilter">重置</el-button>
+      </el-empty>
+      <el-table v-else :data="pageRows" border stripe style="width:100%">
+        <el-table-column prop="code" label="租户编码" min-width="110"></el-table-column>
+        <el-table-column prop="name" label="租户名称" min-width="130"></el-table-column>
+        <el-table-column prop="domain" label="子域名" min-width="200"></el-table-column>
+        <el-table-column label="状态" width="96">
+          <template #default="{ row }">
+            <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="清理时点" width="132">
+          <template #default="{ row }">
+            <span v-if="row.status !== 'deleted'">—</span>
+            <span v-else-if="!row.purgeAt" class="proto-hint">待归档</span>
+            <span v-else>{{ row.purgeAt }}<span v-if="isExpired(row)" class="proto-hint">（已过）</span></span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="mods" label="已开通模块" min-width="160"></el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <template v-if="row.status === 'active' || row.status === 'suspended'">
+              <el-button link :type="row.status === 'active' ? 'danger' : 'primary'" @click="toggleStatus(row)">
+                {{ row.status === 'active' ? '停用' : '启用' }}
+              </el-button>
+              <el-button link type="danger" @click="openDelete(row)">注销</el-button>
+            </template>
+            <template v-else-if="row.status === 'deleted'">
+              <el-button v-if="!isExpired(row)" link type="primary" @click="restore(row)">恢复</el-button>
+              <span v-else class="proto-hint">已过保留期</span>
+            </template>
+            <span v-else class="proto-hint">—</span>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="toast('已刷新')" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+        </div>
+        <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="onPage" @size-change="onSize"></el-pagination>
+      </div>
+    </div>
+
+    <!-- ④ 注销确认弹窗：正文说明后果 + 手动输入租户编码 + 原因选填 -->
+    <el-dialog v-model="deleteVisible" title="注销租户" width="520px" :close-on-click-modal="false" :show-close="true">
+      <div v-if="deleteTarget">
+        <el-alert type="warning" :closable="false" show-icon style="margin-bottom:12px">
+          <template #title>注销后该租户立即不可用（在线会话被撤销）</template>
+          <div class="proto-hint" style="line-height:1.7">
+            保留期内可恢复；保留期到期后数据将被<strong>物理清理且不可恢复</strong>。
+          </div>
+        </el-alert>
+        <el-form label-position="top">
+          <el-form-item label="确认租户编码" required>
+            <el-input v-model="confirmCode" :placeholder="'请输入 ' + deleteTarget.code + ' 以确认'"></el-input>
+            <div class="proto-hint" style="margin-top:4px">须与租户编码完全一致（区分大小写），不匹配无法提交。</div>
+          </el-form-item>
+          <el-form-item label="注销原因（选填，≤200 字）">
+            <el-input v-model="reason" type="textarea" :rows="3" maxlength="200" show-word-limit
+              placeholder="如：客户终止合作 / 重复开通"></el-input>
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="deleteVisible = false">取消</el-button>
+        <el-button type="danger" :disabled="!canDelete" :loading="submitting" @click="submitDelete">确认注销</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var statusOptions = [
+        { label: '开通中', value: 'provisioning' },
+        { label: '启用', value: 'active' },
+        { label: '停用', value: 'suspended' },
+        { label: '已注销', value: 'deleted' }
+      ];
+      var rows = ref([
+        { id: 1, code: 'acme', name: 'Acme 制造', domain: 'acme.bms.example.com', status: 'active', mods: 'biz·采购', purgeAt: null },
+        { id: 2, code: 'beta', name: 'Beta 贸易', domain: 'beta.bms.example.com', status: 'suspended', mods: 'biz·收付款', purgeAt: null },
+        { id: 3, code: 'globex', name: 'Globex 服务', domain: 'globex.bms.example.com', status: 'deleted', mods: 'biz·采购', purgeAt: '2026-12-08' },
+        { id: 4, code: 'initech', name: 'Initech 制造', domain: 'initech.bms.example.com', status: 'deleted', mods: '—', purgeAt: '2026-10-01' },
+        { id: 5, code: 'umbrella', name: 'Umbrella 生物', domain: 'umbrella.bms.example.com', status: 'deleted', mods: 'biz·供应商', purgeAt: null }
+      ]);
+      var query = reactive({ kw: '', status: '', page: 1, size: 20 });
+      var deleteVisible = ref(false);
+      var deleteTarget = ref(null);
+      var confirmCode = ref('');
+      var reason = ref('');
+      var submitting = ref(false);
+      // 原型演示控件在框架栏（Vue 根之外）→ 用原生 select 驱动，仅影响「提交后模拟的后端拒绝」
+      var demoSelect = document.getElementById('demoReject');
+      var demoReject = ref(demoSelect ? demoSelect.value : 'none');
+      if (demoSelect) {
+        demoSelect.addEventListener('change', function () { demoReject.value = demoSelect.value; });
+      }
+      var filtered = computed(function () {
+        return rows.value.filter(function (r) {
+          var text = (r.code + r.name).toLowerCase();
+          return (!query.kw || text.indexOf(query.kw.toLowerCase()) >= 0) && (!query.status || r.status === query.status);
+        });
+      });
+      var pageRows = computed(function () {
+        var s = (query.page - 1) * query.size;
+        return filtered.value.slice(s, s + query.size);
+      });
+      var canDelete = computed(function () {
+        return deleteTarget.value !== null && confirmCode.value === deleteTarget.value.code;
+      });
+      function statusType(s) {
+        if (s === 'deleted') return 'danger';
+        return s === 'active' ? 'success' : (s === 'suspended' ? 'info' : 'warning');
+      }
+      function statusText(s) {
+        if (s === 'deleted') return '已注销';
+        return s === 'active' ? '启用' : (s === 'suspended' ? '停用' : '开通中');
+      }
+      function isExpired(row) {
+        if (!row.purgeAt) return false;
+        return row.purgeAt < '2026-11-08';
+      }
+      function openDelete(row) { deleteTarget.value = row; confirmCode.value = ''; reason.value = ''; deleteVisible.value = true; }
+      function submitDelete() {
+        submitting.value = true;
+        setTimeout(function () {
+          submitting.value = false;
+          if (demoReject.value === 'mismatch') { ElMessage.error('确认码与租户编码不一致'); return; }
+          if (demoReject.value === 'state') { ElMessage.error('当前租户状态不允许注销'); return; }
+          if (demoReject.value === 'closed') { ElMessage.error('已过保留期，需运维介入处理'); return; }
+          deleteTarget.value.status = 'deleted';
+          deleteTarget.value.purgeAt = '2026-12-08';
+          deleteVisible.value = false;
+          ElMessage.success('租户已注销，保留期至 2026-12-08');
+        }, 300);
+      }
+      function restore(row) {
+        ElMessageBox.confirm('确认恢复租户「' + row.name + '」？恢复后立即可用，保留期倒计时取消。', '恢复租户', { type: 'warning', confirmButtonText: '恢复', cancelButtonText: '取消' })
+          .then(function () { row.status = 'active'; row.purgeAt = null; ElMessage.success('租户已恢复'); })
+          .catch(function () {});
+      }
+      function toggleStatus(row) {
+        var suspend = row.status === 'active';
+        ElMessageBox.confirm(suspend ? '确认停用租户「' + row.name + '」？停用后将撤销该租户全部在线会话。' : '确认启用租户「' + row.name + '」？', suspend ? '停用租户' : '启用租户', { type: 'warning' })
+          .then(function () { row.status = suspend ? 'suspended' : 'active'; ElMessage.success(suspend ? '租户已停用' : '租户已启用'); })
+          .catch(function () {});
+      }
+      function applyFilter() { query.page = 1; ElMessage.success('筛选完成：命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.status = ''; query.page = 1; }
+      function onPage(n) { query.page = n; }
+      function onSize(s) { query.size = s; query.page = 1; }
+      function toast(m) { ElMessage.success(m); }
+      // 供评审截图：`?demo=delete` 进入即打开注销弹窗（默认进入的列表页不受影响）
+      if (location.search.indexOf('demo=delete') >= 0) {
+        openDelete(rows.value[0]);
+      }
+      return { statusOptions, rows, query, deleteVisible, deleteTarget, confirmCode, reason, submitting, demoReject,
+        filtered, pageRows, canDelete, statusType, statusText, isExpired, openDelete, submitDelete, restore, toggleStatus,
+        applyFilter, resetFilter, onPage, onSize, toast };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

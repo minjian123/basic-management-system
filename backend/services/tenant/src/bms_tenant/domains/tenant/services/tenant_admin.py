@@ -127,6 +127,7 @@ class TenantAdminService(BaseFrameworkObject):
                     domain=row.domain,
                     status=_status(row),
                     expire_at=row.expire_at,
+                    purge_at=row.purge_at,
                     modules=ConcurrentStableList(item.module_key for item in module_rows if item.status == "enabled"),
                     created_at=row.created_at,
                     version=int(row.version),

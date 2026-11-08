@@ -118,6 +118,32 @@ describe('createAxiosAdapter（Kiwi 2191）', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
 
+  it('非 401 带业务码 → 抛 ApiError(业务码)（4xx / 409 的租户注销码不再折成 10001）', async () => {
+    requestMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { code: 82015, message: 'error.82015', data: null } },
+    })
+    const adapter = createAxiosAdapter()
+    const error: unknown = await adapter
+      .request({ method: 'POST', url: '/api/tenant/v1/tenants/1/restore' })
+      .then(() => undefined)
+      .catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).code).toBe(82015)
+  })
+
+  it('非 401 且无业务码（网关 / 非统一响应）→ 按 10001 兜底', async () => {
+    requestMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 502, data: '<html>bad gateway</html>' },
+    })
+    const adapter = createAxiosAdapter()
+    await expect(adapter.request({ method: 'GET', url: '/api/platform/v1/x' })).rejects.toMatchObject({
+      code: 10001,
+      message: '请求失败',
+    })
+  })
+
   it('非 axios 错误 → onError + ApiError(10001)', async () => {
     requestMock.mockRejectedValueOnce(new Error('boom'))
     const onError = vi.fn()

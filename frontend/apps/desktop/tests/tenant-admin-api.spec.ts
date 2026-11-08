@@ -6,11 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   activateTenant,
   createTenant,
+  deleteTenant,
   fetchModuleOptions,
   fetchTenantModules,
   fetchTenantQuotas,
   getTenant,
   listTenants,
+  restoreTenant,
   suspendTenant,
   switchTenantModule,
   updateTenant,
@@ -73,6 +75,15 @@ describe('租户管理端点封装（04_01）', () => {
 
     await activateTenant('1001')
     expect(postMock).toHaveBeenCalledWith('tenant', '/tenants/1001/activate')
+
+    await deleteTenant('1001', { confirm_code: 'acme', reason: '重复开通' })
+    expect(postMock).toHaveBeenCalledWith('tenant', '/tenants/1001/delete', {
+      confirm_code: 'acme',
+      reason: '重复开通',
+    })
+
+    await restoreTenant('1001')
+    expect(postMock).toHaveBeenCalledWith('tenant', '/tenants/1001/restore')
   })
 
   it('模块开关 / 配额整组覆盖：PUT 路径与载荷', async () => {

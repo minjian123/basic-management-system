@@ -31,6 +31,8 @@ vi.mock('@/api/tenantAdmin', () => ({
   updateTenant: vi.fn(),
   suspendTenant: vi.fn(),
   activateTenant: vi.fn(),
+  deleteTenant: vi.fn(),
+  restoreTenant: vi.fn(),
   fetchTenantModules: vi.fn(),
   switchTenantModule: vi.fn(),
   fetchTenantQuotas: vi.fn(),

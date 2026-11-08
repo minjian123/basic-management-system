@@ -114,6 +114,10 @@ class TenantListItem(BaseSchema):
     domain: str | None = Field(default=None, description="子域名")
     status: TenantStatus = Field(description="状态")
     expire_at: datetime | None = Field(default=None, description="到期时间（UTC）")
+    purge_at: datetime | None = Field(
+        default=None,
+        description="保留期截止（UTC）；仅已注销行有值，为空表示尚未进入清理倒计时（待归档 / 待回填）",
+    )
     modules: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
         default_factory=lambda: ConcurrentStableList[str](), description="已开通模块标识"
     )

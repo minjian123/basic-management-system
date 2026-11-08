@@ -1,15 +1,19 @@
 <script setup lang="ts">
 // 租户管理页（平台超管）：列表 Tab（固定不可关）+ 记录 Tab（双击行打开）。
-// 列表三段式无操作列之外提供「开通 / 停用 / 启用」动作；开通弹窗展示一次性初始口令。
+// 列表三段式无操作列之外提供「开通 / 停用 / 启用 / 注销 / 恢复」动作；开通弹窗展示一次性初始口令；
+// 注销须手动输入租户编码二次确认（后端亦强校验），已注销行展示清理时点或「待归档」。
 import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 
+import { ApiError } from '@/api/error'
 import {
   activateTenant,
   createTenant,
+  deleteTenant,
   fetchModuleOptions,
   listTenants,
+  restoreTenant,
   suspendTenant,
   type TenantCreateRequest,
   type TenantItem,
@@ -26,6 +30,13 @@ defineOptions({ name: 'SystemTenant' })
 const LIST_KEY = 'list'
 /** 每页条数。 */
 const PAGE_SIZE = 20
+
+/** 注销确认码不匹配（`82014`）。 */
+const ERR_DELETE_CONFIRM_MISMATCH = 82014
+/** 当前状态不允许该操作（`82003`）。 */
+const ERR_STATE_CONFLICT = 82003
+/** 保留期已过、不可恢复（`82015`）。 */
+const ERR_RETENTION_CLOSED = 82015
 
 const tabs = useTabsStore()
 
@@ -49,6 +60,16 @@ const provisionVisible = ref(false)
 const provisioning = ref(false)
 /** 模块选项（开通弹窗）。 */
 const moduleOptions = ref<TenantModuleOption[]>([])
+/** 注销弹窗可见。 */
+const deleteVisible = ref(false)
+/** 注销目标行（关闭弹窗后保留，避免关闭动画期间内容跳空）。 */
+const deleteTarget = ref<TenantItem | null>(null)
+/** 注销确认码（须与租户编码完全一致）。 */
+const deleteConfirmCode = ref('')
+/** 注销原因（选填）。 */
+const deleteReason = ref('')
+/** 注销提交中。 */
+const deleting = ref(false)
 /** 开通表单。 */
 const provisionForm = ref<{
   code: string
@@ -73,6 +94,9 @@ const activeKey = computed(() => tabs.active)
 
 /** 可勾选模块（目录已启用且为产品模块）。 */
 const optionalModules = computed(() => moduleOptions.value.filter((item) => item.optional))
+
+/** 注销提交可用（确认码与目标租户编码完全一致，不做大小写宽松匹配）。 */
+const canDelete = computed(() => deleteTarget.value !== null && deleteConfirmCode.value === deleteTarget.value.code)
 
 /**
  * 载入租户列表。
@@ -100,6 +124,50 @@ async function load(): Promise<void> {
 function search(): void {
   page.value = 1
   void load()
+}
+
+/**
+ * 清理时点文本（仅已注销行有值；`purge_at` 为空表示尚未进入清理倒计时）。
+ *
+ * @param row 租户行。
+ * @returns 清理日期 `YYYY-MM-DD`；非已注销行或待归档返回 `undefined`。
+ */
+function purgeDate(row: TenantItem): string | undefined {
+  if (row.status !== 'deleted' || !row.purge_at) {
+    return undefined
+  }
+  return String(row.purge_at).slice(0, 10)
+}
+
+/**
+ * 是否已过保留期（过期不可恢复；时点非法按未过期处理，交后端兜底）。
+ *
+ * @param row 租户行。
+ */
+function isPurgeExpired(row: TenantItem): boolean {
+  return row.status === 'deleted' && row.purge_at != null && Date.parse(String(row.purge_at)) <= Date.now()
+}
+
+/**
+ * 动作失败文案（按后端错误码区分原因，避免三种拒绝混成一句笼统提示）。
+ *
+ * @param error 捕获的异常。
+ * @param fallback 无可用信息时的兜底文案。
+ */
+function actionErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.code === ERR_DELETE_CONFIRM_MISMATCH) {
+      return '确认码与租户编码不一致'
+    }
+    if (error.code === ERR_STATE_CONFLICT) {
+      return '当前租户状态不允许该操作'
+    }
+    if (error.code === ERR_RETENTION_CLOSED) {
+      return '已过保留期，需运维介入处理'
+    }
+    return error.message
+  }
+  return error instanceof Error ? error.message : fallback
 }
 
 /**
@@ -179,6 +247,72 @@ async function toggleStatus(row: TenantItem): Promise<void> {
     await load()
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : '状态切换失败')
+  }
+}
+
+/**
+ * 打开注销确认弹窗（清空上次输入）。
+ *
+ * @param row 租户行。
+ */
+function openDelete(row: TenantItem): void {
+  deleteTarget.value = row
+  deleteConfirmCode.value = ''
+  deleteReason.value = ''
+  deleteVisible.value = true
+}
+
+/**
+ * 提交注销（确认码须与租户编码完全一致；原因选填）。
+ */
+async function submitDelete(): Promise<void> {
+  const target = deleteTarget.value
+  if (target === null) {
+    return
+  }
+  if (deleteConfirmCode.value !== target.code) {
+    // 弹窗按钮已禁用，这里只兜「回车 / 程序化触发」；后端亦强校验，前端不作为唯一防线
+    ElMessage.warning('请输入完整租户编码以确认')
+    return
+  }
+  deleting.value = true
+  try {
+    const detail = await deleteTenant(String(target.id), {
+      confirm_code: deleteConfirmCode.value,
+      reason: deleteReason.value.trim() || null,
+    })
+    deleteVisible.value = false
+    const until = detail.purge_at ? String(detail.purge_at).slice(0, 10) : ''
+    ElMessage.success(until ? `租户已注销，保留期至 ${until}` : '租户已注销，归档就绪后进入清理倒计时')
+    await load()
+  } catch (error: unknown) {
+    ElMessage.error(actionErrorMessage(error, '租户注销失败'))
+  } finally {
+    deleting.value = false
+  }
+}
+
+/**
+ * 恢复已注销租户（保留期内；过期由后端拒绝）。
+ *
+ * @param row 租户行。
+ */
+async function restore(row: TenantItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(`确认恢复租户「${row.name}」？恢复后立即可用，保留期倒计时取消。`, '恢复租户', {
+      type: 'warning',
+      confirmButtonText: '恢复',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    await restoreTenant(String(row.id))
+    ElMessage.success('租户已恢复')
+    await load()
+  } catch (error: unknown) {
+    ElMessage.error(actionErrorMessage(error, '租户恢复失败'))
   }
 }
 
@@ -315,16 +449,41 @@ onMounted(() => {
               <span>{{ row.expire_at ? String(row.expire_at).replace('T', ' ').slice(0, 19) : '—' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="110" fixed="right">
+          <el-table-column label="清理时点" min-width="130">
             <template #default="{ row }">
-              <el-button
-                link
-                :type="row.status === 'active' ? 'danger' : 'primary'"
-                data-test="tenant-toggle"
-                @click="toggleStatus(row)"
-              >
-                {{ row.status === 'active' ? '停用' : '启用' }}
-              </el-button>
+              <span v-if="purgeDate(row)" data-test="tenant-purge-at">{{ purgeDate(row) }}</span>
+              <span v-else-if="row.status === 'deleted'" class="tenant-view__muted" data-test="tenant-purge-pending">
+                待归档
+              </span>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="150" fixed="right">
+            <template #default="{ row }">
+              <template v-if="row.status === 'active' || row.status === 'suspended'">
+                <el-button
+                  link
+                  :type="row.status === 'active' ? 'danger' : 'primary'"
+                  data-test="tenant-toggle"
+                  @click="toggleStatus(row)"
+                >
+                  {{ row.status === 'active' ? '停用' : '启用' }}
+                </el-button>
+                <el-button link type="danger" data-test="tenant-delete" @click="openDelete(row)"> 注销 </el-button>
+              </template>
+              <template v-else-if="row.status === 'deleted'">
+                <el-button
+                  v-if="!isPurgeExpired(row)"
+                  link
+                  type="primary"
+                  data-test="tenant-restore"
+                  @click="restore(row)"
+                >
+                  恢复
+                </el-button>
+                <span v-else class="tenant-view__muted" data-test="tenant-expired">已过保留期</span>
+              </template>
+              <span v-else>—</span>
             </template>
           </el-table-column>
           <template #empty>
@@ -393,6 +552,52 @@ onMounted(() => {
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="deleteVisible"
+      title="注销租户"
+      width="520px"
+      :close-on-click-modal="false"
+      data-test="tenant-delete-dialog"
+    >
+      <el-alert type="warning" :closable="false" show-icon class="tenant-view__alert">
+        <template #title>注销后该租户立即不可用（在线会话被撤销）</template>
+        <div>保留期内可恢复；保留期到期后数据将被物理清理且不可恢复。</div>
+      </el-alert>
+      <el-form label-position="top">
+        <el-form-item label="确认租户编码" required>
+          <el-input
+            v-model="deleteConfirmCode"
+            :placeholder="`请输入 ${deleteTarget ? deleteTarget.code : ''} 以确认`"
+            data-test="tenant-delete-confirm"
+          />
+          <span class="tenant-view__muted">须与租户编码完全一致（区分大小写），不匹配无法提交。</span>
+        </el-form-item>
+        <el-form-item label="注销原因（选填，≤200 字）">
+          <el-input
+            v-model="deleteReason"
+            type="textarea"
+            :rows="3"
+            maxlength="200"
+            show-word-limit
+            placeholder="如：客户终止合作 / 重复开通"
+            data-test="tenant-delete-reason"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="deleteVisible = false">取消</el-button>
+        <el-button
+          type="danger"
+          :disabled="!canDelete"
+          :loading="deleting"
+          data-test="tenant-delete-submit"
+          @click="submitDelete"
+        >
+          确认注销
+        </el-button>
+      </template>
+    </el-dialog>
   </page-container>
 </template>
 
@@ -421,6 +626,15 @@ onMounted(() => {
 .tenant-view__hint {
   font-size: var(--bms-font-size-sm);
   color: var(--bms-color-text-secondary);
+}
+
+.tenant-view__muted {
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+}
+
+.tenant-view__alert {
+  margin-bottom: var(--bms-space-3);
 }
 
 .tenant-view__foot {

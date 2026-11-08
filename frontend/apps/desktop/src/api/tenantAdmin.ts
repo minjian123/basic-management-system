@@ -32,6 +32,9 @@ export type TenantCreateRequest = Schemas['TenantCreateRequest']
 /** 修改请求。 */
 export type TenantUpdateRequest = Schemas['TenantUpdateRequest']
 
+/** 注销请求（确认码须与租户编码完全一致）。 */
+export type TenantDeleteRequest = Schemas['TenantDeleteRequest']
+
 /** 开通结果（初始口令仅本次返回）。 */
 export type TenantProvisionResult = Schemas['TenantProvisionResult']
 
@@ -121,6 +124,25 @@ export function suspendTenant(tenantId: TenantId): Promise<TenantDetail> {
  */
 export function activateTenant(tenantId: TenantId): Promise<TenantDetail> {
   return post<TenantDetail>('tenant', `/tenants/${tenantId}/activate`)
+}
+
+/**
+ * 注销租户（立即停服、保留期内可恢复；不删数据，清理由平台按保留期执行）。
+ *
+ * @param tenantId 租户主键。
+ * @param body 注销请求（确认码 + 可选原因）。
+ */
+export function deleteTenant(tenantId: TenantId, body: TenantDeleteRequest): Promise<TenantDetail> {
+  return post<TenantDetail>('tenant', `/tenants/${tenantId}/delete`, body)
+}
+
+/**
+ * 恢复已注销租户（保留期内；过期由后端拒绝）。
+ *
+ * @param tenantId 租户主键。
+ */
+export function restoreTenant(tenantId: TenantId): Promise<TenantDetail> {
+  return post<TenantDetail>('tenant', `/tenants/${tenantId}/restore`)
 }
 
 /**

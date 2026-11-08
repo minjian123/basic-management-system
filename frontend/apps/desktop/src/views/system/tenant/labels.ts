@@ -5,6 +5,7 @@ export const TENANT_STATUS_OPTIONS: ReadonlyArray<{ label: string; value: string
   { label: '开通中', value: 'provisioning' },
   { label: '启用', value: 'active' },
   { label: '停用', value: 'suspended' },
+  { label: '已注销', value: 'deleted' },
 ]
 
 /**
@@ -19,6 +20,9 @@ export function tenantStatusLabel(status: string | undefined): string {
   if (status === 'suspended') {
     return '停用'
   }
+  if (status === 'deleted') {
+    return '已注销'
+  }
   return '启用'
 }
 
@@ -27,12 +31,15 @@ export function tenantStatusLabel(status: string | undefined): string {
  *
  * @param status 状态取值。
  */
-export function tenantStatusTag(status: string | undefined): 'success' | 'warning' | 'info' {
+export function tenantStatusTag(status: string | undefined): 'success' | 'warning' | 'info' | 'danger' {
   if (status === 'provisioning') {
     return 'warning'
   }
   if (status === 'suspended') {
     return 'info'
+  }
+  if (status === 'deleted') {
+    return 'danger'
   }
   return 'success'
 }

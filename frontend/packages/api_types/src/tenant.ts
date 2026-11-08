@@ -1170,6 +1170,11 @@ export interface components {
              */
             name: string;
             /**
+             * Purge At
+             * @description 保留期截止（UTC）；仅已注销行有值，为空表示尚未进入清理倒计时（待归档 / 待回填）
+             */
+            purge_at?: string | null;
+            /**
              * Status
              * @description 状态
              * @enum {string}

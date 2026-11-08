@@ -200,6 +200,11 @@ async def test_delete_computes_purge_at_when_archive_ready(
     purge_text = events[0].payload["purge_at"]
     assert isinstance(purge_text, str) and purge_text.endswith("Z")
 
+    listed = await client.get(f"{API}?status=deleted")
+    items = listed.json()["data"]["list"]
+    assert len(items) == 1 and items[0]["status"] == "deleted"
+    assert items[0]["purge_at"] is not None
+
 
 async def test_restore_within_retention(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
     """保留期内恢复：置回 `active`、清空注销字段、发 `tenant.activated`。"""

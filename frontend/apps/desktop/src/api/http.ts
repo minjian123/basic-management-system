@@ -8,8 +8,9 @@
  * - **凭据口径**：仅认证端点（`/auth/refresh`、`/auth/logout`）开启 `withCredentials` 并注入
  *   `X-Tenant-ID`，其余请求不带 cookie；
  * - **未注入刷新处理器时**按会话失效占位（清会话 + 跳登录、不发刷新请求）；
- * - **401 优先保留业务码**：统一响应体带 `code`（如登录失败 `20002`、会话失效 `20001` / `20012`）时按业务码上抛
- *   `ApiError`（交调用方走文案表）；仅当无业务码（网关 / 空体 401）才上抛 `SessionExpiredError`。
+ * - **业务码一律保留**：统一响应体带 `code` 时按业务码上抛 `ApiError`（交调用方走文案表）——401 的登录失败
+ *   `20002` / 会话失效 `20001`、非 401 的 4xx / 409（如租户注销 `82014` / `82015`）都不折成 `10001`；
+ *   仅当无业务码（网关 / 空体）时，401 上抛 `SessionExpiredError`、其余上抛 `10001`。
  */
 
 import {
@@ -137,6 +138,7 @@ export function createAxiosAdapter(hooks: HttpHooks = {}): RequestAdapter {
       })
       return unwrap(response.data)
     } catch (error) {
+      const business = axios.isAxiosError(error) ? readBusinessError(error.response?.data) : undefined
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         const retryable = !retried && !matchesIdentityPaths(request.url, NO_REFRESH_PATHS)
         if (retryable && (await refreshOnce())) {
@@ -145,10 +147,16 @@ export function createAxiosAdapter(hooks: HttpHooks = {}): RequestAdapter {
         hooks.onUnauthorized?.()
         // **401 优先按业务码上抛**：登录失败（`20002`「账号或密码错误」）、验证码（`20101`）等一律走文案表；
         // 旧口径把 401 全量转 `SessionExpiredError`，会把「密码错误」显示成「会话已失效」。
-        const business = readBusinessError(error.response.data)
         throw business === undefined
           ? new SessionExpiredError()
           : new ApiError(business.code, business.message, { userMessage: business.message })
+      }
+      if (business !== undefined) {
+        // **非 401 同样保留业务码**：后端按错误码给 4xx / 409（如租户注销的确认码不匹配、保留期已过）时，
+        // 页面要按码给不同提示；旧口径一律折成 `10001` + axios 文案（「Request failed with status code 400」），
+        // 调用方拿不到码，只能给一句笼统提示。
+        hooks.onError?.(error)
+        throw new ApiError(business.code, business.message, { userMessage: business.message })
       }
       hooks.onError?.(error)
       if (error instanceof ApiError) {

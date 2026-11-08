@@ -15,13 +15,15 @@ import {
 
 describe('租户文案映射（04_01）', () => {
   it('租户状态：选项 / 文案 / 标签类型', () => {
-    expect(TENANT_STATUS_OPTIONS.map((item) => item.value)).toEqual(['provisioning', 'active', 'suspended'])
+    expect(TENANT_STATUS_OPTIONS.map((item) => item.value)).toEqual(['provisioning', 'active', 'suspended', 'deleted'])
     expect(tenantStatusLabel('provisioning')).toBe('开通中')
     expect(tenantStatusLabel('suspended')).toBe('停用')
+    expect(tenantStatusLabel('deleted')).toBe('已注销')
     expect(tenantStatusLabel('active')).toBe('启用')
     expect(tenantStatusLabel(undefined)).toBe('启用')
     expect(tenantStatusTag('provisioning')).toBe('warning')
     expect(tenantStatusTag('suspended')).toBe('info')
+    expect(tenantStatusTag('deleted')).toBe('danger')
     expect(tenantStatusTag('active')).toBe('success')
   })
 
