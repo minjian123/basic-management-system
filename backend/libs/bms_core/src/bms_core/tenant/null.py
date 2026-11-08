@@ -99,11 +99,12 @@ class NullTenantGuard(BaseTenantGuard, BaseNullObject):
     「provider 写错 / 留空」就会让异步路径全部放行——与本能力域「不静默放行」的口径相反。
     """
 
-    async def resolve(self, target: TenantTarget) -> TenantContext:
-        """拒绝校验（占位不取数、不放行）。
+    async def resolve(self, target: TenantTarget, *, readonly: bool = False) -> TenantContext:
+        """拒绝校验（占位不取数、不放行；只读通道同样拒绝——未启用就无从判定状态）。
 
         Args:
             target: 租户定位（仅用于错误消息）。
+            readonly: 只读通道（占位实现不区分：一律 `ConfigError`，fail-closed）。
 
         Returns:
             TenantContext: 不返回（恒定抛错）。

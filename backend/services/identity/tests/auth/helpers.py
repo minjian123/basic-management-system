@@ -506,7 +506,7 @@ class RecordingRealtimePublisher(BaseRealtimePublisher):
 class FakeTenantSource:
     """测试替身：固定演示 / 示例租户的租户源（带雪花主键）。"""
 
-    async def by_code(self, code: str) -> TenantContext:
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按编码取租户（demo / acme）。
 
         Args:
@@ -524,7 +524,7 @@ class FakeTenantSource:
             return acme_tenant()
         raise TenantNotFoundError(f"未知租户：{code}")
 
-    async def by_domain(self, domain: str) -> TenantContext:
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
         """按子域名取租户（demo / acme）。
 
         Args:
@@ -542,7 +542,7 @@ class FakeTenantSource:
             return acme_tenant()
         raise TenantNotFoundError(f"未知域名：{domain}")
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按租户主键（雪花 id 字符串）取租户（1001 / 2002）。
 
         Args:

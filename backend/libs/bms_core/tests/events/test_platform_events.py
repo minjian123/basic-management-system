@@ -35,8 +35,8 @@ def test_platform_contracts_valid_and_unique() -> None:
     registry = EventContractRegistry()
     register_platform_event_contracts(registry)
     assert validate_event_registry(registry, domains=ConcurrentStableSet(known_event_domains())) == ()
-    assert len(PLATFORM_EVENT_CONTRACTS) == 32
-    assert len({contract.event_type for contract in PLATFORM_EVENT_CONTRACTS}) == 32
+    assert len(PLATFORM_EVENT_CONTRACTS) == 33
+    assert len({contract.event_type for contract in PLATFORM_EVENT_CONTRACTS}) == 33
     assert PLATFORM_EVENT_SUBSCRIPTIONS == ()
 
 
@@ -63,17 +63,29 @@ def test_platform_subscriptions_registered(monkeypatch: pytest.MonkeyPatch) -> N
 
 @pytest.mark.kiwi_id(2218)
 def test_tenant_events_payload_key_and_version() -> None:
-    """租户事件负载键改雪花 id：契约 2.1.0、`tenant_id` 必填、无 `tenant_code`；`version` 可选。"""
+    """租户事件负载键改雪花 id：族 2.2.0、`tenant_id` 必填、无 `tenant_code`；`version` 可选。
+
+    `2.2.0` 只给 `tenant.deleted` 增可选 `purge_at` / `reason`（任务 `04_03` 两步注销），
+    其余三条载荷不变；`tenant.purged` 独立 `1.0.0`。
+    """
     contracts = {contract.event_type: contract for contract in PLATFORM_EVENT_CONTRACTS}
     for event_type in ("tenant.created", "tenant.suspended", "tenant.activated", "tenant.deleted"):
         contract = contracts[event_type]
-        assert contract.version == "2.1.0"
+        assert contract.version == "2.2.0"
         assert "tenant_id" in contract.fields
         assert "tenant_code" not in contract.fields
         assert contract.fields["tenant_id"].type == "string"
         assert contract.fields["tenant_id"].required is True
         assert contract.fields["version"].type == "integer"
         assert contract.fields["version"].required is False
+    deleted = contracts["tenant.deleted"]
+    assert deleted.fields["purge_at"].required is False and deleted.fields["reason"].required is False
+    for event_type in ("tenant.created", "tenant.suspended", "tenant.activated"):
+        assert "purge_at" not in contracts[event_type].fields
+    purged = contracts["tenant.purged"]
+    assert purged.version == "1.0.0"
+    assert purged.fields["tenant_id"].required is True and purged.fields["db_key"].required is True
+    assert purged.fields["dropped_services"].required is False and purged.fields["failed_services"].required is False
     assert TENANT_ID_PAYLOAD_KEY == "tenant_id"
     assert "tenant_id" not in RESERVED_PAYLOAD_KEYS
 

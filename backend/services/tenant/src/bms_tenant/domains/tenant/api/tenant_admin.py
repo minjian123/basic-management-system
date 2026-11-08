@@ -1,10 +1,14 @@
-"""租户管理面路由：`/api/v1/tenants`（列表 / 详情 / 开通 / 修改 / 停用启用 / 配额 / 模块；任务 `04_01`）。
+"""租户管理面路由：`/api/v1/tenants`（列表 / 详情 / 开通 / 修改 / 停用启用 / 注销恢复 / 配额 / 模块）。
+
+任务 `04_01`（管理面）+ `04_03`（注销与恢复）。
 
 - **鉴权**：模块级 `require_auth`；各端点挂 `require_permission("tenant:*")`。平台超管的平台租户以
   `platform_admin` 角色类型豁免（全权限），低权限平台角色按授权集合。
 - **数据访问**：`sys_tenant*` 一律走 tenant 服务平台库（`get_platform_*`），不读请求租户库。
 - **开通**：同步 + `Idempotency-Key`（成功回放 / 失败可重试 / 进行中 82003）。
 - **停用**：状态置 `suspended` + 事件 + 引擎回收 + 按租户撤销会话 + 租户源缓存失效。
+- **注销**：状态置 `deleted`（**不删数据**，保留期内可恢复）+ 事件 + 引擎回收 + 会话撤销；清理作业见子任务 `-02`。
+- **恢复**：保留期内置回 `active` 并落 `tenant.activated`；过期 `82015`。
 """
 
 from typing import Annotated, cast
@@ -20,6 +24,7 @@ from bms_core.api.deps import (
     get_tenant_source,
 )
 from bms_core.cache.base import CacheRegion
+from bms_core.config.base import BaseConfigSource, get_config_source
 from bms_core.core.concurrent import (
     ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
@@ -39,6 +44,7 @@ from bms_core.schemas.pagination import BasePageQuery
 from bms_core.servicecall.base import BaseServiceClient, ServiceCallPolicy, ServiceRequest
 from bms_tenant.domains.tenant.schemas.tenant_admin import (
     TenantCreateRequest,
+    TenantDeleteRequest,
     TenantDetail,
     TenantList,
     TenantModuleItemList,
@@ -144,7 +150,21 @@ def _admin(session: DbSession, request: Request, client: BaseServiceClient, cach
         modules=_modules(session, client, cache, _settings(request)),
         quotas=_quotas(session, request),
         outbox=_outbox(request),
+        config=_config_source(request),
+        settings=_settings(request),
     )
+
+
+def _config_source(request: Request) -> BaseConfigSource:
+    """取系统参数取数（保留期等运行期可调参数）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        BaseConfigSource: 参数取数实现（未装配时为恒空占位，调用方回落代码缺省）。
+    """
+    return get_config_source(request)
 
 
 def _outbox(request: Request) -> BaseOutboxStore:
@@ -359,6 +379,70 @@ async def activate_tenant(
         ApiResponse: 统一响应（data 为启用后的详情）。
     """
     result = await _admin(session, request, client, cache).activate(tenant_id)
+    _invalidate(source, result.code, result.domain)
+    return ApiResponse.ok(result)
+
+
+@router.post("/{tenant_id}/delete", dependencies=[_REQUIRE_MANAGE])
+async def delete_tenant(
+    request: Request,
+    req: TenantDeleteRequest,
+    tenant_id: TenantIdPath,
+    session: WriteDep,
+    client: ClientDep,
+    cache: CacheDep,
+    source: SourceDep,
+) -> ApiResponse[TenantDetail]:
+    """注销租户（事件 + 引擎回收 + 会话撤销 + 缓存失效；**不删数据**，保留期内可恢复）。
+
+    Args:
+        request: 请求对象。
+        req: 注销请求（确认码 + 原因）。
+        tenant_id: 租户主键。
+        session: 平台库写会话。
+        client: 服务间调用客户端。
+        cache: 缓存域。
+        source: 租户源（缓存失效）。
+
+    Returns:
+        ApiResponse: 统一响应（data 为注销后的详情）。
+    """
+    admin = _admin(session, request, client, cache)
+    row = await admin.tenant_row(tenant_id)
+    result = await admin.delete(tenant_id, req)
+    registry: EngineRegistry = request.app.state.engine_registry
+    basis = row.code
+    for service in _tenant_services():
+        await registry.release(f"tenant_{service}_{basis}")
+    revoked = await _revoke_sessions(client, basis)
+    _invalidate(source, result.code, result.domain)
+    _LOGGER.info(
+        "tenant_deleted",
+        tenant_id=tenant_id,
+        revoked_sessions=revoked,
+        purge_at=result.purge_at.isoformat() if result.purge_at is not None else None,
+    )
+    return ApiResponse.ok(result)
+
+
+@router.post("/{tenant_id}/restore", dependencies=[_REQUIRE_MANAGE])
+async def restore_tenant(
+    request: Request, tenant_id: TenantIdPath, session: WriteDep, client: ClientDep, cache: CacheDep, source: SourceDep
+) -> ApiResponse[TenantDetail]:
+    """恢复注销租户（保留期内；过期 82015）。
+
+    Args:
+        request: 请求对象。
+        tenant_id: 租户主键。
+        session: 平台库写会话。
+        client: 服务间调用客户端。
+        cache: 缓存域。
+        source: 租户源（缓存失效）。
+
+    Returns:
+        ApiResponse: 统一响应（data 为恢复后的详情）。
+    """
+    result = await _admin(session, request, client, cache).restore(tenant_id)
     _invalidate(source, result.code, result.domain)
     return ApiResponse.ok(result)
 

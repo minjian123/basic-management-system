@@ -470,6 +470,37 @@
         "title": "TenantCreateRequest",
         "type": "object"
       },
+      "TenantDeleteRequest": {
+        "additionalProperties": false,
+        "description": "注销租户请求（确认码须等于租户编码，防误点 / 误调）。",
+        "properties": {
+          "confirm_code": {
+            "description": "确认码（须与租户编码完全一致）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Confirm Code",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "注销原因（写入事件与审计）",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "confirm_code"
+        ],
+        "title": "TenantDeleteRequest",
+        "type": "object"
+      },
       "TenantDetail": {
         "additionalProperties": false,
         "description": "租户详情（含配额与模块）。",
@@ -484,6 +515,19 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "deletion_requested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "注销申请时刻（UTC）",
+            "title": "Deletion Requested At"
           },
           "domain": {
             "anyOf": [
@@ -528,6 +572,19 @@
             "title": "Name",
             "type": "string"
           },
+          "purge_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "保留期截止（UTC）；为空表示尚未进入清理倒计时（归档未就绪 / 待回填）",
+            "title": "Purge At"
+          },
           "quotas": {
             "description": "配额与用量",
             "items": {
@@ -541,7 +598,8 @@
             "enum": [
               "provisioning",
               "active",
-              "suspended"
+              "suspended",
+              "deleted"
             ],
             "title": "Status",
             "type": "string"
@@ -666,7 +724,8 @@
             "enum": [
               "provisioning",
               "active",
-              "suspended"
+              "suspended",
+              "deleted"
             ],
             "title": "Status",
             "type": "string"
@@ -3220,6 +3279,111 @@
         ]
       }
     },
+    "/api/v1/tenants/{tenant_id}/delete": {
+      "post": {
+        "description": "注销租户（事件 + 引擎回收 + 会话撤销 + 缓存失效；**不删数据**，保留期内可恢复）。\n\nArgs:\n    request: 请求对象。\n    req: 注销请求（确认码 + 原因）。\n    tenant_id: 租户主键。\n    session: 平台库写会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n    source: 租户源（缓存失效）。\n\nReturns:\n    ApiResponse: 统一响应（data 为注销后的详情）。",
+        "operationId": "delete_tenant_api_v1_tenants__tenant_id__delete_post",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Tenant",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/v1/tenants/{tenant_id}/modules": {
       "get": {
         "description": "租户模块清单（三态）。\n\nArgs:\n    request: 请求对象。\n    tenant_id: 租户主键。\n    session: 平台库只读会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n\nReturns:\n    ApiResponse: 统一响应（data 为模块项）。",
@@ -3624,6 +3788,101 @@
           }
         },
         "summary": "Put Quotas",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/restore": {
+      "post": {
+        "description": "恢复注销租户（保留期内；过期 82015）。\n\nArgs:\n    request: 请求对象。\n    tenant_id: 租户主键。\n    session: 平台库写会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n    source: 租户源（缓存失效）。\n\nReturns:\n    ApiResponse: 统一响应（data 为恢复后的详情）。",
+        "operationId": "restore_tenant_api_v1_tenants__tenant_id__restore_post",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Restore Tenant",
         "tags": [
           "tenant"
         ]

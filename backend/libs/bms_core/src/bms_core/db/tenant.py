@@ -129,35 +129,43 @@ DEMO_TENANT = TenantContext(code="demo", db_key="tenant_demo", name="演示租�
 
 
 class TenantLookup(Protocol):
-    """租户源契约：按编码 / 子域名取租户上下文（实现见 `TenantSource`）。"""
+    """租户源契约：按编码 / 子域名取租户上下文（实现见 `TenantSource`）。
 
-    async def by_code(self, code: str) -> TenantContext:
+    `readonly=True` 为**管理面只读通道**（任务 `04_03`，07 §7 第 58 项）：命中 `suspended` / `deleted`
+    不抛错、照常返回上下文（`status` 透出真实状态），供「保留期内只读取数」使用；缺省 `False`
+    保持原口径（非启用即拒）。是否走只读通道由入口（HTTP 中间件 / 守卫）判定，租户源不自作主张。
+    """
+
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按租户编码取上下文。
 
         Args:
             code: 租户编码（全小写）。
+            readonly: 只读通道（停用 / 注销仍返回上下文）。
 
         Returns:
             TenantContext: 租户上下文。
         """
         ...
 
-    async def by_domain(self, domain: str) -> TenantContext:
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
         """按子域名取上下文。
 
         Args:
             domain: 子域名（如 `demo.bms.example.com`）。
+            readonly: 只读通道（停用 / 注销仍返回上下文）。
 
         Returns:
             TenantContext: 租户上下文。
         """
         ...
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按租户主键取上下文（雪花 id 十进制字符串）。
 
         Args:
             tenant_id: 租户主键字符串。
+            readonly: 只读通道（停用 / 注销仍返回上下文）。
 
         Returns:
             TenantContext: 租户上下文。
@@ -379,6 +387,7 @@ async def resolve_request_tenant(
     exempt_paths: Iterable[str] = DEFAULT_EXEMPT_PATHS,
     deferred_paths: Iterable[str] = DEFAULT_DEFERRED_PATHS,
     allow_demo_fallback: bool = True,
+    readonly: bool = False,
 ) -> TenantContext | None:
     """按解析链解析请求租户（子域名 → 请求头 → 令牌租户位）。
 
@@ -396,6 +405,8 @@ async def resolve_request_tenant(
         exempt_paths: 豁免路径集合。
         deferred_paths: 免登录链路延迟解析路径集合（无来源时置空放行，不做演示回落、不硬拒）。
         allow_demo_fallback: 无来源时是否回落演示租户。
+        readonly: 管理面只读通道（任务 `04_03`）：停用 / 注销租户仍返回上下文，不抛
+            `TenantSuspendedError`；调用方（中间件）已按「方法 + 白名单 + 状态」判过条件。
 
     Returns:
         TenantContext | None: 租户上下文；豁免路径为 None；延迟路径无来源且不回落演示租户时为 None。
@@ -419,11 +430,13 @@ async def resolve_request_tenant(
             if kind != "code":
                 raise TenantNotFoundError(f"缺少租户源，无法解析租户主键：{value}")
             return _builtin_lookup(value)
+        # 只在只读通道时携带关键字：既有自定义租户源（未声明 `readonly`）在常规路径上零影响，
+        # 配置了白名单却未升级租户源时会在首次只读访问处显式报错，而不是静默降级。
         if kind == "domain":
-            return await source.by_domain(value)
+            return await (source.by_domain(value, readonly=True) if readonly else source.by_domain(value))
         if kind == "id":
-            return await source.by_id(value)
-        return await source.by_code(value)
+            return await (source.by_id(value, readonly=True) if readonly else source.by_id(value))
+        return await (source.by_code(value, readonly=True) if readonly else source.by_code(value))
     if is_deferred_path(path, deferred_paths) and not allow_demo_fallback:
         # 免登录链路（生产）：无来源不硬拒，置空放行由端点层按请求体 / 唯一启用租户解析。
         # 开发 / 测试（allow_demo_fallback=true）沿用演示回落，保持既有本地登录便利。

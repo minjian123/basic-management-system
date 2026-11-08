@@ -199,13 +199,15 @@ def test_unknown_event_type_construction_rejected() -> None:
 
 
 def test_deleted_contract_registered() -> None:
-    """`tenant.deleted` 已登记且版本 2.1.0；`version` 为可选字段。"""
+    """`tenant.deleted` 已登记且属租户事件族 `2.2.0`；`version` / `purge_at` / `reason` 均可选。"""
     contract = resolve_event_contract(TENANT_DELETED)
 
     assert contract is not None
-    assert contract.version == "2.1.0"
+    assert contract.version == "2.2.0"
     assert contract.fields["version"].required is False
     assert contract.fields["version"].type == "integer"
+    assert contract.fields["purge_at"].required is False
+    assert contract.fields["reason"].required is False
 
 
 @pytest.mark.parametrize("event_type", _EVENT_TYPES)

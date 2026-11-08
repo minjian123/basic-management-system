@@ -126,6 +126,7 @@ PLATFORM_CONFIG_DEFAULTS: ConcurrentStableList[SeedConfig] = ConcurrentStableLis
         SeedConfig("audit.archive.login_log_days", "90", "登录日志归档保留天数"),
         SeedConfig("audit.archive.data_audit_log_days", "90", "数据变更审计归档保留天数"),
         SeedConfig("audit.archive.open_log_days", "90", "开放接口审计归档保留天数"),
+        SeedConfig("tenant.deletion.retention_days", "30", "租户注销保留期（天；改配置即时生效，过期即可物理清理）"),
     )
 )
 """平台默认参数项（验证码场景策略与渠道开关 + 密码 / 账号策略；后续模块键顺延追加）。"""

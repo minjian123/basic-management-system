@@ -89,7 +89,7 @@ class RemoteTenantSource(BaseFrameworkObject):
         self._release = release
         self._allow_fallback = allow_fallback
 
-    async def by_code(self, code: str) -> TenantContext:
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按租户编码取上下文。
 
         Args:
@@ -103,9 +103,9 @@ class RemoteTenantSource(BaseFrameworkObject):
             TenantSuspendedError: 租户已停用（403 / 80002）。
             ServiceUnavailableError: 契约不可达或响应非法。
         """
-        return await self._resolve("code", code)
+        return await self._resolve("code", code, readonly=readonly)
 
-    async def by_domain(self, domain: str) -> TenantContext:
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
         """按子域名取上下文。
 
         Args:
@@ -119,9 +119,9 @@ class RemoteTenantSource(BaseFrameworkObject):
             TenantSuspendedError: 租户已停用（403 / 80002）。
             ServiceUnavailableError: 契约不可达或响应非法。
         """
-        return await self._resolve("domain", domain)
+        return await self._resolve("domain", domain, readonly=readonly)
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按租户主键（雪花 id 字符串）取上下文。
 
         Args:
@@ -135,7 +135,7 @@ class RemoteTenantSource(BaseFrameworkObject):
             TenantSuspendedError: 租户已停用（403 / 80002）。
             ServiceUnavailableError: 契约不可达或响应非法。
         """
-        return await self._resolve("id", tenant_id)
+        return await self._resolve("id", tenant_id, readonly=readonly)
 
     async def single_active(self) -> TenantContext | None:
         """解析唯一启用租户（免登录链路无来源时兜底）。
@@ -179,12 +179,13 @@ class RemoteTenantSource(BaseFrameworkObject):
         if tenant_id:
             self._cache_delete(snapshot_cache_key("id", tenant_id))
 
-    async def _resolve(self, kind: str, value: str) -> TenantContext:
+    async def _resolve(self, kind: str, value: str, *, readonly: bool = False) -> TenantContext:
         """取数编排：缓存（版本比对）→ 契约回源 → 回填 → 状态判定。
 
         Args:
             kind: `code` / `domain`。
             value: 查询值。
+            readonly: 只读通道（`suspended` / `deleted` 不抛错、不回收引擎）。
 
         Returns:
             TenantContext: 租户上下文。
@@ -210,7 +211,7 @@ class RemoteTenantSource(BaseFrameworkObject):
                 snapshot = TenantSnapshot(code=value, name=value)
             else:
                 self._cache_set(key, snapshot)
-        if snapshot.status != ACTIVE_STATUS:
+        if snapshot.status != ACTIVE_STATUS and not readonly:
             if self._release is not None:
                 await self._release(snapshot.db_basis or snapshot.code)
             raise TenantSuspendedError(f"租户已停用：{snapshot.code}")
@@ -222,6 +223,7 @@ class RemoteTenantSource(BaseFrameworkObject):
         Args:
             kind: `code` / `domain`。
             value: 查询值。
+            readonly: 只读通道（`suspended` / `deleted` 不抛错、不回收引擎）。
 
         Returns:
             TenantSnapshot: 注册快照。

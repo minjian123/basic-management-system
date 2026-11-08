@@ -1666,6 +1666,20 @@ class TenantModuleDisabledError(OpenTenantError):
         super().__init__(ErrorCode.TENANT_MODULE_DISABLED, message, http_status=403, data=data)
 
 
+class TenantDeleteConfirmError(OpenTenantError):
+    """注销确认码缺失或不匹配（须等于租户编码；`82014` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_DELETE_CONFIRM_MISMATCH, message, http_status=400, data=data)
+
+
+class TenantRetentionClosedError(OpenTenantError):
+    """保留期已过（已到清理时点，不可恢复；`82015` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_RETENTION_CLOSED, message, http_status=409, data=data)
+
+
 class ScopeModuleNotRegisteredError(OpenTenantError):
     """作用域模块键未在模块注册中登记（`82009` / 400）。"""
 

@@ -546,7 +546,7 @@
           "type": "integer"
         }
       },
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "deprecated": false,
@@ -570,15 +570,23 @@
           "type": "integer"
         }
       },
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "deprecated": false,
-      "description": "租户删除（产品按保留期归档或清理资源）",
+      "description": "租户注销（保留期内可恢复；产品只停写不删数据，清理等 tenant.purged）",
       "event_type": "tenant.deleted",
       "fields": {
         "db_key": {
           "required": true,
+          "type": "string"
+        },
+        "purge_at": {
+          "required": false,
+          "type": "string"
+        },
+        "reason": {
+          "required": false,
           "type": "string"
         },
         "status": {
@@ -594,7 +602,35 @@
           "type": "integer"
         }
       },
-      "version": "2.1.0"
+      "version": "2.2.0"
+    },
+    {
+      "deprecated": false,
+      "description": "租户物理清理完成（授权产品删除该租户数据）",
+      "event_type": "tenant.purged",
+      "fields": {
+        "db_key": {
+          "required": true,
+          "type": "string"
+        },
+        "dropped_services": {
+          "required": false,
+          "type": "integer"
+        },
+        "failed_services": {
+          "required": false,
+          "type": "integer"
+        },
+        "status": {
+          "required": true,
+          "type": "string"
+        },
+        "tenant_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
     },
     {
       "deprecated": false,
@@ -618,7 +654,7 @@
           "type": "integer"
         }
       },
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "deprecated": false,

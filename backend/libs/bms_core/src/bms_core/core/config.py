@@ -852,6 +852,15 @@ class TenantGuardSettings(PluginSelection):
     provider: str = "source"
     """实现名（缺省 `source`；空串解析到 `null` 占位，调用即 `ConfigError`）。"""
 
+    readonly_routes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList[str]()
+    )
+    """管理面只读放行前缀（任务 `04_03`，07 §7 第 58 项）：`服务键:路径前缀`，如 `msg:/api/v1/msg/admin/`。
+
+    仅对 `GET` / `HEAD` 生效，且只放行「停用 / 注销即拒」这一条（鉴权与权限码照旧）；**缺省空 =
+    一条不放行**（fail-closed）——配置写错的后果是「只读窗口读不到」，不会把写通道打开。
+    """
+
 
 class TenantResourcesSettings(PluginSelection):
     """产品资源动作（段 `[tenant_resources]`；任务 `07D 01_04`）。

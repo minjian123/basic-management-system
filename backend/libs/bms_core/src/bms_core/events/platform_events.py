@@ -3,8 +3,10 @@
 - 覆盖平台域事件（`sys` / `wf` / `file` / `notification` / `tenant` / `identity` 事件域）；
 - 产品域事件（`pur` / `pay` / `sale` / `wh` / `sup` / `cw`）由产品仓库随服务实现声明，本模块不代声明；
 - 字段取「事件模型清单」的「主要载荷」列（字段级规格为对外契约，新增只增不删、必须可选）；
-- **租户事件**（`tenant.created` / `tenant.suspended` / `tenant.activated` / `tenant.deleted`）契约版本 `2.1.0`：
+- **租户事件**（`tenant.created` / `tenant.suspended` / `tenant.activated` / `tenant.deleted`）契约版本 `2.2.0`：
   负载租户位由 `tenant_code` 改 `tenant_id`（雪花 id 十进制字符串）；`2.1.0` 增可选 `version` 与 `tenant.deleted`；
+  `2.2.0` 只给 `tenant.deleted` 增可选 `purge_at` / `reason`（两步注销：停写不授权删数据），
+  并另立 `tenant.purged` `1.0.0`（平台已物理清理，此刻才授权产品删数据）；
 - 经 `register_platform_event_contracts()` 幂等登记进默认注册表（应用装配与快照 CLI 共用）。
 
 > 事件命名规则（首段为已登记事件域）见《命名规范》「基础设施命名」节；契约规则见
@@ -41,9 +43,13 @@ TENANT_ID_PAYLOAD_KEY = "tenant_id"
 （三条租户事件契约升主版本 `2.0.0`）。
 """
 
-_TENANT_EVENT_VERSION = "2.1.0"
+_TENANT_EVENT_VERSION = "2.2.0"
 """租户事件契约版本：`2.0.0` 把负载租户位由 `tenant_code`（编码）改 `tenant_id`（雪花 id，破坏性变更升主版本）；
-`2.1.0` 增可选 `version`（版本戳）并新增 `tenant.deleted`（主版本内只增不删，订阅方按主版本兼容）。"""
+`2.1.0` 增可选 `version`（版本戳）并新增 `tenant.deleted`；`2.2.0` 只给 `tenant.deleted` 增可选
+`purge_at`（保留期截止）/ `reason`（注销原因）——主版本内只增不删，订阅方按主版本兼容。"""
+
+_TENANT_PURGED_VERSION = "1.0.0"
+"""`tenant.purged` 契约版本（独立事件：与状态类租户事件分属不同语义族，见任务 `04_03`）。"""
 
 _USER_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
     {
@@ -74,6 +80,29 @@ _TENANT_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDic
         "version": _INTEGER_OPTIONAL,
     }
 )
+
+_TENANT_DELETED_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
+    {
+        **_TENANT_PAYLOAD,
+        # 保留期截止（ISO8601 UTC 字符串；归档未就绪时不写，产品据此展示「何时清理」）
+        "purge_at": _STRING_OPTIONAL,
+        "reason": _STRING_OPTIONAL,
+    }
+)
+"""`tenant.deleted` 载荷：租户族公共字段 + 注销专属可选字段（**不并入 `_TENANT_PAYLOAD`**，
+避免 created / suspended / activated 平白获得无意义字段）。"""
+
+_TENANT_PURGED_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
+    {
+        TENANT_ID_PAYLOAD_KEY: _STRING_REQUIRED,
+        "db_key": _STRING_REQUIRED,
+        "status": _STRING_REQUIRED,
+        # 逐库清理结果计数：产品可据 failed_services 判「平台没清干净」而非误以为可删数据
+        "dropped_services": _INTEGER_OPTIONAL,
+        "failed_services": _INTEGER_OPTIONAL,
+    }
+)
+"""`tenant.purged` 载荷：物理清理完成（**此刻才授权产品删数据**）。"""
 
 PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStableList(
     (
@@ -280,8 +309,14 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
         EventContract(
             event_type="tenant.deleted",
             version=_TENANT_EVENT_VERSION,
-            description="租户删除（产品按保留期归档或清理资源）",
-            fields=ConcurrentStableFrozenDict(_TENANT_PAYLOAD),
+            description="租户注销（保留期内可恢复；产品只停写不删数据，清理等 tenant.purged）",
+            fields=ConcurrentStableFrozenDict(_TENANT_DELETED_PAYLOAD),
+        ),
+        EventContract(
+            event_type="tenant.purged",
+            version=_TENANT_PURGED_VERSION,
+            description="租户物理清理完成（授权产品删除该租户数据）",
+            fields=ConcurrentStableFrozenDict(_TENANT_PURGED_PAYLOAD),
         ),
         EventContract(
             event_type="identity.user.jit_created",
@@ -334,7 +369,10 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
         ),
     )
 )
-"""平台默认事件契约（25 条；三条租户事件 `2.0.0`，其余 `1.0.0`；字段规格为对外契约，变更走兼容规则）。"""
+"""平台默认事件契约（33 条；租户事件族 `2.2.0`、`tenant.purged` `1.0.0`，其余 `1.0.0`）。
+
+字段规格为对外契约，变更走兼容规则（主版本内只增不删、新增必须可选）；见 `bms_core/events/contracts.py`。
+"""
 
 PLATFORM_EVENT_SUBSCRIPTIONS: ConcurrentStableList[EventSubscription] = ConcurrentStableList()
 """平台内建消费方订阅声明（本期为空；服务级订阅随消费方实现落地登记）。"""

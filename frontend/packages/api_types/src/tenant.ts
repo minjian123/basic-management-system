@@ -502,6 +502,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant_id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Tenant
+         * @description 注销租户（事件 + 引擎回收 + 会话撤销 + 缓存失效；**不删数据**，保留期内可恢复）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         req: 注销请求（确认码 + 原因）。
+         *         tenant_id: 租户主键。
+         *         session: 平台库写会话。
+         *         client: 服务间调用客户端。
+         *         cache: 缓存域。
+         *         source: 租户源（缓存失效）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为注销后的详情）。
+         */
+        post: operations["delete_tenant_api_v1_tenants__tenant_id__delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenants/{tenant_id}/modules": {
         parameters: {
             query?: never;
@@ -600,6 +632,37 @@ export interface paths {
          */
         put: operations["put_quotas_api_v1_tenants__tenant_id__quotas_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Tenant
+         * @description 恢复注销租户（保留期内；过期 82015）。
+         *
+         *     Args:
+         *         request: 请求对象。
+         *         tenant_id: 租户主键。
+         *         session: 平台库写会话。
+         *         client: 服务间调用客户端。
+         *         cache: 缓存域。
+         *         source: 租户源（缓存失效）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为恢复后的详情）。
+         */
+        post: operations["restore_tenant_api_v1_tenants__tenant_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -962,6 +1025,22 @@ export interface components {
             name: string;
         };
         /**
+         * TenantDeleteRequest
+         * @description 注销租户请求（确认码须等于租户编码，防误点 / 误调）。
+         */
+        TenantDeleteRequest: {
+            /**
+             * Confirm Code
+             * @description 确认码（须与租户编码完全一致）
+             */
+            confirm_code: string;
+            /**
+             * Reason
+             * @description 注销原因（写入事件与审计）
+             */
+            reason?: string | null;
+        };
+        /**
          * TenantDetail
          * @description 租户详情（含配额与模块）。
          */
@@ -977,6 +1056,11 @@ export interface components {
              * @description 创建时间（UTC）
              */
             created_at: string;
+            /**
+             * Deletion Requested At
+             * @description 注销申请时刻（UTC）
+             */
+            deletion_requested_at?: string | null;
             /**
              * Domain
              * @description 子域名
@@ -1003,6 +1087,11 @@ export interface components {
              */
             name: string;
             /**
+             * Purge At
+             * @description 保留期截止（UTC）；为空表示尚未进入清理倒计时（归档未就绪 / 待回填）
+             */
+            purge_at?: string | null;
+            /**
              * Quotas
              * @description 配额与用量
              */
@@ -1012,7 +1101,7 @@ export interface components {
              * @description 状态
              * @enum {string}
              */
-            status: "provisioning" | "active" | "suspended";
+            status: "provisioning" | "active" | "suspended" | "deleted";
             /**
              * Updated At
              * Format: date-time
@@ -1085,7 +1174,7 @@ export interface components {
              * @description 状态
              * @enum {string}
              */
-            status: "provisioning" | "active" | "suspended";
+            status: "provisioning" | "active" | "suspended" | "deleted";
             /**
              * Version
              * @description 乐观锁版本
@@ -2839,6 +2928,87 @@ export interface operations {
             };
         };
     };
+    delete_tenant_api_v1_tenants__tenant_id__delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 租户主键 */
+                tenant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_TenantDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
     get_modules_api_v1_tenants__tenant_id__modules_get: {
         parameters: {
             query?: never;
@@ -3099,6 +3269,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_TenantQuotaItemList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    restore_tenant_api_v1_tenants__tenant_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 租户主键 */
+                tenant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_TenantDetail_"];
                 };
             };
             /** @description 未认证 */

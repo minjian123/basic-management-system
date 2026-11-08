@@ -13,8 +13,8 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 from bms_core.schemas.pagination import BasePageResponse
 
-TenantStatus = Literal["provisioning", "active", "suspended"]
-"""租户状态取值。"""
+TenantStatus = Literal["provisioning", "active", "suspended", "deleted"]
+"""租户状态取值（`deleted` = 已注销、保留期内可恢复；任务 `04_03`）。"""
 
 TenantModuleStatus = Literal["enabled", "disabled", "not_opened"]
 """租户模块展示状态（`not_opened` 为目录有、开通清单无）。"""
@@ -45,6 +45,13 @@ class TenantUpdateRequest(BaseSchema):
     name: str | None = Field(default=None, min_length=1, max_length=128, description="租户名称")
     domain: str | None = Field(default=None, max_length=255, pattern=_DOMAIN_PATTERN, description="子域名")
     expire_at: datetime | None = Field(default=None, description="到期时间（UTC）")
+
+
+class TenantDeleteRequest(BaseSchema):
+    """注销租户请求（确认码须等于租户编码，防误点 / 误调）。"""
+
+    confirm_code: str = Field(min_length=1, max_length=64, description="确认码（须与租户编码完全一致）")
+    reason: str | None = Field(default=None, max_length=255, description="注销原因（写入事件与审计）")
 
 
 class TenantQuotaItem(BaseSchema):
@@ -127,6 +134,10 @@ class TenantDetail(BaseSchema):
     domain: str | None = Field(default=None, description="子域名")
     status: TenantStatus = Field(description="状态")
     expire_at: datetime | None = Field(default=None, description="到期时间（UTC）")
+    deletion_requested_at: datetime | None = Field(default=None, description="注销申请时刻（UTC）")
+    purge_at: datetime | None = Field(
+        default=None, description="保留期截止（UTC）；为空表示尚未进入清理倒计时（归档未就绪 / 待回填）"
+    )
     quotas: Annotated[ConcurrentStableList[TenantQuotaItem], CONTRACT_COLLECTION] = Field(
         default_factory=lambda: ConcurrentStableList[TenantQuotaItem](), description="配额与用量"
     )

@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from bms_core.cache.base import CacheRegion
 from bms_core.core.exceptions import MultipleActiveTenantsError
 from bms_core.db.keys import build_tenant_db_key
@@ -54,7 +56,7 @@ class FakeTenantSource:
             ),
         )
 
-    async def by_code(self, code: str) -> TenantContext:
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
         """按编码取租户上下文。
 
         Args:
@@ -71,7 +73,7 @@ class FakeTenantSource:
                 return tenant
         raise TenantNotFoundError(f"未知租户：{code}")
 
-    async def by_domain(self, domain: str) -> TenantContext:
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
         """按子域名取租户上下文。
 
         Args:
@@ -88,7 +90,7 @@ class FakeTenantSource:
                 return tenant
         raise TenantNotFoundError(f"未知租户域名：{domain}")
 
-    async def by_id(self, tenant_id: str) -> TenantContext:
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
         """按租户主键（雪花 id 字符串）取租户上下文。
 
         Args:
@@ -117,7 +119,7 @@ class FakeTenantSource:
         raise MultipleActiveTenantsError("测试替身：多个启用租户")
 
 
-def install_fake_tenant_source(monkeypatch: object) -> None:
+def install_fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
     """把应用装配入口 `build_tenant_lookup` 替换为返回 `FakeTenantSource`（进程内单测用）。
 
     平台 / 报告 / 搜索 / 租户等服务的用例既有经 `service_app` 夹具创建应用，也有测试内
@@ -128,4 +130,12 @@ def install_fake_tenant_source(monkeypatch: object) -> None:
     """
     from bms_core import application
 
-    monkeypatch.setattr(application, "build_tenant_lookup", lambda *_args, **_kwargs: FakeTenantSource())
+    def _fake_lookup(*_args: object, **_kwargs: object) -> FakeTenantSource:
+        """替身装配入口（忽略实参，恒返回进程内假租户源）。
+
+        Returns:
+            FakeTenantSource: 假租户源。
+        """
+        return FakeTenantSource()
+
+    monkeypatch.setattr(application, "build_tenant_lookup", _fake_lookup)

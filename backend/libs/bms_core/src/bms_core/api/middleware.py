@@ -35,7 +35,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from bms_core.api.base import API_PREFIX
 from bms_core.api.errors import build_error_response
 from bms_core.collaboration.domain_scope import UNKNOWN_DOMAIN, domain_of_path
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import (
     get_current_request_id,
     reset_current_client_ip,
@@ -78,6 +78,7 @@ from bms_core.edge.headers import (
 )
 from bms_core.edge.null import NullEdgeTrust
 from bms_core.metrics.base import BaseMetrics
+from bms_core.tenant.guard import readonly_route_allowed
 from bms_core.tracing.base import TRACE_ID_HEADER, new_trace_id, otel_trace_id
 
 __all__ = [
@@ -90,6 +91,8 @@ __all__ = [
 ]
 
 _EXCLUDED_PATHS = frozenset({"/healthz", "/readyz", "/metrics", "/docs", "/redoc", "/openapi.json"})
+
+_LOGGER = get_logger("bms.tenant_middleware")
 
 
 class BaseMiddleware(BaseFrameworkObject, ABC):
@@ -187,9 +190,17 @@ class TenantMiddleware(BaseMiddleware):
         settings = getattr(app_state, "settings", None)
         source = getattr(app_state, "tenant_source", None)
         headers = Headers(scope=scope)
+        path = str(scope.get("path", ""))
+        # 管理面只读放行（任务 04_03 §4.11）：方法 + 白名单前缀 + 服务键三条件，缺一即按原口径拒。
+        readonly = readonly_route_allowed(
+            service_key=_service_key(app_state),
+            method=str(scope.get("method", "")),
+            path=path,
+            routes=settings.tenant_guard.readonly_routes if settings is not None else ConcurrentStableList(),
+        )
         try:
             tenant = await resolve_request_tenant(
-                path=str(scope.get("path", "")),
+                path=path,
                 host=headers.get("host"),
                 header=headers.get("X-Tenant-ID"),
                 token_tenant_id=cast("str | None", state.get("tenant_id")),
@@ -197,12 +208,22 @@ class TenantMiddleware(BaseMiddleware):
                 exempt_paths=settings.tenant.exempt_paths if settings is not None else DEFAULT_EXEMPT_PATHS,
                 deferred_paths=settings.tenant.deferred_paths if settings is not None else DEFAULT_DEFERRED_PATHS,
                 allow_demo_fallback=settings.tenant.allow_demo_fallback if settings is not None else True,
+                readonly=readonly,
             )
         except BizError as exc:
             response = await build_error_response(scope, exc)
             await response(scope, receive, send)
             return
 
+        if readonly and tenant is not None and tenant.status != "active":
+            # 只读窗口留痕：事后可核对「谁在停用 / 注销窗口里看了什么」（不写操作审计，与普通 GET 同口径）
+            _LOGGER.info(
+                "tenant_readonly_access",
+                tenant=tenant.code,
+                status=tenant.status,
+                path=path,
+                method=str(scope.get("method", "")),
+            )
         state["tenant"] = tenant
         tenant_token = set_tenant_context(tenant)
         code_token = set_current_tenant(tenant.code if tenant else None)
@@ -215,6 +236,20 @@ class TenantMiddleware(BaseMiddleware):
             reset_current_tenant_id(tenant_id_token)
             reset_current_tenant(code_token)
             reset_tenant_context(tenant_token)
+
+
+def _service_key(app_state: object) -> str | None:
+    """取当前服务键（只读白名单按服务归属判定）。
+
+    Args:
+        app_state: 应用态（`app.state`）。
+
+    Returns:
+        str | None: 服务键；未装配返回 None（此时只认条目里的服务键无法匹配，等于不放行）。
+    """
+    identity = getattr(app_state, "service_identity", None)
+    name = getattr(identity, "name", None)
+    return name if isinstance(name, str) else None
 
 
 class ReadOnlyMiddleware(BaseMiddleware):

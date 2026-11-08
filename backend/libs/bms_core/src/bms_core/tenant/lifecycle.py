@@ -2,8 +2,10 @@
 
 - **单一权威**：租户开通 / 停用 / 启用 / 删除只由基座决定并落状态；产品只消费 `tenant.*` 事件，
   不自建租户状态表 / 状态机、不轮询基座租户表。
-- **事件名**：沿用已登记的 `tenant.created` / `tenant.suspended` / `tenant.activated`（`2.0.0`），
-  新增 `tenant.deleted`；需求文本的 disabled / enabled 即 suspended / activated，不另立同义事件。
+- **事件名**：沿用已登记的 `tenant.created` / `tenant.suspended` / `tenant.activated` / `tenant.deleted`
+  （租户事件族 `2.2.0`），并登记 `tenant.purged`（`1.0.0`）；需求文本的 disabled / enabled 即
+  suspended / activated，不另立同义事件。
+- **两步删除**（任务 `04_03`）：`deleted` = 停写、**不授权删数据**；`purged` = 平台已物理清理，产品此刻才删数据。
 - **幂等三层**：投递级 `(consumer, event_id)`（既有 `sys_event_consumed` 账本）→ 业务级
   `(tenant_id, action, version)`（本模块 `applied_version` / `mark_applied`）→ 动作自身幂等。
 - **失败语义**：动作抛错**不记账、原样上抛**，由 `RocketMqEventConsumerGroup` 的退避重试与死信兜底；
@@ -35,12 +37,14 @@ __all__ = [
     "TENANT_ACTION_ACTIVATED",
     "TENANT_ACTION_CREATED",
     "TENANT_ACTION_DELETED",
+    "TENANT_ACTION_PURGED",
     "TENANT_ACTION_SUSPENDED",
     "TENANT_ACTIVATED",
     "TENANT_CREATED",
     "TENANT_DELETED",
     "TENANT_LIFECYCLE_ACTIONS",
     "TENANT_LIFECYCLE_EVENT_TYPES",
+    "TENANT_PURGED",
     "TENANT_SUSPENDED",
     "BaseTenantResourceHandler",
     "TenantLifecycleContext",
@@ -53,11 +57,13 @@ TENANT_CREATED = "tenant.created"
 TENANT_SUSPENDED = "tenant.suspended"
 TENANT_ACTIVATED = "tenant.activated"
 TENANT_DELETED = "tenant.deleted"
+TENANT_PURGED = "tenant.purged"
 
 TENANT_ACTION_CREATED = "created"
 TENANT_ACTION_SUSPENDED = "suspended"
 TENANT_ACTION_ACTIVATED = "activated"
 TENANT_ACTION_DELETED = "deleted"
+TENANT_ACTION_PURGED = "purged"
 
 TENANT_LIFECYCLE_EVENT_TYPES: ConcurrentStableFrozenDict[str, str] = ConcurrentStableFrozenDict(
     {
@@ -65,6 +71,7 @@ TENANT_LIFECYCLE_EVENT_TYPES: ConcurrentStableFrozenDict[str, str] = ConcurrentS
         TENANT_SUSPENDED: TENANT_ACTION_SUSPENDED,
         TENANT_ACTIVATED: TENANT_ACTION_ACTIVATED,
         TENANT_DELETED: TENANT_ACTION_DELETED,
+        TENANT_PURGED: TENANT_ACTION_PURGED,
     }
 )
 """事件类型 → 动作名（唯一映射；分发器只认这张表）。"""
@@ -86,10 +93,10 @@ class TenantLifecycleContext(BaseValueObject):
 
     Attributes:
         tenant_id: 租户雪花主键。
-        action: 动作名（`created` / `suspended` / `activated` / `deleted`）。
+        action: 动作名（`created` / `suspended` / `activated` / `deleted` / `purged`）。
         version: 事件版本戳（`sys_tenant.version`；旧事件为 0）。
         db_key: 租户数据源键（产品据此定位本租户库 / 目录）。
-        status: 事件发生后的租户状态（`provisioning` / `active` / `suspended`）。
+        status: 事件发生后的租户状态（`provisioning` / `active` / `suspended` / `deleted` / `purged`）。
         event_id: 事件 ID（投递级幂等键，排障用）。
         occurred_at: 事件发生时间（UTC）。
     """
@@ -112,23 +119,25 @@ def build_tenant_lifecycle_event(
     version: int | None = None,
     occurred_at: datetime | None = None,
     trace_id: str | None = None,
+    extra: ConcurrentStableDict[str, object] | None = None,
 ) -> EventEnvelope:
     """构造租户生命周期事件信封（信封租户位与载荷同值，聚合键按租户分区）。
 
     Args:
-        event_type: 四类事件类型之一。
+        event_type: 五类事件类型之一。
         tenant_id: 租户雪花主键（整数或十进制字符串）。
         db_key: 租户数据源键。
         status: 事件发生后的租户状态。
         version: 版本戳（`sys_tenant.version`）；None 不写载荷，消费侧按 0 处理。
         occurred_at: 事件时间；None 由发件箱写入时取当前时刻。
         trace_id: 链路 id。
+        extra: 事件专属附加载荷（如 `tenant.purged` 的 `dropped_services` / `failed_services`）。
 
     Returns:
         EventEnvelope: 事件信封。
 
     Raises:
-        ConfigError: 事件类型不在四类之内（编程错误，非运行期数据问题）。
+        ConfigError: 事件类型不在五类之内（编程错误，非运行期数据问题）。
     """
     if event_type not in TENANT_LIFECYCLE_EVENT_TYPES:
         raise ConfigError(f"非法租户生命周期事件类型（仅支持 {list(TENANT_LIFECYCLE_EVENT_TYPES)}）：{event_type}")
@@ -142,6 +151,9 @@ def build_tenant_lifecycle_event(
     )
     if version is not None:
         payload.set("version", int(version))
+    if extra:
+        for key, value in extra.items():
+            payload.set(key, value)
     return EventEnvelope(
         event_type=event_type,
         payload=payload,
@@ -153,7 +165,7 @@ def build_tenant_lifecycle_event(
 
 
 class BaseTenantResourceHandler(BasePluggable, ABC):
-    """产品资源动作契约（插件键 `tenant_resources`）：四动作 + 幂等账本。
+    """产品资源动作契约（插件键 `tenant_resources`）：五动作 + 幂等账本。
 
     账本与资源**同库同事务**由产品实现（基座另存一份会引入两阶段一致性问题）；动作必须幂等可重入。
     """
@@ -212,12 +224,28 @@ class BaseTenantResourceHandler(BasePluggable, ABC):
         return None
 
     async def on_deleted(self, context: TenantLifecycleContext) -> None:
-        """按登记的保留期归档或物理删除资源；断连接、清延迟区、按保留期处理位点。
+        """停写：断连接、清延迟区 / 易失资源；**不删数据**（保留期内可恢复）。
 
         Args:
             context: 生命周期上下文（动作名恒为 `deleted`）。
         """
         return None
+
+    async def on_purged(self, context: TenantLifecycleContext) -> None:
+        """物理清理：平台已删该租户数据，产品此刻删除自身残留（主题 / 位点 / 元数据）。
+
+        缺省实现记 **WARNING**（而非静默 no-op）：`purged` 之后的残留数据无人再清，
+        静默会表现为「注销成功了但数据一直在」，只有告警能让漏配实现暴露出来。
+
+        Args:
+            context: 生命周期上下文（动作名恒为 `purged`）。
+        """
+        _LOGGER.warning(
+            "tenant_purged_unhandled",
+            tenant_id=context.tenant_id,
+            db_key=context.db_key,
+            hint="产品未实现 on_purged，该租户残留资源不会被清理",
+        )
 
 
 class TenantLifecycleDispatcher(BaseFrameworkObject):
@@ -279,7 +307,7 @@ class TenantLifecycleDispatcher(BaseFrameworkObject):
             context: 生命周期上下文。
 
         Raises:
-            EventContractError: 动作名不在四类之内（理论不可达，防御性）。
+            EventContractError: 动作名不在五类之内（理论不可达，防御性）。
         """
         if context.action == TENANT_ACTION_CREATED:
             await self._handler.on_created(context)
@@ -289,7 +317,9 @@ class TenantLifecycleDispatcher(BaseFrameworkObject):
             await self._handler.on_activated(context)
         elif context.action == TENANT_ACTION_DELETED:
             await self._handler.on_deleted(context)
-        else:  # pragma: no cover - 映射表已限定四类
+        elif context.action == TENANT_ACTION_PURGED:
+            await self._handler.on_purged(context)
+        else:  # pragma: no cover - 映射表已限定五类
             raise EventContractError(f"未知生命周期动作：{context.action}")
 
 

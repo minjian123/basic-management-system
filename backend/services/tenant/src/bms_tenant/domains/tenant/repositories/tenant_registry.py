@@ -17,6 +17,7 @@ from bms_core.models.tenant.tenant import (
     TENANT_KIND_BUSINESS,
     TENANT_KIND_PLATFORM,
     TENANT_STATUS_ACTIVE,
+    TENANT_STATUS_DELETED,
     SysTenant,
 )
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
@@ -244,6 +245,38 @@ class TenantRegistryRepository(BaseFrameworkObject):
         """
         await self._session.execute(delete(SysTenantDatabase).where(SysTenantDatabase.tenant_id == tenant_id))
         await self._session.execute(delete(SysTenant).where(SysTenant.id == tenant_id))
+
+    async def set_deleted(self, row: SysTenant, *, requested_at: datetime, purge_at: datetime | None) -> SysTenant:
+        """置「已注销」并记保留期时点（**不软删**：`deleted_at` 保持 NULL 到物理清理）。
+
+        Args:
+            row: 注册行。
+            requested_at: 注销申请时刻（UTC）。
+            purge_at: 保留期截止（UTC）；归档未就绪时为 None（留空待回填）。
+
+        Returns:
+            SysTenant: 更新后的注册行。
+        """
+        row.status = TENANT_STATUS_DELETED
+        row.deletion_requested_at = requested_at
+        row.purge_at = purge_at
+        await self._session.flush()
+        return row
+
+    async def restore(self, row: SysTenant) -> SysTenant:
+        """恢复为启用并清空注销痕迹。
+
+        Args:
+            row: 注册行。
+
+        Returns:
+            SysTenant: 更新后的注册行。
+        """
+        row.status = TENANT_STATUS_ACTIVE
+        row.deletion_requested_at = None
+        row.purge_at = None
+        await self._session.flush()
+        return row
 
     async def update_status(self, row: SysTenant, status: str) -> SysTenant:
         """变更租户状态（停用 / 启用）。
