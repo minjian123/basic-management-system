@@ -66,13 +66,26 @@ def main(argv):
     # 1) 先还原（移除外置链接，安装器才能正常重建项目内目录）
     run([sys.executable, os.path.join(here, "还原依赖.py")], root, "还原依赖")
 
+    # 1.5) 清理跨工作区污染：本仓 node_modules 若被其它工作区（如 msg）的 pnpm install
+    #      重建并链接到其 store，先删掉，随后的 pnpm install 才会按本仓 lockfile 重建。
+    if not backend_only:
+        common.prune_foreign_store_links(root, PREFIX)
+
     # 2) 安装
     # 后端一律在 `backend/` 下执行（工程根在 `backend/`，仓根没有 pyproject.toml）：
     # 还原后 `.venv` 已回到 `backend/.venv` 真实目录，uv sync 就地同步该环境。
     if not frontend_only:
-        run(["uv", "sync", "--frozen"], os.path.join(root, "backend"), "uv sync --frozen（backend）")
+        run(
+            ["uv", "sync", "--frozen"],
+            os.path.join(root, "backend"),
+            "uv sync --frozen（backend）",
+        )
     if not backend_only:
-        run(["pnpm", "install", "--frozen-lockfile"], root, "pnpm install --frozen-lockfile")
+        run(
+            ["pnpm", "install", "--frozen-lockfile"],
+            root,
+            "pnpm install --frozen-lockfile",
+        )
 
     # 3) 再次外置
     run([sys.executable, os.path.join(here, "外置依赖.py")], root, "外置依赖")

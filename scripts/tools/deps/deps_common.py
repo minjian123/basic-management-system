@@ -224,6 +224,7 @@ def create_link(link, target):
     if IS_WINDOWS:
         result = subprocess.run(
             ["cmd", "/c", "mklink", "/J", link, target],
+            check=False,
             capture_output=True,
             text=True,
         )
@@ -427,3 +428,73 @@ def find_reparse_points(start):
                 continue
             stack.append(entry.path)
     return found
+
+
+# ---- 跨工作区依赖污染（pnpm store 串仓）----
+
+
+def find_foreign_store_links(start, root):
+    """找出 node_modules 内指向**本仓之外** pnpm store 的链接（跨工作区安装污染）。
+
+    背景（2026-11-10 排查）：`msg/frontend/pnpm-workspace.yaml` 把
+    `../../bms/frontend/packages/*` 声明为其 workspace 成员（为解析包内 `workspace:*`），
+    在 msg 侧装依赖时 pnpm 会把本仓这几个包的 node_modules 重建并链接到 **msg 的 store**
+    （vue / vue-tsc / element-plus 等版本随 msg 解析）。pnpm 之后不会校验链接目标，
+    本仓 `pnpm install` 报「Already up to date」，表现为两份 Vue 类型导致 desktop 构建报
+    `ComputedRef` 不匹配。
+
+    Args:
+        start: 扫描起点（仓根）。
+        root: 仓根（判定链接目标是否越界的基准）。
+
+    Returns:
+        dict[str, list[tuple[str, str]]]: node_modules 目录 -> [(条目名, 目标路径), ...]。
+    """
+    result: dict[str, list[tuple[str, str]]] = {}  # bare-collections:allow 依赖脚本须在 venv 建立前用系统 Python 运行
+    for node_modules in find_node_modules_dirs(start):
+        bad: list[tuple[str, str]] = []  # bare-collections:allow 同上：stdlib 专用脚本
+        try:
+            entries = list(os.scandir(node_modules))
+        except OSError:
+            continue
+        for entry in entries:
+            if not _entry_is_link(entry):
+                continue
+            target = link_target(entry.path)
+            if not target:
+                continue
+            # 只认 pnpm store 链接：工作区包链接（如 @bms/core -> ../../core）在仓内，天然放行
+            if ".pnpm" not in norm(target):
+                continue
+            if not is_within(target, root):
+                bad.append((entry.name, target))
+        if bad:
+            result[node_modules] = bad
+    return result
+
+
+def prune_foreign_store_links(root, prefix, dry_run=False):
+    """删除被跨工作区污染（链接指向本仓外 pnpm store）的 node_modules，供安装器重建。
+
+    整目录删除而非只删单个链接：pnpm 以 `.modules.yaml` 判定「已是最新」，
+    缺单个包时未必重新链接；删掉整目录后 `pnpm install` 必然重建。
+
+    Args:
+        root: 仓根。
+        prefix: 输出前缀（脚本名）。
+        dry_run: 只报告不删除。
+
+    Returns:
+        int: 处理的 node_modules 目录数。
+    """
+    polluted = find_foreign_store_links(root, root)
+    for node_modules, bad in sorted(polluted.items()):
+        rel = os.path.relpath(node_modules, root)
+        detail = "；".join(f"{name} -> {target}" for name, target in sorted(bad))
+        print(f"[{prefix}] 清理跨仓污染：{rel}（{detail}）")
+        if not dry_run:
+            remove_path_safe(node_modules)
+    if polluted:
+        action = "已删除" if not dry_run else "待删除"
+        print(f"[{prefix}] {action} {len(polluted)} 个被污染的 node_modules，安装时按本仓 lockfile 重建")
+    return len(polluted)
