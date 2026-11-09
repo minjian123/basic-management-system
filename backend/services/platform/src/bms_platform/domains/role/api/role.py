@@ -51,6 +51,7 @@ from bms_core.transaction.base import (
     get_transaction_manager,
     get_transaction_participant,
 )
+from bms_platform.api.query import parse_id_list
 from bms_platform.domains.role.repositories.role import (
     DataScopeRepository,
     RoleFieldRepository,
@@ -115,6 +116,7 @@ AuditDep = Annotated[AuditCapturer, Depends(get_audit_capturer)]
 DictInvalidatorDep = Annotated[DictInvalidator, Depends(get_dict_invalidator)]
 KeywordQuery = Annotated[str | None, Query(description="关键字（角色码 / 名称；用户账号 / 姓名）")]
 StatusQuery = Annotated[str | None, Query(description="状态（enabled/disabled）")]
+IdsQuery = Annotated[str | None, Query(description="角色主键清单（逗号分隔，单次最多 200）")]
 IdempotencyKeyHeader = Annotated[
     str | None,
     Header(alias=IDEMPOTENCY_HEADER, description="幂等键（可选；重复提交复用首次结果）"),
@@ -392,8 +394,9 @@ async def list_roles(
     config: ConfigDep,
     kw: KeywordQuery = None,
     status: StatusQuery = None,
+    ids: IdsQuery = None,
 ) -> ApiResponse[BasePageResponse[RoleItem]]:
-    """角色列表（关键字 / 状态筛选 + 分页；含内置标记与主体数）。
+    """角色列表（关键字 / 状态 / 主键集合筛选 + 分页；含内置标记与主体数）。
 
     Args:
         query: 分页与排序参数。
@@ -401,13 +404,15 @@ async def list_roles(
         config: 系统参数取数。
         kw: 关键字（角色码 / 名称）。
         status: 状态（enabled/disabled）。
+        ids: 角色主键清单（逗号分隔；供产品按主体标识批量回显名称）。
 
     Returns:
         ApiResponse: 统一响应，data 为分页角色列表。
     """
     _require_status(status)
+    scoped_ids = parse_id_list(ids)
     service = _role_service(uow, config)
-    rows, total = await service.list_roles(query, keyword=kw, status=status)
+    rows, total = await service.list_roles(query, keyword=kw, status=status, ids=scoped_ids or None)
     counts = await service.subject_counts(ConcurrentStableList(row.id for row in rows))
     items = ConcurrentStableList(
         _role_item(row, builtin=_is_builtin(row), subject_count=counts.get(row.id) or 0) for row in rows

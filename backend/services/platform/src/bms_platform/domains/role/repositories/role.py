@@ -92,6 +92,7 @@ class RoleRepository(BaseDbRepository[SysRole]):
         *,
         keyword: str | None = None,
         status: str | None = None,
+        ids: ConcurrentStableList[int] | None = None,
     ) -> ConcurrentStableList[SysRole]:
         """按筛选条件分页查询角色（页码分页；排序经白名单）。
 
@@ -99,13 +100,14 @@ class RoleRepository(BaseDbRepository[SysRole]):
             query: 页码分页请求（含排序参数）。
             keyword: 关键字（匹配角色码 / 名称，大小写不敏感）。
             status: 状态（精确）。
+            ids: 主键集合（非空时只在该集合内筛选）。
 
         Returns:
             ConcurrentStableList[SysRole]: 当前页记录。
         """
         statement = (
             self._apply_sort(self._select(), self._resolve_sort(query))
-            .where(*self._filter_conditions(keyword=keyword, status=status))
+            .where(*self._filter_conditions(keyword=keyword, status=status, ids=ids))
             .limit(query.size)
             .offset((query.page - 1) * query.size)
         )

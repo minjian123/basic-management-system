@@ -87,19 +87,22 @@ class RoleService(BaseFrameworkObject):
         *,
         keyword: str | None = None,
         status: str | None = None,
+        ids: ConcurrentStableList[int] | None = None,
     ) -> tuple[ConcurrentStableList[SysRole], int]:
-        """分页查询角色（关键字 / 状态筛选）。
+        """分页查询角色（关键字 / 状态 / 主键集合筛选）。
 
         Args:
             query: 页码分页请求。
             keyword: 关键字（角色码 / 名称）。
             status: 状态。
+            ids: 主键集合（空 / None 不限定；供产品按主体标识批量回显名称）。
 
         Returns:
             tuple[ConcurrentStableList[SysRole], int]: 当前页记录与总条数。
         """
-        rows = await self._roles.list_filtered(query, keyword=keyword, status=status)
-        total = await self._roles.count_filtered(keyword=keyword, status=status)
+        scoped_ids = ids if ids else None
+        rows = await self._roles.list_filtered(query, keyword=keyword, status=status, ids=scoped_ids)
+        total = await self._roles.count_filtered(keyword=keyword, status=status, ids=scoped_ids)
         return rows, total
 
     async def detail(self, role_id: int) -> SysRole:

@@ -264,6 +264,7 @@
     "backend/services/*/src/*/api/locale.py",
     "backend/services/*/src/*/api/outbox.py",
     "backend/services/*/src/*/api/plugins.py",
+    "backend/services/*/src/*/api/query.py",
     "backend/services/*/src/*/api/tenancy.py",
     "backend/services/*/src/*/repositories/demo_repository.py",
     "backend/services/*/src/*/schemas/demo.py",

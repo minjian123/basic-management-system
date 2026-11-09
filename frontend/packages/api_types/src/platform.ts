@@ -3508,7 +3508,7 @@ export interface paths {
         };
         /**
          * List Roles
-         * @description 角色列表（关键字 / 状态筛选 + 分页；含内置标记与主体数）。
+         * @description 角色列表（关键字 / 状态 / 主键集合筛选 + 分页；含内置标记与主体数）。
          *
          *     Args:
          *         query: 分页与排序参数。
@@ -3516,6 +3516,7 @@ export interface paths {
          *         config: 系统参数取数。
          *         kw: 关键字（角色码 / 名称）。
          *         status: 状态（enabled/disabled）。
+         *         ids: 角色主键清单（逗号分隔；供产品按主体标识批量回显名称）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为分页角色列表。
@@ -4425,13 +4426,14 @@ export interface paths {
         };
         /**
          * List Users
-         * @description 用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态筛选 + 分页）。
+         * @description 用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态 + 主键集合筛选 + 分页）。
          *
          *     Args:
          *         query: 分页与排序参数。
          *         uow: 请求级工作单元。
          *         kw: 关键字（四字段模糊，大小写不敏感）。
          *         status: 账号状态（enabled/disabled）。
+         *         ids: 用户主键清单（逗号分隔；供产品按主体标识批量回显名称）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为分页用户列表。
@@ -21877,6 +21879,8 @@ export interface operations {
                 kw?: string | null;
                 /** @description 状态（enabled/disabled） */
                 status?: string | null;
+                /** @description 角色主键清单（逗号分隔，单次最多 200） */
+                ids?: string | null;
                 /** @description 页码（从 1 起） */
                 page?: number;
                 /** @description 每页条数（默认 20，上限 200） */
@@ -24819,6 +24823,8 @@ export interface operations {
                 kw?: string | null;
                 /** @description 账号状态（enabled/disabled） */
                 status?: string | null;
+                /** @description 用户主键清单（逗号分隔，单次最多 200） */
+                ids?: string | null;
                 /** @description 页码（从 1 起） */
                 page?: number;
                 /** @description 每页条数（默认 20，上限 200） */

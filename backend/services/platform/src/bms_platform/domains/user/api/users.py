@@ -49,6 +49,7 @@ from bms_core.transaction.base import (
     get_transaction_manager,
     get_transaction_participant,
 )
+from bms_platform.api.query import parse_id_list
 from bms_platform.domains.role.public import RoleSummary
 from bms_platform.domains.user.repositories.account_lock import AccountLockRepository
 from bms_platform.domains.user.repositories.user import UserRepository
@@ -97,6 +98,7 @@ CheckerDep = Annotated[BasePermissionChecker, Depends(get_permission_checker)]
 IdempotencyKeyHeader = Annotated[str | None, Header(alias=IDEMPOTENCY_HEADER)]
 KeywordQuery = Annotated[str | None, Query(description="关键字（用户名/姓名/邮箱/手机号，大小写不敏感）")]
 StatusQuery = Annotated[str | None, Query(description="账号状态（enabled/disabled）")]
+IdsQuery = Annotated[str | None, Query(description="用户主键清单（逗号分隔，单次最多 200）")]
 
 _TABLE = "sys_user"
 
@@ -231,21 +233,24 @@ async def list_users(
     uow: UowDep,
     kw: KeywordQuery = None,
     status: StatusQuery = None,
+    ids: IdsQuery = None,
 ) -> ApiResponse[BasePageResponse[UserItem]]:
-    """用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态筛选 + 分页）。
+    """用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态 + 主键集合筛选 + 分页）。
 
     Args:
         query: 分页与排序参数。
         uow: 请求级工作单元。
         kw: 关键字（四字段模糊，大小写不敏感）。
         status: 账号状态（enabled/disabled）。
+        ids: 用户主键清单（逗号分隔；供产品按主体标识批量回显名称）。
 
     Returns:
         ApiResponse: 统一响应，data 为分页用户列表。
     """
     _require_status(status)
+    scoped_ids = parse_id_list(ids)
     service = UserQueryService(UserRepository(cast("DbSession", uow.session)))
-    rows, total = await service.list_users(query, keyword=kw, status=status)
+    rows, total = await service.list_users(query, keyword=kw, status=status, ids=scoped_ids or None)
     items = ConcurrentStableList(_to_item(row) for row in rows)
     return ApiResponse.ok(BasePageResponse[UserItem](list=items, total=total, page=query.page, size=query.size))
 

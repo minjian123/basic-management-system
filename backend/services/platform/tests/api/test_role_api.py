@@ -432,6 +432,59 @@ async def test_minimal_user_query_filters_and_fields(
     assert illegal.json()["code"] == 10001
 
 
+@pytest.mark.kiwi_id(2470)
+async def test_user_and_role_lists_filter_by_ids(
+    role_client: AsyncClient, ns: Namespace, tenant_engine: AsyncEngine
+) -> None:
+    """用户 / 角色列表支持 `ids` 批量过滤（msg 06-7 名称回显协同）。
+
+    Args:
+        role_client: 角色域用例客户端。
+        ns: 用例命名空间。
+        tenant_engine: 共享租户库引擎（直插用户 / 角色）。
+    """
+    client = role_client
+    user_a = await _seed_user(tenant_engine, ns.code("ids-a"), "甲")
+    user_b = await _seed_user(tenant_engine, ns.code("ids-b"), "乙")
+    await _seed_user(tenant_engine, ns.code("ids-c"), "丙")
+
+    users = await client.get(_USERS, params={"ids": f"{user_a},{user_b}"})
+    assert users.json()["code"] == 0
+    assert {int(item["id"]) for item in users.json()["data"]["list"]} == {user_a, user_b}
+    assert users.json()["data"]["total"] == 2
+
+    combined = await client.get(_USERS, params={"ids": f"{user_a},{user_b}", "kw": ns.code("ids-a")})
+    assert [int(item["id"]) for item in combined.json()["data"]["list"]] == [user_a]
+
+    blank = await client.get(_USERS, params={"ids": "", "kw": ns.prefix})
+    assert blank.json()["data"]["total"] == 3
+    commas = await client.get(_USERS, params={"ids": ", ,", "kw": ns.prefix})
+    assert commas.json()["data"]["total"] == 3
+
+    for bad in ("abc", "0", "1,-2"):
+        illegal_ids = await client.get(_USERS, params={"ids": bad})
+        assert illegal_ids.json()["code"] == 10001
+
+    too_many = ",".join(str(value) for value in range(1, 202))
+    over = await client.get(_USERS, params={"ids": too_many})
+    assert over.json()["code"] == 10001
+
+    role_a = await _seed_role(tenant_engine, ns.code("ids-ra"), "角色甲")
+    role_b = await _seed_role(tenant_engine, ns.code("ids-rb"), "角色乙")
+    await _seed_role(tenant_engine, ns.code("ids-rc"), "角色丙")
+
+    roles = await client.get(_ROLES, params={"ids": f"{role_a},{role_b}"})
+    assert roles.json()["code"] == 0
+    assert {int(item["id"]) for item in roles.json()["data"]["list"]} == {role_a, role_b}
+    assert roles.json()["data"]["total"] == 2
+
+    role_combined = await client.get(_ROLES, params={"ids": f"{role_a},{role_b}", "kw": ns.code("ids-ra")})
+    assert [int(item["id"]) for item in role_combined.json()["data"]["list"]] == [role_a]
+
+    role_illegal = await client.get(_ROLES, params={"ids": "x"})
+    assert role_illegal.json()["code"] == 10001
+
+
 @pytest.mark.kiwi_id(2248)
 async def test_metadata_delete_blocked_by_role_grants(role_client: AsyncClient, ns: Namespace) -> None:
     """元数据删除 / 停用被角色授权引用拦截（40206）。

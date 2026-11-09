@@ -25769,7 +25769,7 @@
     },
     "/api/v1/roles": {
       "get": {
-        "description": "角色列表（关键字 / 状态筛选 + 分页；含内置标记与主体数）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    kw: 关键字（角色码 / 名称）。\n    status: 状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页角色列表。",
+        "description": "角色列表（关键字 / 状态 / 主键集合筛选 + 分页；含内置标记与主体数）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    kw: 关键字（角色码 / 名称）。\n    status: 状态（enabled/disabled）。\n    ids: 角色主键清单（逗号分隔；供产品按主体标识批量回显名称）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页角色列表。",
         "operationId": "list_roles_api_v1_roles_get",
         "parameters": [
           {
@@ -25806,6 +25806,24 @@
               ],
               "description": "状态（enabled/disabled）",
               "title": "Status"
+            }
+          },
+          {
+            "description": "角色主键清单（逗号分隔，单次最多 200）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "角色主键清单（逗号分隔，单次最多 200）",
+              "title": "Ids"
             }
           },
           {
@@ -29947,7 +29965,7 @@
     },
     "/api/v1/users": {
       "get": {
-        "description": "用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态筛选 + 分页）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    kw: 关键字（四字段模糊，大小写不敏感）。\n    status: 账号状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户列表。",
+        "description": "用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态 + 主键集合筛选 + 分页）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    kw: 关键字（四字段模糊，大小写不敏感）。\n    status: 账号状态（enabled/disabled）。\n    ids: 用户主键清单（逗号分隔；供产品按主体标识批量回显名称）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户列表。",
         "operationId": "list_users_api_v1_users_get",
         "parameters": [
           {
@@ -29984,6 +30002,24 @@
               ],
               "description": "账号状态（enabled/disabled）",
               "title": "Status"
+            }
+          },
+          {
+            "description": "用户主键清单（逗号分隔，单次最多 200）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "用户主键清单（逗号分隔，单次最多 200）",
+              "title": "Ids"
             }
           },
           {
