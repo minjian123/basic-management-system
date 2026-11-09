@@ -29,3 +29,11 @@ inhibit_rules:
   - source_matchers: ['severity="critical"']
     target_matchers: ['severity="warning"']
     equal: ["alertname", "service"]
+  # 同实例：P0/P1 在途时抑制 P2/P3（产品告警按 service 归因）。
+  - source_matchers: ['severity="critical"']
+    target_matchers: ['severity="warning"']
+    equal: ["service"]
+  # 同主题：P1 积压抑制 P3 噪音（产品告警带 tenant/topic 时才匹配）。
+  - source_matchers: ['priority="P1"']
+    target_matchers: ['priority="P3"']
+    equal: ["service", "topic"]

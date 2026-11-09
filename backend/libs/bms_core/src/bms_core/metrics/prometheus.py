@@ -14,7 +14,7 @@
   防静默串指标。`workers=1`（一服务一容器）下无需多进程聚合；多 worker 随扩展评估（见任务设计开放项）。
 """
 
-from typing import Any
+from typing import Any, cast
 
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
@@ -26,7 +26,7 @@ from prometheus_client import (
 )
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
-from bms_core.metrics.base import BaseMetrics, MetricLabels
+from bms_core.metrics.base import BaseMetrics, CollectorLike, MetricLabels
 
 __all__ = [
     "DEFAULT_BUCKETS",
@@ -125,6 +125,21 @@ class PrometheusMetrics(BaseMetrics):
             tuple[bytes, str]: `(响应体, 内容类型)`。
         """
         return generate_latest(self._registry), CONTENT_TYPE_LATEST
+
+    def register_collector(self, collector: CollectorLike) -> bool:
+        """注册自定义收集器（快照式实现，与写入式指标共用同一注册表）。
+
+        Args:
+            collector: 只读收集器（`collect()` 产出当前指标快照）。
+
+        Returns:
+            bool: 恒为 `True`（Prometheus 实现支持自定义收集器）。
+
+        Raises:
+            ValueError: 同一收集器重复注册（`prometheus_client` 的早失败语义）。
+        """
+        self._registry.register(cast("Any", collector))
+        return True
 
     def _record(self, kind: str, name: str, labels: MetricLabels | None) -> Any:
         """取带标签的指标子对象（惰性建指标并按标签集固定标签名）。

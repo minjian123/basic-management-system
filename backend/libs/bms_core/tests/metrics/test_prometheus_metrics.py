@@ -1,11 +1,27 @@
 """Prometheus 指标真实实现测试（Kiwi 2182）：契约 / 记录与渲染 / 标签注入 / 冲突早失败。"""
 
 import pytest
+from prometheus_client.core import GaugeMetricFamily
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.metrics.base import BaseMetrics
 from bms_core.metrics.null import NullMetrics
 from bms_core.metrics.prometheus import SERVICE_LABEL, PrometheusMetrics
+
+
+class _SnapshotCollector:
+    """最小快照式收集器（结构上满足 `CollectorLike`；用于注册通道用例）。"""
+
+    def collect(self) -> ConcurrentStableList[GaugeMetricFamily]:
+        """产出一个带 `tenant` 标签的 gauge。
+
+        Returns:
+            ConcurrentStableList[GaugeMetricFamily]: 指标家族。
+        """
+        family = GaugeMetricFamily("msg_demo_gauge", "演示指标", labels=["tenant"])
+        family.add_metric(["t1"], 3.0)
+        return ConcurrentStableList([family])
 
 
 def _render(metrics: PrometheusMetrics) -> str:
@@ -81,3 +97,20 @@ async def test_same_key_reuses_cached_metric() -> None:
 def test_null_metrics_render_none() -> None:
     """占位实现不提供渲染能力（`render()` 返回 None，端点按不支持处理）。"""
     assert NullMetrics().render() is None
+
+
+@pytest.mark.kiwi_id(2182)
+def test_register_collector_renders_custom_metrics() -> None:
+    """注册自定义收集器后，`render()` 文本包含其指标（快照式接入通道）。"""
+    metrics = PrometheusMetrics("msg")
+    assert metrics.register_collector(_SnapshotCollector()) is True
+
+    text = _render(metrics)
+    assert "msg_demo_gauge" in text
+    assert 'tenant="t1"' in text
+
+
+@pytest.mark.kiwi_id(2182)
+def test_null_metrics_register_collector_returns_false() -> None:
+    """占位实现不支持自定义收集器（默认返回 False，调用方据此降级）。"""
+    assert NullMetrics().register_collector(_SnapshotCollector()) is False

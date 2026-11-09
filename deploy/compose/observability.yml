@@ -48,6 +48,8 @@ services:
     volumes:
       - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../observability/rules:/etc/prometheus/rules:ro
+      # 产品规则聚合目录（各产品仓自持源文件，部署时聚合到 observability/products/）
+      - ../observability/products:/etc/prometheus/rules/products:ro
       - prometheus-data:/prometheus
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"

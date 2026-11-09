@@ -13,8 +13,8 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from typing import cast
+from collections.abc import Iterable, Mapping
+from typing import Protocol, cast
 
 from fastapi import Request
 
@@ -28,6 +28,7 @@ __all__ = [
     "METRIC_KINDS",
     "METRIC_NAMES",
     "BaseMetrics",
+    "CollectorLike",
     "MetricLabels",
     "get_metrics",
 ]
@@ -85,6 +86,22 @@ MetricLabels = Mapping[str, str]
 """指标标签集（维度键值，如 `{"route": "/api/v1/users", "method": "GET"}`）。"""
 
 
+class CollectorLike(Protocol):
+    """自定义指标收集器的最小接口（`prometheus_client.core.Collector` 结构上满足）。
+
+    只约束 `collect()` 一个方法，避免契约层直接依赖 `prometheus_client` 类型；
+    快照式实现（产品侧采集器）由注册表拉取，而不是在事件点写入。
+    """
+
+    def collect(self) -> Iterable[object]:
+        """产出当前指标快照。
+
+        Returns:
+            Iterable[object]: 指标家族集合（具体类型由实现决定）。
+        """
+        ...
+
+
 class BaseMetrics(BasePluggable, ABC):
     """指标契约：计数器 / 瞬时值 / 直方图三入口。"""
 
@@ -130,6 +147,20 @@ class BaseMetrics(BasePluggable, ABC):
             tuple[bytes, str] | None: `(响应体, 内容类型)`；占位实现返回 `None`（端点按不支持处理，返回 404）。
         """
         return None
+
+    def register_collector(self, collector: CollectorLike) -> bool:
+        """注册自定义收集器（快照式实现的接入通道）。
+
+        默认不支持（返回 `False`），既有实现与测试替身无需改动；真实实现覆盖并返回 `True`。
+        重复注册属于实现错误，由实现方决定是否抛出。
+
+        Args:
+            collector: 只读收集器（`collect()` 产出当前指标快照）。
+
+        Returns:
+            bool: 是否注册成功；`False` 表示该实现不支持自定义收集器。
+        """
+        return False
 
 
 def get_metrics(request: Request) -> BaseMetrics:

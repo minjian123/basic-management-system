@@ -12,8 +12,10 @@ global:
   evaluation_interval: 15s
 
 # 告警：规则目录（08_02 基座 SLO）；触发后送 Alertmanager 路由与通道。
+# 产品规则集中在 `rules/products/`（各产品仓自持源文件，部署时聚合到该目录）。
 rule_files:
   - /etc/prometheus/rules/*.yml
+  - /etc/prometheus/rules/products/*.yml
 
 alerting:
   alertmanagers:
@@ -60,6 +62,12 @@ scrape_configs:
           - report:8000
           - txn:8000
 
+  - job_name: msg
+    # 产品消息平台（独立服务；与 observability 同网络时按服务名抓取）。
+    # 上线顺序：先部署 msg 服务，再加入本目标；未部署时该 job up=0 会触发 MsgMetricsDown。
+    static_configs:
+      - targets: ["msg:8000"]
+
   - job_name: bms-probe
     # blackbox 主动探测每服务探针（/healthz /readyz；仅 200 成功）；目标与 bms-services 同口径
     metrics_path: /probe
@@ -85,6 +93,8 @@ scrape_configs:
           - http://report:8000/readyz
           - http://txn:8000/healthz
           - http://txn:8000/readyz
+          - http://msg:8000/healthz
+          - http://msg:8000/readyz
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
