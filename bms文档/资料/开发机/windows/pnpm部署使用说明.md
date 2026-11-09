@@ -129,7 +129,7 @@ D:\dev-deps\bms\                                # 本地依赖仓（DEPS_DIR；�
 | --- | --- |
 | `外置依赖.bat` | 项目内全部 node_modules **与后端 `.venv`** → 搬移到依赖仓 + 原位 junction；`--dry-run` 预览 |
 | `还原依赖.bat` | 经 junction 定位并把真实目录整体搬回项目内（还原态；含后端 `.venv`） |
-| `重装依赖.bat` | **还原 → 安装 → 再外置**的完整闭环；参数 `--frontend-only` / `--backend-only` / 不带（前后端都装） |
+| `重装依赖.bat` | **还原 → 清理跨仓污染 → 安装 → 再外置**的完整闭环；参数 `--frontend-only` / `--backend-only` / 不带（前后端都装）。跨仓污染指：其它工作区（如 `msg/frontend`，把 `bms/frontend/packages/*` 声明为 workspace 成员）装依赖时，pnpm 会把本仓这些包的 node_modules 重建并链接到**它自己的 store**；脚本在安装前检出「链接指向本仓之外 `.pnpm`」的 node_modules 并整目录删除，按本仓 lockfile 重建（否则 `pnpm install` 会报 `Already up to date` 而不修复） |
 
 依赖仓路径读取顺序：环境变量 `DEPS_DIR` → `bms\deploy\.env` 的 `DEPS_DIR=` → 缺省 `%USERPROFILE%\dev-deps\bms`。**本机依赖仓在 `D:\dev-deps\bms`，当前未在环境变量 / `deploy\.env` 中持久化该值**——实测不带指定运行 `外置依赖.sh --dry-run` 会解析到缺省 `C:\Users\minjian\dev-deps\bms` 并提示「依赖仓与项目不在同一盘（D: -> C:）：搬移将退化为复制」。因此运行前先在**同一终端**指定：
 
