@@ -519,6 +519,18 @@ def test_contract_reverse_warns_undeclared_endpoints(tmp_path: Path) -> None:
     assert any("2 个端点未声明" in warning for warning in inspection.warnings)
 
 
+def test_contract_reverse_empty_declaration_is_explicit(tmp_path: Path) -> None:
+    """契约反向（未声明档）：`x-error-codes: []` 为显式声明无产品码，不计入未声明统计。"""
+    path = _write(tmp_path, _manifest(body=_errcode()))
+    declared: ConcurrentStableDict[str, ConcurrentStableList[int]] = ConcurrentStableDict()
+    declared.set("/api/v1/demo/depts", ConcurrentStableList((390001,)))
+    declared.set("/api/v1/demo/probe", ConcurrentStableList())
+    _write_contract(tmp_path, declared=declared)
+    inspection = inspect_product_manifests(ConcurrentStableList((path,)))
+    assert inspection.errors == []
+    assert not any("未声明" in warning for warning in inspection.warnings)
+
+
 def test_contract_reverse_rejects_malformed_declaration(tmp_path: Path) -> None:
     """契约声明形态非法（非整数数组 / 元素非整数）：拒启并定位到方法与路径。"""
     path = _write(tmp_path, _manifest(body=_errcode()))

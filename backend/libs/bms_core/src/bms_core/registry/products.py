@@ -1294,7 +1294,8 @@ def _contract_spec(
         path: 契约文件路径。
 
     Returns:
-        tuple: `(归一化路径集合, {归一化路径: 声明的错误码})`；未声明的路径不入映射。
+        tuple: `(归一化路径集合, {归一化路径: 声明的错误码})`；键缺失的路径不入映射，
+        显式空数组（`x-error-codes: []`，确认无产品码可达）入映射且值为空列表。
 
     Raises:
         CatalogError: 契约不可读 / JSON 非法 / 错误码声明形态非法。
@@ -1314,12 +1315,12 @@ def _contract_spec(
             normalized = normalize_capability_path(str(key))
             paths.add(normalized)
             codes = _declared_error_codes(operations, path=normalized)
-            if codes:
+            if codes is not None:
                 declared.set(normalized, codes)
     return ConcurrentStableFrozenSet(paths), ConcurrentStableFrozenDict(declared)
 
 
-def _declared_error_codes(operations: object, *, path: str) -> ConcurrentStableFrozenList[int]:
+def _declared_error_codes(operations: object, *, path: str) -> ConcurrentStableFrozenList[int] | None:
     """取单个端点各方法声明的 `x-error-codes`（去重，插入序）。
 
     Args:
@@ -1327,16 +1328,20 @@ def _declared_error_codes(operations: object, *, path: str) -> ConcurrentStableF
         path: 归一化路径（错误定位用）。
 
     Returns:
-        ConcurrentStableFrozenList[int]: 声明的错误码（空表示未声明）。
+        ConcurrentStableFrozenList[int] | None: 声明的错误码（去重，插入序）；`None` 表示
+        **未声明**（operation 级键缺失），空列表表示**显式声明无产品码可达**
+        （探针 / 排障自报等端点；区别于「漏声明」）。
 
     Raises:
         CatalogError: 声明非整数数组（不静默转换）。
     """
     codes: ConcurrentStableList[int] = ConcurrentStableList()
+    declared = False
     for method, operation in _as_mapping(operations).items():
         raw = _as_mapping(operation).get(CONTRACT_ERROR_CODES_KEY)
         if raw is None:
             continue
+        declared = True
         if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
             raise CatalogError(
                 f"对端契约错误码声明非法（{method.upper()} {path}：{CONTRACT_ERROR_CODES_KEY} 须为整数数组）"
@@ -1348,7 +1353,7 @@ def _declared_error_codes(operations: object, *, path: str) -> ConcurrentStableF
                 )
             if int(item) not in codes:
                 codes.add(int(item))
-    return ConcurrentStableFrozenList(codes)
+    return ConcurrentStableFrozenList(codes) if declared else None
 
 
 def _layout_registry_map(

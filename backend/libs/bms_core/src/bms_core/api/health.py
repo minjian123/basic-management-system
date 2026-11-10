@@ -40,9 +40,11 @@ def _service_fields(request: Request) -> ConcurrentStableDict[str, str]:
     return ConcurrentStableDict()
 
 
-@router.get("/healthz")
+@router.get("/healthz", openapi_extra={"x-error-codes": []})
 def healthz(request: Request) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
     """存活检查端点。
+
+    显式声明 `x-error-codes: []`：探针不触达业务判定，没有产品码可声明（区别于漏声明）。
 
     Args:
         request: 当前请求（取服务身份）。
@@ -53,9 +55,11 @@ def healthz(request: Request) -> dict[str, object]:  # bare-collections:allow（
     return {"status": "ok", **_service_fields(request)}
 
 
-@router.get("/readyz")
+@router.get("/readyz", openapi_extra={"x-error-codes": []})
 async def readyz(request: Request, registry: HealthCheckRegistryDep) -> JSONResponse:
     """就绪检查端点（启动完成态 + 停机摘流 + 注册表聚合）。
+
+    显式声明 `x-error-codes: []`：探针不触达业务判定，没有产品码可声明（区别于漏声明）。
 
     Args:
         request: 当前请求（取应用启动完成态 / 停机摘流标记 / 服务身份）。

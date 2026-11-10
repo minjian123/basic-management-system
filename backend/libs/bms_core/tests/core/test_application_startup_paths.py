@@ -14,11 +14,13 @@ import pytest
 from support_app import ApplicationFactory
 
 from bms_core import application as app_module
+from bms_core.application import StartupHook
 from bms_core.core import assembly
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import CatalogError
 from bms_core.redis.base import clear_shared_redis_client, shared_redis_client
+from bms_core.registry.products import ProductManifest
 from bms_core.services.table_registry import (
     register_table_records,
     reset_table_records,
@@ -328,3 +330,52 @@ async def test_assemble_base_plugins_batches_without_duplicate_resolution(
     assert set(app.state.assembled_plugin_keys) == expected
     assert resolved.count("redis_client") == 1
     await app.state.resources.aclose()
+
+
+class _HookedFactory(ApplicationFactory):
+    """带启动钩子的测试工厂（覆盖 `startup_hooks()` 的注册与执行路径）。"""
+
+    calls: ConcurrentStableList[str] = ConcurrentStableList(())
+
+    def startup_hooks(self) -> ConcurrentStableList[StartupHook]:
+        """返回记录执行痕迹的单个钩子。
+
+        Returns:
+            ConcurrentStableList[StartupHook]: 启动钩子清单。
+        """
+
+        async def _hook(app: object) -> None:
+            del app
+            type(self).calls.add("hook")
+
+        return ConcurrentStableList((_hook,))
+
+
+async def test_lifespan_runs_registered_startup_hooks() -> None:
+    """启动钩子装配完成后按登记序执行（缺省空清单之外的注册路径）。"""
+    _HookedFactory.calls = ConcurrentStableList()
+    app = _HookedFactory().create(None)
+    async with app_module.service_lifespan(app):
+        assert app.state.startup_complete is True
+    assert list(_HookedFactory.calls) == ["hook"]
+
+
+async def test_assembly_tolerates_empty_product_manifests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """极简环境（本仓无可装载产品清单）：装配照常完成，不因清单为空中断。"""
+
+    def _empty_manifests(paths: object) -> ConcurrentStableList[ProductManifest]:
+        """清单装载替身：恒返回空清单。
+
+        Args:
+            paths: 清单路径（忽略）。
+
+        Returns:
+            ConcurrentStableList[ProductManifest]: 空清单。
+        """
+        del paths
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(app_module, "load_product_manifests", _empty_manifests)
+    app = ApplicationFactory().create(None)
+    async with app_module.service_lifespan(app):
+        assert app.state.startup_complete is True

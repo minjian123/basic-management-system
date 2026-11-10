@@ -303,7 +303,7 @@
   "paths": {
     "/": {
       "get": {
-        "description": "应用信息。\n\nReturns:\n    ApiResponse: {code, message, data:{name, version}}。",
+        "description": "应用信息。\n\n显式声明 `x-error-codes: []`：本端点不触达业务判定，没有产品码可声明\n（与探针同性质，区别于「漏声明」）。\n\nReturns:\n    ApiResponse: {code, message, data:{name, version}}。",
         "operationId": "root__get",
         "responses": {
           "200": {
@@ -317,7 +317,8 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Root"
+        "summary": "Root",
+        "x-error-codes": []
       }
     },
     "/api/v1/files": {
@@ -2023,7 +2024,7 @@
     },
     "/healthz": {
       "get": {
-        "description": "存活检查端点。\n\nArgs:\n    request: 当前请求（取服务身份）。\n\nReturns:\n    dict: 服务状态与身份，固定返回 {\"status\": \"ok\", \"service\": 名, \"version\": 版}。",
+        "description": "存活检查端点。\n\n显式声明 `x-error-codes: []`：探针不触达业务判定，没有产品码可声明（区别于漏声明）。\n\nArgs:\n    request: 当前请求（取服务身份）。\n\nReturns:\n    dict: 服务状态与身份，固定返回 {\"status\": \"ok\", \"service\": 名, \"version\": 版}。",
         "operationId": "healthz_healthz_get",
         "responses": {
           "200": {
@@ -2039,12 +2040,13 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Healthz"
+        "summary": "Healthz",
+        "x-error-codes": []
       }
     },
     "/readyz": {
       "get": {
-        "description": "就绪检查端点（启动完成态 + 停机摘流 + 注册表聚合）。\n\nArgs:\n    request: 当前请求（取应用启动完成态 / 停机摘流标记 / 服务身份）。\n    registry: 健康检查项注册表（依赖注入）。\n\nReturns:\n    JSONResponse: 全部就绪 200；未就绪、启动未完成或停机中 503。",
+        "description": "就绪检查端点（启动完成态 + 停机摘流 + 注册表聚合）。\n\n显式声明 `x-error-codes: []`：探针不触达业务判定，没有产品码可声明（区别于漏声明）。\n\nArgs:\n    request: 当前请求（取应用启动完成态 / 停机摘流标记 / 服务身份）。\n    registry: 健康检查项注册表（依赖注入）。\n\nReturns:\n    JSONResponse: 全部就绪 200；未就绪、启动未完成或停机中 503。",
         "operationId": "readyz_readyz_get",
         "responses": {
           "200": {
@@ -2056,7 +2058,8 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Readyz"
+        "summary": "Readyz",
+        "x-error-codes": []
       }
     }
   }

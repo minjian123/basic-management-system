@@ -828,9 +828,12 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         self.configure_service(app, settings)
         app.state.startup_hooks = self.startup_hooks()
 
-        @app.get("/")
+        @app.get("/", openapi_extra={"x-error-codes": []})
         def root() -> ApiResponse:  # pyright: ignore[reportUnusedFunction]
             """应用信息。
+
+            显式声明 `x-error-codes: []`：本端点不触达业务判定，没有产品码可声明
+            （与探针同性质，区别于「漏声明」）。
 
             Returns:
                 ApiResponse: {code, message, data:{name, version}}。

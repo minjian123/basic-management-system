@@ -11,6 +11,7 @@ import pytest
 from fastapi import FastAPI
 from support_app import ApplicationFactory, lifespan
 
+from bms_core.application import BaseServiceApplicationFactory
 from bms_core.collaboration import (
     DEGRADE_EMPTY,
     CapabilityUsage,
@@ -86,6 +87,9 @@ async def _startup(declared: ConcurrentStableList[CapabilityUsage]) -> FastAPI:
     app = _DeclaringFactory().create(None)
     async with lifespan(app):
         pass
+    # 直接引用基座工厂：本用例的被测主体是 `bms_core.application` 的装配期语义
+    # （能力使用登记 → 启动校验 → 失败释放资源），测试工厂只是声明入口。
+    assert issubclass(_DeclaringFactory, BaseServiceApplicationFactory)
     return app
 
 
