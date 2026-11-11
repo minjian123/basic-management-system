@@ -38,6 +38,7 @@ def test_lazy_factories_construct_without_connecting() -> None:
     assert assembly.RedisConfigCacheRegionFactory(settings).create() is not None
     assert assembly.RedisIdempotencyStoreFactory(settings).create() is not None
     assert assembly.RedisConsistencyBarrierFactory(settings).create() is not None
+    assert assembly.LocalOptionSetRegistryFactory().create() is not None
 
 
 def test_minio_factory_rejects_missing_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
