@@ -100,7 +100,10 @@ def test_prometheus_targets_switch_to_compose_dns() -> None:
     services_targets, _ = _scrape_targets(prom, "bms-services")
     assert set(services_targets) == {f"{key}:8000" for key in enabled_service_keys()}
     probe_targets, probe_job = _scrape_targets(prom, "bms-probe")
-    expected_probe = {f"http://{key}:8000/{probe}" for key in enabled_service_keys() for probe in ("healthz", "readyz")}
+    # 产品服务（msg）独立编排、不在 BMS 服务目录内：抓取走独立 job，但探针与 BMS 服务同口径并集。
+    expected_probe = {
+        f"http://{key}:8000/{probe}" for key in (*enabled_service_keys(), "msg") for probe in ("healthz", "readyz")
+    }
     assert set(probe_targets) == expected_probe
     assert probe_job["params"]["module"] == ["http_2xx"]
     assert "host.docker.internal" not in "\n".join([*services_targets, *probe_targets])

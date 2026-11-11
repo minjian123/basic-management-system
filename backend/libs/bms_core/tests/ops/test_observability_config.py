@@ -143,7 +143,8 @@ def test_compose_alerting_probe_and_metrics_components() -> None:
 def test_prometheus_alerting_probe_and_pushgateway() -> None:
     """Prometheus 接线：规则目录 / Alertmanager 地址 / blackbox 探针 job / Pushgateway 抓取。"""
     config = _load(_OBS / "prometheus.yml")
-    assert config["rule_files"] == ["/etc/prometheus/rules/*.yml"]
+    # 规则分两处：平台规则与产品规则（msg 等产品仓自持，挂载同一目录树的 products 子目录）。
+    assert config["rule_files"] == ["/etc/prometheus/rules/*.yml", "/etc/prometheus/rules/products/*.yml"]
     assert config["alerting"]["alertmanagers"][0]["static_configs"][0]["targets"] == ["alertmanager:9093"]
     jobs = {job["job_name"]: job for job in config["scrape_configs"]}
     assert {"bms-probe", "pushgateway", "alertmanager"} <= set(jobs)
