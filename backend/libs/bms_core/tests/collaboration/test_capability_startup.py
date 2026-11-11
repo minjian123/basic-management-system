@@ -20,6 +20,7 @@ from bms_core.collaboration import (
 )
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.exceptions import CatalogError
+from bms_core.core.plugin import default_plugin_registry
 from bms_core.services.module_registry import (
     CollaborationRecord,
     register_collaboration_records,
@@ -64,11 +65,15 @@ def _isolate_state() -> Iterator[None]:
     reset_capability_usages()
     reset_domain_services()
     reset_topology_resolver()
+    # 插件注册表是进程级冻结态：同 worker 前序用例构建过注册表时，本用例的 `create()` 会在
+    # `build_plugin_registry()` 之前的显式登记处提前抛 `PluginError`。前置复位保证顺序无关。
+    default_plugin_registry().reset()
     yield
     reset_collaboration_records()
     reset_capability_usages()
     reset_domain_services()
     reset_topology_resolver()
+    default_plugin_registry().reset()
 
 
 async def _startup(declared: ConcurrentStableList[CapabilityUsage]) -> FastAPI:
