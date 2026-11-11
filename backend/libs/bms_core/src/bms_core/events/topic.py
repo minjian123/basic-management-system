@@ -18,6 +18,7 @@ from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import EventConsumeError
+from bms_core.core.serialization import stable_json_dumps
 from bms_core.events.base import EventEnvelope
 from bms_core.events.contracts import EVENT_TYPE_RE, resolve_event_version
 
@@ -117,7 +118,7 @@ def encode_event(event: EventEnvelope) -> bytes:
             _BODY_PAYLOAD: dict(event.payload),
         }
     )
-    return json.dumps(dict(body), ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    return stable_json_dumps(dict(body)).encode("utf-8")
 
 
 def event_attributes(event: EventEnvelope, *, traceparent: str | None = None) -> ConcurrentStableDict[str, str]:

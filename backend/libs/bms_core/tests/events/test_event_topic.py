@@ -72,6 +72,17 @@ def test_encode_decode_round_trip() -> None:
     assert dict(decoded.payload) == {"task_id": "t-1", "意见": "同意"}
 
 
+def test_encode_normalizes_nested_collections() -> None:
+    """嵌套基座集合类（如审计 `record_ref`）按对象编码，不降级为字符串。"""
+    event = EventEnvelope(
+        event_type="sys.operation.logged",
+        event_id="evt-nested",
+        payload=ConcurrentStableDict({"record_ref": ConcurrentStableDict({"type": "msg.message", "id": "log-1"})}),
+    )
+    decoded = decode_event(encode_event(event))
+    assert decoded.payload.get("record_ref") == {"type": "msg.message", "id": "log-1"}
+
+
 def test_attributes_omit_empty_values() -> None:
     """空值不落属性（避免消费端把空串当值），事件 ID / 类型 / 时间必在。"""
     event = EventEnvelope(event_type="sys.user.created", event_id="evt-2")
