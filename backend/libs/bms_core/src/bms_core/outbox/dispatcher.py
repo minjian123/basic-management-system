@@ -14,13 +14,14 @@ from datetime import datetime
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import OutboxDeliveryError
+from bms_core.core.exceptions import OutboxDeliveryError, PluginError
 from bms_core.core.logging import get_logger
 from bms_core.db.engine import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, session_scope
 from bms_core.events.base import EventPublisher
 from bms_core.metrics.base import BaseMetrics
+from bms_core.msgclient.constants import MSG_PROVIDER_NAME
 from bms_core.outbox.base import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_RETRIES,
@@ -244,3 +245,33 @@ class PollOutboxDispatcher(BaseOutboxDispatcher):
             metrics=metrics,
             enabled=outbox.enabled,
         )
+
+
+class MsgOutboxDispatcher(PollOutboxDispatcher):
+    """消息平台版发件箱投递器（`[outbox].provider = "msg"`）。
+
+    轮询 / 退避重试 / 死信 / 游标 / 清理责任与 `poll` 版完全一致，唯一差异由工厂注入：
+    最后一跳的 `EventPublisher` 固定解析为 `MsgEventPublisher`。不重写投递逻辑，
+    避免「同一事件在两条 relay 上有两套重试语义」（8B_04 01-8-1 详细设计 §4）。
+    """
+
+    plugin_name: str = MSG_PROVIDER_NAME
+
+
+def outbox_dispatcher_class(provider: str) -> type[PollOutboxDispatcher]:
+    """按 provider 返回投递器实现类（CLI 与运行期共用的单一判据）。
+
+    Args:
+        provider: `[outbox].provider` 取值。
+
+    Returns:
+        type[PollOutboxDispatcher]: 投递器实现类（`poll` 或 `msg`）。
+
+    Raises:
+        PluginError: 未注册的实现名（装配期拒启，不静默回落）。
+    """
+    if provider == PollOutboxDispatcher.plugin_name:
+        return PollOutboxDispatcher
+    if provider == MsgOutboxDispatcher.plugin_name:
+        return MsgOutboxDispatcher
+    raise PluginError(f"未注册的 outbox_dispatcher 实现：{provider}")

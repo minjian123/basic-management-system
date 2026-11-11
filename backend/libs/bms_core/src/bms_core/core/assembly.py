@@ -117,6 +117,7 @@ from bms_core.msgclient.adapter.instances import (
 )
 from bms_core.msgclient.adapter.policy import default_circuit
 from bms_core.msgclient.adapter.service_client import MsgServiceClient
+from bms_core.msgclient.constants import MSG_PROVIDER_NAME
 from bms_core.msgclient.instances import (
     InstancePolicy,
     InstanceStrategy,
@@ -139,7 +140,7 @@ from bms_core.optionset.local import LocalOptionSetRegistry
 from bms_core.outbound.http import BaseHttpClient
 from bms_core.outbound.webhook import BaseWebhookSender
 from bms_core.outbox.base import BaseOutboxDispatcher, BaseOutboxStore
-from bms_core.outbox.dispatcher import PollOutboxDispatcher
+from bms_core.outbox.dispatcher import MsgOutboxDispatcher, PollOutboxDispatcher
 from bms_core.outbox.store import SqlOutboxStore
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.password.default import DefaultPasswordPolicy
@@ -492,6 +493,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("event_consumer", "rocketmq", RocketMqEventConsumerGroupFactory(settings, app))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
+    register_plugin("outbox_dispatcher", MSG_PROVIDER_NAME, MsgOutboxDispatcherFactory(settings, app))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
     register_plugin("consistency_barrier", "redis", RedisConsistencyBarrierFactory(settings))
     # 强一致专项（05_07）：真实提供者 `xa`（管理器经 TM 契约 / 参与方走分支专用同步引擎）
@@ -1471,8 +1473,8 @@ class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):
         )
 
 
-MSG_PROVIDER_NAME = "msg"
-"""消息平台适配的插件实现名（`[service_client].provider` / `[event].provider` 取值）。"""
+# `MSG_PROVIDER_NAME` 已上移 `bms_core.msgclient.constants`（8B_04 01-8-1），
+# 装配 / 发件箱 / CLI 三处共用单一事实源；本模块自顶部导入，不再本地定义。
 
 MSG_NAMESPACE_OPTION = "namespace"
 """事件命名空间配置键（`[event].options.namespace`；msg 侧按已启用 `module_key` 校验，空串会被判 `350010`）。"""
@@ -1835,6 +1837,7 @@ class PollOutboxDispatcherFactory(BasePluginFactory[PollOutboxDispatcher]):
 
     plugin_key: str = "outbox_dispatcher"
     plugin_name: str = "poll"
+    _dispatcher_type: type[PollOutboxDispatcher] = PollOutboxDispatcher
 
     def __init__(self, settings: Settings, app: FastAPI) -> None:
         """初始化。
@@ -1845,6 +1848,21 @@ class PollOutboxDispatcherFactory(BasePluginFactory[PollOutboxDispatcher]):
         """
         self._settings = settings
         self._app = app
+
+    def _resolve_publisher(self) -> EventPublisher:
+        """解析最后一跳的事件发布实现（子类可覆写以固定 msg 实现）。
+
+        Returns:
+            EventPublisher: 按 `[event].provider` 解析出的发布实现。
+        """
+        return cast(
+            "EventPublisher",
+            resolve_plugin(
+                "event",
+                self._settings.event.provider,
+                expected_version=EventPublisher.contract_version,
+            ),
+        )
 
     def create(self, options: None = None) -> PollOutboxDispatcher:
         """构造轮询投递器。
@@ -1863,14 +1881,7 @@ class PollOutboxDispatcherFactory(BasePluginFactory[PollOutboxDispatcher]):
                 expected_version=BaseOutboxStore.contract_version,
             ),
         )
-        publisher = cast(
-            "EventPublisher",
-            resolve_plugin(
-                "event",
-                self._settings.event.provider,
-                expected_version=EventPublisher.contract_version,
-            ),
-        )
+        publisher = self._resolve_publisher()
         metrics = cast(
             "BaseMetrics",
             resolve_plugin(
@@ -1881,13 +1892,41 @@ class PollOutboxDispatcherFactory(BasePluginFactory[PollOutboxDispatcher]):
         )
         registry = cast("EngineRegistry", self._app.state.engine_registry)
         session_factory = cast("SessionFactory | None", getattr(self._app.state, "session_factory", None))
-        return PollOutboxDispatcher.from_settings(
+        return self._dispatcher_type.from_settings(
             self._settings,
             store=store,
             publisher=publisher,
             engine_registry=registry,
             session_factory=session_factory,
             metrics=metrics,
+        )
+
+
+class MsgOutboxDispatcherFactory(PollOutboxDispatcherFactory):
+    """消息平台版发件箱投递器工厂（`[outbox].provider = "msg"`，8B_04 01-8-1）。
+
+    与 `poll` 版共用全部装配口径，只覆写两处：投递器实现类、最后一跳的发布实现。
+    **不读 `[event].provider`**：固定解析 `MSG_PROVIDER_NAME`，避免运维漏改一个键时
+    「relay 已切、发布器仍在原实现」的假切换；`msg` 配置不全由 `MsgEventPublisherFactory`
+    在装配期抛 `ConfigError`，不静默回落。
+    """
+
+    plugin_name: str = MSG_PROVIDER_NAME
+    _dispatcher_type: type[PollOutboxDispatcher] = MsgOutboxDispatcher
+
+    def _resolve_publisher(self) -> EventPublisher:
+        """固定解析 msg 事件发布实现。
+
+        Returns:
+            EventPublisher: `MsgEventPublisher` 实例。
+        """
+        return cast(
+            "EventPublisher",
+            resolve_plugin(
+                "event",
+                MSG_PROVIDER_NAME,
+                expected_version=EventPublisher.contract_version,
+            ),
         )
 
 

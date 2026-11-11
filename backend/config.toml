@@ -766,7 +766,9 @@ provider = "sql"
 options = {}
 
 [outbox]
-# 投递器实现选择（插件化配置；poll = 轮询投递、空串 = null 占位不投递）
+# 投递器实现选择（插件化配置；poll = 轮询投递、msg = 消息平台版 relay、空串 = null 占位不投递）
+# msg 版（8B_04 01-8-1）复用同一发件箱表与轮询 / 退避 / 死信语义，只把最后一跳固定为 MsgEventPublisher；
+# 切换 / 回滚只改本键并重启调用方，缺省 poll 为原链路；未注册实现名或 msg 配置不全在装配期拒启
 provider = "poll"
 # 后台轮询开关（生产按需开启；真实投递器仍可经 CLI / 依赖注入手动调用）
 enabled = false

@@ -18,6 +18,7 @@ from datetime import datetime
 from importlib import import_module
 from typing import cast
 
+from bms_core.core.assembly import msg_base_url, msg_namespace
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.plugin import build_plugin_registry, resolve_plugin
@@ -28,7 +29,11 @@ from bms_core.events.base import EventPublisher
 from bms_core.events.null import NullEventPublisher
 from bms_core.metrics.base import BaseMetrics
 from bms_core.metrics.null import NullMetrics
-from bms_core.outbox.dispatcher import PollOutboxDispatcher
+from bms_core.msgclient.adapter.event_publisher import MsgEventPublisher
+from bms_core.msgclient.constants import MSG_PROVIDER_NAME
+from bms_core.outbox.base import BaseOutboxDispatcher
+from bms_core.outbox.dispatcher import outbox_dispatcher_class
+from bms_core.outbox.null import NullOutboxDispatcher
 from bms_core.outbox.store import SqlOutboxStore
 from ops._worker import run_with_worker_id
 
@@ -56,17 +61,28 @@ def _resolve[PortT](plugin_key: str, provider: str, expected_version: str, fallb
     return cast("PortT", resolve_plugin(plugin_key, provider, expected_version=expected_version))
 
 
-def _build_dispatcher() -> tuple[PollOutboxDispatcher, EngineRegistry]:
-    """构造投递器与引擎注册表（CLI 无应用上下文，按配置自行装配）。
+def _build_dispatcher() -> tuple[BaseOutboxDispatcher, EngineRegistry]:
+    """构造投递器与引擎注册表（CLI 无应用上下文，按 `[outbox].provider` 自行装配）。
+
+    8B_04 01-8-1：`[outbox].provider = "msg"` 时固定解析 msg 发布实现，不读 `[event].provider`，
+    与运行期装配同一口径；空串沿用 bms 既有 null 占位（不投递）；非法值由
+    `outbox_dispatcher_class` 抛 `PluginError`。
 
     Returns:
-        tuple[PollOutboxDispatcher, EngineRegistry]: 投递器与引擎注册表（调用方负责释放）。
+        tuple[BaseOutboxDispatcher, EngineRegistry]: 投递器与引擎注册表（调用方负责释放）。
     """
     settings = get_settings()
-    publisher = _resolve("event", settings.event.provider, EventPublisher.contract_version, NullEventPublisher())
-    metrics = _resolve("metrics", settings.metrics.provider, BaseMetrics.contract_version, NullMetrics())
+    provider = settings.outbox.provider
     registry = EngineRegistry(EngineFactory(settings))
-    dispatcher = PollOutboxDispatcher.from_settings(
+    if not provider:
+        return NullOutboxDispatcher(), registry
+    dispatcher_type = outbox_dispatcher_class(provider)
+    if provider == MSG_PROVIDER_NAME:
+        publisher = MsgEventPublisher(base_url=msg_base_url(settings), namespace=msg_namespace(settings))
+    else:
+        publisher = _resolve("event", settings.event.provider, EventPublisher.contract_version, NullEventPublisher())
+    metrics = _resolve("metrics", settings.metrics.provider, BaseMetrics.contract_version, NullMetrics())
+    dispatcher = dispatcher_type.from_settings(
         settings,
         store=SqlOutboxStore(),
         publisher=publisher,
