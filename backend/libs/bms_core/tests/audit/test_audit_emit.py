@@ -10,6 +10,7 @@ from bms_core.audit import emit as emit_module
 from bms_core.audit.emit import AuditEventEmitter
 from bms_core.audit.events import build_login_event
 from bms_core.core.config import Settings
+from bms_core.core.exceptions import InternalError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
 from bms_core.events.base import EventEnvelope
@@ -99,3 +100,20 @@ async def test_emit_success_and_failure_is_swallowed(
 
     store.fail = True
     assert await emitter.emit(event) is False
+
+
+async def test_emit_in_session_uses_caller_transaction(
+    emitter_harness: tuple[AuditEventEmitter, _Store],
+) -> None:
+    """同事务写入：成功入队；强审计失败抛错；普通审计失败吞掉。"""
+    emitter, store = emitter_harness
+    event = build_login_event(tenant_id="1", user_id=1, username="a", ip=None, user_agent=None, status="success")
+    session = object()
+
+    assert await emitter.emit_in_session(cast("Any", session), event, required=True) is True
+    assert store.events == [event]
+
+    store.fail = True
+    with pytest.raises(InternalError):
+        await emitter.emit_in_session(cast("Any", session), event, required=True)
+    assert await emitter.emit_in_session(cast("Any", session), event) is False

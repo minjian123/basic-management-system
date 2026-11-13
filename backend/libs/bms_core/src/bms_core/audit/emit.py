@@ -23,6 +23,7 @@ from bms_core.core.roots import BaseFrameworkObject
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, session_scope
+from bms_core.db.sync import DbSession
 from bms_core.events.base import EventEnvelope
 from bms_core.metrics.base import BaseMetrics
 from bms_core.outbox.base import BaseOutboxStore
@@ -98,6 +99,40 @@ class AuditEventEmitter(BaseFrameworkObject):
                 )
                 raise InternalError("审计写入失败（该操作要求强审计，业务已中止）") from exc
             _LOGGER.warning("audit_emit_failed", event_type=event.event_type, error=repr(exc))
+            await self._count_failure(event.event_type)
+            return False
+        return True
+
+    async def emit_in_session(self, session: DbSession, event: EventEnvelope, *, required: bool = False) -> bool:
+        """把审计写进调用方事务（不自开事务、不提交）。
+
+        **用途**：需要「业务与审计同生共死」的强审计端点——审计写失败抛 `InternalError`，
+        业务事务随请求回滚；审计成功则由调用方提交时与业务一起入账。
+
+        Args:
+            session: 调用方的业务会话（同一事务）。
+            event: 审计事件信封。
+            required: 是否强审计（`True` 时写入失败抛 `InternalError`）。
+
+        Returns:
+            bool: 写入成功 True；失败 False（`required=True` 时不返回，直接抛错）。
+
+        Raises:
+            InternalError: 强审计写入失败（10000 / 500）。
+        """
+        try:
+            await self._store.enqueue(session, event)
+        except Exception as exc:
+            if required:
+                _LOGGER.error(
+                    "audit_emit_failed",
+                    event_type=event.event_type,
+                    required=True,
+                    in_session=True,
+                    error=repr(exc),
+                )
+                raise InternalError("审计写入失败（该操作要求强审计，业务已中止）") from exc
+            _LOGGER.warning("audit_emit_failed", event_type=event.event_type, in_session=True, error=repr(exc))
             await self._count_failure(event.event_type)
             return False
         return True
