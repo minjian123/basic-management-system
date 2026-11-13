@@ -54,6 +54,7 @@ REPO_NAMES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
     {
         "bms": "bms/bms",
         "mdm": "mjs/mdm",
+        "msg": "mjs/msg",
         "engkit": "bms/engkit",
         "biz": "mjs/biz",
         "test": "bms/test",
