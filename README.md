@@ -33,7 +33,7 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 | 层面 | 技术 |
 | --- | --- |
 | 后端 | Python 3.14+ · FastAPI · uvicorn · Pydantic v2 · SQLAlchemy 2.0+（异步）· Alembic · structlog · Celery · SpiffWorkflow |
-| 数据库 / 中间件 | SQLite（开发/测试）· MySQL 8.4 · PostgreSQL 16 · 达梦 DM8（信创选配）· Redis 8 · RocketMQ 5.x · ElasticSearch 8.x · MinIO |
+| 数据库 / 中间件 | SQLite（开发/测试）· MySQL 8.4 · PostgreSQL 16 · 达梦 DM8（信创选配）· Redis 8 · msg（自研消息平台） · ElasticSearch 8.x · MinIO |
 | 前端 | Vue 3.5+ · Vite 8 · TypeScript 6 · Vue Router 4 · Pinia · vue-i18n · Element Plus（PC）/ Vant 4（移动端 H5）· Axios |
 | 工程与质量 | uv（Python 依赖）· pnpm（前端依赖）· ESLint / Prettier · openapi-typescript（契约生成）· GitLab CI · pytest / Vitest / Playwright |
 | 部署与运维 | Docker 27+ · Docker Compose 2.33+ · nginx · GitLab CE 18+ · Prometheus / Loki / Grafana / Alertmanager（监控）· OpenTelemetry / Jaeger（链路追踪） |

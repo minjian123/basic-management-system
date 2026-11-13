@@ -42,12 +42,8 @@ _LEGACY_EXEMPT = frozenset(  # bare-collections:allow（只读基线）
     frozenset(  # bare-collections:allow（只读基线，不参与业务集合语义）
         {
             "backend/libs/bms_core/src/bms_core/core/config.py:1458",
-            "backend/libs/bms_core/src/bms_core/events/rocketmq_consumer.py:467",
-            "backend/libs/bms_core/src/bms_core/events/rocketmq_publisher.py:235",
-            "backend/libs/bms_core/src/bms_core/events/rocketmq_publisher.py:258",
             "backend/libs/bms_core/src/bms_core/servicecall/http.py:165",
             "backend/libs/bms_core/src/bms_core/transfer/openpyxl_io.py:169",
-            "backend/libs/bms_core/tests/events/test_event_bus_branches.py:5",
             "backend/services/platform/src/bms_platform/domains/import_export/api/exports.py:217",
             "backend/services/platform/src/bms_platform/domains/import_export/api/imports.py:151",
             "backend/services/platform/tests/jobs/test_platform_job_bootstrap.py:150",

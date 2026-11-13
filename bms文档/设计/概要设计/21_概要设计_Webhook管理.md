@@ -11,7 +11,7 @@
 本节对应[《项目规划说明》](../../规划/项目规划说明.md)「功能模块」之**Webhook 管理**模块，以及「系统集成」（出站集成）、「事件总线事件模型」「核心数据表清单」章节；
 架构设计依据[《架构设计》](../架构设计/01_架构设计_总览.md)09-接口与集成（事件模型清单）与 16-事件总线（Webhook 推送组）节点。
 
-- **模块定位**：将 BMS 内部事件经 RocketMQ 事件总线异步推送至外部注册 URL，实现事件驱动的对外集成（出站方向），与开放接口（入站方向，20-[开放接口管理](20_概要设计_开放接口管理.md)）互为补充。
+- **模块定位**：将 BMS 内部事件经 msg 事件总线异步推送至外部注册 URL，实现事件驱动的对外集成（出站方向），与开放接口（入站方向，20-[开放接口管理](20_概要设计_开放接口管理.md)）互为补充。
 - **职责边界**：本模块负责订阅注册、推送执行、签名校验、退避重试与推送状态记录；事件的生产由各业务模块（user/wf/purchase/notice/tenant/sso 等）负责。
 - **协作关系**：事件信封经事件总线发布 → Webhook 推送组按事件名匹配订阅 → httpx 统一封装出站调用（超时/重试/熔断）→ 推送记录落 sys_webhook_log；事件订阅、推送状态与重试记录页面可查、可手动重试。
 
@@ -23,7 +23,7 @@
 | --- | --- | --- |
 | 订阅注册 | 登记名称、回调 URL、订阅事件（按事件名匹配，事件清单见《项目规划说明》事件模型表）、HMAC secret | open:manage |
 | 订阅启停 | 停用后不再接收推送，fail_count 连续失败达阈值可自动停用 | open:manage |
-| 事件推送 | 事件发生后经 RocketMQ 事件总线异步推送至注册 URL，携带 HMAC 签名（sha256(secret, body)） | 系统自动 |
+| 事件推送 | 事件发生后经 msg 事件总线异步推送至注册 URL，携带 HMAC 签名（sha256(secret, body)） | 系统自动 |
 | 重试与失败记录 | 推送失败指数退避重试，重试耗尽记失败；推送状态与重试记录落 sys_webhook_log | 系统自动 |
 | 失败推送查看与重试 | 页面查看失败推送（事件、URL、错误信息）并手动重试 | open:manage |
 | secret 管理与重置 | 订阅创建时生成 secret，支持重置（重置后新签名生效） | open:manage |
@@ -40,7 +40,7 @@
 ### 2.3 流程步骤 <a id="functions-flow"></a>
 
 1. 注册订阅：选择订阅事件清单中的事件，填写 URL 与名称，系统生成 secret，保存后订阅生效。
-2. 事件发布：业务模块产生事件（如产品模块 pur.apply.submitted），经 RocketMQ 事务消息发布。
+2. 事件发布：业务模块产生事件（如产品模块 pur.apply.submitted），经 msg 事务消息发布。
 3. 匹配推送：Webhook 推送组消费事件，按订阅的 events 匹配，命中后携带 HMAC 签名推送至 URL。
 4. 记录状态：推送成功记录 status=成功；失败按指数退避重试并更新 retry_count / next_retry_at / error_msg。
 5. 异常分支——重试耗尽：标记推送失败，fail_count 累计，页面可见并可手动重试；连续失败达阈值自动停用订阅；
@@ -53,7 +53,7 @@
 sequenceDiagram
     autonumber
     participant 业务模块
-    participant RocketMQ as RocketMQ 事件总线
+    participant msg as msg 事件总线
     participant 推送组 as Webhook 推送组
     participant 外部URL as 外部订阅 URL
     participant 推送日志 as sys_webhook_log
@@ -61,8 +61,8 @@ sequenceDiagram
     participant 管理页 as Webhook 管理页
 
     Note over 业务模块,管理页: 事件推送主链路
-    业务模块->>RocketMQ: 发布事件（事务消息，event_id 幂等键）
-    RocketMQ->>推送组: Webhook 推送组并行消费，按订阅 events 匹配
+    业务模块->>msg: 发布事件（事务消息，event_id 幂等键）
+    msg->>推送组: Webhook 推送组并行消费，按订阅 events 匹配
     推送组->>外部URL: HTTP POST（HMAC 签名）
     推送组->>推送日志: 写推送记录，status/retry_count/next_retry_at/error_msg
     Note over 业务模块,管理页: 推送失败：指数退避重试（有限次）

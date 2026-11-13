@@ -57,7 +57,7 @@ sequenceDiagram
     participant authlib as authlib(客户端)
     participant IdP as 外部 IdP
     participant BMS as BMS(会话/用户)
-    participant MQ as RocketMQ
+    participant MQ as msg
 
     用户->>登录页: 选择 IdP 入口
     登录页->>authlib: 跳转授权/认证

@@ -358,7 +358,7 @@ sudo systemctl restart gdm3
 系统就绪后，由自动化脚本完成后续部署（仓库 `deploy/setup/install_all.sh`），内容包括：
 
 - apt 清华源、基础工具、Docker Engine（清华 docker-ce 源 + 国内镜像加速）
-- MySQL、PostgreSQL、Redis、MinIO、RocketMQ、ElasticSearch（Docker Compose）
+- MySQL、PostgreSQL、Redis、MinIO、msg、ElasticSearch（Docker Compose）
 - GitLab CE + gitlab-runner
 - 防火墙（ufw）放行、时区 Asia/Shanghai
 

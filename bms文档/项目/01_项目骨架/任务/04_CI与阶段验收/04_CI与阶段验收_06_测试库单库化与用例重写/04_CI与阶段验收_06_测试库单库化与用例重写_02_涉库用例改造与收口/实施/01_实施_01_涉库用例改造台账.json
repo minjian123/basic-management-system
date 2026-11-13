@@ -1432,7 +1432,7 @@
   },
   {
     "repo": "bms",
-    "path": "backend/libs/bms_core/tests/events/test_rocketmq_consumer.py",
+    "path": "backend/libs/bms_core/tests/events/test_event_consumer（已归档）",
     "tests": 10,
     "class": "A",
     "action": "不动",
@@ -1441,7 +1441,7 @@
   },
   {
     "repo": "bms",
-    "path": "backend/libs/bms_core/tests/events/test_rocketmq_publisher.py",
+    "path": "backend/libs/bms_core/tests/events/test_event_publisher（已归档）",
     "tests": 11,
     "class": "A",
     "action": "不动",
@@ -1657,12 +1657,12 @@
   },
   {
     "repo": "bms",
-    "path": "backend/libs/bms_core/tests/integration/test_event_bus_rocketmq.py",
+    "path": "backend/libs/bms_core/tests/integration/test_event_bus_msg（已归档）",
     "tests": 4,
     "class": "D",
     "action": "own_db 白名单",
     "batch": 1,
-    "evidence": "已有 own_db 白名单（被测对象是真 RocketMQ 事件总线端到端：需真 MQ 与独立库）"
+    "evidence": "已有 own_db 白名单（被测对象是真 msg 事件总线端到端：需真 MQ 与独立库）"
   },
   {
     "repo": "bms",
