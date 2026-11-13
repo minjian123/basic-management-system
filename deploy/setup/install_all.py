@@ -9,14 +9,13 @@
 日志：终端与 /root/bms-install.log 同时得到全部输出（原 `exec > >(tee -a $LOG) 2>&1` 的 tee -a 语义；
       本文件以管道 + 系统 tee 进程实现，故子进程（apt/dpkg/gitlab-ctl 等）输出同样入日志）。
 
-分步流程（[N/7] 步骤名与原 shell 实现逐字一致；失败即停，退出码同失败命令）：
-    [1/7] apt 清华源（archive/security → mirrors.tuna.tsinghua.edu.cn）→ apt-get update
-    [2/7] 基础工具与 Docker（清华 docker-ce 源；daemon.json 用 daocloud / 1ms 镜像加速 + vfs 存储驱动）
-    [3/7] RocketMQ 数据目录（bind mount，属主 3000:3000）
-    [4/7] 部署目录 /opt/bms/deploy/compose 与 compose *.yml 拷贝（.env 由管理员手动创建）
-    [5/7] GitLab CE（清华 deb 直装；追加 /etc/gitlab/gitlab.rb 后 gitlab-ctl reconfigure）
-    [6/7] 时区 Asia/Shanghai 与主机名 mjbk
-    [7/7] ufw 放行（OpenSSH / GitLab / 三库 / 中间件端口）并 --force enable
+分步流程（[N/6] 步骤名与原 shell 实现逐字一致；失败即停，退出码同失败命令）：
+    [1/6] apt 清华源（archive/security → mirrors.tuna.tsinghua.edu.cn）→ apt-get update
+    [2/6] 基础工具与 Docker（清华 docker-ce 源；daemon.json 用 daocloud / 1ms 镜像加速 + vfs 存储驱动）
+    [3/6] 部署目录 /opt/bms/deploy/compose 与 compose *.yml 拷贝（.env 由管理员手动创建）
+    [4/6] GitLab CE（清华 deb 直装；追加 /etc/gitlab/gitlab.rb 后 gitlab-ctl reconfigure）
+    [5/6] 时区 Asia/Shanghai 与主机名 mjbk
+    [6/6] ufw 放行（OpenSSH / GitLab / 三库 / 中间件端口）并 --force enable
 """
 
 import contextlib
@@ -67,7 +66,6 @@ UFW_ALLOW = (
     "5432/tcp",
     "6379/tcp",
     "9000,9001/tcp",
-    "9876,10911,10909/tcp",
     "9200,9300/tcp",
     "5050/tcp",
     "8090/tcp",
@@ -176,22 +174,6 @@ def install_docker():
     run("systemctl", "start", "docker")
 
 
-def prepare_rocketmq_dirs():
-    """RocketMQ 数据目录（bind mount，属主 3000:3000）。
-
-    apache/rocketmq 镜像以 uid 3000(rocketmq) 运行且不含 /home/rocketmq/{logs,store}；
-    若用命名卷会被 Docker 建成 root:root，broker 写不了日志会启动即退出并无限重启，
-    故预建宿主机目录并授权给 3000（与 deploy/compose/base.yml 的 bind mount 对应）。
-    """
-    for path in (
-        "/mnt/ssd2t/rocketmq/broker/store",
-        "/mnt/ssd2t/rocketmq/broker/logs",
-        "/mnt/ssd2t/rocketmq/nameserver/logs",
-    ):
-        Path(path).mkdir(parents=True, exist_ok=True)
-    run("chown", "-R", "3000:3000", "/mnt/ssd2t/rocketmq")
-
-
 def copy_compose_files():
     """部署目录与 compose 文件（原 `cp -r compose/*.yml <目标>/ 2>/dev/null || true`：best-effort、静默失败）。
 
@@ -232,27 +214,24 @@ def configure_firewall():
 
 
 def deploy():
-    """分步流程主体（与原 shell 的 [N/7] 顺序、措辞一致）。"""
-    say("=== [1/7] apt 清华源 ===")
+    """分步流程主体（与原 shell 的 [N/6] 顺序、措辞一致）。"""
+    say("=== [1/6] apt 清华源 ===")
     replace_apt_sources()
     run("apt-get", "update", "-qq")
 
-    say("=== [2/7] 基础工具与 Docker ===")
+    say("=== [2/6] 基础工具与 Docker ===")
     install_docker()
 
-    say("=== [3/7] RocketMQ 数据目录（bind mount，属主 3000:3000）===")
-    prepare_rocketmq_dirs()
-
-    say("=== [4/7] 部署目录与 .env ===")
+    say("=== [3/6] 部署目录与 .env ===")
     copy_compose_files()
 
-    say("=== [5/7] GitLab CE（清华 deb 直装） ===")
+    say("=== [4/6] GitLab CE（清华 deb 直装） ===")
     install_gitlab()
 
-    say("=== [6/7] 时区与主机名 ===")
+    say("=== [5/6] 时区与主机名 ===")
     configure_time_and_hostname()
 
-    say("=== [7/7] 防火墙 ===")
+    say("=== [6/6] 防火墙 ===")
     configure_firewall()
 
     say("=== 完成 ===")
