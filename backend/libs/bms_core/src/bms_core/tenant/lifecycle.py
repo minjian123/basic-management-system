@@ -8,7 +8,7 @@
 - **两步删除**（任务 `04_03`）：`deleted` = 停写、**不授权删数据**；`purged` = 平台已物理清理，产品此刻才删数据。
 - **幂等三层**：投递级 `(consumer, event_id)`（既有 `sys_event_consumed` 账本）→ 业务级
   `(tenant_id, action, version)`（本模块 `applied_version` / `mark_applied`）→ 动作自身幂等。
-- **失败语义**：动作抛错**不记账、原样上抛**，由 `RocketMqEventConsumerGroup` 的退避重试与死信兜底；
+- **失败语义**：动作抛错**不记账、原样上抛**，由消费组运行时的退避重试与死信兜底（当前消费实现待 msg 版落地）；
   分发器不吞错（吞错等于静默丢资源）。
 - **保留期**：`on_deleted` 内按 `ScopeResourceTypeRecord.retention_days` / `removal_policy` 处置；
   审计记录不随资源删除。

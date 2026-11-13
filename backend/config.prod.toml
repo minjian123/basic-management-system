@@ -28,3 +28,13 @@ sampler_ratio = 0.1
 # 字典缓存域走 Redis 共享层（多实例一致；连接串取 [redis].url，不可达时按 CacheRegion 降级）
 [dict_cache_region]
 provider = "redis"
+
+# 事件发布切到自研消息平台 msg（数据面 `/api/v1/msg/publish`）；namespace 取已启用 module_key（平台为 sys）
+# 消费侧暂无 msg 实现，[event_consumer].provider 保持空串（null，只装载声明不拉取）
+[event]
+provider = "msg"
+options = { namespace = "sys" }
+
+# msg 实例地址（Compose 服务名即 DNS；多实例时改 instances 地址列表）
+[service_client]
+instances = { msg = ["http://msg:8000"] }

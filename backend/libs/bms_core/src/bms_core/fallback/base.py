@@ -24,7 +24,7 @@ DEPENDENCIES: ConcurrentStableList[str] = ConcurrentStableList(
     (
         "redis",
         "database",
-        "rocketmq",
+        "msg",
         "elasticsearch",
         "minio",
         "mail_sms",

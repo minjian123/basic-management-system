@@ -41,7 +41,7 @@ __all__ = [
 CONSUMER_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*(-[a-z0-9_]+)+$")
 """消费组名形态：小写连字符分隔、至少两段（`{group_prefix}-{域}`，如 `bms-audit-chain`）。
 
-用连字符而非点号：RocketMQ 的 topic / 消费组名只接受 `[%a-zA-Z0-9_-]`，点号会被客户端直接拒绝。
+用连字符而非点号：事件总线主题 / 消费组名统一按 `[%a-zA-Z0-9_-]` 收口，点号在各实现上兼容性差。
 """
 
 DEFAULT_GROUP_PREFIX = "bms"

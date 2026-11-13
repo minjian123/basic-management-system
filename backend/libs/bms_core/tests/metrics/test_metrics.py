@@ -78,7 +78,7 @@ def test_dependencies_reuse() -> None:
     assert DEPENDENCIES == (
         "redis",
         "database",
-        "rocketmq",
+        "msg",
         "elasticsearch",
         "minio",
         "mail_sms",

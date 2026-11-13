@@ -182,7 +182,7 @@ def _patch_resolve(
 def test_msg_factory_pins_msg_publisher(monkeypatch: pytest.MonkeyPatch) -> None:
     """T2：msg 工厂固定解析 `msg` 发布实现，不读 `[event].provider`（避免假切换）。"""
     settings = Settings()
-    settings.event.provider = "rocketmq"
+    settings.event.provider = "null"
     calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
     _patch_resolve(monkeypatch, _RecordingPublisher(), calls)
 
@@ -191,13 +191,13 @@ def test_msg_factory_pins_msg_publisher(monkeypatch: pytest.MonkeyPatch) -> None
     assert isinstance(dispatcher, MsgOutboxDispatcher)
     assert dispatcher.plugin_name == MSG_PROVIDER_NAME
     assert ("event", MSG_PROVIDER_NAME) in list(calls)
-    assert ("event", "rocketmq") not in list(calls)
+    assert ("event", "null") not in list(calls)
 
 
 def test_poll_factory_keeps_event_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     """T2：poll 工厂行为不变，仍按 `[event].provider` 解析（切回原实现）。"""
     settings = Settings()
-    settings.event.provider = "rocketmq"
+    settings.event.provider = "null"
     calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
     _patch_resolve(monkeypatch, _RecordingPublisher(), calls)
 
@@ -205,7 +205,7 @@ def test_poll_factory_keeps_event_provider(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert isinstance(dispatcher, PollOutboxDispatcher)
     assert not isinstance(dispatcher, MsgOutboxDispatcher)
-    assert ("event", "rocketmq") in list(calls)
+    assert ("event", "null") in list(calls)
     assert ("event", MSG_PROVIDER_NAME) not in list(calls)
 
 
@@ -311,7 +311,7 @@ def test_cli_msg_uses_msg_publisher(monkeypatch: pytest.MonkeyPatch) -> None:
     """T8：`msg` 解析为 msg 版且发布实现为 `MsgEventPublisher`（不读 `[event].provider`）。"""
     monkeypatch.setattr(outbox_cli, "msg_base_url", _fake_base_url)
     monkeypatch.setattr(outbox_cli, "msg_namespace", _fake_namespace)
-    monkeypatch.setenv("BMS_EVENT__PROVIDER", "rocketmq")
+    monkeypatch.setenv("BMS_EVENT__PROVIDER", "null")
     dispatcher = _cli_dispatcher(monkeypatch, MSG_PROVIDER_NAME)
     assert isinstance(dispatcher, MsgOutboxDispatcher)
     assert isinstance(dispatcher._publisher, MsgEventPublisher)  # pyright: ignore[reportPrivateUsage]

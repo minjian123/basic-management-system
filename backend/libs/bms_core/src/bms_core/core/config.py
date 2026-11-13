@@ -1350,29 +1350,6 @@ class EventSettings(PluginSelection):
     """签发契约校验模式：`off` 不校验 / `warn` 记录告警放行 / `enforce` 未登记即拒发（10010）。"""
 
 
-class RocketMqSettings(BaseSettings):
-    """RocketMQ 接入配置（`[rocketmq]`）：gRPC proxy 端点与调用参数。
-
-    客户端走 5.x gRPC（`rocketmq-python-client`），接入点是 broker 的 **proxy 端口**
-    （`--enable-proxy` 后的 8081），不是 remoting 的 9876 / 10911。
-    """
-
-    endpoints: str = ""
-    """gRPC 接入点（`host:port`，如 `127.0.0.1:8081`；容器内 `rocketmq-broker:8081`）。"""
-
-    namespace: str = ""
-    """命名空间（多环境共用集群时隔离 topic / 消费组；空 = 不启用）。"""
-
-    access_key: str = ""
-    """访问密钥 ID（开启 ACL 时必填；**只经 `BMS_ROCKETMQ__ACCESS_KEY` 注入，不入库**）。"""
-
-    secret_key: str = ""
-    """访问密钥（**只经 `BMS_ROCKETMQ__SECRET_KEY` 注入，不入库**）。"""
-
-    request_timeout_seconds: float = Field(default=3.0, gt=0)
-    """单次请求超时（秒）：短超时快速失败，避免 broker 抖动拖住投递 / 消费线程。"""
-
-
 class EventConsumerSettings(PluginSelection):
     """事件消费组配置（`[event_consumer]`；在能力选择之外追加运行参数）。"""
 
@@ -1841,7 +1818,6 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     realtime_publisher: PluginSelection = Field(default_factory=PluginSelection)
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
     resource_acl: ResourceAclSettings = Field(default_factory=ResourceAclSettings)
-    rocketmq: RocketMqSettings = Field(default_factory=RocketMqSettings)
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
     scope_resolver: ScopeResolverSettings = Field(default_factory=ScopeResolverSettings)
     search_index: PluginSelection = Field(default_factory=PluginSelection)

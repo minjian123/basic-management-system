@@ -34,7 +34,7 @@ def test_dependencies_and_actions() -> None:
     assert DEPENDENCIES == (
         "redis",
         "database",
-        "rocketmq",
+        "msg",
         "elasticsearch",
         "minio",
         "mail_sms",

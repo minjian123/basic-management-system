@@ -42,10 +42,10 @@ __all__ = [
 ]
 
 TOPIC_PREFIX = "bms"
-"""topic 前缀（与《命名规范》「RocketMQ topic」同口径）。"""
+"""topic 前缀（与《命名规范》「事件总线 topic」同口径）。"""
 
 TOPIC_SEPARATOR = "-"
-"""topic 段分隔符：RocketMQ 只接受 `[%a-zA-Z0-9_-]`，**点号会直接被 broker 客户端拒发**。"""
+"""topic 段分隔符：事件总线统一按 `[%a-zA-Z0-9_-]` 收口，点号在各实现上兼容性差。"""
 
 TOPIC_MAX_SEGMENTS = 2
 """topic 取事件名前几段（域 + 对象）。"""
@@ -150,8 +150,8 @@ def event_attributes(event: EventEnvelope, *, traceparent: str | None = None) ->
 def current_traceparent() -> str | None:
     """取当前 OTel 链路的 W3C `traceparent`（无 OTel / 无活动 span 返回 None）。
 
-    归位在本模块（07B `06_01` 步 2）：多个发布实现（`rocketmq` / `msg`）都要透传链路上下文，
-    放在任一实现模块里都会让另一个实现反向 import；依赖缺失 / 上下文损坏时退化为只透传
+    归位在本模块（07B `06_01` 步 2）：发布实现（`msg`）要透传链路上下文，
+    放在实现模块里会形成反向 import；依赖缺失 / 上下文损坏时退化为只透传
     `trace_id`，**不阻断发布**。
 
     Returns:

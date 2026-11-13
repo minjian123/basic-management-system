@@ -15,8 +15,9 @@
   不引入第二套声明。
 - **不启 lifespan**：CLI 不建表、不跑启动校验，只装配「消费运行器 + 引擎注册表」所需的最小上下文；
   首次使用前服务应已正常启动过一次（库表就绪）。
-- **前置**：`[event_consumer].provider = "rocketmq"`、`[rocketmq].endpoints` 指向 broker proxy
-  （8081），且 `[event_consumer].host` 与宿主形态一致（worker 时服务进程不应再消费同一组）。
+- **前置**：`[event_consumer].provider` 须指向已登记的消费实现，且 `[event_consumer].host` 与宿主形态一致
+  （worker 时服务进程不应再消费同一组）。当前基座只保留 `null` 实现（只装载声明、不拉取）；
+  RocketMQ 消费实现已下线，msg 消费组待实现。命令行本身保留，待消费实现落地后直接可用。
 """
 
 from __future__ import annotations
@@ -116,8 +117,7 @@ def _build_group(records: ConcurrentStableList[EventConsumerRecord]) -> tuple[Ba
         SystemExit: provider 未配置（退出码 1）。
     """
     settings = get_settings()
-    for module in ("bms_core.events.null", "bms_core.events.rocketmq_consumer"):
-        import_module(module)
+    import_module("bms_core.events.null")
     build_plugin_registry()
     registry = EngineRegistry(EngineFactory(settings))
     group = cast(

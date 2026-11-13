@@ -40,7 +40,7 @@ class EventPublishError(OutboxDeliveryError):
     """事件投递失败（复用发件箱投递段 `10009`）。
 
     由投递器 `mark_failed` 按失败分支处理：指数退避重试，超限转死信（**提供方不在此处重试**）。
-    归位在本模块（07B `06_01` 步 2）：多个发布实现（`rocketmq` / `msg`）要抛同一个异常，
+    归位在本模块（07B `06_01` 步 2）：发布实现（`msg`）要抛同一个异常，
     定义在任一实现模块里都会让另一个实现反向 import。
     """
 
@@ -111,7 +111,7 @@ class EventPublisher(BaseEventPublisher):
 
     @abstractmethod
     async def publish_transactional(self, event: EventEnvelope) -> None:
-        """事务消息发布（本地事务与消息一致，RocketMQ 回补）。
+        """事务消息发布（本地事务与消息一致，由消息平台回补）。
 
         Args:
             event: 事件信封。
