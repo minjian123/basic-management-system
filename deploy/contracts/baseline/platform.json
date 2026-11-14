@@ -505,6 +505,33 @@
         "title": "ApiResponse[ButtonList]",
         "type": "object"
       },
+      "ApiResponse_CacheInvalidateResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CacheInvalidateResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[CacheInvalidateResult]",
+        "type": "object"
+      },
       "ApiResponse_CatalogSnapshotResponse_": {
         "additionalProperties": false,
         "properties": {
@@ -802,6 +829,60 @@
         "title": "ApiResponse[DictTypeResult]",
         "type": "object"
       },
+      "ApiResponse_EnsureShardsResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnsureShardsResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[EnsureShardsResult]",
+        "type": "object"
+      },
+      "ApiResponse_ExportJobStatus_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportJobStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ExportJobStatus]",
+        "type": "object"
+      },
       "ApiResponse_FieldItem_": {
         "additionalProperties": false,
         "properties": {
@@ -937,6 +1018,60 @@
         "title": "ApiResponse[FormList]",
         "type": "object"
       },
+      "ApiResponse_ImportExecuteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportExecuteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ImportExecuteResult]",
+        "type": "object"
+      },
+      "ApiResponse_ImportJobStatus_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportJobStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ImportJobStatus]",
+        "type": "object"
+      },
       "ApiResponse_InactiveScanResult_": {
         "additionalProperties": false,
         "properties": {
@@ -964,6 +1099,114 @@
         "title": "ApiResponse[InactiveScanResult]",
         "type": "object"
       },
+      "ApiResponse_LocaleDeleteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocaleDeleteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LocaleDeleteResult]",
+        "type": "object"
+      },
+      "ApiResponse_LocaleItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocaleItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LocaleItem]",
+        "type": "object"
+      },
+      "ApiResponse_LocaleListPayload_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocaleListPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LocaleListPayload]",
+        "type": "object"
+      },
+      "ApiResponse_LocalePage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocalePage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LocalePage]",
+        "type": "object"
+      },
       "ApiResponse_LockItem_": {
         "additionalProperties": false,
         "properties": {
@@ -989,6 +1232,60 @@
           }
         },
         "title": "ApiResponse[LockItem]",
+        "type": "object"
+      },
+      "ApiResponse_LoginLogItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoginLogItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LoginLogItem]",
+        "type": "object"
+      },
+      "ApiResponse_LoginLogPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoginLogPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LoginLogPage]",
         "type": "object"
       },
       "ApiResponse_LoginStateResult_": {
@@ -1072,6 +1369,87 @@
         "title": "ApiResponse[MenuTree]",
         "type": "object"
       },
+      "ApiResponse_MessagePage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessagePage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MessagePage]",
+        "type": "object"
+      },
+      "ApiResponse_MessageSaveResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageSaveResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MessageSaveResult]",
+        "type": "object"
+      },
+      "ApiResponse_MessagesPayload_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessagesPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MessagesPayload]",
+        "type": "object"
+      },
       "ApiResponse_MyMenuResponse_": {
         "additionalProperties": false,
         "properties": {
@@ -1118,6 +1496,60 @@
           }
         },
         "title": "ApiResponse[NoneType]",
+        "type": "object"
+      },
+      "ApiResponse_OperationLogItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OperationLogItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[OperationLogItem]",
+        "type": "object"
+      },
+      "ApiResponse_OperationLogPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OperationLogPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[OperationLogPage]",
         "type": "object"
       },
       "ApiResponse_PermissionGenerateResult_": {
@@ -1280,6 +1712,33 @@
           }
         },
         "title": "ApiResponse[PermissionSubjectResult]",
+        "type": "object"
+      },
+      "ApiResponse_ProfilePreferenceResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfilePreferenceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ProfilePreferenceResponse]",
         "type": "object"
       },
       "ApiResponse_RoleAssignedUsers_": {
@@ -1795,6 +2254,33 @@
         "title": "ApiResponse[UserStatusResult]",
         "type": "object"
       },
+      "ApiResponse_VerifyResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifyResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[VerifyResult]",
+        "type": "object"
+      },
       "ApiResponse_list_ModuleResponse__": {
         "additionalProperties": false,
         "properties": {
@@ -2018,6 +2504,21 @@
           "size"
         ],
         "title": "BasePageResponse[UserItem]",
+        "type": "object"
+      },
+      "Body_execute_import_api_v1_imports__biz__execute_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Excel 文件（表单字段 file）",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_execute_import_api_v1_imports__biz__execute_post",
         "type": "object"
       },
       "BranchExecuteRequest": {
@@ -2421,6 +2922,28 @@
         "title": "ButtonUpdateRequest",
         "type": "object"
       },
+      "CacheInvalidateResult": {
+        "additionalProperties": false,
+        "description": "缓存主动失效结果。",
+        "properties": {
+          "degraded": {
+            "description": "是否降级（Redis 不可用时 true，不阻断保存）",
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "version": {
+            "description": "失效后的版本号（0 = 失效失败）",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "degraded"
+        ],
+        "title": "CacheInvalidateResult",
+        "type": "object"
+      },
       "CapabilityGrantCreateRequest": {
         "additionalProperties": false,
         "description": "人工授予请求（幂等 UPSERT 同一「能力 × 消费方」行）。\n\n`expire_at` 与 `note` **成对出现**：临时授权（排障 / 迁移窗口）必须给有效期与理由，\n避免长期留存的排障授权；长期授权可不填有效期。",
@@ -2469,7 +2992,7 @@
       },
       "CatalogSnapshotResponse": {
         "additionalProperties": false,
-        "description": "带参快照响应（`GET /api/v1/modules/snapshot?with=`；**缺省形态仍为 `ModuleResponse` 数组**）。\n\n口径：\n\n- `modules` 恒下发（服务目录本体，来源不变）；\n- `products` / `collaborations` 仅在 `with` 中声明的段下发，未声明为空数组（不额外查询、不多暴露）；\n- `snapshot_version` 为带参形态的契约版本（形态变更时递增，便于消费方识别，避免与数组形态混用）；\n- `warnings` 承载降级提示（如产品声明未装载），不静默。",
+        "description": "带参快照响应（`GET /api/v1/modules/snapshot?with=`；**缺省形态仍为 `ModuleResponse` 数组**）。\n\n口径：\n\n- `modules` 恒下发（服务目录本体，来源不变）；\n- `products` / `collaborations` / `resource_types` 仅在 `with` 中声明的段下发，未声明为空数组\n  （不额外查询、不多暴露）；\n- `snapshot_version` 为带参形态的契约版本（形态变更时递增，便于消费方识别，避免与数组形态混用）；\n- `warnings` 承载降级提示（如产品声明未装载），不静默。",
         "properties": {
           "collaborations": {
             "items": {
@@ -2492,6 +3015,13 @@
             "title": "Products",
             "type": "array"
           },
+          "resource_types": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeResourceTypeSnapshotItem"
+            },
+            "title": "Resource Types",
+            "type": "array"
+          },
           "snapshot_version": {
             "title": "Snapshot Version",
             "type": "string"
@@ -2508,6 +3038,7 @@
           "modules",
           "products",
           "collaborations",
+          "resource_types",
           "snapshot_version",
           "warnings"
         ],
@@ -3026,10 +3557,11 @@
         "type": "object"
       },
       "DataSourceKind": {
-        "description": "数据源类型（数据形态；预留其它）。",
+        "description": "数据源类型（数据形态）。\n\n`quota` 为**配额只读投影**（07D `02_03`）：产品自维护配额值与执行点，平台只读装载展示。",
         "enum": [
           "dict",
-          "form"
+          "form",
+          "quota"
         ],
         "title": "DataSourceKind",
         "type": "string"
@@ -3745,6 +4277,202 @@
         "title": "DictTypeResult",
         "type": "object"
       },
+      "EnabledLocaleItem": {
+        "additionalProperties": false,
+        "description": "启用语言清单条目（登录即可读；供多语言文案字段渲染语言格）。",
+        "properties": {
+          "code": {
+            "description": "语言标识",
+            "title": "Code",
+            "type": "string"
+          },
+          "is_default": {
+            "description": "是否系统默认语言",
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "语言名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "rtl": {
+            "description": "是否从右到左",
+            "title": "Rtl",
+            "type": "boolean"
+          },
+          "sort": {
+            "description": "排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "rtl",
+          "is_default",
+          "sort"
+        ],
+        "title": "EnabledLocaleItem",
+        "type": "object"
+      },
+      "EnsureShardsRequest": {
+        "additionalProperties": false,
+        "description": "分片预创建请求。",
+        "properties": {
+          "months_ahead": {
+            "default": 1,
+            "description": "提前月数（0 = 仅当月）",
+            "minimum": 0.0,
+            "title": "Months Ahead",
+            "type": "integer"
+          }
+        },
+        "title": "EnsureShardsRequest",
+        "type": "object"
+      },
+      "EnsureShardsResult": {
+        "additionalProperties": false,
+        "description": "分片预创建结果。",
+        "properties": {
+          "months": {
+            "description": "已确保存在的月份（含当月）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Months",
+            "type": "array"
+          }
+        },
+        "title": "EnsureShardsResult",
+        "type": "object"
+      },
+      "ExportArtifact": {
+        "additionalProperties": false,
+        "description": "导出产物（对象 key + 限时取址）。",
+        "properties": {
+          "content_type": {
+            "description": "内容类型",
+            "title": "Content Type",
+            "type": "string"
+          },
+          "expires_in": {
+            "default": 0,
+            "description": "取址有效期（秒）",
+            "minimum": 0.0,
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "file_name": {
+            "description": "文件名（含扩展名）",
+            "title": "File Name",
+            "type": "string"
+          },
+          "object_key": {
+            "description": "产物对象 key（路径风格）",
+            "title": "Object Key",
+            "type": "string"
+          },
+          "size": {
+            "description": "产物字节数",
+            "minimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "限时取址（预签名失败时为空）",
+            "title": "Url"
+          }
+        },
+        "required": [
+          "object_key",
+          "file_name",
+          "size",
+          "content_type"
+        ],
+        "title": "ExportArtifact",
+        "type": "object"
+      },
+      "ExportJobStatus": {
+        "additionalProperties": false,
+        "description": "异步导出作业状态（终态含产物取址；产物过期时 artifact 为空）。",
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "产物（终态成功且未过期时非空）"
+          },
+          "biz": {
+            "description": "业务标识",
+            "title": "Biz",
+            "type": "string"
+          },
+          "done": {
+            "default": 0,
+            "description": "已完成条数（进度）",
+            "minimum": 0.0,
+            "title": "Done",
+            "type": "integer"
+          },
+          "job_id": {
+            "description": "作业主键",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "导出类型（excel/pdf）",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "提示 / 失败原因摘要",
+            "title": "Message"
+          },
+          "status": {
+            "description": "作业状态（pending/running/success/failed/cancelled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "description": "总条数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "kind",
+          "biz"
+        ],
+        "title": "ExportJobStatus",
+        "type": "object"
+      },
       "ExpressionContextPayload": {
         "additionalProperties": false,
         "description": "表达式校验上下文：`{scope?, fields?, variables?}`。",
@@ -4406,6 +5134,258 @@
         "title": "IconUpdateRequest",
         "type": "object"
       },
+      "ImportErrorItem": {
+        "additionalProperties": false,
+        "description": "行错误项（`row` 为 Excel 行号；`column` 为字段键）。",
+        "properties": {
+          "column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "出错字段键（可空）",
+            "title": "Column"
+          },
+          "message": {
+            "description": "错误原因",
+            "title": "Message",
+            "type": "string"
+          },
+          "row": {
+            "description": "Excel 行号（数据行，从 2 起）",
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "message"
+        ],
+        "title": "ImportErrorItem",
+        "type": "object"
+      },
+      "ImportExecuteResult": {
+        "additionalProperties": false,
+        "description": "执行导入结果（同步 / 异步 / 幂等命中共用）。",
+        "properties": {
+          "async": {
+            "default": false,
+            "description": "是否已转异步作业",
+            "title": "Async",
+            "type": "boolean"
+          },
+          "blocked_count": {
+            "default": 0,
+            "description": "合法但因整批拒绝未落库的行数",
+            "minimum": 0.0,
+            "title": "Blocked Count",
+            "type": "integer"
+          },
+          "committed": {
+            "default": false,
+            "description": "是否已落库",
+            "title": "Committed",
+            "type": "boolean"
+          },
+          "duplicate": {
+            "default": false,
+            "description": "是否命中幂等键、返回首次结果",
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "errors": {
+            "description": "错误项（同步响应最多前 200 条）",
+            "items": {
+              "$ref": "#/components/schemas/ImportErrorItem"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "fail_count": {
+            "default": 0,
+            "description": "有错误的行数（按行去重）",
+            "minimum": 0.0,
+            "title": "Fail Count",
+            "type": "integer"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "作业主键（异步 / 幂等命中）",
+            "title": "Job Id"
+          },
+          "report_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误明细 token（有错误时返回）",
+            "title": "Report Token"
+          },
+          "success_count": {
+            "default": 0,
+            "description": "实际落库行数",
+            "minimum": 0.0,
+            "title": "Success Count",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "description": "数据行数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "ImportExecuteResult",
+        "type": "object"
+      },
+      "ImportJobStatus": {
+        "additionalProperties": false,
+        "description": "异步导入状态。",
+        "properties": {
+          "blocked_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "合法但未落库的行数",
+            "title": "Blocked Count"
+          },
+          "committed": {
+            "default": false,
+            "description": "是否已落库",
+            "title": "Committed",
+            "type": "boolean"
+          },
+          "errors": {
+            "description": "前 N 条错误（默认 20，上限 200）",
+            "items": {
+              "$ref": "#/components/schemas/ImportErrorItem"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "fail_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "有错误的行数",
+            "title": "Fail Count"
+          },
+          "job_id": {
+            "description": "作业主键",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败 / 取消原因或结果说明",
+            "title": "Message"
+          },
+          "progress_done": {
+            "default": 0,
+            "description": "已完成量",
+            "minimum": 0.0,
+            "title": "Progress Done",
+            "type": "integer"
+          },
+          "progress_total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "总量（未知为 null）",
+            "title": "Progress Total"
+          },
+          "report_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误明细 token（有错误时返回）",
+            "title": "Report Token"
+          },
+          "status": {
+            "description": "作业状态（queued/running/succeeded/failed/canceled/dead）",
+            "title": "Status",
+            "type": "string"
+          },
+          "success_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "实际落库行数",
+            "title": "Success Count"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "数据行数（未终态为 null）",
+            "title": "Total"
+          }
+        },
+        "required": [
+          "job_id",
+          "status"
+        ],
+        "title": "ImportJobStatus",
+        "type": "object"
+      },
       "InactiveScanRequest": {
         "additionalProperties": false,
         "description": "不活跃账号扫描请求（空体；租户经服务 JWT `tenant` claim 解析）。",
@@ -4437,7 +5417,7 @@
       },
       "InternalUserItem": {
         "additionalProperties": false,
-        "description": "内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。\n\n用户＝系统账号，**不含组织字段**（部门 / 岗位关系归产品组织域，需求 07-11）——用户-部门关系由\n产品自持（`org_user_dept`），不需 platform 回传。",
+        "description": "内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。\n\n用户＝系统账号，**不含部门 / 岗位字段**（部门 / 岗位关系归产品主数据域，需求 07-11）——用户-部门关系由\n产品自持（用户-部门关系表），不需 platform 回传。",
         "properties": {
           "email": {
             "anyOf": [
@@ -4640,6 +5620,290 @@
         "title": "JobSubmitRequest",
         "type": "object"
       },
+      "LocaleCreateRequest": {
+        "additionalProperties": false,
+        "description": "新增语言。",
+        "properties": {
+          "code": {
+            "description": "语言标识（IETF，如 ar-SA）",
+            "maxLength": 16,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "is_default": {
+            "default": false,
+            "description": "是否设为系统默认语言",
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "语言名称（本地名）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rtl": {
+            "default": false,
+            "description": "是否从右到左",
+            "title": "Rtl",
+            "type": "boolean"
+          },
+          "sort": {
+            "default": 0,
+            "description": "排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "LocaleCreateRequest",
+        "type": "object"
+      },
+      "LocaleDeleteResult": {
+        "additionalProperties": false,
+        "description": "语言删除结果。",
+        "properties": {
+          "deleted": {
+            "description": "是否已删除",
+            "title": "Deleted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "LocaleDeleteResult",
+        "type": "object"
+      },
+      "LocaleItem": {
+        "additionalProperties": false,
+        "description": "语言清单条目（维护列表 / 详情同构）。",
+        "properties": {
+          "code": {
+            "description": "语言标识（IETF 标准形态，如 zh-CN）",
+            "title": "Code",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "软删除时间（回收站视图非空）",
+            "title": "Deleted At"
+          },
+          "id": {
+            "description": "语言主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "description": "是否系统默认语言（全清单恰一条）",
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "is_overridden": {
+            "description": "是否被租户改过（false=平台默认行）",
+            "title": "Is Overridden",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "语言名称（本地名）",
+            "title": "Name",
+            "type": "string"
+          },
+          "rtl": {
+            "description": "是否从右到左（驱动前端布局方向）",
+            "title": "Rtl",
+            "type": "boolean"
+          },
+          "sort": {
+            "description": "排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最后更新时间（UTC）",
+            "title": "Updated At"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "rtl",
+          "status",
+          "is_default",
+          "sort",
+          "is_overridden",
+          "version"
+        ],
+        "title": "LocaleItem",
+        "type": "object"
+      },
+      "LocaleListPayload": {
+        "additionalProperties": false,
+        "description": "启用语言清单载荷（只读出口）。",
+        "properties": {
+          "items": {
+            "description": "启用语言清单（按 sort 升序）",
+            "items": {
+              "$ref": "#/components/schemas/EnabledLocaleItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "LocaleListPayload",
+        "type": "object"
+      },
+      "LocalePage": {
+        "additionalProperties": false,
+        "description": "语言清单分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/LocaleItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "LocalePage",
+        "type": "object"
+      },
+      "LocaleUpdateRequest": {
+        "additionalProperties": false,
+        "description": "修改语言（乐观锁：`version` 必填）。",
+        "properties": {
+          "is_default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "是否设为系统默认语言",
+            "title": "Is Default"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言名称",
+            "title": "Name"
+          },
+          "rtl": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "是否从右到左",
+            "title": "Rtl"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "排序（升序）",
+            "title": "Sort"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（enabled/disabled）",
+            "title": "Status"
+          },
+          "version": {
+            "description": "乐观锁版本（取详情里的当前值）",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "LocaleUpdateRequest",
+        "type": "object"
+      },
       "LockItem": {
         "additionalProperties": false,
         "description": "锁定记录行契约（列表 / 详情 / 手动锁定 / 解锁统一）。",
@@ -4759,6 +6023,159 @@
           "locked_at"
         ],
         "title": "LockItem",
+        "type": "object"
+      },
+      "LoginLogItem": {
+        "additionalProperties": false,
+        "description": "登录日志列表 / 详情同构。",
+        "properties": {
+          "created_at": {
+            "description": "写入时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_id": {
+            "description": "事件幂等键",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "fail_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败原因",
+            "title": "Fail Reason"
+          },
+          "id": {
+            "description": "日志主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户端 IP",
+            "title": "Ip"
+          },
+          "occurred_at": {
+            "description": "事件发生时间（UTC）",
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "prev_hash": {
+            "description": "前一条记录哈希",
+            "title": "Prev Hash",
+            "type": "string"
+          },
+          "record_hash": {
+            "description": "本条记录哈希",
+            "title": "Record Hash",
+            "type": "string"
+          },
+          "status": {
+            "description": "结果（success / failed）",
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户主键",
+            "title": "Tenant Id"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "User-Agent",
+            "title": "User Agent"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "命中用户主键",
+            "title": "User Id"
+          },
+          "username": {
+            "description": "登录名",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "username",
+          "status",
+          "occurred_at",
+          "prev_hash",
+          "record_hash",
+          "created_at"
+        ],
+        "title": "LoginLogItem",
+        "type": "object"
+      },
+      "LoginLogPage": {
+        "additionalProperties": false,
+        "description": "登录日志分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/LoginLogItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "LoginLogPage",
         "type": "object"
       },
       "LoginStateRequest": {
@@ -5149,6 +6566,294 @@
           "i18n"
         ],
         "title": "MenuUpdateRequest",
+        "type": "object"
+      },
+      "MessageAddItem": {
+        "additionalProperties": false,
+        "description": "新增文案行（已存在同 `(msg_key, locale)` 时转为更新，幂等）。",
+        "properties": {
+          "locale": {
+            "description": "语言标识",
+            "maxLength": 16,
+            "minLength": 2,
+            "title": "Locale",
+            "type": "string"
+          },
+          "msg_key": {
+            "description": "文案 key（点分小写，至少两段）",
+            "maxLength": 128,
+            "minLength": 3,
+            "title": "Msg Key",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "value": {
+            "default": "",
+            "description": "该语言文案",
+            "maxLength": 4000,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "msg_key",
+          "locale"
+        ],
+        "title": "MessageAddItem",
+        "type": "object"
+      },
+      "MessageItem": {
+        "additionalProperties": false,
+        "description": "语言包维护条目（一行 = 一个 key 的一种语言）。",
+        "properties": {
+          "id": {
+            "description": "文案主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_overridden": {
+            "description": "是否被租户改过（false=平台默认行）",
+            "title": "Is Overridden",
+            "type": "boolean"
+          },
+          "locale": {
+            "description": "语言标识",
+            "title": "Locale",
+            "type": "string"
+          },
+          "module": {
+            "description": "模块前缀（msg_key 首段，派生）",
+            "title": "Module",
+            "type": "string"
+          },
+          "msg_key": {
+            "description": "文案 key（模块.页面.字段）",
+            "title": "Msg Key",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "value": {
+            "description": "该语言文案（空白即缺失）",
+            "title": "Value",
+            "type": "string"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "msg_key",
+          "module",
+          "locale",
+          "value",
+          "is_overridden",
+          "version"
+        ],
+        "title": "MessageItem",
+        "type": "object"
+      },
+      "MessagePage": {
+        "additionalProperties": false,
+        "description": "语言包维护分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/MessageItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "MessagePage",
+        "type": "object"
+      },
+      "MessageSaveRequest": {
+        "additionalProperties": false,
+        "description": "语言包批量保存（差异三段 + 幂等键）。",
+        "properties": {
+          "adds": {
+            "description": "新增行",
+            "items": {
+              "$ref": "#/components/schemas/MessageAddItem"
+            },
+            "title": "Adds",
+            "type": "array"
+          },
+          "deletes": {
+            "description": "删除行（仅租户自建行可删）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Deletes",
+            "type": "array"
+          },
+          "updates": {
+            "description": "修改行",
+            "items": {
+              "$ref": "#/components/schemas/MessageUpdateItem"
+            },
+            "title": "Updates",
+            "type": "array"
+          }
+        },
+        "title": "MessageSaveRequest",
+        "type": "object"
+      },
+      "MessageSaveResult": {
+        "additionalProperties": false,
+        "description": "语言包批量保存结果。",
+        "properties": {
+          "created": {
+            "description": "新增行数",
+            "title": "Created",
+            "type": "integer"
+          },
+          "deleted": {
+            "description": "删除行数",
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "updated": {
+            "description": "修改行数",
+            "title": "Updated",
+            "type": "integer"
+          },
+          "version": {
+            "description": "失效后的缓存版本号（0 = 失效失败 / 降级）",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "updated",
+          "deleted",
+          "version"
+        ],
+        "title": "MessageSaveResult",
+        "type": "object"
+      },
+      "MessageUpdateItem": {
+        "additionalProperties": false,
+        "description": "修改文案行（乐观锁）。",
+        "properties": {
+          "id": {
+            "description": "文案主键",
+            "title": "Id",
+            "type": "integer"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "value": {
+            "default": "",
+            "description": "该语言文案",
+            "maxLength": 4000,
+            "title": "Value",
+            "type": "string"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ],
+        "title": "MessageUpdateItem",
+        "type": "object"
+      },
+      "MessagesPayload": {
+        "additionalProperties": false,
+        "description": "语言包下发载荷。",
+        "properties": {
+          "fallback": {
+            "description": "是否发生回退（请求语言未启用 / 未登记）",
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "locale": {
+            "description": "生效语言（请求语言未启用时为默认语言）",
+            "title": "Locale",
+            "type": "string"
+          },
+          "messages": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "key → 文案",
+            "title": "Messages",
+            "type": "object"
+          },
+          "version": {
+            "description": "缓存版本号",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "locale",
+          "fallback",
+          "version"
+        ],
+        "title": "MessagesPayload",
         "type": "object"
       },
       "ModuleResponse": {
@@ -5550,6 +7255,225 @@
           "version"
         ],
         "title": "MyMenuResponse",
+        "type": "object"
+      },
+      "OperationLogItem": {
+        "additionalProperties": false,
+        "description": "操作日志列表 / 详情同构。",
+        "properties": {
+          "action": {
+            "description": "动作（权限码 / 回落动词）",
+            "title": "Action",
+            "type": "string"
+          },
+          "cost_time": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "耗时（毫秒）",
+            "title": "Cost Time"
+          },
+          "created_at": {
+            "description": "写入时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误摘要",
+            "title": "Error Msg"
+          },
+          "event_id": {
+            "description": "事件幂等键",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "id": {
+            "description": "日志主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户端 IP",
+            "title": "Ip"
+          },
+          "method": {
+            "description": "HTTP 方法",
+            "title": "Method",
+            "type": "string"
+          },
+          "module": {
+            "description": "模块",
+            "title": "Module",
+            "type": "string"
+          },
+          "occurred_at": {
+            "description": "事件发生时间（UTC）",
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "请求体参数 JSON（已脱敏）",
+            "title": "Params"
+          },
+          "path": {
+            "description": "请求路径",
+            "title": "Path",
+            "type": "string"
+          },
+          "prev_hash": {
+            "description": "前一条记录哈希",
+            "title": "Prev Hash",
+            "type": "string"
+          },
+          "query_params": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "查询串（已脱敏）",
+            "title": "Query Params"
+          },
+          "record_hash": {
+            "description": "本条记录哈希",
+            "title": "Record Hash",
+            "type": "string"
+          },
+          "status": {
+            "description": "HTTP 状态码",
+            "title": "Status",
+            "type": "integer"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户主键",
+            "title": "Tenant Id"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "User-Agent",
+            "title": "User Agent"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "操作人主键",
+            "title": "User Id"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "操作账号快照",
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "module",
+          "action",
+          "method",
+          "path",
+          "status",
+          "occurred_at",
+          "prev_hash",
+          "record_hash",
+          "created_at"
+        ],
+        "title": "OperationLogItem",
+        "type": "object"
+      },
+      "OperationLogPage": {
+        "additionalProperties": false,
+        "description": "操作日志分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/OperationLogItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "OperationLogPage",
         "type": "object"
       },
       "PermissionCreateRequest": {
@@ -5993,6 +7917,86 @@
         "title": "ProductSnapshotItem",
         "type": "object"
       },
+      "ProfilePreferenceRequest": {
+        "additionalProperties": false,
+        "description": "偏好设置请求（部分更新语义）。",
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好（须已登记且启用；null 表示清空回退系统默认语言）",
+            "title": "Locale"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "时区偏好（IANA 标识，如 Asia/Shanghai；null 表示清空回退缺省时区）",
+            "title": "Timezone"
+          }
+        },
+        "title": "ProfilePreferenceRequest",
+        "type": "object"
+      },
+      "ProfilePreferenceResponse": {
+        "additionalProperties": false,
+        "description": "偏好读取响应（存值 + 生效值）。",
+        "properties": {
+          "effective_locale": {
+            "description": "生效语言（未设置或该语言停用时为系统默认语言）",
+            "title": "Effective Locale",
+            "type": "string"
+          },
+          "effective_timezone": {
+            "description": "生效时区（未设置时按生效语言派生）",
+            "title": "Effective Timezone",
+            "type": "string"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好存值（未设置为 null）",
+            "title": "Locale"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "时区偏好存值（未设置为 null）",
+            "title": "Timezone"
+          }
+        },
+        "required": [
+          "effective_locale",
+          "effective_timezone"
+        ],
+        "title": "ProfilePreferenceResponse",
+        "type": "object"
+      },
       "QueryScheme": {
         "additionalProperties": false,
         "description": "查询方案数据契约（一份 `sys_query_scheme` 供字典高级查询与列表筛选共用）。",
@@ -6338,7 +8342,7 @@
       },
       "RoleAssignmentsResult": {
         "additionalProperties": false,
-        "description": "角色保存编排结果（回带 platform 侧生效后集合）。\n\n组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
+        "description": "角色保存编排结果（回带 platform 侧生效后集合）。\n\n部门 / 岗位分配段的生效后集合由调用方（前端）在保存成功后经产品读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
         "properties": {
           "applied": {
             "description": "本次参与的分段名（role / user_ids / role_posts / role_depts）",
@@ -6451,7 +8455,7 @@
             "type": "array"
           },
           "data_source_key": {
-            "description": "字典标识（业务码字符串，如 org_dept / role）",
+            "description": "字典标识（业务码字符串，如 dept / role）",
             "minLength": 1,
             "title": "Data Source Key",
             "type": "string"
@@ -6940,6 +8944,84 @@
           "version"
         ],
         "title": "RoleUpdateRequest",
+        "type": "object"
+      },
+      "ScopeResourceTypeSnapshotItem": {
+        "additionalProperties": false,
+        "description": "带参快照的作用域资源类型段（07D `01_01`；产品与平台进程重建视图共用）。\n\n`status` 为**有效态**（声明态与运营态同时启用才算 `enabled`）；`declaration_version` 供消费方\n判定新旧，`admin_status` 单独下发以便定位是「产品声明停用」还是「平台运营停用」。",
+        "properties": {
+          "admin_status": {
+            "title": "Admin Status",
+            "type": "string"
+          },
+          "declaration_version": {
+            "title": "Declaration Version",
+            "type": "integer"
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_pattern": {
+            "title": "Name Pattern",
+            "type": "string"
+          },
+          "product_key": {
+            "title": "Product Key",
+            "type": "string"
+          },
+          "removal_policy": {
+            "title": "Removal Policy",
+            "type": "string"
+          },
+          "resource_type_key": {
+            "title": "Resource Type Key",
+            "type": "string"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_type_key",
+          "name",
+          "name_pattern",
+          "max_length",
+          "retention_days",
+          "removal_policy",
+          "product_key",
+          "status",
+          "admin_status",
+          "declaration_version"
+        ],
+        "title": "ScopeResourceTypeSnapshotItem",
+        "type": "object"
+      },
+      "ScopeResourceTypeStatusRequest": {
+        "additionalProperties": false,
+        "description": "运营态变更请求（幂等：与现值一致时不写库、不记审计）。",
+        "properties": {
+          "admin_status": {
+            "description": "运营态（enabled / disabled）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Admin Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "admin_status"
+        ],
+        "title": "ScopeResourceTypeStatusRequest",
         "type": "object"
       },
       "SeedOrchestrationRequestSchema": {
@@ -7645,7 +9727,7 @@
       },
       "UserAssignmentsResult": {
         "additionalProperties": false,
-        "description": "用户保存编排结果（回带 platform 侧生效后集合）。\n\n组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经产品读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
+        "description": "用户保存编排结果（回带 platform 侧生效后集合）。\n\n部门 / 岗位分配段的生效后集合由调用方（前端）在保存成功后经产品读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
         "properties": {
           "applied": {
             "description": "本次参与的分段名（profile / role_ids / user_posts / user_depts）",
@@ -8489,6 +10571,109 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VerifyRequest": {
+        "additionalProperties": false,
+        "description": "链校验请求（内部端点 / 巡检任务）。",
+        "properties": {
+          "log_type": {
+            "description": "日志类型（operation / login）",
+            "title": "Log Type",
+            "type": "string"
+          },
+          "months": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "指定月份（yyyyMM；空 = 台账全部）",
+            "title": "Months"
+          }
+        },
+        "required": [
+          "log_type"
+        ],
+        "title": "VerifyRequest",
+        "type": "object"
+      },
+      "VerifyResult": {
+        "additionalProperties": false,
+        "description": "链校验结果。",
+        "properties": {
+          "broken_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂位置（月内从 0 起）",
+            "title": "Broken Index"
+          },
+          "broken_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂分片月份",
+            "title": "Broken Month"
+          },
+          "broken_record_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂记录主键",
+            "title": "Broken Record Id"
+          },
+          "checked_months": {
+            "description": "实际校验月份",
+            "items": {
+              "type": "string"
+            },
+            "title": "Checked Months",
+            "type": "array"
+          },
+          "checked_records": {
+            "description": "校验记录数",
+            "title": "Checked Records",
+            "type": "integer"
+          },
+          "log_type": {
+            "description": "日志类型",
+            "title": "Log Type",
+            "type": "string"
+          },
+          "valid": {
+            "description": "链是否完整",
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "log_type",
+          "valid",
+          "checked_records"
+        ],
+        "title": "VerifyResult",
+        "type": "object"
       }
     }
   },
@@ -8500,7 +10685,7 @@
   "paths": {
     "/": {
       "get": {
-        "description": "应用信息。\n\nReturns:\n    ApiResponse: {code, message, data:{name, version}}。",
+        "description": "应用信息。\n\n显式声明 `x-error-codes: []`：本端点不触达业务判定，没有产品码可声明\n（与探针同性质，区别于「漏声明」）。\n\nReturns:\n    ApiResponse: {code, message, data:{name, version}}。",
         "operationId": "root__get",
         "responses": {
           "200": {
@@ -8514,7 +10699,8 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Root"
+        "summary": "Root",
+        "x-error-codes": []
       }
     },
     "/api/v1/account-locks": {
@@ -12628,6 +14814,516 @@
         ]
       }
     },
+    "/api/v1/exports/jobs/{job_id}": {
+      "get": {
+        "description": "异步导出状态 / 进度 / 产物限时取址。\n\nArgs:\n    job_id: 作业主键。\n    deps: 请求依赖。\n\nReturns:\n    ApiResponse: 状态。",
+        "operationId": "get_export_job_api_v1_exports_jobs__job_id__get",
+        "parameters": [
+          {
+            "description": "导出作业主键",
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "description": "导出作业主键",
+              "exclusiveMinimum": 0,
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExportJobStatus_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Export Job",
+        "tags": [
+          "export"
+        ]
+      }
+    },
+    "/api/v1/exports/{biz}": {
+      "get": {
+        "description": "按当前筛选导出 Excel（同步文件流 / 异步受理 / 空结果）。\n\nArgs:\n    biz: 业务标识。\n    deps: 请求依赖。\n    masker: 请求期掩码器（明文判定）。\n    kw: 关键字。\n    status: 状态筛选。\n    ids: 选中集合。\n    order_by: 排序字段。\n    order: 排序方向。\n\nReturns:\n    Response: xlsx 文件流或 JSON（异步 / 空）。",
+        "operationId": "export_excel_api_v1_exports__biz__get",
+        "parameters": [
+          {
+            "description": "业务标识（users / roles）",
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "description": "业务标识（users / roles）",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "关键字（与列表接口同名同义）",
+            "in": "query",
+            "name": "kw",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（与列表接口同名同义）",
+              "title": "Kw"
+            }
+          },
+          {
+            "description": "状态筛选（enabled / disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（enabled / disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "选中行导出（逗号分隔雪花 ID；空 = 按筛选全量）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "选中行导出（逗号分隔雪花 ID；空 = 按筛选全量）",
+              "title": "Ids"
+            }
+          },
+          {
+            "description": "排序字段（各定义白名单）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段（各定义白名单）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向（asc / desc）",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "排序方向（asc / desc）",
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Export Excel",
+        "tags": [
+          "export"
+        ]
+      }
+    },
+    "/api/v1/exports/{biz}/pdf": {
+      "get": {
+        "description": "按当前筛选导出列表 PDF（同步产物取址 / 异步受理 / 空结果）。\n\nArgs:\n    biz: 业务标识。\n    deps: 请求依赖。\n    masker: 请求期掩码器。\n    kw: 关键字。\n    status: 状态筛选。\n    ids: 选中集合。\n    order_by: 排序字段。\n    order: 排序方向。\n    paper: 纸张。\n    orientation: 纸张方向。\n    watermark: 水印。\n    title: 标题。\n\nReturns:\n    Response: JSON（同步产物 / 异步 / 空）。",
+        "operationId": "export_list_pdf_api_v1_exports__biz__pdf_get",
+        "parameters": [
+          {
+            "description": "业务标识（users / roles）",
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "description": "业务标识（users / roles）",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "关键字（与列表接口同名同义）",
+            "in": "query",
+            "name": "kw",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（与列表接口同名同义）",
+              "title": "Kw"
+            }
+          },
+          {
+            "description": "状态筛选（enabled / disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（enabled / disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "选中行导出（逗号分隔雪花 ID；空 = 按筛选全量）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "选中行导出（逗号分隔雪花 ID；空 = 按筛选全量）",
+              "title": "Ids"
+            }
+          },
+          {
+            "description": "排序字段（各定义白名单）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段（各定义白名单）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向（asc / desc）",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "description": "排序方向（asc / desc）",
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "description": "纸张（A4 / A5 / custom）",
+            "in": "query",
+            "name": "paper",
+            "required": false,
+            "schema": {
+              "default": "A4",
+              "description": "纸张（A4 / A5 / custom）",
+              "title": "Paper",
+              "type": "string"
+            }
+          },
+          {
+            "description": "纸张方向（portrait / landscape）",
+            "in": "query",
+            "name": "orientation",
+            "required": false,
+            "schema": {
+              "default": "portrait",
+              "description": "纸张方向（portrait / landscape）",
+              "title": "Orientation",
+              "type": "string"
+            }
+          },
+          {
+            "description": "水印文案",
+            "in": "query",
+            "name": "watermark",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "水印文案",
+              "maxLength": 64,
+              "title": "Watermark",
+              "type": "string"
+            }
+          },
+          {
+            "description": "PDF 标题（缺省取定义标题）",
+            "in": "query",
+            "name": "title",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "PDF 标题（缺省取定义标题）",
+              "maxLength": 64,
+              "title": "Title",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Export List Pdf",
+        "tags": [
+          "export"
+        ]
+      }
+    },
     "/api/v1/fields": {
       "get": {
         "description": "字段清单（按表单过滤）。\n\nArgs:\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n    form_id: 表单主键（可空 = 全部）。\n\nReturns:\n    ApiResponse: 统一响应，data 为字段清单。",
@@ -13504,6 +16200,1078 @@
         ]
       }
     },
+    "/api/v1/i18n/cache/invalidate": {
+      "put": {
+        "description": "语言包缓存主动失效（需要 i18n:manage）。\n\n失效「清单键 + 全部语言包键」并递增版本、刷新进程内快照；Redis 不可用时 `degraded=true` 且仍返回 200。",
+        "operationId": "invalidate_cache_api_v1_i18n_cache_invalidate_put",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CacheInvalidateResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Invalidate Cache",
+        "tags": [
+          "i18n"
+        ]
+      }
+    },
+    "/api/v1/i18n/locales": {
+      "get": {
+        "description": "语言清单分页查询。\n\n需要 i18n:query 权限；支持按语言标识 / 名称关键字与状态筛选，可含回收站行。",
+        "operationId": "list_locales_api_v1_i18n_locales_get",
+        "parameters": [
+          {
+            "description": "关键字（语言标识 / 名称模糊匹配）",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（语言标识 / 名称模糊匹配）",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "状态筛选（enabled/disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（enabled/disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "是否包含已软删行（回收站视图）",
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "是否包含已软删行（回收站视图）",
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LocalePage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Locales",
+        "tags": [
+          "i18n"
+        ]
+      },
+      "post": {
+        "description": "新增语言（需要 i18n:manage）。\n\n语言标识为 IETF 语言标签（如 ar-SA），大小写不敏感判重；`isDefault=true` 时同事务切换默认语言。",
+        "operationId": "create_locale_api_v1_i18n_locales_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocaleCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LocaleItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Locale",
+        "tags": [
+          "i18n"
+        ]
+      }
+    },
+    "/api/v1/i18n/locales/enabled": {
+      "get": {
+        "description": "启用语言清单（登录即可访问）。\n\n返回 `code` / `name` / `rtl` / 默认标记 / 排序，供各模块多语言文案字段渲染语言格；\n走能力域缓存，新增语言后下一次请求即可见。",
+        "operationId": "list_enabled_locales_api_v1_i18n_locales_enabled_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LocaleListPayload_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Enabled Locales",
+        "tags": [
+          "i18n"
+        ]
+      }
+    },
+    "/api/v1/i18n/locales/{code}": {
+      "delete": {
+        "description": "删除语言（需要 i18n:manage）。\n\n默认语言不可删除（44005）；仍有语言包数据的语言只能停用（44002）。",
+        "operationId": "delete_locale_api_v1_i18n_locales__code__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LocaleDeleteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Locale",
+        "tags": [
+          "i18n"
+        ]
+      },
+      "put": {
+        "description": "修改语言（需要 i18n:manage，乐观锁）。\n\n默认语言不可停用（44005）；停用后须仍有启用语言（44004）；默认标记不可取消（44006）。",
+        "operationId": "update_locale_api_v1_i18n_locales__code__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocaleUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LocaleItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Locale",
+        "tags": [
+          "i18n"
+        ]
+      }
+    },
+    "/api/v1/i18n/messages": {
+      "get": {
+        "description": "语言包运行时下发（登录即可访问）。\n\n`locale` 显式指定优先、缺省按 `Accept-Language` 解析；默认语言包打底、请求语言覆盖，\n因此缺翻译时不会返回 key 原文。响应含 `locale` / `fallback` / `version` / `messages`。",
+        "operationId": "get_messages_api_v1_i18n_messages_get",
+        "parameters": [
+          {
+            "description": "语言标识（缺省按 Accept-Language 解析）",
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言标识（缺省按 Accept-Language 解析）",
+              "title": "Locale"
+            }
+          },
+          {
+            "description": "请求语言",
+            "in": "header",
+            "name": "Accept-Language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "请求语言",
+              "title": "Accept-Language"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessagesPayload_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Messages",
+        "tags": [
+          "i18n"
+        ]
+      },
+      "put": {
+        "description": "语言包批量保存（需要 i18n:manage）。\n\n差异三段：`adds` 命中已存在 `(key, locale)` 转更新；`updates` 必须带行 `version`；\n`deletes` 仅允许删租户自建行。保存后按受影响语言失效缓存，响应含失效后的版本号。",
+        "operationId": "save_messages_api_v1_i18n_messages_put",
+        "parameters": [
+          {
+            "description": "幂等键（缺省按变更集派生）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（缺省按变更集派生）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageSaveResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Save Messages",
+        "tags": [
+          "i18n"
+        ]
+      }
+    },
+    "/api/v1/i18n/messages/manage": {
+      "get": {
+        "description": "语言包维护列表（需要 i18n:query）。\n\n支持按文案 key 关键字、模块前缀、语言与「只看缺失」筛选；`module` 由 key 首段派生。",
+        "operationId": "list_messages_api_v1_i18n_messages_manage_get",
+        "parameters": [
+          {
+            "description": "关键字（文案 key 模糊匹配）",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（文案 key 模糊匹配）",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "模块前缀（key 首段，如 common）",
+            "in": "query",
+            "name": "module",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "模块前缀（key 首段，如 common）",
+              "title": "Module"
+            }
+          },
+          {
+            "description": "语言精确匹配",
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言精确匹配",
+              "title": "Locale"
+            }
+          },
+          {
+            "description": "只看缺失（该语言无文案）",
+            "in": "query",
+            "name": "missing_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "只看缺失（该语言无文案）",
+              "title": "Missing Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessagePage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Messages",
+        "tags": [
+          "i18n"
+        ]
+      }
+    },
     "/api/v1/icons": {
       "get": {
         "description": "取图标清单（可按分组 / 状态过滤，关键字匹配图标键 / 名称 / 标签）。\n\nArgs:\n    registry: 图标注册表基座。\n    category: 图标分组查询参数（可选）。\n    status: 图标状态查询参数（可选）。\n    keyword: 关键字查询参数（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为图标清单（`IconListResponse`）。",
@@ -14082,6 +17850,424 @@
         "summary": "Update Icon",
         "tags": [
           "icon"
+        ]
+      }
+    },
+    "/api/v1/imports/{biz}/error-report/{token}": {
+      "get": {
+        "description": "下载错误明细 xlsx（按首次结果生成，限时有效）。\n\nArgs:\n    biz: 业务标识。\n    token: 错误明细 token。\n    deps: 请求依赖。\n\nReturns:\n    Response: xlsx 文件流。",
+        "operationId": "download_error_report_api_v1_imports__biz__error_report__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "错误明细 token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "错误明细 token",
+              "minLength": 1,
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Download Error Report",
+        "tags": [
+          "import"
+        ]
+      }
+    },
+    "/api/v1/imports/{biz}/execute": {
+      "post": {
+        "description": "执行导入（multipart xlsx + Idempotency-Key）。\n\nArgs:\n    biz: 业务标识。\n    deps: 请求依赖。\n    file: 上传文件。\n    idem_key: 幂等键请求头。\n\nReturns:\n    ApiResponse: 执行结果（同步汇总 / 异步 job_id / 幂等命中）。",
+        "operationId": "execute_import_api_v1_imports__biz__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_execute_import_api_v1_imports__biz__execute_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ImportExecuteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Execute Import",
+        "tags": [
+          "import"
+        ]
+      }
+    },
+    "/api/v1/imports/{biz}/jobs/{job_id}": {
+      "get": {
+        "description": "异步导入状态 / 进度 / 汇总 / 前 N 条错误。\n\nArgs:\n    biz: 业务标识。\n    job_id: 作业主键。\n    deps: 请求依赖。\n\nReturns:\n    ApiResponse: 状态。",
+        "operationId": "get_import_job_api_v1_imports__biz__jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "title": "Biz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "导入作业主键",
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "description": "导入作业主键",
+              "exclusiveMinimum": 0,
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ImportJobStatus_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Import Job",
+        "tags": [
+          "import"
+        ]
+      }
+    },
+    "/api/v1/imports/{biz}/template": {
+      "get": {
+        "description": "下载导入模板（xlsx 文件流）。\n\nArgs:\n    biz: 业务标识（users / roles）。\n    deps: 请求依赖。\n\nReturns:\n    Response: xlsx 文件流。",
+        "operationId": "download_template_api_v1_imports__biz__template_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "biz",
+            "required": true,
+            "schema": {
+              "title": "Biz",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Download Template",
+        "tags": [
+          "import"
         ]
       }
     },
@@ -15159,6 +19345,343 @@
         ]
       }
     },
+    "/api/v1/login-logs": {
+      "get": {
+        "description": "登录日志分页查询（用户名 / 状态 / IP / 时间范围）。\n\nArgs:\n    session: 平台库只读会话。\n    page: 分页参数。\n    username: 登录名（模糊）。\n    status: 结果。\n    ip: 客户端 IP。\n    occurred_from: 事件时间下界。\n    occurred_to: 事件时间上界。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "operationId": "list_login_logs_api_v1_login_logs_get",
+        "parameters": [
+          {
+            "description": "登录名（模糊）",
+            "in": "query",
+            "name": "username",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "登录名（模糊）",
+              "title": "Username"
+            }
+          },
+          {
+            "description": "结果（success / failed）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结果（success / failed）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "客户端 IP（精确）",
+            "in": "query",
+            "name": "ip",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "客户端 IP（精确）",
+              "title": "Ip"
+            }
+          },
+          {
+            "description": "事件时间下界（含）",
+            "in": "query",
+            "name": "occurred_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间下界（含）",
+              "title": "Occurred From"
+            }
+          },
+          {
+            "description": "事件时间上界（含）",
+            "in": "query",
+            "name": "occurred_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间上界（含）",
+              "title": "Occurred To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoginLogPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Login Logs",
+        "tags": [
+          "log"
+        ]
+      }
+    },
+    "/api/v1/login-logs/{record_id}": {
+      "get": {
+        "description": "登录日志详情（含失败原因与哈希值）。\n\nArgs:\n    session: 平台库只读会话。\n    record_id: 日志主键。\n\nReturns:\n    ApiResponse: 统一响应，data 为日志详情。",
+        "operationId": "get_login_log_api_v1_login_logs__record_id__get",
+        "parameters": [
+          {
+            "description": "日志主键（雪花 ID）",
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "description": "日志主键（雪花 ID）",
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoginLogItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Login Log",
+        "tags": [
+          "log"
+        ]
+      }
+    },
     "/api/v1/menus": {
       "get": {
         "description": "菜单树（平台维护视图，含 hidden 与 disabled）。\n\nArgs:\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为菜单树。",
@@ -15779,7 +20302,7 @@
         "operationId": "catalog_snapshot_api_v1_modules_snapshot_get",
         "parameters": [
           {
-            "description": "附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约",
+            "description": "附带段（逗号分隔多值：modules / products / collaborations / resource_types）；缺省保持原数组契约",
             "in": "query",
             "name": "with",
             "required": false,
@@ -15792,7 +20315,7 @@
                   "type": "null"
                 }
               ],
-              "description": "附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约",
+              "description": "附带段（逗号分隔多值：modules / products / collaborations / resource_types）；缺省保持原数组契约",
               "title": "With"
             }
           }
@@ -15975,6 +20498,361 @@
         "summary": "Get Module",
         "tags": [
           "module"
+        ]
+      }
+    },
+    "/api/v1/operation-logs": {
+      "get": {
+        "description": "操作日志分页查询（用户 / 模块 / 动作 / 状态 / 时间范围）。\n\nArgs:\n    session: 平台库只读会话。\n    page: 分页参数。\n    user_id: 操作人主键。\n    module: 模块。\n    action: 动作 / 权限码。\n    status: HTTP 状态码。\n    occurred_from: 事件时间下界。\n    occurred_to: 事件时间上界。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "operationId": "list_operation_logs_api_v1_operation_logs_get",
+        "parameters": [
+          {
+            "description": "操作人主键",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "操作人主键",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "模块（精确）",
+            "in": "query",
+            "name": "module",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "模块（精确）",
+              "title": "Module"
+            }
+          },
+          {
+            "description": "动作 / 权限码（精确）",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "动作 / 权限码（精确）",
+              "title": "Action"
+            }
+          },
+          {
+            "description": "HTTP 状态码",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "HTTP 状态码",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "事件时间下界（含）",
+            "in": "query",
+            "name": "occurred_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间下界（含）",
+              "title": "Occurred From"
+            }
+          },
+          {
+            "description": "事件时间上界（含）",
+            "in": "query",
+            "name": "occurred_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间上界（含）",
+              "title": "Occurred To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OperationLogPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Operation Logs",
+        "tags": [
+          "log"
+        ]
+      }
+    },
+    "/api/v1/operation-logs/{record_id}": {
+      "get": {
+        "description": "操作日志详情（含哈希值）。\n\nArgs:\n    session: 平台库只读会话。\n    record_id: 日志主键。\n\nReturns:\n    ApiResponse: 统一响应，data 为日志详情。",
+        "operationId": "get_operation_log_api_v1_operation_logs__record_id__get",
+        "parameters": [
+          {
+            "description": "日志主键（雪花 ID）",
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "description": "日志主键（雪花 ID）",
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OperationLogItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Operation Log",
+        "tags": [
+          "log"
         ]
       }
     },
@@ -17035,6 +21913,226 @@
         "summary": "Scan Inactive",
         "tags": [
           "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/audit/shards/ensure": {
+      "post": {
+        "description": "确保审计分片存在（当月 + 未来 N 月，两类日志）。\n\nArgs:\n    session: 平台库会话。\n    req: 预创建请求（提前月数）。\n\nReturns:\n    ApiResponse: 统一响应，data 为已确保月份。",
+        "operationId": "ensure_shards_api_v1_platform_internal_audit_shards_ensure_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsureShardsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_EnsureShardsResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Ensure Shards",
+        "tags": [
+          "audit-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/audit/verify": {
+      "post": {
+        "description": "校验某类日志的哈希链（缺省校验台账全部月份）。\n\nArgs:\n    session: 平台库会话。\n    chain: 哈希链实现。\n    req: 校验请求（日志类型 + 可选月份）。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果。\n\nRaises:\n    ParamError: 日志类型未登记（10001）。",
+        "operationId": "verify_chain_api_v1_platform_internal_audit_verify_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_VerifyResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Verify Chain",
+        "tags": [
+          "audit-internal"
         ]
       }
     },
@@ -18478,7 +23576,7 @@
     },
     "/api/v1/platform/internal/users/query": {
       "post": {
-        "description": "按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。\n\n供产品组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）\n取用户明细——**不跨库读** `sys_user`。仅接受持有本能力有效分配的服务票据；只读、不写库、不产事件；\n联系方式**原样返回**（脱敏归消费方产品出口）。\n\nArgs:\n    req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户只读行（主键升序）。",
+        "description": "按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。\n\n供产品主数据域只读出口（字典数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）\n取用户明细——**不跨库读** `sys_user`。仅接受持有本能力有效分配的服务票据；只读、不写库、不产事件；\n联系方式**原样返回**（脱敏归消费方产品出口）。\n\nArgs:\n    req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户只读行（主键升序）。",
         "operationId": "query_users_api_v1_platform_internal_users_query_post",
         "parameters": [
           {
@@ -19486,6 +24584,168 @@
         "summary": "Get Product",
         "tags": [
           "product"
+        ]
+      }
+    },
+    "/api/v1/profile/preferences": {
+      "get": {
+        "description": "读取本人语言 / 时区偏好（存值 + 生效值）。\n\nArgs:\n    request: 请求对象。\n    uow: 请求级工作单元。\n    registry: 语言清单能力域。\n\nReturns:\n    ApiResponse[ProfilePreferenceResponse]: 统一响应。",
+        "operationId": "get_profile_preferences_api_v1_profile_preferences_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ProfilePreferenceResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Profile Preferences",
+        "tags": [
+          "profile"
+        ]
+      },
+      "put": {
+        "description": "设置本人语言 / 时区偏好（部分更新；非法值即拒）。\n\nArgs:\n    request: 请求对象。\n    req: 偏好设置请求。\n    uow: 请求级工作单元。\n    registry: 语言清单能力域。\n\nReturns:\n    ApiResponse[ProfilePreferenceResponse]: 更新后的偏好（存值 + 生效值）。",
+        "operationId": "update_profile_preferences_api_v1_profile_preferences_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfilePreferenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ProfilePreferenceResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Profile Preferences",
+        "tags": [
+          "profile"
         ]
       }
     },
@@ -20510,7 +25770,7 @@
     },
     "/api/v1/roles": {
       "get": {
-        "description": "角色列表（关键字 / 状态筛选 + 分页；含内置标记与主体数）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    kw: 关键字（角色码 / 名称）。\n    status: 状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页角色列表。",
+        "description": "角色列表（关键字 / 状态 / 主键集合筛选 + 分页；含内置标记与主体数）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    kw: 关键字（角色码 / 名称）。\n    status: 状态（enabled/disabled）。\n    ids: 角色主键清单（逗号分隔；供产品按主体标识批量回显名称）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页角色列表。",
         "operationId": "list_roles_api_v1_roles_get",
         "parameters": [
           {
@@ -20547,6 +25807,24 @@
               ],
               "description": "状态（enabled/disabled）",
               "title": "Status"
+            }
+          },
+          {
+            "description": "角色主键清单（逗号分隔，单次最多 200）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "角色主键清单（逗号分隔，单次最多 200）",
+              "title": "Ids"
             }
           },
           {
@@ -21071,7 +26349,7 @@
     },
     "/api/v1/roles/{role_id}/assignments": {
       "put": {
-        "description": "角色保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。\n权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    config: 系统参数取数（角色码格式）。\n    cache: 缓存能力域（角色 / 分配变更后权限版本递增）。\n    client: 服务间调用客户端（组织域分支执行 / 内部写通道）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`role` 段命令式复校 `role:update`）。\n    audit: 审计捕获器（三权拒绝留痕）。\n    idem_key: 幂等键请求头（透传给组织域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `role:update`（30001）。\n    ParamError: 未提供任何分段（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
+        "description": "角色保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 跨产品域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 跨产品域内部写通道）。\n权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    config: 系统参数取数（角色码格式）。\n    cache: 缓存能力域（角色 / 分配变更后权限版本递增）。\n    client: 服务间调用客户端（跨产品域分支执行 / 内部写通道）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`role` 段命令式复校 `role:update`）。\n    audit: 审计捕获器（三权拒绝留痕）。\n    idem_key: 幂等键请求头（透传给跨产品域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `role:update`（30001）。\n    ParamError: 未提供任何分段（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
         "operationId": "apply_role_assignments_api_v1_roles__role_id__assignments_put",
         "parameters": [
           {
@@ -22206,6 +27484,183 @@
         ]
       }
     },
+    "/api/v1/scope-resource-types": {
+      "get": {
+        "description": "作用域资源类型清单（只读，未退役全量；含已停用项）。\n\n需要 `scope-resource:query` 权限。\n\nArgs:\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应，data 为类型记录数组。",
+        "operationId": "list_scope_resource_types_api_v1_scope_resource_types_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Scope Resource Types",
+        "tags": [
+          "scope-resource"
+        ]
+      }
+    },
+    "/api/v1/scope-resource-types/{resource_type_key}": {
+      "patch": {
+        "description": "设置运营态（停用 / 恢复；只改运营态，不动产品声明）。\n\n需要 `scope-resource:manage` 权限；幂等（同值不写库、不记审计）；变更后重建进程内视图。\n\nArgs:\n    resource_type_key: 类型标识（`{module_key}.{kind}`）。\n    req: 运营态变更请求。\n    uow: 平台库工作单元（写事务边界）。\n    audit: 审计捕获器。\n    context: 入站身份（操作人取 `user_id`）。\n\nReturns:\n    ApiResponse: 统一响应，data 为变更后的类型记录。\n\nRaises:\n    ParamError: 运营态取值非法 / 类型已退役（10001）。\n    NotFoundError: 类型未登记（10002）。",
+        "operationId": "set_scope_resource_type_status_api_v1_scope_resource_types__resource_type_key__patch",
+        "parameters": [
+          {
+            "description": "类型标识（{module_key}.{kind}，如 msg.topic）",
+            "in": "path",
+            "name": "resource_type_key",
+            "required": true,
+            "schema": {
+              "description": "类型标识（{module_key}.{kind}，如 msg.topic）",
+              "title": "Resource Type Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScopeResourceTypeStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Set Scope Resource Type Status",
+        "tags": [
+          "scope-resource"
+        ]
+      }
+    },
     "/api/v1/tasks": {
       "get": {
         "description": "任务列表（分页 + 名称 / 状态筛选）。\n\nArgs:\n    uow: 工作单元。\n    page: 分页参数。\n    name: 名称关键字。\n    status: 状态。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
@@ -23111,6 +28566,131 @@
         "summary": "Trigger Task",
         "tags": [
           "task"
+        ]
+      }
+    },
+    "/api/v1/tenant-quotas/projections": {
+      "get": {
+        "description": "租户配额投影视图（按租户取产品只读投影）。\n\n需要 `tenant-quota:query` 权限。\n\nArgs:\n    request: 请求对象（取服务间调用客户端；并声明读取审计）。\n    tenant_id: 租户主键（雪花 id）。\n    module_key: 模块键过滤（可选）。\n    resource_key: 资源标识过滤（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为投影条目数组（与 `/scope-resource-types` 同风格）。",
+        "operationId": "list_quota_projections_api_v1_tenant_quotas_projections_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "module_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Module Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resource Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Quota Projections",
+        "tags": [
+          "tenant-quota"
         ]
       }
     },
@@ -24386,7 +29966,7 @@
     },
     "/api/v1/users": {
       "get": {
-        "description": "用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态筛选 + 分页）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    kw: 关键字（四字段模糊，大小写不敏感）。\n    status: 账号状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户列表。",
+        "description": "用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态 + 主键集合筛选 + 分页）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    kw: 关键字（四字段模糊，大小写不敏感）。\n    status: 账号状态（enabled/disabled）。\n    ids: 用户主键清单（逗号分隔；供产品按主体标识批量回显名称）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户列表。",
         "operationId": "list_users_api_v1_users_get",
         "parameters": [
           {
@@ -24423,6 +30003,24 @@
               ],
               "description": "账号状态（enabled/disabled）",
               "title": "Status"
+            }
+          },
+          {
+            "description": "用户主键清单（逗号分隔，单次最多 200）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "用户主键清单（逗号分隔，单次最多 200）",
+              "title": "Ids"
             }
           },
           {
@@ -24965,7 +30563,7 @@
     },
     "/api/v1/users/{user_id}/assignments": {
       "put": {
-        "description": "用户保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。\n权限码**分段校验**：`profile` 段另需 `user:update`。\n\nArgs:\n    user_id: 用户主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器（占位：保持构造口径一致）。\n    policy: 密码策略（占位）。\n    outbox: 事务性发件箱存储。\n    client: 服务间调用客户端（组织域分支执行 / 内部写通道；提交后会话失效）。\n    cache: 缓存能力域（角色分配变更后权限版本递增）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`profile` 段命令式复校）。\n    audit: 审计捕获（占位）。\n    idem_key: 幂等键请求头（透传给组织域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为用户详情、生效后角色清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `user:update`（30001）。\n    ParamError: 未提供任何分段 / 主要项不在集合内（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
+        "description": "用户保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 跨产品域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 跨产品域内部写通道）。\n权限码**分段校验**：`profile` 段另需 `user:update`。\n\nArgs:\n    user_id: 用户主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器（占位：保持构造口径一致）。\n    policy: 密码策略（占位）。\n    outbox: 事务性发件箱存储。\n    client: 服务间调用客户端（跨产品域分支执行 / 内部写通道；提交后会话失效）。\n    cache: 缓存能力域（角色分配变更后权限版本递增）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`profile` 段命令式复校）。\n    audit: 审计捕获（占位）。\n    idem_key: 幂等键请求头（透传给跨产品域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为用户详情、生效后角色清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `user:update`（30001）。\n    ParamError: 未提供任何分段 / 主要项不在集合内（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
         "operationId": "apply_user_assignments_api_v1_users__user_id__assignments_put",
         "parameters": [
           {
@@ -25383,7 +30981,7 @@
     },
     "/healthz": {
       "get": {
-        "description": "存活检查端点。\n\nArgs:\n    request: 当前请求（取服务身份）。\n\nReturns:\n    dict: 服务状态与身份，固定返回 {\"status\": \"ok\", \"service\": 名, \"version\": 版}。",
+        "description": "存活检查端点。\n\n显式声明 `x-error-codes: []`：探针不触达业务判定，没有产品码可声明（区别于漏声明）。\n\nArgs:\n    request: 当前请求（取服务身份）。\n\nReturns:\n    dict: 服务状态与身份，固定返回 {\"status\": \"ok\", \"service\": 名, \"version\": 版}。",
         "operationId": "healthz_healthz_get",
         "responses": {
           "200": {
@@ -25399,12 +30997,13 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Healthz"
+        "summary": "Healthz",
+        "x-error-codes": []
       }
     },
     "/readyz": {
       "get": {
-        "description": "就绪检查端点（启动完成态 + 停机摘流 + 注册表聚合）。\n\nArgs:\n    request: 当前请求（取应用启动完成态 / 停机摘流标记 / 服务身份）。\n    registry: 健康检查项注册表（依赖注入）。\n\nReturns:\n    JSONResponse: 全部就绪 200；未就绪、启动未完成或停机中 503。",
+        "description": "就绪检查端点（启动完成态 + 停机摘流 + 注册表聚合）。\n\n显式声明 `x-error-codes: []`：探针不触达业务判定，没有产品码可声明（区别于漏声明）。\n\nArgs:\n    request: 当前请求（取应用启动完成态 / 停机摘流标记 / 服务身份）。\n    registry: 健康检查项注册表（依赖注入）。\n\nReturns:\n    JSONResponse: 全部就绪 200；未就绪、启动未完成或停机中 503。",
         "operationId": "readyz_readyz_get",
         "responses": {
           "200": {
@@ -25416,7 +31015,8 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Readyz"
+        "summary": "Readyz",
+        "x-error-codes": []
       }
     }
   }

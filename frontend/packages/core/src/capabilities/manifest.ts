@@ -78,7 +78,6 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'dict_remote_select': ['option_source', 'user_display'],
   'dict_store': ['placeholder_state'],
   'dict_select': ['option_source', 'dict_store'],
-  'dict_tree': ['option_source', 'dict_store'],
   'dict_query': ['placeholder_state', 'dict_store'],
   captcha: ['input'],
   'dynamic_routes': [],
