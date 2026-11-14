@@ -64,6 +64,7 @@ from bms_platform.domains.import_export.services.exports import (
     ExportPayload,
     ExportService,
     as_int,
+    validate_print_options,
 )
 
 __all__ = ["build_export_router"]
@@ -214,7 +215,7 @@ def build_export_router(
             deps: 请求依赖。
         """
         user_id = current_user_id.get()
-        if user_id is None:  # pragma: no cover（鉴权路由下不可达；防御性分支）
+        if user_id is None:  # pragma: no cover - 鉴权路由下不可达；防御性分支
             return
         limits = await ExportLimits.load(deps.config)
         key = build_rate_limit_key(dimension="user", target=str(user_id), tenant=current_tenant.get())
@@ -264,6 +265,10 @@ def build_export_router(
         if order_by:
             params.set("order_by", order_by)
         params.set("order", order)
+        paper_value = paper or DEFAULT_PAPER
+        orientation_value = orientation or PRINT_ORIENTATIONS[0]
+        # 参数校验前置：非法纸张 / 方向在取数之前就失败（空结果不得吞掉参数错误）
+        validate_print_options(paper=paper_value, orientation=orientation_value)
         return ExportPayload(
             biz=biz,
             kind=kind,
@@ -273,8 +278,8 @@ def build_export_router(
             actor=current_user_id.get(),
             tenant_code=tenant.code,
             title=title,
-            paper=paper or DEFAULT_PAPER,
-            orientation=orientation or PRINT_ORIENTATIONS[0],
+            paper=paper_value,
+            orientation=orientation_value,
             watermark=watermark,
         )
 

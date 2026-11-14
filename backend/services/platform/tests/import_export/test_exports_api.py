@@ -375,6 +375,12 @@ async def test_export_list_pdf_bad_paper(env: _Env) -> None:
     response = await env.client.get(f"{API}/users/pdf", params={"ids": target, "paper": "B5"})
     assert response.status_code == 200
     assert _code(response) == 10001
+
+
+async def test_export_list_pdf_bad_paper_without_rows(env: _Env) -> None:
+    """纸张非法：即使筛选无数据也先报 10001（校验前置，不被「无数据可导出」吞成成功）。"""
+    response = await env.client.get(f"{API}/users/pdf", params={"ids": "1", "paper": "B5"})
+    assert response.status_code == 200
     assert _code(response) == 10001
 
 

@@ -79,6 +79,7 @@ __all__ = [
     "ExportService",
     "as_int",
     "build_export_masker",
+    "validate_print_options",
 ]
 
 _LOGGER = get_logger("bms")
@@ -109,6 +110,25 @@ _MAX_WATERMARK = 64
 
 ProgressCallback = Callable[[int, int], Awaitable[None]]
 """进度回调：`(已完成, 总量)`。"""
+
+
+def validate_print_options(*, paper: str, orientation: str) -> None:
+    """校验纸张 / 方向取值（非法即 `10001`）。
+
+    校验前置到**意图构造**阶段（`_payload`）：参数非法时既不查库也不渲染，直接失败——
+    否则「当前筛选无数据」会先返回成功，把非法参数吞掉（共享库并行下表现为间歇性 `0 != 10001`）。
+
+    Args:
+        paper: 纸张。
+        orientation: 纸张方向。
+
+    Raises:
+        ParamError: 纸张 / 方向非法（`10001`）。
+    """
+    if paper not in PRINT_PAPERS:
+        raise ParamError(f"纸张取值非法：{paper}")
+    if orientation not in PRINT_ORIENTATIONS:
+        raise ParamError(f"纸张方向非法：{orientation}")
 
 
 class _FixedPlainChecker(BasePermissionChecker):
@@ -469,10 +489,7 @@ class ExportExecutor(BaseFrameworkObject):
         Raises:
             ParamError: 纸张 / 方向非法（`10001`）。
         """
-        if payload.paper not in PRINT_PAPERS:
-            raise ParamError(f"纸张取值非法：{payload.paper}")
-        if payload.orientation not in PRINT_ORIENTATIONS:
-            raise ParamError(f"纸张方向非法：{payload.orientation}")
+        validate_print_options(paper=payload.paper, orientation=payload.orientation)
         return PrintOptions(
             paper=payload.paper,
             orientation=payload.orientation,
