@@ -15,16 +15,82 @@ import os
 import time
 from collections.abc import Generator
 from contextlib import contextmanager, suppress
+from pathlib import Path
 
 from bms_core.testing.paths import project_root
 
-DEFAULT_TIMEOUT = 120.0
-"""默认等锁上限（秒）：超时即报错，不静默并行。"""
+DEFAULT_TIMEOUT = 300.0
+"""默认等锁上限（秒）：超时即报错，不静默并行。
+
+2026-11-14 由 120s 提到 300s：CI 慢机上导出 / 文件仓写入类用例持锁可超过 2 分钟（bms#1659 实测超时）。
+"""
+
+STALE_AFTER = 600.0
+"""陈旧锁判定阈值（秒）：持锁超过该时长视为异常占用，直接清理重取。"""
+
+_POSIX = os.name == "posix"
+"""是否 POSIX（进程存活探测只在 POSIX 可用；Windows 交给时长判据）。"""
+
+
+def _holder_pid(content: str) -> int | None:
+    """解析锁文件记录的持锁进程号（`pid|时间戳` 形态；兼容旧版纯数字 / 文本）。
+
+    Args:
+        content: 锁文件内容。
+
+    Returns:
+        int | None: 进程号；无法解析为 `None`（按未知持有者处理）。
+    """
+    head = content.split("|", 1)[0].strip()
+    return int(head) if head.isdigit() else None
+
+
+def _pid_alive(pid: int) -> bool:
+    """判断持锁进程是否仍存活（仅 POSIX；其他平台恒返回 `True`，交给时长判据兜底）。
+
+    Args:
+        pid: 进程号。
+
+    Returns:
+        bool: 存活 `True`。
+    """
+    if not _POSIX:
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _is_stale(path: Path) -> bool:
+    """判定锁文件是否陈旧（持锁进程已死，或持锁时长超 `STALE_AFTER`）。
+
+    Args:
+        path: 锁文件路径。
+
+    Returns:
+        bool: 陈旧 `True`。
+    """
+    try:
+        stat = path.stat()
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    pid = _holder_pid(content)
+    if pid is not None and pid != os.getpid() and not _pid_alive(pid):
+        return True
+    return time.time() - stat.st_mtime > STALE_AFTER
 
 
 @contextmanager
 def file_lock(name: str, *, timeout: float = DEFAULT_TIMEOUT) -> Generator[None]:
     """取跨进程文件锁（`<工程根>/.cache/test/<name>.lock`）。
+
+    锁文件记录 `pid|创建时间戳`；等锁时先判陈旧（持锁进程已死 / 持锁过久）并清理重取，
+    避免 worker 被 xdist 杀掉或进程崩溃后残锁永久阻塞后续用例。
 
     Args:
         name: 锁名（建议语义化，如 `permission-admin-seed`）。
@@ -43,12 +109,16 @@ def file_lock(name: str, *, timeout: float = DEFAULT_TIMEOUT) -> Generator[None]
         try:
             handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
+            if _is_stale(path):
+                with suppress(FileNotFoundError):
+                    path.unlink()
+                continue
             if time.monotonic() > deadline:
                 raise TimeoutError(f"等待测试锁超时：{path}") from None
             time.sleep(0.05)
             continue
         with os.fdopen(handle, "w", encoding="utf-8") as file:
-            file.write(str(os.getpid()))
+            file.write(f"{os.getpid()}|{time.time():.0f}")
         break
     try:
         yield

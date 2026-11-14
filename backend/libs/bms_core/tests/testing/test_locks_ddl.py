@@ -18,7 +18,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import sqlite3
+import time
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any, cast
@@ -50,6 +52,41 @@ def _lock_path(name: str) -> Any:
         Any: 锁文件路径对象。
     """
     return project_root() / ".cache" / "test" / f"{name}.lock"
+
+
+def _raise_process_lookup_error(pid: int, sig: int) -> None:
+    """替身 `os.kill`：持锁进程不存在。
+
+    Args:
+        pid: 进程号。
+        sig: 信号号。
+
+    Raises:
+        ProcessLookupError: 恒抛（模拟进程已死）。
+    """
+    raise ProcessLookupError(pid, sig)
+
+
+def _raise_permission_error(pid: int, sig: int) -> None:
+    """替身 `os.kill`：进程存在但无权限探测（按存活处理）。
+
+    Args:
+        pid: 进程号。
+        sig: 信号号。
+
+    Raises:
+        PermissionError: 恒抛（模拟权限不足）。
+    """
+    raise PermissionError(pid, sig)
+
+
+def _noop_kill(pid: int, sig: int) -> None:
+    """替身 `os.kill`：进程存在且可探测（成功路径）。
+
+    Args:
+        pid: 进程号。
+        sig: 信号号。
+    """
 
 
 def _ddl_lock_path(database: str) -> Any:
@@ -95,6 +132,70 @@ def test_file_lock_tolerates_lock_file_removed_by_other() -> None:
     with file_lock(name, timeout=5):
         _lock_path(name).unlink(missing_ok=True)
     assert not _lock_path(name).exists()
+
+
+@pytest.mark.kiwi_id(2317)
+def test_file_lock_reclaims_dead_holder(monkeypatch: pytest.MonkeyPatch) -> None:
+    """持锁进程已死 → 判为陈旧并清理重取（xdist 杀 worker / 进程崩溃的残锁不再阻塞）。"""
+    name = "ddl-test-dead-holder"
+    path = _lock_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("999999|0", encoding="utf-8")
+    monkeypatch.setattr(locks_module, "_POSIX", True)
+    monkeypatch.setattr(locks_module.os, "kill", _raise_process_lookup_error)
+    try:
+        with file_lock(name, timeout=1):
+            assert path.is_file()
+        assert not path.exists()
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@pytest.mark.kiwi_id(2317)
+def test_file_lock_reclaims_aged_lock() -> None:
+    """未知持有者但锁文件已超陈旧阈值 → 清理重取（Windows 等无进程探测时兜底）。"""
+    name = "ddl-test-aged"
+    path = _lock_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("other", encoding="utf-8")
+    aged = time.time() - locks_module.STALE_AFTER - 5
+    os.utime(path, (aged, aged))
+    try:
+        with file_lock(name, timeout=1):
+            assert path.is_file()
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@pytest.mark.kiwi_id(2317)
+def test_lock_helpers_cover_holder_parsing_and_liveness(monkeypatch: pytest.MonkeyPatch) -> None:
+    """持有者解析 / 存活探测 / 陈旧判定：非法内容不判陈旧、自身 pid 不判陈旧、权限错误按存活。"""
+    assert locks_module._holder_pid("123|456") == 123  # pyright: ignore[reportPrivateUsage]
+    assert locks_module._holder_pid("other") is None  # pyright: ignore[reportPrivateUsage]
+
+    pid = os.getpid()
+    # `_POSIX` 真值 + 替身成功路径：覆盖「探测到存活」分支（Windows 上真调 `os.kill(pid, 0)`
+    # 会走 TerminateProcess，不能真调）
+    monkeypatch.setattr(locks_module, "_POSIX", True)
+    monkeypatch.setattr(locks_module.os, "kill", _noop_kill)
+    assert locks_module._pid_alive(pid)  # pyright: ignore[reportPrivateUsage]
+    path = _lock_path("ddl-test-helpers")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{pid}|{time.time():.0f}", encoding="utf-8")
+    try:
+        # 自身 pid（同进程重入）不算陈旧；锁文件不存在也不算陈旧
+        assert not locks_module._is_stale(path)  # pyright: ignore[reportPrivateUsage]
+        assert not locks_module._is_stale(path.with_name("ddl-test-missing"))  # pyright: ignore[reportPrivateUsage]
+    finally:
+        path.unlink(missing_ok=True)
+
+    monkeypatch.setattr(locks_module, "_POSIX", True)
+    monkeypatch.setattr(locks_module.os, "kill", _raise_permission_error)
+    assert locks_module._pid_alive(999999)  # pyright: ignore[reportPrivateUsage]
+
+    # 非 POSIX 平台：不做进程探测，按存活处理（交给时长判据）
+    monkeypatch.setattr(locks_module, "_POSIX", False)
+    assert locks_module._pid_alive(999999)  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2317)
