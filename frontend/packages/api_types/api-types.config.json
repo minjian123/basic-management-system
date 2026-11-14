@@ -1,0 +1,23 @@
+{
+  "product": "bms",
+  "contractsDir": "deploy/contracts",
+  "outDir": "src",
+  "indexFile": "index.ts",
+  "header": {
+    "title": "服务契约生成类型：{name}",
+    "generator": "frontend/packages/api_types/scripts/generate.mjs",
+    "sourceNote": "服务契约快照",
+    "regenerateCmd": "pnpm run api_types:gen"
+  },
+  "index": {
+    "title": "服务契约生成类型汇总（由 scripts/generate.mjs 生成，勿手改）。",
+    "notes": ["按服务命名空间导出：`import type { platform } from \"@bms/api_types\"`。"],
+    "exportTemplate": "export type * as {name} from './{name}'"
+  },
+  "inputs": [
+    "deploy/contracts/",
+    "frontend/packages/api_types/",
+    "backend/libs/bms_core/src/bms_core/schemas/",
+    "backend/libs/bms_core/src/bms_core/services/service_contract.py"
+  ]
+}
