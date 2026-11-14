@@ -31,7 +31,7 @@ from bms_core.core.context import (
     current_trace_id,
     current_user_id,
 )
-from bms_core.core.id import MAX_WORKER_ID
+from bms_core.core.id import MAX_WORKER_ID, id_generator
 from bms_core.permission.cache import reset_permission_cache_store
 from bms_core.testing import namespace as namespace_module
 from bms_core.testing.namespace import Namespace
@@ -137,8 +137,13 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # 三层权限缓存是**进程级单份**（`04-2`）：跨套件 / 跨用例共用会串味（同租户同用户同版本命中别处数据）
     reset_permission_cache_store()
     # 并行下 WorkerId 必须按 worker 错开（缺省 0 会让多进程同毫秒生成相同雪花 ID；见
-    # `worker_id_for_snowflake`）。经配置注入，lifespan 的 `validate_startup` 会据此重设生成器。
-    monkeypatch.setenv("BMS_APP__WORKER_ID", str(worker_id_for_snowflake()))
+    # `worker_id_for_snowflake`）。经配置注入，lifespan 的 `validate_startup` 会据此重设生成器；
+    # **同时直接重设一次**——不启应用的用例（交易 2PC 真库用例直接构造协调器）没有 lifespan，
+    # 只靠配置注入会一直用 WorkerId=0，多 worker 同毫秒仍生成相同雪花 ID（派生同一 XA `xid`，
+    # MySQL 报 `XAER_DUPID`；bms#1629 实测）。
+    worker_id = worker_id_for_snowflake()
+    monkeypatch.setenv("BMS_APP__WORKER_ID", str(worker_id))
+    id_generator.reconfigure(worker_id)
     # WorkerId 动态注册（03_06）在单测里关闭：注册要连 Redis 并逐用例占号，会与上面的按 worker 注入
     # 冲突（每用例一套 fakeredis，占号无意义）；注册路径由 `tests/workerid/` 专项用例显式开启覆盖。
     monkeypatch.setenv("BMS_WORKER_ID__ENABLED", "false")

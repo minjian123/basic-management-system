@@ -11,6 +11,7 @@ from typing import cast
 
 import pytest
 
+from bms_core.core.id_bits import WORKER_BITS, WORKER_SHIFT
 from bms_core.testing import fixtures
 
 
@@ -57,7 +58,11 @@ def test_worker_id_for_snowflake_derives_from_xdist(monkeypatch: pytest.MonkeyPa
 
 
 def test_isolate_settings_injects_worker_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    """隔离夹具把派生出的 WorkerId 写进 `BMS_APP__WORKER_ID`（并行下雪花 ID 不撞）。"""
+    """隔离夹具把派生 WorkerId 写进 `BMS_APP__WORKER_ID`，并**直接重设生成器**（不依赖 lifespan）。
+
+    直接重设是 2PC 真库用例的必需项：它们直接构造协调器、不走应用启动，拿不到 `validate_startup`
+    的重设，多 worker 同毫秒会生成相同雪花 ID（派生同一 XA `xid`，MySQL 报 `XAER_DUPID`；bms#1629）。
+    """
     monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw3")
     direct = cast(
         "Callable[[pytest.MonkeyPatch], Generator[None]]",
@@ -67,6 +72,8 @@ def test_isolate_settings_injects_worker_id(monkeypatch: pytest.MonkeyPatch) -> 
     next(generator)
     try:
         assert os.environ["BMS_APP__WORKER_ID"] == "4"
+        generated = fixtures.id_generator.next_id()
+        assert (generated >> WORKER_SHIFT) & ((1 << WORKER_BITS) - 1) == 4
     finally:
         generator.close()
 
