@@ -6,7 +6,7 @@
 import type { DictItem, DictSourceAdapter, DictSourceTypeQuery } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DictTreeField, TreeSelectField } from '../src'
 
@@ -52,6 +52,11 @@ const treeItems = [
 ]
 
 describe('DictTreeField', () => {
+  // 字典缓存落 localStorage（跨测试共享）：每例清空，避免上一例的大字典 / 版本状态污染本例请求次数
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
   it('未注入数据源即占位零请求', async () => {
     const wrapper = mount(DictTreeField, {
       props: { dataSourceKey: 'mdm_dept' },

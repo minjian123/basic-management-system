@@ -2,6 +2,8 @@
 // 字典树字段：与「字典选择字段」同一套字典数据通路（`dataSourceKey` + 注入式 `DictSourceAdapter`），
 // 区别只在展示形态——平铺件按当前层过滤，本件按 `parentId` 组装为树。
 // 取数策略：整树优先（≤ 阈值一次拉全量并组树），超阈值转懒加载（点击展开按 `parentId` 拉子级）。
+// 数据通路经 `useBaseDictSelect` 投影（`BaseDictSelect` + `BaseDictStore`：版本比对 / 缓存 / 错误态 /
+// 大字典判定）；树只是展示形态，组装仍在 `domain/dict.ts`，不另立能力基类（06_06 设计口径）。
 import {
   DICT_PROBE_LIMIT,
   buildDictTree,
@@ -13,6 +15,7 @@ import {
 } from '@bms/core'
 import { computed, onMounted, ref, watch } from 'vue'
 
+import { useBaseDictSelect } from '../../composables/useBaseDictSelect'
 import TreeSelectField from './TreeSelectField.vue'
 import type { TreeFieldNode, TreeFieldValue } from './TreeSelectField.vue'
 
@@ -86,10 +89,11 @@ const emit = defineEmits<{
   'update:modelValue': [value: TreeFieldValue]
 }>()
 
+/** 字典数据通路投影（缓存 / 版本比对 / 错误态 / 大字典判定；06_06 字典选择族）。 */
+const dict = useBaseDictSelect()
+
 const nodes = ref<DictTreeSelectNode[]>([])
 const lazyMode = ref(false)
-const loading = ref(false)
-const errorText = ref('')
 
 /** 数据通路是否就绪（显式入参优先，否则由「有数据源 + 有字典标识」推导）。 */
 const ready = computed(() => props.ready ?? (props.source !== undefined && props.dataSourceKey !== ''))
@@ -97,8 +101,29 @@ const ready = computed(() => props.ready ?? (props.source !== undefined && props
 /** 是否降级（未就绪 / 无数据源 / 无字典标识：零请求）。 */
 const degraded = computed(() => !ready.value)
 
-/** 生效错误文案（外部优先）。 */
-const effectiveError = computed(() => props.errorMessage || errorText.value)
+/** 加载中（由投影回传）。 */
+const loading = computed(() => dict.loading.value)
+
+/** 生效错误文案（外部优先，其次投影错误态）。 */
+const effectiveError = computed(() => props.errorMessage || dict.errorMessage.value)
+
+watch(
+  () => [props.ready, props.dataSourceKey, props.source, props.multiple] as const,
+  ([readyFlag, dataSourceKey, source, multiple]) => {
+    // 先绑数据源再切字典标识：投影内部把源绑定到缓存能力，绑定时序影响首个请求的去重与版本比对
+    dict.setSource(source)
+    dict.setDictType(dataSourceKey)
+    dict.setMultiple(multiple)
+    dict.setReady(readyFlag ?? (source !== undefined && dataSourceKey !== ''))
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.modelValue,
+  (value) => dict.syncValue(value),
+  { immediate: true },
+)
 
 /**
  * 解析一次取数结果。
@@ -111,41 +136,44 @@ function itemsOf(raw: unknown): DictItem[] {
   return result.items ?? []
 }
 
-/** 整树 / 懒加载判定：探针超阈值或条目数超阈值即转懒加载。 */
+/**
+ * 首屏装载：整树优先，超阈值转懒加载（只拉顶层，子级展开时按 `parentId` 取）。
+ *
+ * 全量条目始终读缓存能力（`itemsOf`）：投影的 `items` 在非级联口径下按顶层过滤，会丢子级。
+ *
+ * @returns Promise<void>: 装载完成。
+ */
 async function load(): Promise<void> {
-  const source = props.source
-  const loader = source?.getType
-  if (!ready.value || source === undefined || loader === undefined) {
+  if (!ready.value) {
     return
   }
-  loading.value = true
-  errorText.value = ''
-  try {
-    const raw = await loader.call(source, { dataSourceKey: props.dataSourceKey, limit: DICT_PROBE_LIMIT })
-    const result = normalizeDictTypeResult(raw)
-    const items = result.items ?? []
-    const exceeds = result.hasMore || result.total > props.lazyThreshold || items.length > props.lazyThreshold
-    if (!exceeds) {
-      lazyMode.value = false
-      nodes.value = buildDictTree(items)
-      return
-    }
-    lazyMode.value = true
-    const topRaw = await loader.call(source, {
-      dataSourceKey: props.dataSourceKey,
-      parentId: TOP_PARENT,
-      limit: DICT_PROBE_LIMIT,
-    })
-    nodes.value = buildDictTree(itemsOf(topRaw), { rootParentId: TOP_PARENT })
-  } catch (error) {
-    errorText.value = error instanceof Error ? error.message : String(error)
-  } finally {
-    loading.value = false
+  dict.setParent('')
+  await dict.load()
+  const all = dict.store.itemsOf(props.dataSourceKey)
+  const exceeds = dict.isLarge.value || all.length > props.lazyThreshold
+  if (!exceeds) {
+    lazyMode.value = false
+    nodes.value = buildDictTree(all)
+    return
   }
+  lazyMode.value = true
+  const loader = props.source?.getType
+  if (loader === undefined || props.source === undefined) {
+    nodes.value = []
+    return
+  }
+  const raw = await loader.call(props.source, {
+    dataSourceKey: props.dataSourceKey,
+    parentId: TOP_PARENT,
+    limit: DICT_PROBE_LIMIT,
+  })
+  nodes.value = buildDictTree(itemsOf(raw), { rootParentId: TOP_PARENT })
 }
 
 /**
  * 懒加载子节点（树选择件展开时调用）。
+ *
+ * 子级按 `parentId` 单层取数，不复用类型缓存（缓存按类型整树口径，单层结果会污染全量）。
  *
  * @param node 当前节点（根为 `undefined`）。
  * @returns TreeFieldNode[]: 子节点。
@@ -236,3 +264,14 @@ watch(
     />
   </div>
 </template>
+
+<style scoped>
+.bms-dict-tree-field {
+  width: 100%;
+}
+
+.bms-dict-tree-field__readonly {
+  line-height: var(--el-component-size);
+  color: var(--el-text-color-regular);
+}
+</style>

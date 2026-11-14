@@ -280,7 +280,16 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
       return
     }
     if (this.store !== undefined && this.store.ready && this.store.source !== undefined && this.parentId === '') {
+      this.errorCode = undefined
+      this.errorMessage = ''
       await this.store.ensureType(this.dataSourceKey)
+      const failure = this.store.errorOf(this.dataSourceKey)
+      if (failure !== undefined) {
+        // 缓存能力吞掉异常但记了原始错误：回传错误态，避免调用方只看到空态
+        this.#applyError(failure)
+        this.emitUpdate()
+        return
+      }
       if (this.store.isLarge(this.dataSourceKey) && !isBlankDictKeyword(this.keyword)) {
         const candidates = await this.store.searchRemote(this.dataSourceKey, this.keyword)
         this.#applyCandidates(candidates)
@@ -576,7 +585,12 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   #applyError(error: unknown): void {
     const code = readErrorCode(error)
     this.errorCode = code
-    this.errorMessage = isDictErrorCode(code) ? resolveDictErrorText(code) : resolveDictErrorText(undefined)
+    const detail = error instanceof Error ? error.message.trim() : ''
+    this.errorMessage = isDictErrorCode(code)
+      ? resolveDictErrorText(code)
+      : detail !== ''
+        ? detail
+        : resolveDictErrorText(undefined)
     this.reportError(error, { scope: 'BaseDictSelect.load' })
   }
 

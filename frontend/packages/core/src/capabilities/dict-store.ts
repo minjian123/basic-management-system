@@ -92,6 +92,8 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   readonly _subsets = new Map<string, string>()
   /** 大字典类型登记（探针判定）。 */
   readonly _large = new Set<string>()
+  /** 按类型的最近一次取数失败（成功即清；供上层投影回传错误态）。 */
+  readonly _errors = new Map<string, unknown>()
   /** 已解析 id 登记（含未命中；避免重复请求，未命中仍不占位）。 */
   readonly _resolved = new Set<string>()
   /** 在途类型请求（并发去重）。 */
@@ -351,6 +353,19 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   }
 
   /**
+   * 取类型最近一次取数失败（成功即清）。
+   *
+   * 缓存能力把异常上报到 sink 时同步记下原始错误，投影（`BaseDictSelect`）据此回传错误态 ——
+   * 否则走缓存路径的组件只能显示空态，用户看不到失败原因。
+   *
+   * @param dataSourceKey 字典类型码。
+   * @returns 原始错误；无失败为 `undefined`。
+   */
+  errorOf(dataSourceKey: string): unknown | undefined {
+    return this._errors.get(dataSourceKey)
+  }
+
+  /**
    * 是否超大字典（探针判定）。
    *
    * @param dataSourceKey 字典类型码。
@@ -468,6 +483,7 @@ export abstract class BaseDictStore extends BasePlaceholderState {
         limit: DICT_PROBE_LIMIT,
       })
       this.loading = false
+      this._errors.delete(dataSourceKey)
       if (result === undefined) {
         this.emitUpdate()
         return
@@ -494,6 +510,7 @@ export abstract class BaseDictStore extends BasePlaceholderState {
       this.emitUpdate()
     } catch (error) {
       this.loading = false
+      this._errors.set(dataSourceKey, error)
       this.reportError(error, { scope: 'BaseDictStore.ensureType' })
       this.emitUpdate()
     }
@@ -585,6 +602,9 @@ export abstract class BaseDictStore extends BasePlaceholderState {
       this.emitUpdate()
     } catch (error) {
       this.loading = false
+      for (const type of targets) {
+        this._errors.set(type, error)
+      }
       this.reportError(error, { scope: 'BaseDictStore.ensureTypes' })
       this.emitUpdate()
     }
