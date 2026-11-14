@@ -1186,6 +1186,9 @@ txn-2pc:
         paths:
           - backend/libs/bms_core/src/bms_core/transaction/**/*
           - backend/libs/bms_core/src/bms_core/db/**/*
+          # 测试基座 / 夹具（并行 WorkerId、共享库隔离）直接决定本作业的稳定性（bms#1629 撞 XA XID），
+          # 改这里必须重跑真库 2PC
+          - backend/libs/bms_core/src/bms_core/testing/**/*
           - backend/libs/bms_core/tests/integration/**/*
           - backend/services/txn/**/*
           - backend/ops/txn_recovery.py
