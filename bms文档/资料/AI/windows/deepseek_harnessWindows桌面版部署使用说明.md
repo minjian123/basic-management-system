@@ -1,6 +1,6 @@
 # deepseek_harness Windows 桌面版部署使用说明
 
-> mjpc（Windows 11 侧）· DeepSeek Harness 桌面版 `0.2.1-rc.2`（Electron 44.7.0）· 插件市场与 Our Free Model 的安装与更新
+> mjpc（Windows 11 侧）· DeepSeek Harness 桌面版 `0.2.2-rc.3`（Electron 44.7.0）· 插件市场与 Our Free Model 的安装与更新
 
 [文档首页](../../../文档首页.md) › 资料 › [AI](../) › [windows](./) › deepseek_harness Windows 桌面版部署使用说明
 
@@ -50,7 +50,7 @@ C:\Users\<用户>\AppData\Local\Programs\DeepSeek Harness\
 | 项 | 取值 | 来源 |
 | --- | --- | --- |
 | Electron 版本 | 44.7.0 | 安装目录 `version` 文件 |
-| 应用版本 | 0.2.1-rc.2 | `app.asar` 内根 `package.json` 的 `name: @deepseek-ai/dsh-desktop` |
+| 应用版本 | 0.2.2-rc.3 | `app.asar` 内根 `package.json` 的 `name: @deepseek-ai/dsh-desktop` |
 | 内置运行时 | node 24.21.0 / pnpm 11.28.5 / Python 3.12.14 | `resources\runtime\versions.json` |
 
 ### 2.2 与源码版的关键差异 <a id="install-diff"></a>
@@ -324,4 +324,4 @@ flowchart LR
 - 《[本地资源](../../../用户文档/本地资源.md)》：机器硬件与账号（已 gitignore，不入库）
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档遵循的规范
 
-> 依《文档生成规范》编写 · 桌面版实测基于 DSH 0.2.1-rc.2（Electron 44.7.0）
+> 依《文档生成规范》编写 · 桌面版实测基于 DSH 0.2.2-rc.3（Electron 44.7.0；2026-11-13 安装，2026-11-14 复核版本与插件）
