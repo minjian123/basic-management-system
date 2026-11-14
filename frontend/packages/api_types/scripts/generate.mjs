@@ -8,10 +8,9 @@
  */
 
 import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { run } from '../../../scripts/api-types/generate.mjs'
 
-const packageDir = resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
+const packageDir = resolve(import.meta.dirname, '..')
 
 process.exitCode = await run({ packageDir })
