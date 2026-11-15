@@ -16,6 +16,11 @@ const quotasMock = vi.fn()
 const updateMock = vi.fn()
 const updateQuotasMock = vi.fn()
 const switchMock = vi.fn()
+const optionSetsMock = vi.fn()
+
+vi.mock('@/api/optionSets', () => ({
+  fetchOptionSetIndex: (...args: unknown[]) => optionSetsMock(...args),
+}))
 
 vi.mock('@/api/tenantAdmin', () => ({
   listTenants: vi.fn(),
@@ -98,10 +103,12 @@ beforeEach(() => {
   updateMock.mockReset()
   updateQuotasMock.mockReset()
   switchMock.mockReset()
+  optionSetsMock.mockReset()
 
   detailMock.mockResolvedValue(DETAIL)
   modulesMock.mockResolvedValue({ items: DETAIL.modules })
   quotasMock.mockResolvedValue({ items: DETAIL.quotas })
+  optionSetsMock.mockResolvedValue({})
   vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
   vi.spyOn(ElMessage, 'success').mockImplementation(() => undefined as never)
   vi.spyOn(ElMessage, 'warning').mockImplementation(() => undefined as never)
@@ -109,6 +116,18 @@ beforeEach(() => {
 })
 
 describe('TenantRecordTab（04_01）', () => {
+  it('选项集快照缺 key：状态显式标未知（不默认成启用）', async () => {
+    const wrapper = await mountTab()
+    expect(wrapper.find('[data-test="tenant-record-status"]').text()).toBe('未知状态（active）')
+  })
+
+  it('选项集拉取失败：降级为空清单且记录页可用', async () => {
+    optionSetsMock.mockRejectedValue(new Error('option-sets 不可用'))
+    const wrapper = await mountTab()
+    expect(wrapper.find('[data-test="tenant-record-status"]').text()).toBe('未知状态（active）')
+    expect(wrapper.find('[data-test="tenant-record"]').exists()).toBe(true)
+  })
+
   it('详情载入：基本信息 / 配额 / 模块渲染，附属清单回填', async () => {
     const wrapper = await mountTab()
     expect(detailMock).toHaveBeenCalledWith('1')

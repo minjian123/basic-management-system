@@ -184,6 +184,12 @@ beforeEach(() => {
 })
 
 describe('TenantView（04_01）', () => {
+  it('状态选项集缺 key：标签显式标未知（不默认成启用）', async () => {
+    optionSetsMock.mockResolvedValue({})
+    const { wrapper } = await mountView()
+    expect(wrapper.findAll('[data-test="tenant-status-tag"]')[0]!.text()).toBe('未知状态（active）')
+  })
+
   it('列表装载：编码 / 名称 / 域名 / 状态 / 模块 / 到期时间', async () => {
     const { wrapper } = await mountView()
 
