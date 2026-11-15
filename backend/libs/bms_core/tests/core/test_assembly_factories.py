@@ -156,3 +156,24 @@ def test_minio_factories_build_with_credentials() -> None:
     assert assembly.MinioMultipartUploadFactory(settings).create() is not None
     with pytest.raises(PluginError, match="不配对"):
         assembly.LocalMultipartUploadFactory(settings).create()
+
+
+def test_minio_factories_reject_incomplete(monkeypatch: pytest.MonkeyPatch) -> None:
+    """MinIO 工厂拒启分支：凭据缺失 / 分片与存储不配对 / SDK 缺失。"""
+    settings = Settings()
+    settings.storage = PluginSelection(provider="minio")
+    with pytest.raises(PluginError, match="缺少端点"):
+        assembly.MinioObjectStorageFactory(settings).create()
+    with pytest.raises(PluginError, match="缺少端点"):
+        assembly.MinioMultipartUploadFactory(settings).create()
+
+    settings.storage = PluginSelection(provider="local")
+    with pytest.raises(PluginError, match="不配对"):
+        assembly.MinioMultipartUploadFactory(settings).create()
+
+    def _missing(name: str) -> Any:
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setattr(assembly, "import_module", _missing)
+    with pytest.raises(PluginError, match="minio"):
+        assembly.MinioMultipartUploadFactory(settings).create()
