@@ -17,7 +17,7 @@
   - `check_ci_config.py`：步骤命令在 `engkit.toml` 里不带 `--files-from`（推送环走全量），
     由 `SCRIPT_INCREMENTAL` 显式登记；
 - **执行范围会覆盖未改动文件的步骤**（`tsc` / `vue-tsc` 的检查单元是整个工程，还会按依赖闭包
-  把未改动的下游工程一起验）→ 登记进 `FULL_SCAN_STEPS`（目前只有「前端类型」一项）：
+  把未改动的下游工程一起验）→ 登记进 `FULL_SCAN_STEPS`（「前端类型 / 前端用例」两项）：
   本次改动不触及则不跑，触及则**立即报错**拒绝提交，需 `--allow-full-steps` 显式放行；
 - `full_tests` / `project_tests`（仅 CI）→ 跳过并注明。
 
@@ -127,6 +127,7 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "ops.gateway_config",
         "ops.check_modules",
         "check_frontend_types.py",
+        "check_frontend_tests.py",
         "check_prototype_review.py",
         "api-types",
         "ruff",
@@ -160,6 +161,8 @@ STEP_EXCLUDED_SUFFIXES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenLi
     {
         # 前端类型检查的对象是 `.ts/.vue` 源码，不是生成脚本 / 构建脚本
         "check_frontend_types.py": ConcurrentStableFrozenList((".mjs", ".js", ".md")),
+        # 前端用例同理：文档改动不该把整条前端链拉起来
+        "check_frontend_tests.py": ConcurrentStableFrozenList((".md",)),
     }
 )
 """步骤的「无关后缀」：命中作用域但这些后缀的改动与该步骤判据无关，不触发（避免白跑）。"""
@@ -190,6 +193,9 @@ FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         # 把未改动的下游工程一起验——执行范围必然覆盖未改动文件，与「只判改动文件」不相容。
         # 因此不进提交前门禁：本次改动不触及则不跑；触及则立即报错，需 `--allow-full-steps` 放行。
         "check_frontend_types.py",
+        # 前端用例：`vitest` 的覆盖率判定单元同样是整个工程（分支/行阈值按工程汇总），
+        # 只跑改动文件会得出与 CI 不一致的假缺口；与「前端类型」同口径，归推送环执行。
+        "check_frontend_tests.py",
     )
 )
 """语义为「全仓口径一致 / 零漂移」的步骤：默认命令只能全仓判定，无法只判改动文件。
@@ -237,6 +243,14 @@ STEP_SCOPES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = 
         "check_prototype_review.py": ConcurrentStableFrozenList(("frontend/",)),
         # 前端类型只受「前端源码 / 契约快照 / 基座 schema」影响；改后端业务实现不该白跑 typecheck
         "check_frontend_types.py": ConcurrentStableFrozenList(
+            (
+                "frontend/",
+                "deploy/contracts/",
+                "backend/libs/bms_core/src/bms_core/schemas/",
+            )
+        ),
+        # 前端用例与类型同源，但**包含**用例目录（改用例必须重跑）
+        "check_frontend_tests.py": ConcurrentStableFrozenList(
             (
                 "frontend/",
                 "deploy/contracts/",

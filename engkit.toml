@@ -332,6 +332,12 @@ label = "前端类型：受影响工程逐个 typecheck / build"
 cmd = ["{python}", "scripts/tools/preflight/check_frontend_types.py", "{root}"]
 
 [[preflight.steps]]
+label = "前端用例：受影响工程逐个 vitest（有覆盖率脚本时一并判定）"
+# 2026-11-15 拍板：前端用例与覆盖率此前只在 CI 跑，连续两轮 CI 往返（bms#1679 用例红、
+# #1680 分支缺口）才暴露。本步与「前端类型」同口径按变更定向，有 test:cov 的工程连覆盖率一起判。
+cmd = ["{python}", "scripts/tools/preflight/check_frontend_tests.py", "{root}"]
+
+[[preflight.steps]]
 label = "前端：api-types 契约类型零漂移"
 cmd = ["node", "scripts/generate.mjs", "--check"]
 cwd = "frontend/packages/api_types"
