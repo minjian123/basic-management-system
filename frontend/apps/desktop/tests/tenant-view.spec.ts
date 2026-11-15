@@ -22,6 +22,11 @@ import {
 } from '@/api/tenantAdmin'
 import { useTabsStore } from '@/stores/tabs'
 import TenantView from '@/views/system/TenantView.vue'
+import { fetchOptionSetIndex } from '@/api/optionSets'
+
+vi.mock('@/api/optionSets', () => ({
+  fetchOptionSetIndex: vi.fn(),
+}))
 
 vi.mock('@/api/tenantAdmin', () => ({
   listTenants: vi.fn(),
@@ -47,6 +52,17 @@ const activateMock = vi.mocked(activateTenant)
 const detailMock = vi.mocked(getTenant)
 const modulesMock = vi.mocked(fetchTenantModules)
 const quotasMock = vi.mocked(fetchTenantQuotas)
+const optionSetsMock = vi.mocked(fetchOptionSetIndex)
+
+/** 租户状态选项集快照桩（与注册表 `bms.tenant.status` 同口径：闭集，标签只从配置来）。 */
+const STATUS_OPTIONS = {
+  'bms.tenant.status': [
+    { value: 'provisioning', label: '开通中', sort: 1, color: 'info' },
+    { value: 'active', label: '启用', sort: 2, color: 'success' },
+    { value: 'suspended', label: '停用', sort: 3, color: 'warning' },
+    { value: 'deleted', label: '已删除', sort: 4, color: 'danger' },
+  ],
+}
 
 /** 租户列表桩数据。 */
 const PAGE = {
@@ -152,12 +168,14 @@ beforeEach(() => {
   detailMock.mockReset()
   modulesMock.mockReset()
   quotasMock.mockReset()
+  optionSetsMock.mockReset()
 
   listMock.mockResolvedValue(PAGE)
   optionsMock.mockResolvedValue({ items: [] })
   detailMock.mockResolvedValue(DETAIL)
   modulesMock.mockResolvedValue({ items: [] })
   quotasMock.mockResolvedValue({ items: [] })
+  optionSetsMock.mockResolvedValue(STATUS_OPTIONS)
   vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm')
   vi.spyOn(ElMessageBox, 'alert').mockResolvedValue('confirm')
   vi.spyOn(ElMessage, 'success').mockImplementation(() => undefined as never)
