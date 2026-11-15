@@ -79,6 +79,30 @@ function readChangedList(argv) {
 }
 
 /**
+ * 把契约中的 `x-extensible-enum` 回填为 `enum`（仅内存副本）。
+ *
+ * openapi-typescript 7.13 只识别 `enum`；契约里的扩展键由选项集派生，回填后仍生成已知值联合。
+ *
+ * @param node 待处理的契约节点（对象 / 数组 / 标量）。
+ */
+function backfillExtensibleEnums(node) {
+  if (Array.isArray(node)) {
+    node.forEach((item) => backfillExtensibleEnums(item))
+    return
+  }
+  if (typeof node !== 'object' || node === null) {
+    return
+  }
+  const values = node['x-extensible-enum']
+  if (Array.isArray(values) && values.length > 0) {
+    node.enum = [...values]
+  }
+  for (const value of Object.values(node)) {
+    backfillExtensibleEnums(value)
+  }
+}
+
+/**
  * 生成单份契约的类型文件内容。
  *
  * @param options 生成上下文。
@@ -89,6 +113,7 @@ async function generateFile(options, fileName) {
   const { config, contractsDir, openapiTS, astToString } = options
   const name = fileName.replace(/\.json$/, '')
   const schema = readJson(join(contractsDir, fileName))
+  backfillExtensibleEnums(schema)
   const ast = await openapiTS(schema)
   const header = [
     '/**',

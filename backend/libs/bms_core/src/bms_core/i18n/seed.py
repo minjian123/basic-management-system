@@ -190,11 +190,60 @@ async def _upsert_locale(session: DbSession, code: str, name: str, rtl: bool, is
     return 0
 
 
-async def _upsert_message(session: DbSession, msg_key: str, locale: str, value: str) -> int:
+def _message_index_key(msg_key: str, locale: str) -> str:
+    """文案索引键（`msg_key\\x00locale(小写)`）。
+
+    Args:
+        msg_key: 文案 key。
+        locale: 语言标识。
+
+    Returns:
+        str: 索引键。
+    """
+    return f"{msg_key}\x00{locale.lower()}"
+
+
+async def _load_seeded_messages(session: DbSession) -> ConcurrentStableDict[str, SysI18nMessage]:
+    """一次取回种子语言下的全部文案行（`msg_key\\x00locale` → 首个未删行）。
+
+    为什么批量：旧实现逐条「查 → 写」在共享库上每次要发 2×`len(MESSAGE_SEEDS)` 条 SELECT，
+    单次种子耗时秒级；多个 worker 在 i18n 串行锁上排队时会把等锁时长推到上限（2026-11-15 实测
+    与 `services/tenant` 同批运行时等锁超时）。批量预取后稳态只发 1 条 SELECT。
+
+    Args:
+        session: 种子会话（不提交）。
+
+    Returns:
+        ConcurrentStableDict[str, SysI18nMessage]: 索引（重复行取首条，与旧 `.first()` 口径一致）。
+    """
+    rows = (
+        (
+            await session.execute(
+                select(SysI18nMessage).where(
+                    func.lower(SysI18nMessage.locale).in_([code.lower() for code in (ZH_LOCALE, EN_LOCALE)]),
+                    SysI18nMessage.deleted_at.is_(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    index: ConcurrentStableDict[str, SysI18nMessage] = ConcurrentStableDict()
+    for row in rows:
+        key = _message_index_key(row.msg_key, row.locale)
+        if key not in index:
+            index[key] = row
+    return index
+
+
+def _upsert_message(
+    session: DbSession, index: ConcurrentStableDict[str, SysI18nMessage], msg_key: str, locale: str, value: str
+) -> int:
     """幂等写入文案行（未覆盖行按种子刷新；已覆盖行跳过）。
 
     Args:
         session: 种子会话（不提交）。
+        index: 批量预取的文案索引（新插入行同时写入，保证同批重复 key 只插一次）。
         msg_key: 文案 key。
         locale: 语言标识。
         value: 文案。
@@ -202,36 +251,25 @@ async def _upsert_message(session: DbSession, msg_key: str, locale: str, value: 
     Returns:
         int: 新增返回 1，其余 0。
     """
-    existing = (
-        (
-            await session.execute(
-                select(SysI18nMessage).where(
-                    SysI18nMessage.msg_key == msg_key,
-                    func.lower(SysI18nMessage.locale) == locale.lower(),
-                    SysI18nMessage.deleted_at.is_(None),
-                )
-            )
-        )
-        .scalars()
-        .first()
-    )
+    key = _message_index_key(msg_key, locale)
+    existing = index.get(key)
     if existing is None:
-        session.add(
-            SysI18nMessage(
-                msg_key=msg_key,
-                name=msg_key,
-                locale=locale,
-                value=value,
-                status="enabled",
-                is_overridden=False,
-            )
+        created = SysI18nMessage(
+            msg_key=msg_key,
+            name=msg_key,
+            locale=locale,
+            value=value,
+            status="enabled",
+            is_overridden=False,
         )
-        await session.flush()
+        session.add(created)
+        index[key] = created
         return 1
     if existing.is_overridden:
         return 0
-    existing.value = value
-    existing.name = msg_key
+    if existing.value != value or existing.name != msg_key:
+        existing.value = value
+        existing.name = msg_key
     return 0
 
 
@@ -292,9 +330,10 @@ async def seed_i18n_in_session(session: DbSession) -> int:
     for code, name, rtl, is_default, sort in SEED_LOCALES:
         created += await _upsert_locale(session, code, name, rtl, is_default, sort)
     await _ensure_single_default(session)
+    index = await _load_seeded_messages(session)
     for msg_key, zh, en in MESSAGE_SEEDS:
-        created += await _upsert_message(session, msg_key, ZH_LOCALE, zh)
-        created += await _upsert_message(session, msg_key, EN_LOCALE, en)
+        created += _upsert_message(session, index, msg_key, ZH_LOCALE, zh)
+        created += _upsert_message(session, index, msg_key, EN_LOCALE, en)
     return created
 
 

@@ -13,8 +13,8 @@ from fastapi import Depends, Query
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
-from bms_core.datasource.registry import DataSourceKind
 from bms_core.dict.outlet import build_data_source_outlet
+from bms_core.optionset.base import BaseOptionSetRegistry, get_option_set_registry
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.datasource import DataSourceListResponse, DataSourceResponse
 
@@ -28,12 +28,14 @@ router = BaseRouter(
 
 @router.get("")
 async def list_data_sources(
-    kind: Annotated[str | None, Query(description="按类型过滤（dict / form；空 = 全部）")] = None,
+    registry: Annotated[BaseOptionSetRegistry, Depends(get_option_set_registry)],
+    kind: Annotated[str | None, Query(description="按类型过滤（dict / form / quota；空 = 全部）")] = None,
 ) -> ApiResponse[DataSourceListResponse]:
     """列统一数据源登记清单（供数据权限左列 / 通用页面）。
 
     Args:
-        kind: 类型过滤（`dict` / `form`；空 = 全部）。
+        registry: 选项集注册表（类型过滤与展示共用静态值域）。
+        kind: 类型过滤（值域见选项集 `bms.datasource.kind`；空 = 全部）。
 
     Returns:
         ApiResponse[DataSourceListResponse]: 统一响应，data 为登记清单（`items` 保序）。
@@ -41,7 +43,7 @@ async def list_data_sources(
     Raises:
         ParamError: 类型取值非法。
     """
-    if kind is not None and kind not in {item.value for item in DataSourceKind}:
+    if kind is not None and kind not in {item.value for item in registry.resolve("bms.datasource.kind").items}:
         raise ParamError(f"数据源类型非法：{kind}")
     records: ConcurrentStableList[DataSourceResponse] = ConcurrentStableList()
     for record in build_data_source_outlet().registry.catalog_records():

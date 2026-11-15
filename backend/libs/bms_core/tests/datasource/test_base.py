@@ -16,7 +16,7 @@ from bms_core.datasource.base import (
     BaseGenericDataSource,
     DataSourceItem,
 )
-from bms_core.datasource.registry import DataSourceKind
+from bms_core.datasource.registry import DATA_SOURCE_KIND_DICT, DATA_SOURCE_KIND_FORM, DATA_SOURCE_KIND_QUOTA
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.dict.outlet import EmptyDictDataSource
@@ -170,7 +170,7 @@ def test_layer_inheritance_and_contract() -> None:
     assert issubclass(BaseDictDataSource, BaseGenericDataSource)
     assert issubclass(BaseGenericDataSource, BaseFrameworkObject)
     assert BaseDictDataSource.DICT_FIELDS == ("code", "name", "parent_id", "sort", "status")
-    assert {item.value for item in DataSourceKind} == {"dict", "form", "quota"}
+    assert {DATA_SOURCE_KIND_DICT, DATA_SOURCE_KIND_FORM, DATA_SOURCE_KIND_QUOTA} == {"dict", "form", "quota"}
 
 
 @pytest.mark.kiwi_id(2288)

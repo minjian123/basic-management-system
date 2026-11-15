@@ -19,7 +19,7 @@ from httpx import AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.datasource.registry import (
-    DataSourceKind,
+    DATA_SOURCE_KIND_QUOTA,
     DataSourceRecord,
     register_data_source_records,
     reset_data_source_records,
@@ -82,7 +82,7 @@ def _record(*, key: str = "demo_tenant_usage", module: str = "demo") -> DataSour
         data_source_key=key,
         name="演示用量",
         data_source=f"{module}.{module}.tenant_usage",
-        kind=DataSourceKind.QUOTA.value,
+        kind=DATA_SOURCE_KIND_QUOTA,
         origin="product",
         product_key="demo",
         path=f"/api/v1/{module}/tenant-usage",

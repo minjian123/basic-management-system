@@ -56,6 +56,7 @@ from bms_core.db.sync import is_sync_only_url
 from bms_core.models.base import Base
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.registry.forms import FORM_CATALOG, FormRegistry
+from bms_core.registry.products import load_product_manifests
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import (
     OWNER_EVERY_SERVICE,
@@ -160,12 +161,19 @@ def _check_data_sources() -> ConcurrentStableList[str]:
     """数据源登记校验（02_01）：标识格式 / 唯一 / 名称 / 出口 / 类型 / 白名单 / 产品标识。
 
     启动期另有同一校验（fail-closed）；此处供运维与 CI 离线复跑，两处共用
-    `DataSourceRegistry.validate()`，不重复维护规则。
+    `DataSourceRegistry.validate()`，不重复维护规则。类型值域取自装载清单的选项集
+    `bms.datasource.kind`（加值只改配置）。
 
     Returns:
         ConcurrentStableList[str]: 违规明细。
     """
-    return ConcurrentStableList(DataSourceRegistry().validate())
+    manifests = load_product_manifests(ConcurrentStableList())
+    kinds: ConcurrentStableList[str] = ConcurrentStableList()
+    for manifest in manifests:
+        for option_set in manifest.option_sets:
+            if option_set.option_set_key == "bms.datasource.kind":
+                kinds.update(item.value for item in option_set.items)
+    return ConcurrentStableList(DataSourceRegistry().validate(valid_kinds=kinds))
 
 
 def _check_form_keys() -> ConcurrentStableList[str]:

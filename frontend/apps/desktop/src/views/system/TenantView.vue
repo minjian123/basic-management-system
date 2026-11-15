@@ -2,11 +2,13 @@
 // 租户管理页（平台超管）：列表 Tab（固定不可关）+ 记录 Tab（双击行打开）。
 // 列表三段式无操作列之外提供「开通 / 停用 / 启用 / 注销 / 恢复」动作；开通弹窗展示一次性初始口令；
 // 注销须手动输入租户编码二次确认（后端亦强校验），已注销行展示清理时点或「待归档」。
+import { optionLabelOf, type OptionSetItem } from '@bms/core'
 import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/error'
+import { fetchOptionSetIndex } from '@/api/optionSets'
 import {
   activateTenant,
   createTenant,
@@ -22,7 +24,6 @@ import {
 import { recordTabKey, useTabsStore } from '@/stores/tabs'
 
 import TenantRecordTab from './TenantRecordTab.vue'
-import { TENANT_STATUS_OPTIONS, tenantStatusLabel, tenantStatusTag } from './tenant/labels'
 
 defineOptions({ name: 'SystemTenant' })
 
@@ -52,6 +53,8 @@ const codeFilter = ref('')
 const nameFilter = ref('')
 /** 状态筛选。 */
 const statusFilter = ref('')
+/** 租户状态选项集（`bms.tenant.status`：闭集；标签/筛选项从注册表取，未知值显式标未知）。 */
+const statusOptions = ref<OptionSetItem[]>([])
 /** 载入中。 */
 const loading = ref(false)
 /** 开通弹窗可见。 */
@@ -365,8 +368,48 @@ function onRecordDirty(key: string, dirty: boolean): void {
 
 onMounted(() => {
   tabs.reset(LIST_KEY, '租户管理')
+  void loadStatusOptions()
   void load()
 })
+
+/**
+ * 载入租户状态选项集（闭集；标签 / 筛选项随配置更新，不写死）。
+ */
+async function loadStatusOptions(): Promise<void> {
+  try {
+    const index = await fetchOptionSetIndex(['bms.tenant.status'])
+    statusOptions.value = index['bms.tenant.status'] ?? []
+  } catch {
+    statusOptions.value = []
+  }
+}
+
+/**
+ * 租户状态文案（未知值显式标未知，不默认成「启用」）。
+ *
+ * @param status 状态取值。
+ * @returns 展示文案。
+ */
+function tenantStatusLabel(status: string | undefined): string {
+  if (!status) {
+    return ''
+  }
+  return optionLabelOf(statusOptions.value, status) ?? `未知状态（${status}）`
+}
+
+/**
+ * 租户状态标签类型（取选项集 `color`；未知值按危险色提示）。
+ *
+ * @param status 状态取值。
+ * @returns Element Plus 标签类型。
+ */
+function tenantStatusTag(status: string | undefined): 'success' | 'warning' | 'info' | 'danger' {
+  const color = statusOptions.value.find((item) => item.value === status)?.color
+  if (color === 'success' || color === 'warning' || color === 'info' || color === 'danger') {
+    return color
+  }
+  return 'danger'
+}
 </script>
 
 <template>
@@ -414,7 +457,7 @@ onMounted(() => {
             data-test="tenant-status-filter"
           >
             <el-option
-              v-for="item in TENANT_STATUS_OPTIONS"
+              v-for="item in statusOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"

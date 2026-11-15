@@ -9,7 +9,7 @@
 - **离线**：网关配置生成（`ops.gateway_config`）按 `[registry].product_manifests` 装载后合并；
 - **缺省降级**：未配置清单 / 文件不存在时为空清单（平台路由照常生成），不静默使用旧值。
 
-清单格式为 **toml**（直接切换，**不留 json 兼容分支**），十段并列（除 `product_key` 外均可缺省）：
+清单格式为 **toml**（直接切换，**不留 json 兼容分支**），十一段并列（除 `product_key` 外均可缺省）：
 
 ```toml
 product_key = "demo"
@@ -24,6 +24,7 @@ product_key = "demo"
 [[usages]]            # 消费方使用声明（第八类记录，07B `02_06`）
 [[domains]]           # 业务域（第九类记录，07B `04_02`）
 [[resource_types]]    # 作用域资源类型（第十类记录，07D `01_01`）
+[[option_sets]]       # 静态选项集（第十一段，09-03-1）：装载时注册、运行期只读
 ```
 
 **装载期十类校验**（载体 `inspect_product_manifests()`，任一不满足即拒启）：能力重名 / 提供方业务域
@@ -68,6 +69,8 @@ from bms_core.core.objects import BaseValueObject
 from bms_core.core.paths import resolve_backend_root
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 from bms_core.datasource.registry import DataSourceRecord, register_data_source_records
+from bms_core.optionset.base import OptionItem
+from bms_core.optionset.manifest import OptionSetRecord
 from bms_core.resource_scope import (
     DEFAULT_RESOURCE_KEY_MAX_LENGTH,
     RESOURCE_KEY_PATTERN_DEFAULT,
@@ -202,7 +205,7 @@ JOB_STATUSES = ("enabled", "deprecated", "retired")
 
 @dataclass(frozen=True)
 class ProductManifest(BaseValueObject):
-    """产品登记清单（十类记录 + 产品档案）。
+    """产品登记清单（十一段记录 + 产品档案）。
 
     Attributes:
         product_key: 清单归属产品标识（文件中所有记录须与之一致）。
@@ -251,6 +254,11 @@ class ProductManifest(BaseValueObject):
         default_factory=lambda: ConcurrentStableFrozenList()
     )
     """作用域资源类型声明（`[[resource_types]]`，07D `01_01`）：第十类记录，三级作用域第三级约束。"""
+
+    option_sets: ConcurrentStableFrozenList[OptionSetRecord] = field(
+        default_factory=lambda: ConcurrentStableFrozenList()
+    )
+    """选项集声明（`[[option_sets]]`，09-03-1）：静态值域，装载时注册、运行期只读；加值只改本段。"""
 
 
 @dataclass(frozen=True)
@@ -906,6 +914,47 @@ def parse_manifest_text(text: str, *, source: str = "<remote>") -> ProductManife
     return _build_manifest(_as_mapping(payload), path=Path(source))
 
 
+def _option_set_record(raw: object, *, scope: str) -> OptionSetRecord:
+    """解析单条选项集声明（`[[option_sets]]`）。
+
+    Args:
+        raw: 原始记录。
+        scope: 错误信息作用域。
+
+    Returns:
+        OptionSetRecord: 选项集声明。
+
+    Raises:
+        CatalogError: 字段结构非法。
+    """
+    data = _as_mapping(raw)
+    key = str(_require(data, "key", scope=scope))
+    items_raw = data.get("items")
+    if not isinstance(items_raw, list):
+        raise CatalogError(f"选项集缺少 items 数组：{scope} → {key}")
+    items: ConcurrentStableList[OptionItem] = ConcurrentStableList()
+    for index, item_raw in enumerate(cast("list[object]", items_raw)):
+        item = _as_mapping(item_raw)
+        item_scope = f"{scope}[{index}]"
+        items.add(
+            OptionItem(
+                value=str(_require(item, "value", scope=item_scope)),
+                label=str(item.get("label") or ""),
+                label_key=_optional_str(item, "label_key"),
+                color=_optional_str(item, "color"),
+                disabled=bool(item.get("disabled", False)),
+                sort=_optional_int(item, "sort", scope=item_scope) or 0,
+            )
+        )
+    return OptionSetRecord(
+        option_set_key=key,
+        name=str(data.get("name") or key),
+        contract_name=_optional_str(data, "contract_name"),
+        extensible=bool(data.get("extensible", False)),
+        items=ConcurrentStableFrozenList(items),
+    )
+
+
 def _build_manifest(root: ConcurrentStableDict[str, object], *, path: Path) -> ProductManifest:
     """由已解析的清单映射构造产品声明（文件装载与文本解析共用）。
 
@@ -984,6 +1033,9 @@ def _build_manifest(root: ConcurrentStableDict[str, object], *, path: Path) -> P
         _resource_type_record(raw, scope="resource_types", product_key=product_key)
         for raw in _records(root.get("resource_types"), scope="resource_types")
     )
+    option_sets: ConcurrentStableList[OptionSetRecord] = ConcurrentStableList(
+        _option_set_record(raw, scope="option_sets") for raw in _records(root.get("option_sets"), scope="option_sets")
+    )
     return ProductManifest(
         product_key=product_key,
         products=ConcurrentStableFrozenList(products),
@@ -1000,6 +1052,7 @@ def _build_manifest(root: ConcurrentStableDict[str, object], *, path: Path) -> P
         ),
         jobs=ConcurrentStableFrozenList(jobs),
         resource_types=ConcurrentStableFrozenList(resource_types),
+        option_sets=ConcurrentStableFrozenList(option_sets),
     )
 
 

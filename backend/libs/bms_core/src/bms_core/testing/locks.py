@@ -110,9 +110,10 @@ def file_lock(name: str, *, timeout: float = DEFAULT_TIMEOUT) -> Generator[None]
             handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
             if _is_stale(path):
-                with suppress(FileNotFoundError):
+                # Windows 上持锁进程仍打开着锁文件时 unlink 会抛 PermissionError：清理失败只说明
+                # 「暂不可抢」，不能当致命错误冒出（否则等锁方整条用例 setup 直接失败）。
+                with suppress(FileNotFoundError, PermissionError):
                     path.unlink()
-                continue
             if time.monotonic() > deadline:
                 raise TimeoutError(f"等待测试锁超时：{path}") from None
             time.sleep(0.05)
@@ -123,5 +124,7 @@ def file_lock(name: str, *, timeout: float = DEFAULT_TIMEOUT) -> Generator[None]
     try:
         yield
     finally:
-        with suppress(FileNotFoundError):
+        # 放锁同样要容忍「文件正被等待方读取」的共享冲突（Windows WinError 32）；锁文件残留由
+        # 陈旧判据兜底，不能把清理失败冒成用例错误。
+        with suppress(FileNotFoundError, PermissionError):
             path.unlink()

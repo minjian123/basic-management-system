@@ -633,7 +633,9 @@ kind_field = "kind"
 [rules.system_fields.datasource]
 path = "backend/libs/bms_core/src/bms_core/datasource/registry.py"
 const = "DATA_SOURCE_CATALOG"
-enum = "DataSourceKind,DataSourceKey@backend/libs/bms_core/src/bms_core/datasource/keys.py"
+# 标识取值来自 `DataSourceKey` 枚举；类型值域来自选项集 `bms.datasource.kind`（`[[option_sets]]` 声明，
+# `option_set:<key>@<toml>` 前缀由 engkit 直接读 TOML）——代码不再保留 `DataSourceKind` 枚举副本。
+enum = "DataSourceKey@backend/libs/bms_core/src/bms_core/datasource/keys.py,option_set:bms.datasource.kind@deploy/registry/platform.toml"
 key_field = "data_source_key"
 kind_field = "kind"
 

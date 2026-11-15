@@ -726,7 +726,8 @@ export interface paths {
          * @description 列统一数据源登记清单（供数据权限左列 / 通用页面）。
          *
          *     Args:
-         *         kind: 类型过滤（`dict` / `form`；空 = 全部）。
+         *         registry: 选项集注册表（类型过滤与展示共用静态值域）。
+         *         kind: 类型过滤（值域见选项集 `bms.datasource.kind`；空 = 全部）。
          *
          *     Returns:
          *         ApiResponse[DataSourceListResponse]: 统一响应，data 为登记清单（`items` 保序）。
@@ -2251,6 +2252,36 @@ export interface paths {
          *         ApiResponse: 统一响应，data 为日志详情。
          */
         get: operations["get_operation_log_api_v1_operation_logs__record_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/option-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Option Sets
+         * @description 列选项集快照（供列表页 / 表单元数据统一消费）。
+         *
+         *     Args:
+         *         registry: 选项集注册表（装载清单注册；运行期只读）。
+         *         keys: 逗号分隔的选项集标识；空 = 全部。
+         *
+         *     Returns:
+         *         ApiResponse[OptionSetListResponse]: 统一响应，data 为选项集快照集合。
+         *
+         *     Raises:
+         *         NotFoundError: 请求的选项集未注册（10002）。
+         */
+        get: operations["list_option_sets_api_v1_option_sets_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5581,6 +5612,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[OptionSetListResponse] */
+        ApiResponse_OptionSetListResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["OptionSetListResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[PermissionGenerateResult] */
         ApiResponse_PermissionGenerateResult_: {
             /**
@@ -6702,9 +6747,6 @@ export interface components {
         };
         /**
          * DataSourceKind
-         * @description 数据源类型（数据形态）。
-         *
-         *     `quota` 为**配额只读投影**（07D `02_03`）：产品自维护配额值与执行点，平台只读装载展示。
          * @enum {string}
          */
         DataSourceKind: "dict" | "form" | "quota";
@@ -6757,7 +6799,7 @@ export interface components {
              * @description 是否字典（由 `kind` 派生；供界面按数据形态套用字典记录页骨架，避免前端各写一套判定）。
              */
             readonly is_dict: boolean;
-            /** @description 类型（dict 字典 / form 表单，预留其它） */
+            /** @description 类型（dict 字典 / form 表单 / quota 配额投影；值域见选项集 bms.datasource.kind） */
             kind: components["schemas"]["DataSourceKind"];
             /**
              * Name
@@ -9170,6 +9212,87 @@ export interface components {
             size: number;
             /** Total */
             total: number;
+        };
+        /**
+         * OptionSetItemResponse
+         * @description 选项项（与 `bms_core.optionset.base.OptionItem` 对齐）。
+         */
+        OptionSetItemResponse: {
+            /**
+             * Color
+             * @description 语义色（只读标签用）
+             */
+            color?: string | null;
+            /**
+             * Disabled
+             * @description 是否不可新增选择（存量值仍可回显）
+             * @default false
+             */
+            disabled: boolean;
+            /**
+             * Label
+             * @description 展示文本（当前 locale）
+             * @default
+             */
+            label: string;
+            /**
+             * Label Key
+             * @description i18n key（缺翻译回退 label）
+             */
+            label_key?: string | null;
+            /**
+             * Sort
+             * @description 展示顺序（升序；同序保声明顺序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Value
+             * @description 选项值（常量字符串，唯一真值来源）
+             */
+            value: string;
+        };
+        /**
+         * OptionSetListResponse
+         * @description 选项集快照集合。
+         */
+        OptionSetListResponse: {
+            /**
+             * Items
+             * @description 选项集清单（请求顺序）
+             */
+            items: components["schemas"]["OptionSetResponse"][];
+        };
+        /**
+         * OptionSetResponse
+         * @description 单个选项集快照。
+         */
+        OptionSetResponse: {
+            /**
+             * Items
+             * @description 条目清单（按 sort 升序、同 value 去重）
+             */
+            items: components["schemas"]["OptionSetItemResponse"][];
+            /**
+             * Name
+             * @description 名称
+             */
+            name: string;
+            /**
+             * Namespace
+             * @description 命名空间（标识首段）
+             */
+            namespace: string;
+            /**
+             * Option Set Key
+             * @description 选项集标识（点分小写）
+             */
+            option_set_key: string;
+            /**
+             * Version
+             * @description 内容版本
+             */
+            version: number;
         };
         /**
          * PermissionCreateRequest
@@ -13333,7 +13456,7 @@ export interface operations {
     list_data_sources_api_v1_data_sources_get: {
         parameters: {
             query?: {
-                /** @description 按类型过滤（dict / form；空 = 全部） */
+                /** @description 按类型过滤（dict / form / quota；空 = 全部） */
                 kind?: string | null;
             };
             header?: never;
@@ -18169,6 +18292,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_OperationLogItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_option_sets_api_v1_option_sets_get: {
+        parameters: {
+            query?: {
+                /** @description 逗号分隔的选项集标识；空 = 全部 */
+                keys?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_OptionSetListResponse_"];
                 };
             };
             /** @description 未认证 */

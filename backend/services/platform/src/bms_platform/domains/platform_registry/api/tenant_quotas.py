@@ -11,7 +11,7 @@ from fastapi import Depends, Request
 
 from bms_core.api.base import BaseRouter
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.datasource.registry import DataSourceKind, DataSourceRecord, data_source_records_view
+from bms_core.datasource.registry import DATA_SOURCE_KIND_QUOTA, DataSourceRecord, data_source_records_view
 from bms_core.permission.base import require_permission
 from bms_core.quota.reader import QuotaProjectionReader
 from bms_core.schemas.common import ApiResponse
@@ -50,7 +50,7 @@ async def list_quota_projections(
     records: ConcurrentStableList[DataSourceRecord] = ConcurrentStableList(
         record
         for record in data_source_records_view()
-        if record.kind == DataSourceKind.QUOTA.value and record.status == "enabled"
+        if record.kind == DATA_SOURCE_KIND_QUOTA and record.status == "enabled"
     )
     if module_key is not None:
         records = ConcurrentStableList(

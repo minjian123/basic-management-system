@@ -594,15 +594,8 @@
             "type": "array"
           },
           "status": {
-            "description": "状态",
-            "enum": [
-              "provisioning",
-              "active",
-              "suspended",
-              "deleted"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/TenantStatus",
+            "description": "状态"
           },
           "updated_at": {
             "description": "更新时间（UTC）",
@@ -733,15 +726,8 @@
             "title": "Purge At"
           },
           "status": {
-            "description": "状态",
-            "enum": [
-              "provisioning",
-              "active",
-              "suspended",
-              "deleted"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/TenantStatus",
+            "description": "状态"
           },
           "version": {
             "description": "乐观锁版本",
@@ -908,14 +894,8 @@
             "type": "boolean"
           },
           "status": {
-            "description": "状态（enabled / disabled / not_opened）",
-            "enum": [
-              "enabled",
-              "disabled",
-              "not_opened"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/TenantModuleStatus",
+            "description": "状态（enabled / disabled / not_opened；值域见选项集 bms.tenant.module_status）"
           },
           "table_prefix": {
             "description": "表前缀",
@@ -1022,6 +1002,15 @@
         },
         "title": "TenantModuleOptionList",
         "type": "object"
+      },
+      "TenantModuleStatus": {
+        "title": "TenantModuleStatus",
+        "type": "string",
+        "x-extensible-enum": [
+          "enabled",
+          "disabled",
+          "not_opened"
+        ]
       },
       "TenantModuleUpdateRequest": {
         "additionalProperties": false,
@@ -1157,6 +1146,16 @@
         ],
         "title": "TenantQuotaUpdateRequest",
         "type": "object"
+      },
+      "TenantStatus": {
+        "enum": [
+          "provisioning",
+          "active",
+          "suspended",
+          "deleted"
+        ],
+        "title": "TenantStatus",
+        "type": "string"
       },
       "TenantSwitchRequest": {
         "additionalProperties": false,

@@ -4,7 +4,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
-from bms_core.datasource.registry import DataSourceKind, DataSourceRecord
+from bms_core.datasource.registry import DATA_SOURCE_KIND_FORM, DataSourceRecord
 from bms_core.schemas.datasource import DataSourceListResponse, DataSourceResponse
 from bms_platform.main import ApplicationFactory
 
@@ -37,7 +37,7 @@ async def test_data_sources_contract(client: AsyncClient) -> None:
         data_source_key="purchase_order",
         name="采购申请",
         data_source="biz.purchase_order",
-        kind=DataSourceKind.FORM.value,
+        kind=DATA_SOURCE_KIND_FORM,
         origin="product",
         product_key="biz",
     )
@@ -82,4 +82,5 @@ async def test_data_sources_contract_schema() -> None:
     components = schema["components"]["schemas"]
     assert set(components["DataSourceResponse"]["properties"]) == _ITEM_FIELDS
     assert components["DataSourceResponse"]["properties"]["is_dict"]["type"] == "boolean"
-    assert components["DataSourceKind"]["enum"] == ["dict", "form", "quota"]
+    assert components["DataSourceKind"]["x-extensible-enum"] == ["dict", "form", "quota"]
+    assert "enum" not in components["DataSourceKind"]

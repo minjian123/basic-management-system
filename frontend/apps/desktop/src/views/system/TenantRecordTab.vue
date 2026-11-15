@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // 租户记录 Tab（表单框架的记录页）：基本信息 / 配额与模块 / 系统信息。
 // 基本信息支持查看 ⇄ 编辑；配额与模块子页签内配额整组保存、模块开关即时生效。
+import { optionLabelOf, type OptionSetItem } from '@bms/core'
 import { DictRecordLayout, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 
+import { fetchOptionSetIndex } from '@/api/optionSets'
 import {
   fetchTenantModules,
   fetchTenantQuotas,
@@ -19,7 +21,7 @@ import {
 import { registries, registriesRevision } from '@/module/registries'
 import { useSessionStore } from '@/stores/session'
 
-import { moduleStatusLabel, quotaLabel, quotaUnit, tenantStatusLabel, tenantStatusTag } from './tenant/labels'
+import { quotaLabel, quotaUnit } from './tenant/labels'
 
 const props = defineProps<{
   /** 租户主键。 */
@@ -251,8 +253,68 @@ watch(
 )
 
 onMounted(() => {
+  void loadOptionSets()
   void load()
 })
+
+/** 租户状态选项集（闭集：未知值显式标未知，不默认成「启用」）。 */
+const statusOptions = ref<OptionSetItem[]>([])
+/** 模块状态选项集（展示类：未知值原样展示）。 */
+const moduleStatusOptions = ref<OptionSetItem[]>([])
+
+/**
+ * 载入租户状态 / 模块状态选项集（标签随配置更新，不写死）。
+ */
+async function loadOptionSets(): Promise<void> {
+  try {
+    const index = await fetchOptionSetIndex(['bms.tenant.status', 'bms.tenant.module_status'])
+    statusOptions.value = index['bms.tenant.status'] ?? []
+    moduleStatusOptions.value = index['bms.tenant.module_status'] ?? []
+  } catch {
+    statusOptions.value = []
+    moduleStatusOptions.value = []
+  }
+}
+
+/**
+ * 租户状态文案（未知值显式标未知）。
+ *
+ * @param status 状态取值。
+ * @returns 展示文案。
+ */
+function tenantStatusLabel(status: string | undefined): string {
+  if (!status) {
+    return ''
+  }
+  return optionLabelOf(statusOptions.value, status) ?? `未知状态（${status}）`
+}
+
+/**
+ * 租户状态标签类型（取选项集 `color`；未知值按危险色提示）。
+ *
+ * @param status 状态取值。
+ * @returns Element Plus 标签类型。
+ */
+function tenantStatusTag(status: string | undefined): 'success' | 'warning' | 'info' | 'danger' {
+  const color = statusOptions.value.find((item) => item.value === status)?.color
+  if (color === 'success' || color === 'warning' || color === 'info' || color === 'danger') {
+    return color
+  }
+  return 'danger'
+}
+
+/**
+ * 模块状态文案（展示类：未知值原样展示）。
+ *
+ * @param status 模块状态。
+ * @returns 展示文案。
+ */
+function moduleStatusLabel(status: string | undefined): string {
+  if (!status) {
+    return ''
+  }
+  return optionLabelOf(moduleStatusOptions.value, status) ?? status
+}
 
 defineExpose({ save, isDirty: (): boolean => dirty.value })
 </script>

@@ -1552,6 +1552,33 @@
         "title": "ApiResponse[OperationLogPage]",
         "type": "object"
       },
+      "ApiResponse_OptionSetListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OptionSetListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[OptionSetListResponse]",
+        "type": "object"
+      },
       "ApiResponse_PermissionGenerateResult_": {
         "additionalProperties": false,
         "properties": {
@@ -3557,14 +3584,13 @@
         "type": "object"
       },
       "DataSourceKind": {
-        "description": "数据源类型（数据形态）。\n\n`quota` 为**配额只读投影**（07D `02_03`）：产品自维护配额值与执行点，平台只读装载展示。",
-        "enum": [
+        "title": "DataSourceKind",
+        "type": "string",
+        "x-extensible-enum": [
           "dict",
           "form",
           "quota"
-        ],
-        "title": "DataSourceKind",
-        "type": "string"
+        ]
       },
       "DataSourceListResponse": {
         "additionalProperties": false,
@@ -3631,7 +3657,7 @@
           },
           "kind": {
             "$ref": "#/components/schemas/DataSourceKind",
-            "description": "类型（dict 字典 / form 表单，预留其它）"
+            "description": "类型（dict 字典 / form 表单 / quota 配额投影；值域见选项集 bms.datasource.kind）"
           },
           "name": {
             "description": "名称（数据权限左列 / 通用页面显示）",
@@ -7474,6 +7500,126 @@
           "size"
         ],
         "title": "OperationLogPage",
+        "type": "object"
+      },
+      "OptionSetItemResponse": {
+        "additionalProperties": false,
+        "description": "选项项（与 `bms_core.optionset.base.OptionItem` 对齐）。",
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语义色（只读标签用）",
+            "title": "Color"
+          },
+          "disabled": {
+            "default": false,
+            "description": "是否不可新增选择（存量值仍可回显）",
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "label": {
+            "default": "",
+            "description": "展示文本（当前 locale）",
+            "title": "Label",
+            "type": "string"
+          },
+          "label_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "i18n key（缺翻译回退 label）",
+            "title": "Label Key"
+          },
+          "sort": {
+            "default": 0,
+            "description": "展示顺序（升序；同序保声明顺序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "value": {
+            "description": "选项值（常量字符串，唯一真值来源）",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "OptionSetItemResponse",
+        "type": "object"
+      },
+      "OptionSetListResponse": {
+        "additionalProperties": false,
+        "description": "选项集快照集合。",
+        "properties": {
+          "items": {
+            "description": "选项集清单（请求顺序）",
+            "items": {
+              "$ref": "#/components/schemas/OptionSetResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "OptionSetListResponse",
+        "type": "object"
+      },
+      "OptionSetResponse": {
+        "additionalProperties": false,
+        "description": "单个选项集快照。",
+        "properties": {
+          "items": {
+            "description": "条目清单（按 sort 升序、同 value 去重）",
+            "items": {
+              "$ref": "#/components/schemas/OptionSetItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "description": "名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "description": "命名空间（标识首段）",
+            "title": "Namespace",
+            "type": "string"
+          },
+          "option_set_key": {
+            "description": "选项集标识（点分小写）",
+            "title": "Option Set Key",
+            "type": "string"
+          },
+          "version": {
+            "description": "内容版本",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "option_set_key",
+          "name",
+          "namespace",
+          "version",
+          "items"
+        ],
+        "title": "OptionSetResponse",
         "type": "object"
       },
       "PermissionCreateRequest": {
@@ -13692,11 +13838,11 @@
     },
     "/api/v1/data-sources": {
       "get": {
-        "description": "列统一数据源登记清单（供数据权限左列 / 通用页面）。\n\nArgs:\n    kind: 类型过滤（`dict` / `form`；空 = 全部）。\n\nReturns:\n    ApiResponse[DataSourceListResponse]: 统一响应，data 为登记清单（`items` 保序）。\n\nRaises:\n    ParamError: 类型取值非法。",
+        "description": "列统一数据源登记清单（供数据权限左列 / 通用页面）。\n\nArgs:\n    registry: 选项集注册表（类型过滤与展示共用静态值域）。\n    kind: 类型过滤（值域见选项集 `bms.datasource.kind`；空 = 全部）。\n\nReturns:\n    ApiResponse[DataSourceListResponse]: 统一响应，data 为登记清单（`items` 保序）。\n\nRaises:\n    ParamError: 类型取值非法。",
         "operationId": "list_data_sources_api_v1_data_sources_get",
         "parameters": [
           {
-            "description": "按类型过滤（dict / form；空 = 全部）",
+            "description": "按类型过滤（dict / form / quota；空 = 全部）",
             "in": "query",
             "name": "kind",
             "required": false,
@@ -13709,7 +13855,7 @@
                   "type": "null"
                 }
               ],
-              "description": "按类型过滤（dict / form；空 = 全部）",
+              "description": "按类型过滤（dict / form / quota；空 = 全部）",
               "title": "Kind"
             }
           }
@@ -20853,6 +20999,108 @@
         "summary": "Get Operation Log",
         "tags": [
           "log"
+        ]
+      }
+    },
+    "/api/v1/option-sets": {
+      "get": {
+        "description": "列选项集快照（供列表页 / 表单元数据统一消费）。\n\nArgs:\n    registry: 选项集注册表（装载清单注册；运行期只读）。\n    keys: 逗号分隔的选项集标识；空 = 全部。\n\nReturns:\n    ApiResponse[OptionSetListResponse]: 统一响应，data 为选项集快照集合。\n\nRaises:\n    NotFoundError: 请求的选项集未注册（10002）。",
+        "operationId": "list_option_sets_api_v1_option_sets_get",
+        "parameters": [
+          {
+            "description": "逗号分隔的选项集标识；空 = 全部",
+            "in": "query",
+            "name": "keys",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "逗号分隔的选项集标识；空 = 全部",
+              "title": "Keys"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OptionSetListResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Option Sets",
+        "tags": [
+          "option-set"
         ]
       }
     },

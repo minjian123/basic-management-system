@@ -16,9 +16,9 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.datasource.registry import (
+    DATA_SOURCE_KIND_QUOTA,
     QUOTA_PERIODS,
     QUOTA_UNITS,
-    DataSourceKind,
     DataSourceRecord,
     DataSourceRegistry,
 )
@@ -60,7 +60,7 @@ def _record(
         data_source_key=key,
         name="演示用量",
         data_source=data_source,
-        kind=DataSourceKind.QUOTA.value,
+        kind=DATA_SOURCE_KIND_QUOTA,
         origin=origin,
         product_key="demo",
         path=path,
@@ -83,7 +83,7 @@ def _issues(*records: DataSourceRecord) -> ConcurrentStableList[str]:
     Returns:
         ConcurrentStableList[str]: 问题列表。
     """
-    return DataSourceRegistry(ConcurrentStableList(records)).validate()
+    return DataSourceRegistry(ConcurrentStableList(records)).validate(valid_kinds=("dict", "form", "quota"))
 
 
 def test_valid_quota_declaration_passes() -> None:

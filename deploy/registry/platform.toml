@@ -657,3 +657,48 @@ backoff_seconds = 120
 concurrency = 1
 payload_version = "1.0.0"
 status = "enabled"
+
+# ---- 平台选项集：运行期不可变的静态值域（装载时注册；加值只改本段，不改代码） ----
+#
+# 口径见《后端开发规范》「选项集必须走注册表」：动态值域走字典，静态值域走选项集。
+# `contract_name` 非空且 `extensible = true` 时，公开契约按本段生成同名组件并输出
+# `x-extensible-enum`；产品仓在各自 `deploy/registry/<产品>.toml` 声明自己的选项集。
+# 条目字段：value / label / label_key / color / disabled / sort。
+
+[[option_sets]]
+key = "bms.tenant.status"
+name = "租户状态"
+contract_name = "TenantStatus"
+# 闭集：状态驱动停用 / 启用 / 注销 / 恢复等业务动作，每个值都必须处理；
+# 加值触发契约门禁（enum 加值）→ 人工确认 + 改业务代码，不标可增长。
+extensible = false
+items = [
+  { value = "provisioning", label = "开通中", label_key = "bms.tenant.status.provisioning", color = "warning", sort = 10 },
+  { value = "active", label = "启用", label_key = "bms.tenant.status.active", color = "success", sort = 20 },
+  { value = "suspended", label = "停用", label_key = "bms.tenant.status.suspended", color = "info", sort = 30 },
+  { value = "deleted", label = "已注销", label_key = "bms.tenant.status.deleted", color = "danger", sort = 40 },
+]
+
+[[option_sets]]
+key = "bms.tenant.module_status"
+name = "租户模块状态"
+contract_name = "TenantModuleStatus"
+# 展示类：列表按条目循环渲染标签 / 颜色，未知值原样展示；可增长。
+extensible = true
+items = [
+  { value = "enabled", label = "已启用", label_key = "bms.tenant.module_status.enabled", color = "success", sort = 10 },
+  { value = "disabled", label = "已停用", label_key = "bms.tenant.module_status.disabled", color = "info", sort = 20 },
+  { value = "not_opened", label = "未开通", label_key = "bms.tenant.module_status.not_opened", color = "warning", sort = 30 },
+]
+
+[[option_sets]]
+key = "bms.datasource.kind"
+name = "数据源类型"
+contract_name = "DataSourceKind"
+# 展示 / 筛选类：列表与筛选按条目循环，未知类型通用渲染；可增长。
+extensible = true
+items = [
+  { value = "dict", label = "字典", label_key = "bms.datasource.kind.dict", color = "info", sort = 10 },
+  { value = "form", label = "表单", label_key = "bms.datasource.kind.form", color = "success", sort = 20 },
+  { value = "quota", label = "配额投影", label_key = "bms.datasource.kind.quota", color = "warning", sort = 30 },
+]

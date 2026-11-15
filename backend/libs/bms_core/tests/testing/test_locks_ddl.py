@@ -22,8 +22,10 @@ import os
 import sqlite3
 import time
 from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
+from unittest import mock
 
 import pytest
 from sqlalchemy import MetaData, Table
@@ -163,6 +165,67 @@ def test_file_lock_reclaims_aged_lock() -> None:
     try:
         with file_lock(name, timeout=1):
             assert path.is_file()
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@pytest.mark.kiwi_id(2317)
+def test_file_lock_tolerates_uncleanable_stale_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """陈旧锁清理失败（Windows 上文件被持锁进程占用）→ 退化为继续等，最终按超时报错。"""
+    name = "ddl-test-uncleanable"
+    path = _lock_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("other", encoding="utf-8")
+    aged = time.time() - locks_module.STALE_AFTER - 5
+    os.utime(path, (aged, aged))
+
+    def _deny_unlink(self: object, missing_ok: bool = False) -> None:
+        """替身 `Path.unlink`：模拟文件被他人打开（WinError 32）。
+
+        Args:
+            self: 路径对象（忽略）。
+            missing_ok: 忽略。
+
+        Raises:
+            PermissionError: 恒抛。
+        """
+        del self, missing_ok
+        raise PermissionError(32, "另一个程序正在使用此文件")
+
+    try:
+        with (
+            mock.patch.object(Path, "unlink", _deny_unlink),
+            pytest.raises(TimeoutError, match="等待测试锁超时"),
+            file_lock(name, timeout=0.15),
+        ):
+            pass
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@pytest.mark.kiwi_id(2317)
+def test_file_lock_tolerates_release_conflict() -> None:
+    """放锁时文件被他人占用（Windows WinError 32）→ 清理失败不报错，残锁交给陈旧判据。"""
+    name = "ddl-test-release-conflict"
+    path = _lock_path(name)
+
+    def _deny_unlink(self: object, missing_ok: bool = False) -> None:
+        """替身 `Path.unlink`：模拟文件被他人打开。
+
+        Args:
+            self: 路径对象（忽略）。
+            missing_ok: 忽略。
+
+        Raises:
+            PermissionError: 恒抛。
+        """
+        del self, missing_ok
+        raise PermissionError(32, "另一个程序正在使用此文件")
+
+    try:
+        with mock.patch.object(Path, "unlink", _deny_unlink), file_lock(name, timeout=5):
+            assert path.is_file()
+        assert path.exists(), "清理失败时残锁保留（不冒错误）"
     finally:
         path.unlink(missing_ok=True)
 

@@ -49,7 +49,7 @@ def test_platform_data_source_keys_helper() -> None:
 @pytest.mark.kiwi_id(2372)
 def test_catalog_self_check_passes() -> None:
     """登记清单自校验无问题（标识格式 / 唯一 / 名称 / 出口 / 类型 / 白名单）。"""
-    assert list(DataSourceRegistry(DATA_SOURCE_CATALOG).validate()) == []
+    assert list(DataSourceRegistry(DATA_SOURCE_CATALOG).validate(valid_kinds=("dict", "form", "quota"))) == []
 
 
 @pytest.mark.kiwi_id(2372)

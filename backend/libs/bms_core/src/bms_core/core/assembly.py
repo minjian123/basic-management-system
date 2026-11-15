@@ -461,7 +461,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("config_source", "http", HttpConfigSourceFactory(app))
     register_plugin("query_scheme_store", "sql", SqlQuerySchemeStoreFactory(app))
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
-    register_plugin("option_set_registry", "local", LocalOptionSetRegistryFactory())
+    register_plugin("option_set_registry", "local", LocalOptionSetRegistryFactory(app))
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
     register_plugin("edge", "service_jwt", ServiceJwtEdgeTrustFactory(settings))
@@ -2524,10 +2524,18 @@ class LocalFieldTypeRegistryFactory(BasePluginFactory[LocalFieldTypeRegistry]):
 
 
 class LocalOptionSetRegistryFactory(BasePluginFactory[LocalOptionSetRegistry]):
-    """选项集真实注册表工厂（内建清单 + 产品注入随构造登记）。"""
+    """选项集真实注册表工厂（平台清单 + 产品清单，均为装载期声明）。"""
 
     plugin_key: str = "option_set_registry"
     # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def __init__(self, app: FastAPI | None = None) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取平台 / 产品选项集）；缺省为空清单，供单测零参构造。
+        """
+        self._app = app
 
     def create(self, options: None = None) -> LocalOptionSetRegistry:
         """构造选项集注册表。
@@ -2536,9 +2544,14 @@ class LocalOptionSetRegistryFactory(BasePluginFactory[LocalOptionSetRegistry]):
             options: 未使用（零参口径）。
 
         Returns:
-            LocalOptionSetRegistry: 注册表实例（本期内建清单为空）。
+            LocalOptionSetRegistry: 注册表实例（平台清单 + 产品清单）。
         """
-        return LocalOptionSetRegistry()
+        if self._app is None:
+            return LocalOptionSetRegistry()
+        return LocalOptionSetRegistry(
+            builtin=self._app.state.platform_option_sets,
+            injected=self._app.state.product_option_sets,
+        )
 
 
 class LocalQueryProviderRegistryFactory(BasePluginFactory[LocalQueryProviderRegistry]):

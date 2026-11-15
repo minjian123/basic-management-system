@@ -139,6 +139,12 @@ class OptionSetInfo(BaseValueObject):
 class BaseOptionSet(BaseProvider, ABC):
     """选项集提供者契约：条目清单 / 单项解析 / 值域判定。"""
 
+    contract_name: str | None = None
+    """对应公开契约组件名（非空时，契约导出按本选项集派生 `x-extensible-enum`）。"""
+
+    extensible: bool = False
+    """是否允许跨版本增加条目（`True` 时契约输出 `x-extensible-enum`，否则保留 `enum`）。"""
+
     @abstractmethod
     def items(self) -> ConcurrentStableList[OptionItem]:
         """选项项清单（声明顺序；解析侧按 `sort` 升序归一）。

@@ -83,6 +83,9 @@ from bms_core.lock.base import BaseDistributedLock
 from bms_core.masking.base import get_masker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.models.ownership import SysTableOwnership
+from bms_core.optionset.base import BaseOptionSet
+from bms_core.optionset.contract import apply_option_set_contracts
+from bms_core.optionset.manifest import ManifestOptionSet
 from bms_core.registry.boot import bootstrap_declarations
 from bms_core.registry.forms import FormRecord, FormRegistry, merge_form_records
 from bms_core.registry.products import load_product_manifests
@@ -117,7 +120,7 @@ __all__ = ["BaseServiceApplicationFactory", "service_lifespan"]
 _LOGGER = "bms_core.application"
 
 
-def _validate_data_sources(settings: Settings) -> None:
+def _validate_data_sources(settings: Settings, app: FastAPI | None = None) -> None:
     """数据源登记启动期校验（02_01，fail-closed）。
 
     1. 清单自校验：标识格式 `^[a-z][a-z0-9_]*$`、全局唯一、名称 / 出口非空、`kind` / `origin` / 策略合法、
@@ -133,6 +136,7 @@ def _validate_data_sources(settings: Settings) -> None:
 
     Args:
         settings: 应用配置。
+        app: 应用实例（取装载清单注册的选项集值域）；缺省按仓内清单装载（离线 / 单测口径）。
 
     Raises:
         CatalogError: 存在违规（标识格式 / 重复 / 覆盖缺失等）。
@@ -140,7 +144,22 @@ def _validate_data_sources(settings: Settings) -> None:
     from bms_core.dict.outlet import registered_data_sources
 
     registry = DataSourceRegistry(DATA_SOURCE_CATALOG)
-    errors = ConcurrentStableList(registry.validate())
+    option_sets: ConcurrentStableList[BaseOptionSet] = ConcurrentStableList()
+    if app is not None:
+        option_sets.update(cast("ConcurrentStableList[BaseOptionSet]", getattr(app.state, "platform_option_sets", ())))
+    else:
+        manifests = load_product_manifests(ConcurrentStableList())
+        option_sets.update(
+            ManifestOptionSet(record)
+            for manifest in manifests
+            if manifest.product_key == "platform"
+            for record in manifest.option_sets
+        )
+    valid_kinds: ConcurrentStableList[str] = ConcurrentStableList()
+    for option_set in option_sets:
+        if option_set.key == "bms.datasource.kind":
+            valid_kinds.update(item.value for item in option_set.items())
+    errors = ConcurrentStableList(registry.validate(valid_kinds=valid_kinds or None))
     providers = registered_data_sources()
     # 只在本进程确实承担字典取数（已登记提供者）且出口为统一出口时才做覆盖校验：
     # 非平台服务用 `http` 出口、也不注册本地提供者，无条件校验会让它们启动失败。
@@ -416,7 +435,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """
     settings = get_settings()
     validate_startup(settings)
-    _validate_data_sources(settings)
+    _validate_data_sources(settings, app)
     # 服务端点覆盖（本机裸跑寻址补充）：装配前登记，服务间调用与能力寻址同口径取用
     # （容器部署 endpoints 为空表，行为与未引入覆盖时一致）；收尾复位，避免同进程多次装配互相污染。
     register_service_endpoints(settings.service_client.endpoints)
@@ -707,6 +726,23 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         loads = load_product_manifests(ConcurrentStableList())
         if loads:
             get_logger("bms").info("product_manifests_loaded", count=len(loads))
+        # 静态选项集：平台清单（`platform.toml`）+ 产品自持清单（各仓 `deploy/registry/<产品>.toml`）；
+        # 装载时注册，契约导出按 `contract_name` 派生组件，运行期校验 / 表单元数据共用同一注册表。
+        platform_option_sets = ConcurrentStableList(
+            ManifestOptionSet(record)
+            for manifest in loads
+            if manifest.product_key == "platform"
+            for record in manifest.option_sets
+        )
+        product_option_sets = ConcurrentStableList(
+            ManifestOptionSet(record)
+            for manifest in loads
+            if manifest.product_key != "platform"
+            for record in manifest.option_sets
+        )
+        app.state.platform_option_sets = platform_option_sets
+        app.state.product_option_sets = product_option_sets
+        app.state.option_sets = ConcurrentStableList((*platform_option_sets, *product_option_sets))
         # 能力使用登记（07B `02_02`）：消费方声明须在装配期登记，生命周期内由校验步骤 fail-closed；
         # 空声明不登记（未声明降级的服务与既有一致，不产生进程级状态）
         declared_usages = ConcurrentStableList(self.capability_usages())
@@ -848,5 +884,21 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         # 可观测接入（指标 / 链路真实实现）：最后装配——OTel ASGI 中间件位于最外层，
         # 使我方中间件进入时服务端 span 已激活（`resolve_trace_id` 取到真实 trace id）。
         setup_observability(app, settings)
+
+        # 静态值域的契约表达由选项集派生（运行时 `/openapi.json` 与契约快照同源）：
+        # 字段以 `optionSetKey` 引用，选项集来自装载清单；加值只改 TOML。
+        base_openapi = app.openapi
+
+        def openapi_with_option_sets() -> ConcurrentStableDict[str, object]:
+            """取应用 OpenAPI 并按选项集改写静态值域组件。
+
+            Returns:
+                ConcurrentStableDict[str, object]: 已派生的公开契约（运行时为 FastAPI 的 JSON 映射）。
+            """
+            schema = cast("ConcurrentStableDict[str, object]", base_openapi())
+            apply_option_set_contracts(schema, app.state.option_sets)
+            return schema
+
+        app.openapi = openapi_with_option_sets  # pyright: ignore[reportAttributeAccessIssue]
 
         return app

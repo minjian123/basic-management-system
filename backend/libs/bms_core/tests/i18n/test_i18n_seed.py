@@ -214,6 +214,74 @@ async def test_seed_restores_default_when_row_overridden(tmp_path: Path) -> None
         await session.close()
 
 
+async def test_seed_tolerates_duplicate_rows_and_name_drift(tmp_path: Path) -> None:
+    """同 key + 语言的历史重复行不炸（取首条）；名称漂移按种子归一。"""
+    session = await _session(tmp_path / "dup-rows.db")
+    try:
+        await seed_i18n_in_session(session)
+        await session.commit()
+        first = (
+            (
+                await session.execute(
+                    select(SysI18nMessage).where(
+                        SysI18nMessage.msg_key == "common.confirm", SysI18nMessage.locale == _ZH
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        assert first is not None
+        first.name = "旧名称"
+        session.add(
+            SysI18nMessage(
+                msg_key="common.confirm",
+                name="common.confirm",
+                locale=_ZH,
+                value="重复行",
+                status="enabled",
+                is_overridden=False,
+            )
+        )
+        await session.commit()
+
+        await seed_i18n_in_session(session)
+        await session.commit()
+
+        rows = (
+            (
+                await session.execute(
+                    select(SysI18nMessage)
+                    .where(SysI18nMessage.msg_key == "common.confirm", SysI18nMessage.locale == _ZH)
+                    .order_by(SysI18nMessage.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 2
+        assert rows[0].name == "common.confirm"
+        assert rows[0].value == "确认"
+        # 首条已刷新，重复行原样保留（不删、不覆盖）
+        assert rows[1].value == "重复行"
+    finally:
+        await session.close()
+
+
+async def test_seed_skips_unchanged_rows(tmp_path: Path) -> None:
+    """稳态种子不发写操作（只预取 + 比对）：第二次下发后会话无脏对象。"""
+    session = await _session(tmp_path / "stable.db")
+    try:
+        await seed_i18n_in_session(session)
+        await session.commit()
+        await seed_i18n_in_session(session)
+        assert not session.dirty
+        assert not session.new
+        await session.commit()
+    finally:
+        await session.close()
+
+
 def test_expected_rows_and_default_message() -> None:
     """期望行数量与种子一致；默认文案按 key + 语言可取。"""
     rows = expected_rows()

@@ -1103,12 +1103,8 @@ export interface components {
              * @description 配额与用量
              */
             quotas?: components["schemas"]["TenantQuotaItem"][];
-            /**
-             * Status
-             * @description 状态
-             * @enum {string}
-             */
-            status: "provisioning" | "active" | "suspended" | "deleted";
+            /** @description 状态 */
+            status: components["schemas"]["TenantStatus"];
             /**
              * Updated At
              * Format: date-time
@@ -1181,12 +1177,8 @@ export interface components {
              * @description 保留期截止（UTC）；仅已注销行有值，为空表示尚未进入清理倒计时（待归档 / 待回填）
              */
             purge_at?: string | null;
-            /**
-             * Status
-             * @description 状态
-             * @enum {string}
-             */
-            status: "provisioning" | "active" | "suspended" | "deleted";
+            /** @description 状态 */
+            status: components["schemas"]["TenantStatus"];
             /**
              * Version
              * @description 乐观锁版本
@@ -1298,12 +1290,8 @@ export interface components {
              * @description 是否可勾选产品模块（基础能力恒开通）
              */
             optional: boolean;
-            /**
-             * Status
-             * @description 状态（enabled / disabled / not_opened）
-             * @enum {string}
-             */
-            status: "enabled" | "disabled" | "not_opened";
+            /** @description 状态（enabled / disabled / not_opened；值域见选项集 bms.tenant.module_status） */
+            status: components["schemas"]["TenantModuleStatus"];
             /**
              * Table Prefix
              * @description 表前缀
@@ -1373,6 +1361,11 @@ export interface components {
              */
             items?: components["schemas"]["TenantModuleOption"][];
         };
+        /**
+         * TenantModuleStatus
+         * @enum {string}
+         */
+        TenantModuleStatus: "enabled" | "disabled" | "not_opened";
         /**
          * TenantModuleUpdateRequest
          * @description 租户模块开关请求。
@@ -1462,6 +1455,11 @@ export interface components {
              */
             items: components["schemas"]["TenantQuotaUpdateItem"][];
         };
+        /**
+         * TenantStatus
+         * @enum {string}
+         */
+        TenantStatus: "provisioning" | "active" | "suspended" | "deleted";
         /**
          * TenantSwitchRequest
          * @description 切换租户请求：`{code}`。

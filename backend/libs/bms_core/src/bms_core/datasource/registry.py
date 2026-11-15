@@ -36,9 +36,11 @@ from bms_core.datasource.keys import DataSourceKey
 __all__ = [
     "DATA_SOURCE_CATALOG",
     "DATA_SOURCE_KEY_PATTERN",
+    "DATA_SOURCE_KIND_DICT",
+    "DATA_SOURCE_KIND_FORM",
+    "DATA_SOURCE_KIND_QUOTA",
     "QUOTA_PERIODS",
     "QUOTA_UNITS",
-    "DataSourceKind",
     "DataSourceOrigin",
     "DataSourceRecord",
     "DataSourceRegistry",
@@ -60,22 +62,21 @@ QUOTA_PERIODS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("no
 """配额周期取值（`none` = 瞬时无周期）。"""
 
 
+DATA_SOURCE_KIND_DICT = "dict"
+"""数据源类型：字典（值域静态，登记为选项集 `bms.datasource.kind`）。"""
+
+DATA_SOURCE_KIND_FORM = "form"
+"""数据源类型：表单。"""
+
+DATA_SOURCE_KIND_QUOTA = "quota"
+"""数据源类型：配额只读投影（07D `02_03`：产品自维护配额值与执行点，平台只读装载展示）。"""
+
+
 class DataSourceStatus(StrEnum):
     """数据源登记项状态。"""
 
     ENABLED = "enabled"
     DISABLED = "disabled"
-
-
-class DataSourceKind(StrEnum):
-    """数据源类型（数据形态）。
-
-    `quota` 为**配额只读投影**（07D `02_03`）：产品自维护配额值与执行点，平台只读装载展示。
-    """
-
-    DICT = "dict"
-    FORM = "form"
-    QUOTA = "quota"
 
 
 class DataSourceOrigin(StrEnum):
@@ -115,7 +116,7 @@ class DataSourceRecord(BaseValueObject):
     data_source_key: str
     name: str
     data_source: str
-    kind: str = DataSourceKind.DICT.value
+    kind: str = DATA_SOURCE_KIND_DICT
     origin: str = DataSourceOrigin.PLATFORM.value
     product_key: str | None = None
     path: str | None = None
@@ -150,98 +151,98 @@ DATA_SOURCE_CATALOG: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFr
             data_source_key=DataSourceKey.MODULE.value,
             name="业务模块注册",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.PRODUCT.value,
             name="产品档案",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.BUSINESS.value,
             name="业务码",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.ACTION.value,
             name="动作码",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.ROLE.value,
             name="角色",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code", "label")),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.USER.value,
             name="用户",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.CONFIG.value,
             name="系统参数",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.TENANT.value,
             name="租户",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.I18N_LOCALE.value,
             name="语言清单",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.I18N_MESSAGE.value,
             name="语言包",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.IDENTITY_PROVIDER.value,
             name="外部 IdP 配置",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.CLIENT.value,
             name="第三方应用",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.TASK.value,
             name="定时任务",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
         DataSourceRecord(
             data_source_key=DataSourceKey.ICON.value,
             name="自定义图标",
             data_source="platform",
-            kind=DataSourceKind.DICT.value,
+            kind=DATA_SOURCE_KIND_DICT,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
     )
@@ -353,15 +354,19 @@ class DataSourceRegistry(BaseFrameworkObject):
                 return record
         return None
 
-    def validate(self) -> ConcurrentStableList[str]:
+    def validate(self, *, valid_kinds: Iterable[str] | None = None) -> ConcurrentStableList[str]:
         """离线校验：标识格式与唯一、名称 / 数据出口非空、类型 / 来源 / 策略合法、产品标识、白名单字段名。
+
+        Args:
+            valid_kinds: 合法类型值域（取自选项集 `bms.datasource.kind`）；`None` 表示极简环境
+                未装载清单（无可校验值域），跳过类型判定，其余校验照常。
 
         Returns:
             ConcurrentStableList[str]: 问题描述列表（空列表 = 通过）。
         """
         issues: ConcurrentStableList[str] = ConcurrentStableList()
         seen: ConcurrentStableSet[str] = ConcurrentStableSet()
-        valid_kinds = {item.value for item in DataSourceKind}
+        kinds = ConcurrentStableSet(valid_kinds) if valid_kinds is not None else None
         valid_origins = {item.value for item in DataSourceOrigin}
         valid_strategies = {item.value for item in DataSourceStrategy}
         for record in self._records:
@@ -374,7 +379,7 @@ class DataSourceRegistry(BaseFrameworkObject):
                 issues.add(f"数据源名称缺失：{record.data_source_key!r}")
             if not record.data_source:
                 issues.add(f"数据出口标识缺失：{record.data_source_key!r}")
-            if record.kind not in valid_kinds:
+            if kinds is not None and record.kind not in kinds:
                 issues.add(f"类型取值非法：{record.data_source_key!r} → {record.kind!r}")
             if record.origin not in valid_origins:
                 issues.add(f"来源取值非法：{record.data_source_key!r} → {record.origin!r}")
@@ -386,7 +391,7 @@ class DataSourceRegistry(BaseFrameworkObject):
             for strategy in record.strategies:
                 if strategy not in valid_strategies:
                     issues.add(f"策略取值非法：{record.data_source_key!r} → {strategy!r}")
-            if record.kind == DataSourceKind.QUOTA.value:
+            if record.kind == DATA_SOURCE_KIND_QUOTA:
                 issues.update(_quota_issues(record))
         return issues
 

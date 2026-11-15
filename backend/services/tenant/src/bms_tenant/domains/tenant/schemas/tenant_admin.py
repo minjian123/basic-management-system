@@ -13,12 +13,6 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema, SnowflakeIdStr
 from bms_core.schemas.pagination import BasePageResponse
 
-TenantStatus = Literal["provisioning", "active", "suspended", "deleted"]
-"""租户状态取值（`deleted` = 已注销、保留期内可恢复；任务 `04_03`）。"""
-
-TenantModuleStatus = Literal["enabled", "disabled", "not_opened"]
-"""租户模块展示状态（`not_opened` 为目录有、开通清单无）。"""
-
 TenantModuleAction = Literal["enabled", "disabled"]
 """模块开关目标状态。"""
 
@@ -83,7 +77,10 @@ class TenantModuleItem(BaseSchema):
     table_prefix: str = Field(description="表前缀")
     errcode_segment: str | None = Field(default=None, description="错误码段")
     optional: bool = Field(description="是否可勾选产品模块（基础能力恒开通）")
-    status: TenantModuleStatus = Field(description="状态（enabled / disabled / not_opened）")
+    status: str = Field(
+        description="状态（enabled / disabled / not_opened；值域见选项集 bms.tenant.module_status）",
+        json_schema_extra={"optionSetKey": "bms.tenant.module_status"},
+    )
     opened_at: datetime | None = Field(default=None, description="最近开通时间（UTC）")
 
 
@@ -112,7 +109,7 @@ class TenantListItem(BaseSchema):
     code: str = Field(description="租户编码")
     name: str = Field(description="租户名称")
     domain: str | None = Field(default=None, description="子域名")
-    status: TenantStatus = Field(description="状态")
+    status: str = Field(description="状态", json_schema_extra={"optionSetKey": "bms.tenant.status"})
     expire_at: datetime | None = Field(default=None, description="到期时间（UTC）")
     purge_at: datetime | None = Field(
         default=None,
@@ -136,7 +133,7 @@ class TenantDetail(BaseSchema):
     code: str = Field(description="租户编码")
     name: str = Field(description="租户名称")
     domain: str | None = Field(default=None, description="子域名")
-    status: TenantStatus = Field(description="状态")
+    status: str = Field(description="状态", json_schema_extra={"optionSetKey": "bms.tenant.status"})
     expire_at: datetime | None = Field(default=None, description="到期时间（UTC）")
     deletion_requested_at: datetime | None = Field(default=None, description="注销申请时刻（UTC）")
     purge_at: datetime | None = Field(

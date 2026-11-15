@@ -19,7 +19,7 @@ from bms_core.datasource.registry import (
 def test_catalog_is_valid() -> None:
     """平台内建清单自身通过离线校验（覆盖 bms 侧字典表）；产品条目由产品清单装载、不入常量。"""
     registry = DataSourceRegistry(DATA_SOURCE_CATALOG)
-    assert registry.validate() == []
+    assert registry.validate(valid_kinds=("dict", "form", "quota")) == []
     keys = registry.keys()
     for expected in ("role", "user", "tenant", "config", "module", "icon"):
         assert expected in keys
@@ -48,7 +48,7 @@ def test_merge_inject_appends() -> None:
     assert merged[-1].data_source_key == "wms_bin"
     registry = DataSourceRegistry(merged)
     assert registry.get("wms_bin") is not None
-    assert registry.validate() == []
+    assert registry.validate(valid_kinds=("dict", "form", "quota")) == []
 
 
 @pytest.mark.kiwi_id(2287)
@@ -72,7 +72,7 @@ def test_validate_reports_issues() -> None:
             ),
         ]
     )
-    issues = DataSourceRegistry(records).validate()
+    issues = DataSourceRegistry(records).validate(valid_kinds=("dict", "form", "quota"))
     joined = "\n".join(issues)
     assert "数据源标识格式非法" in joined
     assert "数据源标识重复" in joined
@@ -96,7 +96,7 @@ def test_validate_reports_illegal_origin() -> None:
     records: ConcurrentStableList[DataSourceRecord] = ConcurrentStableList(
         [DataSourceRecord(data_source_key="bad_origin", name="来源非法", data_source="x", origin="vendor")]
     )
-    issues = DataSourceRegistry(records).validate()
+    issues = DataSourceRegistry(records).validate(valid_kinds=("dict", "form", "quota"))
     assert any("来源取值非法：'bad_origin' → 'vendor'" in issue for issue in issues)
 
 

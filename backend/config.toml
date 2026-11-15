@@ -770,3 +770,8 @@ max_retries = 5
 retry_backoff_seconds = 1.0
 # 后台轮询库键（空 = 平台库 + 引擎注册表活跃租户库键）
 db_keys = []
+
+[option_set_registry]
+# 选项集实现选择（静态值域注册表；local = 装载清单声明，空串 = null 占位不校验）
+# 值域条目在 `deploy/registry/<仓>.toml` 的 `[[option_sets]]` 声明，加值只改配置。
+provider = "local"

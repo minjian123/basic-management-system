@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import cast
 
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -41,7 +40,6 @@ from bms_tenant.domains.tenant.schemas.tenant_admin import (
     TenantDetail,
     TenantList,
     TenantListItem,
-    TenantStatus,
     TenantUpdateRequest,
 )
 from bms_tenant.domains.tenant.services.tenant_module import TenantModuleService
@@ -437,16 +435,16 @@ def _iso(value: datetime) -> str:
     return value.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _status(row: SysTenant) -> TenantStatus:
+def _status(row: SysTenant) -> str:
     """注册行状态 → 契约状态。
 
     Args:
         row: 注册行。
 
     Returns:
-        TenantStatus: 契约状态。
+        str: 契约状态（值域由选项集 `bms.tenant.status` 约束）。
     """
-    return cast("TenantStatus", row.status)
+    return row.status
 
 
 def _ensure_business(row: SysTenant) -> None:

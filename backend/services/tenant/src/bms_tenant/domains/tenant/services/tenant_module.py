@@ -30,7 +30,6 @@ from bms_tenant.domains.tenant.schemas.tenant_admin import (
     ModuleStatusResponse,
     TenantModuleItem,
     TenantModuleOption,
-    TenantModuleStatus,
 )
 
 __all__ = ["ModuleCatalog", "TenantModuleService"]
@@ -190,7 +189,7 @@ class TenantModuleService(BaseFrameworkObject):
                     table_prefix=catalog_item.table_prefix if catalog_item is not None else "",
                     errcode_segment=catalog_item.errcode_segment if catalog_item is not None else None,
                     optional=True,
-                    status=cast("TenantModuleStatus", row.status if row is not None else "not_opened"),
+                    status=row.status if row is not None else "not_opened",
                     opened_at=row.opened_at if row is not None else None,
                 )
             )

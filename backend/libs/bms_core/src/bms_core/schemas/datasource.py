@@ -15,7 +15,7 @@ from pydantic import Field, computed_field
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.datasource.registry import (
-    DataSourceKind,
+    DATA_SOURCE_KIND_DICT,
     DataSourceOrigin,
     DataSourceStatus,
     DataSourceStrategy,
@@ -33,7 +33,10 @@ class DataSourceResponse(BaseSchema):
 
     data_source_key: str = Field(description="数据源标识（业务码字符串，全局唯一）")
     name: str = Field(description="名称（数据权限左列 / 通用页面显示）")
-    kind: DataSourceKind = Field(description="类型（dict 字典 / form 表单，预留其它）")
+    kind: str = Field(
+        description="类型（dict 字典 / form 表单 / quota 配额投影；值域见选项集 bms.datasource.kind）",
+        json_schema_extra={"optionSetKey": "bms.datasource.kind"},
+    )
     data_source: str = Field(description="数据出口标识（统一出口按此路由到具体实现）")
     origin: DataSourceOrigin = Field(description="来源（platform 平台内建 / product 产品提供）")
     product_key: str | None = Field(default=None, description="产品标识（origin=product 时非空）")
@@ -51,7 +54,7 @@ class DataSourceResponse(BaseSchema):
     @property
     def is_dict(self) -> bool:
         """是否字典（由 `kind` 派生；供界面按数据形态套用字典记录页骨架，避免前端各写一套判定）。"""
-        return self.kind == DataSourceKind.DICT
+        return self.kind == DATA_SOURCE_KIND_DICT
 
 
 class DataSourceListResponse(BaseSchema):
