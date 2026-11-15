@@ -9,6 +9,7 @@ import asyncio
 import hashlib
 import inspect
 import os
+import shutil
 import time
 from collections.abc import AsyncIterator, Callable, Generator, Iterator
 from contextlib import contextmanager, suppress
@@ -328,9 +329,13 @@ def shared_db_url(name: str) -> str:
 
 
 def clear_shared_db_files() -> ConcurrentStableList[str]:
-    """清空会话测试库目录下的库文件与就绪标记（会话开始调用）。
+    """清空会话测试库目录下的库文件、就绪标记与残留锁（会话开始调用）。
 
-    删除失败（Windows 句柄未释放）时跳过并返回失败清单，由调用方告警，不中断整轮。
+    删除失败（Windows 句柄未释放）时跳过并返回失败清单，由调用方分级处置：
+    **残留锁删不掉必须阻断**（会把整轮拖成等锁超时），库文件删不掉只告警。
+
+    目录（如历史遗留的 `cov_dummy`）走 `rmtree`——旧实现用 `unlink` 删目录必然失败，
+    会被误报成「句柄占用」。
 
     Returns:
         ConcurrentStableList[str]: 未能删除的文件名清单。
@@ -346,7 +351,10 @@ def clear_shared_db_files() -> ConcurrentStableList[str]:
         ):
             continue
         try:
-            path.unlink()
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
         except OSError:
             failed.append(path.name)
     return failed

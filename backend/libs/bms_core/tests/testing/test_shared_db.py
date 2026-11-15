@@ -99,6 +99,18 @@ def test_clear_shared_db_files_keeps_namespace_map(tmp_path: Path, monkeypatch: 
     assert remaining == ["keep.txt", "namespace-map.jsonl"]
 
 
+def test_clear_shared_db_files_removes_stray_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """目录（历史遗留如 `cov_dummy`）走 rmtree 删除，不再误报「句柄占用」。"""
+    monkeypatch.chdir(tmp_path)
+    directory = fixtures.test_db_dir()
+    stray = directory / "cov_dummy"
+    (stray / "nested").mkdir(parents=True)
+    (stray / "nested" / "x.txt").write_text("x", encoding="utf-8")
+
+    assert fixtures.clear_shared_db_files() == []
+    assert not stray.exists()
+
+
 def test_clear_shared_db_files_without_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """目录不存在时直接返回空清单（首跑路径）。"""
     monkeypatch.chdir(tmp_path)

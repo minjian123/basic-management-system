@@ -184,6 +184,20 @@ def test_configure_warns_when_shared_db_cleanup_fails(
     assert "共享测试库清理失败" in capsys.readouterr().out
 
 
+@pytest.mark.kiwi_id(2505)
+def test_configure_fails_when_residual_lock_survives_cleanup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """残留锁清不掉：会话直接失败（带锁开跑只会把整轮拖成等锁超时）。"""
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
+
+    monkeypatch.setattr(
+        plugin.fixtures,
+        "clear_shared_db_files",
+        lambda: ConcurrentStableList(["platform.db", "shared-db-write.lock"]),
+    )
+    with pytest.raises(RuntimeError, match="残留测试锁清理失败"):
+        plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
+
+
 @pytest.mark.kiwi_id(2399)
 def test_configure_quiet_when_shared_db_cleanup_succeeds(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]

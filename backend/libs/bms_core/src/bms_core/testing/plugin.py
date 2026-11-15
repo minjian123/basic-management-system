@@ -96,5 +96,13 @@ def pytest_configure(config: pytest.Config) -> None:
     if not os.environ.get("PYTEST_XDIST_WORKER"):
         # 会话开始清空共享测试库（controller 先于 xdist worker 启动，不与 worker 建库竞争）
         failed = fixtures.clear_shared_db_files()
+        stuck_locks = [name for name in failed if name.endswith(".lock")]
+        if stuck_locks:
+            # 残留锁会让后续每个等待方等满整段上限后才超时（bms#1659 续修实测：8 worker × 300s），
+            # 带锁开跑只会把「一行启动错误」拖成「一堆假超时」，必须立即阻断。
+            raise RuntimeError(
+                f"[bms_testing_plugin] 残留测试锁清理失败：{stuck_locks}；"
+                f"请结束占用进程或手工删除 {fixtures.test_db_dir()} 下的同名 .lock 后重跑"
+            )
         if failed:
-            print(f"[bms_testing_plugin] 共享测试库清理失败（句柄占用），本次改用新库：{failed}")
+            print(f"[bms_testing_plugin] 共享测试库清理失败（Windows 句柄占用），本次改用新库：{failed}")

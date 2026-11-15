@@ -230,6 +230,160 @@ def test_file_lock_tolerates_release_conflict() -> None:
         path.unlink(missing_ok=True)
 
 
+@pytest.mark.kiwi_id(2505)
+def test_file_lock_heartbeat_keeps_lock_fresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """持锁期心跳持续刷新 mtime：活锁不会被 30s 陈旧判据误抢。"""
+    monkeypatch.setattr(locks_module, "HEARTBEAT_INTERVAL", 0.02)
+    name = "ddl-test-heartbeat"
+    path = _lock_path(name)
+    with file_lock(name, timeout=5):
+        aged = time.time() - locks_module.STALE_AFTER + 1
+        os.utime(path, (aged, aged))
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and time.time() - path.stat().st_mtime > 1:
+            time.sleep(0.01)
+        assert time.time() - path.stat().st_mtime <= 1, "心跳未刷新 mtime"
+        assert not locks_module._is_stale(path)  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2505)
+def test_file_lock_heartbeat_stops_after_takeover(monkeypatch: pytest.MonkeyPatch) -> None:
+    """锁已被他人清理重取（内容不再是自己）→ 心跳停止，不再替别人保活。"""
+    monkeypatch.setattr(locks_module, "HEARTBEAT_INTERVAL", 0.02)
+    name = "ddl-test-heartbeat-takeover"
+    path = _lock_path(name)
+    with file_lock(name, timeout=5):
+        path.write_text("999999|0", encoding="utf-8")
+        aged = time.time() - locks_module.STALE_AFTER + 5
+        os.utime(path, (aged, aged))
+        time.sleep(0.15)
+        assert path.stat().st_mtime <= aged + 0.5, "心跳在锁被接管后仍在刷新"
+
+
+@pytest.mark.kiwi_id(2505)
+def test_file_lock_heartbeat_stops_on_utime_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """心跳刷新抛 OSError：心跳线程静默退出，不影响持锁（残锁交给 30s 陈旧判据）。"""
+    monkeypatch.setattr(locks_module, "HEARTBEAT_INTERVAL", 0.02)
+    name = "ddl-test-heartbeat-oserror"
+    path = _lock_path(name)
+
+    def _deny_utime(*args: object, **kwargs: object) -> None:
+        """替身 `os.utime`：模拟共享冲突。
+
+        Args:
+            *args: 忽略。
+            **kwargs: 忽略。
+
+        Raises:
+            OSError: 恒抛。
+        """
+        del args, kwargs
+        raise OSError(13, "utime denied")
+
+    with file_lock(name, timeout=5):
+        with mock.patch.object(locks_module.os, "utime", _deny_utime):
+            time.sleep(0.06)
+        aged = time.time() - locks_module.STALE_AFTER + 5
+        os.utime(path, (aged, aged))
+        time.sleep(0.08)
+        assert path.stat().st_mtime <= aged + 0.5, "心跳失败后不应继续刷新"
+
+
+@pytest.mark.kiwi_id(2505)
+def test_file_lock_stale_tolerates_unreadable_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """POSIX 下锁文件读不出内容（瞬时共享冲突）：按「暂不陈旧」处理，继续等而不是误抢。"""
+    monkeypatch.setattr(locks_module, "_POSIX", True)
+    name = "ddl-test-unreadable"
+    path = _lock_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("other|0", encoding="utf-8")
+
+    def _deny_read(self: object, *args: object, **kwargs: object) -> str:
+        """替身 `Path.read_text`：模拟共享冲突。
+
+        Args:
+            self: 路径对象（忽略）。
+            *args: 忽略。
+            **kwargs: 忽略。
+
+        Raises:
+            PermissionError: 恒抛。
+        """
+        del self, args, kwargs
+        raise PermissionError(13, "另一个程序正在使用此文件")
+
+    try:
+        with mock.patch.object(Path, "read_text", _deny_read):
+            assert not locks_module._is_stale(path)  # pyright: ignore[reportPrivateUsage]
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@pytest.mark.kiwi_id(2505)
+def test_file_lock_windows_stale_ignores_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    """非 POSIX 只按 mtime 判陈旧，不读锁文件内容（读句柄会让持锁方 unlink 抛 EACCES）。"""
+    monkeypatch.setattr(locks_module, "_POSIX", False)
+    name = "ddl-test-windows-stale"
+    path = _lock_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("999999|0", encoding="utf-8")
+
+    def _deny_read(self: object, *args: object, **kwargs: object) -> str:
+        """替身 `Path.read_text`：被调用即失败（证明判陈旧不读内容）。
+
+        Args:
+            self: 路径对象（忽略）。
+            *args: 忽略。
+            **kwargs: 忽略。
+
+        Raises:
+            AssertionError: 恒抛。
+        """
+        del self, args, kwargs
+        raise AssertionError("非 POSIX 判陈旧不应读取锁文件内容")
+
+    try:
+        with mock.patch.object(Path, "read_text", _deny_read):
+            assert not locks_module._is_stale(path)  # pyright: ignore[reportPrivateUsage]
+        aged = time.time() - locks_module.STALE_AFTER - 5
+        os.utime(path, (aged, aged))
+        assert locks_module._is_stale(path)  # pyright: ignore[reportPrivateUsage]
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@pytest.mark.kiwi_id(2505)
+def test_file_lock_release_retries_transient_conflict() -> None:
+    """放锁遇瞬时共享冲突：重试后成功删除（不再把残锁留给下一轮）。"""
+    name = "ddl-test-release-retry"
+    path = _lock_path(name)
+    original = Path.unlink
+    calls = ConcurrentStableList[int]()
+
+    def _flaky_unlink(self: Path, missing_ok: bool = False) -> None:
+        """替身 `Path.unlink`：前两次抛共享冲突，第三次走真实删除。
+
+        Args:
+            self: 路径对象。
+            missing_ok: 透传真实实现。
+
+        Raises:
+            PermissionError: 前两次调用。
+        """
+        calls.append(1)
+        if len(calls) < 3:
+            raise PermissionError(13, "另一个程序正在使用此文件")
+        original(self, missing_ok=missing_ok)
+
+    try:
+        with mock.patch.object(Path, "unlink", _flaky_unlink), file_lock(name, timeout=5):
+            assert path.is_file()
+        assert not path.exists(), "重试后锁文件应被删除"
+        assert len(calls) == 3
+    finally:
+        path.unlink(missing_ok=True)
+
+
 @pytest.mark.kiwi_id(2317)
 def test_lock_helpers_cover_holder_parsing_and_liveness(monkeypatch: pytest.MonkeyPatch) -> None:
     """持有者解析 / 存活探测 / 陈旧判定：非法内容不判陈旧、自身 pid 不判陈旧、权限错误按存活。"""
@@ -435,5 +589,8 @@ async def test_create_all_works_on_shared_library(shared_platform_engine: AsyncE
 
 @pytest.mark.kiwi_id(2317)
 def test_lock_module_exposes_timeout_default() -> None:
-    """默认等锁上限对外可见（用例侧按需覆盖）。"""
-    assert locks_module.DEFAULT_TIMEOUT > 0
+    """默认等锁上限对外可见（用例侧按需覆盖）；陈旧阈值必须小于等待上限。"""
+    assert locks_module.DEFAULT_TIMEOUT == 180.0
+    assert locks_module.STALE_AFTER == 30.0
+    assert locks_module.HEARTBEAT_INTERVAL * 2 < locks_module.STALE_AFTER
+    assert locks_module.STALE_AFTER < locks_module.DEFAULT_TIMEOUT
