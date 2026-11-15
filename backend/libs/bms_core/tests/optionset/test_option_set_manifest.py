@@ -77,7 +77,7 @@ def test_manifest_option_set_adapter() -> None:
 
 
 def test_contract_derives_named_component() -> None:
-    """字段 `optionSetKey` → 同名组件 + `x-extensible-enum` + 字段 `$ref`。"""
+    """字段 `optionSetKey` → 同名组件 + `x-extensible-enum` + 字段 `$ref`（含无描述字段）。"""
     openapi = {
         "components": {
             "schemas": {
@@ -88,7 +88,9 @@ def test_contract_derives_named_component() -> None:
                             "type": "string",
                             "description": "类型",
                             "optionSetKey": "bms.demo.kind",
-                        }
+                        },
+                        # 无 description 的同值域字段：派生后只留 $ref（不写空描述）
+                        "kind_alias": {"type": "string", "optionSetKey": "bms.demo.kind"},
                     },
                 }
             }
@@ -106,6 +108,8 @@ def test_contract_derives_named_component() -> None:
     assert kind["$ref"] == "#/components/schemas/DemoKind"
     assert kind["description"] == "类型"
     assert "optionSetKey" not in kind
+    alias = cast("dict[str, object]", properties["kind_alias"])
+    assert alias == {"$ref": "#/components/schemas/DemoKind"}
 
 
 def test_contract_skips_unknown_and_non_component() -> None:

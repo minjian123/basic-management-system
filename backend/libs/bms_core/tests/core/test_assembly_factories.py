@@ -14,7 +14,7 @@ import pytest
 from fastapi import FastAPI
 
 from bms_core.core import assembly
-from bms_core.core.config import Settings
+from bms_core.core.config import MinioSettings, PluginSelection, Settings
 from bms_core.core.exceptions import PluginError
 
 
@@ -145,3 +145,14 @@ async def test_assemble_plugins_rejects_required_redis_without_provider() -> Non
 
     with pytest.raises(PluginError, match="Redis 为基础能力"):
         await assembly.assemble_plugins(FastAPI(), settings, cast("Any", object()))
+
+
+def test_minio_factories_build_with_credentials() -> None:
+    """MinIO 存储 / 分片工厂：凭据齐备即构造实现；本地分片与 MinIO 存储不配对即拒。"""
+    settings = Settings()
+    settings.minio = MinioSettings(endpoint="127.0.0.1:9000", access_key="ak", secret_key="sk")
+    settings.storage = PluginSelection(provider="minio")
+    assert assembly.MinioObjectStorageFactory(settings).create() is not None
+    assert assembly.MinioMultipartUploadFactory(settings).create() is not None
+    with pytest.raises(PluginError, match="不配对"):
+        assembly.LocalMultipartUploadFactory(settings).create()

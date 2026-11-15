@@ -379,3 +379,24 @@ async def test_assembly_tolerates_empty_product_manifests(monkeypatch: pytest.Mo
     app = ApplicationFactory().create(None)
     async with app_module.service_lifespan(app):
         assert app.state.startup_complete is True
+
+
+def _invalid_consumer_records(records: object) -> ConcurrentStableList[str]:
+    """事件消费组校验替身：恒返回一条问题（覆盖拒启分支）。
+
+    Args:
+        records: 待校验记录（忽略）。
+
+    Returns:
+        ConcurrentStableList[str]: 问题清单。
+    """
+    del records
+    return ConcurrentStableList(["bad-group"])
+
+
+def test_event_consumer_records_reject_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    """事件消费组声明校验失败即拒启（不静默放行）。"""
+    app = cast("Any", SimpleNamespace(state=SimpleNamespace(event_consumer_records=ConcurrentStableList())))
+    monkeypatch.setattr(app_module, "validate_event_consumer_records", _invalid_consumer_records)
+    with pytest.raises(app_module.EventContractError, match="事件消费组声明校验失败"):
+        app_module.load_event_consumer_records(app, get_settings())
