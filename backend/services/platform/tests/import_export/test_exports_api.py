@@ -54,7 +54,7 @@ from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
 from tests_support.permission_admin import setup_min_tenant
 
-pytestmark = [pytest.mark.kiwi_id(2402), pytest.mark.usefixtures("serial_db_write")]
+pytestmark = [pytest.mark.kiwi_id(2402), pytest.mark.usefixtures("tenant_db_write")]
 
 API = "/api/v1/exports"
 _TENANT_SEED = "t-export"

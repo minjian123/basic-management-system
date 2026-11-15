@@ -35,13 +35,14 @@ pytestmark = pytest.mark.kiwi_id(2386)
 
 
 @pytest.fixture(autouse=True)
-def _serial_db_write(serial_db_write: None) -> None:  # pyright: ignore[reportUnusedFunction]
-    """整个文件串行写：投影 upsert / 目录同步都是「先读后写」。
+def _platform_db_write_whole(platform_db_write_whole: None) -> None:  # pyright: ignore[reportUnusedFunction]
+    """整个文件声明写平台库：投影 upsert / 目录同步都是「先读后写」。
 
-    单库叠加下 SQLite 的读→写升级冲突不等待（`busy_timeout` 兜不住），靠 `serial_db_write` 排队。
+    单库叠加下 SQLite 的读→写升级冲突不等待（`busy_timeout` 兜不住），靠 `platform_db_write_whole` 整条用例跨进程排队
+    （`rollback_session` 在夹具准备阶段就 `BEGIN IMMEDIATE`，锁必须覆盖准备 / 清理）。
 
     Args:
-        serial_db_write: 共享库写路径串行夹具（工程根 / 套件 conftest 提供）。
+        platform_db_write_whole: 平台库整条用例写锁（rollback_session 的准备阶段就开写事务）。
     """
 
 

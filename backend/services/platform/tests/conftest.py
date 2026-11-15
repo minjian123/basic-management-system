@@ -374,16 +374,3 @@ async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
         # 固定请求语言：用例断言「必填语言」时不应受库内默认语言（可被其它用例临时切换）影响
         c.headers.setdefault("Accept-Language", "zh-CN")
         yield c
-
-
-@pytest.fixture
-def serial_db_write() -> Iterator[None]:
-    """共享库写路径跨进程串行（实现与工程根同名夹具一致；子工程 rootdir 时兜底）。
-
-    Yields:
-        None: 持锁区间。
-    """
-    from tests_support.locks import file_lock
-
-    with file_lock("shared-db-write"):
-        yield

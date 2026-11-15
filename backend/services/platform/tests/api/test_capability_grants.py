@@ -8,13 +8,14 @@
 - 内部授权视图：`provider` / `consumer` 二选一、维度越界即拒（403）、登录态按权限码放行。
 """
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
-from sqlalchemy import delete
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import AuthError
@@ -39,13 +40,9 @@ from bms_core.services.module_registry import (
     reset_collaboration_records,
     reset_domain_services,
 )
+from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.services.capability_grant import CapabilityGrantService
 from tests_support.metrics import RecordingMetrics
-
-pytestmark = pytest.mark.own_db(
-    "被测对象是能力授权声明对账（首次全新增 / 声明移除置撤销 / 回归恢复的计数）与「清空授权表后的受控起点」；"
-    "共享库上整表清理会破坏并行中他人用例的数据"
-)
 
 API = "/api/v1/capability-grants"
 INTERNAL_API = "/api/v1/platform/internal/capability-grants"
@@ -144,19 +141,22 @@ def _record(*, consumers: ConcurrentStableFrozenList[str] | None = None) -> Coll
     )
 
 
-@pytest.fixture(autouse=True)
-def _isolated_platform(platform_db: None, isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
-    """白名单文件的**独占平台库**：本文件逐例清空授权表，独占库使清场不影响并行中的其它 worker。
+@pytest.fixture
+async def _grant_rollback(service_app: FastAPI, shared_platform_engine: AsyncEngine) -> AsyncIterator[None]:
+    """共享平台库上的**回滚会话**：本用例的授权写入整体回滚，不动并行 worker 的数据。
+
+    此前本文件走「每用例一份独占平台库 + 逐例清空授权表」；单库叠加口径下改为共享库 +
+    未提交事务，清场只在本用例可见（`SessionFactory.create` 在本区间内复用同一会话）。
 
     Args:
-        platform_db: 套件平台库夹具（仅用于排序：旧夹具先设置，这里再覆盖 URL）。
-        isolated_platform_db_url: 独占平台库连接串（每 worker 一份 tmp 库 + 播种）。
-        monkeypatch: 环境变量覆盖。
-    """
-    from bms_core.core.config import get_settings
+        service_app: 应用实例（先装配，启动期声明同步先落库）。
+        shared_platform_engine: 共享平台库引擎。
 
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
-    get_settings.cache_clear()
+    Yields:
+        None: 回滚会话区间。
+    """
+    async with rollback_session(shared_platform_engine):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -197,13 +197,13 @@ def _isolate_grant_state() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-async def _clean_grants(_null_permission: None, _isolated_platform: None, service_app: FastAPI) -> None:
-    """清空授权表（独占平台库跨用例共享，逐例起点一致）。
+async def _clean_grants(_null_permission: None, _grant_rollback: None, service_app: FastAPI) -> None:
+    """清掉启动期声明同步落下的授权行（只在本用例未提交事务内，逐例起点一致）。
 
     Args:
         service_app: 应用实例（启动钩子已执行，声明同步行随后清空）。
         _null_permission: 保证权限实现先于应用装配生效（依赖顺序）。
-        _isolated_platform: 保证库 URL 覆盖先于应用装配生效（依赖顺序）。
+        _grant_rollback: 保证回滚会话先于清场建立（依赖顺序）。
     """
     from bms_core.collaboration import reset_capability_grants
 
@@ -212,7 +212,19 @@ async def _clean_grants(_null_permission: None, _isolated_platform: None, servic
         db_key=PLATFORM_DB_KEY,
         factory=service_app.state.session_factory,
     ) as session:
-        await session.execute(delete(SysCapabilityGrant))
+        # 只删「声明同步」来源的行：启动期加载平台清单会产生它们，用例需要干净的声明起点；
+        # 人工授予行由用例自造，不需要清。删除落在未提交事务内，对并行 worker 不可见。
+        declared = (
+            (
+                await session.execute(
+                    select(SysCapabilityGrant).where(SysCapabilityGrant.source == GRANT_SOURCE_DECLARED)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for row in declared:
+            await session.delete(row)
         await session.commit()
     reset_capability_grants()
 

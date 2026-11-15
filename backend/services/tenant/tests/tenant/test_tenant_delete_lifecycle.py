@@ -28,8 +28,8 @@ from bms_tenant.domains.tenant.services.tenant_admin import (
     TenantAdminService,
     parse_retention_days,
 )
-
-from .test_tenant_admin import _override_platform, _seed_tenant  # pyright: ignore[reportPrivateUsage]
+from tests_support.tenant_admin_helpers import override_platform as _override_platform
+from tests_support.tenant_admin_helpers import seed_tenant as _seed_tenant
 
 pytestmark = [
     pytest.mark.kiwi_id(2457),

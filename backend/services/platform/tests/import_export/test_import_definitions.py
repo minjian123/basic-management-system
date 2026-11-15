@@ -26,7 +26,7 @@ from bms_platform.domains.role.services.role import RoleService
 from bms_platform.domains.user.imports import UserImportDefinition, _UserPreload  # pyright: ignore[reportPrivateUsage]
 from bms_platform.domains.user.services.users_admin import UserAdminService
 
-pytestmark = [pytest.mark.kiwi_id(2401), pytest.mark.usefixtures("serial_db_write")]
+pytestmark = [pytest.mark.kiwi_id(2401), pytest.mark.usefixtures("tenant_db_write")]
 
 
 def _unused(*_args: object, **_kwargs: object) -> UserAdminService:

@@ -1,8 +1,8 @@
 """会话管理服务单元测试（Kiwi 2195）：统一撤销原语三态、过期踢出、多端上限无溢出。
 
 单库叠加口径（04-6-2）：会话行落共享租户库，会话 / 用户主键按用例命名空间派生。
-**例外（`own_db`）**：按租户批量撤销的语义就是「本租户库全部在线会话」，共享库上会连带撤销
-并行 worker 的在线会话，故这两个用例走独占租户库（每用例一份 tmp 库 + 参数种子）。
+`tenant_rollback`：按租户批量撤销的语义就是「本租户库全部在线会话」（全局口径）——用例跑在
+**未提交事务**里，撤销对并行 worker 不可见且结束即回滚，既不动他人数据也不建独占库。
 """
 
 from datetime import timedelta
@@ -100,34 +100,35 @@ async def test_enforce_max_active_no_overflow(service_app: FastAPI, ns: Namespac
 
 
 @pytest.mark.kiwi_id(2325)
-@pytest.mark.own_db(
-    "被测对象是「按租户批量撤销本租户库全部在线会话」（整租户库口径）：需要空库起点与全表结果，"
-    "共享库上会连带撤销并行 worker 的在线会话"
-)
 async def test_revoke_tenant_sessions_revokes_all_active(
-    isolated_tenant: None, service_app: FastAPI, ns: Namespace
+    tenant_rollback: None, service_app: FastAPI, ns: Namespace
 ) -> None:
-    """按租户撤销：只涉及在线会话（已撤销 / 过期不动），返回会话清单并广播。"""
+    """按租户撤销：只涉及在线会话（已撤销 / 过期不动），返回会话清单并广播。
+
+    单库叠加口径：库用共享租户库 + 回滚会话（本用例的撤销整体回滚，不动并行 worker 的会话）；
+    「本租户库全部在线会话」是全局口径，故只断言**本用例的会话**在其中、已撤销的会话不在其中。
+    """
     active = [sid(ns, 11), sid(ns, 12)]
     await seed_session(service_app, session_id=active[0], user_id=uid(ns, 1))
     await seed_session(service_app, session_id=active[1], user_id=uid(ns, 2))
-    await seed_session(service_app, session_id=sid(ns, 13), user_id=uid(ns, 2), revoked_at=utc_now())
+    already = sid(ns, 13)
+    await seed_session(service_app, session_id=already, user_id=uid(ns, 2), revoked_at=utc_now())
     store, recorder = MemorySessionStore(), RecordingRealtimePublisher()
     async with tenant_scope(service_app) as session:
         service = _service(session, store, recorder)
         revoked = await service.revoke_tenant_sessions(tenant="1", reason=REASON_TENANT_SUSPENDED)
         await session.commit()
-    assert list(revoked) == active
-    assert len(recorder.events) == 2
+    assert set(active) <= set(revoked)
+    assert already not in revoked
+    assert len(recorder.events) >= 2
     async with tenant_scope(service_app) as session:
         repo = SessionRepository(session)
         assert await repo.count_active(now=utc_now()) == 0
 
 
 @pytest.mark.kiwi_id(2325)
-@pytest.mark.own_db("同上：整租户库批量撤销口径，共享库上会撤销并行 worker 的在线会话")
 async def test_revoke_tenant_sessions_cleanup_failure_tolerated(
-    isolated_tenant: None, service_app: FastAPI, ns: Namespace
+    tenant_rollback: None, service_app: FastAPI, ns: Namespace
 ) -> None:
     """运行时清理失败不阻断 DB 撤销（逐会话尽力而为）。"""
     session_id = sid(ns, 14)
@@ -144,6 +145,6 @@ async def test_revoke_tenant_sessions_cleanup_failure_tolerated(
         service = _service(session, _store, recorder)
         revoked = await service.revoke_tenant_sessions(tenant="1", reason=REASON_TENANT_SUSPENDED)
         await session.commit()
-    assert list(revoked) == [session_id]
+    assert session_id in revoked
     async with tenant_scope(service_app) as session:
         assert await SessionRepository(session).count_active(now=utc_now()) == 0

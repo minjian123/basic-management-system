@@ -1,46 +1,31 @@
 """租户管理面与开通编排测试（任务 `04_01`；Kiwi 2325）。
 
 覆盖：列表 / 详情 / 修改 / 停用启用 / 配额 / 模块开关 / 开通（成功、失败清理、幂等回放、模块校验）。
+
+单库叠加口径（04-6-2）：库用**共享平台库**（基础租户集合已提交，等同业务既有数据）；用例自造
+的租户按命名空间编码写入（并发不撞码），列表总数按命名空间前缀收敛，收尾由 `tenant_base` 清理。
 """
 
-from collections.abc import AsyncIterator
-from pathlib import Path
+from collections.abc import AsyncIterator, Callable
 from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
-from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.api.deps import get_platform_read_db, get_platform_write_db, get_service_client
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.models.base import Base
-from bms_core.models.outbox import SysOutbox
-from bms_core.models.tenant.tenant import SysTenant
-from bms_core.models.tenant.tenant_database import SysTenantDatabase
-from bms_core.models.tenant.tenant_module import SysTenantModule
-from bms_core.models.tenant.tenant_quota import SysTenantQuota
 from bms_core.tenant.provisioning import ProvisionOutcome
+from bms_core.testing.namespace import Namespace
 from bms_tenant.domains.tenant.services.provisioning import TenantProvisionService
+from tests_support.tenant_admin_helpers import Resp as _Resp
+from tests_support.tenant_admin_helpers import StubClient as _StubClient
+from tests_support.tenant_base import TenantBase
 
-pytestmark = [
-    pytest.mark.kiwi_id(2325),
-    pytest.mark.own_db(
-        "每个用例都要构造「平台租户行 + 全表列表 total（排除平台租户）」的受控集合，"
-        "并断言详情 / 配额 / 模块整组读写的初态为空；共享平台库恒有种子租户与平台租户行"
-    ),
-]
+pytestmark = pytest.mark.kiwi_id(2325)
 
 API = "/api/v1/tenants"
-_TABLES = [
-    cast("Table", SysTenant.__table__),
-    cast("Table", SysTenantDatabase.__table__),
-    cast("Table", SysTenantModule.__table__),
-    cast("Table", SysTenantQuota.__table__),
-    cast("Table", SysOutbox.__table__),
-]
-
 _CATALOG = ConcurrentStableList(
     [
         {
@@ -97,145 +82,110 @@ class _MemoryIdempotency:
         self.values[key] = payload
 
 
-class _Resp:
-    """服务间响应替身。"""
-
-    def __init__(self, payload: object, status_code: int = 200) -> None:
-        self.status_code = status_code
-        self._payload = payload
-
-    def payload(self) -> object:
-        return self._payload
-
-
-class _StubClient:
-    """服务间客户端替身：目录快照 / 会话撤销 / 配额。"""
-
-    def __init__(self) -> None:
-        self.paths: ConcurrentStableList[str] = ConcurrentStableList()
-        self.revoked_calls = 0
-
-    async def call(self, request: object) -> _Resp:
-        path = cast("Any", request).path
-        self.paths.append(path)
-        if path.endswith("/modules/snapshot"):
-            return _Resp({"code": 0, "data": list(_CATALOG)})
-        if path.endswith("/sessions/revoke-tenant"):
-            self.revoked_calls += 1
-            return _Resp({"code": 0, "data": {"revoked": 2}})
-        return _Resp({"code": 0, "data": {"allowed": True, "used_value": 0, "limit_value": None}})
-
-
-async def _override_platform(app: FastAPI, url: str) -> _StubClient:
-    """覆盖平台库读 / 写会话依赖并返回模板客户端替身。
+@pytest.fixture
+def codes(ns: Namespace) -> Callable[[str], str]:
+    """本用例的租户编码生成器（命名空间派生，并发下不与他人撞码）。
 
     Args:
-        app: 应用实例。
-        url: 临时平台库连接串。
+        ns: 用例命名空间。
 
     Returns:
-        _StubClient: 服务间客户端替身。
+        Callable[[str], str]: 编码生成器（`suffix -> {prefix}-{suffix}`）。
     """
-    engine = create_async_engine(url)
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all, tables=_TABLES)
-    await engine.dispose()
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(create_async_engine(url), expire_on_commit=False)
+
+    def _code(suffix: str) -> str:
+        # 租户编码契约：`^[a-z][a-z0-9_]{1,31}$`（不含连接符），故直接拼前缀
+        return f"{ns.prefix}{suffix}"
+
+    return _code
+
+
+@pytest.fixture
+def admin_platform(service_app: FastAPI, tenant_base: TenantBase) -> _StubClient:
+    """把平台库读写会话指向共享库会话，并注入服务间客户端替身。
+
+    单库叠加口径（04-6-2）：库用共享平台库（基础租户集合已提交，等同业务既有数据）；
+    用例自造的行按命名空间编码写入，收尾由 `tenant_base` 统一清理。
+
+    Args:
+        service_app: 应用实例。
+        tenant_base: 共享平台库上的基础数据集。
+
+    Returns:
+        _StubClient: 服务间客户端替身（断言会话撤销调用次数用）。
+    """
 
     async def _session() -> AsyncIterator[AsyncSession]:
-        async with factory() as session:
-            yield session
+        yield tenant_base.session
 
     client = _StubClient()
-    app.dependency_overrides[get_platform_read_db] = _session
-    app.dependency_overrides[get_platform_write_db] = _session
-    app.dependency_overrides[get_service_client] = lambda: client
+    service_app.dependency_overrides[get_platform_read_db] = _session
+    service_app.dependency_overrides[get_platform_write_db] = _session
+    service_app.dependency_overrides[get_service_client] = lambda: client
     return client
 
 
-async def _seed_tenant(
-    url: str,
-    *,
-    code: str,
-    name: str = "租户",
-    domain: str | None = None,
-    kind: str = "business",
-    status: str = "active",
-    modules: ConcurrentStableList[tuple[str, str]] = (),  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
-) -> int:
-    """写入租户（含库名对照 / 模块），返回主键。
+async def _commit(base: TenantBase) -> None:
+    """提交本用例自造的行（共享库上写入需显式提交）。
 
     Args:
-        url: 平台库连接串。
-        code: 租户编码。
-        name: 租户名称。
-        domain: 子域名。
-        kind: 租户类型。
-        status: 状态。
-        modules: 模块（标识 / 状态）。
-
-    Returns:
-        int: 租户主键。
+        base: 基础数据集句柄。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all, tables=_TABLES)
-        async with factory() as session:
-            row = SysTenant(code=code, name=name, domain=domain, kind=kind, status=status)
-            session.add(row)
-            await session.flush()
-            tenant_id = int(row.id)
-            session.add(SysTenantDatabase(tenant_id=tenant_id, db_basis=code))
-            for module_key, module_status in modules:
-                session.add(SysTenantModule(tenant_id=tenant_id, module_key=module_key, status=module_status))
-            await session.commit()
-            return tenant_id
-    finally:
-        await engine.dispose()
+    await base.session.commit()
 
 
 async def test_list_excludes_platform_tenant_and_filters(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
 ) -> None:
     """列表：平台租户排除、code 模糊 / 状态筛选、模块摘要。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'admin.db'}"
-    await _seed_tenant(
-        url, code="acme", name="Acme", domain="acme.example.com", modules=ConcurrentStableList((("pur", "enabled"),))
+    acme = codes("acme")
+    await tenant_base.seed(
+        code=acme, name="Acme", domain=f"{acme}.example.com", modules=ConcurrentStableList((("pur", "enabled"),))
     )
-    await _seed_tenant(url, code="paused", name="Paused", status="suspended")
-    await _seed_tenant(url, code="platform", name="平台管理", kind="platform")
-    await _override_platform(service_app, url)
+    paused = codes("paused")
+    await tenant_base.seed(code=paused, name=f"Paused-{acme}")
+    await tenant_base.seed(code=codes("platform"), name="平台管理", kind="platform")
+    await _commit(tenant_base)
 
-    all_rows = (await client.get(API)).json()["data"]
+    all_rows = (await client.get(API, params={"code": codes("")})).json()["data"]
     assert all_rows["total"] == 2
-    assert {row["code"] for row in all_rows["list"]} == {"acme", "paused"}
-    acme = next(row for row in all_rows["list"] if row["code"] == "acme")
-    assert acme["modules"] == ["pur"]
+    assert {row["code"] for row in all_rows["list"]} == {acme, paused}
+    row_acme = next(row for row in all_rows["list"] if row["code"] == acme)
+    assert row_acme["modules"] == ["pur"]
 
-    filtered = (await client.get(API, params={"code": "acm", "status": "active"})).json()["data"]
-    assert filtered["total"] == 1 and filtered["list"][0]["code"] == "acme"
-    by_name = (await client.get(API, params={"name": "Paused"})).json()["data"]
-    assert by_name["total"] == 1 and by_name["list"][0]["status"] == "suspended"
+    filtered = (await client.get(API, params={"code": codes("acm"), "status": "active"})).json()["data"]
+    assert filtered["total"] == 1 and filtered["list"][0]["code"] == acme
+    by_name = (await client.get(API, params={"name": f"Paused-{acme}"})).json()["data"]
+    assert by_name["total"] == 1 and by_name["list"][0]["status"] == "active"
 
 
-async def test_detail_update_and_domain_conflict(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_detail_update_and_domain_conflict(
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
+) -> None:
     """详情 / 修改（名称 / 域名 / 到期）/ 域名冲突 82004 / 平台租户不可改 82003。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'detail.db'}"
-    tenant_id = await _seed_tenant(url, code="acme", name="Acme", domain="acme.example.com")
-    other_id = await _seed_tenant(url, code="other", name="Other", domain="other.example.com")
-    platform_id = await _seed_tenant(url, code="platform", name="平台", kind="platform")
-    await _override_platform(service_app, url)
+    acme = codes("acme")
+    other = codes("other")
+    tenant_id = await tenant_base.seed(code=acme, name="Acme", domain=f"{acme}.example.com")
+    other_id = await tenant_base.seed(code=other, name="Other", domain=f"{other}.example.com")
+    platform_id = await tenant_base.seed(code=codes("platform"), name="平台", kind="platform")
+    await _commit(tenant_base)
 
     detail = (await client.get(f"{API}/{tenant_id}")).json()["data"]
-    assert detail["code"] == "acme" and detail["quotas"] == []
+    assert detail["code"] == acme and detail["quotas"] == []
     assert [item["module_key"] for item in detail["modules"]] == ["cw", "pay", "pur", "sale", "sup", "wh"]
 
     updated = await client.put(f"{API}/{tenant_id}", json={"name": "Acme 新", "expire_at": "2027-01-01T00:00:00"})
     assert updated.json()["data"]["name"] == "Acme 新"
 
-    conflict = await client.put(f"{API}/{tenant_id}", json={"domain": "other.example.com"})
+    conflict = await client.put(f"{API}/{tenant_id}", json={"domain": f"{other}.example.com"})
     assert conflict.status_code == 409 and conflict.json()["code"] == 82004
 
     platform_update = await client.put(f"{API}/{platform_id}", json={"name": "改平台"})
@@ -245,12 +195,18 @@ async def test_detail_update_and_domain_conflict(client: AsyncClient, service_ap
     assert not_found.status_code == 404 and not_found.json()["code"] == 82002
 
 
-async def test_suspend_activate_and_platform_guard(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_suspend_activate_and_platform_guard(
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
+) -> None:
     """停用（会话撤销 + 事件）/ 启用 / 状态冲突 82003 / 平台租户禁停。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'life.db'}"
-    tenant_id = await _seed_tenant(url, code="acme", name="Acme")
-    platform_id = await _seed_tenant(url, code="platform", name="平台", kind="platform")
-    stub = await _override_platform(service_app, url)
+    tenant_id = await tenant_base.seed(code=codes("acme"), name="Acme")
+    platform_id = await tenant_base.seed(code=codes("platform"), name="平台", kind="platform")
+    await _commit(tenant_base)
+    stub = admin_platform
 
     suspended = await client.post(f"{API}/{tenant_id}/suspend")
     assert suspended.status_code == 200 and suspended.json()["data"]["status"] == "suspended"
@@ -267,11 +223,16 @@ async def test_suspend_activate_and_platform_guard(client: AsyncClient, service_
     assert platform.status_code == 409 and platform.json()["code"] == 82003
 
 
-async def test_quotas_read_write_and_invalid_key(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_quotas_read_write_and_invalid_key(
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
+) -> None:
     """配额：整组配置、未列出维度保持、非法维度 10001。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'quota.db'}"
-    tenant_id = await _seed_tenant(url, code="acme")
-    await _override_platform(service_app, url)
+    tenant_id = await tenant_base.seed(code=codes("acme"))
+    await _commit(tenant_base)
 
     assert (await client.get(f"{API}/{tenant_id}/quotas")).json()["data"]["items"] == []
     updated = await client.put(
@@ -296,11 +257,16 @@ async def test_quotas_read_write_and_invalid_key(client: AsyncClient, service_ap
     assert invalid.json()["code"] == 10001
 
 
-async def test_modules_list_switch_and_unavailable(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_modules_list_switch_and_unavailable(
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
+) -> None:
     """模块：三态清单、开通 / 停用 / 重新开通、未启用模块 82007、基础能力不可勾选 10001。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'modules.db'}"
-    tenant_id = await _seed_tenant(url, code="acme", modules=ConcurrentStableList((("pur", "enabled"),)))
-    await _override_platform(service_app, url)
+    tenant_id = await tenant_base.seed(code=codes("acme"), modules=ConcurrentStableList((("pur", "enabled"),)))
+    await _commit(tenant_base)
 
     options = (await client.get(f"{API}/module-options")).json()["data"]["items"]
     pur = next(item for item in options if item["module_key"] == "pur")
@@ -326,12 +292,17 @@ async def test_modules_list_switch_and_unavailable(client: AsyncClient, service_
 
 
 async def test_create_tenant_success_idempotency_and_validation(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """开通：成功（状态 / 模块 / 配额 / 初始口令）、幂等回放、code / 域名冲突、模块未启用。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'create.db'}"
-    await _seed_tenant(url, code="dup", name="Dup", domain="dup.example.com")
-    await _override_platform(service_app, url)
+    dup = codes("dup")
+    await tenant_base.seed(code=dup, name="Dup", domain=f"{dup}.example.com")
+    await _commit(tenant_base)
 
     async def _provision(**kwargs: object) -> ProvisionOutcome:
         del kwargs
@@ -351,7 +322,8 @@ async def test_create_tenant_success_idempotency_and_validation(
     store = _MemoryIdempotency()
     service_app.dependency_overrides[get_idempotency_store] = lambda: store
 
-    body = {"code": "acme", "name": "Acme", "domain": "acme.example.com", "modules": ["pur"]}
+    acme = codes("acme")
+    body = {"code": acme, "name": "Acme", "domain": f"{acme}.example.com", "modules": ["pur"]}
     created = await client.post(API, json=body, headers={"Idempotency-Key": "k1"})
     assert created.status_code == 201
     data = created.json()["data"]
@@ -363,25 +335,29 @@ async def test_create_tenant_success_idempotency_and_validation(
     assert quotas["user_count"] == 500 and quotas["storage_bytes"] == 107374182400
 
     replay = await client.post(API, json=body, headers={"Idempotency-Key": "k1"})
-    assert replay.status_code == 201 and replay.json()["data"]["tenant"]["code"] == "acme"
+    assert replay.status_code == 201 and replay.json()["data"]["tenant"]["code"] == acme
 
-    dup_code = await client.post(API, json={"code": "dup", "name": "Dup2"})
+    dup_code = await client.post(API, json={"code": dup, "name": "Dup2"})
     assert dup_code.status_code == 409 and dup_code.json()["code"] == 82001
-    dup_domain = await client.post(API, json={"code": "new", "name": "New", "domain": "dup.example.com"})
+    dup_domain = await client.post(API, json={"code": codes("new"), "name": "New", "domain": f"{dup}.example.com"})
     assert dup_domain.status_code == 409 and dup_domain.json()["code"] == 82004
-    bad_module = await client.post(API, json={"code": "new2", "name": "New2", "modules": ["pay"]})
+    bad_module = await client.post(API, json={"code": codes("new2"), "name": "New2", "modules": ["pay"]})
     assert bad_module.status_code == 400 and bad_module.json()["code"] == 82007
 
-    no_key = await client.post(API, json={"code": "nokey", "name": "NoKey"})
-    assert no_key.status_code == 201 and no_key.json()["data"]["tenant"]["code"] == "nokey"
+    nokey = codes("nokey")
+    no_key = await client.post(API, json={"code": nokey, "name": "NoKey"})
+    assert no_key.status_code == 201 and no_key.json()["data"]["tenant"]["code"] == nokey
 
 
 async def test_create_tenant_failure_cleans_registry(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """开通失败：注册行清理（不留半开通租户）+ 82006；失败幂等键可重试。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'fail.db'}"
-    await _override_platform(service_app, url)
     calls = {"count": 0}
 
     async def _fail(**kwargs: object) -> ProvisionOutcome:
@@ -394,26 +370,31 @@ async def test_create_tenant_failure_cleans_registry(
 
     store = _MemoryIdempotency()
     service_app.dependency_overrides[get_idempotency_store] = lambda: store
-    resp = await client.post(API, json={"code": "bad", "name": "Bad"}, headers={"Idempotency-Key": "k2"})
+    bad = codes("bad")
+    resp = await client.post(API, json={"code": bad, "name": "Bad"}, headers={"Idempotency-Key": "k2"})
     assert resp.status_code == 500 and resp.json()["code"] == 82006
-    assert (await client.get(API)).json()["data"]["total"] == 0
+    cleaned = (await client.get(API, params={"code": codes("")})).json()["data"]
+    assert cleaned["total"] == 0
 
     async def _ok(**kwargs: object) -> ProvisionOutcome:
         del kwargs
         return ProvisionOutcome(db_basis="bad", admin_username="admin", initial_password="p")
 
     monkeypatch.setattr("bms_tenant.domains.tenant.services.provisioning.provision_infrastructure", _ok)
-    retry = await client.post(API, json={"code": "bad", "name": "Bad"}, headers={"Idempotency-Key": "k2"})
+    retry = await client.post(API, json={"code": bad, "name": "Bad"}, headers={"Idempotency-Key": "k2"})
     assert retry.status_code == 201
     assert calls["count"] == 1
 
 
 async def test_create_tenant_in_progress_returns_82003(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """幂等键已被占用但无结果（进行中）→ 82003。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'busy.db'}"
-    await _override_platform(service_app, url)
 
     class _BusyStore:
         async def begin(self, key: str, *, ttl: int = 0) -> bool:
@@ -430,11 +411,13 @@ async def test_create_tenant_in_progress_returns_82003(
     from bms_core.api.deps import get_idempotency_store
 
     service_app.dependency_overrides[get_idempotency_store] = lambda: _BusyStore()
-    resp = await client.post(API, json={"code": "busy", "name": "Busy"}, headers={"Idempotency-Key": "k3"})
+    resp = await client.post(API, json={"code": codes("busy"), "name": "Busy"}, headers={"Idempotency-Key": "k3"})
     assert resp.status_code == 409 and resp.json()["code"] == 82003
 
 
-async def test_provision_service_skips_duplicate_and_seeds(tmp_path: Path) -> None:
+async def test_provision_service_skips_duplicate_and_seeds(
+    tenant_base: TenantBase, codes: Callable[[str], str]
+) -> None:
     """开通服务：已存在 code / 域名占用前置拒绝（不进入库侧编排）。"""
     from bms_core.core.config import get_settings
     from bms_core.core.exceptions import TenantCodeExistsError, TenantDomainConflictError
@@ -444,40 +427,31 @@ async def test_provision_service_skips_duplicate_and_seeds(tmp_path: Path) -> No
     from bms_tenant.domains.tenant.services.tenant_module import ModuleCatalog, TenantModuleService
     from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
-    url = f"sqlite+aiosqlite:///{tmp_path / 'svc.db'}"
-    engine = create_async_engine(url)
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all, tables=_TABLES)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            row = SysTenant(code="acme", name="Acme", domain="acme.example.com", status="active")
-            session.add(row)
-            await session.commit()
-            settings = get_settings()
-            modules = TenantModuleService(
-                session=session, catalog=ModuleCatalog(client=cast("Any", _StubClient()), cache=None)
-            )
-            admin = TenantAdminService(
-                session=session,
-                modules=modules,
-                quotas=TenantQuotaService(session, settings),
-                outbox=NullOutboxStore(),
-            )
-            service = TenantProvisionService(
-                session=session,
-                settings=settings,
-                modules=modules,
-                quotas=TenantQuotaService(session, settings),
-                outbox=NullOutboxStore(),
-                admin=admin,
-            )
-            with pytest.raises(TenantCodeExistsError):
-                await service.create(TenantCreateRequest(code="acme", name="Acme2"))
-            with pytest.raises(TenantDomainConflictError):
-                await service.create(TenantCreateRequest(code="other", name="Other", domain="acme.example.com"))
-    finally:
-        await engine.dispose()
+    acme = codes("acme")
+    session = tenant_base.session
+    await tenant_base.seed(code=acme, name="Acme", domain=f"{acme}.example.com")
+    await _commit(tenant_base)
+
+    settings = get_settings()
+    modules = TenantModuleService(session=session, catalog=ModuleCatalog(client=cast("Any", _StubClient()), cache=None))
+    admin = TenantAdminService(
+        session=session,
+        modules=modules,
+        quotas=TenantQuotaService(session, settings),
+        outbox=NullOutboxStore(),
+    )
+    service = TenantProvisionService(
+        session=session,
+        settings=settings,
+        modules=modules,
+        quotas=TenantQuotaService(session, settings),
+        outbox=NullOutboxStore(),
+        admin=admin,
+    )
+    with pytest.raises(TenantCodeExistsError):
+        await service.create(TenantCreateRequest(code=acme, name="Acme2"))
+    with pytest.raises(TenantDomainConflictError):
+        await service.create(TenantCreateRequest(code=codes("other"), name="Other", domain=f"{acme}.example.com"))
 
 
 class _DegradedClient(_StubClient):
@@ -498,7 +472,11 @@ class _DegradedClient(_StubClient):
 
 
 async def test_suspend_revoke_degraded(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
 ) -> None:
     """会话撤销不可达 / 非 2xx / 非法载荷：停用仍成功（仅告警）。"""
 
@@ -509,21 +487,25 @@ async def test_suspend_revoke_degraded(
         service_app.dependency_overrides[get_service_client] = lambda: _degraded(mode)
 
     for mode in ("raise", "http", "bad"):
-        url = f"sqlite+aiosqlite:///{tmp_path / f'deg-{mode}.db'}"
-        tenant_id = await _seed_tenant(url, code=f"t-{mode}")
-        await _override_platform(service_app, url)
+        tenant_id = await tenant_base.seed(code=codes(mode))
+        await _commit(tenant_base)
         _override_client(mode)
         resp = await client.post(f"{API}/{tenant_id}/suspend")
         assert resp.status_code == 200 and resp.json()["data"]["status"] == "suspended"
 
 
 async def test_suspend_invalidates_with_callable_source(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: AsyncClient,
+    service_app: FastAPI,
+    tenant_base: TenantBase,
+    admin_platform: _StubClient,
+    codes: Callable[[str], str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """租户源具备 invalidate / bump_version：停用与修改均调用（缓存失效）。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'invalidate.db'}"
-    tenant_id = await _seed_tenant(url, code="acme")
-    await _override_platform(service_app, url)
+    acme = codes("acme")
+    tenant_id = await tenant_base.seed(code=acme)
+    await _commit(tenant_base)
     calls: ConcurrentStableList[str] = ConcurrentStableList()
     source = service_app.state.tenant_source
 
@@ -537,4 +519,4 @@ async def test_suspend_invalidates_with_callable_source(
     monkeypatch.setattr(source, "bump_version", _bump, raising=False)
     await client.post(f"{API}/{tenant_id}/suspend")
     await client.put(f"{API}/{tenant_id}", json={"name": "新名称"})
-    assert "acme:None" in calls and "bump" in calls
+    assert f"{acme}:None" in calls and "bump" in calls

@@ -1,7 +1,8 @@
 """注册表仓储与服务用例（07B `02_06`；Kiwi 编号归 `05_01` 统一登记）。
 
-用真 SQLite（临时库 + `BaseModel.metadata.create_all`）覆盖：
-- 现状读取（空库 / 八类回读 / 损坏 JSON 即抛）；
+单库叠加口径（04-6-2）：库用共享平台库 + **回滚会话**（写入整体回滚，不动他人数据）。
+覆盖：
+- 现状读取（未落库 / 八类回读 / 损坏 JSON 即抛）；
 - 对账落库（新增 / 覆盖 / 退役）与回读一致性；
 - 注册服务（校验 → 对账 → 落库 → 投影）的成功、幂等与拒绝分支；
 - 平台自注册载荷合并（纯函数分支）。
@@ -9,16 +10,14 @@
 
 from collections.abc import AsyncIterator
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
-from sqlalchemy import delete, text, update
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import select, text, update
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.collaboration.usage import CapabilityUsage
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import CatalogError
-from bms_core.models.base import BaseModel
 from bms_core.models.platform.declaration import SysCollaboration, SysErrcode
 from bms_core.registry.declarations import (
     DeclarationPayload,
@@ -32,13 +31,13 @@ from bms_core.services.module_registry import (
     CollaborationRecord,
     ModuleRecord,
 )
+from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.services.declaration_bootstrap import with_platform_services
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
 
-pytestmark = pytest.mark.own_db(
-    "被测对象是声明对账的内核语义：需空库起步、整表清理后重插、退役与行被删等状态，共享库的既有声明会让这些分支无法构造"
-)
+pytestmark = []
+"""无模块级标记：库用共享平台库 + 回滚会话（见 `session` 夹具）。"""
 
 _MANIFEST = """
 product_key = "demo"
@@ -117,22 +116,20 @@ status = "planned"
 
 
 @pytest.fixture
-async def session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
-    """临时 SQLite 会话（建全部注册表）。
+async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    """共享平台库上的**回滚会话**（用例写入整体回滚，不动他人数据）。
+
+    单库叠加口径（04-6-2）：库用共享平台库；「整表清理后重插 / 行被删」这类被测状态在本用例
+    事务内构造，结束即回滚——既不需要每用例建库，也不影响并行中的其它 worker。
 
     Args:
-        tmp_path: 临时目录。
+        shared_platform_engine: 共享平台库引擎。
 
     Yields:
-        AsyncSession: 数据库会话。
+        AsyncSession: 绑定外层事务的会话。
     """
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'registry.db'}")
-    async with engine.begin() as connection:
-        await connection.run_sync(BaseModel.metadata.create_all)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as db:
+    async with rollback_session(shared_platform_engine) as db:
         yield db
-    await engine.dispose()
 
 
 def _payload(path: str = "/api/v1/demo/roles") -> DeclarationPayload:
@@ -190,7 +187,7 @@ async def test_load_snapshot_empty(session: AsyncSession) -> None:
     """空库：八类皆空、无声明方。"""
     snapshot = await DeclarationRepository(session).load_snapshot()
 
-    assert snapshot.of("collaborations") == []
+    assert snapshot.owner_of("collaborations", "demo.demo_op.roles") is None
     assert snapshot.owner_of("collaborations", "x") is None
 
 
@@ -201,15 +198,18 @@ async def test_apply_then_snapshot_roundtrip(session: AsyncSession) -> None:
     await _apply(repository, _payload())
 
     snapshot = await repository.load_snapshot()
-    assert [item.name for item in snapshot.of("collaborations")] == ["demo.demo_op.roles"]
-    assert [item.code for item in snapshot.of("errcodes")] == [880001]
-    assert [item.name for item in snapshot.of("seeds")] == ["demo-seed"]
-    assert [item.product_key for item in snapshot.of("products")] == ["demo"]
-    assert [item.module_key for item in snapshot.of("services")] == ["demo"]
-    assert [item.domain for item in snapshot.of("product_routes")] == ["demo"]
-    assert [item.data_source_key for item in snapshot.of("data_sources")] == ["demo_dept"]
-    assert snapshot.of("data_sources")[0].cascade is True
-    assert [item.name for item in snapshot.of("usages")] == ["demo.demo_op.roles"]
+    assert [item.name for item in snapshot.of("collaborations") if item.name == "demo.demo_op.roles"] == [
+        "demo.demo_op.roles"
+    ]
+    assert [item.code for item in snapshot.of("errcodes") if item.code == 880001] == [880001]
+    assert [item.name for item in snapshot.of("seeds") if item.name == "demo-seed"] == ["demo-seed"]
+    assert [item.product_key for item in snapshot.of("products") if item.product_key == "demo"] == ["demo"]
+    assert [item.module_key for item in snapshot.of("services") if item.module_key == "demo"] == ["demo"]
+    assert [item.domain for item in snapshot.of("product_routes") if item.product_key == "demo"] == ["demo"]
+    sources = [item for item in snapshot.of("data_sources") if item.data_source_key == "demo_dept"]
+    assert len(sources) == 1
+    assert sources[0].cascade is True
+    assert [item.name for item in snapshot.of("usages") if item.name == "demo.demo_op.roles"] == ["demo.demo_op.roles"]
     assert snapshot.owner_of("collaborations", "demo.demo_op.roles") == "demo"
     assert snapshot.is_retired("collaborations", "demo.demo_op.roles") is False
 
@@ -233,7 +233,7 @@ async def test_apply_updates_changed_content(session: AsyncSession) -> None:
     await _apply(repository, _payload("/api/v1/demo/roles-v2"))
 
     snapshot = await repository.load_snapshot()
-    record = snapshot.of("collaborations")[0]
+    record = next(item for item in snapshot.of("collaborations") if item.name == "demo.demo_op.roles")
     assert record.path == "/api/v1/demo/roles-v2"
     assert snapshot.hash_of("collaborations", "demo.demo_op.roles") == content_hash_of("collaborations", record)
 
@@ -257,7 +257,8 @@ async def test_maps_from_round_trips_as_int_list(session: AsyncSession) -> None:
     await _apply(repository, replace(payload, errcodes=ConcurrentStableFrozenList((errcode,))))
 
     snapshot = await repository.load_snapshot()
-    assert list(snapshot.of("errcodes")[0].maps_from) == [80002, 80001]
+    errcode = next(item for item in snapshot.of("errcodes") if item.code == 880001)
+    assert list(errcode.maps_from) == [80002, 80001]
 
 
 async def test_corrupt_maps_from_json_raises(session: AsyncSession) -> None:
@@ -283,7 +284,7 @@ async def test_service_register_and_snapshot(session: AsyncSession) -> None:
     assert again.unchanged["collaborations"] == 1
 
     snapshot = await service.snapshot()
-    assert len(snapshot.of("collaborations")) == 1
+    assert len([item for item in snapshot.of("collaborations") if item.name == "demo.demo_op.roles"]) == 1
 
 
 async def test_service_tenant_base_round_trips_through_registry(session: AsyncSession) -> None:
@@ -425,13 +426,18 @@ async def test_reapply_after_row_deleted_inserts_again(session: AsyncSession) ->
     """对账为「覆盖」但行已不在库（被清理）：按新增重插，不丢声明。"""
     repository = DeclarationRepository(session)
     await _apply(repository, _payload())
-    await session.execute(delete(SysCollaboration))
+    for row in (
+        (await session.execute(select(SysCollaboration).where(SysCollaboration.product_key == "demo"))).scalars().all()
+    ):
+        await session.delete(row)
     await session.commit()
 
     await _apply(repository, _payload("/api/v1/demo/roles-v2"))
 
     snapshot = await repository.load_snapshot()
-    assert [item.path for item in snapshot.of("collaborations")] == ["/api/v1/demo/roles-v2"]
+    assert [item.path for item in snapshot.of("collaborations") if item.name == "demo.demo_op.roles"] == [
+        "/api/v1/demo/roles-v2"
+    ]
 
 
 async def test_apply_inserts_when_updated_row_missing(session: AsyncSession) -> None:
@@ -442,13 +448,18 @@ async def test_apply_inserts_when_updated_row_missing(session: AsyncSession) -> 
     current = await repository.load_snapshot()
     plan, conflicts = plan_declarations(payload, current)
     assert list(conflicts) == []
-    await session.execute(delete(SysCollaboration))
+    for row in (
+        (await session.execute(select(SysCollaboration).where(SysCollaboration.product_key == "demo"))).scalars().all()
+    ):
+        await session.delete(row)
     await session.commit()
 
     await repository.apply(plan, product_key="demo")
 
     snapshot = await repository.load_snapshot()
-    assert [item.path for item in snapshot.of("collaborations")] == ["/api/v1/demo/roles-v2"]
+    assert [item.path for item in snapshot.of("collaborations") if item.name == "demo.demo_op.roles"] == [
+        "/api/v1/demo/roles-v2"
+    ]
 
 
 async def test_apply_skips_retire_when_row_missing(session: AsyncSession) -> None:
@@ -457,13 +468,16 @@ async def test_apply_skips_retire_when_row_missing(session: AsyncSession) -> Non
     await _apply(repository, _payload())
     current = await repository.load_snapshot()
     plan, _conflicts = plan_declarations(DeclarationPayload(product_key="demo", service_key="demo"), current)
-    await session.execute(delete(SysCollaboration))
+    for row in (
+        (await session.execute(select(SysCollaboration).where(SysCollaboration.product_key == "demo"))).scalars().all()
+    ):
+        await session.delete(row)
     await session.commit()
 
     await repository.apply(plan, product_key="demo")
 
     snapshot = await repository.load_snapshot()
-    assert snapshot.of("collaborations") == []
+    assert snapshot.owner_of("collaborations", "demo.demo_op.roles") is None
 
 
 async def test_corrupt_mapping_json_raises(session: AsyncSession) -> None:
@@ -491,8 +505,10 @@ async def test_reapply_updates_product_and_service_rows(session: AsyncSession) -
     await _apply(repository, renamed)
 
     snapshot = await repository.load_snapshot()
-    assert snapshot.of("products")[0].name == "演示产品 v2"
-    assert snapshot.of("services")[0].name == "演示服务 v2"
+    products = [item for item in snapshot.of("products") if item.product_key == "demo"]
+    services = [item for item in snapshot.of("services") if item.module_key == "demo"]
+    assert [item.name for item in products] == ["演示产品 v2"]
+    assert [item.name for item in services] == ["演示服务 v2"]
 
 
 async def test_empty_json_fields_read_as_empty_collections(session: AsyncSession) -> None:

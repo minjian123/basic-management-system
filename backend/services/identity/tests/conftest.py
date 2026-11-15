@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import get_settings
@@ -21,6 +22,7 @@ from bms_core.testing.fixtures import (
 from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
+from bms_core.testing.transaction import rollback_session
 
 __all__ = ("bms_isolate_settings", "ns", "platform_db", "reset_plugin_registry", "reset_request_context")
 from bms_identity.main import ApplicationFactory
@@ -325,6 +327,25 @@ def isolated_tenant(tenant_db: None, isolated_tenant_db_url: str, monkeypatch: p
     """
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
     get_settings.cache_clear()
+
+
+@pytest.fixture
+async def tenant_rollback(service_app: FastAPI, shared_tenant_engine: AsyncEngine) -> AsyncIterator[None]:
+    """共享租户库上的**回滚会话**：本用例的写入整体回滚，对他人不可见。
+
+    给「整租户库口径即被测」的用例用（如按租户批量撤销全部在线会话）：共享库上该操作会命中
+    并行 worker 的会话，但整个用例跑在**未提交事务**里，结束即回滚——既不动他人数据，
+    也不需要每用例建一份独占库（《测试规范》允许的隔离手段之一：事务回滚）。
+
+    Args:
+        service_app: 应用实例（先装配，保证会话工厂已就位）。
+        shared_tenant_engine: 共享租户库引擎。
+
+    Yields:
+        None: 回滚会话区间（期间 `SessionFactory.create` 复用同一会话）。
+    """
+    async with rollback_session(shared_tenant_engine):
+        yield
 
 
 @pytest.fixture

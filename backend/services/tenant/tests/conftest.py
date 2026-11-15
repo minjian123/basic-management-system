@@ -20,6 +20,7 @@ from bms_core.testing.fixtures import (
 __all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
 from bms_tenant.main import ApplicationFactory
 from tests_support.auth import auth_headers, configure_token_env
+from tests_support.tenant_base import tenant_base as tenant_base  # pytest 夹具须在本模块命名空间可见
 from tests_support.tenant_source import install_fake_tenant_source
 
 

@@ -1,12 +1,8 @@
 """租户源测试（Kiwi 1019）：平台库取数 / 缓存命中与失效 / 未知与停用 / 强制回收。"""
 
-from collections.abc import AsyncIterator
-from pathlib import Path
-from typing import cast
+from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
@@ -17,63 +13,28 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.tenant_registry import snapshot_cache_key
 from bms_core.db.tenant_source import build_tenant_lookup, registered_tenant_sources
-from bms_core.models.base import Base
-from bms_core.models.tenant.tenant import SysTenant
-from bms_core.models.tenant.tenant_database import SysTenantDatabase
+from bms_tenant.domains.tenant.repositories.tenant_registry import TenantRegistryRepository
 from bms_tenant.domains.tenant.sources.tenant_source import (
     LOCAL_TENANT_SOURCE,
     LocalTenantSource,
     register_local_tenant_source,
 )
+from tests_support.tenant_base import TenantBase
 
-pytestmark = pytest.mark.own_db(
-    "`single_active()` 的唯一启用租户判定是**整表口径**（≥2 报错 / 恰 1 命中 / 0 返回空），"
-    "并且要构造「停用 / 软删 / 改名兜底」的受控租户集合；共享平台库恒有种子租户与其他用例的租户"
-)
+pytestmark = pytest.mark.kiwi_id(1019)
 
 
 @pytest.fixture
-async def platform_url(tmp_path: Path) -> AsyncIterator[str]:
-    """临时平台库：建 `sys_tenant` + `sys_tenant_database` 表并写入租户（含改名租户）。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with engine.begin() as connection:
-        await connection.run_sync(
-            Base.metadata.create_all,
-            tables=[cast("Table", SysTenant.__table__), cast("Table", SysTenantDatabase.__table__)],
-        )
-    async with factory() as session:
-        session.add_all(
-            [
-                SysTenant(code="demo", name="演示租户", domain="demo.bms.example.com", db_key="tenant_demo"),
-                SysTenant(code="acme", name="示例租户", domain="acme.bms.example.com", db_key="tenant_acme"),
-                SysTenant(
-                    code="sosp",
-                    name="停用租户",
-                    domain="sosp.bms.example.com",
-                    db_key="tenant_sosp",
-                    status="suspended",
-                ),
-                SysTenant(code="renamed", name="改名租户", domain="renamed.bms.example.com"),
-            ]
-        )
-        await session.flush()
-        demo = (await session.execute(select(SysTenant).where(SysTenant.code == "demo"))).scalar_one()
-        renamed = (await session.execute(select(SysTenant).where(SysTenant.code == "renamed"))).scalar_one()
-        session.add_all(
-            [
-                SysTenantDatabase(tenant_id=int(demo.id), db_basis="demo"),
-                SysTenantDatabase(tenant_id=int(renamed.id), db_basis="orig"),
-            ]
-        )
-        await session.commit()
-        removed = SysTenant(code="gone", name="已删除租户", db_key="tenant_gone")
-        removed.soft_delete()
-        session.add(removed)
-        await session.commit()
-    await engine.dispose()
-    yield url
+def platform_url(tenant_base: TenantBase) -> str:
+    """共享平台库连接串（基础租户集合由 `tenant_base` 提交入库，两个文件共用）。
+
+    Args:
+        tenant_base: 共享平台库上的基础数据集。
+
+    Returns:
+        str: 共享平台库连接串。
+    """
+    return tenant_base.url
 
 
 def _source(url: str, *, cache: CacheRegion | None = None) -> tuple[LocalTenantSource, EngineRegistry]:
@@ -154,48 +115,27 @@ async def test_suspended_tenant_released_and_rejected(platform_url: str) -> None
 
 
 @pytest.mark.kiwi_id(1019)
-async def test_cache_hit_and_invalidate(platform_url: str) -> None:
+async def test_cache_hit_and_invalidate(platform_url: str, tenant_base: TenantBase) -> None:
     """缓存命中减少平台库查询；`invalidate` 后重查。"""
     cache = MemoryCacheRegion(domain="tenant")
     source, registry = _source(platform_url, cache=cache)
     try:
-        first = await source.by_code("demo")
+        await tenant_base.seed(code="cache-hit", name="缓存用例租户", domain="cachehit.bms.example.com")
+        await tenant_base.session.commit()
+        first = await source.by_code("cache-hit")
         assert first.tenant_id is not None
 
-        engine = create_async_engine(platform_url)
-        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
-            row = await session.get(SysTenant, first.tenant_id)
-            assert row is not None
-            await session.delete(row)
-            await session.commit()
-        await engine.dispose()
+        await tenant_base.delete_row("cache-hit")
+        await tenant_base.session.commit()
 
-        cached = await source.by_code("demo")
+        cached = await source.by_code("cache-hit")
         assert cached.tenant_id == first.tenant_id
 
-        await source.invalidate(code="demo")
+        await source.invalidate(code="cache-hit")
         with pytest.raises(TenantNotFoundError):
-            await source.by_code("demo")
+            await source.by_code("cache-hit")
     finally:
         await registry.aclose()
-
-
-async def _soft_delete(url: str, *codes: str) -> None:
-    """软删除指定编码的租户行（唯一启用租户解析用例用）。
-
-    Args:
-        url: 平台库连接串。
-        codes: 待软删除的租户编码。
-    """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        for code in codes:
-            row = (await session.execute(select(SysTenant).where(SysTenant.code == code))).scalar_one()
-            row.soft_delete()
-        await session.commit()
-    await engine.dispose()
 
 
 @pytest.mark.kiwi_id(2239)
@@ -211,9 +151,23 @@ async def test_single_active_multiple_raises(platform_url: str) -> None:
 
 
 @pytest.mark.kiwi_id(2239)
-async def test_single_active_exactly_one(platform_url: str) -> None:
-    """唯一启用租户：恰 1 个启用租户 → 其上下文（含库名基 / 主键）；停用 / 软删不计入。"""
-    await _soft_delete(platform_url, "acme", "renamed")
+async def test_single_active_exactly_one(platform_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """唯一启用租户：恰 1 个启用行 → 返回其上下文（含库名基 / 主键）。
+
+    共享平台库里本来就有多个启用租户（业务现实），「恰 1 个」不可能真实存在；在共享库上
+    人为造这个态等于篡改业务数据，故用仓储替身只验 resolver 的分支语义。
+    """
+    row = SimpleNamespace(
+        id=1,
+        code="demo",
+        name="演示租户",
+        domain="demo.bms.example.com",
+        db_key="tenant_demo",
+        status="active",
+        expire_at=None,
+    )
+    monkeypatch.setattr(TenantRegistryRepository, "active_rows", _rows_of(row))
+    monkeypatch.setattr(TenantRegistryRepository, "db_basis", _basis_of("demo"))
     source, registry = _source(platform_url)
     try:
         single = await source.single_active()
@@ -224,14 +178,51 @@ async def test_single_active_exactly_one(platform_url: str) -> None:
 
 
 @pytest.mark.kiwi_id(2239)
-async def test_single_active_none(platform_url: str) -> None:
-    """唯一启用租户：0 个启用租户 → `None`（沿用既有失败语义由调用方映射）。"""
-    await _soft_delete(platform_url, "demo", "acme", "renamed")
+async def test_single_active_none(platform_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """唯一启用租户：0 个启用行 → `None`（沿用既有失败语义由调用方映射）。
+
+    同「恰 1 个」：共享库上不存在「全平台零启用租户」的真实态，用仓储替身验分支。
+    """
+    monkeypatch.setattr(TenantRegistryRepository, "active_rows", _rows_of())
     source, registry = _source(platform_url)
     try:
         assert await source.single_active() is None
     finally:
         await registry.aclose()
+
+
+def _rows_of(*rows: object) -> object:
+    """构造 `active_rows` 的替身（返回固定行集合）。
+
+    Args:
+        *rows: 行对象。
+
+    Returns:
+        object: 可调用替身（签名与仓储方法一致）。
+    """
+
+    async def _call(self: object) -> object:
+        del self
+        return list(rows)
+
+    return _call
+
+
+def _basis_of(basis: str | None) -> object:
+    """构造 `db_basis` 的替身（返回固定库名基）。
+
+    Args:
+        basis: 库名基。
+
+    Returns:
+        object: 可调用替身。
+    """
+
+    async def _call(self: object, tenant_id: int) -> str | None:
+        del self, tenant_id
+        return basis
+
+    return _call
 
 
 @pytest.mark.kiwi_id(1019)

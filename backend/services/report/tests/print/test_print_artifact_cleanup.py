@@ -12,7 +12,7 @@ from typing import cast
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import Table, delete
+from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.config.http import HttpConfigSource
@@ -43,8 +43,7 @@ from bms_report.domains.report.repositories.job import (
 
 pytestmark = [
     pytest.mark.kiwi_id(2403),
-    pytest.mark.own_db("清空 sys_job 才能断言精确计数；本套件独占该表的作业写入"),
-    pytest.mark.usefixtures("serial_db_write"),
+    pytest.mark.usefixtures("tenant_db_write"),
 ]
 
 _TTL = 600
@@ -58,6 +57,8 @@ class _Env:
     factory: async_sessionmaker[AsyncSession]
     storage: LocalObjectStorage
     root: Path
+    created: ConcurrentStableList[int]
+    """本用例插入的作业主键（清理阶段只删这些行）。"""
 
 
 @pytest_asyncio.fixture
@@ -67,16 +68,36 @@ async def env(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[_Env]:
-    """自建租户库 + 本地对象存储（每个用例前清空 `sys_job`）。"""
+    """共享租户库 + 本地对象存储（用例结束**只删本用例插入的行**，不动他人数据）。
+
+    单库叠加口径（04-6-2）：库用共享租户库，作业行由本用例自造，收尾按主键精确删除；
+    此前「每个用例前清空 `sys_job`」会删掉并行 worker 的行（规范禁止清理非本用例数据）。
+    不用回滚会话：SQLite 的 `BEGIN IMMEDIATE` 会让整条用例持有写事务，高并行下把其他
+    worker 的写堵到 `busy_timeout` 超时（`-n auto` 实测 227s / 12 errors）。
+
+    Args:
+        shared_tenant_engine: 共享租户库引擎。
+        shared_tenant_db_url: 共享租户库连接串（作业装配读它）。
+        tmp_path: 用例临时目录。
+        monkeypatch: 环境变量替身。
+
+    Yields:
+        _Env: 作业环境。
+    """
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     monkeypatch.setenv("BMS_STORAGE__OPTIONS__ROOT", str(tmp_path / "storage"))
     await ensure_tables(shared_tenant_engine, cast("list[Table]", [SysJob.__table__]))
-    factory = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await session.execute(delete(SysJob).where(SysJob.job_type == SOURCE_JOB_TYPE))
-        await session.commit()
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    created: ConcurrentStableList[int] = ConcurrentStableList()
     root = tmp_path / "storage"
-    yield _Env(factory=factory, storage=LocalObjectStorage(root=root), root=root)
+    try:
+        yield _Env(factory=factory, storage=LocalObjectStorage(root=root), root=root, created=created)
+    finally:
+        if created:
+            async with factory() as session:
+                for row in (await session.execute(select(SysJob).where(SysJob.id.in_(list(created))))).scalars().all():
+                    await session.delete(row)
+                await session.commit()
 
 
 def _result(keys: ConcurrentStableList[str], **extra: object) -> str:
@@ -134,6 +155,7 @@ async def _add_job(
         )
         session.add(job)
         await session.commit()
+        env.created.append(int(job.id))
         return int(job.id)
 
 
@@ -349,10 +371,18 @@ async def test_cleanup_canceled_between_batches(env: _Env) -> None:
 
 
 async def test_cleanup_no_expired_jobs(env: _Env) -> None:
-    """无过期作业：空批直接返回，全零汇总。"""
+    """无过期作业：新鲜产物不被删、不被标记（叠加语义下不断言全局全零）。"""
+    fresh = "demo/prints/generic_document/C001.pdf"
+    await env.storage.put(fresh, b"PDF", content_type=PRINT_CONTENT_TYPE)
+    job_id = await _add_job(env, result=_result(ConcurrentStableList((fresh,))), finished_at=_ago(60))
+
     result = await _job(env).run(_context(env))
+
     output = cast("ConcurrentStableDict[str, object]", result.output)
-    assert output == {"scanned": 0, "cleaned": 0, "skipped": 0, "marked": 0}
+    assert output["cleaned"] == 0
+    assert output["marked"] == 0
+    assert await env.storage.exists(fresh) is True
+    assert is_expired(await _result_of(env, job_id)) is False
 
 
 def test_object_keys_dedup_and_parse_edges() -> None:
