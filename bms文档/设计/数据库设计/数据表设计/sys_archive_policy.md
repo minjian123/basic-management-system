@@ -13,7 +13,7 @@
 | 覆盖模块 | 31-归档管理（策略配置） |
 | 上游依据 | [需求 07-1](../../../项目/08_通用能力/需求/07_需求_数据生命周期.md#r07-1)、《[概要设计 · 归档管理](../../概要设计/30_概要设计_归档管理.md)》§2 / §4、《[架构设计 · 数据架构](../../架构设计/07_架构设计_数据架构.md)》「回收站机制」节 |
 | ORM 模型 | `bms_core/models/platform/archive.py::SysArchivePolicy`（继承 `BaseModel`） |
-| 状态 | 已设计（随 14_01 转 `enabled` 进平台链，启动期自动建表 / `ops.init_schema`） |
+| 状态 | 待落库（已进平台链，启动期自动建表 / `ops.init_schema`） |
 | 相关节点 | [31-归档管理](../31_数据库设计_归档管理.md)、[sys_archive_log](sys_archive_log.md)、[sys_archive_record](sys_archive_record.md)、[sys_archive_chain_tail](sys_archive_chain_tail.md) |
 
 > **落库位置口径例外**：《概要设计 · 归档管理》§4 原文写「策略 / 执行记录落租户库」，实际按 14_01 定稿落**平台库**——归档是平台治理动作，一条策略覆盖全租户（归档行仍带 `tenant_id`），与审计分片台账同库便于链校验与统一调度。差异已回写概要设计节点。

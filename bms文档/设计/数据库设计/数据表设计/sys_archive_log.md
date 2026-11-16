@@ -13,7 +13,7 @@
 | 覆盖模块 | 31-归档管理（执行记录 / 冷化 / 清理与销毁留痕） |
 | 上游依据 | [需求 07-1](../../../项目/08_通用能力/需求/07_需求_数据生命周期.md#r07-1)、《[概要设计 · 归档管理](../../概要设计/30_概要设计_归档管理.md)》§2.2 / §2.3 / §4 |
 | ORM 模型 | `bms_core/models/platform/archive.py::SysArchiveLog`（继承 `BaseModel`） |
-| 状态 | 已设计（随 14_01 转 `enabled` 进平台链） |
+| 状态 | 待落库（已进平台链） |
 | 相关节点 | [31-归档管理](../31_数据库设计_归档管理.md)、[sys_archive_policy](sys_archive_policy.md)、[sys_archive_record](sys_archive_record.md) |
 
 ## 2. 字段 <a id="fields"></a>
