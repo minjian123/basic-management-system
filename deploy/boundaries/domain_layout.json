@@ -257,6 +257,18 @@
       "public_api": [
         "bms_platform.domains.import_export.public"
       ]
+    },
+    {
+      "domain_key": "archive",
+      "service_key": "platform",
+      "status": "placement",
+      "paths": [
+        "backend/services/platform/src/bms_platform/domains/archive/**/*.py",
+        "backend/libs/bms_core/src/bms_core/models/platform/archive.py"
+      ],
+      "public_api": [
+        "bms_platform.domains.archive.public"
+      ]
     }
   ],
   "shared_paths": [

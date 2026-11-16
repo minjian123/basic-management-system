@@ -219,6 +219,296 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/archive/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Query Data
+         * @description 归档数据只读查询（只查归档库）。
+         *
+         *     Args:
+         *         session: 归档库只读会话。
+         *         storage: 对象存储（查询服务依赖注入用）。
+         *         checker: 权限检查器（判定审计管理员是否可跨租户）。
+         *         page: 分页参数。
+         *         source_table: 源逻辑表名。
+         *         source_id: 源行主键。
+         *         source_month: 源分片月份。
+         *         tenant_id: 租户主键（审计管理员可跨租户）。
+         *         stored_from: 归档起始时刻。
+         *         stored_to: 归档结束时刻。
+         *
+         *     Returns:
+         *         ApiResponse[ArchiveDataPage]: 分页结果。
+         */
+        get: operations["query_data_api_v1_archive_data_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archive/data/destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Destroy Data
+         * @description 销毁单条归档行（需二次确认）。
+         *
+         *     Args:
+         *         request: 销毁请求。
+         *         uow: 平台库工作单元。
+         *         archive_session: 归档库写会话。
+         *         storage: 对象存储。
+         *
+         *     Returns:
+         *         ApiResponse[ArchiveLogItem]: 销毁留痕记录。
+         */
+        post: operations["destroy_data_api_v1_archive_data_destroy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archive/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Logs
+         * @description 执行记录分页查询。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         storage: 对象存储（查询服务依赖注入用）。
+         *         page: 分页参数。
+         *         policy_id: 策略筛选。
+         *         table_name: 表名筛选。
+         *         target: 目标筛选。
+         *         status: 状态筛选。
+         *         started_from: 开始时间下限。
+         *         started_to: 开始时间上限。
+         *
+         *     Returns:
+         *         ApiResponse[ArchiveLogPage]: 分页结果。
+         */
+        get: operations["list_logs_api_v1_archive_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archive/logs/{log_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Log
+         * @description 执行记录详情。
+         *
+         *     Args:
+         *         log_id: 记录主键。
+         *         session: 平台库只读会话。
+         *         storage: 对象存储。
+         *
+         *     Returns:
+         *         ApiResponse[ArchiveLogItem]: 记录详情。
+         */
+        get: operations["get_log_api_v1_archive_logs__log_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archive/logs/{log_id}/destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Destroy Log
+         * @description 销毁某批冷化文件（需二次确认）。
+         *
+         *     Args:
+         *         log_id: 记录主键。
+         *         request: 销毁请求。
+         *         uow: 平台库工作单元。
+         *         storage: 对象存储。
+         *
+         *     Returns:
+         *         ApiResponse[ArchiveLogItem]: 销毁留痕记录。
+         */
+        post: operations["destroy_log_api_v1_archive_logs__log_id__destroy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archive/logs/{log_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download
+         * @description 获取冷化文件预签名下载地址。
+         *
+         *     Args:
+         *         log_id: 记录主键。
+         *         session: 平台库只读会话。
+         *         storage: 对象存储。
+         *
+         *     Returns:
+         *         ApiResponse[PresignedDownload]: 预签名结果。
+         */
+        get: operations["download_api_v1_archive_logs__log_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archive/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Policies
+         * @description 归档策略分页查询。
+         *
+         *     Args:
+         *         uow: 平台库工作单元。
+         *         page: 分页参数。
+         *         table_name: 表名筛选。
+         *         status: 状态筛选。
+         *
+         *     Returns:
+         *         ApiResponse[ArchivePolicyPage]: 分页结果。
+         */
+        get: operations["list_policies_api_v1_archive_policies_get"];
+        put?: never;
+        /**
+         * Create Policy
+         * @description 新增归档策略。
+         *
+         *     Args:
+         *         request: 新增请求。
+         *         uow: 平台库工作单元。
+         *
+         *     Returns:
+         *         ApiResponse[ArchivePolicyItem]: 已创建策略。
+         */
+        post: operations["create_policy_api_v1_archive_policies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archive/policies/{policy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Policy
+         * @description 修改归档策略。
+         *
+         *     Args:
+         *         policy_id: 策略主键。
+         *         request: 修改请求。
+         *         uow: 平台库工作单元。
+         *
+         *     Returns:
+         *         ApiResponse[ArchivePolicyItem]: 更新后策略。
+         */
+        put: operations["update_policy_api_v1_archive_policies__policy_id__put"];
+        post?: never;
+        /**
+         * Delete Policy
+         * @description 删除归档策略（仅停用且未执行中）。
+         *
+         *     Args:
+         *         policy_id: 策略主键。
+         *         uow: 平台库工作单元。
+         *
+         *     Returns:
+         *         ApiResponse[ArchiveDeleteResult]: 删除结果。
+         */
+        delete: operations["delete_policy_api_v1_archive_policies__policy_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archive/policies/{policy_id}/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Policy
+         * @description 手动触发一次归档（全量执行该策略）。
+         *
+         *     Args:
+         *         policy_id: 策略主键。
+         *         uow: 平台库工作单元。
+         *         idempotency_key: 幂等键（请求头 Idempotency-Key）。
+         *
+         *     Returns:
+         *         ApiResponse[ArchiveTriggerResult]: 作业主键。
+         */
+        post: operations["trigger_policy_api_v1_archive_policies__policy_id__trigger_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit/chain/verify": {
         parameters: {
             query?: never;
@@ -5005,6 +5295,104 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[ArchiveDataPage] */
+        ApiResponse_ArchiveDataPage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ArchiveDataPage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ArchiveDeleteResult] */
+        ApiResponse_ArchiveDeleteResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ArchiveDeleteResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ArchiveLogItem] */
+        ApiResponse_ArchiveLogItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ArchiveLogItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ArchiveLogPage] */
+        ApiResponse_ArchiveLogPage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ArchiveLogPage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ArchivePolicyItem] */
+        ApiResponse_ArchivePolicyItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ArchivePolicyItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ArchivePolicyPage] */
+        ApiResponse_ArchivePolicyPage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ArchivePolicyPage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ArchiveTriggerResult] */
+        ApiResponse_ArchiveTriggerResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ArchiveTriggerResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[BasePageResponse[AssignedUserItem]] */
         ApiResponse_BasePageResponse_AssignedUserItem__: {
             /**
@@ -5846,6 +6234,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[PresignedDownload] */
+        ApiResponse_PresignedDownload_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PresignedDownload"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ProfilePreferenceResponse] */
         ApiResponse_ProfilePreferenceResponse_: {
             /**
@@ -6154,6 +6556,423 @@ export interface components {
              * @default ok
              */
             message: string;
+        };
+        /**
+         * ArchiveDataDestroyRequest
+         * @description 销毁单条归档行。
+         */
+        ArchiveDataDestroyRequest: {
+            /**
+             * Confirm
+             * @description 二次确认（必须为 true，否则 93006）
+             * @default false
+             */
+            confirm: boolean;
+            /**
+             * Source Id
+             * @description 源行主键
+             */
+            source_id: string;
+            /**
+             * Source Table
+             * @description 源逻辑表名
+             */
+            source_table: string;
+        };
+        /**
+         * ArchiveDataItem
+         * @description 归档数据行（元数据 + 源行载荷）。
+         */
+        ArchiveDataItem: {
+            /**
+             * Archived At
+             * Format: date-time
+             * @description 归档时刻（UTC）
+             */
+            archived_at: string;
+            /**
+             * Batch Id
+             * @description 归档批次主键
+             */
+            batch_id: string;
+            /**
+             * Id
+             * @description 归档行主键
+             */
+            id: string;
+            /**
+             * Payload
+             * @description 源行完整字段
+             */
+            payload: {
+                [key: string]: unknown;
+            };
+            /**
+             * Policy Id
+             * @description 策略主键
+             */
+            policy_id: string;
+            /**
+             * Source Id
+             * @description 源行主键
+             */
+            source_id: string;
+            /**
+             * Source Month
+             * @description 源分片月份
+             */
+            source_month?: string | null;
+            /**
+             * Source Table
+             * @description 源逻辑表名
+             */
+            source_table: string;
+            /**
+             * Tenant Id
+             * @description 租户主键
+             */
+            tenant_id?: string | null;
+        };
+        /**
+         * ArchiveDataPage
+         * @description 归档数据分页响应。
+         */
+        ArchiveDataPage: {
+            /** List */
+            list: components["schemas"]["ArchiveDataItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * ArchiveDeleteResult
+         * @description 删除结果。
+         */
+        ArchiveDeleteResult: {
+            /**
+             * Deleted
+             * @description 是否已删除
+             */
+            deleted: boolean;
+            /**
+             * Id
+             * @description 策略主键
+             */
+            id: string;
+        };
+        /**
+         * ArchiveLogDestroyRequest
+         * @description 销毁某批冷化文件。
+         */
+        ArchiveLogDestroyRequest: {
+            /**
+             * Confirm
+             * @description 二次确认（必须为 true，否则 93006）
+             * @default false
+             */
+            confirm: boolean;
+        };
+        /**
+         * ArchiveLogItem
+         * @description 归档执行记录（列表 / 详情同构）。
+         */
+        ArchiveLogItem: {
+            /**
+             * Archived Count
+             * @description 本次处理条数
+             */
+            archived_count: number;
+            /**
+             * Cost Time
+             * @description 耗时（毫秒）
+             */
+            cost_time?: number | null;
+            /**
+             * Detail
+             * @description 明细 JSON
+             */
+            detail?: string | null;
+            /**
+             * Dispose Type
+             * @description 处置类型（cleanup / destroy）
+             */
+            dispose_type?: string | null;
+            /**
+             * Disposed At
+             * @description 文件处置时刻（UTC）
+             */
+            disposed_at?: string | null;
+            /**
+             * Error Msg
+             * @description 失败摘要
+             */
+            error_msg?: string | null;
+            /**
+             * File Key
+             * @description 冷化数据对象 key
+             */
+            file_key?: string | null;
+            /**
+             * Finished At
+             * @description 结束时间（UTC）
+             */
+            finished_at?: string | null;
+            /**
+             * Id
+             * @description 执行记录主键
+             */
+            id: string;
+            /**
+             * Policy Id
+             * @description 策略主键
+             */
+            policy_id?: string | null;
+            /**
+             * Retention Until
+             * @description 冷化文件保留到期时刻（UTC）
+             */
+            retention_until?: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             * @description 开始时间（UTC）
+             */
+            started_at: string;
+            /**
+             * Status
+             * @description 状态（running/success/failed/skipped）
+             */
+            status: string;
+            /**
+             * Table Name
+             * @description 源逻辑表名
+             */
+            table_name: string;
+            /**
+             * Target
+             * @description 动作 / 目标
+             */
+            target: string;
+            /**
+             * Tenant Id
+             * @description 租户主键（平台级批次为空）
+             */
+            tenant_id?: string | null;
+        };
+        /**
+         * ArchiveLogPage
+         * @description 归档执行记录分页响应。
+         */
+        ArchiveLogPage: {
+            /** List */
+            list: components["schemas"]["ArchiveLogItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * ArchivePolicyCreateRequest
+         * @description 新增归档策略。
+         */
+        ArchivePolicyCreateRequest: {
+            /**
+             * Batch Size
+             * @description 单批迁移条数（缺省取 [archive].batch_size_default）
+             */
+            batch_size?: number | null;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Require Chain
+             * @description 归档前强制哈希链校验（审计分片表强制 true）
+             * @default false
+             */
+            require_chain: boolean;
+            /**
+             * Retention Days
+             * @description 归档库保留天数
+             * @default 180
+             */
+            retention_days: number;
+            /**
+             * Status
+             * @description 初始状态（enabled / disabled）
+             * @default enabled
+             */
+            status: string;
+            /**
+             * Table Name
+             * @description 逻辑表名（须为平台库已登记表）
+             */
+            table_name: string;
+            /**
+             * Target
+             * @description 归档目标（archive_db / minio）
+             * @default archive_db
+             */
+            target: string;
+            /**
+             * Threshold Days
+             * @description 阈值天数
+             * @default 90
+             */
+            threshold_days: number;
+            /**
+             * Time Field
+             * @description 归档判定时间字段
+             */
+            time_field: string;
+        };
+        /**
+         * ArchivePolicyItem
+         * @description 归档策略（列表 / 详情同构）。
+         */
+        ArchivePolicyItem: {
+            /**
+             * Batch Size
+             * @description 单批迁移条数
+             */
+            batch_size: number;
+            /**
+             * Id
+             * @description 策略主键
+             */
+            id: string;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Require Chain
+             * @description 是否强制哈希链校验
+             */
+            require_chain: boolean;
+            /**
+             * Retention Days
+             * @description 归档库保留天数
+             */
+            retention_days: number;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status: string;
+            /**
+             * Table Name
+             * @description 逻辑表名
+             */
+            table_name: string;
+            /**
+             * Target
+             * @description 归档目标（archive_db / minio）
+             */
+            target: string;
+            /**
+             * Threshold Days
+             * @description 阈值天数
+             */
+            threshold_days: number;
+            /**
+             * Time Field
+             * @description 归档判定时间字段
+             */
+            time_field: string;
+            /**
+             * Version
+             * @description 乐观锁版本
+             */
+            version: number;
+        };
+        /**
+         * ArchivePolicyPage
+         * @description 归档策略分页响应。
+         */
+        ArchivePolicyPage: {
+            /** List */
+            list: components["schemas"]["ArchivePolicyItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * ArchivePolicyUpdateRequest
+         * @description 修改归档策略（乐观锁：`version` 必填）。
+         */
+        ArchivePolicyUpdateRequest: {
+            /**
+             * Batch Size
+             * @description 单批迁移条数
+             */
+            batch_size?: number | null;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * Require Chain
+             * @description 归档前强制哈希链校验
+             */
+            require_chain?: boolean | null;
+            /**
+             * Retention Days
+             * @description 归档库保留天数
+             */
+            retention_days?: number | null;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status?: string | null;
+            /**
+             * Target
+             * @description 归档目标（archive_db / minio）
+             */
+            target?: string | null;
+            /**
+             * Threshold Days
+             * @description 阈值天数
+             */
+            threshold_days?: number | null;
+            /**
+             * Time Field
+             * @description 归档判定时间字段
+             */
+            time_field?: string | null;
+            /**
+             * Version
+             * @description 乐观锁版本（取详情里的当前值）
+             */
+            version: number;
+        };
+        /**
+         * ArchiveTriggerResult
+         * @description 手动触发结果。
+         */
+        ArchiveTriggerResult: {
+            /**
+             * Job Id
+             * @description 作业主键
+             */
+            job_id: string;
+            /**
+             * Policy Id
+             * @description 策略主键
+             */
+            policy_id: string;
         };
         /**
          * AssignedUserItem
@@ -9867,6 +10686,32 @@ export interface components {
             value?: unknown;
         };
         /**
+         * PresignedDownload
+         * @description 冷化文件预签名下载。
+         */
+        PresignedDownload: {
+            /**
+             * Expires In
+             * @description 有效期（秒）
+             */
+            expires_in: number;
+            /**
+             * File Key
+             * @description 对象 key
+             */
+            file_key: string;
+            /**
+             * Method
+             * @description HTTP 方法
+             */
+            method: string;
+            /**
+             * Url
+             * @description 预签名 URL
+             */
+            url: string;
+        };
+        /**
          * ProductSnapshotItem
          * @description 带参快照的产品段（前端产品键来源；**不含** `frontend_package_source` 等构建期信息）。
          */
@@ -12099,6 +12944,900 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    query_data_api_v1_archive_data_get: {
+        parameters: {
+            query?: {
+                source_table?: string | null;
+                source_id?: string | null;
+                source_month?: string | null;
+                tenant_id?: number | null;
+                stored_from?: string | null;
+                stored_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchiveDataPage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    destroy_data_api_v1_archive_data_destroy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveDataDestroyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchiveLogItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_logs_api_v1_archive_logs_get: {
+        parameters: {
+            query?: {
+                /** @description 策略主键筛选 */
+                policy_id?: number | null;
+                /** @description 表名筛选 */
+                table_name?: string | null;
+                /** @description 目标筛选（archive_db/minio/cleanup/destroy） */
+                target?: string | null;
+                /** @description 状态筛选 */
+                status?: string | null;
+                /** @description 开始时间下限（UTC） */
+                started_from?: string | null;
+                /** @description 开始时间上限（UTC） */
+                started_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchiveLogPage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_log_api_v1_archive_logs__log_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                log_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchiveLogItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    destroy_log_api_v1_archive_logs__log_id__destroy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                log_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveLogDestroyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchiveLogItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    download_api_v1_archive_logs__log_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                log_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PresignedDownload_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_policies_api_v1_archive_policies_get: {
+        parameters: {
+            query?: {
+                /** @description 表名筛选 */
+                table_name?: string | null;
+                /** @description 状态筛选（enabled / disabled） */
+                status?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchivePolicyPage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_policy_api_v1_archive_policies_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchivePolicyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchivePolicyItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_policy_api_v1_archive_policies__policy_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchivePolicyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchivePolicyItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_policy_api_v1_archive_policies__policy_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchiveDeleteResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    trigger_policy_api_v1_archive_policies__policy_id__trigger_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 幂等键（手动触发去重） */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ArchiveTriggerResult_"];
                 };
             };
             /** @description 未认证 */

@@ -208,6 +208,195 @@
         "title": "ApiResponse[ActionList]",
         "type": "object"
       },
+      "ApiResponse_ArchiveDataPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchiveDataPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ArchiveDataPage]",
+        "type": "object"
+      },
+      "ApiResponse_ArchiveDeleteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchiveDeleteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ArchiveDeleteResult]",
+        "type": "object"
+      },
+      "ApiResponse_ArchiveLogItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchiveLogItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ArchiveLogItem]",
+        "type": "object"
+      },
+      "ApiResponse_ArchiveLogPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchiveLogPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ArchiveLogPage]",
+        "type": "object"
+      },
+      "ApiResponse_ArchivePolicyItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchivePolicyItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ArchivePolicyItem]",
+        "type": "object"
+      },
+      "ApiResponse_ArchivePolicyPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchivePolicyPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ArchivePolicyPage]",
+        "type": "object"
+      },
+      "ApiResponse_ArchiveTriggerResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchiveTriggerResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ArchiveTriggerResult]",
+        "type": "object"
+      },
       "ApiResponse_BasePageResponse_AssignedUserItem__": {
         "additionalProperties": false,
         "properties": {
@@ -1822,6 +2011,33 @@
         "title": "ApiResponse[PermissionSubjectResult]",
         "type": "object"
       },
+      "ApiResponse_PresignedDownload_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PresignedDownload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PresignedDownload]",
+        "type": "object"
+      },
       "ApiResponse_ProfilePreferenceResponse_": {
         "additionalProperties": false,
         "properties": {
@@ -2418,6 +2634,728 @@
           }
         },
         "title": "ApiResponse[list[ModuleResponse]]",
+        "type": "object"
+      },
+      "ArchiveDataDestroyRequest": {
+        "additionalProperties": false,
+        "description": "销毁单条归档行。",
+        "properties": {
+          "confirm": {
+            "default": false,
+            "description": "二次确认（必须为 true，否则 93006）",
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "source_id": {
+            "description": "源行主键",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_table": {
+            "description": "源逻辑表名",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Source Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_table",
+          "source_id"
+        ],
+        "title": "ArchiveDataDestroyRequest",
+        "type": "object"
+      },
+      "ArchiveDataItem": {
+        "additionalProperties": false,
+        "description": "归档数据行（元数据 + 源行载荷）。",
+        "properties": {
+          "archived_at": {
+            "description": "归档时刻（UTC）",
+            "format": "date-time",
+            "title": "Archived At",
+            "type": "string"
+          },
+          "batch_id": {
+            "description": "归档批次主键",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "id": {
+            "description": "归档行主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "description": "源行完整字段",
+            "title": "Payload",
+            "type": "object"
+          },
+          "policy_id": {
+            "description": "策略主键",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "source_id": {
+            "description": "源行主键",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "源分片月份",
+            "title": "Source Month"
+          },
+          "source_table": {
+            "description": "源逻辑表名",
+            "title": "Source Table",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户主键",
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "id",
+          "source_table",
+          "source_id",
+          "policy_id",
+          "batch_id",
+          "archived_at",
+          "payload"
+        ],
+        "title": "ArchiveDataItem",
+        "type": "object"
+      },
+      "ArchiveDataPage": {
+        "additionalProperties": false,
+        "description": "归档数据分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveDataItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "ArchiveDataPage",
+        "type": "object"
+      },
+      "ArchiveDeleteResult": {
+        "additionalProperties": false,
+        "description": "删除结果。",
+        "properties": {
+          "deleted": {
+            "description": "是否已删除",
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "策略主键",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "deleted"
+        ],
+        "title": "ArchiveDeleteResult",
+        "type": "object"
+      },
+      "ArchiveLogDestroyRequest": {
+        "additionalProperties": false,
+        "description": "销毁某批冷化文件。",
+        "properties": {
+          "confirm": {
+            "default": false,
+            "description": "二次确认（必须为 true，否则 93006）",
+            "title": "Confirm",
+            "type": "boolean"
+          }
+        },
+        "title": "ArchiveLogDestroyRequest",
+        "type": "object"
+      },
+      "ArchiveLogItem": {
+        "additionalProperties": false,
+        "description": "归档执行记录（列表 / 详情同构）。",
+        "properties": {
+          "archived_count": {
+            "description": "本次处理条数",
+            "title": "Archived Count",
+            "type": "integer"
+          },
+          "cost_time": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "耗时（毫秒）",
+            "title": "Cost Time"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "明细 JSON",
+            "title": "Detail"
+          },
+          "dispose_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "处置类型（cleanup / destroy）",
+            "title": "Dispose Type"
+          },
+          "disposed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "文件处置时刻（UTC）",
+            "title": "Disposed At"
+          },
+          "error_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败摘要",
+            "title": "Error Msg"
+          },
+          "file_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "冷化数据对象 key",
+            "title": "File Key"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "结束时间（UTC）",
+            "title": "Finished At"
+          },
+          "id": {
+            "description": "执行记录主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "策略主键",
+            "title": "Policy Id"
+          },
+          "retention_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "冷化文件保留到期时刻（UTC）",
+            "title": "Retention Until"
+          },
+          "started_at": {
+            "description": "开始时间（UTC）",
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（running/success/failed/skipped）",
+            "title": "Status",
+            "type": "string"
+          },
+          "table_name": {
+            "description": "源逻辑表名",
+            "title": "Table Name",
+            "type": "string"
+          },
+          "target": {
+            "description": "动作 / 目标",
+            "title": "Target",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户主键（平台级批次为空）",
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "id",
+          "table_name",
+          "target",
+          "archived_count",
+          "status",
+          "started_at"
+        ],
+        "title": "ArchiveLogItem",
+        "type": "object"
+      },
+      "ArchiveLogPage": {
+        "additionalProperties": false,
+        "description": "归档执行记录分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveLogItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "ArchiveLogPage",
+        "type": "object"
+      },
+      "ArchivePolicyCreateRequest": {
+        "additionalProperties": false,
+        "description": "新增归档策略。",
+        "properties": {
+          "batch_size": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "单批迁移条数（缺省取 [archive].batch_size_default）",
+            "title": "Batch Size"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "require_chain": {
+            "default": false,
+            "description": "归档前强制哈希链校验（审计分片表强制 true）",
+            "title": "Require Chain",
+            "type": "boolean"
+          },
+          "retention_days": {
+            "default": 180,
+            "description": "归档库保留天数",
+            "minimum": 0.0,
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "初始状态（enabled / disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "table_name": {
+            "description": "逻辑表名（须为平台库已登记表）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Table Name",
+            "type": "string"
+          },
+          "target": {
+            "default": "archive_db",
+            "description": "归档目标（archive_db / minio）",
+            "title": "Target",
+            "type": "string"
+          },
+          "threshold_days": {
+            "default": 90,
+            "description": "阈值天数",
+            "minimum": 0.0,
+            "title": "Threshold Days",
+            "type": "integer"
+          },
+          "time_field": {
+            "description": "归档判定时间字段",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Time Field",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table_name",
+          "time_field"
+        ],
+        "title": "ArchivePolicyCreateRequest",
+        "type": "object"
+      },
+      "ArchivePolicyItem": {
+        "additionalProperties": false,
+        "description": "归档策略（列表 / 详情同构）。",
+        "properties": {
+          "batch_size": {
+            "description": "单批迁移条数",
+            "title": "Batch Size",
+            "type": "integer"
+          },
+          "id": {
+            "description": "策略主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "require_chain": {
+            "description": "是否强制哈希链校验",
+            "title": "Require Chain",
+            "type": "boolean"
+          },
+          "retention_days": {
+            "description": "归档库保留天数",
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "status": {
+            "description": "状态（enabled / disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "table_name": {
+            "description": "逻辑表名",
+            "title": "Table Name",
+            "type": "string"
+          },
+          "target": {
+            "description": "归档目标（archive_db / minio）",
+            "title": "Target",
+            "type": "string"
+          },
+          "threshold_days": {
+            "description": "阈值天数",
+            "title": "Threshold Days",
+            "type": "integer"
+          },
+          "time_field": {
+            "description": "归档判定时间字段",
+            "title": "Time Field",
+            "type": "string"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "table_name",
+          "time_field",
+          "threshold_days",
+          "retention_days",
+          "target",
+          "batch_size",
+          "status",
+          "require_chain",
+          "version"
+        ],
+        "title": "ArchivePolicyItem",
+        "type": "object"
+      },
+      "ArchivePolicyPage": {
+        "additionalProperties": false,
+        "description": "归档策略分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/ArchivePolicyItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "ArchivePolicyPage",
+        "type": "object"
+      },
+      "ArchivePolicyUpdateRequest": {
+        "additionalProperties": false,
+        "description": "修改归档策略（乐观锁：`version` 必填）。",
+        "properties": {
+          "batch_size": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "单批迁移条数",
+            "title": "Batch Size"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "require_chain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "归档前强制哈希链校验",
+            "title": "Require Chain"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "归档库保留天数",
+            "title": "Retention Days"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（enabled / disabled）",
+            "title": "Status"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "归档目标（archive_db / minio）",
+            "title": "Target"
+          },
+          "threshold_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "阈值天数",
+            "title": "Threshold Days"
+          },
+          "time_field": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "归档判定时间字段",
+            "title": "Time Field"
+          },
+          "version": {
+            "description": "乐观锁版本（取详情里的当前值）",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "ArchivePolicyUpdateRequest",
+        "type": "object"
+      },
+      "ArchiveTriggerResult": {
+        "additionalProperties": false,
+        "description": "手动触发结果。",
+        "properties": {
+          "job_id": {
+            "description": "作业主键",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "policy_id": {
+            "description": "策略主键",
+            "title": "Policy Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "policy_id"
+        ],
+        "title": "ArchiveTriggerResult",
         "type": "object"
       },
       "AssignedUserItem": {
@@ -8350,6 +9288,40 @@
         "title": "PreferenceValueRequest",
         "type": "object"
       },
+      "PresignedDownload": {
+        "additionalProperties": false,
+        "description": "冷化文件预签名下载。",
+        "properties": {
+          "expires_in": {
+            "description": "有效期（秒）",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "file_key": {
+            "description": "对象 key",
+            "title": "File Key",
+            "type": "string"
+          },
+          "method": {
+            "description": "HTTP 方法",
+            "title": "Method",
+            "type": "string"
+          },
+          "url": {
+            "description": "预签名 URL",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_in",
+          "method",
+          "file_key"
+        ],
+        "title": "PresignedDownload",
+        "type": "object"
+      },
       "ProductSnapshotItem": {
         "additionalProperties": false,
         "description": "带参快照的产品段（前端产品键来源；**不含** `frontend_package_source` 等构建期信息）。",
@@ -12032,6 +13004,1476 @@
         "summary": "Update Action",
         "tags": [
           "menu"
+        ]
+      }
+    },
+    "/api/v1/archive/data": {
+      "get": {
+        "description": "归档数据只读查询（只查归档库）。\n\nArgs:\n    session: 归档库只读会话。\n    storage: 对象存储（查询服务依赖注入用）。\n    checker: 权限检查器（判定审计管理员是否可跨租户）。\n    page: 分页参数。\n    source_table: 源逻辑表名。\n    source_id: 源行主键。\n    source_month: 源分片月份。\n    tenant_id: 租户主键（审计管理员可跨租户）。\n    stored_from: 归档起始时刻。\n    stored_to: 归档结束时刻。\n\nReturns:\n    ApiResponse[ArchiveDataPage]: 分页结果。",
+        "operationId": "query_data_api_v1_archive_data_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_table",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Table"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Month"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stored_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stored From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stored_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stored To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchiveDataPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Query Data",
+        "tags": [
+          "archive"
+        ]
+      }
+    },
+    "/api/v1/archive/data/destroy": {
+      "post": {
+        "description": "销毁单条归档行（需二次确认）。\n\nArgs:\n    request: 销毁请求。\n    uow: 平台库工作单元。\n    archive_session: 归档库写会话。\n    storage: 对象存储。\n\nReturns:\n    ApiResponse[ArchiveLogItem]: 销毁留痕记录。",
+        "operationId": "destroy_data_api_v1_archive_data_destroy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveDataDestroyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchiveLogItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Destroy Data",
+        "tags": [
+          "archive"
+        ]
+      }
+    },
+    "/api/v1/archive/logs": {
+      "get": {
+        "description": "执行记录分页查询。\n\nArgs:\n    session: 平台库只读会话。\n    storage: 对象存储（查询服务依赖注入用）。\n    page: 分页参数。\n    policy_id: 策略筛选。\n    table_name: 表名筛选。\n    target: 目标筛选。\n    status: 状态筛选。\n    started_from: 开始时间下限。\n    started_to: 开始时间上限。\n\nReturns:\n    ApiResponse[ArchiveLogPage]: 分页结果。",
+        "operationId": "list_logs_api_v1_archive_logs_get",
+        "parameters": [
+          {
+            "description": "策略主键筛选",
+            "in": "query",
+            "name": "policy_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "策略主键筛选",
+              "title": "Policy Id"
+            }
+          },
+          {
+            "description": "表名筛选",
+            "in": "query",
+            "name": "table_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "表名筛选",
+              "title": "Table Name"
+            }
+          },
+          {
+            "description": "目标筛选（archive_db/minio/cleanup/destroy）",
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "目标筛选（archive_db/minio/cleanup/destroy）",
+              "title": "Target"
+            }
+          },
+          {
+            "description": "状态筛选",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "开始时间下限（UTC）",
+            "in": "query",
+            "name": "started_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始时间下限（UTC）",
+              "title": "Started From"
+            }
+          },
+          {
+            "description": "开始时间上限（UTC）",
+            "in": "query",
+            "name": "started_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始时间上限（UTC）",
+              "title": "Started To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchiveLogPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Logs",
+        "tags": [
+          "archive"
+        ]
+      }
+    },
+    "/api/v1/archive/logs/{log_id}": {
+      "get": {
+        "description": "执行记录详情。\n\nArgs:\n    log_id: 记录主键。\n    session: 平台库只读会话。\n    storage: 对象存储。\n\nReturns:\n    ApiResponse[ArchiveLogItem]: 记录详情。",
+        "operationId": "get_log_api_v1_archive_logs__log_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "log_id",
+            "required": true,
+            "schema": {
+              "title": "Log Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchiveLogItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Log",
+        "tags": [
+          "archive"
+        ]
+      }
+    },
+    "/api/v1/archive/logs/{log_id}/destroy": {
+      "post": {
+        "description": "销毁某批冷化文件（需二次确认）。\n\nArgs:\n    log_id: 记录主键。\n    request: 销毁请求。\n    uow: 平台库工作单元。\n    storage: 对象存储。\n\nReturns:\n    ApiResponse[ArchiveLogItem]: 销毁留痕记录。",
+        "operationId": "destroy_log_api_v1_archive_logs__log_id__destroy_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "log_id",
+            "required": true,
+            "schema": {
+              "title": "Log Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveLogDestroyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchiveLogItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Destroy Log",
+        "tags": [
+          "archive"
+        ]
+      }
+    },
+    "/api/v1/archive/logs/{log_id}/download": {
+      "get": {
+        "description": "获取冷化文件预签名下载地址。\n\nArgs:\n    log_id: 记录主键。\n    session: 平台库只读会话。\n    storage: 对象存储。\n\nReturns:\n    ApiResponse[PresignedDownload]: 预签名结果。",
+        "operationId": "download_api_v1_archive_logs__log_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "log_id",
+            "required": true,
+            "schema": {
+              "title": "Log Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PresignedDownload_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Download",
+        "tags": [
+          "archive"
+        ]
+      }
+    },
+    "/api/v1/archive/policies": {
+      "get": {
+        "description": "归档策略分页查询。\n\nArgs:\n    uow: 平台库工作单元。\n    page: 分页参数。\n    table_name: 表名筛选。\n    status: 状态筛选。\n\nReturns:\n    ApiResponse[ArchivePolicyPage]: 分页结果。",
+        "operationId": "list_policies_api_v1_archive_policies_get",
+        "parameters": [
+          {
+            "description": "表名筛选",
+            "in": "query",
+            "name": "table_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "表名筛选",
+              "title": "Table Name"
+            }
+          },
+          {
+            "description": "状态筛选（enabled / disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（enabled / disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchivePolicyPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Policies",
+        "tags": [
+          "archive"
+        ]
+      },
+      "post": {
+        "description": "新增归档策略。\n\nArgs:\n    request: 新增请求。\n    uow: 平台库工作单元。\n\nReturns:\n    ApiResponse[ArchivePolicyItem]: 已创建策略。",
+        "operationId": "create_policy_api_v1_archive_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchivePolicyCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchivePolicyItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Policy",
+        "tags": [
+          "archive"
+        ]
+      }
+    },
+    "/api/v1/archive/policies/{policy_id}": {
+      "delete": {
+        "description": "删除归档策略（仅停用且未执行中）。\n\nArgs:\n    policy_id: 策略主键。\n    uow: 平台库工作单元。\n\nReturns:\n    ApiResponse[ArchiveDeleteResult]: 删除结果。",
+        "operationId": "delete_policy_api_v1_archive_policies__policy_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchiveDeleteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Policy",
+        "tags": [
+          "archive"
+        ]
+      },
+      "put": {
+        "description": "修改归档策略。\n\nArgs:\n    policy_id: 策略主键。\n    request: 修改请求。\n    uow: 平台库工作单元。\n\nReturns:\n    ApiResponse[ArchivePolicyItem]: 更新后策略。",
+        "operationId": "update_policy_api_v1_archive_policies__policy_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchivePolicyUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchivePolicyItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Policy",
+        "tags": [
+          "archive"
+        ]
+      }
+    },
+    "/api/v1/archive/policies/{policy_id}/trigger": {
+      "post": {
+        "description": "手动触发一次归档（全量执行该策略）。\n\nArgs:\n    policy_id: 策略主键。\n    uow: 平台库工作单元。\n    idempotency_key: 幂等键（请求头 Idempotency-Key）。\n\nReturns:\n    ApiResponse[ArchiveTriggerResult]: 作业主键。",
+        "operationId": "trigger_policy_api_v1_archive_policies__policy_id__trigger_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "幂等键（手动触发去重）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（手动触发去重）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArchiveTriggerResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Trigger Policy",
+        "tags": [
+          "archive"
         ]
       }
     },
