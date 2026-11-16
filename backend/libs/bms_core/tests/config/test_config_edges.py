@@ -30,7 +30,8 @@ from bms_core.core.context import current_tenant
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
-from .test_config_real import _build_schema, _engines  # pyright: ignore[reportPrivateUsage]
+from .test_config_real import _build_schema  # pyright: ignore[reportPrivateUsage]
+from .test_config_runtime import _engines  # pyright: ignore[reportPrivateUsage]
 
 pytestmark = pytest.mark.own_db("config 真实接线：夹具按临时库播种后验 set / drop（其余用例零库）")
 
