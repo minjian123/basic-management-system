@@ -26,6 +26,7 @@ from bms_core.core.context import is_read_only
 from bms_core.core.exceptions import DatabaseUnavailableError
 from bms_core.core.factory import BaseDbFactory
 from bms_core.db.health import PrimaryHealth
+from bms_core.db.keys import ARCHIVE_DB_KEY
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.db.sync import DbSession, sync_session_scope
 from bms_core.db.tenant import current_tenant_context
@@ -34,6 +35,8 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 __all__ = [
     "DbSession",
     "SessionFactory",
+    "get_archive_read_db",
+    "get_archive_write_db",
     "get_db",
     "get_platform_read_db",
     "get_platform_uow",
@@ -245,6 +248,32 @@ async def get_platform_uow(
         DbUnitOfWork: 绑定平台库会话的工作单元。
     """
     return DbUnitOfWork(session)
+
+
+async def get_archive_read_db(request: Request) -> AsyncIterator[DbSession]:
+    """归档库只读会话依赖（强制 `ARCHIVE_DB_KEY` + 只读语义）。
+
+    Args:
+        request: 当前请求。
+
+    Yields:
+        DbSession: 归档库只读会话（异步会话或同步方言下的同步门面）。
+    """
+    async for session in _open_session(request, read_only=True, db_key=ARCHIVE_DB_KEY):
+        yield session
+
+
+async def get_archive_write_db(request: Request) -> AsyncIterator[DbSession]:
+    """归档库主库会话依赖（强制 `ARCHIVE_DB_KEY`；销毁 / 运维写路径）。
+
+    Args:
+        request: 当前请求。
+
+    Yields:
+        DbSession: 归档库主库会话。
+    """
+    async for session in _open_session(request, read_only=False, db_key=ARCHIVE_DB_KEY):
+        yield session
 
 
 @asynccontextmanager

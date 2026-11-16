@@ -668,6 +668,38 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             status=TableStatus.PLANNED,
             note="字段级变更审计（逻辑表名；物理按月分片 sys_data_audit_log_yyyyMM，运行期建表；06_02）",
         ),
+        TableRecord(
+            table_name="sys_archive_policy",
+            owner="platform",
+            domain="archive",
+            datasource=Datasource.PLATFORM,
+            status=TableStatus.ENABLED,
+            note="归档策略（全表可配；14_01）",
+        ),
+        TableRecord(
+            table_name="sys_archive_log",
+            owner="platform",
+            domain="archive",
+            datasource=Datasource.PLATFORM,
+            status=TableStatus.ENABLED,
+            note="归档执行记录（批次 / 冷化 / 清理 / 销毁留痕；14_01）",
+        ),
+        TableRecord(
+            table_name="sys_archive_record",
+            owner="platform",
+            domain="archive",
+            datasource=Datasource.ARCHIVE,
+            status=TableStatus.ENABLED,
+            note="归档数据行（归档库 bms_archive 通用行表；14_01）",
+        ),
+        TableRecord(
+            table_name="sys_archive_chain_tail",
+            owner="platform",
+            domain="archive",
+            datasource=Datasource.PLATFORM,
+            status=TableStatus.ENABLED,
+            note="归档链尾（审计分片删表后按租户留存；14_01）",
+        ),
     )
 )
 """表归属登记（单一来源）。

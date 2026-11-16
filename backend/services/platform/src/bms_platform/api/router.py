@@ -12,6 +12,9 @@ from bms_platform.api import (
     outbox,
     plugins,
 )
+from bms_platform.domains.archive.api import data as archive_data_api
+from bms_platform.domains.archive.api import logs as archive_logs_api
+from bms_platform.domains.archive.api import policies as archive_policies_api
 from bms_platform.domains.audit.api import chain as audit_chain_api
 from bms_platform.domains.audit.api import data_changes as audit_data_change_api
 from bms_platform.domains.i18n.api import locales as i18n_locales
@@ -139,6 +142,10 @@ api_router = mount_service_routers(
             # 审计合规（06_02）：字段级变更审计查询 + 链校验
             audit_data_change_api.router,
             audit_chain_api.router,
+            # 归档管理（14_01）：策略 / 执行记录 / 归档数据只读查询与销毁
+            archive_policies_api.router,
+            archive_logs_api.router,
+            archive_data_api.router,
         ]
     )
 )

@@ -15,6 +15,8 @@ from sqlalchemy import Table, create_engine, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from bms_core.audit.hashchain import GENESIS_HASH
+from bms_core.audit.sha256 import Sha256HashChain
 from bms_core.audit.shard_repository import LogShardRepository
 from bms_core.audit.shards import (
     LOG_TYPE_DATA_AUDIT,
@@ -28,11 +30,13 @@ from bms_core.audit.shards import (
     shard_of_id,
     shard_table_name,
 )
+from bms_core.audit.verifier import AuditChainVerifier
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.id import id_generator
 from bms_core.db.sync import SyncSession
 from bms_core.models.base import Base
-from bms_core.models.platform.log import SysAuditShard
+from bms_core.models.platform.archive import SysArchiveChainTail
+from bms_core.models.platform.log import SHARD_STATUS_ARCHIVED, SysAuditShard
 
 pytestmark = pytest.mark.kiwi_id(2515)
 
@@ -48,7 +52,10 @@ async def session() -> AsyncIterator[AsyncSession]:
     """
     engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all, tables=[cast("Table", SysAuditShard.__table__)])
+        await connection.run_sync(
+            Base.metadata.create_all,
+            tables=[cast("Table", SysAuditShard.__table__), cast("Table", SysArchiveChainTail.__table__)],
+        )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with factory() as target:
         yield target
@@ -228,3 +235,102 @@ async def test_sync_facade_branch() -> None:
     finally:
         await sync_session.aclose()
         engine.dispose()
+
+
+async def test_archived_month_tail_supports_next_month_verify(session: AsyncSession) -> None:
+    """已归档月份（物理表已删）经链尾表参与后续月份校验。"""
+    repo = LogShardRepository(session)
+    session.add(
+        SysAuditShard(
+            log_type=LOG_TYPE_OPERATION,
+            shard_month="202603",
+            physical_table="sys_operation_log_202603",
+            status=SHARD_STATUS_ARCHIVED,
+        )
+    )
+    tail_hash = "a" * 64
+    session.add(
+        SysArchiveChainTail(
+            log_type=LOG_TYPE_OPERATION,
+            shard_month="202603",
+            tenant_key="1001",
+            first_prev_hash=GENESIS_HASH,
+            last_record_hash=tail_hash,
+            record_count=1,
+        )
+    )
+    await session.commit()
+    await repo.ensure_shard(LOG_TYPE_OPERATION, "202605")
+    occurred = datetime(2026, 5, 2)
+    values: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "id": id_generator.next_id(),
+            "event_id": "may-1",
+            "tenant_id": 1001,
+            "module": "m",
+            "action": "a",
+            "method": "GET",
+            "path": "/x",
+            "status": 200,
+            "occurred_at": occurred,
+            "created_at": occurred,
+            "prev_hash": tail_hash,
+        }
+    )
+    values["record_hash"] = Sha256HashChain().compute(tail_hash, canonical_record(LOG_TYPE_OPERATION, values))
+    await repo.insert(LOG_TYPE_OPERATION, "202605", values)
+    await session.commit()
+
+    assert await repo.active_months(LOG_TYPE_OPERATION) == ["202605"]
+    assert [row.tenant_key for row in await repo.archived_tails(LOG_TYPE_OPERATION, "202603")] == ["1001"]
+    outcome = await AuditChainVerifier(session, Sha256HashChain()).verify(LOG_TYPE_OPERATION, None)
+    assert outcome.valid is True
+    assert outcome.checked_months == ["202605"]
+
+    tail = (
+        await session.execute(select(SysArchiveChainTail).where(SysArchiveChainTail.shard_month == "202603"))
+    ).scalar_one()
+    tail.last_record_hash = "b" * 64
+    await session.commit()
+    broken = await AuditChainVerifier(session, Sha256HashChain()).verify(LOG_TYPE_OPERATION, None)
+    assert broken.valid is False
+    assert broken.broken_month == "202605"
+
+
+async def test_mark_archived_missing_month_is_noop(session: AsyncSession) -> None:
+    """台账无该月分片时标记归档为空操作（幂等容错）。"""
+    repo = LogShardRepository(session)
+    await repo.mark_archived(LOG_TYPE_OPERATION, "202601")
+    assert await repo.ledger(LOG_TYPE_OPERATION) == []
+
+
+async def test_verifier_scans_earlier_active_month_for_tail(session: AsyncSession) -> None:
+    """校验第二个活跃月份时，向前扫描更早的活跃分片取链尾。"""
+    repo = LogShardRepository(session)
+    chain = Sha256HashChain()
+    previous = GENESIS_HASH
+    for month, event_id in (("202601", "jan"), ("202602", "feb")):
+        await repo.ensure_shard(LOG_TYPE_OPERATION, month)
+        occurred = datetime(2026, int(month[4:6]), 2)
+        values: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "id": id_generator.next_id(),
+                "event_id": event_id,
+                "tenant_id": 1001,
+                "module": "m",
+                "action": "a",
+                "method": "GET",
+                "path": "/x",
+                "status": 200,
+                "occurred_at": occurred,
+                "created_at": occurred,
+                "prev_hash": previous,
+            }
+        )
+        values["record_hash"] = chain.compute(previous, canonical_record(LOG_TYPE_OPERATION, values))
+        previous = str(values["record_hash"])
+        await repo.insert(LOG_TYPE_OPERATION, month, values)
+    await session.commit()
+    outcome = await AuditChainVerifier(session, chain).verify(LOG_TYPE_OPERATION, None)
+    assert outcome.valid is True
+    assert outcome.checked_months == ["202601", "202602"]

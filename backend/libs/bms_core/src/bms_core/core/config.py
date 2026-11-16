@@ -1318,6 +1318,38 @@ class AuditLogSettings(BaseSettings):
     """巡检默认校验最近月数（含当月）。"""
 
 
+class ArchiveSettings(BaseSettings):
+    """归档管理运行参数（`[archive]`；14_01）。
+
+    与能力选择段 `[archive_policy]` / `[archive_query_router]`（插件 provider）分工：
+    本段只放**执行与查询参数**，不参与插件装配；落点统一走配置，不再另落 sys_config 同名键。
+    """
+
+    batch_size_default: int = Field(default=1000, ge=1)
+    """策略未配批次时的缺省批次大小。"""
+
+    max_batch_rows: int = Field(default=10000, ge=1)
+    """单批上限（策略 `batch_size` 校验上界）。"""
+
+    cleanup_retention_days: int = Field(default=180, ge=1)
+    """冷化文件在对象存储的保留天数（到期清理依据）。"""
+
+    query_default_days: int = Field(default=30, ge=1)
+    """归档数据查询未给时间范围时的默认回看天数。"""
+
+    query_max_days: int = Field(default=366, ge=1)
+    """单次归档查询最大时间跨度（天；超过按 93008 拒绝）。"""
+
+    running_timeout_seconds: int = Field(default=7200, ge=60)
+    """`running` 执行记录超时回收阈值（秒）。"""
+
+    cold_chunk_rows: int = Field(default=1000, ge=1)
+    """冷化单文件最多行数（按租户分文件）。"""
+
+    file_prefix: str = Field(default="archive", min_length=1)
+    """冷化对象 key 前缀。"""
+
+
 class AuditCaptureSettings(BaseSettings):
     """字段级变更审计捕获参数（`[audit_capture]`；06_02）。
 
@@ -1780,6 +1812,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     # 能力实现选择（分区名 = plugin_key；`object_storage` 别名 `storage`；未列分区取默认 → null）
     archive_policy: PluginSelection = Field(default_factory=PluginSelection)
     archive_query_router: PluginSelection = Field(default_factory=PluginSelection)
+    archive_options: ArchiveSettings = Field(default_factory=ArchiveSettings, validation_alias="archive")
+    """归档执行与查询参数（TOML 段 `[archive]`；字段名不叫 `archive` 以免与插件名混淆）。"""
     audit: PluginSelection = Field(default_factory=PluginSelection)
     audit_log: AuditLogSettings = Field(default_factory=AuditLogSettings)
     audit_capture: AuditCaptureSettings = Field(default_factory=AuditCaptureSettings)

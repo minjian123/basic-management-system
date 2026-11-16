@@ -19,12 +19,13 @@ from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_platform.domains.log.repositories.shard import LogShardRepository
-from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION, month_key, month_shift
+from bms_platform.domains.log.schema import LOGIC_TABLES, month_key, month_shift
 
 __all__ = ["bootstrap_audit_shards", "ensure_audit_shards"]
 
 _LOGGER = get_logger("bms.platform.log")
-_LOG_TYPES = (LOG_TYPE_OPERATION, LOG_TYPE_LOGIN)
+_LOG_TYPES = tuple(LOGIC_TABLES)
+"""预创建的日志类型（三类：操作 / 登录 / 字段级变更；06_02 遗留由 14_01 补齐）。"""
 
 
 def _utc_now() -> datetime:

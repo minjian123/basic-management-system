@@ -2021,3 +2021,107 @@ class DataAuditLogNotFoundError(BizError):
             data: 随附数据（可选）。
         """
         BizError.__init__(self, ErrorCode.DATA_AUDIT_LOG_NOT_FOUND, message, http_status=404, data=data)
+
+
+class ArchivePolicyDuplicateError(BizError):
+    """归档策略已存在（`93001` / 409；同表重复配置）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化归档策略重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ARCHIVE_POLICY_DUPLICATE, message, http_status=409, data=data)
+
+
+class ArchivePolicyRunningError(BizError):
+    """归档策略执行中（`93002` / 409；不可修改 / 删除 / 重复触发）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化策略执行中异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ARCHIVE_POLICY_RUNNING, message, http_status=409, data=data)
+
+
+class ArchiveChainIncompleteError(BizError):
+    """审计链完整性校验不通过（`93003` / 409；归档中止）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化链校验失败异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ARCHIVE_CHAIN_INCOMPLETE, message, http_status=409, data=data)
+
+
+class ArchiveBatchFailedError(BizError):
+    """归档批次失败（`93004` / 500；迁移 / 导出异常）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化批次失败异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ARCHIVE_BATCH_FAILED, message, http_status=500, data=data)
+
+
+class ArchiveDataNotFoundError(BizError):
+    """归档数据不存在（`93005` / 404；含已冷化 / 已处置）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化归档数据不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ARCHIVE_DATA_NOT_FOUND, message, http_status=404, data=data)
+
+
+class ArchiveDestroyConfirmRequiredError(BizError):
+    """合规销毁确认缺失（`93006` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化销毁确认缺失异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ARCHIVE_DESTROY_CONFIRM_REQUIRED, message, http_status=400, data=data)
+
+
+class ArchivePolicyDisabledError(BizError):
+    """归档策略已停用（`93007` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化策略停用异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ARCHIVE_POLICY_DISABLED, message, http_status=409, data=data)
+
+
+class ArchiveQueryRangeExceededError(BizError):
+    """归档查询时间范围过大（`93008` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化查询范围过大异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.ARCHIVE_QUERY_RANGE_EXCEEDED, message, http_status=400, data=data)

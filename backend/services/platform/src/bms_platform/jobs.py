@@ -25,6 +25,7 @@ from bms_core.jobs.signal import JobChangeSignal
 from bms_core.jobs.spec import JobTypeSpec
 from bms_core.jobs.worker import JobWorker
 from bms_core.workerid.lease import worker_id_lease_sync
+from bms_platform.domains.archive.jobs import ArchiveCleanupJob, ArchiveRunJob
 from bms_platform.domains.import_export.export_jobs import ExportCleanupJob, ExportExecuteJob
 from bms_platform.domains.import_export.jobs import ImportExecuteJob
 from bms_platform.domains.task.jobs import TaskJobHandler
@@ -47,6 +48,8 @@ def job_handlers() -> ConcurrentStableDict[str, BaseJobHandler]:
             ImportExecuteJob.job_type: ImportExecuteJob(),
             ExportExecuteJob.job_type: ExportExecuteJob(),
             ExportCleanupJob.job_type: ExportCleanupJob(),
+            ArchiveRunJob.job_type: ArchiveRunJob(),
+            ArchiveCleanupJob.job_type: ArchiveCleanupJob(),
         }
     )
 
@@ -98,6 +101,28 @@ def job_specs() -> ConcurrentStableDict[str, JobTypeSpec]:
                 domain_key="import_export",
                 handler="bms_platform.domains.import_export.export_jobs:ExportCleanupJob",
                 description="清理过期导出产物（按 export.artifact_ttl 与作业结果里的对象 key）",
+                timeout_seconds=1800,
+                max_attempts=3,
+                backoff_seconds=30,
+                concurrency=1,
+            ),
+            "platform.archive.run": JobTypeSpec(
+                job_type="platform.archive.run",
+                service_key=SERVICE_KEY,
+                domain_key="archive",
+                handler="bms_platform.domains.archive.jobs:ArchiveRunJob",
+                description="执行归档策略（两段式 / 直冷 / 审计分片整月归档）",
+                timeout_seconds=7200,
+                max_attempts=2,
+                backoff_seconds=60,
+                concurrency=1,
+            ),
+            "platform.archive.cleanup": JobTypeSpec(
+                job_type="platform.archive.cleanup",
+                service_key=SERVICE_KEY,
+                domain_key="archive",
+                handler="bms_platform.domains.archive.jobs:ArchiveCleanupJob",
+                description="清理过期归档冷化文件（数据 + 清单）并留痕",
                 timeout_seconds=1800,
                 max_attempts=3,
                 backoff_seconds=30,

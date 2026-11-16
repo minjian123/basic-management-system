@@ -91,6 +91,18 @@ description = "表归属登记（sys_table_ownership，含退役清退）"
 sys_table_ownership = "table_name"
 
 [[seeds]]
+name = "seed-archive-policies"
+service = "platform"
+db_key = "platform_platform"
+module = "ops.seed_archive_policies"
+entry = "seed_archive_policies_entry"
+after = ["seed-tables"]
+description = "内置归档策略（三类审计日志 90 天归档）"
+
+[seeds.tables]
+sys_archive_policy = "table_name"
+
+[[seeds]]
 name = "seed-menu"
 service = "platform"
 db_key = "platform_platform"
@@ -547,6 +559,18 @@ public_api = [
   "bms_platform.domains.import_export.public",
 ]
 
+[[domains]]
+domain_key = "archive"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/archive/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/archive.py",
+]
+public_api = [
+  "bms_platform.domains.archive.public",
+]
+
 
 # 域外路径（装配面 / 基座横切面 / 基础设施与不归域文件；随生成物一并渲染）
 
@@ -665,6 +689,32 @@ description = "清理到期注销租户：逐库删库、删注册行并落 tena
 timeout_seconds = 1800
 max_attempts = 3
 backoff_seconds = 120
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
+job_type = "platform.archive.run"
+service = "platform"
+domain = "archive"
+handler = "bms_platform.domains.archive.jobs:ArchiveRunJob"
+description = "执行归档策略（两段式 / 直冷 / 审计分片整月归档）"
+timeout_seconds = 7200
+max_attempts = 2
+backoff_seconds = 60
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
+job_type = "platform.archive.cleanup"
+service = "platform"
+domain = "archive"
+handler = "bms_platform.domains.archive.jobs:ArchiveCleanupJob"
+description = "清理过期归档冷化文件（数据 + 清单）并留痕"
+timeout_seconds = 1800
+max_attempts = 3
+backoff_seconds = 30
 concurrency = 1
 payload_version = "1.0.0"
 status = "enabled"

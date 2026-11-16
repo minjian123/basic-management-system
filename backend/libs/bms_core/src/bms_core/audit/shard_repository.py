@@ -33,7 +33,8 @@ from bms_core.core.logging import get_logger
 from bms_core.core.roots import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.sync import SyncSession
-from bms_core.models.platform.log import SHARD_STATUS_ACTIVE, SysAuditShard
+from bms_core.models.platform.archive import SysArchiveChainTail
+from bms_core.models.platform.log import SHARD_STATUS_ACTIVE, SHARD_STATUS_ARCHIVED, SysAuditShard
 
 __all__ = ["LogShardRepository"]
 
@@ -79,6 +80,53 @@ class LogShardRepository(BaseFrameworkObject):
             ConcurrentStableList[str]: 月份键。
         """
         return ConcurrentStableList(row.shard_month for row in await self.ledger(log_type))
+
+    async def active_months(self, log_type: str) -> ConcurrentStableList[str]:
+        """取某类日志仍可扫描的分片月份（`status=active`，升序）。
+
+        Args:
+            log_type: 日志类型。
+
+        Returns:
+            ConcurrentStableList[str]: 月份键（已归档月份不在内）。
+        """
+        return ConcurrentStableList(
+            row.shard_month for row in await self.ledger(log_type) if row.status == SHARD_STATUS_ACTIVE
+        )
+
+    async def archived_tails(self, log_type: str, month: str) -> ConcurrentStableList[SysArchiveChainTail]:
+        """取已归档月份的按租户链尾（删表后校验依据，按 `tenant_key` 升序）。
+
+        Args:
+            log_type: 日志类型。
+            month: 分片月份（`yyyyMM`）。
+
+        Returns:
+            ConcurrentStableList[SysArchiveChainTail]: 链尾行（无归档记录返回空）。
+        """
+        result = await self._session.execute(
+            select(SysArchiveChainTail)
+            .where(
+                SysArchiveChainTail.log_type == log_type,
+                SysArchiveChainTail.shard_month == month,
+                SysArchiveChainTail.deleted_at.is_(None),
+            )
+            .order_by(SysArchiveChainTail.tenant_key)
+        )
+        return ConcurrentStableList(result.scalars().all())
+
+    async def mark_archived(self, log_type: str, month: str) -> None:
+        """把分片台账置为已归档（幂等；台账行保留供审计追溯）。
+
+        Args:
+            log_type: 日志类型。
+            month: 分片月份（`yyyyMM`）。
+        """
+        row = await self._ledger_row(log_type, month)
+        if row is None:
+            return
+        row.status = SHARD_STATUS_ARCHIVED
+        await self._session.flush()
 
     async def months_between(self, log_type: str, start: str | None, end: str | None) -> ConcurrentStableList[str]:
         """取落在 `[start, end]` 内的分片月份（闭区间）。

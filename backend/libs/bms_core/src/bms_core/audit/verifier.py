@@ -28,6 +28,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.roots import BaseFrameworkObject
 from bms_core.db.session import DbSession
+from bms_core.models.platform.log import SHARD_STATUS_ARCHIVED
 
 __all__ = ["AuditChainVerifier", "ChainVerifyOutcome"]
 
@@ -79,7 +80,7 @@ class AuditChainVerifier(BaseFrameworkObject):
         Returns:
             ChainVerifyOutcome: 校验结果。
         """
-        available = await self._repo.months(log_type)
+        available = await self._repo.active_months(log_type)
         targets = (
             available if months is None else ConcurrentStableList(month for month in available if month in set(months))
         )
@@ -112,10 +113,14 @@ class AuditChainVerifier(BaseFrameworkObject):
             ConcurrentStableDict[str, str]: 租户键 → 链尾哈希。
         """
         tails: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-        for earlier in await self._repo.months(log_type):  # pragma: no branch - 台账非空才会走到本方法
-            if earlier >= month:
+        for earlier in await self._repo.ledger(log_type):
+            if earlier.shard_month >= month:
                 break
-            table = self._repo.table_for(log_type, earlier)
+            if earlier.status == SHARD_STATUS_ARCHIVED:
+                for tail in await self._repo.archived_tails(log_type, earlier.shard_month):
+                    tails[tail.tenant_key] = tail.last_record_hash
+                continue
+            table = self._repo.table_for(log_type, earlier.shard_month)
             result = await self._session.execute(select(table).order_by(table.c.id))
             for row in result.mappings().all():
                 values = ConcurrentStableDict(dict(row))

@@ -24,6 +24,8 @@ from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import (
     SessionFactory,
+    get_archive_read_db,
+    get_archive_write_db,
     get_db,
     get_platform_read_db,
     get_platform_uow,
@@ -93,6 +95,8 @@ __all__ = [
     "current_code_of",
     "get_archive_policy",
     "get_archive_query_router",
+    "get_archive_read_db",
+    "get_archive_write_db",
     "get_audit_capturer",
     "get_audit_search",
     "get_cache_region",

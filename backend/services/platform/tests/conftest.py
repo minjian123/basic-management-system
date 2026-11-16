@@ -309,6 +309,38 @@ def tenant_db(shared_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> str
 
 
 @pytest.fixture
+def archive_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    """归档库：每用例一份独立 SQLite 文件（只建归档行表），并指向应用配置。
+
+    Args:
+        tmp_path: 用例级临时目录。
+        monkeypatch: pytest monkeypatch 夹具。
+
+    Returns:
+        str: 归档库连接串。
+    """
+    from typing import cast
+
+    from sqlalchemy import Table, create_engine
+
+    from bms_core.models.base import Base
+    from bms_core.models.platform.archive import SysArchiveRecord
+
+    url = f"sqlite+aiosqlite:///{tmp_path / 'archive.db'}"
+    engine = create_engine(url.replace("+aiosqlite", ""))
+    try:
+        Base.metadata.create_all(engine, tables=[cast("Table", SysArchiveRecord.__table__)], checkfirst=True)
+    finally:
+        engine.dispose()
+    monkeypatch.setenv("BMS_DATABASE__ARCHIVE__URL", url)
+    get_settings.cache_clear()
+    from bms_platform.domains.archive.jobs import reset_archive_registry
+
+    reset_archive_registry()
+    return url
+
+
+@pytest.fixture
 def isolated_platform_db_url(
     tmp_path: Path,
     pinned_product_manifests: ConcurrentStableList[str],
@@ -346,8 +378,11 @@ def fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-async def service_app() -> AsyncIterator[FastAPI]:
+async def service_app(archive_db: str) -> AsyncIterator[FastAPI]:
     """平台服务应用实例夹具（经 lifespan 装配；供探针 / 应用级断言与 `client` 共用）。
+
+    Args:
+        archive_db: 归档库连接串（确保应用装配读到独立归档库）。
 
     Yields:
         FastAPI: 应用实例。

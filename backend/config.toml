@@ -300,6 +300,17 @@ provider = ""
 # 非敏感选项（密钥一律经环境变量注入，不写入本文件）
 options = {}
 
+[archive]
+# 归档管理运行参数（14_01）：执行 / 冷化 / 查询 / 清理；策略自身字段见 sys_archive_policy
+batch_size_default = 1000           # 策略未配批次时的缺省批次
+max_batch_rows = 10000              # 单批上限（策略 batch_size 校验上界）
+cleanup_retention_days = 180        # 冷化文件在对象存储的保留天数（到期清理）
+query_default_days = 30             # 归档数据查询缺省回看天数
+query_max_days = 366                # 归档数据查询最大跨度（天；超出 93008）
+running_timeout_seconds = 7200      # running 执行记录超时回收阈值（秒）
+cold_chunk_rows = 1000              # 冷化单文件最多行数（按租户分文件）
+file_prefix = "archive"             # 冷化对象 key 前缀
+
 [cache]
 # 缓存实现选择（插件化配置；redis = Redis Region（缺省，03_04 起 Redis 为基础能力）、memory = 进程内、空串 = null）
 provider = "redis"

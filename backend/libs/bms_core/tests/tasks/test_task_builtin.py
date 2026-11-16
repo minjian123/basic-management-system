@@ -36,14 +36,15 @@ def _ctx() -> TaskContext:
     )
 
 
-def test_builtin_specs_are_eight_and_cron_valid() -> None:
-    """八条内置任务：代码 / 名称 / cron / handler / 归口齐备，cron 全部可解析。"""
+def test_builtin_specs_are_nine_and_cron_valid() -> None:
+    """九条内置任务：代码 / 名称 / cron / handler / 归口齐备，cron 全部可解析。"""
     assert isinstance(BUILTIN_TASK_SPECS, ConcurrentStableList)
     assert [spec.code for spec in BUILTIN_TASK_SPECS] == [
         "cleanup_orphan_parts",
         "cleanup_export_artifacts",
         "cleanup_print_artifacts",
         "archive_audit_logs",
+        "cleanup_archive_files",
         "precreate_shard_tables",
         "verify_audit_chain",
         "purge_soft_deleted",
@@ -73,15 +74,64 @@ def test_builtin_spec_of_hit_and_miss() -> None:
 
 async def test_placeholder_runners_skip_with_owner() -> None:
     """占位执行体统一返回 skipped，且说明里写明归口任务号。"""
-    cases = (
-        (run_archive_audit_logs, "06_01"),
-        (run_purge_soft_deleted, "13"),
-    )
-    for runner, owner in cases:
-        result = await runner(_ctx())
-        assert result.status == TASK_RUN_SKIPPED
-        assert owner in result.message
-        assert "占位实现" in result.message
+    result = await run_purge_soft_deleted(_ctx())
+    assert result.status == TASK_RUN_SKIPPED
+    assert "13" in result.message
+    assert "占位实现" in result.message
+
+
+async def test_archive_tasks_submit_jobs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """归档任务：按日全局幂等提交作业；下游不可用转 failed。"""
+    submitted: list[tuple[str, str | None]] = []  # bare-collections:allow（测试记录容器）
+
+    class _Jobs:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str | None, str]] = []  # bare-collections:allow（测试记录容器）
+
+        async def submit(
+            self,
+            *,
+            service_key: str,
+            job_type: str,
+            payload: ConcurrentStableDict[str, object],
+            idempotency_key: str | None,
+            tenant_id: int | None,
+        ) -> str:
+            del service_key, payload
+            self.calls.append((job_type, idempotency_key, str(tenant_id)))
+            submitted.append((job_type, idempotency_key))
+            return "99"
+
+    jobs = _Jobs()
+
+    def _jobs_client(client: object) -> _Jobs:
+        del client
+        return jobs
+
+    def _service_client() -> object:
+        return object()
+
+    monkeypatch.setattr(builtin, "JobInternalClient", _jobs_client)
+    monkeypatch.setattr(builtin, "build_service_client", _service_client)
+    archived = await run_archive_audit_logs(_ctx())
+    cleaned = await builtin.run_cleanup_archive_files(_ctx())
+    assert archived.status == TASK_RUN_SUCCESS
+    assert cleaned.status == TASK_RUN_SUCCESS
+    assert [call[0] for call in jobs.calls] == ["platform.archive.run", "platform.archive.cleanup"]
+    assert all(call[2] == "None" for call in jobs.calls)
+    assert all(":global:" in (call[1] or "") for call in jobs.calls)
+
+    class _Down:
+        async def submit(self, **kwargs: object) -> str:
+            raise ServiceUnavailableError("down")
+
+    def _down_client(client: object) -> _Down:
+        del client
+        return _Down()
+
+    monkeypatch.setattr(builtin, "JobInternalClient", _down_client)
+    assert (await run_archive_audit_logs(_ctx())).status == TASK_RUN_FAILED
+    assert (await builtin.run_cleanup_archive_files(_ctx())).status == TASK_RUN_FAILED
 
 
 async def test_precreate_and_verify_call_platform_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:

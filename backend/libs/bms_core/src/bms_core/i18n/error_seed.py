@@ -200,6 +200,14 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (90203, "查询时间范围过大，请缩小范围", "Time range too large, narrow it down"),
         (90301, "登录日志不存在", "Login log not found"),
         (90401, "数据变更审计记录不存在", "Data change audit record not found"),
+        (93001, "归档策略已存在（同表重复配置）", "Archive policy already exists for this table"),
+        (93002, "归档策略执行中，暂不可修改、删除或重复触发", "Archive policy is running"),
+        (93003, "审计链完整性校验不通过，归档已中止", "Audit chain is incomplete; archive aborted"),
+        (93004, "归档批次执行失败", "Archive batch failed"),
+        (93005, "归档数据不存在（可能已冷化或已处置）", "Archive data not found (cold-stored or disposed)"),
+        (93006, "合规销毁须二次确认", "Destruction requires explicit confirmation"),
+        (93007, "归档策略已停用", "Archive policy is disabled"),
+        (93008, "归档查询时间范围过大，请缩小范围", "Archive query time range too large"),
     )
 )
 """错误码文案种子：`(错误码, 中文, 英文)`，与 `ErrorCode` 业务码一一对应。"""

@@ -10,13 +10,16 @@
 - **审计链巡检**（06_01 落地）：触发型——向 platform 服务提交校验请求，逐类日志校验当前保留期内分片链。
 - **注销租户清理**（04_03 落地）：提交型——向 tenant 服务提交 `tenant.purge.scan`；扫描 / 删库 / 发事件全在
   tenant 服务（基座不跨库删库），本执行体只负责「按日触发一次」。
-- 其余两条仍是占位实现：返回 `skipped` 并在 `message` 里写明归口任务号。理由见详细设计 §4.6：
+- **审计日志归档** / **归档文件清理**（14_01 落地）：提交型——分别向 platform 服务提交
+  `platform.archive.run` 与 `platform.archive.cleanup`；扫描 / 迁移 / 冷化 / 清理全在归档域，
+  作业按日全局幂等（多租户任务行重复触发只落一条）；
+- 其余一条仍是占位实现：返回 `skipped` 并在 `message` 里写明归口任务号。理由见详细设计 §4.6：
 
 - 「只登记不执行」会让 handler 白名单直接拒掉、触发即失败，`sys_task_log` 只剩失败记录，
   「还没做」与「做坏了」不可区分；
 - 「先把它做出来」要预先猜未定稿的保留期 / 上传中记录口径，后续必然返工。
 
-归口：审计日志归档 → 06_01 / 06_02 / 14；分片表预创建 → 13；软删除残留清理 → 13 回收站 / 14 归档。
+归口：软删除残留清理 → 13 回收站。
 """
 
 from __future__ import annotations
@@ -42,6 +45,7 @@ __all__ = [
     "BuiltinTaskSpec",
     "builtin_spec_of",
     "run_archive_audit_logs",
+    "run_cleanup_archive_files",
     "run_cleanup_export_artifacts",
     "run_cleanup_orphan_parts",
     "run_cleanup_print_artifacts",
@@ -130,8 +134,16 @@ BUILTIN_TASK_SPECS: ConcurrentStableList[BuiltinTaskSpec] = ConcurrentStableList
             name="审计日志归档",
             cron="0 4 * * *",
             handler=f"{_HANDLER_MODULE}:run_archive_audit_logs",
-            owner="06_01 / 06_02（日志与审计）、14（归档）",
-            summary="四类审计日志按归档策略迁移（热表 → 归档库 → 对象存储）",
+            owner="14_01（归档管理，经 platform.archive.run 作业执行）",
+            summary="按归档策略迁移四类审计日志（热表 → 归档库 → 对象存储）",
+        ),
+        BuiltinTaskSpec(
+            code="cleanup_archive_files",
+            name="归档文件清理",
+            cron="0 5 * * *",
+            handler=f"{_HANDLER_MODULE}:run_cleanup_archive_files",
+            owner="14_01（归档管理，经 platform.archive.cleanup 作业执行）",
+            summary="清理过期归档冷化文件（数据 + 清单）并留痕",
         ),
         BuiltinTaskSpec(
             code="precreate_shard_tables",
@@ -268,16 +280,56 @@ async def run_cleanup_print_artifacts(ctx: TaskContext) -> TaskResult:
 
 
 async def run_archive_audit_logs(ctx: TaskContext) -> TaskResult:
-    """审计日志归档（占位）。
+    """审计日志归档（提交型：向 platform 提交 `platform.archive.run` 作业）。
+
+    归档是平台治理动作（策略 / 执行记录在平台库），作业按日全局幂等：多租户任务行
+    重复触发也只落一条作业。
 
     Args:
-        ctx: 执行上下文。
+        ctx: 执行上下文（本执行体只提交作业，扫描 / 迁移 / 冷化在 platform 归档域）。
 
     Returns:
-        TaskResult: `skipped`（归口 06_01 / 06_02 / 14）。
+        TaskResult: 成功带作业标识；下游不可用为失败（由调度器按策略重试提交）。
     """
+    today = datetime.now(UTC).date().isoformat()
+    try:
+        client = JobInternalClient(build_service_client())
+        job_id = await client.submit(
+            service_key=PLATFORM_SERVICE_KEY,
+            job_type="platform.archive.run",
+            payload=ConcurrentStableDict[str, object](),
+            idempotency_key=f"platform.archive.run:global:{today}",
+            tenant_id=None,
+        )
+    except ServiceUnavailableError as exc:
+        return TaskResult.failed(f"归档作业提交失败：{exc}")
     _ = ctx
-    return _skipped("06_01 / 06_02（日志与审计）、14（归档）")
+    return TaskResult.success(f"已提交归档作业 {job_id}", output=f"job_id={job_id}")
+
+
+async def run_cleanup_archive_files(ctx: TaskContext) -> TaskResult:
+    """归档文件清理（提交型：向 platform 提交 `platform.archive.cleanup` 作业）。
+
+    Args:
+        ctx: 执行上下文（本执行体只提交作业，删除对象 / 回销记录在 platform 归档域）。
+
+    Returns:
+        TaskResult: 成功带作业标识；下游不可用为失败（由调度器按策略重试提交）。
+    """
+    today = datetime.now(UTC).date().isoformat()
+    try:
+        client = JobInternalClient(build_service_client())
+        job_id = await client.submit(
+            service_key=PLATFORM_SERVICE_KEY,
+            job_type="platform.archive.cleanup",
+            payload=ConcurrentStableDict[str, object](),
+            idempotency_key=f"platform.archive.cleanup:global:{today}",
+            tenant_id=None,
+        )
+    except ServiceUnavailableError as exc:
+        return TaskResult.failed(f"归档清理作业提交失败：{exc}")
+    _ = ctx
+    return TaskResult.success(f"已提交归档清理作业 {job_id}", output=f"job_id={job_id}")
 
 
 async def _post_platform(
