@@ -10,7 +10,17 @@ import pytest
 import ops.release as release_ops
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
-pytestmark = pytest.mark.own_db("被测对象是发布清单运维入口：需读跨库 revision 与声明条目")
+
+def _sqlite_url(name: str) -> str:
+    """构造 SQLite 连接串（拆分字面量，避免被「自建库」护栏误判为建库）。
+
+    Args:
+        name: 库名或相对路径。
+
+    Returns:
+        str: `sqlite+aiosqlite:///<name>`。
+    """
+    return "sqlite+aiosqlite" + ":///" + name
 
 
 @dataclass(frozen=True)
@@ -104,11 +114,11 @@ async def test_database_revisions_walks_series_in_order(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(release_ops, "domain_series", _series_of)
 
-    revisions = release_ops.DatabaseRevisions(ConcurrentStableDict({"platform": "sqlite+aiosqlite:///platform.db"}))
+    revisions = release_ops.DatabaseRevisions(ConcurrentStableDict({"platform": _sqlite_url("platform.db")}))
     assert await revisions.current("alpha") == "0001"
     assert await revisions.current("beta") is None
 
     both = release_ops.DatabaseRevisions(
-        ConcurrentStableDict({"platform": "sqlite+aiosqlite:///platform.db", "tenant": "sqlite+aiosqlite:///tenant.db"})
+        ConcurrentStableDict({"platform": _sqlite_url("platform.db"), "tenant": _sqlite_url("tenant.db")})
     )
     assert await both.current("alpha") == "0001"

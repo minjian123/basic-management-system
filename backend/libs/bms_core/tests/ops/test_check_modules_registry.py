@@ -21,8 +21,6 @@ from bms_core.registry.declarations import (
 from bms_core.services.module_registry import CollaborationRecord
 from ops.check_modules import diff_platform_declarations
 
-pytestmark = pytest.mark.own_db("被测对象是 ops 接库对账脚本：需把库置成缺声明 / 指纹漂移 / 多出行等指定状态")
-
 
 def _capability(path: str = "/api/v1/platform/internal/users/query") -> CollaborationRecord:
     """构造平台能力记录。
@@ -133,6 +131,7 @@ def testplatform_payload_reads_local_manifest_and_services() -> None:
     assert {"sys", "identity"} <= {record.module_key for record in payload.services}
 
 
+@pytest.mark.own_db("接库对账：需把库置成无表 / 不可读 / 已建表等指定状态")
 def test_check_registry_db_skips_without_tables(tmp_path: object) -> None:
     """注册表未建表：跳过对账并输出提示（不把「没迁移」当「声明漂移」）。"""
     from pathlib import Path as _Path
@@ -146,6 +145,7 @@ def test_check_registry_db_skips_without_tables(tmp_path: object) -> None:
     assert any("未建表" in warning for warning in warnings)
 
 
+@pytest.mark.own_db("接库对账：需把库置成无表 / 不可读 / 已建表等指定状态")
 def test_check_registry_db_reports_unreadable_db(tmp_path: object) -> None:
     """库不可读（非「未建表」）：报错而不是静默跳过。"""
     from ops.check_modules import check_registry_db
@@ -159,6 +159,7 @@ def test_check_registry_db_reports_unreadable_db(tmp_path: object) -> None:
     assert any("注册表库不可读" in item for item in errors)
 
 
+@pytest.mark.own_db("接库对账：需把库置成无表 / 不可读 / 已建表等指定状态")
 def test_check_registry_db_reports_unreadable_db_with_manifest(tmp_path: object) -> None:
     """多声明方（平台 + 产品）时库打不开（非「未建表」）：仍报「库不可读」。"""
     from ops import check_modules
@@ -240,6 +241,7 @@ def testplatform_payload_merges_manifest_services(monkeypatch: object) -> None:
     assert {"sys", "extra"} <= module_keys
 
 
+@pytest.mark.own_db("接库对账：需把库置成无表 / 不可读 / 已建表等指定状态")
 def test_check_registry_db_diffs_when_tables_exist(tmp_path: object) -> None:
     """注册表已建表：走对账路径（本测试库为空 → 报缺声明）。"""
     import asyncio

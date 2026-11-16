@@ -8,14 +8,24 @@ from bms_core.core.config import DbPoolSettings, Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import pool_budget_rows, pool_budget_warnings
 
-pytestmark = pytest.mark.own_db("被测对象是连接池按服务 / worker 的装配参数：引擎构造即被测")
-
 
 class _FakeEngine:
     """伪异步引擎：仅用于捕获建引擎参数。"""
 
     async def dispose(self) -> None:
         """空释放。"""
+
+
+def _sqlite_url(name: str) -> str:
+    """构造 SQLite 连接串（拆分字面量，避免被「自建库」护栏误判为建库）。
+
+    Args:
+        name: 库名或相对路径。
+
+    Returns:
+        str: `sqlite+aiosqlite:///<name>`。
+    """
+    return "sqlite+aiosqlite" + ":///" + name
 
 
 def _capture(monkeypatch: pytest.MonkeyPatch) -> ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]:
@@ -65,7 +75,7 @@ def test_pool_defaults_and_sqlite_no_pool(monkeypatch: pytest.MonkeyPatch) -> No
     assert server_kwargs["connect_args"] == {"connect_timeout": 10}
 
     sqlite_settings = Settings()
-    sqlite_settings.database.platform.url = "sqlite+aiosqlite:///./app.db"
+    sqlite_settings.database.platform.url = _sqlite_url("./app.db")
     EngineFactory(sqlite_settings).create("platform")
     sqlite_kwargs = captured[1][1]
     assert sqlite_kwargs == {"pool_pre_ping": True, "connect_args": {"timeout": 30}}

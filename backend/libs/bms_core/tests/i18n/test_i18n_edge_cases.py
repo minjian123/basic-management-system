@@ -34,7 +34,7 @@ from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
 
 pytestmark = [
     pytest.mark.kiwi_id(2404),
-    pytest.mark.own_db("语言清单回源与种子入口的建表即被测：临时库验证查询排序与自建引擎写入"),
+    pytest.mark.own_db("i18n 种子与查询：夹具 / 入口按临时库建表后验排序与幂等"),
 ]
 
 _TENANT = "1001"

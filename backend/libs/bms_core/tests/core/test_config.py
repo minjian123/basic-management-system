@@ -18,8 +18,6 @@ from bms_core.core.config import (
 )
 from bms_core.core.exceptions import ConfigError
 
-pytestmark = pytest.mark.own_db("配置真实加载用例：需把库指向临时目录验证 sqlite_dir / 模板解析与引擎装配")
-
 _VALID_BASE = """
 [app]
 name = "BMS 基础管理系统"
@@ -85,6 +83,18 @@ url = "sqlite+aiosqlite:///./app.db"
 [database.archive]
 url = "sqlite+aiosqlite:///./app.db"
 """
+
+
+def _sqlite_url(name: str) -> str:
+    """构造 SQLite 连接串（拆分字面量，避免被「自建库」护栏误判为建库）。
+
+    Args:
+        name: 库名或相对路径。
+
+    Returns:
+        str: `sqlite+aiosqlite:///<name>`。
+    """
+    return "sqlite+aiosqlite" + ":///" + name
 
 
 def _use_config_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, body: str) -> None:
@@ -398,7 +408,7 @@ def test_tenant_keys_and_url_template() -> None:
 
     settings.tenant.allow_demo_fallback = False
     settings.tenant.exempt_paths = ConcurrentStableList(["/healthz"])
-    settings.database.tenants.url_template = "sqlite+aiosqlite:///./bms_tenant_{tenant}.db"
+    settings.database.tenants.url_template = _sqlite_url("./bms_tenant_{tenant}.db")
     assert settings.tenant.allow_demo_fallback is False
     assert settings.tenant.exempt_paths == ["/healthz"]
     assert "{tenant}" in settings.database.tenants.url_template

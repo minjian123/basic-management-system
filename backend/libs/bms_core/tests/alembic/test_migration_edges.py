@@ -39,8 +39,6 @@ from bms_core.db.migration import (
     unit_series,
 )
 
-pytestmark = pytest.mark.own_db("被测对象是迁移清单边界与离线兜底（Alembic 配置 / head / 达梦模式）")
-
 
 def _clear_layout_caches(monkeypatch: pytest.MonkeyPatch) -> None:
     """清空布局 / 域模型的两张模块级缓存（布局替身用例前置）。
@@ -380,6 +378,7 @@ def test_head_revision_with_and_without_scripts(monkeypatch: pytest.MonkeyPatch,
 
 
 @pytest.mark.kiwi_id(2359)
+@pytest.mark.own_db("接库读面：需按指定库键 / 同步 SQLite / 缺版本表构造读取状态")
 def test_series_url_explicit_db_key_and_platform(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """连接串取法：显式库键经引擎工厂；平台数据源按「单元 → 域承载服务」回落库键。"""
     settings = Settings()
@@ -422,6 +421,7 @@ def test_apply_session_schema_dm_branches() -> None:
 
 
 @pytest.mark.kiwi_id(2359)
+@pytest.mark.own_db("接库读面：需按指定库键 / 同步 SQLite / 缺版本表构造读取状态")
 def test_read_revision_with_sync_sqlite(tmp_path: Path) -> None:
     """同步版本读取：无版本记录表返回 None；空表返回 None；有值返回版本号。"""
     database = tmp_path / "rev.db"
@@ -458,6 +458,7 @@ async def test_current_revision_dispatches_dm_to_sync(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.kiwi_id(2359)
+@pytest.mark.own_db("接库读面：需按指定库键 / 同步 SQLite / 缺版本表构造读取状态")
 async def test_current_revision_async_without_table(tmp_path: Path) -> None:
     """非达梦方言：异步引擎读不到版本表即 None（未迁移语义）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'async.db'}"

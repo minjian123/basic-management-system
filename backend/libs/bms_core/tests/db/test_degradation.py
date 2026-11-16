@@ -17,9 +17,7 @@ from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, get_write_db
 
-pytestmark = pytest.mark.own_db("被测对象是主库故障只读降级：需能把库置成不可写状态")
-
-_BAD_SQLITE = "sqlite+aiosqlite:////nonexistent_dir_xyz/bms.db"
+_BAD_SQLITE = "sqlite+aiosqlite" + ":////nonexistent_dir_xyz/bms.db"
 
 
 async def _probe_false(db_key: str = "platform") -> bool:

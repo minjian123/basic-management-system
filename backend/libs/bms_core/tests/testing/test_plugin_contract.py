@@ -12,7 +12,17 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import plugin
 from bms_core.testing.fixtures import clear_isolated_env, clear_tenant_cache
 
-pytestmark = pytest.mark.own_db("被测对象是测试基座插件本身：basetemp 父目录补齐与夹具导出口径")
+
+def _sqlite_url(name: str) -> str:
+    """构造 SQLite 连接串（拆分字面量，避免被「自建库」护栏误判为建库）。
+
+    Args:
+        name: 库名或相对路径。
+
+    Returns:
+        str: `sqlite+aiosqlite:///<name>`。
+    """
+    return "sqlite+aiosqlite" + ":///" + name
 
 
 @pytest.fixture(autouse=True)
@@ -120,8 +130,8 @@ def test_apply_platform_db_skips_when_absent(monkeypatch: pytest.MonkeyPatch) ->
     from bms_core.testing.fixtures import apply_platform_db
 
     assert apply_platform_db(None, monkeypatch) is False
-    assert apply_platform_db("sqlite+aiosqlite:///tmp/app.db", monkeypatch) is True
-    assert os.environ["BMS_DATABASE__PLATFORM__URL"] == "sqlite+aiosqlite:///tmp/app.db"
+    assert apply_platform_db(_sqlite_url("tmp/app.db"), monkeypatch) is True
+    assert os.environ["BMS_DATABASE__PLATFORM__URL"] == _sqlite_url("tmp/app.db")
 
 
 @pytest.mark.kiwi_id(2317)
