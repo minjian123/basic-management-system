@@ -24,11 +24,14 @@ class ProductRepository(BaseDbRepository[SysProduct]):
     model = SysProduct
     sortable_fields = ConcurrentStableSet({"id"})
 
-    def _product_conditions(self, *, status: str | None = None) -> ConcurrentStableList[ColumnElement[bool]]:
+    def _product_conditions(
+        self, *, status: str | None = None, product_key: str | None = None
+    ) -> ConcurrentStableList[ColumnElement[bool]]:
         """构造产品档案筛选条件（列表 / 分页同源，防口径漂移）。
 
         Args:
             status: 状态筛选（`enabled` / `disabled` / `planned` / `retired`）；None 不过滤。
+            product_key: 产品键精确筛选；None 不过滤。
 
         Returns:
             ConcurrentStableList[ColumnElement[bool]]: 条件表达式列表。
@@ -36,6 +39,8 @@ class ProductRepository(BaseDbRepository[SysProduct]):
         conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
         if status is not None:
             conditions.add(self._column("status") == status)
+        if product_key is not None:
+            conditions.add(self._column("product_key") == product_key)
         return conditions
 
     async def list_products(self, *, status: str | None = None) -> ConcurrentStableList[SysProduct]:
@@ -57,17 +62,19 @@ class ProductRepository(BaseDbRepository[SysProduct]):
         query: BasePageQuery,
         *,
         status: str | None = None,
+        product_key: str | None = None,
     ) -> tuple[ConcurrentStableList[SysProduct], int]:
         """分页查询产品档案（筛选 + 排序 + 当前页 + 筛选后总数）。
 
         Args:
             query: 页码分页请求（含排序参数；排序经仓储白名单校验、非法忽略）。
             status: 状态筛选（`enabled` / `disabled` / `planned` / `retired`）；None 不过滤。
+            product_key: 产品键精确筛选；None 不过滤。
 
         Returns:
             tuple[ConcurrentStableList[SysProduct], int]: (当前页记录, 筛选后总数)。
         """
-        conditions = self._product_conditions(status=status)
+        conditions = self._product_conditions(status=status, product_key=product_key)
         statement = self._apply_sort(self._select().where(*conditions), self._resolve_sort(query))
         statement = statement.limit(query.size).offset((query.page - 1) * query.size)
         rows = ConcurrentStableList((await self._session.execute(statement)).scalars().all())

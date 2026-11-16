@@ -3,18 +3,19 @@
 覆盖：到期清理（逐服务删库 → 删注册行与对照行 → `tenant.purged` 只发一次 + 审计一条）、
 未到期 / `purge_at` 为空 / 已被恢复 / 注册行缺失一律 `skipped`（零副作用）、单库失败保留注册行且重试收敛、
 重复执行幂等、归档就绪时回填保留期、扫描只取到期目标、两个作业处理器的成功 / 失败 / 提交路径。
+
+测试库：共享平台库 + 回滚会话；租户编码按命名空间生成，事件按本租户 ID 过滤，扫描按编码收敛。
 """
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.config.models import SysConfig
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -22,7 +23,6 @@ from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.session import DbSession
 from bms_core.jobs.base import JobContext
-from bms_core.models.base import Base
 from bms_core.models.job import SysJob
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.tenant.tenant import (
@@ -33,6 +33,8 @@ from bms_core.models.tenant.tenant import (
 )
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.outbox.store import SqlOutboxStore
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 from bms_tenant.domains.tenant.jobs import (
     TENANT_PURGE_JOB_TYPE,
     TENANT_PURGE_SCAN_JOB_TYPE,
@@ -48,169 +50,138 @@ from bms_tenant.domains.tenant.services.tenant_purge import (
     TenantPurgeService,
 )
 
-pytestmark = [
-    pytest.mark.kiwi_id(2458),
-    pytest.mark.own_db("每个用例都要构造受控的注销租户集合，并断言发件箱 / 作业表的精确条数"),
-]
+pytestmark = pytest.mark.kiwi_id(2458)
 
 NOW = datetime(2026, 11, 8, 12, 0, 0)
 """固定「当前时刻」（时间注入，不用 sleep）。"""
 
-_TABLES = [
-    cast("Table", SysTenant.__table__),
-    cast("Table", SysTenantDatabase.__table__),
-    cast("Table", SysOutbox.__table__),
-    cast("Table", SysConfig.__table__),
-    cast("Table", SysJob.__table__),
-]
 
-
-async def _prepare(url: str) -> None:
-    """建表（临时 sqlite 平台库）。
+@pytest.fixture
+async def session(
+    shared_platform_engine: AsyncEngine,
+    platform_db_write_whole: None,
+) -> AsyncIterator[AsyncSession]:
+    """共享平台库上的回滚会话（整条用例持写锁）。
 
     Args:
-        url: 连接串。
+        shared_platform_engine: 共享平台库引擎。
+        platform_db_write_whole: 平台库整条用例写锁（回滚会话准备阶段即开写事务）。
+
+    Yields:
+        AsyncSession: 数据库会话。
     """
-    engine = create_async_engine(url)
-    try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all, tables=_TABLES)
-    finally:
-        await engine.dispose()
+    del platform_db_write_whole
+    async with rollback_session(shared_platform_engine) as db:
+        yield db
 
 
 async def _seed(
-    url: str,
+    session: AsyncSession,
+    ns: Namespace,
     *,
-    code: str,
+    suffix: str,
     status: str = TENANT_STATUS_DELETED,
     purge_at: datetime | None = None,
-) -> int:
-    """写一条租户（含库名对照），返回主键。
+) -> SysTenant:
+    """写一条租户（含库名对照），返回注册行。
 
     Args:
-        url: 连接串。
-        code: 租户编码。
+        session: 回滚会话。
+        ns: 本用例命名空间。
+        suffix: 编码后缀（同用例内区分多个租户）。
         status: 状态。
         purge_at: 保留期截止（None 表示留空待回填）。
 
     Returns:
-        int: 租户主键。
+        SysTenant: 注册行。
     """
-    await _prepare(url)
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            row = SysTenant(code=code, name=code, kind="business", status=status)
-            row.deletion_requested_at = NOW - timedelta(days=1) if status == TENANT_STATUS_DELETED else None
-            row.purge_at = purge_at
-            session.add(row)
-            await session.flush()
-            tenant_id = int(row.id)
-            session.add(SysTenantDatabase(tenant_id=tenant_id, db_basis=code))
-            await session.commit()
-            return tenant_id
-    finally:
-        await engine.dispose()
+    code = f"{ns.prefix}{suffix}"
+    row = SysTenant(code=code, name=code, kind="business", status=status)
+    row.deletion_requested_at = NOW - timedelta(days=1) if status == TENANT_STATUS_DELETED else None
+    row.purge_at = purge_at
+    session.add(row)
+    await session.flush()
+    session.add(SysTenantDatabase(tenant_id=int(row.id), db_basis=code))
+    await session.flush()
+    return row
 
 
-async def _seed_config(url: str, *, key: str, value: str) -> None:
+async def _seed_config(session: AsyncSession, *, key: str, value: str) -> None:
     """写一条系统参数。
 
     Args:
-        url: 连接串。
+        session: 回滚会话。
         key: 参数键。
         value: 参数值。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            session.add(SysConfig(form_key="config", config_key=key, name=key, value=value))
-            await session.commit()
-    finally:
-        await engine.dispose()
+    session.add(SysConfig(form_key="config", config_key=key, name=key, value=value))
+    await session.flush()
 
 
-async def _events(url: str, event_type: str) -> ConcurrentStableList[SysOutbox]:
-    """按类型取发件箱事件（升序）。
+async def _events(
+    session: AsyncSession, event_type: str, tenant_id: int | None = None
+) -> ConcurrentStableList[SysOutbox]:
+    """按类型（+ 本租户）取发件箱事件（升序）。
 
     Args:
-        url: 连接串。
+        session: 回滚会话。
         event_type: 事件类型。
+        tenant_id: 租户主键；None 不按租户过滤（仅用于无租户事件）。
 
     Returns:
         ConcurrentStableList[SysOutbox]: 事件行。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            rows = await session.execute(
-                select(SysOutbox).where(SysOutbox.event_type == event_type).order_by(SysOutbox.id)
-            )
-            return ConcurrentStableList(rows.scalars().all())
-    finally:
-        await engine.dispose()
+    statement = select(SysOutbox).where(SysOutbox.event_type == event_type)
+    if tenant_id is not None:
+        statement = statement.where(SysOutbox.tenant_id == tenant_id)
+    rows = await session.execute(statement.order_by(SysOutbox.id))
+    return ConcurrentStableList(rows.scalars().all())
 
 
-async def _tenant_row(url: str, tenant_id: int) -> SysTenant | None:
+async def _tenant_row(session: AsyncSession, tenant_id: int) -> SysTenant | None:
     """直读注册行（校验是否被物理删除）。
 
     Args:
-        url: 连接串。
+        session: 回滚会话。
         tenant_id: 租户主键。
 
     Returns:
         SysTenant | None: 注册行；已删返回 None。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            return (await session.execute(select(SysTenant).where(SysTenant.id == tenant_id))).scalar_one_or_none()
-    finally:
-        await engine.dispose()
+    return (await session.execute(select(SysTenant).where(SysTenant.id == tenant_id))).scalar_one_or_none()
 
 
-async def _database_rows(url: str, tenant_id: int) -> int:
+async def _database_rows(session: AsyncSession, tenant_id: int) -> int:
     """取库名对照行数（清理后应为 0）。
 
     Args:
-        url: 连接串。
+        session: 回滚会话。
         tenant_id: 租户主键。
 
     Returns:
         int: 行数。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            rows = await session.execute(select(SysTenantDatabase).where(SysTenantDatabase.tenant_id == tenant_id))
-            return len(rows.scalars().all())
-    finally:
-        await engine.dispose()
+    rows = await session.execute(select(SysTenantDatabase).where(SysTenantDatabase.tenant_id == tenant_id))
+    return len(rows.scalars().all())
 
 
-async def _job_rows(url: str) -> ConcurrentStableList[SysJob]:
-    """取作业表全部行（扫描提交结果）。
+async def _job_rows(session: AsyncSession, *tenant_ids: int) -> ConcurrentStableList[SysJob]:
+    """取本用例提交的作业行（按幂等键中的租户 ID 收敛）。
 
     Args:
-        url: 连接串。
+        session: 回滚会话。
+        *tenant_ids: 本用例租户主键。
 
     Returns:
         ConcurrentStableList[SysJob]: 作业行。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            rows = await session.execute(select(SysJob).order_by(SysJob.id))
-            return ConcurrentStableList(rows.scalars().all())
-    finally:
-        await engine.dispose()
+    rows = (
+        (await session.execute(select(SysJob).where(SysJob.job_type == TENANT_PURGE_JOB_TYPE).order_by(SysJob.id)))
+        .scalars()
+        .all()
+    )
+    prefixes = tuple(f"{TENANT_PURGE_JOB_TYPE}:{tenant_id}:" for tenant_id in tenant_ids)
+    return ConcurrentStableList(row for row in rows if str(row.idempotency_key).startswith(prefixes))
 
 
 class _DropRecorder:
@@ -240,7 +211,7 @@ class _DropRecorder:
 
 
 async def _purge(
-    url: str,
+    session: AsyncSession,
     tenant_id: int,
     *,
     drop: Any = None,
@@ -248,70 +219,60 @@ async def _purge(
     settings: Settings | None = None,
     fixed_clock: bool = True,
 ) -> Any:
-    """执行一次单租户清理（临时会话）。
+    """执行一次单租户清理（复用回滚会话）。
 
     Args:
-        url: 连接串。
+        session: 回滚会话。
         tenant_id: 租户主键。
         drop: 删库替身（None 走运维通道默认实现）。
         services: 服务清单（None 取 platform + file）。
-        settings: 应用配置（None 表示未装配）。
-        fixed_clock: 是否注入固定时钟（False 用生产缺省的当前时刻）。
+        settings: 应用配置（None 取默认）。
+        fixed_clock: 是否注入固定时钟。
 
     Returns:
         Any: 清理结果。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            resolved: ConcurrentStableList[str] = (
-                services if services is not None else ConcurrentStableList[str](("platform", "file"))
-            )
-            service = TenantPurgeService(
-                session=session,
-                outbox=SqlOutboxStore(),
-                settings=settings,
-                services=lambda: resolved,
-                drop=drop,
-                clock=(lambda: NOW) if fixed_clock else None,
-            )
-            return await service.purge(tenant_id)
-    finally:
-        await engine.dispose()
+    resolved: ConcurrentStableList[str] = (
+        services if services is not None else ConcurrentStableList[str](("platform", "file"))
+    )
+    service = TenantPurgeService(
+        session=session,
+        outbox=SqlOutboxStore(),
+        settings=settings,
+        services=lambda: resolved,
+        drop=drop,
+        clock=(lambda: NOW) if fixed_clock else None,
+    )
+    return await service.purge(tenant_id)
 
 
 async def _scan(
-    url: str,
+    session: AsyncSession,
     *,
     settings: Settings | None,
     batch_size: int = 50,
+    only_codes: ConcurrentStableList[str] | None = None,
 ) -> Any:
-    """执行一轮扫描（临时会话）。
+    """执行一轮扫描（复用回滚会话）。
 
     Args:
-        url: 连接串。
+        session: 回滚会话。
         settings: 应用配置（判归档是否就绪）。
         batch_size: 批大小。
+        only_codes: 只扫这些租户编码。
 
     Returns:
         Any: 扫描结果。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            service = TenantPurgeService(
-                session=session,
-                outbox=SqlOutboxStore(),
-                settings=settings,
-                services=lambda: ConcurrentStableList[str](),
-                drop=_DropRecorder(),
-                clock=lambda: NOW,
-            )
-            return await service.scan(batch_size=batch_size)
-    finally:
-        await engine.dispose()
+    service = TenantPurgeService(
+        session=session,
+        outbox=SqlOutboxStore(),
+        settings=settings,
+        services=lambda: ConcurrentStableList[str](),
+        drop=_DropRecorder(),
+        clock=lambda: NOW,
+    )
+    return await service.scan(batch_size=batch_size, only_codes=only_codes)
 
 
 def _archive_ready_settings() -> Settings:
@@ -324,16 +285,16 @@ def _archive_ready_settings() -> Settings:
 
 
 def _ctx(
-    factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
     *,
     job_type: str,
     payload: ConcurrentStableDict[str, object],
     progress: ConcurrentStableList[tuple[int, int | None]],
 ) -> JobContext:
-    """构造作业执行上下文（会话开合口接临时库）。
+    """构造作业执行上下文（会话开合口接回滚会话）。
 
     Args:
-        factory: 会话工厂。
+        session: 回滚会话。
         job_type: 作业类型。
         payload: 作业负载。
         progress: 进度记录器。
@@ -343,9 +304,8 @@ def _ctx(
     """
 
     @asynccontextmanager
-    async def _session() -> AsyncGenerator[AsyncSession]:
-        async with factory() as session:
-            yield session
+    async def _open() -> AsyncGenerator[AsyncSession]:
+        yield session
 
     async def _report(done: int, total: int | None) -> None:
         progress.add((done, total))
@@ -357,50 +317,49 @@ def _ctx(
         db_key="platform_tenant",
         tenant_id=None,
         payload=ConcurrentStableDict(payload),
-        open_session=_session,
+        open_session=_open,
         progress_reporter=_report,
     )
 
 
-async def test_purge_due_tenant_cleans_all_services(tmp_path: Path) -> None:
+async def test_purge_due_tenant_cleans_all_services(session: AsyncSession, ns: Namespace) -> None:
     """到期清理：逐服务删库、删注册行与对照行、`tenant.purged` 一次、审计一条。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'purge.db'}"
-    tenant_id = await _seed(url, code="acme", purge_at=NOW - timedelta(hours=1))
+    tenant = await _seed(session, ns, suffix="a", purge_at=NOW - timedelta(hours=1))
+    tenant_id = int(tenant.id)
     recorder = _DropRecorder()
 
-    outcome = await _purge(url, tenant_id, drop=recorder)
+    outcome = await _purge(session, tenant_id, drop=recorder)
 
     assert outcome.status == "purged"
-    assert list(recorder.calls) == [("platform", "acme"), ("file", "acme")]
+    assert list(recorder.calls) == [("platform", tenant.code), ("file", tenant.code)]
     assert len(outcome.dropped_services) == 2
-    assert await _tenant_row(url, tenant_id) is None
-    assert await _database_rows(url, tenant_id) == 0
-    purged = await _events(url, PURGED_EVENT)
+    assert await _tenant_row(session, tenant_id) is None
+    assert await _database_rows(session, tenant_id) == 0
+    purged = await _events(session, PURGED_EVENT, tenant_id)
     assert len(purged) == 1
     assert purged[0].payload["status"] == "purged"
-    assert purged[0].payload["db_key"] == "acme"
+    assert purged[0].payload["db_key"] == tenant.code
     assert purged[0].payload["dropped_services"] == 2
     assert purged[0].payload["failed_services"] == 0
-    audit = await _events(url, "sys.operation.logged")
+    audit = await _events(session, "sys.operation.logged", tenant_id)
     assert len(audit) == 1
     assert audit[0].payload["action"] == "tenant:purge"
     assert audit[0].payload["username"] == "system"
 
 
-async def test_purge_skips_when_not_applicable(tmp_path: Path) -> None:
+async def test_purge_skips_when_not_applicable(session: AsyncSession, ns: Namespace) -> None:
     """未到期 / `purge_at` 空 / 已被恢复 / 注册行缺失：一律跳过且零副作用。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'skip.db'}"
-    not_due = await _seed(url, code="later", purge_at=NOW + timedelta(days=3))
-    waiting = await _seed(url, code="waiting", purge_at=None)
-    restored = await _seed(url, code="back", status=TENANT_STATUS_ACTIVE, purge_at=None)
-    suspended = await _seed(url, code="paused", status=TENANT_STATUS_SUSPENDED)
+    not_due = await _seed(session, ns, suffix="later", purge_at=NOW + timedelta(days=3))
+    waiting = await _seed(session, ns, suffix="waiting", purge_at=None)
+    restored = await _seed(session, ns, suffix="back", status=TENANT_STATUS_ACTIVE, purge_at=None)
+    suspended = await _seed(session, ns, suffix="paused", status=TENANT_STATUS_SUSPENDED)
     recorder = _DropRecorder()
 
-    later = await _purge(url, not_due, drop=recorder)
-    empty = await _purge(url, waiting, drop=recorder)
-    active = await _purge(url, restored, drop=recorder)
-    paused = await _purge(url, suspended, drop=recorder)
-    missing = await _purge(url, 999999, drop=recorder)
+    later = await _purge(session, int(not_due.id), drop=recorder)
+    empty = await _purge(session, int(waiting.id), drop=recorder)
+    active = await _purge(session, int(restored.id), drop=recorder)
+    paused = await _purge(session, int(suspended.id), drop=recorder)
+    missing = await _purge(session, 999999, drop=recorder)
 
     assert (later.status, later.reason) == ("skipped", "not_due")
     assert (empty.status, empty.reason) == ("skipped", "purge_at_empty")
@@ -408,98 +367,106 @@ async def test_purge_skips_when_not_applicable(tmp_path: Path) -> None:
     assert paused.status == "skipped" and paused.reason == f"status={TENANT_STATUS_SUSPENDED}"
     assert (missing.status, missing.reason) == ("skipped", "missing")
     assert len(recorder.calls) == 0
-    for tenant_id in (not_due, waiting, restored, suspended):
-        assert await _tenant_row(url, tenant_id) is not None
-    assert len(await _events(url, PURGED_EVENT)) == 0
+    for tenant_id in (int(not_due.id), int(waiting.id), int(restored.id), int(suspended.id)):
+        assert await _tenant_row(session, tenant_id) is not None
+    assert len(await _events(session, PURGED_EVENT, int(not_due.id))) == 0
 
 
-async def test_purge_partial_failure_keeps_row_and_retry_converges(tmp_path: Path) -> None:
+async def test_purge_partial_failure_keeps_row_and_retry_converges(session: AsyncSession, ns: Namespace) -> None:
     """单库失败：保留注册行与对照行、失败清单准确、无事件；重试后收敛。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'fail.db'}"
-    tenant_id = await _seed(url, code="acme", purge_at=NOW - timedelta(hours=1))
+    tenant = await _seed(session, ns, suffix="a", purge_at=NOW - timedelta(hours=1))
+    tenant_id = int(tenant.id)
     broken = _DropRecorder(fail=ConcurrentStableList(["file"]))
 
-    failed = await _purge(url, tenant_id, drop=broken)
+    failed = await _purge(session, tenant_id, drop=broken)
 
     assert failed.status == "failed"
     assert list(failed.failed_services) == ["file"]
     assert "库删除失败" in failed.reason
-    assert await _tenant_row(url, tenant_id) is not None
-    assert await _database_rows(url, tenant_id) == 1
-    assert len(await _events(url, PURGED_EVENT)) == 0
+    assert await _tenant_row(session, tenant_id) is not None
+    assert await _database_rows(session, tenant_id) == 1
+    assert len(await _events(session, PURGED_EVENT, tenant_id)) == 0
 
     healthy = _DropRecorder()
-    retried = await _purge(url, tenant_id, drop=healthy)
+    retried = await _purge(session, tenant_id, drop=healthy)
     assert retried.status == "purged"
-    assert await _tenant_row(url, tenant_id) is None
-    assert len(await _events(url, PURGED_EVENT)) == 1
+    assert await _tenant_row(session, tenant_id) is None
+    assert len(await _events(session, PURGED_EVENT, tenant_id)) == 1
 
 
-async def test_purge_is_idempotent(tmp_path: Path) -> None:
+async def test_purge_is_idempotent(session: AsyncSession, ns: Namespace) -> None:
     """重复执行：第二次 `skipped`（行已删），不重复发事件。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'idem.db'}"
-    tenant_id = await _seed(url, code="acme", purge_at=NOW - timedelta(minutes=1))
+    tenant = await _seed(session, ns, suffix="a", purge_at=NOW - timedelta(minutes=1))
+    tenant_id = int(tenant.id)
     recorder = _DropRecorder()
 
-    first = await _purge(url, tenant_id, drop=recorder)
-    second = await _purge(url, tenant_id, drop=recorder)
+    first = await _purge(session, tenant_id, drop=recorder)
+    second = await _purge(session, tenant_id, drop=recorder)
 
     assert first.status == "purged"
     assert (second.status, second.reason) == ("skipped", "missing")
-    assert len(await _events(url, PURGED_EVENT)) == 1
+    assert len(await _events(session, PURGED_EVENT, tenant_id)) == 1
     assert len(recorder.calls) == 2  # 只有第一次真正删库
 
 
-async def test_scan_backfills_when_archive_ready(tmp_path: Path) -> None:
+async def test_scan_backfills_when_archive_ready(session: AsyncSession, ns: Namespace) -> None:
     """归档就绪：`purge_at` 为空的行按当下起算回填（给足新保留期）。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'backfill.db'}"
-    tenant_id = await _seed(url, code="waiting", purge_at=None)
-    await _seed_config(url, key=DELETION_RETENTION_KEY, value="7")
+    tenant = await _seed(session, ns, suffix="waiting", purge_at=None)
+    tenant_id = int(tenant.id)
+    await _seed_config(session, key=DELETION_RETENTION_KEY, value="7")
 
-    outcome = await _scan(url, settings=_archive_ready_settings())
+    outcome = await _scan(
+        session,
+        settings=_archive_ready_settings(),
+        only_codes=ConcurrentStableList((tenant.code,)),
+    )
 
     assert outcome.backfilled == 1
-    row = await _tenant_row(url, tenant_id)
+    row = await _tenant_row(session, tenant_id)
     assert row is not None and row.purge_at is not None
     assert row.purge_at == NOW + timedelta(days=7)
     assert len(outcome.targets) == 0  # 回填后是未来时点，本轮不清理
 
 
-async def test_scan_waits_when_archive_not_ready(tmp_path: Path) -> None:
+async def test_scan_waits_when_archive_not_ready(session: AsyncSession, ns: Namespace) -> None:
     """归档未就绪（settings 未装配）：不回填、不动 `purge_at`。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'wait.db'}"
-    tenant_id = await _seed(url, code="waiting", purge_at=None)
+    tenant = await _seed(session, ns, suffix="waiting", purge_at=None)
+    tenant_id = int(tenant.id)
 
-    outcome = await _scan(url, settings=None)
+    outcome = await _scan(
+        session,
+        settings=None,
+        only_codes=ConcurrentStableList((tenant.code,)),
+    )
 
     assert outcome.backfilled == 0
-    row = await _tenant_row(url, tenant_id)
+    row = await _tenant_row(session, tenant_id)
     assert row is not None and row.purge_at is None
 
 
-async def test_scan_returns_due_targets_only(tmp_path: Path) -> None:
+async def test_scan_returns_due_targets_only(session: AsyncSession, ns: Namespace) -> None:
     """扫描目标：只取「已到期」的行，未到期与待回填不进入目标。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'targets.db'}"
-    due = await _seed(url, code="due", purge_at=NOW - timedelta(days=1))
-    await _seed(url, code="later", purge_at=NOW + timedelta(days=1))
-    await _seed(url, code="waiting", purge_at=None)
+    due = await _seed(session, ns, suffix="due", purge_at=NOW - timedelta(days=1))
+    later = await _seed(session, ns, suffix="later", purge_at=NOW + timedelta(days=1))
+    waiting = await _seed(session, ns, suffix="waiting", purge_at=None)
 
-    outcome = await _scan(url, settings=None)
+    outcome = await _scan(
+        session,
+        settings=None,
+        only_codes=ConcurrentStableList((due.code, later.code, waiting.code)),
+    )
 
-    assert [target.tenant_id for target in outcome.targets] == [due]
-    assert outcome.targets[0].code == "due"
+    assert [target.tenant_id for target in outcome.targets] == [int(due.id)]
+    assert outcome.targets[0].code == due.code
     assert outcome.targets[0].version >= 1
 
 
-async def test_purge_job_rejects_bad_payload(tmp_path: Path) -> None:
+async def test_purge_job_rejects_bad_payload(session: AsyncSession) -> None:
     """负载缺 `tenant_id`：作业直接失败且不可重试（数据问题，重跑无意义）。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'bad.db'}"
-    await _prepare(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(create_async_engine(url), expire_on_commit=False)
     job = TenantPurgeJob()
     result = await job.run(
         _ctx(
-            factory,
+            session,
             job_type=TENANT_PURGE_JOB_TYPE,
             payload=ConcurrentStableDict[str, object](),
             progress=ConcurrentStableList(),
@@ -509,15 +476,14 @@ async def test_purge_job_rejects_bad_payload(tmp_path: Path) -> None:
     assert result.retryable is False
 
 
-async def test_purge_job_runs_service(tmp_path: Path) -> None:
+async def test_purge_job_runs_service(session: AsyncSession, ns: Namespace) -> None:
     """作业成功路径：调用清理服务并按结果收敛（已清理 / 跳过 / 失败三档）。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'job.db'}"
-    tenant_id = await _seed(url, code="acme", purge_at=NOW - timedelta(hours=1))
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(create_async_engine(url), expire_on_commit=False)
+    tenant = await _seed(session, ns, suffix="a", purge_at=NOW - timedelta(hours=1))
+    tenant_id = int(tenant.id)
 
-    def _service_factory(session: DbSession) -> TenantPurgeService:
+    def _service_factory(db: DbSession) -> TenantPurgeService:
         return TenantPurgeService(
-            session=session,
+            session=db,
             outbox=SqlOutboxStore(),
             services=lambda: ConcurrentStableList(("platform",)),
             drop=_DropRecorder(),
@@ -528,7 +494,7 @@ async def test_purge_job_runs_service(tmp_path: Path) -> None:
     progress: ConcurrentStableList[tuple[int, int | None]] = ConcurrentStableList()
     result = await job.run(
         _ctx(
-            factory,
+            session,
             job_type=TENANT_PURGE_JOB_TYPE,
             payload=ConcurrentStableDict({"tenant_id": str(tenant_id)}),
             progress=progress,
@@ -536,11 +502,11 @@ async def test_purge_job_runs_service(tmp_path: Path) -> None:
     )
     assert result.status == "succeeded"
     assert result.output is not None and result.output["status"] == "purged"
-    assert await _tenant_row(url, tenant_id) is None
+    assert await _tenant_row(session, tenant_id) is None
 
     skipped = await job.run(
         _ctx(
-            factory,
+            session,
             job_type=TENANT_PURGE_JOB_TYPE,
             payload=ConcurrentStableDict({"tenant_id": str(tenant_id)}),
             progress=progress,
@@ -550,15 +516,14 @@ async def test_purge_job_runs_service(tmp_path: Path) -> None:
     assert skipped.output is not None and skipped.output["status"] == "skipped"
 
 
-async def test_purge_job_reports_failure(tmp_path: Path) -> None:
+async def test_purge_job_reports_failure(session: AsyncSession, ns: Namespace) -> None:
     """作业失败路径：有库删除失败 → `failed`（可重试）并带失败服务清单。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'job-fail.db'}"
-    tenant_id = await _seed(url, code="acme", purge_at=NOW - timedelta(hours=1))
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(create_async_engine(url), expire_on_commit=False)
+    tenant = await _seed(session, ns, suffix="a", purge_at=NOW - timedelta(hours=1))
+    tenant_id = int(tenant.id)
 
-    def _service_factory(session: DbSession) -> TenantPurgeService:
+    def _service_factory(db: DbSession) -> TenantPurgeService:
         return TenantPurgeService(
-            session=session,
+            session=db,
             outbox=SqlOutboxStore(),
             services=lambda: ConcurrentStableList(("platform", "file")),
             drop=_DropRecorder(fail=ConcurrentStableList(["file"])),
@@ -568,7 +533,7 @@ async def test_purge_job_reports_failure(tmp_path: Path) -> None:
     job = TenantPurgeJob(service_factory=_service_factory)
     result = await job.run(
         _ctx(
-            factory,
+            session,
             job_type=TENANT_PURGE_JOB_TYPE,
             payload=ConcurrentStableDict({"tenant_id": str(tenant_id)}),
             progress=ConcurrentStableList(),
@@ -580,17 +545,25 @@ async def test_purge_job_reports_failure(tmp_path: Path) -> None:
     assert result.output["failed_service_keys"] == "file"
 
 
-async def test_scan_job_submits_one_job_per_due_tenant(tmp_path: Path) -> None:
+async def test_scan_job_submits_one_job_per_due_tenant(
+    session: AsyncSession, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """扫描作业：到期租户逐个提交 `tenant.purge`（平台链、幂等键含版本与日期）。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'scan.db'}"
-    first = await _seed(url, code="acme", purge_at=NOW - timedelta(days=2))
-    second = await _seed(url, code="beta", purge_at=NOW - timedelta(days=1))
-    await _seed(url, code="later", purge_at=NOW + timedelta(days=2))
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(create_async_engine(url), expire_on_commit=False)
+    first = await _seed(session, ns, suffix="a", purge_at=NOW - timedelta(days=2))
+    second = await _seed(session, ns, suffix="b", purge_at=NOW - timedelta(days=1))
+    later = await _seed(session, ns, suffix="c", purge_at=NOW + timedelta(days=2))
+    codes = ConcurrentStableList((first.code, second.code, later.code))
 
-    def _service_factory(session: DbSession) -> TenantPurgeService:
+    original = TenantPurgeService.scan
+
+    async def _scoped(self: TenantPurgeService, *, batch_size: int = DEFAULT_PURGE_BATCH_SIZE) -> Any:
+        return await original(self, batch_size=batch_size, only_codes=codes)
+
+    monkeypatch.setattr(TenantPurgeService, "scan", _scoped)
+
+    def _service_factory(db: DbSession) -> TenantPurgeService:
         return TenantPurgeService(
-            session=session,
+            session=db,
             outbox=SqlOutboxStore(),
             services=lambda: ConcurrentStableList[str](),
             drop=_DropRecorder(),
@@ -601,7 +574,7 @@ async def test_scan_job_submits_one_job_per_due_tenant(tmp_path: Path) -> None:
     progress: ConcurrentStableList[tuple[int, int | None]] = ConcurrentStableList()
     result = await job.run(
         _ctx(
-            factory,
+            session,
             job_type=TENANT_PURGE_SCAN_JOB_TYPE,
             payload=ConcurrentStableDict({"batch_size": "5"}),
             progress=progress,
@@ -612,13 +585,13 @@ async def test_scan_job_submits_one_job_per_due_tenant(tmp_path: Path) -> None:
     assert result.output is not None
     assert result.output["due"] == 2 and result.output["submitted"] == 2
     assert list(progress) == [(2, 2)]
-    jobs = await _job_rows(url)
+    jobs = await _job_rows(session, int(first.id), int(second.id))
     assert len(jobs) == 2
     assert {job.job_type for job in jobs} == {TENANT_PURGE_JOB_TYPE}
     assert {job.tenant_id for job in jobs} == {None}  # 平台链：不能写进即将被删的租户库
     keys = ConcurrentStableList(str(job.idempotency_key) for job in jobs)
-    assert any(key.startswith(f"{TENANT_PURGE_JOB_TYPE}:{first}:") for key in keys)
-    assert any(key.startswith(f"{TENANT_PURGE_JOB_TYPE}:{second}:") for key in keys)
+    assert any(key.startswith(f"{TENANT_PURGE_JOB_TYPE}:{int(first.id)}:") for key in keys)
+    assert any(key.startswith(f"{TENANT_PURGE_JOB_TYPE}:{int(second.id)}:") for key in keys)
 
 
 def test_job_specs_match_registry_declaration() -> None:
@@ -633,19 +606,19 @@ def test_job_specs_match_registry_declaration() -> None:
         assert spec.handler.startswith("bms_tenant.domains.tenant.jobs:")
 
 
-async def test_purge_requires_configuration(tmp_path: Path) -> None:
+async def test_purge_requires_configuration(session: AsyncSession, ns: Namespace) -> None:
     """既无删库执行器又无应用配置：装配错误（ConfigError），不是静默跳过。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'nocfg.db'}"
-    tenant_id = await _seed(url, code="acme", purge_at=NOW - timedelta(hours=1))
+    tenant = await _seed(session, ns, suffix="a", purge_at=NOW - timedelta(hours=1))
 
     with pytest.raises(ConfigError, match="未装配应用配置"):
-        await _purge(url, tenant_id, services=ConcurrentStableList(("platform",)))
+        await _purge(session, int(tenant.id), services=ConcurrentStableList(("platform",)))
 
 
-async def test_purge_uses_ops_channel_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_purge_uses_ops_channel_by_default(
+    session: AsyncSession, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """生产缺省路径：按配置解析各服务租户库连接串后走运维通道删库（时钟用生产缺省）。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'ops.db'}"
-    tenant_id = await _seed(url, code="acme", purge_at=NOW - timedelta(hours=1))
+    tenant = await _seed(session, ns, suffix="a", purge_at=NOW - timedelta(hours=1))
     dropped: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def _fake_drop(target: Any) -> bool:
@@ -654,12 +627,16 @@ async def test_purge_uses_ops_channel_by_default(tmp_path: Path, monkeypatch: py
 
     monkeypatch.setattr(tenant_purge_module, "drop_database", _fake_drop)
     outcome = await _purge(
-        url, tenant_id, services=ConcurrentStableList(("platform",)), settings=get_settings(), fixed_clock=False
+        session,
+        int(tenant.id),
+        services=ConcurrentStableList(("platform",)),
+        settings=get_settings(),
+        fixed_clock=False,
     )
 
     assert outcome.status == "purged"
     assert len(dropped) == 1
-    assert await _tenant_row(url, tenant_id) is None
+    assert await _tenant_row(session, int(tenant.id)) is None
 
 
 def test_jobs_default_service_wiring() -> None:

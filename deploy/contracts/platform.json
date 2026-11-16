@@ -20258,7 +20258,7 @@
     },
     "/api/v1/modules": {
       "get": {
-        "description": "服务目录清单（只读，分页 + 筛选）。\n\nArgs:\n    session: 平台库只读会话。\n    query: 分页与排序请求（page / size / order_by / order；排序白名单逐项校验、非法忽略）。\n    status: 状态筛选；缺省返回全部。\n    group: 归属分组筛选；缺省返回全部。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。",
+        "description": "服务目录清单（只读，分页 + 筛选）。\n\nArgs:\n    session: 平台库只读会话。\n    query: 分页与排序请求（page / size / order_by / order；排序白名单逐项校验、非法忽略）。\n    status: 状态筛选；缺省返回全部。\n    group: 归属分组筛选；缺省返回全部。\n    service_key: 服务键精确筛选；缺省返回全部。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。",
         "operationId": "list_modules_api_v1_modules_get",
         "parameters": [
           {
@@ -20295,6 +20295,24 @@
               ],
               "description": "归属分组筛选（foundation / capability / product）；缺省全部",
               "title": "Group"
+            }
+          },
+          {
+            "description": "服务键精确筛选（service_key）；缺省全部",
+            "in": "query",
+            "name": "service_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "服务键精确筛选（service_key）；缺省全部",
+              "title": "Service Key"
             }
           },
           {
@@ -24574,7 +24592,7 @@
     },
     "/api/v1/products": {
       "get": {
-        "description": "产品档案清单（只读，分页 + 筛选）。\n\nArgs:\n    session: 平台库只读会话。\n    query: 分页与排序请求（page / size / order_by / order；排序白名单逐项校验、非法忽略）。\n    status: 状态筛选；缺省返回全部。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。",
+        "description": "产品档案清单（只读，分页 + 筛选）。\n\nArgs:\n    session: 平台库只读会话。\n    query: 分页与排序请求（page / size / order_by / order；排序白名单逐项校验、非法忽略）。\n    status: 状态筛选；缺省返回全部。\n    product_key: 产品键精确筛选；缺省返回全部。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。",
         "operationId": "list_products_api_v1_products_get",
         "parameters": [
           {
@@ -24593,6 +24611,24 @@
               ],
               "description": "状态筛选（enabled / disabled / planned / retired）；缺省全部",
               "title": "Status"
+            }
+          },
+          {
+            "description": "产品键精确筛选（product_key）；缺省全部",
+            "in": "query",
+            "name": "product_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "产品键精确筛选（product_key）；缺省全部",
+              "title": "Product Key"
             }
           },
           {

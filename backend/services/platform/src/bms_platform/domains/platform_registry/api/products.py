@@ -32,6 +32,7 @@ router = BaseRouter(
 PlatformDbDep = Annotated[DbSession, Depends(get_platform_read_db)]
 PageDep = Annotated[BasePageQuery, Depends(page_query)]
 StatusQuery = Annotated[str | None, Query(description="状态筛选（enabled / disabled / planned / retired）；缺省全部")]
+ProductKeyQuery = Annotated[str | None, Query(description="产品键精确筛选（product_key）；缺省全部")]
 ProductKeyPath = Annotated[str, Path(description="产品标识（product_key）")]
 
 
@@ -40,6 +41,7 @@ async def list_products(
     session: PlatformDbDep,
     query: PageDep,
     status: StatusQuery = None,
+    product_key: ProductKeyQuery = None,
 ) -> ApiResponse:
     """产品档案清单（只读，分页 + 筛选）。
 
@@ -47,11 +49,12 @@ async def list_products(
         session: 平台库只读会话。
         query: 分页与排序请求（page / size / order_by / order；排序白名单逐项校验、非法忽略）。
         status: 状态筛选；缺省返回全部。
+        product_key: 产品键精确筛选；缺省返回全部。
 
     Returns:
         ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。
     """
-    rows, total = await ProductRepository(session).page_products(query, status=status)
+    rows, total = await ProductRepository(session).page_products(query, status=status, product_key=product_key)
     page = BasePageResponse[ProductResponse](
         list=ConcurrentStableList(ProductResponse.model_validate(row) for row in rows),
         total=total,

@@ -260,7 +260,13 @@ class TenantRegistryRepository(BaseFrameworkObject):
         await self._session.execute(delete(SysTenantDatabase).where(SysTenantDatabase.tenant_id == tenant_id))
         await self._session.execute(delete(SysTenant).where(SysTenant.id == tenant_id))
 
-    async def purge_due(self, *, now: datetime, limit: int) -> ConcurrentStableList[SysTenant]:
+    async def purge_due(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+        only_codes: ConcurrentStableList[str] | None = None,
+    ) -> ConcurrentStableList[SysTenant]:
         """取**已到期**的注销租户（`status = deleted`、`purge_at` 非空且 <= 当前时刻）。
 
         `deleted_at` 必须为空：注销不软删，一旦软删说明行已不在注册视图内，不再参与清理。
@@ -268,41 +274,43 @@ class TenantRegistryRepository(BaseFrameworkObject):
         Args:
             now: 当前时刻（UTC naive）。
             limit: 单批上限。
+            only_codes: 只扫这些租户编码；None 扫全部（运维 / 测试范围收敛用）。
 
         Returns:
             ConcurrentStableList[SysTenant]: 注册行（按 `purge_at` 升序，最早到期先清）。
         """
-        statement = (
-            select(SysTenant)
-            .where(
-                SysTenant.status == _DELETED_STATUS,
-                SysTenant.purge_at.is_not(None),
-                SysTenant.purge_at <= now,
-                SysTenant.deleted_at.is_(None),
-            )
-            .order_by(SysTenant.purge_at, SysTenant.id)
-            .limit(limit)
-        )
+        conditions = [
+            SysTenant.status == _DELETED_STATUS,
+            SysTenant.purge_at.is_not(None),
+            SysTenant.purge_at <= now,
+            SysTenant.deleted_at.is_(None),
+        ]
+        if only_codes is not None:
+            conditions.append(SysTenant.code.in_(tuple(only_codes)))
+        statement = select(SysTenant).where(*conditions).order_by(SysTenant.purge_at, SysTenant.id).limit(limit)
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
-    async def purge_pending(self, *, limit: int) -> ConcurrentStableList[SysTenant]:
+    async def purge_pending(
+        self, *, limit: int, only_codes: ConcurrentStableList[str] | None = None
+    ) -> ConcurrentStableList[SysTenant]:
         """取**保留期待回填**的注销租户（`status = deleted` 且 `purge_at` 为空）。
 
         Args:
             limit: 单批上限。
+            only_codes: 只扫这些租户编码；None 扫全部（运维 / 测试范围收敛用）。
 
         Returns:
             ConcurrentStableList[SysTenant]: 注册行（按注销时刻升序，先注销先回填）。
         """
+        conditions = [
+            SysTenant.status == _DELETED_STATUS,
+            SysTenant.purge_at.is_(None),
+            SysTenant.deleted_at.is_(None),
+        ]
+        if only_codes is not None:
+            conditions.append(SysTenant.code.in_(tuple(only_codes)))
         statement = (
-            select(SysTenant)
-            .where(
-                SysTenant.status == _DELETED_STATUS,
-                SysTenant.purge_at.is_(None),
-                SysTenant.deleted_at.is_(None),
-            )
-            .order_by(SysTenant.deletion_requested_at, SysTenant.id)
-            .limit(limit)
+            select(SysTenant).where(*conditions).order_by(SysTenant.deletion_requested_at, SysTenant.id).limit(limit)
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 

@@ -57,6 +57,7 @@ PlatformDbDep = Annotated[DbSession, Depends(get_platform_read_db)]
 PageDep = Annotated[BasePageQuery, Depends(page_query)]
 StatusQuery = Annotated[str | None, Query(description="状态筛选（enabled / disabled / planned）；缺省全部")]
 GroupQuery = Annotated[str | None, Query(description="归属分组筛选（foundation / capability / product）；缺省全部")]
+ServiceKeyQuery = Annotated[str | None, Query(description="服务键精确筛选（service_key）；缺省全部")]
 ServiceKeyPath = Annotated[str, Path(description="服务标识（service_key；未命中回退 module_key）")]
 WithQuery = Annotated[
     str | None,
@@ -85,6 +86,7 @@ async def list_modules(
     query: PageDep,
     status: StatusQuery = None,
     group: GroupQuery = None,
+    service_key: ServiceKeyQuery = None,
 ) -> ApiResponse:
     """服务目录清单（只读，分页 + 筛选）。
 
@@ -93,11 +95,14 @@ async def list_modules(
         query: 分页与排序请求（page / size / order_by / order；排序白名单逐项校验、非法忽略）。
         status: 状态筛选；缺省返回全部。
         group: 归属分组筛选；缺省返回全部。
+        service_key: 服务键精确筛选；缺省返回全部。
 
     Returns:
         ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。
     """
-    rows, total = await ModuleRepository(session).page_catalog(query, group=group, status=status)
+    rows, total = await ModuleRepository(session).page_catalog(
+        query, group=group, status=status, service_key=service_key
+    )
     page = BasePageResponse[ModuleResponse](
         list=_module_responses(rows),
         total=total,

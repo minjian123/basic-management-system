@@ -140,11 +140,17 @@ class TenantPurgeService(BaseFrameworkObject):
         self._drop = drop
         self._clock = clock if clock is not None else _utc_now
 
-    async def scan(self, *, batch_size: int = DEFAULT_PURGE_BATCH_SIZE) -> PurgeScanOutcome:
+    async def scan(
+        self,
+        *,
+        batch_size: int = DEFAULT_PURGE_BATCH_SIZE,
+        only_codes: ConcurrentStableList[str] | None = None,
+    ) -> PurgeScanOutcome:
         """扫描一轮：先回填保留期，再取到期租户（本方法不删库、不提交作业）。
 
         Args:
             batch_size: 单批上限（回填与到期各自取一批）。
+            only_codes: 只扫这些租户编码；None 扫全部（运维 / 测试范围收敛用）。
 
         Returns:
             PurgeScanOutcome: 回填数与到期目标清单。
@@ -153,12 +159,12 @@ class TenantPurgeService(BaseFrameworkObject):
         backfilled = 0
         if self._archive_ready():
             retention = timedelta(days=await self._retention_days())
-            for row in await self._repo.purge_pending(limit=batch_size):
+            for row in await self._repo.purge_pending(limit=batch_size, only_codes=only_codes):
                 await self._repo.backfill_purge_at(row, purge_at=now + retention)
                 backfilled += 1
                 _LOGGER.info("tenant_purge_backfilled", tenant_id=int(row.id), purge_at=(now + retention).isoformat())
         targets: ConcurrentStableList[PurgeTarget] = ConcurrentStableList()
-        for row in await self._repo.purge_due(now=now, limit=batch_size):
+        for row in await self._repo.purge_due(now=now, limit=batch_size, only_codes=only_codes):
             targets.add(PurgeTarget(tenant_id=int(row.id), code=row.code, version=int(row.version)))
         await self._session.commit()
         return PurgeScanOutcome(backfilled=backfilled, targets=targets)

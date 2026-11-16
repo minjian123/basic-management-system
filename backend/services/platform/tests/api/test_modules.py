@@ -1,14 +1,11 @@
 """模块注册只读接口测试（Kiwi 28 / 2163 / 2164）：清单分页 / 筛选 / 明细 / 404 / 字段护栏 / 启动校验 / 路由只读。"""
 
-from pathlib import Path
-
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
-from bms_core.core.config import get_settings
 from bms_core.core.exceptions import AuthError, CatalogError
 from bms_core.oauth.token import TOKEN_AUDIENCE_SERVICE
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
@@ -197,22 +194,13 @@ def test_module_response_tenant_base_from_loaded_manifest() -> None:
 
 
 @pytest.mark.kiwi_id(2164)
-@pytest.mark.own_db("故障注入：把库置成未播种态，断言启动期接库校验直接拒启（不再告警放行）")
-@pytest.mark.kiwi_id(2511)
-async def test_list_modules_empty_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """未播种空库：启动直接拒启（部署错误，不再容错放行）。
-
-    07B `02_06` 起平台启动会自注册 10 条服务行（写入 `sys_module`），故本用例关闭启动注册
-    以保留「空库」语义——空目录是部署错误，必须在启动期拦下。
-    """
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", f"sqlite+aiosqlite:///{tmp_path / 'empty.db'}")
-    monkeypatch.setenv("BMS_REGISTRY__REGISTER_ON_STARTUP", "false")
-    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
-    get_settings.cache_clear()
-    app = ApplicationFactory().create(None)
-    with pytest.raises(CatalogError, match="服务目录为空"):
-        async with lifespan(app):
-            pass
+async def test_list_modules_empty_catalog(client: AsyncClient) -> None:
+    """过滤不存在的服务键：分页 `total=0`（空库拒启由启动校验专项用例覆盖）。"""
+    response = await client.get("/api/v1/modules", params={"service_key": "no-such-service"})
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["total"] == 0
+    assert data["list"] == []
 
 
 @pytest.mark.kiwi_id(2164)

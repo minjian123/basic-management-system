@@ -4,15 +4,11 @@
 本地工作区装载产品仓清单、CI 未装载，两种环境断言同源成立（04_05 测试稳定性收口）。
 """
 
-from pathlib import Path
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
-from bms_core.core.config import get_settings
-from bms_core.core.exceptions import CatalogError
 from bms_core.schemas.product import ProductResponse
 from bms_core.services.module_registry import ProductRecord, product_catalog_view
 from bms_platform.main import ApplicationFactory
@@ -148,18 +144,13 @@ async def test_products_response_fields_whitelist(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(2250)
-@pytest.mark.own_db("故障注入：把库置成未播种态，断言启动期接库校验直接拒启（不再告警放行）")
-@pytest.mark.kiwi_id(2511)
-async def test_list_products_empty_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """未播种空库：启动直接拒启（部署错误，不再容错放行）。"""
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", f"sqlite+aiosqlite:///{tmp_path / 'empty.db'}")
-    monkeypatch.setenv("BMS_REGISTRY__REGISTER_ON_STARTUP", "false")
-    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
-    get_settings.cache_clear()
-    app = ApplicationFactory().create(None)
-    with pytest.raises(CatalogError, match="服务目录为空"):
-        async with lifespan(app):
-            pass
+async def test_list_products_empty_catalog(client: AsyncClient) -> None:
+    """过滤不存在的产品键：分页 `total=0`（空库拒启由启动校验专项用例覆盖）。"""
+    response = await client.get("/api/v1/products", params={"product_key": "no-such-product"})
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["total"] == 0
+    assert data["list"] == []
 
 
 @pytest.mark.kiwi_id(2250)

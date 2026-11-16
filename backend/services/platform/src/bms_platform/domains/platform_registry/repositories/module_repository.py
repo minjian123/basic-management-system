@@ -29,6 +29,7 @@ class ModuleRepository(BaseDbRepository[SysModule]):
         group: str | None = None,
         status: str | None = None,
         service_only: bool = False,
+        service_key: str | None = None,
     ) -> ConcurrentStableList[ColumnElement[bool]]:
         """构造服务目录筛选条件（`list_catalog` / `page_catalog` 同源，防口径漂移）。
 
@@ -36,6 +37,7 @@ class ModuleRepository(BaseDbRepository[SysModule]):
             group: 归属分组筛选（`foundation` / `capability` / `product`）；None 不过滤。
             status: 状态筛选（`enabled` / `disabled` / `planned`）；None 不过滤。
             service_only: 仅返回服务行（`service_key` 非空）。
+            service_key: 服务键精确筛选；None 不过滤。
 
         Returns:
             ConcurrentStableList[ColumnElement[bool]]: 条件表达式列表。
@@ -45,6 +47,8 @@ class ModuleRepository(BaseDbRepository[SysModule]):
             conditions.add(self._column("service_group") == group)
         if status is not None:
             conditions.add(self._column("status") == status)
+        if service_key is not None:
+            conditions.add(self._column("service_key") == service_key)
         if service_only:
             conditions.add(self._column("service_key").is_not(None))
         return conditions
@@ -77,6 +81,7 @@ class ModuleRepository(BaseDbRepository[SysModule]):
         *,
         group: str | None = None,
         status: str | None = None,
+        service_key: str | None = None,
     ) -> tuple[ConcurrentStableList[SysModule], int]:
         """分页查询服务目录（筛选 + 排序 + 当前页 + 筛选后总数）。
 
@@ -84,11 +89,12 @@ class ModuleRepository(BaseDbRepository[SysModule]):
             query: 页码分页请求（含排序参数；排序经仓储白名单校验、非法忽略）。
             group: 归属分组筛选（`foundation` / `capability` / `product`）；None 不过滤。
             status: 状态筛选（`enabled` / `disabled` / `planned`）；None 不过滤。
+            service_key: 服务键精确筛选；None 不过滤。
 
         Returns:
             tuple[ConcurrentStableList[SysModule], int]: (当前页记录, 筛选后总数)。
         """
-        conditions = self._catalog_conditions(group=group, status=status)
+        conditions = self._catalog_conditions(group=group, status=status, service_key=service_key)
         statement = self._apply_sort(self._select().where(*conditions), self._resolve_sort(query))
         statement = statement.limit(query.size).offset((query.page - 1) * query.size)
         rows = ConcurrentStableList((await self._session.execute(statement)).scalars().all())

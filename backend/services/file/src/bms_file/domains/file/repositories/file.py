@@ -147,12 +147,15 @@ class FileRepository(BaseDbRepository[SysFile]):
         )
         return int((await self._session.execute(statement)).scalar_one())
 
-    async def list_expired_uploading(self, *, now: datetime, limit: int) -> ConcurrentStableList[SysFile]:
+    async def list_expired_uploading(
+        self, *, now: datetime, limit: int, tenant: str | None = None
+    ) -> ConcurrentStableList[SysFile]:
         """取超期未完成的上传记录（孤儿回收候选，按过期时间升序）。
 
         Args:
             now: 当前时间（UTC）。
             limit: 单批上限。
+            tenant: 只回收该租户的对象（按对象 key 前缀 `{tenant}/` 过滤）；None 回收全部。
 
         Returns:
             ConcurrentStableList[SysFile]: 候选记录。
@@ -165,6 +168,8 @@ class FileRepository(BaseDbRepository[SysFile]):
             .order_by(self._column("expires_at").asc())
             .limit(limit)
         )
+        if tenant is not None:
+            statement = statement.where(self._column("object_key").like(f"{tenant}/%"))
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
 

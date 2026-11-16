@@ -566,18 +566,19 @@ class FileService(BaseFrameworkObject):
 
     # ---- 孤儿回收 ----
 
-    async def cleanup_orphans(self, *, limit: int | None = None) -> CleanupResult:
+    async def cleanup_orphans(self, *, limit: int | None = None, tenant: str | None = None) -> CleanupResult:
         """回收超期未完成的上传：清分片 → 置 `orphan` → 发事件（单条失败不影响整批）。
 
         Args:
             limit: 单批上限（None 取 `[file].orphan_batch`）。
+            tenant: 只回收该租户的对象（按对象 key 前缀过滤）；None 回收全部。
 
         Returns:
             CleanupResult: 扫描 / 回收 / 失败条数。
         """
         batch = limit if limit is not None else file_settings().orphan_batch
         async with self._uow.begin():
-            rows = await self._files.list_expired_uploading(now=_now(), limit=batch)
+            rows = await self._files.list_expired_uploading(now=_now(), limit=batch, tenant=tenant)
         orphaned = 0
         failed = 0
         for row in rows:
