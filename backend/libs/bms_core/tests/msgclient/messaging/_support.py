@@ -64,6 +64,22 @@ __all__ = [
 DEFAULT_ENDPOINT = "http://msg-1:8000"
 """用例缺省地址。"""
 
+_MEMBER_KEYS = (
+    "group",
+    "topic",
+    "consumer_id",
+    "generation",
+    "state",
+    "partitions",
+    "member_count",
+    "heartbeat_interval_ms",
+    "session_timeout_ms",
+)
+"""成员分配帧头键（与服务端 `result_frame` 平铺的九键一致）。"""
+
+_LEAVE_KEYS = ("group", "topic", "consumer_id", "generation", "state")
+"""离开结果帧头键（五项，与服务端一致）。"""
+
 channels = (TransportChannel.FRAME, TransportChannel.JSON)
 """参数化用的两条通道（顺序固定：帧在前，失败时先看默认形态）。"""
 
@@ -270,6 +286,12 @@ def _frame_body(reply: Reply, request_frame_type: int, request_id: object) -> by
         header.set("inflight_messages", mapping.get("inflight_messages", 0))
         header.set("inflight_bytes", mapping.get("inflight_bytes", 0))
         payload = b"".join(segments)
+    elif request_frame_type in (int(FrameType.JOIN), int(FrameType.MEMBER_HEARTBEAT)):
+        for name in _MEMBER_KEYS:
+            header.set(name, mapping.get(name))
+    elif request_frame_type == int(FrameType.LEAVE):
+        for name in _LEAVE_KEYS:
+            header.set(name, mapping.get(name))
     else:
         header.set("committed_offset", mapping.get("committed_offset", 0))
     return encode_frame(frame_type=request_frame_type, flags=FrameFlags.RESPONSE, header=header, payload=payload)

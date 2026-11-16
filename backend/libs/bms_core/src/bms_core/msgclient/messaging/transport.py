@@ -92,14 +92,14 @@ class ApiRequest(BaseValueObject):
     """一次业务请求的通道无关表达（同一份 `fields`，两种承载各自落位）。
 
     Attributes:
-        frame_type: 帧类型编号（`PUBLISH` / `CONSUME` / `ACK` / `NACK`）；`None` 表示该端点**没有帧形态**
-            （成员三端点 `join` / `heartbeat` / `leave`），帧通道会把这类请求交给 JSON 实现。
+        frame_type: 帧类型编号（`PUBLISH` / `CONSUME` / `ACK` / `NACK` / `JOIN` / `LEAVE` /
+            `MEMBER_HEARTBEAT`）。**必填**：03-6-2 起同一路径恒有帧形态，不存在「只能走 JSON」的端点。
         path: 端点路径（如 `/msg/publish`），两通道一致。
         fields: 业务字段（**不含 `payload`**；幂等键在 `fields["headers"]` 里）。
         payload: 消息体原始字节（仅发布非空；确认 / 拉取必须为空）。
     """
 
-    frame_type: int | None
+    frame_type: int
     path: str
     fields: ConcurrentStableFrozenDict[str, object] = field(default_factory=_empty_fields)
     payload: bytes = b""

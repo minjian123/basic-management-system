@@ -2,7 +2,7 @@
 
 覆盖要点：请求形态（帧媒体类型、`request_id` 必填、消息体只在 payload 段、幂等键在帧头 `headers`）；
 拉取结果按 `messages[i].length` 切片重组与三类装配错误的拒绝；错误帧 `detail` / `retry_after_ms` 还原；
-网关拦截时的 JSON 兜底与彻底不可解析的判定；编码期超限拒绝（零请求）；成员端点委托 JSON。
+网关拦截时的 JSON 兜底与彻底不可解析的判定；编码期超限拒绝（零请求）；成员端点同样走帧。
 
 通道无关的语义（重试分类、改投、幂等表、批量、消费生命周期）在 `test_producer.py` / `test_consumer.py`
 里按通道参数化各跑一遍，本文件只放帧形态独有的判据。
@@ -315,18 +315,18 @@ async def test_oversized_payload_rejected_before_sending() -> None:
 
 
 @pytest.mark.asyncio
-async def test_member_endpoints_stay_json_under_frame_channel() -> None:
-    """成员三端点没有帧形态：帧通道下仍发 JSON（路径与服务端 `/msg/join` 一致）。"""
+async def test_member_endpoints_use_frame_not_json() -> None:
+    """成员三端点也走帧（03-6-2）：帧通道不再委托 JSON，请求媒体类型就是帧。"""
     from ._support import build_consumer
 
     server = ScriptedServer()
     server.push("/msg/join", data={"group": "g1", "topic": "orders", "consumer_id": "c1", "partitions": [0]})
-    server.push("/msg/leave", code=0)
+    server.push("/msg/leave", data={"group": "g1", "topic": "orders", "consumer_id": "c1", "state": "empty"})
     consumer, _ = build_consumer(_config(), server)
     await consumer.join()
     request = server.requests[0]
     assert request.url.path == "/msg/join"
-    assert request.headers["content-type"].startswith("application/json")
+    assert request.headers["content-type"].startswith(FRAME_CONTENT_TYPE)
     await consumer.close()
 
 

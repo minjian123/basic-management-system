@@ -15,6 +15,7 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.msgclient.errors import ErrorCategory
+from bms_core.msgclient.frame import FrameType
 from bms_core.msgclient.messaging import (
     ApiOutcome,
     ApiRequest,
@@ -166,7 +167,7 @@ def test_api_outcome_defaults() -> None:
 
 
 def test_api_request_defaults() -> None:
-    """请求对象不传业务字段时是空映射、消息体为空字节（成员端点那种「只带路径」的形态）。"""
-    request = ApiRequest(frame_type=None, path="/msg/join")
+    """请求对象不传业务字段时是空映射、消息体为空字节。"""
+    request = ApiRequest(frame_type=int(FrameType.JOIN), path="/msg/join")
     assert request.fields == ConcurrentStableFrozenDict[str, object]()
     assert request.payload == b""

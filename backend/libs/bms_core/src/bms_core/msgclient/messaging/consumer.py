@@ -40,13 +40,13 @@ __all__ = [
 ]
 
 JOIN_PATH = "/msg/join"
-"""加入消费组（服务端主导分配；**只有 JSON 形态**——`FrameType` 无 JOIN，帧闸门也没挂该端点）。"""
+"""加入消费组（服务端主导分配；帧类型 7，服务端同路径另有 JSON 形态）。"""
 
 HEARTBEAT_PATH = "/msg/heartbeat"
-"""成员心跳（顺带清理同组超时成员、必要时重算分配；只有 JSON 形态）。"""
+"""成员心跳（顺带清理同组超时成员、必要时重算分配；帧类型 9——与连接心跳 17 是两件事）。"""
 
 LEAVE_PATH = "/msg/leave"
-"""离开消费组（幂等；只有 JSON 形态）。"""
+"""离开消费组（幂等；帧类型 8）。"""
 
 CONSUME_PATH = "/msg/consume"
 """拉取一批消息（成员制：分区必须在该成员分配内）。"""
@@ -318,7 +318,7 @@ class MsgConsumer(BaseFrameworkObject):
             MsgClientError: 服务端拒绝（主题不存在 / 配额 / 成员类）。
         """
         self._ensure_open()
-        outcome = await self._request(JOIN_PATH, frame_type=None, fields=self._member_fields())
+        outcome = await self._request(JOIN_PATH, frame_type=int(FrameType.JOIN), fields=self._member_fields())
         assignment = self._assignment_of(outcome.data)
         self._assignment = assignment
         self._cursor = 0
@@ -430,7 +430,9 @@ class MsgConsumer(BaseFrameworkObject):
         Raises:
             MsgClientError: 组不存在 / 成员失效。
         """
-        outcome = await self._request(HEARTBEAT_PATH, frame_type=None, fields=self._member_fields())
+        outcome = await self._request(
+            HEARTBEAT_PATH, frame_type=int(FrameType.MEMBER_HEARTBEAT), fields=self._member_fields()
+        )
         assignment = self._assignment_of(outcome.data)
         self._assignment = assignment
         self.stats.incr("heartbeat_total")
@@ -513,7 +515,7 @@ class MsgConsumer(BaseFrameworkObject):
         Raises:
             MsgClientError: 服务端拒绝。
         """
-        await self._request(LEAVE_PATH, frame_type=None, fields=self._member_fields())
+        await self._request(LEAVE_PATH, frame_type=int(FrameType.LEAVE), fields=self._member_fields())
 
     def _member_fields(self) -> ConcurrentStableDict[str, object]:
         """成员三端点的公共字段（`join` / `heartbeat` / `leave` 只差这几项）。
@@ -534,14 +536,14 @@ class MsgConsumer(BaseFrameworkObject):
         self,
         path: str,
         *,
-        frame_type: int | None,
+        frame_type: int,
         fields: ConcurrentStableDict[str, object],
     ) -> ApiOutcome:
         """发请求并按消费端码表分类（`code != 0` 即抛）。
 
         Args:
             path: 端点路径。
-            frame_type: 帧类型；`None` 表示该端点没有帧形态（成员三端点，走 JSON）。
+            frame_type: 帧类型（每个端点一个，不存在「无帧形态」的端点）。
             fields: 业务字段。
 
         Returns:

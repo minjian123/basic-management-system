@@ -133,18 +133,20 @@ async def test_poll_skips_non_object_message_entries() -> None:
 
 
 def test_json_transport_ignores_frame_type() -> None:
-    """JSON 实现不看 `frame_type`：没有帧形态的请求（`frame_type=None`）照常发 JSON。"""
+    """JSON 实现不看 `frame_type`：同一份请求在 JSON 通道照常发请求体。"""
     server = ScriptedServer()
     transport = build_transport(_config(), server)
     assert isinstance(transport, JsonTransport)
 
 
 @pytest.mark.asyncio
-async def test_member_request_without_frame_type_goes_json() -> None:
-    """`frame_type=None`（成员端点）：JSON 实现照常发请求且不带 `payload` 键。"""
+async def test_member_request_ignores_frame_type_in_json_channel() -> None:
+    """成员端点（帧类型 7）在 JSON 通道照常发请求体，且不带 `payload` 键。"""
     server = ScriptedServer()
     server.push("/msg/join", data={"group": "g1", "topic": "orders", "consumer_id": "c1"})
-    request = ApiRequest(frame_type=None, path="/msg/join", fields=ConcurrentStableFrozenDict({"group": "g1"}))
+    request = ApiRequest(
+        frame_type=int(FrameType.JOIN), path="/msg/join", fields=ConcurrentStableFrozenDict({"group": "g1"})
+    )
     outcome = await build_transport(_config(), server).post(DEFAULT_ENDPOINT, request)
     body = json.loads(server.requests[0].content)
     assert outcome.code == 0
