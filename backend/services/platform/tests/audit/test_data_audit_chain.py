@@ -85,6 +85,8 @@ async def test_poison_payload_rejected(log_session: AsyncSession) -> None:
         await writer.write(data_event("bad2", field=""))
     with pytest.raises(EventConsumeError):
         await writer.write(EventEnvelope(event_type="sys.unknown.logged", event_id="bad3"))
+    with pytest.raises(EventConsumeError):
+        await writer.write(data_event(""))
 
 
 async def test_prev_hash_tamper_and_month_subset_verify(log_session: AsyncSession) -> None:

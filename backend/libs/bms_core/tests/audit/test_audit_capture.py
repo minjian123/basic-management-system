@@ -59,6 +59,37 @@ def test_encode_value_types_and_masking() -> None:
     assert truncated.endswith("…(truncated)")
 
 
+def test_month_of_and_login_event_builders() -> None:
+    """`month_of` 月份键；登录事件载荷：成功 / 失败 / 无租户与可选字段缺省。"""
+    from bms_core.audit.events import LOGIN_LOG_EVENT, build_login_event, month_of
+
+    assert month_of(datetime(2026, 11, 16, 8, 0, tzinfo=UTC)) == "202611"
+    success = build_login_event(
+        tenant_id="1001",
+        user_id=7,
+        username="alice",
+        ip="10.0.0.1",
+        user_agent="pytest",
+        status="success",
+    )
+    assert success.event_type == LOGIN_LOG_EVENT
+    assert success.payload.get("user_id") == "7"
+    assert success.payload.get("ip") == "10.0.0.1"
+    assert success.payload.get("fail_reason") is None
+    failed = build_login_event(
+        tenant_id=None,
+        user_id=None,
+        username="bob",
+        ip=None,
+        user_agent=None,
+        status="failed",
+        fail_reason="bad_credentials",
+    )
+    assert failed.payload.get("fail_reason") == "bad_credentials"
+    assert "tenant_id" not in failed.payload
+    assert failed.aggregate_key == "global"
+
+
 def test_build_data_changed_event_payload() -> None:
     """载荷字段：表 / 字段 / 主键字符串 / 域归属 / 旧新值；缺表名或字段名即拒。"""
     event = build_data_changed_event(

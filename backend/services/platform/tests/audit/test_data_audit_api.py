@@ -80,6 +80,11 @@ async def test_list_filters_and_detail(log_session: AsyncSession) -> None:
     assert detail.data.prev_hash
     with pytest.raises(DataAuditLogNotFoundError):
         await data_api.get_data_change(session=log_session, record_id=123456789012345678)
+    # 分片存在但记录不存在（走 row is None 分支）
+    from bms_core.core.id import id_generator
+
+    with pytest.raises(DataAuditLogNotFoundError):
+        await data_api.get_data_change(session=log_session, record_id=id_generator.next_id())
 
 
 async def test_time_range_guard(log_session: AsyncSession) -> None:

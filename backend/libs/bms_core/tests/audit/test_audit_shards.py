@@ -172,6 +172,18 @@ async def test_repository_page_union_and_details(session: AsyncSession) -> None:
     assert login_total == 2
     assert login_rows[0]["username"] == "alice"
 
+    empty_fuzzy, _ = await repo.page_login(
+        months,
+        username="",
+        status=None,
+        ip=None,
+        occurred_from=_NOW,
+        occurred_to=_NOW,
+        offset=0,
+        limit=10,
+    )
+    assert len(empty_fuzzy) == 2
+
     first = rows[0]
     detail = await repo.get(LOG_TYPE_OPERATION, "202611", cast("int", first["id"]))
     assert detail is not None
