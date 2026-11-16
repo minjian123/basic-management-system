@@ -13,7 +13,7 @@ import ops.gateway_config as gateway_config
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.services.gateway_catalog import render_apisix_yaml
 
-pytestmark = pytest.mark.own_db("网关配置 CLI：helper / 用例按指定库与拓扑造态后核对零漂移")
+pytestmark = pytest.mark.own_db("网关配置 CLI：按指定库与拓扑造态后核对零漂移（库状态即被测对象）")
 
 
 def _seed_body_size(

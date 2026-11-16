@@ -6,13 +6,10 @@
 """
 
 import json
-from collections.abc import Iterator
-from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm.exc import StaleDataError
 
 from bms_core.api.deps import get_config_cache_region, get_config_source
@@ -21,7 +18,6 @@ from bms_core.config.base import BaseConfigSource, ConfigCacheRegion
 from bms_core.config.cache import MemoryConfigCacheRegion, RedisConfigCacheRegion
 from bms_core.config.http import HttpConfigSource
 from bms_core.config.null import NullConfigCacheRegion, NullConfigSource
-from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.config.service import ConfigService
 from bms_core.config.sql import SqlConfigSource
 from bms_core.core.concurrent import ConcurrentStableList
@@ -30,10 +26,9 @@ from bms_core.core.context import current_tenant
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
-from .test_config_real import _build_schema  # pyright: ignore[reportPrivateUsage]
 from .test_config_runtime import _engines  # pyright: ignore[reportPrivateUsage]
 
-pytestmark = pytest.mark.own_db("config 真实接线：夹具按临时库播种后验 set / drop（其余用例零库）")
+pytestmark = pytest.mark.kiwi_id(2207)
 
 
 @pytest.mark.kiwi_id(2207)
@@ -175,45 +170,6 @@ async def test_config_providers_resolve(monkeypatch: pytest.MonkeyPatch) -> None
     assert isinstance(get_config_source(request), BaseConfigSource)  # type: ignore[arg-type]
     assert isinstance(get_config_cache_region(request), ConfigCacheRegion)  # type: ignore[arg-type]
     get_settings.cache_clear()
-
-
-@pytest.fixture
-def config_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    """临时租户库（建表 + 覆盖配置）。
-
-    Args:
-        tmp_path: 临时目录。
-        monkeypatch: 环境变量覆盖。
-
-    Yields:
-        str: 测试库 URL。
-    """
-    url = f"sqlite+aiosqlite:///{tmp_path / 'config_edges.db'}"
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
-    get_settings.cache_clear()
-    _build_schema(url)
-    yield url
-    get_settings.cache_clear()
-
-
-@pytest.mark.kiwi_id(2207)
-async def test_service_set_remark_and_drop_missing(config_db_url: str) -> None:
-    """写服务：带备注更新已有键、`drop` 不存在的键（无操作）。"""
-    engine = create_async_engine(config_db_url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        await seed_configs(session)
-    await engine.dispose()
-
-    cache = MemoryConfigCacheRegion()
-    service = ConfigService(engines=_engines(), cache=cache)
-    key = PLATFORM_CONFIG_DEFAULTS[0].config_key
-    await service.set(config_key=key, value="9", remark="覆盖")
-    await service.set(config_key="captcha.channel.new", value="1")
-    await service.drop(config_key="not.exists.key")
-    source = SqlConfigSource(engines=_engines(), cache=cache)
-    assert (await source.get_many(ConcurrentStableList((key,))))[key] == "9"
-    assert (await source.get_many(ConcurrentStableList(("captcha.channel.new",))))["captcha.channel.new"] == "1"
 
 
 class _VersionRegion:

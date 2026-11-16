@@ -12,7 +12,7 @@ from ops import check_tables
 from ops.check_tables import check_offline, check_table_db, main
 from ops.seed_tables import seed_tables
 
-pytestmark = pytest.mark.own_db("表归属校验脚本：helper 按指定库造表后对账")
+pytestmark = pytest.mark.own_db("表归属校验脚本：故障注入（缺表 / 多表 / 列漂移）需按指定库造表后对账")
 
 
 def _url(tmp_path: Path) -> str:

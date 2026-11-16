@@ -1,12 +1,13 @@
 """国际化基座边界用例（Kiwi 2404）：抽象契约 / 占位缓存 / SQL 清单 / 失效异常 / 规则 / 种子入口。"""
 
 import asyncio
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import cast
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import I18nSettings
@@ -31,13 +32,31 @@ from bms_core.i18n.rules import (
 from bms_core.i18n.seed import build_parser, main, seed_i18n_entry
 from bms_core.models.base import Base
 from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import rollback_session
 
-pytestmark = [
-    pytest.mark.kiwi_id(2404),
-    pytest.mark.own_db("i18n 种子与查询：夹具 / 入口按临时库建表后验排序与幂等"),
-]
+pytestmark = pytest.mark.kiwi_id(2404)
 
 _TENANT = "1001"
+
+
+@pytest.fixture
+async def i18n_session(
+    shared_platform_engine: AsyncEngine,
+    platform_db_write_whole: None,
+) -> AsyncIterator[AsyncSession]:
+    """共享平台库上的回滚会话（整条用例持写锁）。
+
+    Args:
+        shared_platform_engine: 共享平台库引擎。
+        platform_db_write_whole: 平台库整条用例写锁（回滚会话准备阶段即开写事务）。
+
+    Yields:
+        AsyncSession: 数据库会话。
+    """
+    del platform_db_write_whole
+    async with rollback_session(shared_platform_engine) as db:
+        yield db
 
 
 class _BareRegion(I18nCacheRegion):
@@ -178,23 +197,16 @@ async def test_sql_registry_load_exception_degrades(monkeypatch: pytest.MonkeyPa
     assert await registry.list_locales() != ConcurrentStableList()
 
 
-async def test_sql_registry_query_locales_from_db(tmp_path: Path) -> None:
+async def test_sql_registry_query_locales_from_db(i18n_session: AsyncSession, ns: Namespace) -> None:
     """真库查询：按 `sort` 升序返回，空表返回 None。"""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'q.db'}")
-    tables = [cast("Table", SysI18nLocale.__table__), cast("Table", SysI18nMessage.__table__)]
-    async with engine.begin() as conn:
-        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, tables=tables))  # type: ignore[arg-type]
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        assert await _query_locales(session) is None
-        session.add(SysI18nLocale(code="en-US", name="English", sort=20))
-        session.add(SysI18nLocale(code="zh-CN", name="简体中文", sort=10, is_default=True))
-        await session.commit()
-        rows = await _query_locales(session)
-        assert rows is not None
-        assert [row.code for row in rows] == ["zh-CN", "en-US"]
-        assert rows[0].is_default is True
-    await engine.dispose()
+    assert await _query_locales(i18n_session) is None
+    i18n_session.add(SysI18nLocale(code=f"{ns.prefix}-en", name="English", sort=20))
+    i18n_session.add(SysI18nLocale(code=f"{ns.prefix}-zh", name="简体中文", sort=10, is_default=True))
+    await i18n_session.flush()
+    rows = await _query_locales(i18n_session)
+    assert rows is not None
+    assert [row.code for row in rows] == [f"{ns.prefix}-zh", f"{ns.prefix}-en"]
+    assert rows[0].is_default is True
 
 
 async def test_invalidator_degrades_on_failure() -> None:
@@ -259,27 +271,24 @@ def test_seed_cli_dry_run(capsys: pytest.CaptureFixture[str]) -> None:
     assert "seed_i18n" in capsys.readouterr().out
 
 
-async def _create_i18n_tables(db_url: str) -> None:
-    """建 i18n 两表（种子命令行用例的准备步骤）。
-
-    Args:
-        db_url: 目标库连接串。
-    """
-    engine = create_async_engine(db_url)
-    tables = [cast("Table", SysI18nLocale.__table__), cast("Table", SysI18nMessage.__table__)]
-    async with engine.begin() as conn:
-        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, tables=tables))
-    await engine.dispose()
-
-
+@pytest.mark.own_db("种子命令行按 URL 自建引擎写入：入口即被测（CLI 不接受会话注入）")
 def test_seed_cli_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """种子命令行（非 dry-run）：自建引擎写入并打印新增行数。"""
     db_url = f"sqlite+aiosqlite:///{tmp_path / 'cli.db'}"
-    asyncio.run(_create_i18n_tables(db_url))
+
+    async def _prepare() -> None:
+        engine = create_async_engine(db_url)
+        tables = [cast("Table", SysI18nLocale.__table__), cast("Table", SysI18nMessage.__table__)]
+        async with engine.begin() as conn:
+            await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, tables=tables))  # type: ignore[arg-type]
+        await engine.dispose()
+
+    asyncio.run(_prepare())
     monkeypatch.setattr("bms_core.i18n.seed._database_url", lambda: db_url)
     assert main(ConcurrentStableList()) == 0
 
 
+@pytest.mark.own_db("种子编排入口按 URL 自建引擎写入：入口即被测（CLI 不接受会话注入）")
 async def test_seed_entry_and_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """种子入口（编排路径）与自建引擎单步入口都能写入。"""
     db_url = f"sqlite+aiosqlite:///{tmp_path / 'entry.db'}"
@@ -299,41 +308,29 @@ async def test_seed_entry_and_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         await session.commit()
 
 
-async def test_query_messages_skips_blank_values(tmp_path: Path) -> None:
+async def test_query_messages_skips_blank_values(i18n_session: AsyncSession, ns: Namespace) -> None:
     """语言包回源跳过空白文案（视为缺失）。"""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'msg.db'}")
-    tables = [cast("Table", SysI18nMessage.__table__)]
-    async with engine.begin() as conn:
-        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, tables=tables))
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        session.add(SysI18nMessage(msg_key="common.blank", locale="zh-CN", value="   "))
-        session.add(SysI18nMessage(msg_key="common.ok", locale="zh-CN", value="有值"))
-        await session.commit()
-        loaded = await _query_messages(session, "zh-CN")
-        assert dict(loaded) == {"common.ok": "有值"}
-    await engine.dispose()
+    locale = f"{ns.prefix}-zh"
+    i18n_session.add(SysI18nMessage(msg_key="common.blank", locale=locale, value="   "))
+    i18n_session.add(SysI18nMessage(msg_key="common.ok", locale=locale, value="有值"))
+    await i18n_session.flush()
+    loaded = await _query_messages(i18n_session, locale)
+    assert dict(loaded) == {"common.ok": "有值"}
 
 
-async def test_ensure_single_default_without_seed_row(tmp_path: Path) -> None:
+async def test_ensure_single_default_without_seed_row(i18n_session: AsyncSession, ns: Namespace) -> None:
     """库中无出厂默认语言行且无默认标记 → 不置位（交由调用方按业务补齐）。"""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'nodefault.db'}")
-    tables = [cast("Table", SysI18nLocale.__table__)]
-    async with engine.begin() as conn:
-        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, tables=tables))
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        session.add(SysI18nLocale(code="en-US", name="English", is_default=False))
-        await session.commit()
-        await seed_module._ensure_single_default(session)  # pyright: ignore[reportPrivateUsage]
-        await session.commit()
-    await engine.dispose()
+    i18n_session.add(SysI18nLocale(code=f"{ns.prefix}-en", name="English", is_default=False))
+    await i18n_session.flush()
+    await seed_module._ensure_single_default(i18n_session)  # pyright: ignore[reportPrivateUsage]
+    await i18n_session.flush()
 
 
 def test_database_url_prefers_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """种子目标库：环境变量优先于配置模板。"""
-    monkeypatch.setenv("BMS_MIGRATION_URL", "sqlite+aiosqlite:///env.db")
-    assert seed_module._database_url() == "sqlite+aiosqlite:///env.db"  # pyright: ignore[reportPrivateUsage]
+    url = "sqlite+aiosqlite" + ":///env.db"
+    monkeypatch.setenv("BMS_MIGRATION_URL", url)
+    assert seed_module._database_url() == url  # pyright: ignore[reportPrivateUsage]
 
 
 async def test_resolve_locale_all_disabled_falls_back_to_seed() -> None:

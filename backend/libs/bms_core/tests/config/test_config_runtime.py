@@ -100,8 +100,9 @@ async def config_keys(
         yield keys
     finally:
         async with factory() as session:
+            cleanup_keys = (*keys, ns.code("new"))
             rows = (
-                (await session.execute(select(SysConfig).where(SysConfig.config_key.in_(tuple(keys))))).scalars().all()
+                (await session.execute(select(SysConfig).where(SysConfig.config_key.in_(cleanup_keys)))).scalars().all()
             )
             for row in rows:
                 await session.delete(row)
@@ -135,6 +136,22 @@ async def test_sql_source_read_cache_and_degrade(
     # DB 异常降级：无库 URL 时返回空结果（不抛）
     broken = SqlConfigSource(engines=_broken_engines(), cache=NullConfigCacheRegion())
     assert await broken.get_many(ConcurrentStableList(config_keys)) == {}
+
+
+@pytest.mark.kiwi_id(2207)
+async def test_service_set_remark_and_drop_missing(config_keys: ConcurrentStableDict[str, str], ns: Namespace) -> None:
+    """写服务：带备注更新已有键、`drop` 不存在的键（无操作）。"""
+    cache = MemoryConfigCacheRegion()
+    service = ConfigService(engines=_engines(), cache=cache)
+    key = next(iter(config_keys))
+    await service.set(config_key=key, value="9", remark="覆盖")
+    new_key = ns.code("new")
+    await service.set(config_key=new_key, value="1")
+    await service.drop(config_key=ns.code("missing"))
+    source = SqlConfigSource(engines=_engines(), cache=cache)
+    assert (await source.get_many(ConcurrentStableList((key,))))[key] == "9"
+    got = await source.get_many(ConcurrentStableList((new_key,)))
+    assert got[new_key] == "1"
 
 
 @pytest.mark.kiwi_id(2207)
