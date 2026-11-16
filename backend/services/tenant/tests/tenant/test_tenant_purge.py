@@ -445,8 +445,8 @@ async def test_scan_waits_when_archive_not_ready(session: AsyncSession, ns: Name
 
 
 async def test_scan_without_scope_and_empty_batch(session: AsyncSession) -> None:
-    """未指定编码 + 空批：不扫任何行（覆盖范围过滤的「不传」分支，且不触碰他人数据）。"""
-    outcome = await _scan(session, settings=None, batch_size=0)
+    """未指定编码 + 空批：回填与到期都不扫任何行（覆盖范围过滤的「不传」分支）。"""
+    outcome = await _scan(session, settings=_archive_ready_settings(), batch_size=0)
     assert outcome.backfilled == 0
     assert list(outcome.targets) == []
 
