@@ -763,3 +763,29 @@ items = [
   { value = "form", label = "表单", label_key = "bms.datasource.kind.form", color = "success", sort = 20 },
   { value = "quota", label = "配额投影", label_key = "bms.datasource.kind.quota", color = "warning", sort = 30 },
 ]
+
+[[option_sets]]
+key = "bms.notice.type"
+name = "公告类型"
+contract_name = "NoticeType"
+# 展示 / 筛选类：公告类型按条目渲染标签，业务可增长；加值只改本清单。
+extensible = true
+items = [
+  { value = "system", label = "系统", label_key = "bms.notice.type.system", color = "info", sort = 10 },
+  { value = "policy", label = "制度", label_key = "bms.notice.type.policy", color = "success", sort = 20 },
+  { value = "maintenance", label = "维护", label_key = "bms.notice.type.maintenance", color = "warning", sort = 30 },
+  { value = "activity", label = "活动", label_key = "bms.notice.type.activity", color = "primary", sort = 40 },
+]
+
+[[option_sets]]
+key = "bms.notice.priority"
+name = "公告优先级"
+contract_name = "NoticePriority"
+# 展示 / 筛选类：优先级按条目渲染颜色，业务可增长。
+extensible = true
+items = [
+  { value = "low", label = "低", label_key = "bms.notice.priority.low", color = "info", sort = 10 },
+  { value = "normal", label = "普通", label_key = "bms.notice.priority.normal", color = "primary", sort = 20 },
+  { value = "high", label = "高", label_key = "bms.notice.priority.high", color = "warning", sort = 30 },
+  { value = "urgent", label = "紧急", label_key = "bms.notice.priority.urgent", color = "danger", sort = 40 },
+]

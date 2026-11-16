@@ -15,7 +15,7 @@ from typing import Annotated, cast
 from fastapi import Depends
 
 from bms_core.api.base import BaseRouter, require_service
-from bms_core.api.capability import require_capability
+from bms_core.api.capability import require_capability_or_service
 from bms_core.api.deps import get_tenant, get_tenant_membership_store, get_uow
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
@@ -57,9 +57,9 @@ query_router = BaseRouter(
     key="platform_internal_users_query",
     prefix="/platform/internal/users",
     tags=["platform-internal"],
-    dependencies=[Depends(require_capability(CAPABILITY_PLATFORM_USER_QUERY))],
+    dependencies=[Depends(require_capability_or_service(CAPABILITY_PLATFORM_USER_QUERY, "notification"))],
 )
-"""用户只读出口：调用方资格由**能力分配**派生（新增消费方只需授予分配，不改代码）。"""
+"""用户只读出口：产品按能力分配判定；平台内部服务（通知服务公告应读人数）按白名单放行。"""
 
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]

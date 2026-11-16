@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """i18n 附表登记护栏：模型层每张 `*_i18n` 表都必须在台账内，且台账行在文档中可查。
 
-台账的机器可读事实源是 `bms_core/i18n/attachments.py::I18N_ATTACHMENTS`，人类可读视图是
-《数据库设计 · 国际化管理》「i18n 附表登记」节。本脚本断言三者一致（防止后续任务新增附表漏登记、
-或台账与文档漂移）：
+台账的机器可读事实源是 `bms_core/i18n/attachments.py::all_attachments()`（平台常量 +
+各服务装载期注册），人类可读视图是《数据库设计 · 国际化管理》「i18n 附表登记」节。本脚本断言三者一致
+（防止后续任务新增附表漏登记、或台账与文档漂移）：
 
-1. 模型层（`bms_core/models/**`）声明的 `*_i18n` 表集合 ⊆ 台账表集合；
+1. 模型层（基座 + 各服务 `models/**`）声明的 `*_i18n` 表集合 ⊆ 台账表集合；
 2. 台账中 `status="landed"` 的表都在模型层存在；
 3. 台账中 `status="pending"` 的表不在模型层（建表后须改状态）；
 4. 台账每张表名都出现在《数据库设计 · 国际化管理》正文（文档台账未同步即失败）。
@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 import sys
 from pathlib import Path
 
@@ -27,6 +28,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _DOC_RELATIVE = Path("bms文档/设计/数据库设计/30_数据库设计_国际化管理.md")
 _MODELS_RELATIVE = Path("backend/libs/bms_core/src/bms_core/models")
 _SRC_RELATIVE = Path("backend/libs/bms_core/src")
+_SERVICES_RELATIVE = Path("backend/services")
 
 _IGNORED_ARGS = ("--files-from",)
 
@@ -84,11 +86,14 @@ def _iter_model_tables(models_root: Path) -> set[str]:  # bare-collections:allow
     return tables
 
 
-def _load_attachments(src_root: Path) -> dict[str, tuple[str, str]]:  # bare-collections:allow（脚本内台账快照）
-    """从台账模块取「表名 → (状态, 归口)」。
+def _load_attachments(
+    src_root: Path, root: Path
+) -> dict[str, tuple[str, str]]:  # bare-collections:allow（脚本内台账快照）
+    """从台账模块取「表名 → (状态, 归口)」（含服务自有附表）。
 
     Args:
         src_root: `bms_core/src` 目录。
+        root: 仓库根。
 
     Returns:
         dict[str, tuple[str, str]]: 台账条目。
@@ -98,11 +103,51 @@ def _load_attachments(src_root: Path) -> dict[str, tuple[str, str]]:  # bare-col
     """
     if str(src_root) not in sys.path:
         sys.path.insert(0, str(src_root))
+    _import_service_ledgers(root)
     try:
-        from bms_core.i18n.attachments import I18N_ATTACHMENTS
+        from bms_core.i18n.attachments import all_attachments
     except Exception as exc:  # pragma: no cover - 环境异常（缺依赖）时给出可读报错
         raise RuntimeError(f"无法导入台账模块 bms_core.i18n.attachments：{exc}") from exc
-    return {table: (item.status, item.owner_task) for table, item in I18N_ATTACHMENTS.items()}
+    return {table: (item.status, item.owner_task) for table, item in all_attachments().items()}
+
+
+def _import_service_ledgers(root: Path) -> None:  # bare-collections:allow（脚本内导入面）
+    """导入各服务自有的 i18n 附表台账模块（装载期注册）。
+
+    服务自有附表不落基座常量（基座不得引用他人服务表名），由服务模块在导入时登记。
+
+    Args:
+        root: 仓库根。
+    """
+    services_root = root / _SERVICES_RELATIVE
+    if not services_root.is_dir():
+        return
+    for path in sorted(services_root.glob("*/src/*/**/i18n_attachments.py")):
+        src = _src_root_of(path)
+        if src is None:
+            continue
+        if str(src) not in sys.path:
+            sys.path.insert(0, str(src))
+        module = ".".join(path.relative_to(src).with_suffix("").parts)
+        try:
+            importlib.import_module(module)
+        except Exception as exc:  # pragma: no cover - 服务缺依赖时给出可读报错
+            raise RuntimeError(f"无法导入服务台账模块 {module}：{exc}") from exc
+
+
+def _src_root_of(path: Path) -> Path | None:
+    """从 `services/<svc>/src/<pkg>/...` 路径取 `src` 目录。
+
+    Args:
+        path: 文件路径。
+
+    Returns:
+        Path | None: `src` 目录；路径不含 `src` 段时 None。
+    """
+    for parent in path.parents:
+        if parent.name == "src":
+            return parent
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:  # bare-collections:allow（argv 为 sys.argv 切片）
@@ -122,13 +167,16 @@ def main(argv: list[str] | None = None) -> int:  # bare-collections:allow（argv
         print(f"[i18n-attachments] 模型目录不存在：{models_root}")
         return 2
     try:
-        attachments = _load_attachments(src_root)
+        attachments = _load_attachments(src_root, root)
     except RuntimeError as exc:
         print(f"[i18n-attachments] {exc}")
         return 2
 
     problems: list[str] = []  # bare-collections:allow（脚本内问题收集）
     model_tables = _iter_model_tables(models_root)
+    services_root = root / _SERVICES_RELATIVE
+    if services_root.is_dir():
+        model_tables |= _iter_model_tables(services_root)
     model_i18n = {name for name in model_tables if name.endswith("_i18n")}
 
     unregistered = sorted(model_i18n - set(attachments))

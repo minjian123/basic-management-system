@@ -6,6 +6,9 @@ from bms_core.core.concurrent import ConcurrentStableList
 """
 
 MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
-    ("bms_notification.domains.notification.models.notification",)
+    (
+        "bms_notification.domains.notification.models.notification",
+        "bms_notification.domains.notification.models.notice",
+    )
 )
-"""本服务模型模块清单（迁移链按服务解析模型用；本服务暂未定义模型）。"""
+"""本服务模型模块清单（迁移链按服务解析模型用，含站内信与公告三表）。"""

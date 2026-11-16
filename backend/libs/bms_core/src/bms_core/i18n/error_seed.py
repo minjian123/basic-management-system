@@ -176,6 +176,12 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (70104, "通知生成失败", "Notification generation failed"),
         (70105, "推送不可达", "Realtime push is unreachable"),
         (70106, "无权删除他人通知", "No permission to delete another user's notification"),
+        (70201, "公告不存在或已删除", "Notice not found"),
+        (70202, "公告未发布或已下线", "Notice is not published or has been taken offline"),
+        (70203, "公告发布时间或过期时间非法", "Invalid notice publish time or expiry time"),
+        (70204, "公告状态冲突", "Notice status conflict"),
+        (70205, "公告内容校验失败", "Notice content validation failed"),
+        (70206, "公告应读人数暂不可用", "Notice audience count is unavailable"),
         # ---- 8xxxx 开放接口与租户 ----
         (80001, "租户不存在", "Tenant not found"),
         (80002, "租户已暂停", "Tenant is suspended"),

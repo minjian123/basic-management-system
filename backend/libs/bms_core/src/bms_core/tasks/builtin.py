@@ -49,6 +49,7 @@ __all__ = [
     "run_cleanup_export_artifacts",
     "run_cleanup_orphan_parts",
     "run_cleanup_print_artifacts",
+    "run_expire_notices",
     "run_precreate_shard_tables",
     "run_purge_deleted_tenants",
     "run_purge_soft_deleted",
@@ -69,6 +70,12 @@ REPORT_SERVICE_KEY = "report"
 
 TENANT_SERVICE_KEY = "tenant"
 """租户服务标识（注销租户清理作业的提供方）。"""
+
+NOTIFICATION_SERVICE_KEY = "notification"
+"""通知服务标识（公告过期下线内部端点的提供方）。"""
+
+NOTICE_EXPIRE_PATH = "/api/v1/notices/internal/expire"
+"""公告过期下线内部端点（07_02，通知服务）。"""
 
 AUDIT_VERIFY_PATH = "/api/v1/platform/internal/audit/verify"
 """审计链校验内部端点（06_01，platform 服务）。"""
@@ -176,6 +183,14 @@ BUILTIN_TASK_SPECS: ConcurrentStableList[BuiltinTaskSpec] = ConcurrentStableList
             handler=f"{_HANDLER_MODULE}:run_purge_deleted_tenants",
             owner="04_03（经 tenant.purge.scan 作业执行）",
             summary="回填保留期并清理到期注销租户（逐库删库、落 tenant.purged）",
+        ),
+        BuiltinTaskSpec(
+            code="expire_notices",
+            name="公告过期下线",
+            cron="0 * * * *",
+            handler=f"{_HANDLER_MODULE}:run_expire_notices",
+            owner="07_02（公告管理，经通知服务内部端点执行）",
+            summary="扫描到期公告并置为下线，发布 sys.notice.published（action=offline）",
         ),
     )
 )
@@ -346,11 +361,34 @@ async def _post_platform(
     Returns:
         tuple[bool, str, ConcurrentStableDict[str, object]]: （成功, 消息, data）。
     """
+    return await _post_service(service_key=PLATFORM_SERVICE_KEY, path=path, body=body, ctx=ctx, label=label)
+
+
+async def _post_service(
+    *,
+    service_key: str,
+    path: str,
+    body: ConcurrentStableDict[str, object],
+    ctx: TaskContext,
+    label: str,
+) -> tuple[bool, str, ConcurrentStableDict[str, object]]:
+    """调用目标服务内部端点（服务间调用）。
+
+    Args:
+        service_key: 目标服务标识。
+        path: 目标路径（`/api/v1/...`）。
+        body: JSON 请求体。
+        ctx: 执行上下文（取租户主键）。
+        label: 中文文案（用于失败消息）。
+
+    Returns:
+        tuple[bool, str, ConcurrentStableDict[str, object]]: （成功, 消息, data）。
+    """
     try:
         client = build_service_client()
         response = await client.call(
             ServiceRequest(
-                service=PLATFORM_SERVICE_KEY,
+                service=service_key,
                 method="POST",
                 path=path,
                 json_body=ConcurrentStableFrozenDict(dict(body)),
@@ -446,3 +484,29 @@ async def run_purge_soft_deleted(ctx: TaskContext) -> TaskResult:
     """
     _ = ctx
     return _skipped("13（回收站）、14（归档）")
+
+
+async def run_expire_notices(ctx: TaskContext) -> TaskResult:
+    """公告过期下线（触发型：调通知服务内部端点）。
+
+    扫描 / 状态更新 / 下线事件全在通知服务公告域；本执行体只按小时触发一次，
+    租户取自任务执行上下文（每租户一行内置任务）。
+
+    Args:
+        ctx: 执行上下文（取租户主键）。
+
+    Returns:
+        TaskResult: 成功带下线条数；下游不可用为失败（由调度器按策略重试）。
+    """
+    body: ConcurrentStableDict[str, object] = ConcurrentStableDict({"limit": 200})
+    ok, message, data = await _post_service(
+        service_key=NOTIFICATION_SERVICE_KEY,
+        path=NOTICE_EXPIRE_PATH,
+        body=body,
+        ctx=ctx,
+        label="公告过期下线",
+    )
+    if not ok:
+        return TaskResult.failed(message, output=message)
+    expired = int(str(data.get("expired", 0)))
+    return TaskResult.success(f"公告过期下线 {expired} 条", output=f"expired={expired}")

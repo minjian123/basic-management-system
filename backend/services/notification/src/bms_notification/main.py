@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from bms_core.application import BaseServiceApplicationFactory
+from bms_core.audit.tables import register_audited_tables
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.events.consumer_records import EventConsumerRecord
@@ -10,6 +11,10 @@ from bms_notification import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __ve
 from bms_notification.api.router import api_router
 from bms_notification.domains.notification.center import DatabaseNotificationCenter
 from bms_notification.domains.notification.consumers import event_consumer_records
+from bms_notification.domains.notification.i18n_attachments import register_notice_i18n_attachments
+
+AUDITED_TABLES_NOTIFICATION: ConcurrentStableList[str] = ConcurrentStableList(("sys_notice",))
+"""本服务纳入字段级审计的关键表（07_02 公告；基座不引用他人服务表名）。"""
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -22,7 +27,7 @@ class ApplicationFactory(BaseServiceApplicationFactory):
     contract_version: str = CONTRACT_VERSION
 
     def prepare_settings(self, settings: Settings) -> None:
-        """启用真实通知中心与通知偏好读取（未显式配置时）。
+        """启用真实通知中心 / 通知偏好读取，并注册本服务审计关键表。
 
         `[notification_center].provider` / `[notification_preference].provider` 未显式配置时分别置
         `db` / `http`；显式配置（含 `null`）一律尊重——便于联调期临时回退占位实现。
@@ -30,6 +35,8 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         Args:
             settings: 应用配置（可变）。
         """
+        register_audited_tables(AUDITED_TABLES_NOTIFICATION)
+        register_notice_i18n_attachments()
         if not settings.notification_center.provider:
             settings.notification_center.provider = DatabaseNotificationCenter.plugin_name
         if not settings.notification_preference.provider:

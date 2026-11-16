@@ -45,6 +45,9 @@ dependencies = [
     # 协议链归位基座后由 bms-core 直接 import，显式声明而非依赖 hypercorn 的传递依赖。
     "msgpack>=1.1",
     "h2>=4.1",
+    # 富文本 HTML 白名单清洗（07_02 公告正文）：nh3（Rust ammonia）跨平台 wheel，
+    # 公告与后续帮助中心共用；禁止业务侧自研正则清洗。
+    "nh3>=0.2",
 ]
 
 [project.optional-dependencies]

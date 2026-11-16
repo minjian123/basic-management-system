@@ -14,18 +14,25 @@ from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.i18n.attachments import (
     ATTACHMENT_LANDED,
     ATTACHMENT_PENDING,
-    I18N_ATTACHMENTS,
+    all_attachments,
     landed_attachments,
     pending_attachments,
+    reset_i18n_attachments,
 )
 from bms_core.models.base import BaseModel
 from bms_core.models.platform import catalog, icon, menu_form, permission_meta
+from bms_notification.domains.notification.i18n_attachments import register_notice_i18n_attachments
+from bms_notification.domains.notification.models import notice as notice_models
+
+register_notice_i18n_attachments()
 
 pytestmark = pytest.mark.kiwi_id(2405)
 
 _MODELS_ROOT = Path(__file__).resolve().parents[2] / "src" / "bms_core" / "models"
+_SERVICE_MODELS_ROOT = Path(__file__).resolve().parents[4] / "services"
+"""模型根：基座 + 各服务（i18n 附表可随服务表落库，07_02 起）。"""
 
-_MODEL_MODULES = (catalog, icon, menu_form, permission_meta)
+_MODEL_MODULES = (catalog, icon, menu_form, permission_meta, notice_models)
 """已落库附表所属模型模块（导入即注册 `BaseModel.metadata`，供列名一致性校验）。"""
 
 
@@ -42,28 +49,30 @@ def _iter_model_tables() -> ConcurrentStableSet[str]:
         ConcurrentStableSet[str]: 模型层声明的表名集合。
     """
     tables: ConcurrentStableSet[str] = ConcurrentStableSet()
-    for path in _MODELS_ROOT.rglob("*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ClassDef):
-                continue
-            for item in node.body:
-                if not isinstance(item, ast.Assign) or len(item.targets) != 1:
+    for root in (_MODELS_ROOT, _SERVICE_MODELS_ROOT):
+        for path in root.rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef):
                     continue
-                target = item.targets[0]
-                if not isinstance(target, ast.Name) or target.id != "__tablename__":
-                    continue
-                if isinstance(item.value, ast.Constant) and isinstance(item.value.value, str):
-                    tables.add(item.value.value)
+                for item in node.body:
+                    if not isinstance(item, ast.Assign) or len(item.targets) != 1:
+                        continue
+                    target = item.targets[0]
+                    if not isinstance(target, ast.Name) or target.id != "__tablename__":
+                        continue
+                    if isinstance(item.value, ast.Constant) and isinstance(item.value.value, str):
+                        tables.add(item.value.value)
     return tables
 
 
 def test_attachment_counts() -> None:
-    """台账行数与状态分布（6 张已落库 + 5 张待落地）。"""
-    assert len(I18N_ATTACHMENTS) == 11
-    assert len(landed_attachments()) == 6
-    assert len(pending_attachments()) == 5
-    assert {item.status for item in I18N_ATTACHMENTS.values()} == {ATTACHMENT_LANDED, ATTACHMENT_PENDING}
+    """台账行数与状态分布（7 张已落库 + 4 张待落地）。"""
+    attachments = all_attachments()
+    assert len(attachments) == 11
+    assert len(landed_attachments()) == 7
+    assert len(pending_attachments()) == 4
+    assert {item.status for item in attachments.values()} == {ATTACHMENT_LANDED, ATTACHMENT_PENDING}
 
 
 def test_landed_tables_exist_in_models() -> None:
@@ -84,7 +93,7 @@ def test_model_tables_all_registered() -> None:
     """模型层每张 `*_i18n` 表都必须在台账内（新增未登记即失败）。"""
     model_tables = _iter_model_tables()
     i18n_tables = {name for name in model_tables if name.endswith("_i18n")}
-    assert i18n_tables <= set(I18N_ATTACHMENTS), f"存在未登记的 i18n 附表：{i18n_tables - set(I18N_ATTACHMENTS)}"
+    assert i18n_tables <= set(all_attachments()), f"存在未登记的 i18n 附表：{i18n_tables - set(all_attachments())}"
 
 
 def test_landed_text_columns_match_models() -> None:
@@ -102,5 +111,13 @@ def test_landed_text_columns_match_models() -> None:
 
 def test_pending_tables_unique() -> None:
     """待落地行不与任何登记行重名（表名唯一）。"""
-    names = list(I18N_ATTACHMENTS.keys())
+    names = list(all_attachments().keys())
     assert len(names) == len(set(names))
+
+
+def test_service_attachment_register_and_reset() -> None:
+    """服务自有附表登记 / 复位（装载期幂等；测试隔离可清空）。"""
+    reset_i18n_attachments()
+    assert "sys_notice_i18n" not in all_attachments()
+    register_notice_i18n_attachments()
+    assert all_attachments()["sys_notice_i18n"].owner_table == "sys_notice"

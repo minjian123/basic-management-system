@@ -2000,6 +2000,52 @@ class NotificationDeleteForbiddenError(NotificationError):
         super().__init__(ErrorCode.NOTIFICATION_DELETE_FORBIDDEN, message, http_status=403, data=data)
 
 
+class NoticeError(NotificationError):
+    """公告段（`702xx`）异常基类。"""
+
+
+class NoticeNotFoundError(NoticeError):
+    """公告不存在或已删除（`70201` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTICE_NOT_FOUND, message, http_status=404, data=data)
+
+
+class NoticeNotVisibleError(NoticeError):
+    """公告未发布 / 未到发布时间 / 已过期下线（`70202` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTICE_NOT_VISIBLE, message, http_status=404, data=data)
+
+
+class NoticeTimeInvalidError(NoticeError):
+    """发布时间与过期时间非法（`70203` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTICE_TIME_INVALID, message, http_status=400, data=data)
+
+
+class NoticeStatusConflictError(NoticeError):
+    """公告状态冲突（`70204` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTICE_STATUS_CONFLICT, message, http_status=409, data=data)
+
+
+class NoticeContentInvalidError(NoticeError):
+    """公告内容校验失败（`70205` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTICE_CONTENT_INVALID, message, http_status=400, data=data)
+
+
+class NoticeAudienceUnavailableError(NoticeError):
+    """应读人数读取不可用（`70206` / 503）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTICE_AUDIENCE_UNAVAILABLE, message, http_status=503, data=data)
+
+
 class ExportError(FileError):
     """列表导出子段（文件段内 `504xx`）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

@@ -36,7 +36,6 @@ AUDITED_TABLES: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "sys_user_role",
         "sys_role_permission",
         "sys_role_field",
-        "sys_notice",
         "sys_help_article",
         "wf_process",
     )

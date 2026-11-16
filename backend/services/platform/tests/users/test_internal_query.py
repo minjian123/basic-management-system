@@ -97,6 +97,9 @@ class _StubVerifier:
             )
         if token == "identity":
             return VerifiedToken(subject="identity", service="identity", token_type="service")
+        if token == "notification":
+            # 07_02：平台内部服务按白名单放行（不要求声明 user 域）
+            return VerifiedToken(subject="notification", service="notification", token_type="service")
         if token == "gateway":
             return VerifiedToken(subject="gateway", service="gateway", token_type="service")
         raise AuthError("invalid")
@@ -172,6 +175,10 @@ async def test_internal_query_endpoint_requires_mdm_service(client: AsyncClient,
     assert ok.status_code == 200
     body = ok.json()["data"]
     assert body["total"] == 2 and body["page"] == 1 and body["size"] == 20
+
+    internal = await client.post(API, json={"status": "enabled"}, headers={"Authorization": "Bearer notification"})
+    assert internal.status_code == 200
+    assert internal.json()["data"]["total"] == 1
 
     filtered = await client.post(
         API, json={"keyword": "alice", "ids": [user.id]}, headers={"Authorization": "Bearer mdm"}

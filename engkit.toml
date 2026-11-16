@@ -842,6 +842,8 @@ allow_globs = [
 exclude_globs = [
   "frontend/packages/api_types/**",
   "frontend/releases/**",
+  # Module Federation 远程类型桩（typecheck/build 生成，含远端产品 mdm 的包名 / 类型名）
+  "frontend/apps/desktop/@mf-types/**",
   "frontend/apps/desktop/public/modules.json",
   "**/node_modules/**",
 ]

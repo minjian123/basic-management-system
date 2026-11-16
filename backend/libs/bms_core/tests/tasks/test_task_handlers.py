@@ -13,7 +13,7 @@ _PREFIXES: ConcurrentStableList[str] = ConcurrentStableList(["bms_core.tasks.bui
 
 
 def test_builtin_handlers_covers_eight_tasks() -> None:
-    """注册表八条，路径均为 `module:attr`。"""
+    """注册表十条，路径均为 `module:attr`。"""
     registry = builtin_handlers()
     assert isinstance(registry, ConcurrentStableDict)
     assert set(registry) == {
@@ -21,10 +21,12 @@ def test_builtin_handlers_covers_eight_tasks() -> None:
         "cleanup_export_artifacts",
         "cleanup_print_artifacts",
         "archive_audit_logs",
+        "cleanup_archive_files",
         "precreate_shard_tables",
         "verify_audit_chain",
         "purge_soft_deleted",
         "purge_deleted_tenants",
+        "expire_notices",
     }
     for path in registry.values():
         assert path.startswith("bms_core.tasks.builtin:")

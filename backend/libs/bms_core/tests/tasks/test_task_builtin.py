@@ -14,6 +14,7 @@ from bms_core.tasks.builtin import (
     BUILTIN_TASK_SPECS,
     builtin_spec_of,
     run_archive_audit_logs,
+    run_expire_notices,
     run_precreate_shard_tables,
     run_purge_soft_deleted,
     run_verify_audit_chain,
@@ -37,7 +38,7 @@ def _ctx() -> TaskContext:
 
 
 def test_builtin_specs_are_nine_and_cron_valid() -> None:
-    """九条内置任务：代码 / 名称 / cron / handler / 归口齐备，cron 全部可解析。"""
+    """十条内置任务：代码 / 名称 / cron / handler / 归口齐备，cron 全部可解析。"""
     assert isinstance(BUILTIN_TASK_SPECS, ConcurrentStableList)
     assert [spec.code for spec in BUILTIN_TASK_SPECS] == [
         "cleanup_orphan_parts",
@@ -49,6 +50,7 @@ def test_builtin_specs_are_nine_and_cron_valid() -> None:
         "verify_audit_chain",
         "purge_soft_deleted",
         "purge_deleted_tenants",
+        "expire_notices",
     ]
     for spec in BUILTIN_TASK_SPECS:
         assert is_valid_cron(spec.cron) is True
@@ -132,6 +134,45 @@ async def test_archive_tasks_submit_jobs(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(builtin, "JobInternalClient", _down_client)
     assert (await run_archive_audit_logs(_ctx())).status == TASK_RUN_FAILED
     assert (await builtin.run_cleanup_archive_files(_ctx())).status == TASK_RUN_FAILED
+
+
+async def test_expire_notices_calls_notification_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """公告过期下线：调通知服务内部端点；成功带条数，失败转 failed。"""
+    calls: list[tuple[str, str, ConcurrentStableDict[str, object]]] = []  # bare-collections:allow（测试记录容器）
+
+    async def _ok(
+        *,
+        service_key: str,
+        path: str,
+        body: ConcurrentStableDict[str, object],
+        ctx: TaskContext,
+        label: str,
+    ) -> tuple[bool, str, ConcurrentStableDict[str, object]]:
+        del ctx, label
+        calls.append((service_key, path, body))
+        return True, "", ConcurrentStableDict({"expired": 3})
+
+    monkeypatch.setattr(builtin, "_post_service", _ok)
+    result = await run_expire_notices(_ctx())
+    assert result.status == TASK_RUN_SUCCESS
+    assert result.output == "expired=3"
+    assert calls[0][0] == "notification"
+    assert calls[0][1] == "/api/v1/notices/internal/expire"
+    assert calls[0][2]["limit"] == 200
+
+    async def _fail(
+        *,
+        service_key: str,
+        path: str,
+        body: ConcurrentStableDict[str, object],
+        ctx: TaskContext,
+        label: str,
+    ) -> tuple[bool, str, ConcurrentStableDict[str, object]]:
+        del service_key, path, body, ctx, label
+        return False, "下游不可用", ConcurrentStableDict[str, object]()
+
+    monkeypatch.setattr(builtin, "_post_service", _fail)
+    assert (await run_expire_notices(_ctx())).status == TASK_RUN_FAILED
 
 
 async def test_precreate_and_verify_call_platform_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:

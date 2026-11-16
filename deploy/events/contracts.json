@@ -437,6 +437,14 @@
       "description": "公告发布 / 更新 / 下线",
       "event_type": "sys.notice.published",
       "fields": {
+        "action": {
+          "required": false,
+          "type": "string"
+        },
+        "expire_at": {
+          "required": false,
+          "type": "string"
+        },
         "is_top": {
           "required": true,
           "type": "boolean"
@@ -445,12 +453,24 @@
           "required": true,
           "type": "string"
         },
+        "priority": {
+          "required": false,
+          "type": "string"
+        },
+        "publish_at": {
+          "required": false,
+          "type": "string"
+        },
         "title": {
           "required": true,
           "type": "string"
+        },
+        "type": {
+          "required": false,
+          "type": "string"
         }
       },
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "deprecated": false,

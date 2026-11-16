@@ -216,9 +216,19 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
         ),
         EventContract(
             event_type="sys.notice.published",
+            version="1.1.0",
             description="公告发布 / 更新 / 下线",
             fields=ConcurrentStableFrozenDict(
-                {"notice_id": _STRING_REQUIRED, "title": _STRING_REQUIRED, "is_top": _BOOLEAN_REQUIRED}
+                {
+                    "notice_id": _STRING_REQUIRED,
+                    "title": _STRING_REQUIRED,
+                    "is_top": _BOOLEAN_REQUIRED,
+                    "action": _STRING_OPTIONAL,
+                    "type": _STRING_OPTIONAL,
+                    "priority": _STRING_OPTIONAL,
+                    "publish_at": _STRING_OPTIONAL,
+                    "expire_at": _STRING_OPTIONAL,
+                }
             ),
         ),
         EventContract(
