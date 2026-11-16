@@ -218,6 +218,12 @@ def service_up(
                 name,
                 "-e",
                 "BMS_ENV=dev",
+                # 契约冒烟是「单服务独立容器」，没有平台对端：启动期跨服务校验显式关闭
+                # （与单测同口径；验的是接口契约，不是启动接库校验）。
+                "-e",
+                "BMS_APP__VALIDATE_CATALOG_ON_STARTUP=false",
+                "-e",
+                "BMS_TOPOLOGY__DISTRIBUTE=false",
                 "-e",
                 f"BMS_SERVICE_TOKEN__KEYS={token_keys}",
                 "-e",

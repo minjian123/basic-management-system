@@ -87,19 +87,28 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         """
         return ConcurrentStableList([api_router])
 
-    def startup_hooks(self) -> ConcurrentStableList[StartupHook]:
-        """启动钩子：平台自身声明注册（`02_06`）→ 能力分配声明同步 + 授权视图来源登记 + 预热（`02_04`）
-        → 租户拓扑自举与第二段解析登记（07C `02_01`）。
+    def pre_validation_hooks(self) -> ConcurrentStableList[StartupHook]:
+        """接库校验之前的引导钩子：平台自身声明注册（`02_06`）。
 
-        顺序不可颠倒：授权基线与入站判定都从**注册表派生的视图**取能力，声明必须先落；拓扑自举读的是
-        同一份域登记视图，故排在声明之后。
+        目录校验以本钩子写下的 `sys_module` 行为基准；放在 `startup_hooks` 里会让空库首次启动
+        必拒启（2026-11-16 批 0 修正）。
+
+        Returns:
+            ConcurrentStableList[StartupHook]: 校验前引导钩子（执行序）。
+        """
+        return ConcurrentStableList((bootstrap_platform_declarations,))
+
+    def startup_hooks(self) -> ConcurrentStableList[StartupHook]:
+        """启动钩子：平台自身声明注册已前移至 `pre_validation_hooks`（目录校验的基准）。
+
+        顺序不可颠倒：授权基线与入站判定都从**注册表派生的视图**取能力，声明必须先落；
+        拓扑自举读的是同一份域登记视图，故排在声明之后。
 
         Returns:
             ConcurrentStableList[StartupHook]: 启动钩子清单。
         """
         return ConcurrentStableList(
             (
-                bootstrap_platform_declarations,
                 bootstrap_job_types,
                 bootstrap_capability_grants,
                 bootstrap_tenant_topologies,

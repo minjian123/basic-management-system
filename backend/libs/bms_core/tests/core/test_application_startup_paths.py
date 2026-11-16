@@ -253,9 +253,13 @@ def _skip_db_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _noop(app: object) -> None:
         del app
 
+    async def _noop_seed(settings: object, app: object) -> None:
+        del settings, app
+
     _skip_remote_bootstrap(monkeypatch)
     monkeypatch.setattr(app_module, "_validate_service_catalog", _noop)
     monkeypatch.setattr(app_module, "_validate_table_ownership", _noop)
+    monkeypatch.setattr(app_module, "_seed_dev_table_ownership", _noop_seed)
 
 
 def _skip_ownership_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -268,8 +272,12 @@ def _skip_ownership_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _noop(app: object) -> None:
         del app
 
+    async def _noop_seed(settings: object, app: object) -> None:
+        del settings, app
+
     _skip_remote_bootstrap(monkeypatch)
     monkeypatch.setattr(app_module, "_validate_table_ownership", _noop)
+    monkeypatch.setattr(app_module, "_seed_dev_table_ownership", _noop_seed)
 
 
 async def test_record_db_inventory_skips_without_metrics() -> None:
@@ -345,6 +353,71 @@ async def test_validate_table_ownership_rejects_when_registry_empty(monkeypatch:
     monkeypatch.setattr(app_module, "session_scope", _empty_scope)
     with pytest.raises(CatalogError, match="表归属登记为空"):
         await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2511)
+async def test_dev_seeds_table_ownership(monkeypatch: pytest.MonkeyPatch) -> None:
+    """dev 环境：表归属为空时自动播种（幂等，二次不新增）。"""
+    from sqlalchemy import Table, func, select
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from bms_core.models.ownership import SysTableOwnership
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", poolclass=StaticPool)
+    async with engine.begin() as connection:
+        await connection.run_sync(cast("Table", SysTableOwnership.__table__).create)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    class _Scope:
+        async def __aenter__(self) -> object:
+            return factory()
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+
+    def _scope(*args: object, **kwargs: object) -> _Scope:
+        del args, kwargs
+        return _Scope()
+
+    monkeypatch.setattr(app_module, "session_scope", _scope)
+    settings = cast("Any", SimpleNamespace(app=SimpleNamespace(env="dev")))
+    app = cast(
+        "Any",
+        SimpleNamespace(
+            state=SimpleNamespace(
+                service_identity=SimpleNamespace(name="platform"),
+                engine_registry=object(),
+                session_factory=object(),
+            )
+        ),
+    )
+
+    await app_module._seed_dev_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
+    async with factory() as session:
+        first = (await session.execute(select(func.count()).select_from(SysTableOwnership))).scalar_one()
+    await app_module._seed_dev_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
+    async with factory() as session:
+        second = (await session.execute(select(func.count()).select_from(SysTableOwnership))).scalar_one()
+    await engine.dispose()
+    assert first > 0 and second == first
+
+
+@pytest.mark.kiwi_id(2511)
+async def test_prod_skips_table_ownership_seed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """prod 不自动播种（空表仍按部署错误拒启，不建连）。"""
+    called: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _scope(*args: object, **kwargs: object) -> object:
+        del args, kwargs
+        called.add("scope")
+        raise AssertionError("prod 不应建连")
+
+    monkeypatch.setattr(app_module, "session_scope", _scope)
+    settings = cast("Any", SimpleNamespace(app=SimpleNamespace(env="prod")))
+    app = cast("Any", SimpleNamespace(state=SimpleNamespace(engine_registry=object(), session_factory=object())))
+    await app_module._seed_dev_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
+    assert list(called) == []
 
 
 @pytest.mark.kiwi_id(2299)

@@ -275,6 +275,45 @@ async def _validate_capability_usages(app: FastAPI) -> None:
         raise
 
 
+async def _seed_dev_table_ownership(settings: Settings, app: FastAPI) -> None:
+    """开发环境自举：表归属登记为空时按合并清单幂等播种（生产不执行）。
+
+    与「dev 自动建表」同口径：开发 / 冒烟环境开箱即用；`prod` 不自动播种，空表仍按部署错误拒启。
+    仅平台服务执行（表归属登记归平台服务库，与 `_validate_table_ownership` 同口径）。
+
+    Args:
+        settings: 应用配置（取 `app.env`）。
+        app: 应用实例（取服务身份 / 引擎注册表 / 会话工厂）。
+    """
+    if settings.app.env != "dev":
+        return
+    identity = cast("ServiceIdentity", app.state.service_identity)
+    if identity.name != PLATFORM_SERVICE_KEY:
+        # 表归属登记归平台服务库（与 `_validate_table_ownership` 同口径），产品服务不读不写
+        return
+    async with session_scope(
+        cast("EngineRegistry", app.state.engine_registry),
+        db_key=PLATFORM_DB_KEY,
+        factory=cast("SessionFactory", app.state.session_factory),
+    ) as session:
+        existing = (await session.execute(select(SysTableOwnership.table_name))).scalars().first()
+        if existing is not None:
+            return
+        for record in table_ownership_view():
+            session.add(
+                SysTableOwnership(
+                    table_name=record.table_name,
+                    owner=record.owner,
+                    domain=record.domain,
+                    datasource=record.datasource,
+                    status=record.status,
+                    note=record.note,
+                )
+            )
+        await session.commit()
+    get_logger("bms").info("table_ownership_seeded_dev")
+
+
 async def _validate_table_ownership(app: FastAPI) -> None:
     """表归属登记校验（离线清单 + `platform` 服务接库对账；06_02 承接 06_03 遗留 1）。
 
@@ -479,9 +518,16 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         # 本实例承载集合；平台进程内部跳过（本库即权威，由启动钩子装载）。
         # **顺序**：必须在声明装载之后——承载集合校验与单元判定依赖域登记视图与承载服务映射。
         await bootstrap_remote_topologies(app)
+        await _validate_capability_usages(app)
+        # 校验前引导（平台自身声明注册）：目录校验以它写下的 `sys_module` 行为基准，放在
+        # `startup_hooks` 里会「对着空库校验 → 首次启动必拒启」（2026-11-16 批 0 修正）。
+        # 顺序必须在能力使用校验**之后**：注册落库会按注册表快照整体重建进程内视图，
+        # 产品未上报时重建结果不含产品能力，先跑会让平台自身的产品消费声明误报「未登记」。
+        for hook in cast("tuple[StartupHook, ...]", getattr(app.state, "pre_validation_hooks", ())):
+            await hook(app)
         if settings.app.validate_catalog_on_startup:
             await _validate_service_catalog(app)
-        await _validate_capability_usages(app)
+        await _seed_dev_table_ownership(settings, app)
         await _validate_table_ownership(app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))
         await _record_db_inventory(app, settings)
@@ -600,6 +646,17 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             ConcurrentStableList[APIRouter]: 业务路由（挂 `/api/v1` 前缀）。
         """
         return ConcurrentStableList()
+
+    def pre_validation_hooks(self) -> ConcurrentStableList[StartupHook]:
+        """接库校验**之前**执行的引导钩子（子类覆写；缺省空）。
+
+        用途：平台自身声明注册——目录校验拿它写下的 `sys_module` 行作基准，放在 `startup_hooks`
+        里会「对着空库校验 → 首次启动必拒启」。缺省空，产品服务不依赖。
+
+        Returns:
+            ConcurrentStableList[StartupHook]: 校验前引导钩子（执行序）。
+        """
+        return ConcurrentStableList(())
 
     def startup_hooks(self) -> ConcurrentStableList[StartupHook]:
         """启动钩子清单（子类覆写；缺省空元组）。
@@ -860,6 +917,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
 
         self.configure_service(app, settings)
         app.state.startup_hooks = self.startup_hooks()
+        app.state.pre_validation_hooks = self.pre_validation_hooks()
 
         @app.get("/", openapi_extra={"x-error-codes": []})
         def root() -> ApiResponse:  # pyright: ignore[reportUnusedFunction]
