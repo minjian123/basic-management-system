@@ -40,6 +40,7 @@ from bms_core.api.middleware import (
     TraceIdMiddleware,
 )
 from bms_core.audit.classes import AuditClass, merge_audit_classes
+from bms_core.audit.field_capture import install_field_audit
 from bms_core.cache.base import CacheRegion
 from bms_core.catalog.loader import is_catalog_authority, load_catalog_snapshot
 from bms_core.collaboration.bootstrap import bootstrap_remote_topologies
@@ -731,6 +732,8 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         settings = get_settings()
         self.prepare_settings(settings)
         configure_logging(settings)
+        # 字段级变更审计（06_02）：挂 ORM 会话事件（幂等；[audit_capture].enabled 控制）
+        install_field_audit(settings)
 
         # 全局标注依赖 `get_masker`：请求期把掩码器写入 `current_masker`（`BaseSchema` 序列化期取用），
         # 请求结束复位；一处生效即覆盖全部服务全部路由，无需逐路由挂载（产品路由重复挂载由依赖缓存去重）。

@@ -559,6 +559,33 @@
         "title": "ApiResponse[CatalogSnapshotResponse]",
         "type": "object"
       },
+      "ApiResponse_ChainVerifyView_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainVerifyView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ChainVerifyView]",
+        "type": "object"
+      },
       "ApiResponse_ConfigItem_": {
         "additionalProperties": false,
         "properties": {
@@ -665,6 +692,60 @@
           }
         },
         "title": "ApiResponse[CredentialVerifyResult]",
+        "type": "object"
+      },
+      "ApiResponse_DataChangeItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataChangeItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DataChangeItem]",
+        "type": "object"
+      },
+      "ApiResponse_DataChangePage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataChangePage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DataChangePage]",
         "type": "object"
       },
       "ApiResponse_DataSourceListResponse_": {
@@ -3072,6 +3153,78 @@
         "title": "CatalogSnapshotResponse",
         "type": "object"
       },
+      "ChainVerifyView": {
+        "additionalProperties": false,
+        "description": "链校验结果（数据变更审计）。",
+        "properties": {
+          "broken_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂位置（月内从 0 起）",
+            "title": "Broken Index"
+          },
+          "broken_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂分片月份",
+            "title": "Broken Month"
+          },
+          "broken_record_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "断裂记录主键",
+            "title": "Broken Record Id"
+          },
+          "checked_months": {
+            "description": "实际校验月份",
+            "items": {
+              "type": "string"
+            },
+            "title": "Checked Months",
+            "type": "array"
+          },
+          "checked_records": {
+            "description": "校验记录数",
+            "title": "Checked Records",
+            "type": "integer"
+          },
+          "log_type": {
+            "description": "日志类型（固定 data_audit）",
+            "title": "Log Type",
+            "type": "string"
+          },
+          "valid": {
+            "description": "链是否完整",
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "log_type",
+          "valid",
+          "checked_records"
+        ],
+        "title": "ChainVerifyView",
+        "type": "object"
+      },
       "CollaborationSnapshotItem": {
         "additionalProperties": false,
         "description": "带参快照的能力段（前端取址 / 服务启动对账共用）。\n\n**不含** `path`（不向浏览器暴露服务内部路径）与 `default_consumers` 等授权信息（分配出口归 `02_04`）。\n`kind` 供前端区分**能力种类**（`read` / `dataset` / `txn-branch`）——前端按「业务域 + 种类」取址，\n不在平台代码写死含产品键的能力名（`03_02`）。",
@@ -3581,6 +3734,165 @@
           "status"
         ],
         "title": "CredentialVerifyResult",
+        "type": "object"
+      },
+      "DataChangeItem": {
+        "additionalProperties": false,
+        "description": "字段级变更审计条目（列表 / 详情同构）。",
+        "properties": {
+          "created_at": {
+            "description": "写入时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain_key": {
+            "description": "业务域归属",
+            "title": "Domain Key",
+            "type": "string"
+          },
+          "event_id": {
+            "description": "事件幂等键",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "field": {
+            "description": "变更字段名",
+            "title": "Field",
+            "type": "string"
+          },
+          "id": {
+            "description": "审计主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "变更后值（JSON 文本；敏感列 ***）",
+            "title": "New Value"
+          },
+          "occurred_at": {
+            "description": "事件发生时间（UTC）",
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "变更前值（JSON 文本；敏感列 ***）",
+            "title": "Old Value"
+          },
+          "operator_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "操作人主键",
+            "title": "Operator Id"
+          },
+          "prev_hash": {
+            "description": "前一条记录哈希",
+            "title": "Prev Hash",
+            "type": "string"
+          },
+          "record_hash": {
+            "description": "本条记录哈希",
+            "title": "Record Hash",
+            "type": "string"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "被审计记录主键",
+            "title": "Record Id"
+          },
+          "table_name": {
+            "description": "被审计的逻辑表名",
+            "title": "Table Name",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户主键",
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "table_name",
+          "field",
+          "domain_key",
+          "occurred_at",
+          "prev_hash",
+          "record_hash",
+          "created_at"
+        ],
+        "title": "DataChangeItem",
+        "type": "object"
+      },
+      "DataChangePage": {
+        "additionalProperties": false,
+        "description": "数据变更审计分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/DataChangeItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "DataChangePage",
         "type": "object"
       },
       "DataSourceKind": {
@@ -11720,6 +12032,481 @@
         "summary": "Update Action",
         "tags": [
           "menu"
+        ]
+      }
+    },
+    "/api/v1/audit/chain/verify": {
+      "get": {
+        "description": "校验字段级变更审计的哈希链完整性。\n\nArgs:\n    session: 平台库只读会话。\n    chain: 哈希链实现。\n    months: 指定月份（逗号分隔；空 = 台账全部月份）。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果（含断裂定位）。",
+        "operationId": "verify_data_audit_chain_api_v1_audit_chain_verify_get",
+        "parameters": [
+          {
+            "description": "校验月份（yyyyMM，逗号分隔；空 = 台账全部）",
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "校验月份（yyyyMM，逗号分隔；空 = 台账全部）",
+              "title": "Months"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ChainVerifyView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Verify Data Audit Chain",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/v1/audit/data-changes": {
+      "get": {
+        "description": "数据变更审计分页查询（表名 / 记录 / 操作人 / 域 / 字段 / 时间范围）。\n\nArgs:\n    session: 平台库只读会话。\n    page: 分页参数。\n    table_name: 被审计表名。\n    record_id: 被审计记录主键。\n    operator_id: 操作人主键。\n    domain_key: 业务域。\n    field: 变更字段名。\n    occurred_from: 事件时间下界。\n    occurred_to: 事件时间上界。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "operationId": "list_data_changes_api_v1_audit_data_changes_get",
+        "parameters": [
+          {
+            "description": "被审计表名（精确）",
+            "in": "query",
+            "name": "table_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "被审计表名（精确）",
+              "title": "Table Name"
+            }
+          },
+          {
+            "description": "被审计记录主键",
+            "in": "query",
+            "name": "record_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "被审计记录主键",
+              "title": "Record Id"
+            }
+          },
+          {
+            "description": "操作人主键",
+            "in": "query",
+            "name": "operator_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "操作人主键",
+              "title": "Operator Id"
+            }
+          },
+          {
+            "description": "业务域（精确）",
+            "in": "query",
+            "name": "domain_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "业务域（精确）",
+              "title": "Domain Key"
+            }
+          },
+          {
+            "description": "变更字段名（精确）",
+            "in": "query",
+            "name": "field",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "变更字段名（精确）",
+              "title": "Field"
+            }
+          },
+          {
+            "description": "事件时间下界（含）",
+            "in": "query",
+            "name": "occurred_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间下界（含）",
+              "title": "Occurred From"
+            }
+          },
+          {
+            "description": "事件时间上界（含）",
+            "in": "query",
+            "name": "occurred_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "事件时间上界（含）",
+              "title": "Occurred To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DataChangePage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Data Changes",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/v1/audit/data-changes/{record_id}": {
+      "get": {
+        "description": "数据变更审计详情（含链字段 `prev_hash` / `record_hash`）。\n\nArgs:\n    session: 平台库只读会话。\n    record_id: 审计主键。\n\nReturns:\n    ApiResponse: 统一响应，data 为审计详情。\n\nRaises:\n    DataAuditLogNotFoundError: 记录不存在（90401 / 404）。",
+        "operationId": "get_data_change_api_v1_audit_data_changes__record_id__get",
+        "parameters": [
+          {
+            "description": "审计主键（雪花 ID）",
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "description": "审计主键（雪花 ID）",
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DataChangeItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Data Change",
+        "tags": [
+          "audit"
         ]
       }
     },

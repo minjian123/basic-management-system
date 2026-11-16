@@ -1,4 +1,4 @@
-"""审计链消费组声明（`audit-chain`）：操作 / 登录日志事件 → 分片表链式落库（06_01）。
+"""审计链消费组声明（`audit-chain`）：审计事件 → 分片表链式落库（06_01 / 06_02）。
 
 - 组名 `audit-chain`（装载时补 `[event_consumer].group_prefix` 前缀）；
 - `ordered=True`：全组串行（架构 16 §5「强有序组退化为全组串行」），保证同租户 `prev_hash` 衔接不乱序；
@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import cast
 
-from bms_core.audit.events import LOGIN_LOG_EVENT, OPERATION_LOG_EVENT
+from bms_core.audit.events import DATA_CHANGED_EVENT, LOGIN_LOG_EVENT, OPERATION_LOG_EVENT
 from bms_core.audit.hashchain import BaseHashChain
 from bms_core.audit.sha256 import Sha256HashChain  # 导入即登记 sha256 链插件（零参类自动收集）
 from bms_core.core.concurrent import ConcurrentStableList
@@ -35,7 +35,7 @@ __all__ = [
 AUDIT_CHAIN_GROUP = "audit-chain"
 """消费组名（装载时补前缀，如 `bms-audit-chain`）。"""
 
-_AUDIT_EVENTS = (OPERATION_LOG_EVENT, LOGIN_LOG_EVENT)
+_AUDIT_EVENTS = (OPERATION_LOG_EVENT, LOGIN_LOG_EVENT, DATA_CHANGED_EVENT)
 """审计链组订阅的事件。"""
 
 _registry_cache: EngineRegistry | None = None

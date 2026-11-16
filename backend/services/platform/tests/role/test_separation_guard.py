@@ -373,3 +373,46 @@ async def test_not_self_lock(session: tuple[AsyncSession, AsyncEngine]) -> None:
     set_current_user_id(None)
     await guard.ensure_not_self_lock(role=security)
     assert len(audit.events) == 1
+
+
+@pytest.mark.kiwi_id(2515)
+async def test_audit_admin_readonly_invariant(session: tuple[AsyncSession, AsyncEngine]) -> None:
+    """审计管理员只读不变量（06_02）：授权只能来自 `log` 业务，越界拒绝 `30048` 并留痕。"""
+    target, _engine = session
+    audit = _RecordingCapturer()
+    guard = _guard(target, audit=audit, with_business=True)
+
+    log_business = await BusinessRepository(target).create(code="log", name="日志审计", status="enabled")
+    log_action = await ActionRepository(target).create(code="query", name="查询", status="enabled")
+    log_permission = await PermissionRepository(target).create(
+        business_id=log_business.id, action_id=log_action.id, status="enabled"
+    )
+    user_business = await BusinessRepository(target).create(code="user", name="用户管理", status="enabled")
+    user_action = await ActionRepository(target).create(code="create", name="新增", status="enabled")
+    user_permission = await PermissionRepository(target).create(
+        business_id=user_business.id, action_id=user_action.id, status="enabled"
+    )
+    await target.commit()
+
+    audit_role = await _role(target, code="audit_admin", role_type=ROLE_TYPE_AUDIT)
+    # `log` 业务权限码放行
+    await guard.ensure_audit_admin_readonly(role=audit_role, permission_ids=ConcurrentStableSet({log_permission.id}))
+    assert audit.events == []
+
+    # 授予写权限（`user:create`）拒绝并留痕
+    with pytest.raises(RoleSeparationConflictError) as rejected:
+        await guard.ensure_audit_admin_readonly(
+            role=audit_role, permission_ids=ConcurrentStableSet({user_permission.id})
+        )
+    assert rejected.value.code == 30048
+    assert len(audit.events) == 1
+
+    # 非审计管理员不受此不变量约束
+    custom = await _role(target, code="ops")
+    await guard.ensure_audit_admin_readonly(role=custom, permission_ids=ConcurrentStableSet({user_permission.id}))
+
+    # 空集合 / 未装配业务码读取器时跳过
+    await guard.ensure_audit_admin_readonly(role=audit_role, permission_ids=ConcurrentStableSet())
+    await _guard(target).ensure_audit_admin_readonly(
+        role=audit_role, permission_ids=ConcurrentStableSet({user_permission.id})
+    )

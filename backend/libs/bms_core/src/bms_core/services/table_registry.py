@@ -660,6 +660,14 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             status=TableStatus.ENABLED,
             note="审计分片台账（已建分片 / 归档清单；06_01 落库）",
         ),
+        TableRecord(
+            table_name="sys_data_audit_log",
+            owner="platform",
+            domain="audit",
+            datasource=Datasource.PLATFORM,
+            status=TableStatus.PLANNED,
+            note="字段级变更审计（逻辑表名；物理按月分片 sys_data_audit_log_yyyyMM，运行期建表；06_02）",
+        ),
     )
 )
 """表归属登记（单一来源）。

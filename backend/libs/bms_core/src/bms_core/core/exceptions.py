@@ -2008,3 +2008,16 @@ class LogTimeRangeExceededError(BizError):
             data: 随附数据（可选）。
         """
         BizError.__init__(self, ErrorCode.LOG_TIME_RANGE_EXCEEDED, message, http_status=400, data=data)
+
+
+class DataAuditLogNotFoundError(BizError):
+    """数据变更审计记录不存在（`90401` / 404；含分片未命中）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化数据变更审计不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.DATA_AUDIT_LOG_NOT_FOUND, message, http_status=404, data=data)

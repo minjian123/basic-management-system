@@ -1,4 +1,4 @@
-"""审计日志链写入器：幂等判重 → 取链尾 → 计算哈希 → 写分片（06_01）。
+"""审计日志链写入器：幂等判重 → 取链尾 → 计算哈希 → 写分片（06_01 / 06_02）。
 
 - **分片键 = 写入时刻**（`clock()`，缺省当前 UTC）：事件时间另存 `occurred_at`，避免延迟事件插入
   旧月破坏跨月链（见详细设计 §4）。
@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from bms_core.audit.events import DATA_CHANGED_EVENT, LOGIN_LOG_EVENT, OPERATION_LOG_EVENT
 from bms_core.audit.hashchain import GENESIS_HASH, BaseHashChain
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import EventConsumeError
@@ -23,6 +24,7 @@ from bms_core.db.session import DbSession
 from bms_core.events.base import EventEnvelope
 from bms_platform.domains.log.repositories.shard import LogShardRepository
 from bms_platform.domains.log.schema import (
+    LOG_TYPE_DATA_AUDIT,
     LOG_TYPE_LOGIN,
     LOG_TYPE_OPERATION,
     canonical_record,
@@ -103,10 +105,12 @@ class AuditLogWriter(BaseFrameworkObject):
         Raises:
             EventConsumeError: 事件类型未知 / 必填字段非法（毒消息）。
         """
-        if event.event_type == "sys.operation.logged":
+        if event.event_type == OPERATION_LOG_EVENT:
             return await self.write_operation(event)
-        if event.event_type == "sys.login.logged":
+        if event.event_type == LOGIN_LOG_EVENT:
             return await self.write_login(event)
+        if event.event_type == DATA_CHANGED_EVENT:
+            return await self.write_data_audit(event)
         raise EventConsumeError(f"未知审计事件类型：{event.event_type}")
 
     async def write_operation(self, event: EventEnvelope) -> bool:
@@ -205,6 +209,52 @@ class AuditLogWriter(BaseFrameworkObject):
             }
         )
         await self._append(LOG_TYPE_LOGIN, month, values, tenant_id)
+        return True
+
+    async def write_data_audit(self, event: EventEnvelope) -> bool:
+        """写一条字段级变更审计记录。
+
+        Args:
+            event: `sys.data.changed` 事件。
+
+        Returns:
+            bool: 写入 True；幂等跳过 False。
+
+        Raises:
+            EventConsumeError: 必填字段缺失 / 非法。
+        """
+        payload = event.payload
+        now = self._clock()
+        month = month_key(now)
+        event_id = event.event_id
+        if not event_id:
+            raise EventConsumeError("字段级审计事件缺少 event_id")
+        await self._repo.ensure_shard(LOG_TYPE_DATA_AUDIT, month)
+        if await self._repo.event_exists(LOG_TYPE_DATA_AUDIT, month, event_id):
+            _LOGGER.debug("audit_log_duplicate", log_type=LOG_TYPE_DATA_AUDIT, event_id=event_id)
+            return False
+        table_name = _as_str(payload.get("table"))
+        field = _as_str(payload.get("field"))
+        if not table_name or not field:
+            raise EventConsumeError("字段级审计事件缺少必填字段（table/field）")
+        tenant_id = _as_int(payload.get("tenant_id"))
+        domain_key = _as_str(payload.get("domain_key")) or "unknown"
+        values: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "id": id_generator.next_id(),
+                "event_id": event_id,
+                "tenant_id": tenant_id,
+                "table_name": table_name,
+                "record_id": _as_int(payload.get("model_id")),
+                "field": field,
+                "old_value": _as_str(payload.get("old_value")),
+                "new_value": _as_str(payload.get("new_value")),
+                "operator_id": _as_int(payload.get("operator_id")),
+                "domain_key": domain_key[:64],
+                "occurred_at": parse_occurred_at(event),
+            }
+        )
+        await self._append(LOG_TYPE_DATA_AUDIT, month, values, tenant_id)
         return True
 
     async def _append(

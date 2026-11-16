@@ -10,6 +10,7 @@ from typing import cast
 from fastapi import APIRouter, FastAPI
 
 from bms_core.application import BaseServiceApplicationFactory, StartupHook
+from bms_core.audit.db_capturer import DbAuditCapturer
 from bms_core.catalog.loader import register_catalog_reader
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
@@ -75,6 +76,8 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             settings.icon_registry.provider = DB_ICON_PROVIDER
         if not settings.hash_chain.provider:
             settings.hash_chain.provider = "sha256"
+        if not settings.audit.provider:
+            settings.audit.provider = DbAuditCapturer.plugin_name
         # 平台侧装配：真实校验器 + 直查本库数据来源工厂 + 字段权限 provider 工厂
         register_platform_permission(settings)
         register_rbac_data_scope(settings)

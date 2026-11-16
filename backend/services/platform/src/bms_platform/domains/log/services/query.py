@@ -9,13 +9,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
+from bms_core.audit.query_range import resolve_query_range
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import AuditLogSettings
 from bms_core.core.exceptions import (
     LoginLogNotFoundError,
-    LogTimeRangeExceededError,
     OperationLogNotFoundError,
 )
 from bms_core.core.roots import BaseFrameworkObject
@@ -35,13 +35,6 @@ __all__ = ["LoginLogQueryService", "OperationLogQueryService"]
 def _utc_now() -> datetime:
     """当前 UTC naive 时间。"""
     return datetime.now(UTC).replace(tzinfo=None)
-
-
-def _naive(value: datetime | None) -> datetime | None:
-    """带时区时间转 UTC naive（None 原样）。"""
-    if value is None:
-        return None
-    return value.astimezone(UTC).replace(tzinfo=None) if value.tzinfo else value
 
 
 def _range(
@@ -65,19 +58,7 @@ def _range(
     Raises:
         LogTimeRangeExceededError: 跨度超过 `max_query_days`（90203）。
     """
-    start = _naive(occurred_from)
-    end = _naive(occurred_to)
-    if start is None:
-        resolved_end = end if end is not None else now
-        start = resolved_end - timedelta(days=settings.query_default_days)
-        end = resolved_end
-    elif end is None:
-        end = now
-    if end < start:
-        raise LogTimeRangeExceededError("查询结束时间早于开始时间")
-    if (end - start).days > settings.max_query_days:
-        raise LogTimeRangeExceededError(f"查询时间范围不得超过 {settings.max_query_days} 天")
-    return start, end
+    return resolve_query_range(settings, occurred_from, occurred_to, now=now)
 
 
 class _BaseLogQueryService(BaseFrameworkObject):

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, FastAPI
 
 from bms_core.application import BaseServiceApplicationFactory, StartupHook
+from bms_core.audit.tables import register_audited_tables
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.tenant.base import TENANT_SELF_SERVICE_DB_PROVIDER
@@ -10,6 +11,9 @@ from bms_tenant import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version_
 from bms_tenant.api.router import api_router
 from bms_tenant.domains.tenant.services.platform_tenant import ensure_platform_tenant
 from bms_tenant.sources import register_local_tenant_membership_store, register_local_tenant_source
+
+AUDITED_TABLES_TENANT: ConcurrentStableList[str] = ConcurrentStableList(("sys_tenant_quota",))
+"""本服务库纳入字段级审计的关键表（06_02；配额变更必须可追溯到人）。"""
 
 register_local_tenant_source()  # 向共享基座登记 `local` 租户源实现（本服务直读自身平台服务库）
 register_local_tenant_membership_store()  # 登记 `local` 关系数据源实现（11_01）
@@ -27,11 +31,15 @@ class ApplicationFactory(BaseServiceApplicationFactory):
     def prepare_settings(self, settings: Settings) -> None:
         """本服务配置调整：承载租户自助真实实现（provider 选 `sql`；其余服务保持占位）。
 
+        另登记本服务库的字段级审计表（06_02）：`sys_tenant_quota` 归属本服务，基座常量不得引用
+        他人服务库的表名（跨服务库访问门禁），故在本服务装载期注册。
+
         Args:
             settings: 应用配置（可变）。
         """
         if self.service_name == SERVICE_NAME:
             settings.tenant_self_service.provider = TENANT_SELF_SERVICE_DB_PROVIDER
+        register_audited_tables(AUDITED_TABLES_TENANT)
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """业务路由（探针路由由基座统一挂载）。

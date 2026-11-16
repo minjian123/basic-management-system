@@ -131,6 +131,17 @@
       ]
     },
     {
+      "domain_key": "audit",
+      "service_key": "platform",
+      "status": "placement",
+      "paths": [
+        "backend/services/platform/src/bms_platform/domains/audit/**/*.py"
+      ],
+      "public_api": [
+        "bms_platform.domains.audit.public"
+      ]
+    },
+    {
       "domain_key": "task",
       "service_key": "platform",
       "status": "placement",

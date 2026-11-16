@@ -19,6 +19,7 @@ from fastapi import FastAPI
 
 from bms_core.archive.base import BaseArchivePolicy, BaseArchiveQueryRouter
 from bms_core.audit.base import AuditCapturer
+from bms_core.audit.db_capturer import DbAuditCapturer
 from bms_core.audit.hashchain import BaseHashChain
 from bms_core.boundary.base import BaseDataOwnershipGuard
 from bms_core.boundary.directory import known_prefixes, known_services, known_tables
@@ -209,6 +210,9 @@ __all__ = [
 ]
 
 _LOGGER = get_logger("bms")
+
+AUDIT_CAPTURER_DEFAULT = DbAuditCapturer.plugin_name
+"""字段级审计捕获缺省实现名（导入 `db_capturer` 即完成插件登记；本常量同时作为引用锚点）。"""
 
 _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
     (

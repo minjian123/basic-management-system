@@ -1318,6 +1318,36 @@ class AuditLogSettings(BaseSettings):
     """巡检默认校验最近月数（含当月）。"""
 
 
+class AuditCaptureSettings(BaseSettings):
+    """字段级变更审计捕获参数（`[audit_capture]`；06_02）。
+
+    与操作日志段 `[audit_log]`、能力选择段 `[audit]`（`AuditCapturer` 实现选择）三者的分工：
+    本段只管**ORM 变更捕获**（关键表白名单、同事务发件箱、预算与失败分档），不参与查询与链写入。
+    """
+
+    enabled: bool = True
+    """捕获开关（False = 不挂会话事件监听，不产生字段级审计）。"""
+
+    extra_tables: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST
+    )
+    """追加审计的表（配置只可追加，覆盖「现场按合规要求临时扩表」）。"""
+
+    exclude_tables: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST
+    )
+    """排除审计的表（优先级最高；用于临时关掉噪声表）。"""
+
+    max_changes_per_tx: int = Field(default=200, ge=1)
+    """单事务字段级记录上限（超出丢弃溢出项并告警，防批量导入把事务撑爆）。"""
+
+    max_value_chars: int = Field(default=2000, ge=1)
+    """单个字段值序列化后的最大字符数（超出截断并标注）。"""
+
+    fail_closed: bool = True
+    """发件箱写入失败是否使业务失败（True = 回滚业务，「宁可拒绝写，不可无审计」）。"""
+
+
 class OutboxSettings(PluginSelection):
     """发件箱投递器配置（`[outbox]`；在能力选择之外追加轮询与重试参数）。"""
 
@@ -1752,6 +1782,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     archive_query_router: PluginSelection = Field(default_factory=PluginSelection)
     audit: PluginSelection = Field(default_factory=PluginSelection)
     audit_log: AuditLogSettings = Field(default_factory=AuditLogSettings)
+    audit_capture: AuditCaptureSettings = Field(default_factory=AuditCaptureSettings)
     audit_search: PluginSelection = Field(default_factory=PluginSelection)
     cache: PluginSelection = Field(default_factory=PluginSelection)
     captcha: PluginSelection = Field(default_factory=PluginSelection)

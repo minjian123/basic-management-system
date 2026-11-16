@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from bms_core.audit.staging import drain_staged as _drain_staged
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import InternalError
@@ -28,7 +29,7 @@ from bms_core.events.base import EventEnvelope
 from bms_core.metrics.base import BaseMetrics
 from bms_core.outbox.base import BaseOutboxStore
 
-__all__ = ["METRIC_AUDIT_EMIT_FAILED", "AuditEventEmitter"]
+__all__ = ["METRIC_AUDIT_EMIT_FAILED", "AuditEventEmitter", "drain_staged"]
 
 _LOGGER = get_logger("bms.audit")
 
@@ -146,3 +147,23 @@ class AuditEventEmitter(BaseFrameworkObject):
         if self._metrics is None:
             return
         await self._metrics.counter(METRIC_AUDIT_EMIT_FAILED, labels=ConcurrentStableDict({"event_type": event_type}))
+
+
+async def drain_staged(emitter: AuditEventEmitter) -> int:
+    """把请求级暂存的审计事件逐条发射（显式留痕收尾，失败只告警）。
+
+    用途：三权分立拒绝等「无实体变更」的留痕经 `AuditCapturer.capture()` 暂存，由审计中间件在
+    响应收尾统一入发件箱；发射失败按 `required=False` 处理——业务结果已定，不得因审计再改变。
+
+    Args:
+        emitter: 审计事件发射器。
+
+    Returns:
+        int: 成功发射的事件数。
+    """
+    staged = _drain_staged()
+    published = 0
+    for event in staged:
+        if await emitter.emit(event):
+            published += 1
+    return published

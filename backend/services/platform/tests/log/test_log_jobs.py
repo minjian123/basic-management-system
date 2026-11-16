@@ -1,4 +1,4 @@
-"""审计链消费组声明与处理器护栏（06_01）。"""
+"""审计链消费组声明与处理器护栏（06_01 / 06_02）。"""
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -20,9 +20,13 @@ pytestmark = pytest.mark.kiwi_id(2407)
 
 
 def test_event_consumer_records_shape() -> None:
-    """两条事件一个有序组；工厂每次返回独立处理器。"""
+    """三条事件一个有序组；工厂每次返回独立处理器。"""
     records = event_consumer_records()
-    assert [record.event_type for record in records] == ["sys.operation.logged", "sys.login.logged"]
+    assert [record.event_type for record in records] == [
+        "sys.operation.logged",
+        "sys.login.logged",
+        "sys.data.changed",
+    ]
     for record in records:
         assert record.consumer == AUDIT_CHAIN_GROUP
         assert record.ordered is True

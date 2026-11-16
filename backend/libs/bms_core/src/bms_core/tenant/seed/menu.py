@@ -334,6 +334,17 @@ MENU_SEEDS: ConcurrentStableList[tuple[int, str, str, str, str | None, str | Non
                 False,
                 "log",
             ),
+            (
+                12,
+                "/monitor/data-changes",
+                "数据变更审计",
+                "Data change audit",
+                "monitor/data-changes",
+                "el:histogram",
+                4,
+                False,
+                "log",
+            ),
         )
     )
 )
@@ -378,6 +389,8 @@ BUTTON_SEEDS: ConcurrentStableList[tuple[str, str, str, str, int]] = ConcurrentS
         ("/monitor/sessions", "强制踢出", "kick", "toolbar", 1),
         ("/monitor/operation-logs", "查询", "query", "toolbar", 1),
         ("/monitor/login-logs", "查询", "query", "toolbar", 1),
+        ("/monitor/data-changes", "查询", "query", "toolbar", 1),
+        ("/monitor/data-changes", "链校验", "manage", "toolbar", 2),
     )
 )
 

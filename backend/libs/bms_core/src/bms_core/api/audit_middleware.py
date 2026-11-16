@@ -22,7 +22,7 @@ from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bms_core.api.middleware import BaseMiddleware
-from bms_core.audit.emit import AuditEventEmitter
+from bms_core.audit.emit import AuditEventEmitter, drain_staged
 from bms_core.audit.events import build_operation_event
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import AuditLogSettings, Settings
@@ -156,7 +156,10 @@ class OperationAuditMiddleware(BaseMiddleware):
             send: ASGI 发送通道。
         """
         if scope["type"] != "http" or not self._track(scope):
-            await self.app(scope, receive, send)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                await self._drain(scope)
             return
 
         method = str(scope.get("method", "")).upper()
@@ -206,6 +209,7 @@ class OperationAuditMiddleware(BaseMiddleware):
                 body=b"" if overflow else b"".join(chunks),
                 error=error,
             )
+            await self._drain(scope)
 
     def _track(self, scope: Scope) -> bool:
         """是否需要跟踪该请求（排除探针 / 文档 / 配置排除路径）。"""
@@ -299,3 +303,14 @@ class OperationAuditMiddleware(BaseMiddleware):
             resource_key=scope_context.resource_key if scope_context is not None else None,
         )
         await emitter.emit(event)
+
+    async def _drain(self, scope: Scope) -> None:
+        """排空请求级暂存的显式留痕事件（失败只告警，不改变已定的业务结果）。
+
+        Args:
+            scope: ASGI 作用域（取应用 state 懒建发射器）。
+        """
+        emitter = self._emitter_for(scope)
+        if emitter is None:  # pragma: no cover - 同 _emitter_for
+            return
+        await drain_staged(emitter)

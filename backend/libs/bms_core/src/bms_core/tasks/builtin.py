@@ -72,6 +72,9 @@ AUDIT_VERIFY_PATH = "/api/v1/platform/internal/audit/verify"
 AUDIT_SHARD_ENSURE_PATH = "/api/v1/platform/internal/audit/shards/ensure"
 """审计分片预创建内部端点（06_01，platform 服务）。"""
 
+AUDIT_LOG_TYPES: ConcurrentStableList[str] = ConcurrentStableList(("operation", "login", "data_audit"))
+"""巡检覆盖的审计日志类型（06_01 操作 / 登录；06_02 字段级变更）。"""
+
 
 @dataclass(frozen=True)
 class BuiltinTaskSpec(BaseValueObject):
@@ -143,8 +146,8 @@ BUILTIN_TASK_SPECS: ConcurrentStableList[BuiltinTaskSpec] = ConcurrentStableList
             name="审计链校验",
             cron="30 5 * * *",
             handler=f"{_HANDLER_MODULE}:run_verify_audit_chain",
-            owner="06_01（日志与审计）",
-            summary="逐类校验审计日志哈希链（操作 / 登录），断裂即告警",
+            owner="06_01 / 06_02（日志与审计）",
+            summary="逐类校验审计日志哈希链（操作 / 登录 / 字段级变更），断裂即告警",
         ),
         BuiltinTaskSpec(
             code="purge_soft_deleted",
@@ -337,7 +340,7 @@ async def run_precreate_shard_tables(ctx: TaskContext) -> TaskResult:
 
 
 async def run_verify_audit_chain(ctx: TaskContext) -> TaskResult:
-    """审计链巡检（触发型：操作 + 登录两类日志，06_01）。
+    """审计链巡检（触发型：操作 / 登录 / 字段级变更三类日志，06_01 / 06_02）。
 
     Args:
         ctx: 执行上下文（本执行体只提交请求，逐条重算在 platform 日志域）。
@@ -346,7 +349,7 @@ async def run_verify_audit_chain(ctx: TaskContext) -> TaskResult:
         TaskResult: 全部通过为成功；任一断裂为失败（消息含断裂定位，接监控告警）。
     """
     checked: ConcurrentStableList[str] = ConcurrentStableList()
-    for log_type in ("operation", "login"):
+    for log_type in AUDIT_LOG_TYPES:
         body: ConcurrentStableDict[str, object] = ConcurrentStableDict({"log_type": log_type})
         ok, message, data = await _post_platform(
             path=AUDIT_VERIFY_PATH, body=body, ctx=ctx, label=f"审计链校验（{log_type}）"

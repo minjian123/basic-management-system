@@ -219,6 +219,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit/chain/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify Data Audit Chain
+         * @description 校验字段级变更审计的哈希链完整性。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         chain: 哈希链实现。
+         *         months: 指定月份（逗号分隔；空 = 台账全部月份）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为校验结果（含断裂定位）。
+         */
+        get: operations["verify_data_audit_chain_api_v1_audit_chain_verify_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/data-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Data Changes
+         * @description 数据变更审计分页查询（表名 / 记录 / 操作人 / 域 / 字段 / 时间范围）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         page: 分页参数。
+         *         table_name: 被审计表名。
+         *         record_id: 被审计记录主键。
+         *         operator_id: 操作人主键。
+         *         domain_key: 业务域。
+         *         field: 变更字段名。
+         *         occurred_from: 事件时间下界。
+         *         occurred_to: 事件时间上界。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页结果。
+         */
+        get: operations["list_data_changes_api_v1_audit_data_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/data-changes/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Data Change
+         * @description 数据变更审计详情（含链字段 `prev_hash` / `record_hash`）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         record_id: 审计主键。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为审计详情。
+         *
+         *     Raises:
+         *         DataAuditLogNotFoundError: 记录不存在（90401 / 404）。
+         */
+        get: operations["get_data_change_api_v1_audit_data_changes__record_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses": {
         parameters: {
             query?: never;
@@ -5095,6 +5187,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[ChainVerifyView] */
+        ApiResponse_ChainVerifyView_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ChainVerifyView"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ConfigItem] */
         ApiResponse_ConfigItem_: {
             /**
@@ -5145,6 +5251,34 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["CredentialVerifyResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DataChangeItem] */
+        ApiResponse_DataChangeItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DataChangeItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DataChangePage] */
+        ApiResponse_DataChangePage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DataChangePage"] | null;
             /**
              * Message
              * @default ok
@@ -6463,6 +6597,47 @@ export interface components {
             warnings: string[];
         };
         /**
+         * ChainVerifyView
+         * @description 链校验结果（数据变更审计）。
+         */
+        ChainVerifyView: {
+            /**
+             * Broken Index
+             * @description 断裂位置（月内从 0 起）
+             */
+            broken_index?: number | null;
+            /**
+             * Broken Month
+             * @description 断裂分片月份
+             */
+            broken_month?: string | null;
+            /**
+             * Broken Record Id
+             * @description 断裂记录主键
+             */
+            broken_record_id?: string | null;
+            /**
+             * Checked Months
+             * @description 实际校验月份
+             */
+            checked_months?: string[];
+            /**
+             * Checked Records
+             * @description 校验记录数
+             */
+            checked_records: number;
+            /**
+             * Log Type
+             * @description 日志类型（固定 data_audit）
+             */
+            log_type: string;
+            /**
+             * Valid
+             * @description 链是否完整
+             */
+            valid: boolean;
+        };
+        /**
          * CollaborationSnapshotItem
          * @description 带参快照的能力段（前端取址 / 服务启动对账共用）。
          *
@@ -6746,6 +6921,98 @@ export interface components {
              * @description 口令是否匹配
              */
             valid: boolean;
+        };
+        /**
+         * DataChangeItem
+         * @description 字段级变更审计条目（列表 / 详情同构）。
+         */
+        DataChangeItem: {
+            /**
+             * Created At
+             * Format: date-time
+             * @description 写入时间（UTC）
+             */
+            created_at: string;
+            /**
+             * Domain Key
+             * @description 业务域归属
+             */
+            domain_key: string;
+            /**
+             * Event Id
+             * @description 事件幂等键
+             */
+            event_id: string;
+            /**
+             * Field
+             * @description 变更字段名
+             */
+            field: string;
+            /**
+             * Id
+             * @description 审计主键
+             */
+            id: string;
+            /**
+             * New Value
+             * @description 变更后值（JSON 文本；敏感列 ***）
+             */
+            new_value?: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             * @description 事件发生时间（UTC）
+             */
+            occurred_at: string;
+            /**
+             * Old Value
+             * @description 变更前值（JSON 文本；敏感列 ***）
+             */
+            old_value?: string | null;
+            /**
+             * Operator Id
+             * @description 操作人主键
+             */
+            operator_id?: string | null;
+            /**
+             * Prev Hash
+             * @description 前一条记录哈希
+             */
+            prev_hash: string;
+            /**
+             * Record Hash
+             * @description 本条记录哈希
+             */
+            record_hash: string;
+            /**
+             * Record Id
+             * @description 被审计记录主键
+             */
+            record_id?: string | null;
+            /**
+             * Table Name
+             * @description 被审计的逻辑表名
+             */
+            table_name: string;
+            /**
+             * Tenant Id
+             * @description 租户主键
+             */
+            tenant_id?: string | null;
+        };
+        /**
+         * DataChangePage
+         * @description 数据变更审计分页响应。
+         */
+        DataChangePage: {
+            /** List */
+            list: components["schemas"]["DataChangeItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
         };
         /**
          * DataSourceKind
@@ -11832,6 +12099,257 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    verify_data_audit_chain_api_v1_audit_chain_verify_get: {
+        parameters: {
+            query?: {
+                /** @description 校验月份（yyyyMM，逗号分隔；空 = 台账全部） */
+                months?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ChainVerifyView_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_data_changes_api_v1_audit_data_changes_get: {
+        parameters: {
+            query?: {
+                /** @description 被审计表名（精确） */
+                table_name?: string | null;
+                /** @description 被审计记录主键 */
+                record_id?: number | null;
+                /** @description 操作人主键 */
+                operator_id?: number | null;
+                /** @description 业务域（精确） */
+                domain_key?: string | null;
+                /** @description 变更字段名（精确） */
+                field?: string | null;
+                /** @description 事件时间下界（含） */
+                occurred_from?: string | null;
+                /** @description 事件时间上界（含） */
+                occurred_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DataChangePage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_data_change_api_v1_audit_data_changes__record_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 审计主键（雪花 ID） */
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DataChangeItem_"];
                 };
             };
             /** @description 未认证 */

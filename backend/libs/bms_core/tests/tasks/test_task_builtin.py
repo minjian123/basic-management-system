@@ -104,7 +104,7 @@ async def test_precreate_and_verify_call_platform_endpoints(monkeypatch: pytest.
 
     verified = await run_verify_audit_chain(_ctx())
     assert verified.status == TASK_RUN_SUCCESS
-    assert len(calls) == 3
+    assert len(calls) == 4  # 分片预创建 1 + 三类日志链校验 3
 
     async def _broken(
         *, path: str, body: ConcurrentStableDict[str, object], ctx: TaskContext, label: str

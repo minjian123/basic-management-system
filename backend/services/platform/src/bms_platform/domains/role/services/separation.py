@@ -10,8 +10,9 @@
   （`RoleSeparationConflictError`）；
 - **防自锁**：安全管理员不得修改「自身所属角色」的授权集合，不得通过授权使自身兼任互斥类型角色；
 - **前置生效**：全部校验在写事务内、**写入语句之前**执行；拒绝时不产生任何写入、不递增权限版本；
-- **审计留痕**：拒绝前经基座 `AuditCapturer.capture()` 产生审计事件（当前 `NullAuditCapturer`
-  不落库，真实落库随审计合规模块）。
+- **审计管理员只读**（06_02）：`role_type=audit` 的角色，授权集合必须只含 `log` 业务权限码
+  （该业务只有查询 / 链校验两个动作），越界拒绝 `30048`；
+- **审计留痕**：拒绝前经基座 `AuditCapturer.capture()` 产生审计事件（06_02 起经真实实现落库）。
 
 错误码分工（按路径）：分配路径（写 `sys_user_role`）→ `30010`；角色 / 授权配置路径 → `30048`。
 """
@@ -45,7 +46,10 @@ _TABLE_ROLE = "sys_role"
 """审计表名：角色（操作人侧越权）。"""
 
 _TABLE_ROLE_PERMISSION = "sys_role_permission"
-"""审计表名：角色授权（`role` 归属违规 / 防自锁）。"""
+"""审计表名：角色授权（`role` 归属违规 / 防自锁 / 审计管理员越界）。"""
+
+LOG_BUSINESS_CODE = "log"
+"""审计业务码：审计管理员唯一可持有的业务（`log:query` 查询 / `log:manage` 链校验）。"""
 
 
 class RoleBusinessPermissions(BaseFrameworkObject):
@@ -66,8 +70,19 @@ class RoleBusinessPermissions(BaseFrameworkObject):
         Returns:
             ConcurrentStableSet[int]: 权限码主键集合。
         """
+        return await self.permission_ids_of(ROLE_BUSINESS_CODE)
+
+    async def permission_ids_of(self, business_code: str) -> ConcurrentStableSet[int]:
+        """取指定业务的全部权限码主键（业务码缺失或无权限码时为空集）。
+
+        Args:
+            business_code: 业务码（`role` / `log` 等）。
+
+        Returns:
+            ConcurrentStableSet[int]: 权限码主键集合。
+        """
         for business in await self._businesses.list_all():
-            if business.code != ROLE_BUSINESS_CODE:
+            if business.code != business_code:
                 continue
             rows = await self._permissions.list_by_business(business.id)
             return ConcurrentStableSet(row.id for row in rows)
@@ -178,6 +193,40 @@ class SeparationGuard(BaseFrameworkObject):
         )
         raise UserSeparationConflictError("同一用户不得兼任两类内置管理员（三权分立）")
 
+    async def ensure_audit_admin_readonly(self, *, role: SysRole, permission_ids: ConcurrentStableSet[int]) -> None:
+        """审计管理员只读不变量：授权集合只能来自 `log` 业务（06_02）。
+
+        判定：目标角色 `role_type=audit` 时，本次授权的权限码必须全部属于 `log` 业务
+        （该业务只有 `log:query` / `log:manage` 两个动作码）——越界即视为「给审计管理员写权限」，
+        拒绝 `30048` 并留痕。
+
+        Args:
+            role: 被授权的角色。
+            permission_ids: 本次授权的权限码主键集合。
+
+        Raises:
+            RoleSeparationConflictError: 审计管理员被授予 `log` 业务以外的权限码。
+        """
+        if role.role_type != ROLE_TYPE_AUDIT or not permission_ids:
+            return
+        if self._business_permissions is None:
+            return
+        allowed = await self._business_permissions.permission_ids_of(LOG_BUSINESS_CODE)
+        violated = permission_ids - allowed
+        if not violated:
+            return
+        self._audit_reject(
+            table=_TABLE_ROLE_PERMISSION,
+            model_id=role.id,
+            changes=ConcurrentStableList(
+                [
+                    FieldChange(field="role_type", old=ROLE_TYPE_AUDIT, new="write-permission"),
+                    FieldChange(field="target_id", old="", new=tuple(sorted(violated))),
+                ]
+            ),
+        )
+        raise RoleSeparationConflictError("审计管理员只读：不得授予 `log` 业务以外的权限码（三权分立）")
+
     async def ensure_grant_scope(self, *, role: SysRole, permission_ids: ConcurrentStableSet[int]) -> None:
         """授权路径：`role` 业务只归安全管理员 + 不得修改自身所属角色（`30048`）。
 
@@ -189,6 +238,7 @@ class SeparationGuard(BaseFrameworkObject):
             RoleSeparationConflictError: `role` 业务授予非安全管理员角色，或修改自身所属角色。
         """
         await self._ensure_role_business_owner(role=role, permission_ids=permission_ids)
+        await self.ensure_audit_admin_readonly(role=role, permission_ids=permission_ids)
         await self._ensure_not_self_lock(role=role, table=_TABLE_ROLE_PERMISSION)
 
     async def ensure_not_self_lock(self, *, role: SysRole) -> None:

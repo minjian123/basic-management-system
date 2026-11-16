@@ -110,6 +110,46 @@
     },
     {
       "deprecated": false,
+      "description": "字段级变更审计记录（06_02；一行一字段，经审计链组有序消费落库）",
+      "event_type": "sys.data.changed",
+      "fields": {
+        "domain_key": {
+          "required": false,
+          "type": "string"
+        },
+        "field": {
+          "required": true,
+          "type": "string"
+        },
+        "model_id": {
+          "required": false,
+          "type": "string"
+        },
+        "new_value": {
+          "required": false,
+          "type": "string"
+        },
+        "old_value": {
+          "required": false,
+          "type": "string"
+        },
+        "operator_id": {
+          "required": false,
+          "type": "string"
+        },
+        "table": {
+          "required": true,
+          "type": "string"
+        },
+        "tenant_id": {
+          "required": false,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
       "description": "部门增删改 / 移动",
       "event_type": "sys.dept.changed",
       "fields": {

@@ -367,9 +367,25 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
                 }
             ),
         ),
+        EventContract(
+            event_type="sys.data.changed",
+            description="字段级变更审计记录（06_02；一行一字段，经审计链组有序消费落库）",
+            fields=ConcurrentStableFrozenDict(
+                {
+                    "table": _STRING_REQUIRED,
+                    "field": _STRING_REQUIRED,
+                    "tenant_id": _STRING_OPTIONAL,
+                    "model_id": _STRING_OPTIONAL,
+                    "operator_id": _STRING_OPTIONAL,
+                    "domain_key": _STRING_OPTIONAL,
+                    "old_value": _STRING_OPTIONAL,
+                    "new_value": _STRING_OPTIONAL,
+                }
+            ),
+        ),
     )
 )
-"""平台默认事件契约（33 条；租户事件族 `2.2.0`、`tenant.purged` `1.0.0`，其余 `1.0.0`）。
+"""平台默认事件契约（34 条；租户事件族 `2.2.0`、`tenant.purged` `1.0.0`，其余 `1.0.0`）。
 
 字段规格为对外契约，变更走兼容规则（主版本内只增不删、新增必须可选）；见 `bms_core/events/contracts.py`。
 """

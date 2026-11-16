@@ -12,6 +12,8 @@ from bms_platform.api import (
     outbox,
     plugins,
 )
+from bms_platform.domains.audit.api import chain as audit_chain_api
+from bms_platform.domains.audit.api import data_changes as audit_data_change_api
 from bms_platform.domains.i18n.api import locales as i18n_locales
 from bms_platform.domains.i18n.api import messages as i18n_messages
 from bms_platform.domains.import_export.api.exports import build_export_router
@@ -134,6 +136,9 @@ api_router = mount_service_routers(
             operation_log_api,
             login_log_api,
             internal_audit_api.router,
+            # 审计合规（06_02）：字段级变更审计查询 + 链校验
+            audit_data_change_api.router,
+            audit_chain_api.router,
         ]
     )
 )

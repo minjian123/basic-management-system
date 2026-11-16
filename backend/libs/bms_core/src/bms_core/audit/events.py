@@ -1,30 +1,44 @@
-"""审计日志事件：类型常量、载荷构造与时间 / 聚合键工具（06_01）。
+"""审计日志事件：类型常量、载荷构造与时间 / 聚合键工具（06_01 / 06_02）。
 
 - `OPERATION_LOG_EVENT` / `LOGIN_LOG_EVENT`：操作 / 登录审计事件类型（事件域均为已登记的 `sys`）。
+- `DATA_CHANGED_EVENT`：字段级变更审计事件类型（06_02；topic 按前两段派生 `bms-sys-data`）。
 - `audit_aggregate_key`：分区键（`tenant:{tenant_id}`，无租户 `global`）——审计链组按租户串行。
 - `normalize_occurred_at` / `month_of`：事件时间统一为 UTC naive；分片键取**写入时刻**（调用方传当前时间），
   事件时间另存 `occurred_at`。
-- `build_operation_event` / `build_login_event`：构造事件信封（可选字段为空时**不写入载荷**，契约字段只增不删）。
+- `build_operation_event` / `build_login_event` / `build_data_changed_event`：构造事件信封（可选字段为空时
+  **不写入载荷**，契约字段只增不删）。
 
-载荷中的 `params` / `query` 为**已脱敏**的字符串（中间件负责序列化）；本模块不做脱敏，避免职责重叠。
+载荷中的 `params` / `query` 为**已脱敏**的字符串（中间件负责序列化）；`old_value` / `new_value`
+在本模块统一做「值编码 + 脱敏 + 截断」（捕获侧只管取值，不各写一份口径）。
 """
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from decimal import Decimal
+from typing import cast
 
 from bms_core.audit.base import RecordRef, with_audit_extensions
+from bms_core.collaboration.domain_scope import domain_of_table
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.config import get_settings
+from bms_core.core.exceptions import ParamError
+from bms_core.core.logging import mask_sensitive
+from bms_core.core.serialization import stable_json_dumps
 from bms_core.events.base import EventEnvelope
 
 __all__ = [
+    "DATA_CHANGED_EVENT",
     "GLOBAL_AUDIT_TENANT",
     "LOGIN_LOG_EVENT",
     "OPERATION_LOG_EVENT",
     "audit_aggregate_key",
+    "build_data_changed_event",
     "build_login_event",
     "build_operation_event",
+    "encode_audit_value",
     "month_of",
     "normalize_occurred_at",
 ]
@@ -34,6 +48,9 @@ OPERATION_LOG_EVENT = "sys.operation.logged"
 
 LOGIN_LOG_EVENT = "sys.login.logged"
 """登录日志事件类型（topic `bms-sys-login`）。"""
+
+DATA_CHANGED_EVENT = "sys.data.changed"
+"""字段级变更审计事件类型（topic `bms-sys-data`；一行一字段）。"""
 
 GLOBAL_AUDIT_TENANT = "global"
 """无租户（平台级）链分条标识（与 `hashchain.GLOBAL_CHAIN_TENANT` 同值，避免跨模块取值）。"""
@@ -221,6 +238,117 @@ def build_login_event(
     _put(payload, "fail_reason", fail_reason)
     return EventEnvelope(
         event_type=LOGIN_LOG_EVENT,
+        payload=payload,
+        tenant_id=tenant_id,
+        trace_id=trace_id,
+        occurred_at=occurred,
+        aggregate_key=audit_aggregate_key(tenant_id),
+    )
+
+
+def _encode_scalar(value: object) -> str:
+    """把单个字段值编码为审计文本（类型归一，null 由调用方处理）。
+
+    Args:
+        value: 原始值（非 None）。
+
+    Returns:
+        str: 编码文本（时间 ISO8601 UTC、布尔 `true` / `false`、数字十进制字符串、字节 base64、
+        映射 / 序列稳定 JSON）。
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, datetime):
+        return normalize_occurred_at(value).isoformat(timespec="microseconds")
+    if isinstance(value, (int, float, Decimal)):
+        return str(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return base64.b64encode(bytes(cast("bytes", value))).decode("ascii")
+    if isinstance(value, (Mapping, list, tuple, set, frozenset)):
+        return stable_json_dumps(cast("object", value))
+    return str(value)
+
+
+def encode_audit_value(field: str, value: object) -> str | None:
+    """编码单个字段值：类型归一 → 敏感名单脱敏 → 超长截断。
+
+    脱敏复用 `core.logging.mask_sensitive`（内置名单 ∪ `[log]` 追加），按**字段名**判定，
+    与操作日志同一口径；截断上限取 `[audit_capture].max_value_chars`，截断处追加 `…(truncated)`。
+
+    Args:
+        field: 字段名（脱敏按它判定）。
+        value: 原始值（None 表示该端不存在，返回 None）。
+
+    Returns:
+        str | None: 编码后的文本；None 原样返回。
+    """
+    if value is None:
+        return None
+    encoded = _encode_scalar(value)
+    masked = mask_sensitive(ConcurrentStableDict({field: encoded}))
+    text = str(cast("Mapping[str, object]", masked).get(field, encoded)) if isinstance(masked, Mapping) else encoded
+    limit = get_settings().audit_capture.max_value_chars
+    if len(text) > limit:
+        text = f"{text[:limit]}…(truncated)"
+    return text
+
+
+def build_data_changed_event(
+    *,
+    tenant_id: str | None,
+    table: str,
+    model_id: int | str | None,
+    field: str,
+    old_value: object = None,
+    new_value: object = None,
+    operator_id: int | None = None,
+    domain_key: str | None = None,
+    occurred_at: datetime | None = None,
+    trace_id: str | None = None,
+) -> EventEnvelope:
+    """构造一条字段级变更审计事件（一行一字段）。
+
+    Args:
+        tenant_id: 租户主键（雪花 id 十进制字符串；无租户为空）。
+        table: 被审计的逻辑表名。
+        model_id: 被审计记录主键（雪花 id；无主键场景为 0 / 空）。
+        field: 变更字段名（显式留痕时为判定要素名）。
+        old_value: 变更前值（None = 新增）。
+        new_value: 变更后值（None = 删除）。
+        operator_id: 操作人主键。
+        domain_key: 业务域归属（None 时按表归属派生）。
+        occurred_at: 事件时间；None 取当前 UTC。
+        trace_id: 链路 id。
+
+    Returns:
+        EventEnvelope: 事件信封（信封租户位与载荷同值）。
+
+    Raises:
+        ParamError: 表名或字段名为空（10001）。
+    """
+    if not table or not field:
+        raise ParamError(f"审计事件缺少表名或字段名：table={table!r} field={field!r}")
+    occurred = normalize_occurred_at(occurred_at)
+    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "table": table,
+            "field": field,
+            "domain_key": domain_key or domain_of_table(table),
+        }
+    )
+    _put(payload, "tenant_id", tenant_id)
+    _put(payload, "model_id", None if model_id is None else str(model_id))
+    _put(payload, "operator_id", None if operator_id is None else str(operator_id))
+    old_encoded = encode_audit_value(field, old_value)
+    new_encoded = encode_audit_value(field, new_value)
+    if old_encoded is not None:
+        payload.set("old_value", old_encoded)
+    if new_encoded is not None:
+        payload.set("new_value", new_encoded)
+    return EventEnvelope(
+        event_type=DATA_CHANGED_EVENT,
         payload=payload,
         tenant_id=tenant_id,
         trace_id=trace_id,
