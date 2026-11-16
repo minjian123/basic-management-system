@@ -125,6 +125,8 @@ from bms_core.msgclient.instances import (
 )
 from bms_core.msgclient.rpc import RpcClient
 from bms_core.notification.base import BaseNotificationCenter
+from bms_core.notification.preference import BaseNotificationPreferenceStore
+from bms_core.notification.preference_http import HttpNotificationPreferenceStore
 from bms_core.notify.base import BaseNotifier
 from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
 from bms_core.oauth.jwt import JwtServiceTokenIssuerFactory
@@ -146,6 +148,7 @@ from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.permission.rbac import register_rbac_permission
 from bms_core.preference.base import BasePreferenceStore
+from bms_core.preference.sql import SqlPreferenceStore
 from bms_core.print.base import BasePrintExporter, BasePrintTemplateProvider
 from bms_core.query.base import BaseQueryProviderRegistry
 from bms_core.query.local import LocalQueryProviderRegistry
@@ -247,6 +250,7 @@ _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.masking.null",
         "bms_core.metrics.null",
         "bms_core.notification.null",
+        "bms_core.notification.preference_null",
         "bms_core.notify.null",
         "bms_core.oauth.null",
         "bms_core.optionset.null",
@@ -349,6 +353,12 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("file_content_search", BaseFileContentSearch, "file_content_search", "file_content_search"),
         PluginWiring("notifier", BaseNotifier, "notifier", "notifier"),
         PluginWiring("notification_center", BaseNotificationCenter, "notification_center", "notification_center"),
+        PluginWiring(
+            "notification_preference",
+            BaseNotificationPreferenceStore,
+            "notification_preference",
+            "notification_preference",
+        ),
         PluginWiring("realtime_publisher", BaseRealtimePublisher, "realtime_publisher", "realtime_publisher"),
         PluginWiring("http_client", BaseHttpClient, "http_client", "http_client"),
         PluginWiring("webhook_sender", BaseWebhookSender, "webhook_sender", "webhook_sender"),
@@ -460,6 +470,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("i18n_cache_region", "memory", MemoryI18nCacheRegionFactory(settings))
     register_plugin("i18n_cache_region", "redis", RedisI18nCacheRegionFactory(settings))
     register_plugin("locale_registry", "sql", SqlLocaleRegistryFactory(app))
+    register_plugin("preference", "sql", SqlPreferenceStoreFactory(app))
+    register_plugin("notification_preference", "http", HttpNotificationPreferenceStoreFactory(app))
     register_plugin("translator", "db", DbTranslatorFactory(app))
     register_plugin("config_source", "sql", SqlConfigSourceFactory(app))
     register_plugin("config_source", "http", HttpConfigSourceFactory(app))
@@ -1303,6 +1315,58 @@ class SqlLocaleRegistryFactory(BasePluginFactory[SqlLocaleRegistry]):
         cache = cast("I18nCacheRegion | None", getattr(self._app.state, "i18n_cache_region", None))
         settings = cast("Settings", self._app.state.settings)
         return SqlLocaleRegistry(engines=engines, cache=cache, options=settings.i18n_options)
+
+
+class SqlPreferenceStoreFactory(BasePluginFactory[SqlPreferenceStore]):
+    """用户偏好 SQL 实现工厂（注入引擎注册表）。"""
+
+    plugin_key: str = "preference"
+    plugin_name: str = "sql"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取 `engine_registry`）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> SqlPreferenceStore:
+        """构造用户偏好存储。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            SqlPreferenceStore: 偏好存储实例。
+        """
+        return SqlPreferenceStore(engines=cast("EngineRegistry", self._app.state.engine_registry))
+
+
+class HttpNotificationPreferenceStoreFactory(BasePluginFactory[HttpNotificationPreferenceStore]):
+    """通知偏好跨服务读取工厂（注入服务间调用客户端）。"""
+
+    plugin_key: str = "notification_preference"
+    plugin_name: str = "http"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取服务间调用客户端）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> HttpNotificationPreferenceStore:
+        """构造通知偏好读取实现。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            HttpNotificationPreferenceStore: 通知偏好读取实例。
+        """
+        return HttpNotificationPreferenceStore(client=_resolve_service_client(self._app))
 
 
 class DbTranslatorFactory(BasePluginFactory[DbTranslator]):

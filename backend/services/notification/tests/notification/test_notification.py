@@ -1,6 +1,7 @@
 """通知中心读契约测试（Kiwi 812）：契约继承 / 数据契约与事件负载 / 占位实现 / 依赖解析 / 占位路由。"""
 
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.deps import get_notification_center
@@ -17,6 +18,7 @@ from bms_core.notification.base import (
 from bms_core.notification.null import NullNotificationCenter
 from bms_core.schemas.filters import BaseFilterQuery
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
+from bms_notification.domains.notification.center import DatabaseNotificationCenter
 from bms_notification.main import ApplicationFactory
 from tests_support.auth import auth_headers
 
@@ -134,18 +136,37 @@ async def test_null_center_fixed_returns() -> None:
 
 
 @pytest.mark.kiwi_id(812)
-async def test_dependency_provider_resolves() -> None:
-    """依赖解析：应用装配占位通知中心；提供者解析到同一实例。"""
-    app = ApplicationFactory().create(None)
-    async with lifespan(app):
-        center = app.state.notification_center
-        assert isinstance(center, NullNotificationCenter)
-        assert resolve_plugin("notification_center", None) is center
+def test_prepare_settings_respects_explicit_providers() -> None:
+    """显式配置的 provider 不被默认值覆盖。"""
+    from types import SimpleNamespace
+    from typing import cast
+
+    from bms_core.core.config import Settings
+
+    factory = ApplicationFactory()
+    settings = SimpleNamespace(
+        notification_center=SimpleNamespace(provider="null"),
+        notification_preference=SimpleNamespace(provider="null"),
+    )
+    factory.prepare_settings(cast("Settings", settings))
+    assert settings.notification_center.provider == "null"
+    assert settings.notification_preference.provider == "null"
 
 
 @pytest.mark.kiwi_id(812)
-async def test_placeholder_routes(client: AsyncClient) -> None:
-    """占位路由：列表空分页 / 未读 0 / 详情 null / 已读 0 / 删除 false。"""
+async def test_dependency_provider_resolves() -> None:
+    """依赖解析：应用装配真实通知中心；提供者解析到同一实例。"""
+    app = ApplicationFactory().create(None)
+    async with lifespan(app):
+        center = app.state.notification_center
+        assert isinstance(center, DatabaseNotificationCenter)
+        assert resolve_plugin("notification_center", "db") is center
+
+
+@pytest.mark.kiwi_id(812)
+async def test_placeholder_routes(service_app: FastAPI, client: AsyncClient) -> None:
+    """占位实现经路由：列表空分页 / 未读 0 / 详情 null / 已读 0 / 删除 false。"""
+    service_app.dependency_overrides[get_notification_center] = NullNotificationCenter
     listed = await client.get(API)
     assert listed.status_code == 200
     assert listed.json()["data"] == {"list": [], "total": 0, "page": 1, "size": 20}

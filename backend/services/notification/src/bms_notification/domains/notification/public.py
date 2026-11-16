@@ -1,7 +1,10 @@
 """通知业务域公共出口（D2 唯一跨域引用面）。
 
-本域当前无跨域使用方，出口保持为空占位：**每域一个出口**的形态一致，便于未来按需显式增补；
+07_02（公告）/ 07_03（邮件短信）如需在通知服务内复用通知请求契约，经本出口导入；
 域内实现文件不得被跨域直接导入（D1 拦截）。
 """
 
-__all__: list[str] = []  # bare-collections:allow（__all__ 须为内置 list，供 import * 与工具读取）
+from bms_core.notification.request import NotificationRequest
+from bms_core.notification.types import NOTIFICATION_TYPE_APPROVAL, NOTIFICATION_TYPES
+
+__all__ = ["NOTIFICATION_TYPES", "NOTIFICATION_TYPE_APPROVAL", "NotificationRequest"]

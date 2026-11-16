@@ -122,7 +122,7 @@ export interface paths {
         };
         /**
          * Get Unread Count
-         * @description 当前未读总数（服务端唯一口径）。
+         * @description 当前未读总数（服务端唯一口径；登录即可）。
          *
          *     Args:
          *         center: 通知中心。
@@ -156,14 +156,14 @@ export interface paths {
          *         mark_read: 命中是否标记已读。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为通知或 null。
+         *         ApiResponse: 统一响应，data 为通知。
          */
         get: operations["get_notification_detail_api_v1_notifications__notification_id__get"];
         put?: never;
         post?: never;
         /**
          * Delete Notification
-         * @description 删除单条通知。
+         * @description 删除单条通知（软删除，仅本人）。
          *
          *     Args:
          *         center: 通知中心。
@@ -321,10 +321,14 @@ export interface operations {
     list_notifications_api_v1_notifications_get: {
         parameters: {
             query?: {
-                /** @description 关键字（跨字段模糊，命中列由后端定义） */
+                /** @description 关键字（匹配标题） */
                 keyword?: string | null;
                 /** @description 筛选条件 JSON（FilterSpec 数组） */
                 filters?: string | null;
+                /** @description 通知类型（system/approval/alert/import） */
+                type?: string | null;
+                /** @description 已读状态（true / false） */
+                is_read?: boolean | null;
                 /** @description 页码（从 1 起） */
                 page?: number;
                 /** @description 每页条数（默认 20，上限 200） */

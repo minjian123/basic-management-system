@@ -585,8 +585,8 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             owner="platform",
             domain="user",
             datasource=Datasource.TENANT,
-            status=TableStatus.PLANNED,
-            note="用户偏好（未定稿，不进链）",
+            status=TableStatus.ENABLED,
+            note="用户偏好（07_01 真实落库，已入租户链）",
         ),
         TableRecord(
             table_name="sys_icon",
@@ -609,8 +609,8 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             owner="notification",
             domain="notification",
             datasource=Datasource.TENANT,
-            status=TableStatus.PLANNED,
-            note="站内信 / 待办（未定稿，不进链）",
+            status=TableStatus.ENABLED,
+            note="站内信 / 待办（07_01 真实落库，已入租户链）",
         ),
         TableRecord(
             table_name="ai_chat_log",

@@ -131,7 +131,7 @@
         "operationId": "list_notifications_api_v1_notifications_get",
         "parameters": [
           {
-            "description": "关键字（跨字段模糊，命中列由后端定义）",
+            "description": "关键字（匹配标题）",
             "in": "query",
             "name": "keyword",
             "required": false,
@@ -144,7 +144,7 @@
                   "type": "null"
                 }
               ],
-              "description": "关键字（跨字段模糊，命中列由后端定义）",
+              "description": "关键字（匹配标题）",
               "title": "Keyword"
             }
           },
@@ -164,6 +164,42 @@
               ],
               "description": "筛选条件 JSON（FilterSpec 数组）",
               "title": "Filters"
+            }
+          },
+          {
+            "description": "通知类型（system/approval/alert/import）",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "通知类型（system/approval/alert/import）",
+              "title": "Type"
+            }
+          },
+          {
+            "description": "已读状态（true / false）",
+            "in": "query",
+            "name": "is_read",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "已读状态（true / false）",
+              "title": "Is Read"
             }
           },
           {
@@ -477,7 +513,7 @@
     },
     "/api/v1/notifications/unread-count": {
       "get": {
-        "description": "当前未读总数（服务端唯一口径）。\n\nArgs:\n    center: 通知中心。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `{count}`。",
+        "description": "当前未读总数（服务端唯一口径；登录即可）。\n\nArgs:\n    center: 通知中心。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `{count}`。",
         "operationId": "get_unread_count_api_v1_notifications_unread_count_get",
         "responses": {
           "200": {
@@ -549,7 +585,7 @@
     },
     "/api/v1/notifications/{notification_id}": {
       "delete": {
-        "description": "删除单条通知。\n\nArgs:\n    center: 通知中心。\n    notification_id: 通知 ID。\n\nReturns:\n    ApiResponse: 统一响应，data 为是否删除到既有通知。",
+        "description": "删除单条通知（软删除，仅本人）。\n\nArgs:\n    center: 通知中心。\n    notification_id: 通知 ID。\n\nReturns:\n    ApiResponse: 统一响应，data 为是否删除到既有通知。",
         "operationId": "delete_notification_api_v1_notifications__notification_id__delete",
         "parameters": [
           {
@@ -640,7 +676,7 @@
         ]
       },
       "get": {
-        "description": "取通知详情（查看即已读）。\n\nArgs:\n    center: 通知中心。\n    notification_id: 通知 ID。\n    mark_read: 命中是否标记已读。\n\nReturns:\n    ApiResponse: 统一响应，data 为通知或 null。",
+        "description": "取通知详情（查看即已读）。\n\nArgs:\n    center: 通知中心。\n    notification_id: 通知 ID。\n    mark_read: 命中是否标记已读。\n\nReturns:\n    ApiResponse: 统一响应，data 为通知。",
         "operationId": "get_notification_detail_api_v1_notifications__notification_id__get",
         "parameters": [
           {

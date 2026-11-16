@@ -78,6 +78,8 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             settings.hash_chain.provider = "sha256"
         if not settings.audit.provider:
             settings.audit.provider = DbAuditCapturer.plugin_name
+        if not settings.preference.provider:
+            settings.preference.provider = "sql"
         # 平台侧装配：真实校验器 + 直查本库数据来源工厂 + 字段权限 provider 工厂
         register_platform_permission(settings)
         register_rbac_data_scope(settings)

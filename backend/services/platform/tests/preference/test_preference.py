@@ -16,6 +16,7 @@ from bms_core.preference.base import (
     is_valid_pref_key,
 )
 from bms_core.preference.null import NullPreferenceStore
+from bms_core.preference.sql import SqlPreferenceStore
 from bms_platform.main import ApplicationFactory
 
 API = "/api/v1/preferences"
@@ -73,29 +74,32 @@ async def test_null_store_falls_back_to_default() -> None:
 
 @pytest.mark.kiwi_id(780)
 async def test_dependency_provider_resolves() -> None:
-    """依赖解析：应用装配占位偏好存储；提供者解析到同一实例。"""
+    """依赖解析：应用装配真实偏好存储；提供者解析到同一实例。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         store = app.state.preference_store
-        assert isinstance(store, NullPreferenceStore)
-        assert resolve_plugin("preference", None) is store
+        assert isinstance(store, SqlPreferenceStore)
+        assert resolve_plugin("preference", "sql") is store
 
 
 @pytest.mark.kiwi_id(780)
-async def test_placeholder_route(client: AsyncClient) -> None:
-    """占位路由：写入回显、读取回退默认值、重置、非法键 10001。"""
+async def test_preference_route(client: AsyncClient) -> None:
+    """偏好路由：写入后读取到真实值、重置、非法键 / 未知域错误码。"""
     put = await client.put(f"{API}/ui.theme", json={"value": {"mode": "dark"}})
     assert put.status_code == 200
-    assert put.json()["data"] == {"key": "ui.theme", "value": {"mode": "dark"}}
 
     got = await client.get(f"{API}/ui.theme")
     assert got.status_code == 200
-    assert got.json()["data"] == {"key": "ui.theme", "value": None}
+    assert got.json()["data"] == {"key": "ui.theme", "value": {"mode": "dark"}}
 
     deleted = await client.delete(f"{API}/ui.theme")
     assert deleted.status_code == 200
-    assert deleted.json()["data"] is None
+    assert (await client.get(f"{API}/ui.theme")).json()["data"]["value"] is None
 
     bad = await client.get(f"{API}/BadKey")
     assert bad.status_code == 200
     assert bad.json()["code"] == 10001
+
+    unknown = await client.put(f"{API}/unknown.key", json={"value": 1})
+    assert unknown.status_code == 400
+    assert unknown.json()["code"] == 30021

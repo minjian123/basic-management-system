@@ -192,6 +192,22 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
             fields=ConcurrentStableFrozenDict({"file_id": _STRING_REQUIRED, "upload_id": _STRING_OPTIONAL}),
         ),
         EventContract(
+            event_type="notification.requested",
+            description="业务方请求发送一条通知（通知组消费落库；正文已按收件人语言渲染）",
+            fields=ConcurrentStableFrozenDict(
+                {
+                    "user_id": _STRING_REQUIRED,
+                    "title": _STRING_REQUIRED,
+                    "type": _STRING_REQUIRED,
+                    "content": _STRING_OPTIONAL,
+                    "biz_type": _STRING_OPTIONAL,
+                    "biz_id": _STRING_OPTIONAL,
+                    "email": _STRING_OPTIONAL,
+                    "phone": _STRING_OPTIONAL,
+                }
+            ),
+        ),
+        EventContract(
             event_type="notification.sent",
             description="通知 / 邮件 / 短信发送",
             fields=ConcurrentStableFrozenDict(
@@ -385,7 +401,7 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
         ),
     )
 )
-"""平台默认事件契约（34 条；租户事件族 `2.2.0`、`tenant.purged` `1.0.0`，其余 `1.0.0`）。
+"""平台默认事件契约（35 条；租户事件族 `2.2.0`、`tenant.purged` `1.0.0`，其余 `1.0.0`）。
 
 字段规格为对外契约，变更走兼容规则（主版本内只增不删、新增必须可选）；见 `bms_core/events/contracts.py`。
 """

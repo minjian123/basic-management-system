@@ -1369,6 +1369,33 @@
         "title": "ApiResponse[InactiveScanResult]",
         "type": "object"
       },
+      "ApiResponse_InternalPreferenceResolveResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InternalPreferenceResolveResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[InternalPreferenceResolveResponse]",
+        "type": "object"
+      },
       "ApiResponse_LocaleDeleteResult_": {
         "additionalProperties": false,
         "properties": {
@@ -6689,6 +6716,56 @@
           "locked"
         ],
         "title": "InactiveScanResult",
+        "type": "object"
+      },
+      "InternalPreferenceResolveRequest": {
+        "additionalProperties": false,
+        "description": "按用户批量取偏好请求。",
+        "properties": {
+          "keys": {
+            "description": "偏好键序列",
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "user_id": {
+            "description": "用户主键（雪花 id 十进制字符串）",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "InternalPreferenceResolveRequest",
+        "type": "object"
+      },
+      "InternalPreferenceResolveResponse": {
+        "additionalProperties": false,
+        "description": "按用户批量取偏好响应（只含存在的键）。",
+        "properties": {
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用户时区（IANA；未设置为空）",
+            "title": "Timezone"
+          },
+          "values": {
+            "additionalProperties": true,
+            "description": "偏好键 → 值（仅存在的键）",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "InternalPreferenceResolveResponse",
         "type": "object"
       },
       "InternalUserItem": {
@@ -26682,6 +26759,116 @@
         "summary": "按用户取权限数据",
         "tags": [
           "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/preferences/resolve": {
+      "post": {
+        "description": "按用户批量取偏好值 + 时区（缺失键由调用方回落默认）。\n\nArgs:\n    req: 批量取偏好请求。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse[InternalPreferenceResolveResponse]: 统一响应，data 为 `{values, timezone}`。\n\nRaises:\n    ParamError: 用户主键非十进制字符串（10001）。",
+        "operationId": "resolve_preferences_api_v1_platform_internal_preferences_resolve_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalPreferenceResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_InternalPreferenceResolveResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Resolve Preferences",
+        "tags": [
+          "preference-internal"
         ]
       }
     },

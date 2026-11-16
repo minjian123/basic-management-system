@@ -70,6 +70,46 @@
     },
     {
       "deprecated": false,
+      "description": "业务方请求发送一条通知（通知组消费落库；正文已按收件人语言渲染）",
+      "event_type": "notification.requested",
+      "fields": {
+        "biz_id": {
+          "required": false,
+          "type": "string"
+        },
+        "biz_type": {
+          "required": false,
+          "type": "string"
+        },
+        "content": {
+          "required": false,
+          "type": "string"
+        },
+        "email": {
+          "required": false,
+          "type": "string"
+        },
+        "phone": {
+          "required": false,
+          "type": "string"
+        },
+        "title": {
+          "required": true,
+          "type": "string"
+        },
+        "type": {
+          "required": true,
+          "type": "string"
+        },
+        "user_id": {
+          "required": true,
+          "type": "string"
+        }
+      },
+      "version": "1.0.0"
+    },
+    {
+      "deprecated": false,
       "description": "通知 / 邮件 / 短信发送",
       "event_type": "notification.sent",
       "fields": {

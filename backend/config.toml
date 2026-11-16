@@ -406,6 +406,16 @@ options = {}
 provider = "redis"
 options = {}
 
+[preference]
+# 用户偏好存储：sql = platform 服务真实落 sys_user_preference（platform 服务未显式配置时自动置 sql）；
+# 空串 = null（占位：固定回落默认值，其他服务 / 测试态）
+provider = ""
+
+[notification_preference]
+# 通知偏好读取：http = 经 service_client 读 platform 内部端点（通知服务未显式配置时自动置 http）；
+# 空串 = null（全渠道开启、无免打扰）
+provider = ""
+
 [event_consumer]
 # 事件消费组运行时（插件化配置；当前只有空串 = null 只装载声明不启动；msg 消费组待实现）
 # 声明归各服务自持（`event_consumer_records()` 钩子），基座统一装载——本段只管运行时参数

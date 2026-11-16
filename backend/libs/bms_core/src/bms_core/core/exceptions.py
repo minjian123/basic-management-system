@@ -735,6 +735,58 @@ class UserReferencedError(UserDataError):
         super().__init__(ErrorCode.USER_REFERENCED, message, http_status=409, data=data)
 
 
+class PreferenceKeyInvalidError(UserDataError):
+    """偏好键不在允许范围（`30021` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化偏好键非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.PREFERENCE_KEY_INVALID, message, http_status=400, data=data)
+
+
+class PreferenceValueInvalidError(UserDataError):
+    """偏好值 JSON 非法或超出大小上限（`30022` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化偏好值非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.PREFERENCE_VALUE_INVALID, message, http_status=400, data=data)
+
+
+class PreferenceKeyLimitError(UserDataError):
+    """单用户偏好键数超限（`30023` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化偏好键数超限异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.PREFERENCE_KEY_LIMIT, message, http_status=409, data=data)
+
+
+class PreferenceDndInvalidError(UserDataError):
+    """免打扰时段配置非法（`30024` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化免打扰配置非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.PREFERENCE_DND_INVALID, message, http_status=400, data=data)
+
+
 class AccountLockError(UserDataError):
     """账号锁定记录段（用户与数据段内子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 
@@ -1900,6 +1952,52 @@ class JobHandlerNotRegisteredError(JobError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.JOB_HANDLER_NOT_REGISTERED, message, http_status=500, data=data)
+
+
+class NotificationError(BizError):
+    """通知中心段（`70xxx`）异常基类。"""
+
+
+class NotificationNotFoundError(NotificationError):
+    """通知不存在或已删除（`70101` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTIFICATION_NOT_FOUND, message, http_status=404, data=data)
+
+
+class NotificationForbiddenError(NotificationError):
+    """无权读取他人通知（`70102` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTIFICATION_FORBIDDEN, message, http_status=403, data=data)
+
+
+class NotificationBatchInvalidError(NotificationError):
+    """批量已读参数非法（空 / 超上限，`70103` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTIFICATION_BATCH_INVALID, message, http_status=400, data=data)
+
+
+class NotificationGenerateError(NotificationError):
+    """通知生成失败（消费落库异常，`70104` / 500）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTIFICATION_GENERATE_FAILED, message, http_status=500, data=data)
+
+
+class NotificationPushUnreachableError(NotificationError):
+    """推送不可达（目标无活动连接，`70105` / 503；不向业务抛出）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTIFICATION_PUSH_UNREACHABLE, message, http_status=503, data=data)
+
+
+class NotificationDeleteForbiddenError(NotificationError):
+    """无权删除他人通知（`70106` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.NOTIFICATION_DELETE_FORBIDDEN, message, http_status=403, data=data)
 
 
 class ExportError(FileError):

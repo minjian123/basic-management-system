@@ -460,8 +460,8 @@ def test_table_domain_derivation() -> None:
     assert {"sys_user", "sys_user_extension", "sys_user_preference"} <= owned_tables_for_domain("user")
     assert owned_tables_for_domain("user", datasource=Datasource.PLATFORM) == frozenset()
     assert owned_tables_for_domain("user", include_planned=False) == frozenset(
-        {"sys_user", "sys_account_lock", "sys_user_extension"}
-    ), "锁定表随用户域入链；用户偏好为 planned 不进链"
+        {"sys_user", "sys_account_lock", "sys_user_extension", "sys_user_preference"}
+    ), "锁定表随用户域入链；用户偏好随 07_01 入链"
     assert owned_tables_for_domain("ghost-domain") == frozenset()
 
 

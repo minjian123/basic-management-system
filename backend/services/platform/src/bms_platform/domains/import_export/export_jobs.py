@@ -29,6 +29,7 @@ from bms_core.db.session import DbSession
 from bms_core.jobs.base import BaseJobHandler, JobContext, JobResult
 from bms_core.jobs.client import build_service_client
 from bms_core.jobs.plugins import ensure_job_plugins
+from bms_core.notification.request import NotificationRequest, enqueue_notification_request
 from bms_core.print.base import BasePrintExporter
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.servicecall.null import NullServiceClient
@@ -46,6 +47,7 @@ from bms_platform.domains.import_export.services.exports import (
     build_export_masker,
     cleanup_targets,
 )
+from bms_platform.domains.user.public import UserRepository
 from bms_platform.exports import build_export_definitions
 
 __all__ = ["ExportCleanupJob", "ExportExecuteJob"]
@@ -144,9 +146,49 @@ class ExportExecuteJob(BaseJobHandler):
                 )
         except asyncio.CancelledError:
             return JobResult.canceled("导出已取消")
+        await _notify_export_completed(ctx, payload, total)
         output = ConcurrentStableDict(artifact.to_result())
         output.set("total", total)
         return JobResult.success(output, message=f"导出完成：{total} 条")
+
+
+async def _notify_export_completed(ctx: JobContext, payload: ExportPayload, total: int) -> None:
+    """异步导出成功后给提交人发站内信（失败不影响导出结果）。
+
+    Args:
+        ctx: 作业上下文。
+        payload: 导出意图（含提交人）。
+        total: 导出行数。
+    """
+    if payload.actor is None:
+        return
+    try:
+        async with ctx.session() as session:
+            user = await UserRepository(session).get(payload.actor)
+            locale = user.locale if user is not None else None
+        english = bool(locale and locale.lower().startswith("en"))
+        title = f"Export completed: {payload.biz}" if english else f"导出完成：{payload.biz}"
+        content = (
+            f"{total} rows. Open export history to view or download."
+            if english
+            else f"共 {total} 条，请到导出记录查看或下载。"
+        )
+        request = NotificationRequest(
+            user_id=payload.actor,
+            title=title,
+            type="import",
+            content=content,
+            biz_type="export",
+            biz_id=str(ctx.job_id),
+        )
+        async with ctx.session() as session, session.begin():
+            await enqueue_notification_request(
+                session,
+                request,
+                tenant_id=str(ctx.tenant_id) if ctx.tenant_id is not None else None,
+            )
+    except Exception as exc:  # 通知是副作用，失败只告警
+        _LOGGER.warning("导出完成通知入队失败", job_id=ctx.job_id, error=str(exc))
 
 
 class ExportCleanupJob(BaseJobHandler):

@@ -3287,6 +3287,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/internal/preferences/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Preferences
+         * @description 按用户批量取偏好值 + 时区（缺失键由调用方回落默认）。
+         *
+         *     Args:
+         *         req: 批量取偏好请求。
+         *         uow: 请求级工作单元。
+         *
+         *     Returns:
+         *         ApiResponse[InternalPreferenceResolveResponse]: 统一响应，data 为 `{values, timezone}`。
+         *
+         *     Raises:
+         *         ParamError: 用户主键非十进制字符串（10001）。
+         */
+        post: operations["resolve_preferences_api_v1_platform_internal_preferences_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/internal/seeds/orchestrate": {
         parameters: {
             query?: never;
@@ -5891,6 +5921,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["InactiveScanResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[InternalPreferenceResolveResponse] */
+        ApiResponse_InternalPreferenceResolveResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["InternalPreferenceResolveResponse"] | null;
             /**
              * Message
              * @default ok
@@ -9050,6 +9094,40 @@ export interface components {
              * @description 扫描候选账号数
              */
             scanned: number;
+        };
+        /**
+         * InternalPreferenceResolveRequest
+         * @description 按用户批量取偏好请求。
+         */
+        InternalPreferenceResolveRequest: {
+            /**
+             * Keys
+             * @description 偏好键序列
+             */
+            keys?: string[];
+            /**
+             * User Id
+             * @description 用户主键（雪花 id 十进制字符串）
+             */
+            user_id: string;
+        };
+        /**
+         * InternalPreferenceResolveResponse
+         * @description 按用户批量取偏好响应（只含存在的键）。
+         */
+        InternalPreferenceResolveResponse: {
+            /**
+             * Timezone
+             * @description 用户时区（IANA；未设置为空）
+             */
+            timezone?: string | null;
+            /**
+             * Values
+             * @description 偏好键 → 值（仅存在的键）
+             */
+            values?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * InternalUserItem
@@ -22357,6 +22435,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_PermissionSubjectResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    resolve_preferences_api_v1_platform_internal_preferences_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InternalPreferenceResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_InternalPreferenceResolveResponse_"];
                 };
             };
             /** @description 未认证 */

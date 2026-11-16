@@ -1,6 +1,6 @@
-"""通知中心占位路由：`/api/v1/notifications`（登录即可；真实取数 / 落库 / 推送随通知公告阶段）。
+"""通知中心路由：`/api/v1/notifications`（列表 / 详情 / 未读数 / 已读 / 删除）。
 
-- 列表 / 详情（查看即已读）/ 未读计数 / 已读（批量 / 全部）/ 删除，统一经 `BaseNotificationCenter`。
+- 列表 / 详情 / 已读 / 删除挂权限码；未读数（角标）属登录态内建能力，不设权限码。
 - **未读数以服务端为唯一口径**：已读接口返回操作后的未读总数，前端据此校准角标。
 - 静态路径（`/unread-count` `/read` `/read-all`）先于 `/{notification_id}` 登记，避免路径吞并。
 """
@@ -15,6 +15,7 @@ from bms_core.api.deps import get_notification_center
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.notification.base import BaseNotificationCenter
+from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.filters import BaseFilterQuery, FilterSpec
 from bms_core.schemas.notification import NotificationReadRequest, UnreadCountResponse
@@ -29,6 +30,10 @@ router = BaseRouter(
 
 CenterDep = Annotated[BaseNotificationCenter, Depends(get_notification_center)]
 PageDep = Annotated[BasePageQuery, Depends(page_query)]
+
+_REQUIRE_QUERY = Depends(require_permission("notification:query"))
+_REQUIRE_UPDATE = Depends(require_permission("notification:update"))
+_REQUIRE_DELETE = Depends(require_permission("notification:delete"))
 
 
 def _parse_filters(raw: str | None) -> ConcurrentStableList[FilterSpec]:
@@ -55,25 +60,36 @@ def _parse_filters(raw: str | None) -> ConcurrentStableList[FilterSpec]:
 
 
 def filter_query(
-    keyword: Annotated[str | None, Query(description="关键字（跨字段模糊，命中列由后端定义）")] = None,
+    keyword: Annotated[str | None, Query(description="关键字（匹配标题）")] = None,
     filters: Annotated[str | None, Query(description="筛选条件 JSON（FilterSpec 数组）")] = None,
+    notification_type: Annotated[
+        str | None, Query(alias="type", description="通知类型（system/approval/alert/import）")
+    ] = None,
+    is_read: Annotated[bool | None, Query(description="已读状态（true / false）")] = None,
 ) -> BaseFilterQuery:
-    """列表筛选参数绑定（复用 02-4-20 `BaseFilterQuery`）。
+    """列表筛选参数绑定（显式 type / is_read 转为通用 FilterSpec）。
 
     Args:
-        keyword: 关键字。
+        keyword: 关键字（匹配标题）。
         filters: 筛选条件 JSON 字符串。
+        notification_type: 通知类型。
+        is_read: 已读状态。
 
     Returns:
-        BaseFilterQuery: 筛选契约（占位不执行筛选）。
+        BaseFilterQuery: 筛选契约。
     """
-    return BaseFilterQuery(keyword=keyword, filters=_parse_filters(filters))
+    conditions = _parse_filters(filters)
+    if notification_type:
+        conditions.add(FilterSpec(field="type", operator="eq", value=notification_type))
+    if is_read is not None:
+        conditions.add(FilterSpec(field="is_read", operator="eq", value=is_read))
+    return BaseFilterQuery(keyword=keyword, filters=conditions)
 
 
 FilterDep = Annotated[BaseFilterQuery, Depends(filter_query)]
 
 
-@router.get("")
+@router.get("", dependencies=[_REQUIRE_QUERY])
 async def list_notifications(center: CenterDep, filter: FilterDep, page: PageDep) -> ApiResponse:
     """列当前用户通知（筛选 + 分页）。
 
@@ -90,7 +106,7 @@ async def list_notifications(center: CenterDep, filter: FilterDep, page: PageDep
 
 @router.get("/unread-count")
 async def get_unread_count(center: CenterDep) -> ApiResponse:
-    """当前未读总数（服务端唯一口径）。
+    """当前未读总数（服务端唯一口径；登录即可）。
 
     Args:
         center: 通知中心。
@@ -101,7 +117,7 @@ async def get_unread_count(center: CenterDep) -> ApiResponse:
     return ApiResponse.ok(UnreadCountResponse(count=await center.unread_count()))
 
 
-@router.post("/read")
+@router.post("/read", dependencies=[_REQUIRE_UPDATE])
 async def mark_notifications_read(center: CenterDep, req: NotificationReadRequest) -> ApiResponse:
     """按 id 批量标记已读（返回操作后未读总数供前端校准角标）。
 
@@ -115,7 +131,7 @@ async def mark_notifications_read(center: CenterDep, req: NotificationReadReques
     return ApiResponse.ok(UnreadCountResponse(count=await center.mark_read(req.ids)))
 
 
-@router.post("/read-all")
+@router.post("/read-all", dependencies=[_REQUIRE_UPDATE])
 async def mark_all_notifications_read(center: CenterDep) -> ApiResponse:
     """全部标记已读（返回操作后未读总数，恒 0）。
 
@@ -128,7 +144,7 @@ async def mark_all_notifications_read(center: CenterDep) -> ApiResponse:
     return ApiResponse.ok(UnreadCountResponse(count=await center.mark_all_read()))
 
 
-@router.get("/{notification_id}")
+@router.get("/{notification_id}", dependencies=[_REQUIRE_QUERY])
 async def get_notification_detail(
     center: CenterDep,
     notification_id: int,
@@ -142,14 +158,14 @@ async def get_notification_detail(
         mark_read: 命中是否标记已读。
 
     Returns:
-        ApiResponse: 统一响应，data 为通知或 null。
+        ApiResponse: 统一响应，data 为通知。
     """
     return ApiResponse.ok(await center.detail(notification_id, mark_read=mark_read))
 
 
-@router.delete("/{notification_id}")
+@router.delete("/{notification_id}", dependencies=[_REQUIRE_DELETE])
 async def delete_notification(center: CenterDep, notification_id: int) -> ApiResponse:
-    """删除单条通知。
+    """删除单条通知（软删除，仅本人）。
 
     Args:
         center: 通知中心。
