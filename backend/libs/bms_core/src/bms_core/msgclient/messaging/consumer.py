@@ -30,8 +30,8 @@ from bms_core.msgclient.messaging.stats import ClientStats
 from bms_core.msgclient.messaging.transport import ApiOutcome, MessagingTransport
 
 __all__ = [
-    "AckResult",
     "Assignment",
+    "CommitResult",
     "MsgConsumer",
     "PollResult",
     "ReceivedMessage",
@@ -181,7 +181,7 @@ class PollResult(BaseValueObject):
 
 
 @dataclass(frozen=True)
-class AckResult(BaseValueObject):
+class CommitResult(BaseValueObject):
     """确认 / 拒绝的结果。
 
     Attributes:
@@ -379,14 +379,14 @@ class MsgConsumer:
             break
         return self._poll_result(outcome.data, partition)
 
-    async def ack(self, message: ReceivedMessage) -> AckResult:
+    async def ack(self, message: ReceivedMessage) -> CommitResult:
         """确认一条消息（位点前进）。
 
         Args:
             message: 已处理完的消息（自带分区）。
 
         Returns:
-            AckResult: 已提交位点。
+            CommitResult: 已提交位点。
 
         Raises:
             ParamError: 客户端已关闭。
@@ -394,24 +394,24 @@ class MsgConsumer:
         """
         return await self._settle(ACK_PATH, message, extra=None)
 
-    async def ack_many(self, messages: ConcurrentStableList[ReceivedMessage]) -> AckResult:
+    async def ack_many(self, messages: ConcurrentStableList[ReceivedMessage]) -> CommitResult:
         """按顺序确认一批消息（服务端无批量端点，逐条等价封装）。
 
         Args:
             messages: 待确认消息。
 
         Returns:
-            AckResult: 最后一条确认后的已提交位点（空列表返回 0）。
+            CommitResult: 最后一条确认后的已提交位点（空列表返回 0）。
 
         Raises:
             MsgClientError: 任一条被拒绝。
         """
-        committed = AckResult()
+        committed = CommitResult()
         for message in messages:
             committed = await self.ack(message)
         return committed
 
-    async def nack(self, message: ReceivedMessage, *, reason: str = "processing_failed") -> AckResult:
+    async def nack(self, message: ReceivedMessage, *, reason: str = "processing_failed") -> CommitResult:
         """拒绝一条消息（转死信 + 位点前移）。
 
         Args:
@@ -419,7 +419,7 @@ class MsgConsumer:
             reason: 原因（`schema_invalid` / `processing_failed`）。
 
         Returns:
-            AckResult: 已提交位点。
+            CommitResult: 已提交位点。
 
         Raises:
             ParamError: 原因非法 / 客户端已关闭。
@@ -478,7 +478,7 @@ class MsgConsumer:
             self.stats.incr("leave_failed_total", code=str(exc.code))
         await self.transport.close()
 
-    async def _settle(self, path: str, message: ReceivedMessage, *, extra: tuple[str, str] | None) -> AckResult:
+    async def _settle(self, path: str, message: ReceivedMessage, *, extra: tuple[str, str] | None) -> CommitResult:
         """确认 / 拒绝的公共实现（两者请求体只差 `reason`）。
 
         Args:
@@ -487,7 +487,7 @@ class MsgConsumer:
             extra: 额外的单个键值（`nack` 的 `reason`）。
 
         Returns:
-            AckResult: 已提交位点。
+            CommitResult: 已提交位点。
 
         Raises:
             MsgClientError: 服务端拒绝。
@@ -503,7 +503,7 @@ class MsgConsumer:
         }
         if extra is not None:
             body[extra[0]] = extra[1]
-        return AckResult(committed_offset=_as_int((await self._request(path, body)).data.get("committed_offset")))
+        return CommitResult(committed_offset=_as_int((await self._request(path, body)).data.get("committed_offset")))
 
     async def _heartbeat_loop(self) -> None:
         """按服务端间隔发心跳（失败只记计数，成员失效由 `poll` 的重连处置）。"""

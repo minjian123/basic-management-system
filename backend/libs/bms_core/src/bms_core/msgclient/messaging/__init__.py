@@ -17,8 +17,8 @@
 from bms_core.msgclient.messaging.codes import rule_for_consume, rule_for_publish
 from bms_core.msgclient.messaging.config import MessagingConfig
 from bms_core.msgclient.messaging.consumer import (
-    AckResult,
     Assignment,
+    CommitResult,
     MsgConsumer,
     PollResult,
     ReceivedMessage,
@@ -37,11 +37,11 @@ from bms_core.msgclient.messaging.transport import ApiOutcome, MessagingTranspor
 
 __all__ = [
     "CLIENT_ERROR_CODE",
-    "AckResult",
     "ApiOutcome",
     "Assignment",
     "ClientAction",
     "ClientStats",
+    "CommitResult",
     "FailedItem",
     "MessagingConfig",
     "MessagingTransport",
