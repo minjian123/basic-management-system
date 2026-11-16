@@ -258,14 +258,20 @@ def reset_request_context() -> Iterator[None]:
 
 @pytest.fixture
 def reset_plugin_registry() -> Iterator[None]:
-    """用例结束后解除插件注册表冻结，防跨用例顺序敏感。
+    """用例前后解除插件注册表冻结，防跨用例 / 跨模块导入顺序敏感。
+
+    为什么前后都要复位：测试模块在**导入期**可能触发 `build_plugin_registry()`
+    （如 `bms_core.jobs.plugins`），而导入发生在两个用例之间、不在任何用例的清理范围内；
+    只在用例结束后复位，下一个用例仍可能带着冻结注册表启动（表现为装配期登记直接抛
+    `PluginError`，且与 xdist 分片顺序有关）。
 
     Yields:
         None: 用例运行期。
     """
-    yield
     from bms_core.core.plugin import default_plugin_registry
 
+    default_plugin_registry().reset()
+    yield
     default_plugin_registry().reset()
 
 
