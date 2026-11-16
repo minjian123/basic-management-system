@@ -2,27 +2,28 @@
 
 覆盖：模块目录缓存与错误分支、模块仓储重开通 / 状态切换、平台租户引导包装与失败分支、
 停用时会话撤销降级、租户源缓存失效钩子。
+
+测试库：共享平台库 + 回滚会话；平台租户行在本事务内造 / 改状态，写入不提交。
 """
 
-from pathlib import Path
+from collections.abc import AsyncIterator
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError, ParamError, ServiceUnavailableError, TenantModuleUnavailableError
+from bms_core.core.id import id_generator
 from bms_core.core.serialization import stable_json_dumps
-from bms_core.models.base import Base
 from bms_core.models.tenant.tenant import SysTenant
-from bms_core.models.tenant.tenant_database import SysTenantDatabase
-from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceResponse
 from bms_core.tenant.provisioning import ProvisionOutcome
+from bms_core.testing.transaction import rollback_session
 from bms_tenant.domains.tenant.repositories.tenant_module import TenantModuleRepository
 from bms_tenant.domains.tenant.services import platform_tenant as platform_tenant_module
 from bms_tenant.domains.tenant.services.platform_tenant import ensure_platform_tenant, ensure_platform_tenant_row
@@ -34,19 +35,7 @@ from bms_tenant.domains.tenant.services.tenant_module import (
 )
 from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
-pytestmark = [
-    pytest.mark.kiwi_id(2325),
-    pytest.mark.own_db(
-        "用例覆盖**平台租户引导的失败 / 重开分支**（已 suspended 重开通、基础模块开通失败容错、"
-        "清理失败不掩盖原异常），前提是平台租户行的存在与状态可控；共享平台库恒为已就绪态"
-    ),
-]
-
-_TABLES = [
-    cast("Table", SysTenant.__table__),
-    cast("Table", SysTenantDatabase.__table__),
-    cast("Table", SysTenantModule.__table__),
-]
+pytestmark = pytest.mark.kiwi_id(2325)
 
 
 class _Resp:
@@ -144,13 +133,45 @@ class _Cache:
         return f"bms:{tenant or 'global'}:generic:{business_key}"
 
 
-async def _session(tmp_path: Path) -> tuple[async_sessionmaker[AsyncSession], str]:
-    url = f"sqlite+aiosqlite:///{tmp_path / 'extra.db'}"
-    engine = create_async_engine(url)
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all, tables=_TABLES)
-    await engine.dispose()
-    return async_sessionmaker(create_async_engine(url), expire_on_commit=False), url
+@pytest.fixture
+async def session(
+    shared_platform_engine: AsyncEngine,
+    platform_db_write_whole: None,
+) -> AsyncIterator[AsyncSession]:
+    """共享平台库上的回滚会话（整条用例持写锁）。
+
+    Args:
+        shared_platform_engine: 共享平台库引擎。
+        platform_db_write_whole: 平台库整条用例写锁（回滚会话准备阶段即开写事务）。
+
+    Yields:
+        AsyncSession: 数据库会话。
+    """
+    del platform_db_write_whole
+    async with rollback_session(shared_platform_engine) as db:
+        yield db
+
+
+async def _ensure_platform_row(session: AsyncSession, *, status: str) -> SysTenant:
+    """确保本事务内有指定状态的平台租户行。
+
+    Args:
+        session: 数据库会话。
+        status: 期望的租户状态。
+
+    Returns:
+        SysTenant: 平台租户行。
+    """
+    code = get_settings().platform_tenant.code
+    row = (await session.execute(select(SysTenant).where(SysTenant.code == code))).scalars().first()
+    if row is None:
+        row = SysTenant(code=code, name="平台", kind="platform", status=status)
+        session.add(row)
+    else:
+        row.kind = "platform"
+        row.status = status
+    await session.flush()
+    return row
 
 
 async def test_module_catalog_cache_and_errors() -> None:
@@ -175,116 +196,105 @@ async def test_module_catalog_cache_and_errors() -> None:
         _catalog_rows(_response({"code": 0, "data": ["bad"]}))
 
 
-async def test_module_service_switch_absent_reopen_and_cache(tmp_path: Path) -> None:
+async def test_module_service_switch_absent_reopen_and_cache(session: AsyncSession) -> None:
     """开关：未开通即开通、停用后重开通、缓存键删除；基础模块勾选拒绝、不可开通模块 82007。"""
-    factory, _url = await _session(tmp_path)
+    tenant_id = int(id_generator.next_id())
     cache = _Cache()
-    async with factory() as session:
-        session.add(SysTenant(code="acme", name="Acme", status="active"))
-        await session.commit()
-        service = TenantModuleService(
-            session=cast("Any", session),
-            catalog=ModuleCatalog(client=cast("BaseServiceClient", _Client({"code": 0, "data": _CATALOG})), cache=None),
-        )
-        service._cache = cast("Any", cache)  # pyright: ignore[reportPrivateUsage]
-        await service.switch(1, "pur", "enabled", opened_by=7)
-        await session.commit()
-        row = await TenantModuleRepository(session).get(1, "pur")
-        assert row is not None and row.status == "enabled"
-        await service.switch(1, "pur", "disabled")
-        await session.commit()
-        assert cache.deleted
-        await service.switch(1, "pur", "enabled", opened_by=8)
-        await session.commit()
-        row = await TenantModuleRepository(session).get(1, "pur")
-        assert row is not None and row.opened_by == 8
-        with pytest.raises(ParamError):
-            await service.validate_optional(ConcurrentStableList(["sys"]))
-        with pytest.raises(TenantModuleUnavailableError):
-            await service.validate_optional(ConcurrentStableList(["unknown"]))
+    service = TenantModuleService(
+        session=cast("Any", session),
+        catalog=ModuleCatalog(client=cast("BaseServiceClient", _Client({"code": 0, "data": _CATALOG})), cache=None),
+    )
+    service._cache = cast("Any", cache)  # pyright: ignore[reportPrivateUsage]
+    await service.switch(tenant_id, "pur", "enabled", opened_by=7)
+    await session.flush()
+    row = await TenantModuleRepository(session).get(tenant_id, "pur")
+    assert row is not None and row.status == "enabled"
+    await service.switch(tenant_id, "pur", "disabled")
+    await session.flush()
+    assert cache.deleted
+    await service.switch(tenant_id, "pur", "enabled", opened_by=8)
+    await session.flush()
+    row = await TenantModuleRepository(session).get(tenant_id, "pur")
+    assert row is not None and row.opened_by == 8
+    with pytest.raises(ParamError):
+        await service.validate_optional(ConcurrentStableList(["sys"]))
+    with pytest.raises(TenantModuleUnavailableError):
+        await service.validate_optional(ConcurrentStableList(["unknown"]))
 
 
-async def test_tenant_base_module_flag_drives_open_and_validation(tmp_path: Path) -> None:
+async def test_tenant_base_module_flag_drives_open_and_validation(session: AsyncSession) -> None:
     """恒开通：目录行标记并入基础开通、不参与勾选；缺标记时基座常量兜底；缓存往返保标记。"""
-    factory, _url = await _session(tmp_path)
+    tenant_id = int(id_generator.next_id())
     cache = _Cache()
-    async with factory() as session:
-        session.add(SysTenant(code="acme", name="Acme", status="active"))
-        await session.commit()
-        catalog = ModuleCatalog(
-            client=cast("Any", _Client({"code": 0, "data": _CATALOG_TENANT_BASE})), cache=cast("Any", cache)
-        )
-        service = TenantModuleService(session=cast("Any", session), catalog=catalog)
-        await service.open_base_modules(1, opened_by=1)
-        await session.commit()
-        opened = {row.module_key for row in await TenantModuleRepository(session).list_by_tenant(1)}
-        assert opened == {"mdm", "sys"}
-        with pytest.raises(ParamError):
-            await service.validate_optional(ConcurrentStableList(["mdm"]))
-        # 第二次取目录走缓存：`_to_row` / `_from_row` 往返后行标记不丢
-        assert [item.tenant_base for item in await catalog.modules()] == [True, False, False]
+    catalog = ModuleCatalog(
+        client=cast("Any", _Client({"code": 0, "data": _CATALOG_TENANT_BASE})), cache=cast("Any", cache)
+    )
+    service = TenantModuleService(session=cast("Any", session), catalog=catalog)
+    await service.open_base_modules(tenant_id, opened_by=1)
+    await session.flush()
+    opened = {row.module_key for row in await TenantModuleRepository(session).list_by_tenant(tenant_id)}
+    assert opened == {"mdm", "sys"}
+    with pytest.raises(ParamError):
+        await service.validate_optional(ConcurrentStableList(["mdm"]))
+    # 第二次取目录走缓存：`_to_row` / `_from_row` 往返后行标记不丢
+    assert [item.tenant_base for item in await catalog.modules()] == [True, False, False]
 
 
-async def test_module_repository_open_reopen_status_map(tmp_path: Path) -> None:
+async def test_module_repository_open_reopen_status_map(session: AsyncSession) -> None:
     """仓储：status_map、重开通（停用 → 启用）与带操作人的状态切换。"""
-    factory, _url = await _session(tmp_path)
-    async with factory() as session:
-        repo = TenantModuleRepository(session)
-        await repo.open(tenant_id=1, module_keys=ConcurrentStableList(["pur"]), opened_by=1)
-        await session.commit()
-        assert (await repo.status_map(1))["pur"] == "enabled"
-        row = await repo.get(1, "pur")
-        assert row is not None
-        await repo.set_status(row, "disabled")
-        await session.commit()
-        await repo.open(tenant_id=1, module_keys=ConcurrentStableList(["pur"]), opened_by=2)
-        await session.commit()
-        assert (await repo.get(1, "pur")).status == "enabled"  # type: ignore[union-attr]
-        row = await repo.get(1, "pur")
-        assert row is not None
-        await repo.set_status(row, "enabled", opened_by=3)
-        await session.commit()
-        assert (await repo.get(1, "pur")).opened_by == 3  # type: ignore[union-attr]
+    tenant_id = int(id_generator.next_id())
+    repo = TenantModuleRepository(session)
+    await repo.open(tenant_id=tenant_id, module_keys=ConcurrentStableList(["pur"]), opened_by=1)
+    await session.flush()
+    assert (await repo.status_map(tenant_id))["pur"] == "enabled"
+    row = await repo.get(tenant_id, "pur")
+    assert row is not None
+    await repo.set_status(row, "disabled")
+    await session.flush()
+    await repo.open(tenant_id=tenant_id, module_keys=ConcurrentStableList(["pur"]), opened_by=2)
+    await session.flush()
+    assert (await repo.get(tenant_id, "pur")).status == "enabled"  # type: ignore[union-attr]
+    row = await repo.get(tenant_id, "pur")
+    assert row is not None
+    await repo.set_status(row, "enabled", opened_by=3)
+    await session.flush()
+    assert (await repo.get(tenant_id, "pur")).opened_by == 3  # type: ignore[union-attr]
 
 
-async def test_platform_tenant_suspended_reprovision(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_platform_tenant_suspended_reprovision(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
     """既有平台租户被停用：重新置 provisioning 并走库侧编排补齐。"""
-    factory, _url = await _session(tmp_path)
 
     async def _ok(**kwargs: object) -> ProvisionOutcome:
         del kwargs
         return ProvisionOutcome(db_basis="platform", admin_username="admin", initial_password="p")
 
     monkeypatch.setattr(platform_tenant_module, "provision_infrastructure", _ok)
-    async with factory() as session:
-        session.add(
-            SysTenant(code=get_settings().platform_tenant.code, name="平台", kind="platform", status="suspended")
-        )
-        await session.commit()
-        modules = SimpleNamespace(open_base_modules=_noop_open)
-        admin = TenantAdminService(
-            session=cast("Any", session),
-            modules=cast("Any", modules),
-            quotas=TenantQuotaService(cast("Any", session), get_settings()),
-            outbox=NullOutboxStore(),
-        )
-        created = await ensure_platform_tenant_row(
-            session=cast("Any", session),
-            settings=get_settings(),
-            modules=cast("Any", modules),
-            admin=admin,
-            outbox=NullOutboxStore(),
-        )
-        assert created is True
+    await _ensure_platform_row(session, status="suspended")
+    modules = SimpleNamespace(open_base_modules=_noop_open)
+    admin = TenantAdminService(
+        session=cast("Any", session),
+        modules=cast("Any", modules),
+        quotas=TenantQuotaService(cast("Any", session), get_settings()),
+        outbox=NullOutboxStore(),
+    )
+    created = await ensure_platform_tenant_row(
+        session=cast("Any", session),
+        settings=get_settings(),
+        modules=cast("Any", modules),
+        admin=admin,
+        outbox=NullOutboxStore(),
+    )
+    assert created is True
 
 
 async def _noop_open(tenant_id: int, *, opened_by: int | None = None) -> None:
     del tenant_id, opened_by
 
 
-async def test_platform_tenant_base_modules_failure_tolerated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_platform_tenant_base_modules_failure_tolerated(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """基础模块开通失败仅告警（不阻断）。"""
-    factory, _url = await _session(tmp_path)
 
     async def _ok(**kwargs: object) -> ProvisionOutcome:
         del kwargs
@@ -295,27 +305,28 @@ async def test_platform_tenant_base_modules_failure_tolerated(tmp_path: Path, mo
         raise RuntimeError("catalog down")
 
     monkeypatch.setattr(platform_tenant_module, "provision_infrastructure", _ok)
-    async with factory() as session:
-        modules = SimpleNamespace(open_base_modules=_fail_open)
-        admin = TenantAdminService(
-            session=cast("Any", session),
-            modules=cast("Any", modules),
-            quotas=TenantQuotaService(cast("Any", session), get_settings()),
-            outbox=NullOutboxStore(),
-        )
-        created = await ensure_platform_tenant_row(
-            session=cast("Any", session),
-            settings=get_settings(),
-            modules=cast("Any", modules),
-            admin=admin,
-            outbox=NullOutboxStore(),
-        )
-        assert created is True
+    await _ensure_platform_row(session, status="provisioning")
+    modules = SimpleNamespace(open_base_modules=_fail_open)
+    admin = TenantAdminService(
+        session=cast("Any", session),
+        modules=cast("Any", modules),
+        quotas=TenantQuotaService(cast("Any", session), get_settings()),
+        outbox=NullOutboxStore(),
+    )
+    created = await ensure_platform_tenant_row(
+        session=cast("Any", session),
+        settings=get_settings(),
+        modules=cast("Any", modules),
+        admin=admin,
+        outbox=NullOutboxStore(),
+    )
+    assert created is True
 
 
-async def test_platform_tenant_cleanup_failure_tolerated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_platform_tenant_cleanup_failure_tolerated(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """库侧失败 + 清理失败：仅告警并返回 False。"""
-    factory, _url = await _session(tmp_path)
 
     async def _fail(**kwargs: object) -> ProvisionOutcome:
         del kwargs
@@ -328,22 +339,22 @@ async def test_platform_tenant_cleanup_failure_tolerated(tmp_path: Path, monkeyp
         raise RuntimeError("cleanup down")
 
     monkeypatch.setattr(platform_tenant_module.TenantRegistryRepository, "delete_provisioning", _explode)
-    async with factory() as session:
-        modules = SimpleNamespace(open_base_modules=_noop_open)
-        admin = TenantAdminService(
-            session=cast("Any", session),
-            modules=cast("Any", modules),
-            quotas=TenantQuotaService(cast("Any", session), get_settings()),
-            outbox=NullOutboxStore(),
-        )
-        created = await ensure_platform_tenant_row(
-            session=cast("Any", session),
-            settings=get_settings(),
-            modules=cast("Any", modules),
-            admin=admin,
-            outbox=NullOutboxStore(),
-        )
-        assert created is False
+    await _ensure_platform_row(session, status="provisioning")
+    modules = SimpleNamespace(open_base_modules=_noop_open)
+    admin = TenantAdminService(
+        session=cast("Any", session),
+        modules=cast("Any", modules),
+        quotas=TenantQuotaService(cast("Any", session), get_settings()),
+        outbox=NullOutboxStore(),
+    )
+    created = await ensure_platform_tenant_row(
+        session=cast("Any", session),
+        settings=get_settings(),
+        modules=cast("Any", modules),
+        admin=admin,
+        outbox=NullOutboxStore(),
+    )
+    assert created is False
 
 
 async def test_ensure_platform_tenant_app_wrapper(monkeypatch: pytest.MonkeyPatch) -> None:

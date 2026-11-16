@@ -25,7 +25,7 @@ pytestmark = [
     pytest.mark.kiwi_id(2197),
     pytest.mark.own_db(
         "真机 Keycloak 联调：提供方标识与回调地址须与真实 Keycloak 客户端注册值一致（固定 keycloak），"
-        "不能按用例命名空间派生；同时需要空库起点，故走独占库"
+        "不能按用例命名空间派生；租户开通还会写各租户派生库（不在回滚会话覆盖范围），故保留独占库"
     ),
 ]
 

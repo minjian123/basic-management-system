@@ -1,7 +1,7 @@
 """平台自注册启动钩子用例（07B `02_06`；Kiwi 编号归 `05_01` 统一登记）。
 
-用临时 SQLite + 临时清单覆盖：开关关闭跳过、清单缺失 / 归属不符拒启、注册成功（含警示输出）、
-库不可用降级放行、注册异常转 `CatalogError`。
+用共享平台库 + 回滚会话覆盖：开关关闭跳过、清单缺失 / 归属不符拒启、注册成功（含警示输出）、
+库不可用拒启、注册异常转 `CatalogError`。清单文件仍落临时目录（不写库）。
 """
 
 from collections.abc import AsyncGenerator, AsyncIterator, Iterator
@@ -12,12 +12,11 @@ from typing import Any
 
 import pytest
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import CatalogError
 from bms_core.datasource.registry import reset_data_source_records
-from bms_core.models.base import BaseModel
 from bms_core.services.module_registry import (
     reset_collaboration_records,
     reset_domain_services,
@@ -27,11 +26,8 @@ from bms_core.services.module_registry import (
     reset_seed_records,
     reset_service_records,
 )
+from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.services import declaration_bootstrap as module
-
-pytestmark = pytest.mark.own_db(
-    "被测对象是平台自注册启动钩子：需清单缺失 / 归属不符 / 库不可用等受控状态，共享库无法构造"
-)
 
 _MANIFEST = """
 product_key = "platform"
@@ -51,22 +47,22 @@ status = "enabled"
 
 
 @pytest.fixture
-async def session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
-    """临时 SQLite 会话（建全部注册表）。
+async def session(
+    shared_platform_engine: AsyncEngine,
+    platform_db_write_whole: None,
+) -> AsyncIterator[AsyncSession]:
+    """共享平台库上的回滚会话（整条用例持写锁）。
 
     Args:
-        tmp_path: 临时目录。
+        shared_platform_engine: 共享平台库引擎。
+        platform_db_write_whole: 平台库整条用例写锁（回滚会话准备阶段即开写事务）。
 
     Yields:
         AsyncSession: 会话。
     """
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'bootstrap.db'}")
-    async with engine.begin() as connection:
-        await connection.run_sync(BaseModel.metadata.create_all)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as db:
+    del platform_db_write_whole
+    async with rollback_session(shared_platform_engine) as db:
         yield db
-    await engine.dispose()
 
 
 def _app() -> Any:
@@ -216,15 +212,41 @@ async def test_bootstrap_logs_report_warnings(
     await module.bootstrap_platform_declarations(app)
 
 
-async def test_startup_hook_registers_platform_declarations(service_app: Any, client: Any) -> None:
+@pytest.fixture
+async def _declarations_rollback(
+    service_app: Any,
+    shared_platform_engine: AsyncEngine,
+    platform_db_write_whole: None,
+) -> AsyncIterator[None]:
+    """真启动链用例的共享库回滚区间（应用装配完成后再开事务）。
+
+    全量上报会按清单退役平台其他声明；在回滚会话内执行，退役只在本用例事务中可见。
+
+    Args:
+        service_app: 平台应用实例（先装配，启动期声明同步先落库）。
+        shared_platform_engine: 共享平台库引擎。
+        platform_db_write_whole: 平台库整条用例写锁。
+
+    Yields:
+        None: 回滚会话区间。
+    """
+    del platform_db_write_whole
+    async with rollback_session(shared_platform_engine):
+        yield
+
+
+async def test_startup_hook_registers_platform_declarations(
+    service_app: Any, client: Any, _declarations_rollback: None
+) -> None:
     """真启动链：钩子把本仓平台声明写进库，快照出口随即能看到平台服务行。
 
     单测环境默认关掉该钩子（避免「声明即全量」退役夹具行），这里显式打开并**手动触发一次**，
-    验证「钩子 → 注册表 → 快照出口」这条生产路径真实可用。
+    验证「钩子 → 注册表 → 快照出口」这条生产路径真实可用（写入整体回滚）。
 
     Args:
         service_app: 平台应用实例。
         client: 带认证头的异步客户端。
+        _declarations_rollback: 共享库回滚区间（仅用于声明依赖）。
     """
     service_app.state.settings.registry.register_on_startup = True
 
