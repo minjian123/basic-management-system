@@ -53,7 +53,12 @@ from bms_core.captcha.base import (
 )
 from bms_core.config.base import BaseConfigSource
 from bms_core.config.null import NullConfigSource
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.context import get_current_client_ip
 from bms_core.core.exceptions import (
     CaptchaExpiredError,
@@ -713,12 +718,15 @@ class DefaultCaptcha(BaseCaptcha):
         Returns:
             NotificationMessage: 短信渠道通知消息。
         """
+        minutes = max(1, policy.ttl // 60)
         return NotificationMessage(
             channel=NotifyChannel.SMS,
             recipient=phone,
-            content=SMS_CAPTCHA_TEMPLATE.format(code=code, minutes=max(1, policy.ttl // 60)),
+            content=SMS_CAPTCHA_TEMPLATE.format(code=code, minutes=minutes),
             biz_type="captcha",
             biz_id=captcha_id,
+            template_code="sms_captcha",
+            params=ConcurrentStableFrozenDict({"code": code, "minutes": str(minutes)}),
         )
 
     async def _discard(self, captcha_id: str) -> None:

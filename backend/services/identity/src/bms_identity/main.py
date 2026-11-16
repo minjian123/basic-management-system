@@ -39,6 +39,8 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         """
         if not settings.permission.provider:
             settings.permission.provider = RBAC_PROVIDER_NAME
+        if not settings.notifier.provider:
+            settings.notifier.provider = "http"
         register_identity_permission(settings)
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:

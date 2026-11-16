@@ -1,0 +1,34 @@
+# 通知服务自持声明（07_03 邮件与短信通知）
+#
+# 与 `platform.toml` / 产品清单同一形态、同一解析器；本文件只声明通知服务作为提供方的
+# 跨服务能力（入站判定按能力分配，不靠服务白名单）。
+#
+# 字段口径见《02_03 详细设计》§3.3「能力记录」：
+#   name             能力名（第二段须是已登记业务域）
+#   domain           提供方业务域（notification）
+#   kind             read / write
+#   path             提供方公开契约路径（须在 deploy/contracts/notification.json）
+#   frontend_prefix  前端命名空间（平台内部服务无产品路由，须显式声明）
+#   contract_version 能力契约版本（主版本须与 notification 服务契约兼容）
+#   default_consumers 声明基线消费方（落库为分配记录，运营期可调 / 撤销）
+
+product_key = "notification"
+
+[[domains]]
+domain_key = "notification"
+service_key = "notification"
+paths = [
+  "backend/services/notification/src/bms_notification/domains/notification/**/*.py",
+]
+public_api = [
+  "bms_notification.domains.notification.public",
+]
+
+[[collaborations]]
+name = "notification.send"
+domain = "notification"
+kind = "write"
+path = "/api/v1/mail/internal/send"
+frontend_prefix = "notification"
+contract_version = "0.1.0"
+default_consumers = ["identity"]

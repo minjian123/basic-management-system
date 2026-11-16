@@ -6789,6 +6789,18 @@
             "title": "Id",
             "type": "string"
           },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好（IETF 形态；空 = 未设置）",
+            "title": "Locale"
+          },
           "name": {
             "description": "昵称 / 显示名",
             "title": "Name",

@@ -2,6 +2,17 @@
   "version": 1,
   "domains": [
     {
+      "domain_key": "notification",
+      "service_key": "notification",
+      "status": "placement",
+      "paths": [
+        "backend/services/notification/src/bms_notification/domains/notification/**/*.py"
+      ],
+      "public_api": [
+        "bms_notification.domains.notification.public"
+      ]
+    },
+    {
       "domain_key": "auth",
       "service_key": "identity",
       "status": "placement",
@@ -189,17 +200,6 @@
       ],
       "public_api": [
         "bms_ai.domains.ai.public"
-      ]
-    },
-    {
-      "domain_key": "notification",
-      "service_key": "notification",
-      "status": "placement",
-      "paths": [
-        "backend/services/notification/src/bms_notification/domains/notification/**/*.py"
-      ],
-      "public_api": [
-        "bms_notification.domains.notification.public"
       ]
     },
     {

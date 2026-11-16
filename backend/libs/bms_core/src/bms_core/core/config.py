@@ -1178,6 +1178,107 @@ class PasswordResetSettings(BaseSettings):
     """重置页基址（`{reset_url}?token=…&tenant=…`；空串 = 通知内容回退纯令牌文案）。"""
 
 
+class MailSettings(BaseSettings):
+    """邮件与短信通知配置（`[mail]` / `[sms]`；07_03）。
+
+    密钥类字段（SMTP 密码、云短信 AK / SK）只允许经环境变量 / `deploy/.env` 注入，
+    `config.toml` 只保留空值与注释；代码不读取任何硬编码凭据。
+    """
+
+    render_timeout_seconds: float = Field(default=3.0, gt=0)
+    """模板沙箱渲染超时（秒）。"""
+
+    smtp_host: str = ""
+    """SMTP 主机（空 = 未配置，发送返回 70305）。"""
+
+    smtp_port: int = Field(default=465, ge=1, le=65535)
+    """SMTP 端口。"""
+
+    smtp_username: str = ""
+    """SMTP 登录名。"""
+
+    smtp_password: str = ""
+    """SMTP 密码（仅环境变量 / deploy/.env 注入）。"""
+
+    smtp_from: str = ""
+    """发件邮箱。"""
+
+    smtp_from_name: str = "BMS"
+    """发件人显示名。"""
+
+    smtp_security: str = "ssl"
+    """连接安全方式：`ssl` / `starttls` / `plain`。"""
+
+    smtp_timeout_seconds: float = Field(default=10.0, gt=0)
+    """SMTP 连接与发送超时（秒）。"""
+
+
+class AliyunSmsSettings(BaseSettings):
+    """阿里云短信配置（`[sms.aliyun]`）。"""
+
+    endpoint: str = "https://dysmsapi.aliyuncs.com"
+    """Dysmsapi RPC 端点。"""
+
+    access_key_id: str = ""
+    """AccessKeyId。"""
+
+    access_key_secret: str = ""
+    """AccessKeySecret（仅环境变量 / deploy/.env 注入）。"""
+
+    sign_name: str = ""
+    """短信签名。"""
+
+    region_id: str = "cn-hangzhou"
+    """地域标识。"""
+
+    captcha_template_id: str = ""
+    """验证码内置模板的厂商模板 ID。"""
+
+    password_reset_template_id: str = ""
+    """密码重置内置模板的厂商模板 ID。"""
+
+
+class TencentSmsSettings(BaseSettings):
+    """腾讯云短信配置（`[sms.tencent]`）。"""
+
+    endpoint: str = "https://sms.tencentcloudapi.com"
+    """短信 API 端点。"""
+
+    secret_id: str = ""
+    """SecretId。"""
+
+    secret_key: str = ""
+    """SecretKey（仅环境变量 / deploy/.env 注入）。"""
+
+    sdk_app_id: str = ""
+    """短信应用 SdkAppId。"""
+
+    sign_name: str = ""
+    """短信签名。"""
+
+    region: str = "ap-guangzhou"
+    """地域。"""
+
+    captcha_template_id: str = ""
+    """验证码内置模板的厂商模板 ID。"""
+
+    password_reset_template_id: str = ""
+    """密码重置内置模板的厂商模板 ID。"""
+
+
+class SmsSettings(BaseSettings):
+    """短信通知配置（`[sms]`；渠道二选一与两家云配置）。"""
+
+    channel: str = "aliyun"
+    """当前生效渠道：`aliyun` / `tencent`。"""
+
+    aliyun: AliyunSmsSettings = Field(default_factory=AliyunSmsSettings)
+    """阿里云短信配置。"""
+
+    tencent: TencentSmsSettings = Field(default_factory=TencentSmsSettings)
+    """腾讯云短信配置。"""
+
+
 class SsoSettings(BaseSettings):
     """SSO 登录链路配置（`[sso]`；流程状态 TTL / 跳转地址 / 限流 / PKCE / 回调基址）。
 
@@ -1866,6 +1967,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     llm_provider: PluginSelection = Field(default_factory=PluginSelection)
     locale_registry: PluginSelection = Field(default_factory=PluginSelection)
     login: LoginSettings = Field(default_factory=LoginSettings)
+    mail: MailSettings = Field(default_factory=MailSettings)
     masking: PluginSelection = Field(default_factory=PluginSelection)
     metrics: PluginSelection = Field(default_factory=PluginSelection)
     multipart_upload: PluginSelection = Field(default_factory=PluginSelection)
@@ -1900,6 +2002,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     session_security: PluginSelection = Field(default_factory=PluginSelection)
     session_store: PluginSelection = Field(default_factory=PluginSelection)
     sharding: PluginSelection = Field(default_factory=PluginSelection)
+    sms: SmsSettings = Field(default_factory=SmsSettings)
     sso: SsoSettings = Field(default_factory=SsoSettings)
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)

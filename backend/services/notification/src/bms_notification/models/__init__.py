@@ -9,6 +9,8 @@ MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
     (
         "bms_notification.domains.notification.models.notification",
         "bms_notification.domains.notification.models.notice",
+        "bms_notification.domains.notification.models.mail",
+        "bms_notification.domains.notification.models.sms",
     )
 )
-"""本服务模型模块清单（迁移链按服务解析模型用，含站内信与公告三表）。"""
+"""本服务模型模块清单（迁移链按服务解析模型用，含站内信 / 公告 / 邮件 / 短信）。"""

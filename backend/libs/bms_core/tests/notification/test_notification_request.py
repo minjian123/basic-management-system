@@ -7,7 +7,7 @@ from typing import cast
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.context import reset_current_tenant_id, set_current_tenant_id
 from bms_core.core.exceptions import ParamError
 from bms_core.events.base import EventEnvelope
@@ -58,23 +58,25 @@ def test_payload_omits_empty_optional_fields() -> None:
         biz_id="9",
         email="a@b.c",
         phone="13800000000",
+        sms_template_code="sms_captcha",
+        sms_params=ConcurrentStableFrozenDict({"code": "123456"}),
     ).to_payload()
     assert full["content"] == "请处理"
     assert full["biz_type"] == "approval"
     assert full["biz_id"] == "9"
     assert full["email"] == "a@b.c"
     assert full["phone"] == "13800000000"
+    assert full["sms_template_code"] == "sms_captcha"
+    assert full["sms_params"] == {"code": "123456"}
 
 
 def test_envelope_has_type_tenant_and_aggregate_key() -> None:
     """信封带事件名 / 租户位 / 按用户聚合键 / 版本。"""
-    envelope = build_requested_envelope(
-        NotificationRequest(user_id=1001, title="待办"), tenant_id="2002"
-    )
+    envelope = build_requested_envelope(NotificationRequest(user_id=1001, title="待办"), tenant_id="2002")
     assert envelope.event_type == NOTIFICATION_REQUESTED_EVENT
     assert envelope.tenant_id == "2002"
     assert envelope.aggregate_key == "notification:1001"
-    assert envelope.event_version == "1.0.0"
+    assert envelope.event_version == "1.1.0"
 
 
 def test_invalid_type_or_empty_title_rejected() -> None:
@@ -131,5 +133,7 @@ def test_event_contract_payload_keys() -> None:
         "biz_id",
         "email",
         "phone",
+        "sms_template_code",
+        "sms_params",
     }
-    assert contract.version == "1.0.0"
+    assert contract.version == "1.1.0"

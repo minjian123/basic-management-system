@@ -161,6 +161,7 @@ def _internal_item(row: SysUser) -> InternalUserItem:
         status=row.status or "",
         phone=row.phone,
         email=row.email,
+        locale=row.locale,
     )
 
 

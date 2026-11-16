@@ -139,6 +139,27 @@ def _service(
 
 
 @pytest.mark.kiwi_id(2210)
+async def test_request_reset_sms_carries_template_and_params() -> None:
+    """短信找回：通知消息带厂商模板 code 与参数（云短信只能模板化）。"""
+    session, engine = await _session()
+    platform_client = FakePlatformClient()
+    platform_client.set_user("admin", password="secret", user_id=1001, phone="13800000000")
+    notifier = RecordingNotifier()
+    states = MemoryIdpStateStore()
+    service = _service(session, platform_client=platform_client, states=states, notifier=notifier)
+
+    result = await service.request_reset("admin", None, tenant_id=TENANT_ID, tenant_code=TENANT, ip=None)
+    assert result.sent is True
+    message = notifier.messages[0]
+    assert message.channel.value == "sms"
+    assert message.template_code == "sms_password_reset"
+    assert message.params is not None
+    assert {"account", "minutes", "token", "link"} <= set(message.params)
+    await session.close()
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2210)
 async def test_request_reset_optional_captcha_without_ip_uses_token_text() -> None:
     """可选验证码 + 无 IP：发起成功；无重置链接时通知内容回退令牌文案且载荷可消费。"""
     session, engine = await _session()

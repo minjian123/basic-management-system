@@ -416,6 +416,51 @@ provider = ""
 # 空串 = null（全渠道开启、无免打扰）
 provider = ""
 
+[notifier]
+# 通知发送实现：空串 = null 占位；http = 经 service_client 调通知服务内部发送端点
+# （identity 未显式配置时在 prepare_settings 置 http；其他服务保持占位）
+provider = ""
+
+[mail]
+# 邮件模板沙箱渲染超时（秒）
+render_timeout_seconds = 3
+# SMTP 发送参数（空 = 未配置，发送返回 70305）
+smtp_host = ""
+smtp_port = 465
+smtp_username = ""
+# 密码仅经环境变量 / deploy/.env 注入（BMS_MAIL__SMTP_PASSWORD），此处不得写真实值
+smtp_password = ""
+smtp_from = ""
+smtp_from_name = "BMS"
+smtp_security = "ssl"          # ssl / starttls / plain
+smtp_timeout_seconds = 10
+
+[sms]
+# 当前生效渠道：aliyun / tencent（切换后新发送走新渠道，发送记录标注实际渠道）
+channel = "aliyun"
+
+[sms.aliyun]
+endpoint = "https://dysmsapi.aliyuncs.com"
+access_key_id = ""
+# 密钥仅经环境变量 / deploy/.env 注入，此处不得写真实值
+access_key_secret = ""
+sign_name = ""
+region_id = "cn-hangzhou"
+# 内置事务性模板的厂商模板 ID（验证码 / 密码重置）
+captcha_template_id = ""
+password_reset_template_id = ""
+
+[sms.tencent]
+endpoint = "https://sms.tencentcloudapi.com"
+secret_id = ""
+# 密钥仅经环境变量 / deploy/.env 注入，此处不得写真实值
+secret_key = ""
+sdk_app_id = ""
+sign_name = ""
+region = "ap-guangzhou"
+captcha_template_id = ""
+password_reset_template_id = ""
+
 [event_consumer]
 # 事件消费组运行时（插件化配置；当前只有空串 = null 只装载声明不启动；msg 消费组待实现）
 # 声明归各服务自持（`event_consumer_records()` 钩子），基座统一装载——本段只管运行时参数

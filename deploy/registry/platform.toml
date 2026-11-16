@@ -270,6 +270,8 @@ frontend_prefix = "platform"
 contract_version = "0.3.0"
 default_consumers = ["identity"]
 
+# 通知服务内部发送出口（07_03）在 `deploy/registry/notification.toml` 声明（提供方自持）。
+
 # ---- 消费方使用声明（第八类记录，07B `03_01`）----
 # 声明方即消费方（本清单归属 `platform`）；降级策略是消费方策略，写 / 强一致能力不得声明降级。
 
@@ -719,6 +721,32 @@ concurrency = 1
 payload_version = "1.0.0"
 status = "enabled"
 
+[[jobs]]
+job_type = "notification.mail.send"
+service = "notification"
+domain = "notification"
+handler = "bms_notification.domains.notification.services.mail_jobs:MailSendJob"
+description = "发送一封邮件（SMTP 发送并回写 sys_mail_log）"
+timeout_seconds = 120
+max_attempts = 3
+backoff_seconds = 30
+concurrency = 4
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
+job_type = "notification.sms.send"
+service = "notification"
+domain = "notification"
+handler = "bms_notification.domains.notification.services.sms_jobs:SmsSendJob"
+description = "发送一条模板短信（云渠道发送并回写 sys_sms_log）"
+timeout_seconds = 120
+max_attempts = 3
+backoff_seconds = 30
+concurrency = 4
+payload_version = "1.0.0"
+status = "enabled"
+
 # ---- 平台选项集：运行期不可变的静态值域（装载时注册；加值只改本段，不改代码） ----
 #
 # 口径见《后端开发规范》「选项集必须走注册表」：动态值域走字典，静态值域走选项集。
@@ -788,4 +816,16 @@ items = [
   { value = "normal", label = "普通", label_key = "bms.notice.priority.normal", color = "primary", sort = 20 },
   { value = "high", label = "高", label_key = "bms.notice.priority.high", color = "warning", sort = 30 },
   { value = "urgent", label = "紧急", label_key = "bms.notice.priority.urgent", color = "danger", sort = 40 },
+]
+
+[[option_sets]]
+key = "bms.sms.scene"
+name = "短信场景"
+contract_name = "SmsScene"
+# 展示 / 筛选类：验证码 / 告警 / 通知；业务新增场景走选项集，发送逻辑按需扩展。
+extensible = true
+items = [
+  { value = "code", label = "验证码", label_key = "bms.sms.scene.code", color = "warning", sort = 10 },
+  { value = "alert", label = "告警", label_key = "bms.sms.scene.alert", color = "danger", sort = 20 },
+  { value = "notify", label = "通知", label_key = "bms.sms.scene.notify", color = "info", sort = 30 },
 ]

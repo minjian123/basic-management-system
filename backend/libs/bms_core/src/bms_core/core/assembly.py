@@ -128,6 +128,7 @@ from bms_core.notification.base import BaseNotificationCenter
 from bms_core.notification.preference import BaseNotificationPreferenceStore
 from bms_core.notification.preference_http import HttpNotificationPreferenceStore
 from bms_core.notify.base import BaseNotifier
+from bms_core.notify.http import HttpNotifier
 from bms_core.oauth.base import BaseOAuthServer, BaseScopeChecker
 from bms_core.oauth.jwt import JwtServiceTokenIssuerFactory
 from bms_core.oauth.oidc_jwt import JwtOidcProviderFactory
@@ -472,6 +473,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("locale_registry", "sql", SqlLocaleRegistryFactory(app))
     register_plugin("preference", "sql", SqlPreferenceStoreFactory(app))
     register_plugin("notification_preference", "http", HttpNotificationPreferenceStoreFactory(app))
+    register_plugin("notifier", "http", HttpNotifierFactory(app))
     register_plugin("translator", "db", DbTranslatorFactory(app))
     register_plugin("config_source", "sql", SqlConfigSourceFactory(app))
     register_plugin("config_source", "http", HttpConfigSourceFactory(app))
@@ -1367,6 +1369,32 @@ class HttpNotificationPreferenceStoreFactory(BasePluginFactory[HttpNotificationP
             HttpNotificationPreferenceStore: 通知偏好读取实例。
         """
         return HttpNotificationPreferenceStore(client=_resolve_service_client(self._app))
+
+
+class HttpNotifierFactory(BasePluginFactory[HttpNotifier]):
+    """通知发送跨服务工厂（注入服务间调用客户端）。"""
+
+    plugin_key: str = "notifier"
+    plugin_name: str = "http"
+
+    def __init__(self, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            app: 应用实例（取服务间调用客户端）。
+        """
+        self._app = app
+
+    def create(self, options: None = None) -> HttpNotifier:
+        """构造通知发送实现。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            HttpNotifier: 通知发送实例。
+        """
+        return HttpNotifier(client=_resolve_service_client(self._app))
 
 
 class DbTranslatorFactory(BasePluginFactory[DbTranslator]):

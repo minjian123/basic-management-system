@@ -13,8 +13,10 @@ from bms_notification.domains.notification.center import DatabaseNotificationCen
 from bms_notification.domains.notification.consumers import event_consumer_records
 from bms_notification.domains.notification.i18n_attachments import register_notice_i18n_attachments
 
-AUDITED_TABLES_NOTIFICATION: ConcurrentStableList[str] = ConcurrentStableList(("sys_notice",))
-"""本服务纳入字段级审计的关键表（07_02 公告；基座不引用他人服务表名）。"""
+AUDITED_TABLES_NOTIFICATION: ConcurrentStableList[str] = ConcurrentStableList(
+    ("sys_notice", "sys_mail_template", "sys_sms_template")
+)
+"""本服务纳入字段级审计的关键表（公告 / 邮件模板 / 短信模板；日志表不审计）。"""
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):

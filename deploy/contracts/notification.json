@@ -28,6 +28,458 @@
         "title": "ApiResponse",
         "type": "object"
       },
+      "ApiResponse_BasePageResponse_MailLogItem__": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_MailLogItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[MailLogItem]]",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_MailTemplateListItem__": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_MailTemplateListItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[MailTemplateListItem]]",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_SmsLogItem__": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_SmsLogItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[SmsLogItem]]",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_SmsTemplateListItem__": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_SmsTemplateListItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[SmsTemplateListItem]]",
+        "type": "object"
+      },
+      "ApiResponse_InternalSendResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InternalSendResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[InternalSendResult]",
+        "type": "object"
+      },
+      "ApiResponse_MailSendResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailSendResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MailSendResult]",
+        "type": "object"
+      },
+      "ApiResponse_MailTemplateDetail_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailTemplateDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MailTemplateDetail]",
+        "type": "object"
+      },
+      "ApiResponse_MailTemplatePreviewResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailTemplatePreviewResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MailTemplatePreviewResult]",
+        "type": "object"
+      },
+      "ApiResponse_MailTemplateTestResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailTemplateTestResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MailTemplateTestResult]",
+        "type": "object"
+      },
+      "ApiResponse_SmsSendResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmsSendResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SmsSendResult]",
+        "type": "object"
+      },
+      "ApiResponse_SmsTemplateDetail_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmsTemplateDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SmsTemplateDetail]",
+        "type": "object"
+      },
+      "ApiResponse_SmsTemplateTestResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmsTemplateTestResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SmsTemplateTestResult]",
+        "type": "object"
+      },
+      "BasePageResponse_MailLogItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/MailLogItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[MailLogItem]",
+        "type": "object"
+      },
+      "BasePageResponse_MailTemplateListItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/MailTemplateListItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[MailTemplateListItem]",
+        "type": "object"
+      },
+      "BasePageResponse_SmsLogItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/SmsLogItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[SmsLogItem]",
+        "type": "object"
+      },
+      "BasePageResponse_SmsTemplateListItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/SmsTemplateListItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[SmsTemplateListItem]",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -39,6 +491,826 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InternalSendRequest": {
+        "additionalProperties": false,
+        "description": "内部发送请求（服务间调用；租户由服务 JWT 解析）。",
+        "properties": {
+          "biz_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "业务标识",
+            "title": "Biz Id"
+          },
+          "biz_type": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "业务类型",
+            "title": "Biz Type"
+          },
+          "channel": {
+            "description": "渠道（email / sms）",
+            "title": "Channel",
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "description": "已渲染正文（邮件 raw / 短信日志用）",
+            "maxLength": 60000,
+            "title": "Content",
+            "type": "string"
+          },
+          "html": {
+            "default": false,
+            "description": "邮件正文是否 HTML",
+            "title": "Html",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "幂等键",
+            "title": "Idempotency Key"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "模板参数",
+            "title": "Params",
+            "type": "object"
+          },
+          "recipient": {
+            "description": "收件地址（邮箱 / 手机号）",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Recipient",
+            "type": "string"
+          },
+          "template_code": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "短信模板 code（短信必填）",
+            "title": "Template Code"
+          },
+          "title": {
+            "default": "",
+            "description": "标题 / 邮件主题",
+            "maxLength": 256,
+            "title": "Title",
+            "type": "string"
+          },
+          "transactional": {
+            "default": true,
+            "description": "事务性消息（跳过渠道开关与免打扰）",
+            "title": "Transactional",
+            "type": "boolean"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "收件用户主键（可空）",
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "channel",
+          "recipient"
+        ],
+        "title": "InternalSendRequest",
+        "type": "object"
+      },
+      "InternalSendResult": {
+        "additionalProperties": false,
+        "description": "内部发送受理结果。",
+        "properties": {
+          "log_id": {
+            "description": "发送记录主键",
+            "title": "Log Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（pending / skipped）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "log_id",
+          "status"
+        ],
+        "title": "InternalSendResult",
+        "type": "object"
+      },
+      "MailLogItem": {
+        "additionalProperties": false,
+        "description": "邮件发送记录行。",
+        "properties": {
+          "attempts": {
+            "description": "已尝试次数",
+            "minimum": 0.0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "channel": {
+            "description": "发送渠道（smtp）",
+            "title": "Channel",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "创建时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败原因摘要",
+            "title": "Error Msg"
+          },
+          "id": {
+            "description": "记录主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "渲染语言",
+            "title": "Locale"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "收件邮箱",
+            "title": "Recipient"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发送成功时间（UTC）",
+            "title": "Sent At"
+          },
+          "status": {
+            "description": "状态（pending/success/failed/skipped）",
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "渲染后的主题",
+            "title": "Subject"
+          },
+          "template_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "模板 code",
+            "title": "Template Code"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "收件用户主键",
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "status",
+          "attempts",
+          "created_at"
+        ],
+        "title": "MailLogItem",
+        "type": "object"
+      },
+      "MailSendRequest": {
+        "additionalProperties": false,
+        "description": "邮件模板发送请求。",
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "显式语言",
+            "title": "Locale"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "渲染参数（值统一按字符串）",
+            "title": "Params",
+            "type": "object"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "显式收件邮箱",
+            "title": "Recipient"
+          },
+          "template_code": {
+            "description": "模板 code",
+            "pattern": "^[a-z][a-z0-9_.-]{1,63}$",
+            "title": "Template Code",
+            "type": "string"
+          },
+          "transactional": {
+            "default": false,
+            "description": "事务性消息（跳过渠道开关与免打扰）",
+            "title": "Transactional",
+            "type": "boolean"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "收件用户主键（用于地址 / 语言解析）",
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "template_code"
+        ],
+        "title": "MailSendRequest",
+        "type": "object"
+      },
+      "MailSendResult": {
+        "additionalProperties": false,
+        "description": "发送受理结果。",
+        "properties": {
+          "log_id": {
+            "description": "发送记录主键",
+            "title": "Log Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（pending / skipped）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "log_id",
+          "status"
+        ],
+        "title": "MailSendResult",
+        "type": "object"
+      },
+      "MailTemplateCreateRequest": {
+        "additionalProperties": false,
+        "description": "新建邮件模板请求（code 与内置默认相同即覆盖）。",
+        "properties": {
+          "code": {
+            "description": "模板 code（创建后不可改）",
+            "pattern": "^[a-z][a-z0-9_.-]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MailTextInput"
+            },
+            "description": "语言标识 → 主题 / 正文（至少一种语言）",
+            "title": "I18N",
+            "type": "object"
+          },
+          "name": {
+            "description": "模板名称",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "sample_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "样例参数（提供时保存前严格渲染一次）",
+            "title": "Sample Params",
+            "type": "object"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "maxLength": 16,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "i18n"
+        ],
+        "title": "MailTemplateCreateRequest",
+        "type": "object"
+      },
+      "MailTemplateDetail": {
+        "additionalProperties": false,
+        "description": "邮件模板详情（含正文与完整多语言映射）。",
+        "properties": {
+          "code": {
+            "description": "模板 code",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "description": "当前语言正文",
+            "title": "Content",
+            "type": "string"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MailTextOutput"
+            },
+            "description": "完整多语言映射",
+            "title": "I18N",
+            "type": "object"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户模板主键；内置默认为 null",
+            "title": "Id"
+          },
+          "name": {
+            "description": "模板名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "source": {
+            "description": "来源（tenant / builtin）",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "description": "当前语言主题",
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "更新时间（内置默认为 null）",
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "status",
+          "source",
+          "subject"
+        ],
+        "title": "MailTemplateDetail",
+        "type": "object"
+      },
+      "MailTemplateListItem": {
+        "additionalProperties": false,
+        "description": "邮件模板列表行（租户行与内置默认合并）。",
+        "properties": {
+          "code": {
+            "description": "模板 code",
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户模板主键；内置默认为 null",
+            "title": "Id"
+          },
+          "name": {
+            "description": "模板名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "source": {
+            "description": "来源（tenant / builtin）",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "description": "当前语言主题",
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "更新时间（内置默认为 null）",
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "status",
+          "source",
+          "subject"
+        ],
+        "title": "MailTemplateListItem",
+        "type": "object"
+      },
+      "MailTemplatePreviewRequest": {
+        "additionalProperties": false,
+        "description": "按 code 预览（可命中内置默认）。",
+        "properties": {
+          "code": {
+            "description": "模板 code",
+            "pattern": "^[a-z][a-z0-9_.-]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言标识（缺省系统默认语言）",
+            "title": "Locale"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "渲染参数",
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "MailTemplatePreviewRequest",
+        "type": "object"
+      },
+      "MailTemplatePreviewResult": {
+        "additionalProperties": false,
+        "description": "按 code 预览结果。",
+        "properties": {
+          "code": {
+            "description": "模板 code",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "description": "渲染后的正文",
+            "title": "Content",
+            "type": "string"
+          },
+          "subject": {
+            "description": "渲染后的主题",
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "content",
+          "code"
+        ],
+        "title": "MailTemplatePreviewResult",
+        "type": "object"
+      },
+      "MailTemplateTestRequest": {
+        "additionalProperties": false,
+        "description": "邮件模板渲染测试请求（不发送）。",
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言标识（缺省系统默认语言）",
+            "title": "Locale"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "渲染参数",
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "title": "MailTemplateTestRequest",
+        "type": "object"
+      },
+      "MailTemplateTestResult": {
+        "additionalProperties": false,
+        "description": "模板渲染结果（不发送）。",
+        "properties": {
+          "content": {
+            "description": "渲染后的正文",
+            "title": "Content",
+            "type": "string"
+          },
+          "subject": {
+            "description": "渲染后的主题",
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "content"
+        ],
+        "title": "MailTemplateTestResult",
+        "type": "object"
+      },
+      "MailTemplateUpdateRequest": {
+        "additionalProperties": false,
+        "description": "编辑邮件模板请求（code 不可改；`i18n` 提供时整体替换）。",
+        "properties": {
+          "i18n": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MailTextInput"
+            },
+            "description": "语言标识 → 主题 / 正文（提供时整体替换）",
+            "title": "I18N",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "模板名称",
+            "title": "Name"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "sample_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "样例参数（提供时保存前严格渲染一次）",
+            "title": "Sample Params",
+            "type": "object"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（enabled/disabled）",
+            "title": "Status"
+          }
+        },
+        "title": "MailTemplateUpdateRequest",
+        "type": "object"
+      },
+      "MailTextInput": {
+        "additionalProperties": false,
+        "description": "邮件单语言文案入参。",
+        "properties": {
+          "content": {
+            "default": "",
+            "description": "正文 Jinja2 / HTML（该语言）",
+            "maxLength": 60000,
+            "title": "Content",
+            "type": "string"
+          },
+          "subject": {
+            "description": "主题（该语言）",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject"
+        ],
+        "title": "MailTextInput",
+        "type": "object"
+      },
+      "MailTextOutput": {
+        "additionalProperties": false,
+        "description": "邮件单语言文案出参。",
+        "properties": {
+          "content": {
+            "default": "",
+            "description": "正文 Jinja2 / HTML（该语言）",
+            "title": "Content",
+            "type": "string"
+          },
+          "subject": {
+            "description": "主题（该语言）",
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject"
+        ],
+        "title": "MailTextOutput",
         "type": "object"
       },
       "NoticeCreateRequest": {
@@ -274,6 +1546,635 @@
         "title": "NotificationReadRequest",
         "type": "object"
       },
+      "SmsLogItem": {
+        "additionalProperties": false,
+        "description": "短信发送记录行。",
+        "properties": {
+          "attempts": {
+            "description": "已尝试次数",
+            "minimum": 0.0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "channel": {
+            "description": "实际发送渠道",
+            "title": "Channel",
+            "type": "string"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "脱敏后的正文",
+            "title": "Content"
+          },
+          "created_at": {
+            "description": "创建时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败原因摘要",
+            "title": "Error Msg"
+          },
+          "id": {
+            "description": "记录主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "收件手机号",
+            "title": "Recipient"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "场景",
+            "title": "Scene"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发送成功时间（UTC）",
+            "title": "Sent At"
+          },
+          "status": {
+            "description": "状态（pending/success/failed/skipped）",
+            "title": "Status",
+            "type": "string"
+          },
+          "template_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "模板 code",
+            "title": "Template Code"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "收件用户主键",
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "status",
+          "attempts",
+          "created_at"
+        ],
+        "title": "SmsLogItem",
+        "type": "object"
+      },
+      "SmsSendRequest": {
+        "additionalProperties": false,
+        "description": "短信模板发送请求（渠道取配置的当前生效渠道）。",
+        "properties": {
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "渲染参数（值统一按字符串）",
+            "title": "Params",
+            "type": "object"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "显式收件手机号",
+            "title": "Recipient"
+          },
+          "template_code": {
+            "description": "模板 code",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Template Code",
+            "type": "string"
+          },
+          "transactional": {
+            "default": false,
+            "description": "事务性消息（跳过渠道开关与免打扰）",
+            "title": "Transactional",
+            "type": "boolean"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "收件用户主键（用于地址解析）",
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "template_code"
+        ],
+        "title": "SmsSendRequest",
+        "type": "object"
+      },
+      "SmsSendResult": {
+        "additionalProperties": false,
+        "description": "发送受理结果。",
+        "properties": {
+          "log_id": {
+            "description": "发送记录主键",
+            "title": "Log Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（pending / skipped）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "log_id",
+          "status"
+        ],
+        "title": "SmsSendResult",
+        "type": "object"
+      },
+      "SmsTemplateCreateRequest": {
+        "additionalProperties": false,
+        "description": "新建短信模板请求。",
+        "properties": {
+          "channel": {
+            "default": "aliyun",
+            "description": "渠道（aliyun/tencent）",
+            "maxLength": 16,
+            "title": "Channel",
+            "type": "string"
+          },
+          "code": {
+            "description": "模板 code",
+            "maxLength": 64,
+            "minLength": 2,
+            "pattern": "^[a-z][a-z0-9_.-]{1,63}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "description": "正文 Jinja2（单语言）",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "name": {
+            "description": "模板名称",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "provider_param_keys": {
+            "description": "厂商参数名顺序（≤20，去重）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Provider Param Keys",
+            "type": "array"
+          },
+          "provider_template_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "厂商模板 ID",
+            "title": "Provider Template Id"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "scene": {
+            "default": "notify",
+            "description": "场景（选项集值）",
+            "maxLength": 16,
+            "title": "Scene",
+            "type": "string"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "maxLength": 16,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "content"
+        ],
+        "title": "SmsTemplateCreateRequest",
+        "type": "object"
+      },
+      "SmsTemplateDetail": {
+        "additionalProperties": false,
+        "description": "短信模板详情。",
+        "properties": {
+          "channel": {
+            "description": "渠道（aliyun/tencent）",
+            "title": "Channel",
+            "type": "string"
+          },
+          "code": {
+            "description": "模板 code",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "description": "正文 Jinja2",
+            "title": "Content",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户模板主键；内置默认为 null",
+            "title": "Id"
+          },
+          "name": {
+            "description": "模板名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "provider_param_keys": {
+            "description": "厂商参数名顺序",
+            "items": {
+              "type": "string"
+            },
+            "title": "Provider Param Keys",
+            "type": "array"
+          },
+          "provider_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "厂商模板 ID",
+            "title": "Provider Template Id"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "scene": {
+            "description": "场景（选项集值）",
+            "title": "Scene",
+            "type": "string"
+          },
+          "source": {
+            "description": "来源（tenant / builtin）",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "更新时间（内置默认为 null）",
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "channel",
+          "scene",
+          "status",
+          "source"
+        ],
+        "title": "SmsTemplateDetail",
+        "type": "object"
+      },
+      "SmsTemplateListItem": {
+        "additionalProperties": false,
+        "description": "短信模板列表行（租户模板与内置事务性模板合并）。",
+        "properties": {
+          "channel": {
+            "description": "渠道（aliyun/tencent）",
+            "title": "Channel",
+            "type": "string"
+          },
+          "code": {
+            "description": "模板 code",
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户模板主键；内置默认为 null",
+            "title": "Id"
+          },
+          "name": {
+            "description": "模板名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "scene": {
+            "description": "场景（选项集值）",
+            "title": "Scene",
+            "type": "string"
+          },
+          "source": {
+            "description": "来源（tenant / builtin）",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "更新时间（内置默认为 null）",
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "channel",
+          "scene",
+          "status",
+          "source"
+        ],
+        "title": "SmsTemplateListItem",
+        "type": "object"
+      },
+      "SmsTemplateTestRequest": {
+        "additionalProperties": false,
+        "description": "短信模板渲染测试请求（不发送）。",
+        "properties": {
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "渲染参数",
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "title": "SmsTemplateTestRequest",
+        "type": "object"
+      },
+      "SmsTemplateTestResult": {
+        "additionalProperties": false,
+        "description": "短信模板渲染结果（不发送）。",
+        "properties": {
+          "code": {
+            "description": "模板 code",
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "description": "渲染后的正文",
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "content"
+        ],
+        "title": "SmsTemplateTestResult",
+        "type": "object"
+      },
+      "SmsTemplateUpdateRequest": {
+        "additionalProperties": false,
+        "description": "编辑短信模板请求（code / channel 不可改）。",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "正文 Jinja2",
+            "title": "Content"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "模板名称",
+            "title": "Name"
+          },
+          "provider_param_keys": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "厂商参数名顺序（提供时整体替换）",
+            "title": "Provider Param Keys"
+          },
+          "provider_template_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "厂商模板 ID",
+            "title": "Provider Template Id"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备注",
+            "title": "Remark"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "场景（选项集值）",
+            "title": "Scene"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（enabled/disabled）",
+            "title": "Status"
+          }
+        },
+        "title": "SmsTemplateUpdateRequest",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -340,6 +2241,1469 @@
         },
         "summary": "Root",
         "x-error-codes": []
+      }
+    },
+    "/api/v1/mail/internal/send": {
+      "post": {
+        "description": "内部发送（邮件 raw / 短信模板）。\n\nArgs:\n    uow: 请求级工作单元。\n    dispatcher: 外发调度服务。\n    req: 内部发送请求。\n\nReturns:\n    ApiResponse: 受理结果。\n\nRaises:\n    ParamError: 短信缺模板 / 邮件正文为空（10001）。",
+        "operationId": "internal_send_api_v1_mail_internal_send_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalSendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_InternalSendResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Internal Send",
+        "tags": [
+          "mail-internal"
+        ]
+      }
+    },
+    "/api/v1/mail/logs": {
+      "get": {
+        "description": "邮件发送记录列表。",
+        "operationId": "list_mail_logs_api_v1_mail_logs_get",
+        "parameters": [
+          {
+            "description": "状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "模板 code",
+            "in": "query",
+            "name": "template_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "模板 code",
+              "title": "Template Code"
+            }
+          },
+          {
+            "description": "收件地址（模糊）",
+            "in": "query",
+            "name": "recipient",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "收件地址（模糊）",
+              "title": "Recipient"
+            }
+          },
+          {
+            "description": "收件用户主键",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "收件用户主键",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "创建时间下限（UTC）",
+            "in": "query",
+            "name": "start_at",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "创建时间下限（UTC）",
+              "title": "Start At"
+            }
+          },
+          {
+            "description": "创建时间上限（UTC）",
+            "in": "query",
+            "name": "end_at",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "创建时间上限（UTC）",
+              "title": "End At"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_MailLogItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Mail Logs",
+        "tags": [
+          "mail"
+        ]
+      }
+    },
+    "/api/v1/mail/send": {
+      "post": {
+        "description": "发送邮件（异步：落日志 + 提交作业）。",
+        "operationId": "send_mail_api_v1_mail_send_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailSendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MailSendResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Send Mail",
+        "tags": [
+          "mail"
+        ]
+      }
+    },
+    "/api/v1/mail/templates": {
+      "get": {
+        "description": "邮件模板合并列表。",
+        "operationId": "list_mail_templates_api_v1_mail_templates_get",
+        "parameters": [
+          {
+            "description": "语言标识（缺省按 Accept-Language）",
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言标识（缺省按 Accept-Language）",
+              "title": "Locale"
+            }
+          },
+          {
+            "description": "code / 名称关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "code / 名称关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "状态（enabled/disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态（enabled/disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "来源（tenant/builtin）",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "来源（tenant/builtin）",
+              "title": "Source"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Accept-Language"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_MailTemplateListItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Mail Templates",
+        "tags": [
+          "mail"
+        ]
+      },
+      "post": {
+        "description": "新建邮件模板（code 与内置默认相同即覆盖）。",
+        "operationId": "create_mail_template_api_v1_mail_templates_post",
+        "parameters": [
+          {
+            "description": "语言标识（缺省按 Accept-Language）",
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言标识（缺省按 Accept-Language）",
+              "title": "Locale"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Accept-Language"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailTemplateCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MailTemplateDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Mail Template",
+        "tags": [
+          "mail"
+        ]
+      }
+    },
+    "/api/v1/mail/templates/preview": {
+      "post": {
+        "description": "按 code 沙箱渲染（含内置默认；不发送）。",
+        "operationId": "preview_mail_template_api_v1_mail_templates_preview_post",
+        "parameters": [
+          {
+            "description": "语言标识（缺省按 Accept-Language）",
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言标识（缺省按 Accept-Language）",
+              "title": "Locale"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Accept-Language"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailTemplatePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MailTemplatePreviewResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Preview Mail Template",
+        "tags": [
+          "mail"
+        ]
+      }
+    },
+    "/api/v1/mail/templates/{template_id}": {
+      "delete": {
+        "description": "软删除邮件模板（删除覆盖后回落内置默认）。",
+        "operationId": "delete_mail_template_api_v1_mail_templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Mail Template",
+        "tags": [
+          "mail"
+        ]
+      },
+      "get": {
+        "description": "邮件模板详情。",
+        "operationId": "get_mail_template_api_v1_mail_templates__template_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "语言标识（缺省按 Accept-Language）",
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言标识（缺省按 Accept-Language）",
+              "title": "Locale"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Accept-Language"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MailTemplateDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Mail Template",
+        "tags": [
+          "mail"
+        ]
+      },
+      "put": {
+        "description": "编辑邮件模板（code 不可改）。",
+        "operationId": "update_mail_template_api_v1_mail_templates__template_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "语言标识（缺省按 Accept-Language）",
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言标识（缺省按 Accept-Language）",
+              "title": "Locale"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Accept-Language"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailTemplateUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MailTemplateDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Mail Template",
+        "tags": [
+          "mail"
+        ]
+      }
+    },
+    "/api/v1/mail/templates/{template_id}/test": {
+      "post": {
+        "description": "按 id 沙箱渲染（不发送）。",
+        "operationId": "test_mail_template_api_v1_mail_templates__template_id__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "语言标识（缺省按 Accept-Language）",
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言标识（缺省按 Accept-Language）",
+              "title": "Locale"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Accept-Language"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailTemplateTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MailTemplateTestResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Test Mail Template",
+        "tags": [
+          "mail"
+        ]
       }
     },
     "/api/v1/notices": {
@@ -2190,6 +5554,1131 @@
         "summary": "Get Notification Detail",
         "tags": [
           "notification"
+        ]
+      }
+    },
+    "/api/v1/sms/logs": {
+      "get": {
+        "description": "短信发送记录列表。",
+        "operationId": "list_sms_logs_api_v1_sms_logs_get",
+        "parameters": [
+          {
+            "description": "状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "渠道",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "渠道",
+              "title": "Channel"
+            }
+          },
+          {
+            "description": "场景",
+            "in": "query",
+            "name": "scene",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "场景",
+              "title": "Scene"
+            }
+          },
+          {
+            "description": "模板 code",
+            "in": "query",
+            "name": "template_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "模板 code",
+              "title": "Template Code"
+            }
+          },
+          {
+            "description": "收件手机号（模糊）",
+            "in": "query",
+            "name": "recipient",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "收件手机号（模糊）",
+              "title": "Recipient"
+            }
+          },
+          {
+            "description": "收件用户主键",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "收件用户主键",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "创建时间下限（UTC）",
+            "in": "query",
+            "name": "start_at",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "创建时间下限（UTC）",
+              "title": "Start At"
+            }
+          },
+          {
+            "description": "创建时间上限（UTC）",
+            "in": "query",
+            "name": "end_at",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "创建时间上限（UTC）",
+              "title": "End At"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_SmsLogItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Sms Logs",
+        "tags": [
+          "sms"
+        ]
+      }
+    },
+    "/api/v1/sms/send": {
+      "post": {
+        "description": "发送短信（异步：落日志 + 提交作业；渠道取配置）。",
+        "operationId": "send_sms_api_v1_sms_send_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmsSendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SmsSendResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Send Sms",
+        "tags": [
+          "sms"
+        ]
+      }
+    },
+    "/api/v1/sms/templates": {
+      "get": {
+        "description": "短信模板合并列表。",
+        "operationId": "list_sms_templates_api_v1_sms_templates_get",
+        "parameters": [
+          {
+            "description": "code / 名称关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "code / 名称关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "状态（enabled/disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态（enabled/disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "渠道（aliyun/tencent）",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "渠道（aliyun/tencent）",
+              "title": "Channel"
+            }
+          },
+          {
+            "description": "场景（选项集值）",
+            "in": "query",
+            "name": "scene",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "场景（选项集值）",
+              "title": "Scene"
+            }
+          },
+          {
+            "description": "来源（tenant/builtin）",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "来源（tenant/builtin）",
+              "title": "Source"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_SmsTemplateListItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Sms Templates",
+        "tags": [
+          "sms"
+        ]
+      },
+      "post": {
+        "description": "新建短信模板。",
+        "operationId": "create_sms_template_api_v1_sms_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmsTemplateCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SmsTemplateDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Sms Template",
+        "tags": [
+          "sms"
+        ]
+      }
+    },
+    "/api/v1/sms/templates/{template_id}": {
+      "delete": {
+        "description": "软删除短信模板。",
+        "operationId": "delete_sms_template_api_v1_sms_templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Sms Template",
+        "tags": [
+          "sms"
+        ]
+      },
+      "get": {
+        "description": "短信模板详情。",
+        "operationId": "get_sms_template_api_v1_sms_templates__template_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SmsTemplateDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Sms Template",
+        "tags": [
+          "sms"
+        ]
+      },
+      "put": {
+        "description": "编辑短信模板（code / 渠道不可改）。",
+        "operationId": "update_sms_template_api_v1_sms_templates__template_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmsTemplateUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SmsTemplateDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Sms Template",
+        "tags": [
+          "sms"
+        ]
+      }
+    },
+    "/api/v1/sms/templates/{template_id}/test": {
+      "post": {
+        "description": "按 id 沙箱渲染（不发送）。",
+        "operationId": "test_sms_template_api_v1_sms_templates__template_id__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmsTemplateTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SmsTemplateTestResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Test Sms Template",
+        "tags": [
+          "sms"
         ]
       }
     },

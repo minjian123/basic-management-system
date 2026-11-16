@@ -23,9 +23,17 @@ NOTICE_I18N_ATTACHMENTS: ConcurrentStableList[I18nAttachment] = ConcurrentStable
             status=ATTACHMENT_LANDED,
             owner_task="07_02 公告管理",
         ),
+        I18nAttachment(
+            table="sys_mail_template_i18n",
+            owner_table="sys_mail_template",
+            key_column="template_id",
+            text_columns=ConcurrentStableList(("subject", "content")),
+            status=ATTACHMENT_LANDED,
+            owner_task="07_03 邮件与短信通知",
+        ),
     )
 )
-"""公告标题 / 正文多语言附表登记项。"""
+"""公告 / 邮件模板多语言附表登记项。"""
 
 
 def register_notice_i18n_attachments() -> None:

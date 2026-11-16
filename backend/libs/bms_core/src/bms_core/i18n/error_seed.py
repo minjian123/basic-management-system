@@ -182,6 +182,12 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (70204, "公告状态冲突", "Notice status conflict"),
         (70205, "公告内容校验失败", "Notice content validation failed"),
         (70206, "公告应读人数暂不可用", "Notice audience count is unavailable"),
+        (70301, "邮件模板不存在或已停用", "Mail template not found or disabled"),
+        (70302, "模板语法校验失败", "Template syntax validation failed"),
+        (70303, "模板渲染失败", "Template rendering failed"),
+        (70304, "短信模板不存在、已停用或与当前渠道不匹配", "SMS template is unavailable for the current channel"),
+        (70305, "发送渠道未配置或配置无效", "Delivery channel is not configured or invalid"),
+        (70306, "发送过于频繁", "Sending too frequently"),
         # ---- 8xxxx 开放接口与租户 ----
         (80001, "租户不存在", "Tenant not found"),
         (80002, "租户已暂停", "Tenant is suspended"),

@@ -43,6 +43,7 @@ async def _add_user(
     status: str = "enabled",
     phone: str | None = None,
     email: str | None = None,
+    locale: str | None = None,
 ) -> SysUser:
     """插入一条测试用户。
 
@@ -53,6 +54,7 @@ async def _add_user(
         status: 账号状态。
         phone: 手机号。
         email: 邮箱。
+        locale: 语言偏好。
 
     Returns:
         SysUser: 持久化后的用户行。
@@ -64,6 +66,7 @@ async def _add_user(
         status=status,
         phone=phone,
         email=email,
+        locale=locale,
     )
     session.add(user)
     await session.flush()
@@ -164,7 +167,14 @@ async def test_internal_query_service_filters_and_paging() -> None:
 async def test_internal_query_endpoint_requires_mdm_service(client: AsyncClient, service_app: FastAPI) -> None:
     """端点：仅放行 `sub=mdm` 服务票据；identity / 网关 / 无票据 / 未知票据一律拒。"""
     session, engine = await _session()
-    user = await _add_user(session, "alice", name="爱丽丝", phone="13800000001", email="alice@example.com")
+    user = await _add_user(
+        session,
+        "alice",
+        name="爱丽丝",
+        phone="13800000001",
+        email="alice@example.com",
+        locale="en-US",
+    )
     await _add_user(session, "bob", name="鲍勃", status="disabled")
     await session.commit()
 
@@ -193,6 +203,7 @@ async def test_internal_query_endpoint_requires_mdm_service(client: AsyncClient,
     assert item["status"] == "enabled"
     assert item["phone"] == "13800000001"
     assert item["email"] == "alice@example.com"
+    assert item["locale"] == "en-US"
     # 用户＝系统账号：不含部门 / 岗位字段（部门关系归 mdm，需求 07-11）
     assert "dept_id" not in item
     assert "password_hash" not in item and "locked_until" not in item

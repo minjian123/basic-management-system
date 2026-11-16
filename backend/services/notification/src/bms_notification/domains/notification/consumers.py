@@ -13,7 +13,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import UTC, datetime
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.context import (
     reset_current_tenant,
@@ -23,7 +23,13 @@ from bms_core.core.context import (
     set_current_tenant_id,
     set_tenant_context,
 )
-from bms_core.core.exceptions import EventConsumeError
+from bms_core.core.exceptions import (
+    ChannelConfigInvalidError,
+    EventConsumeError,
+    ParamError,
+    SmsTemplateUnavailableError,
+    TemplateRenderError,
+)
 from bms_core.core.logging import get_logger
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db.engine import EngineFactory
@@ -44,10 +50,17 @@ from bms_core.notification.request import (
     NOTIFICATION_TYPES,
     NotificationRequest,
 )
-from bms_core.notify.base import BaseNotifier, NotificationMessage, NotifyChannel
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.ws.base import BaseRealtimePublisher, RealtimeEvent
 from bms_notification.domains.notification.services.generation import NotificationGenerationService
+from bms_notification.domains.notification.services.outbound import (
+    CHANNEL_EMAIL,
+    CHANNEL_SMS,
+    DispatchRequest,
+    JobSubmitter,
+    OutboundDispatchService,
+)
+from bms_notification.domains.notification.services.recipient import RecipientResolver
 
 __all__ = ["NOTIFICATION_GROUP", "NotificationRequestConsumer", "event_consumer_records"]
 
@@ -61,6 +74,9 @@ _registry_cache: EngineRegistry | None = None
 
 _lookup_cache: TenantLookup | None = None
 """懒建租户源（按事件租户主键解析库键）。"""
+
+_recipient_resolver_cache: RecipientResolver | None = None
+"""懒建收件人解析器（平台用户只读出口）。"""
 
 type SessionOpener = Callable[[TenantContext], AbstractAsyncContextManager[DbSession]]
 """按租户上下文开合会话（测试注入回滚会话）。"""
@@ -123,7 +139,8 @@ class NotificationRequestConsumer(EventConsumer):
         *,
         preference: BaseNotificationPreferenceStore | None = None,
         realtime: BaseRealtimePublisher | None = None,
-        notifier: BaseNotifier | None = None,
+        recipient_resolver: RecipientResolver | None = None,
+        outbound_jobs: JobSubmitter | None = None,
         outbox: BaseOutboxStore | None = None,
         tenant_lookup: TenantLookup | None = None,
         session_opener: SessionOpener | None = None,
@@ -133,14 +150,16 @@ class NotificationRequestConsumer(EventConsumer):
         Args:
             preference: 通知偏好读取实现。
             realtime: 实时推送实现。
-            notifier: 渠道发送实现。
+            recipient_resolver: 收件人解析器。
+            outbound_jobs: 外发作业提交器。
             outbox: 发件箱存储。
             tenant_lookup: 租户源。
             session_opener: 按租户开合会话。
         """
         self._preference = preference
         self._realtime = realtime
-        self._notifier = notifier
+        self._recipient_resolver = recipient_resolver
+        self._outbound_jobs = outbound_jobs
         self._outbox = outbox
         self._tenant_lookup = tenant_lookup
         self._session_opener = session_opener
@@ -174,7 +193,7 @@ class NotificationRequestConsumer(EventConsumer):
             preference = await self._load_preference(request.user_id)
             if preference.channel_enabled("inbox"):
                 await self._deliver_inbox(event, request, tenant, preference)
-            await self._deliver_external(request, preference)
+            await self._deliver_external(event, request, tenant, preference)
         finally:
             reset_tenant_context(tokens[0])
             reset_current_tenant(tokens[1])
@@ -219,33 +238,67 @@ class NotificationRequestConsumer(EventConsumer):
             except Exception as exc:  # 推送失败不回滚、不重试，靠重连补偿
                 _LOGGER.warning("通知实时推送失败", user_id=request.user_id, event_name=name, error=str(exc))
 
-    async def _deliver_external(self, request: NotificationRequest, preference: NotificationPreference) -> None:
-        """邮件 / 短信渠道（地址缺失跳过；发送失败只告警）。"""
-        notifier = self._notifier or _default_notifier()
-        targets: ConcurrentStableList[tuple[NotifyChannel, str | None]] = ConcurrentStableList(
+    async def _deliver_external(
+        self,
+        event: EventEnvelope,
+        request: NotificationRequest,
+        tenant: TenantContext,
+        preference: NotificationPreference,
+    ) -> None:
+        """邮件 / 短信渠道：统一经外发调度器（渠道过滤 / 免打扰 / 日志 / 作业）。
+
+        渠道关闭时跳过；短信未带模板 code 时记失败（云短信只支持模板）。
+        """
+        targets: ConcurrentStableList[
+            tuple[str, str | None, str | None, ConcurrentStableFrozenDict[str, str] | None]
+        ] = ConcurrentStableList(
             (
-                (NotifyChannel.EMAIL, request.email),
-                (NotifyChannel.SMS, request.phone),
+                (CHANNEL_EMAIL, request.email, request.title, None),
+                (CHANNEL_SMS, request.phone, None, request.sms_params),
             )
         )
-        for channel, recipient in targets:
-            if not preference.channel_enabled(channel.value) or not recipient:
+        opener = self._session_opener or _default_session_opener
+        channels: ConcurrentStableList[
+            tuple[str, str | None, str | None, ConcurrentStableFrozenDict[str, str] | None]
+        ] = ConcurrentStableList()
+        for channel, recipient, title, params in targets:
+            if not preference.channel_enabled(channel):
                 continue
-            try:
-                await notifier.send(
-                    NotificationMessage(
-                        channel=channel,
-                        recipient=recipient,
-                        content=request.content,
-                        title=request.title,
-                        biz_type=request.biz_type,
-                        biz_id=request.biz_id,
+            channels.append((channel, recipient, title, params))
+        if not channels:
+            return
+        async with opener(tenant) as session, session.begin():
+            dispatcher = OutboundDispatchService(
+                session,
+                preference=self._preference,
+                recipient_resolver=self._recipient_resolver or _default_recipient_resolver(),
+                jobs=self._outbound_jobs,
+            )
+            for channel, recipient, title, params in channels:
+                dispatch_request = DispatchRequest(
+                    channel=channel,
+                    template_code=request.sms_template_code if channel == CHANNEL_SMS else None,
+                    params=params or ConcurrentStableFrozenDict(),
+                    user_id=request.user_id,
+                    recipient=recipient,
+                    transactional=False,
+                    title=title or "",
+                    content=request.content,
+                    idempotency_key=f"notification:{event.event_id}:{channel}" if event.event_id else None,
+                    record_skipped_when_disabled=False,
+                    fail_on_missing_recipient=False,
+                )
+                try:
+                    await dispatcher.dispatch(dispatch_request, preference=preference)
+                except (ParamError, SmsTemplateUnavailableError, ChannelConfigInvalidError, TemplateRenderError) as exc:
+                    await dispatcher.record_failure(dispatch_request, reason=str(exc))
+                    _LOGGER.warning(
+                        "通知外发未受理（已记失败）", channel=channel, user_id=request.user_id, error=str(exc)
                     )
-                )
-            except Exception as exc:
-                _LOGGER.warning(
-                    "通知外发渠道失败（不影响站内信）", channel=channel.value, user_id=request.user_id, error=str(exc)
-                )
+                except Exception as exc:  # 外发是副作用：失败只告警，不影响站内信
+                    _LOGGER.warning(
+                        "通知外发异常（不影响站内信）", channel=channel, user_id=request.user_id, error=str(exc)
+                    )
 
     async def _load_preference(self, user_id: int) -> NotificationPreference:
         """读取偏好（实现异常回落默认）。"""
@@ -302,6 +355,8 @@ def _parse_request(event: EventEnvelope) -> NotificationRequest:
     biz_id = _optional_text(payload.get("biz_id"), "biz_id", limit=64)
     email = _optional_text(payload.get("email"), "email", limit=128)
     phone = _optional_text(payload.get("phone"), "phone", limit=32)
+    sms_template_code = _optional_text(payload.get("sms_template_code"), "sms_template_code", limit=64)
+    sms_params = _optional_params(payload.get("sms_params"))
     return NotificationRequest(
         user_id=int(raw_user),
         title=raw_title.strip(),
@@ -311,7 +366,37 @@ def _parse_request(event: EventEnvelope) -> NotificationRequest:
         biz_id=biz_id,
         email=email,
         phone=phone,
+        sms_template_code=sms_template_code,
+        sms_params=sms_params,
     )
+
+
+def _optional_params(value: object) -> ConcurrentStableFrozenDict[str, str] | None:
+    """校验可选短信模板参数（扁平对象、字符串值、≤50 键）。
+
+    Args:
+        value: 原始值。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, str] | None: 参数或 None。
+
+    Raises:
+        EventConsumeError: 非对象 / 值非字符串 / 超长。
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise EventConsumeError("notification.requested 的 sms_params 非法")
+    mapping = cast("dict[object, object]", value)
+    if len(mapping) > 50:
+        raise EventConsumeError("notification.requested 的 sms_params 过多")
+    result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    for key, item in mapping.items():
+        name = str(key)
+        if not isinstance(item, str) or len(item) > 512:
+            raise EventConsumeError("notification.requested 的 sms_params 值非法")
+        result.set(name, item)
+    return ConcurrentStableFrozenDict(result)
 
 
 def _optional_text(value: object, name: str, *, limit: int) -> str | None:
@@ -361,13 +446,14 @@ def _default_realtime() -> BaseRealtimePublisher:
     )
 
 
-def _default_notifier() -> BaseNotifier:
-    """按配置解析通知渠道实现。"""
-    settings = get_settings()
-    return cast(
-        "BaseNotifier",
-        resolve_plugin("notifier", settings.notifier.provider, expected_version=BaseNotifier.contract_version),
-    )
+def _default_recipient_resolver() -> RecipientResolver:
+    """按配置构建收件人解析器（进程级缓存；消费处理器无请求态）。"""
+    global _recipient_resolver_cache
+    if _recipient_resolver_cache is None:
+        from bms_core.core.assembly import HttpServiceClientFactory
+
+        _recipient_resolver_cache = RecipientResolver(HttpServiceClientFactory(get_settings()).create())
+    return _recipient_resolver_cache
 
 
 def event_consumer_records() -> ConcurrentStableList[EventConsumerRecord]:

@@ -6,6 +6,9 @@ requires-python = ">=3.14"
 dependencies = [
     "bms-core",
     "fastapi>=0.115",
+    # 邮件 / 短信模板（07_03）：Jinja2 沙箱渲染 + aiosmtplib 异步 SMTP
+    "jinja2>=3.1.4",
+    "aiosmtplib>=3.0",
 ]
 
 [build-system]

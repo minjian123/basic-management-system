@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.context import get_current_tenant_id
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseValueObject
@@ -71,7 +71,13 @@ class NotificationRequest(BaseValueObject):
     """收件邮箱（可选；邮件渠道开启且提供时交 `BaseNotifier`）。"""
 
     phone: str | None = None
-    """收件手机号（可选；短信渠道开启且提供时交 `BaseNotifier`）。"""
+    """收件手机号（可选；短信渠道开启且提供时交外发调度器）。"""
+
+    sms_template_code: str | None = None
+    """短信模板 code（可选；真实云短信必带，如 `sms_captcha`）。"""
+
+    sms_params: ConcurrentStableFrozenDict[str, str] | None = None
+    """短信模板参数（可选；与 `sms_template_code` 配套）。"""
 
     def to_payload(self) -> ConcurrentStableDict[str, object]:
         """转事件负载（只写非空可选字段）。
@@ -89,10 +95,13 @@ class NotificationRequest(BaseValueObject):
             ("biz_id", self.biz_id),
             ("email", self.email),
             ("phone", self.phone),
+            ("sms_template_code", self.sms_template_code),
         )
         for key, value in optional:
             if value:
                 payload.set(key, value)
+        if self.sms_params:
+            payload.set("sms_params", dict(self.sms_params))
         return payload
 
 
@@ -122,7 +131,7 @@ def build_requested_envelope(request: NotificationRequest, *, tenant_id: str | N
         payload=request.to_payload(),
         tenant_id=resolved_tenant,
         aggregate_key=f"notification:{request.user_id}",
-        event_version="1.0.0",
+        event_version="1.1.0",
     )
 
 

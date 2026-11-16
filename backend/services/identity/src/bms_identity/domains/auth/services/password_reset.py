@@ -14,7 +14,7 @@ from __future__ import annotations
 import secrets
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableFrozenList
 from bms_core.core.config import PasswordResetSettings
 from bms_core.core.exceptions import (
     CaptchaVerifyError,
@@ -302,16 +302,35 @@ class PasswordResetService(BaseFrameworkObject):
             NotificationMessage: 通知消息。
         """
         minutes = max(1, self._settings.token_ttl_seconds // 60)
+        link = ""
         if self._settings.reset_url:
             link = f"{self._settings.reset_url}?token={token}&tenant={tenant_code}"
             action = f"打开以下链接完成重置（每个链接仅可使用一次）：{link}"
         else:
             action = f"使用以下重置令牌完成重置（单次有效）：{token}"
         channel = NotifyChannel(target.channel)
+        if channel is NotifyChannel.SMS:
+            return NotificationMessage(
+                channel=channel,
+                recipient=target.target,
+                title="",
+                content=f"您正在找回账号（{target.account}）的密码，请在 {minutes} 分钟内{action}。",
+                biz_type="password_reset",
+                biz_id=str(target.user_id or ""),
+                template_code="sms_password_reset",
+                params=ConcurrentStableFrozenDict(
+                    {
+                        "account": target.account,
+                        "minutes": str(minutes),
+                        "token": token,
+                        "link": link,
+                    }
+                ),
+            )
         return NotificationMessage(
             channel=channel,
             recipient=target.target,
-            title="BMS 密码重置" if channel is NotifyChannel.EMAIL else "",
+            title="BMS 密码重置",
             content=f"您正在找回账号（{target.account}）的密码，请在 {minutes} 分钟内{action}。",
             biz_type="password_reset",
             biz_id=str(target.user_id or ""),

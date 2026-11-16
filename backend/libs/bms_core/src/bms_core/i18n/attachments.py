@@ -107,14 +107,6 @@ I18N_ATTACHMENTS: ConcurrentStableDict[str, I18nAttachment] = ConcurrentStableDi
                 owner_task="03_03 自定义图标",
             ),
             I18nAttachment(
-                table="sys_mail_template_i18n",
-                owner_table="sys_mail_template",
-                key_column="template_id",
-                text_columns=ConcurrentStableList(["subject", "content"]),
-                status=ATTACHMENT_PENDING,
-                owner_task="07_03 邮件与短信通知",
-            ),
-            I18nAttachment(
                 table="sys_help_article_i18n",
                 owner_table="sys_help_article",
                 key_column="article_id",

@@ -31,6 +31,7 @@ __all__ = [
 
 _STRING_REQUIRED = EventFieldSpec(type="string", required=True)
 _STRING_OPTIONAL = EventFieldSpec(type="string")
+_OBJECT_OPTIONAL = EventFieldSpec(type="object")
 _INTEGER_REQUIRED = EventFieldSpec(type="integer", required=True)
 _INTEGER_OPTIONAL = EventFieldSpec(type="integer")
 _BOOLEAN_REQUIRED = EventFieldSpec(type="boolean", required=True)
@@ -193,6 +194,7 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
         ),
         EventContract(
             event_type="notification.requested",
+            version="1.1.0",
             description="业务方请求发送一条通知（通知组消费落库；正文已按收件人语言渲染）",
             fields=ConcurrentStableFrozenDict(
                 {
@@ -204,6 +206,9 @@ PLATFORM_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStable
                     "biz_id": _STRING_OPTIONAL,
                     "email": _STRING_OPTIONAL,
                     "phone": _STRING_OPTIONAL,
+                    # 短信必须走厂商模板：携带模板 code 与扁平参数；未带时外发按失败记录
+                    "sms_template_code": _STRING_OPTIONAL,
+                    "sms_params": _OBJECT_OPTIONAL,
                 }
             ),
         ),

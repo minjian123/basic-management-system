@@ -55,7 +55,8 @@ async def test_api_errors(service_app: FastAPI, client: AsyncClient, shared_tena
 async def test_filters_json_invalid(service_app: FastAPI, client: AsyncClient) -> None:
     """filters 非 JSON / 非数组参数错误。"""
     service_app.dependency_overrides[get_notification_center] = lambda: DatabaseNotificationCenter(
-        session_opener=lambda: _empty_session(), transactional=False  # pyright: ignore[reportArgumentType]
+        session_opener=lambda: _empty_session(),  # pyright: ignore[reportArgumentType]
+        transactional=False,  # pyright: ignore[reportArgumentType]
     )
     assert (await client.get(API, params={"filters": "bad"})).json()["code"] == 10001
     assert (await client.get(API, params={"filters": "{}"})).json()["code"] == 10001

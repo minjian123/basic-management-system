@@ -57,6 +57,7 @@ class InternalUserItem(BaseSchema):
     status: str = Field(description="账号状态（enabled / disabled）")
     phone: str | None = Field(default=None, description="手机号（原样返回，脱敏归消费方）")
     email: str | None = Field(default=None, description="邮箱（原样返回，脱敏归消费方）")
+    locale: str | None = Field(default=None, description="语言偏好（IETF 形态；空 = 未设置）")
 
 
 class UserProfileRequest(BaseSchema):

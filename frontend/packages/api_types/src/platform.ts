@@ -9148,6 +9148,11 @@ export interface components {
              */
             id: string;
             /**
+             * Locale
+             * @description 语言偏好（IETF 形态；空 = 未设置）
+             */
+            locale?: string | null;
+            /**
              * Name
              * @description 昵称 / 显示名
              */

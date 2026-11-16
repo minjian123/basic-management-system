@@ -17,6 +17,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableFrozenDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseDeliveryResultContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -68,6 +69,12 @@ class NotificationMessage(BaseValueObject):
 
     biz_id: str | None = None
     """业务 id（供跳转与去重；可选）。"""
+
+    template_code: str | None = None
+    """短信模板 code（可选；云短信真实发送必带，如 `sms_captcha`）。"""
+
+    params: ConcurrentStableFrozenDict[str, str] | None = None
+    """模板参数（可选；与 `template_code` 配套，键值均为字符串）。"""
 
 
 @dataclass(frozen=True)

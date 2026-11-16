@@ -154,6 +154,8 @@ async def test_send_sms_challenge_record_and_notify(redis_client: fakeredis.aior
     assert message.title == ""
     assert message.biz_type == "captcha"
     assert message.biz_id == challenge.captcha_id
+    assert message.template_code == "sms_captcha"
+    assert message.params == {"code": code, "minutes": "5"}
     await captcha.aclose()
 
 

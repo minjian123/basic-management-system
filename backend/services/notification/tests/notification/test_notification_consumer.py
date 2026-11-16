@@ -17,14 +17,16 @@ from bms_core.core.exceptions import EventConsumeError
 from bms_core.db.tenant import TenantContext
 from bms_core.events.base import EventEnvelope
 from bms_core.notification.preference import NotificationPreference, default_notification_preference
-from bms_core.notify.base import NotificationMessage
 from bms_core.testing.transaction import rollback_session
 from bms_core.ws.base import RealtimeEvent
 from bms_notification.domains.notification.consumers import (
     NotificationRequestConsumer,
     event_consumer_records,
 )
+from bms_notification.domains.notification.models.mail import SysMailLog
 from bms_notification.domains.notification.models.notification import SysNotification
+from bms_notification.domains.notification.models.sms import SysSmsLog
+from bms_notification.domains.notification.services.recipient import RecipientInfo
 from notification._support import session_opener
 
 pytestmark = pytest.mark.kiwi_id(2517)
@@ -70,16 +72,36 @@ class _Realtime:
         del session_id, room
 
 
-class _Notifier:
+class _Jobs:
     def __init__(self, *, fail: bool = False) -> None:
-        self.sent: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+        self.submitted: ConcurrentStableList[tuple[str, str | None]] = ConcurrentStableList()
         self._fail = fail
 
-    async def send(self, message: NotificationMessage) -> object:
+    async def submit(
+        self,
+        session: object,
+        *,
+        job_type: str,
+        payload: ConcurrentStableDict[str, object],
+        tenant_id: int | None,
+    ) -> int:
+        del session, tenant_id
         if self._fail:
-            raise RuntimeError("smtp down")
-        self.sent.add((str(message.channel), message.recipient))
-        return object()
+            raise RuntimeError("job center down")
+        self.submitted.add((job_type, str(payload.get("recipient"))))
+        return len(self.submitted)
+
+
+class _Resolver:
+    def __init__(self, info: RecipientInfo | None = None, *, fail: bool = False) -> None:
+        self.info = info or RecipientInfo(email="a@b.c", phone="13800000000", locale="zh-CN")
+        self._fail = fail
+
+    async def resolve(self, user_id: int) -> RecipientInfo:
+        del user_id
+        if self._fail:
+            raise RuntimeError("platform down")
+        return self.info
 
 
 class _Preference:
@@ -116,14 +138,16 @@ def _consumer(
     pref: NotificationPreference | None = None,
     pref_fail: bool = False,
     realtime: _Realtime | None = None,
-    notifier: _Notifier | None = None,
+    jobs: _Jobs | None = None,
+    resolver: _Resolver | None = None,
     outbox: _Outbox | None = None,
     lookup: _Lookup | None = None,
 ) -> NotificationRequestConsumer:
     return NotificationRequestConsumer(
         preference=cast("object", _Preference(pref, fail=pref_fail)),  # pyright: ignore[reportArgumentType]
         realtime=cast("object", realtime or _Realtime()),  # pyright: ignore[reportArgumentType]
-        notifier=cast("object", notifier or _Notifier()),  # pyright: ignore[reportArgumentType]
+        recipient_resolver=cast("object", resolver or _Resolver()),  # pyright: ignore[reportArgumentType]
+        outbound_jobs=cast("object", jobs or _Jobs()),  # pyright: ignore[reportArgumentType]
         outbox=cast("object", outbox or _Outbox()),  # pyright: ignore[reportArgumentType]
         tenant_lookup=cast("object", lookup or _Lookup()),  # pyright: ignore[reportArgumentType]
         session_opener=lambda tenant: session_opener(session),  # pyright: ignore[reportArgumentType]
@@ -177,9 +201,7 @@ async def test_inbox_disabled(shared_tenant_engine: AsyncEngine) -> None:
     async with rollback_session(shared_tenant_engine) as session:
         outbox = _Outbox()
         realtime = _Realtime()
-        pref = NotificationPreference(
-            channels=ConcurrentStableFrozenDict({"inbox": False, "email": True, "sms": True})
-        )
+        pref = NotificationPreference(channels=ConcurrentStableFrozenDict({"inbox": False, "email": True, "sms": True}))
         await _consumer(session, pref=pref, outbox=outbox, realtime=realtime).consume(_event())
         assert (await session.execute(select(SysNotification))).scalars().all() == []
         assert outbox.events == []
@@ -187,26 +209,26 @@ async def test_inbox_disabled(shared_tenant_engine: AsyncEngine) -> None:
 
 
 async def test_external_channels(shared_tenant_engine: AsyncEngine) -> None:
-    """邮件 / 短信按开关与地址发送；缺地址跳过。"""
+    """邮件 / 短信按开关与地址经外发调度器落日志 + 提交作业；短信缺模板记失败。"""
     async with rollback_session(shared_tenant_engine) as session:
-        notifier = _Notifier()
-        pref = NotificationPreference(
-            channels=ConcurrentStableFrozenDict({"inbox": False, "email": True, "sms": True})
-        )
-        await _consumer(session, pref=pref, notifier=notifier).consume(
-            _event(email="a@b.c", phone="13800000000")
-        )
-        assert notifier.sent == [("email", "a@b.c"), ("sms", "13800000000")]
+        jobs = _Jobs()
+        pref = NotificationPreference(channels=ConcurrentStableFrozenDict({"inbox": False, "email": True, "sms": True}))
+        await _consumer(session, pref=pref, jobs=jobs).consume(_event(email="a@b.c", phone="13800000000"))
+        mail = (await session.execute(select(SysMailLog))).scalars().one()
+        assert mail.recipient == "a@b.c"
+        assert mail.status == "pending"
+        sms = (await session.execute(select(SysSmsLog))).scalars().one()
+        assert sms.status == "failed"
+        assert "template_code" in (sms.error_msg or "")
+        assert [item[0] for item in jobs.submitted] == ["notification.mail.send"]
 
 
 async def test_external_failure_and_pref_failure(shared_tenant_engine: AsyncEngine) -> None:
     """外发失败与偏好读取失败均不影响站内信。"""
     async with rollback_session(shared_tenant_engine) as session:
-        notifier = _Notifier(fail=True)
-        pref = NotificationPreference(
-            channels=ConcurrentStableFrozenDict({"inbox": False, "email": True, "sms": False})
-        )
-        await _consumer(session, pref=pref, notifier=notifier).consume(_event(email="a@b.c"))
+        pref = NotificationPreference(channels=ConcurrentStableFrozenDict({"inbox": True, "email": True, "sms": False}))
+        await _consumer(session, pref=pref, resolver=_Resolver(fail=True)).consume(_event(email="a@b.c"))
+        assert (await session.execute(select(SysNotification))).scalars().one()
 
     async with rollback_session(shared_tenant_engine) as session:
         await _consumer(session, pref_fail=True, realtime=_Realtime(fail=True)).consume(_event())
@@ -228,6 +250,10 @@ async def test_bad_payloads(shared_tenant_engine: AsyncEngine) -> None:
             _event(biz_id="x" * 65),
             _event(email="x" * 129),
             _event(phone="x" * 33),
+            _event(sms_template_code="x" * 65),
+            _event(sms_params={"k": 1}),
+            _event(sms_params={"k": "x" * 513}),
+            _event(sms_params=[1]),
             EventEnvelope(event_type="notification.requested", payload=ConcurrentStableDict(), tenant_id=None),
         )
         for event in cases:
@@ -281,8 +307,20 @@ async def test_default_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(module, "resolve_plugin", lambda *args, **kwargs: sentinel)
         assert module._default_preference() is sentinel
         assert module._default_realtime() is sentinel
-        assert module._default_notifier() is sentinel
+
+        class _Factory:
+            def __init__(self, settings: object) -> None:
+                del settings
+
+            def create(self) -> object:
+                return sentinel
+
+        monkeypatch.setattr("bms_core.core.assembly.HttpServiceClientFactory", _Factory)
+        module._recipient_resolver_cache = None
+        resolver = module._default_recipient_resolver()
+        assert resolver is module._default_recipient_resolver()
+        module._recipient_resolver_cache = None
     finally:
         module._registry_cache = None
         module._lookup_cache = None
-
+        module._recipient_resolver_cache = None

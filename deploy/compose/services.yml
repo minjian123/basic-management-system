@@ -148,6 +148,18 @@ services:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_NOTIFICATION:-15}
 
+  notification-jobs:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-notification:${BMS_TAG_NOTIFICATION:?BMS_TAG_NOTIFICATION required}
+    container_name: bms-notification-jobs
+    command: ["python", "-m", "bms_notification.jobs"]
+    expose: []
+    healthcheck: *jobs-healthcheck
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_NOTIFICATION_JOBS:-105}
+      BMS_APP__SERVICE: notification
+
   search:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-search:${BMS_TAG_SEARCH:?BMS_TAG_SEARCH required}

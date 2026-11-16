@@ -2046,6 +2046,52 @@ class NoticeAudienceUnavailableError(NoticeError):
         super().__init__(ErrorCode.NOTICE_AUDIENCE_UNAVAILABLE, message, http_status=503, data=data)
 
 
+class MailError(NotificationError):
+    """邮件模板与发送段（`703xx`）异常基类。"""
+
+
+class MailTemplateNotFoundError(MailError):
+    """邮件模板不存在、已停用或无可用的内置默认（`70301` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.MAIL_TEMPLATE_NOT_FOUND, message, http_status=404, data=data)
+
+
+class TemplateSyntaxInvalidError(MailError):
+    """模板语法校验失败（`70302` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TEMPLATE_SYNTAX_INVALID, message, http_status=400, data=data)
+
+
+class TemplateRenderError(MailError):
+    """沙箱渲染失败、缺参、超时或输出超限（`70303` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TEMPLATE_RENDER_FAILED, message, http_status=400, data=data)
+
+
+class SmsTemplateUnavailableError(MailError):
+    """短信模板不存在、已停用或与当前渠道不匹配（`70304` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.SMS_TEMPLATE_UNAVAILABLE, message, http_status=404, data=data)
+
+
+class ChannelConfigInvalidError(MailError):
+    """SMTP / 短信渠道未配置或配置无效（`70305` / 503）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.CHANNEL_CONFIG_INVALID, message, http_status=503, data=data)
+
+
+class SendRateLimitedError(MailError):
+    """发送过于频繁（`70306` / 429；本任务预留，不实现限流）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.SEND_RATE_LIMITED, message, http_status=429, data=data)
+
+
 class ExportError(FileError):
     """列表导出子段（文件段内 `504xx`）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 
