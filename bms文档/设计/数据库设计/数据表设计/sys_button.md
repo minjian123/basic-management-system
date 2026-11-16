@@ -28,6 +28,7 @@
 | `type` | VARCHAR(16) | 否 | 默认 `toolbar` | 按钮形态：`toolbar`（工具栏）/ `interface`（表单界面内） |
 | `sort` | INT | 否 | 默认 `0` | 同表内排序（升序） · **系统字段**：行序（明细排序） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` · **系统字段**：状态（通用可选） |
+| `help_key` | VARCHAR(255) | 是 | 无默认；`NULL` = 未登记 | 帮助锚点（按钮级五段式标识：`{product}:{module}:{form}::{action}`；格式与跨表唯一性由应用校验） |
 | `parent_id` | DECIMAL(38,0) | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
 | `created_by` | DECIMAL(38,0) | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
@@ -63,5 +64,6 @@
 | 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
 | 2026-10-22 | v4 | ORM 模型落点迁基座共享 `bms_core/models/platform/menu.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 | 2026-11-01 | v5 | 雪花 ID 列（主键 / 逻辑外键 / `tenant_id` / 审计人 / `parent_id`）类型 `BIGINT` → `DECIMAL(38,0)`（126 位；SQLite 测试库 38 位补零 `TEXT`） | minjian |
+| 2026-11-17 | v6 | 增 `help_key`（VARCHAR(255)，可空）：按钮级（动作级）帮助锚点（08_01）；格式与跨表唯一性由应用校验 | minjian |
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
 
