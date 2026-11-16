@@ -416,6 +416,11 @@ provider = ""
 # 空串 = null（全渠道开启、无免打扰）
 provider = ""
 
+[help_content]
+# 页面内帮助的内容侧解析（08_02）：空串 = null（恒定未命中，前端隐藏帮助按钮）；
+# 帮助内容表落地后由内容维护任务提供真实实现并在此切换，解析链与接口不变。
+provider = ""
+
 [notifier]
 # 通知发送实现：空串 = null 占位；http = 经 service_client 调通知服务内部发送端点
 # （identity 未显式配置时在 prepare_settings 置 http；其他服务保持占位）

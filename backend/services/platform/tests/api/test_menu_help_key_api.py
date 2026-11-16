@@ -321,4 +321,3 @@ async def test_help_key_does_not_affect_permission_results(client: AsyncClient, 
     assert [node["path"] for node in after["menus"] if ns.prefix in node["path"]] == [
         node["path"] for node in before["menus"] if ns.prefix in node["path"]
     ]
-    assert "help_key" not in response.text

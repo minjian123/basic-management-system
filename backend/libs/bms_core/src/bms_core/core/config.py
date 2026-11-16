@@ -1954,6 +1954,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     global_search: PluginSelection = Field(default_factory=PluginSelection)
     hash_chain: PluginSelection = Field(default_factory=PluginSelection)
     health_check_registry: PluginSelection = Field(default_factory=PluginSelection)
+    help_content: PluginSelection = Field(default_factory=PluginSelection)
     http_client: PluginSelection = Field(default_factory=PluginSelection)
     i18n_cache_region: PluginSelection = Field(default_factory=PluginSelection)
     i18n_options: I18nSettings = Field(default_factory=I18nSettings, validation_alias="i18n")

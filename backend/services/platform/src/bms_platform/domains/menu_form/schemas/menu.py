@@ -239,6 +239,7 @@ class MyMenuButton(BaseSchema):
     type: str = Field(description="按钮形态（toolbar/interface）")
     sort: int = Field(description="同表内排序")
     visible: bool = Field(description="当前用户是否持有该权限码")
+    help_key: str | None = Field(description="帮助锚点（按钮级；NULL = 未登记，不显示帮助按钮）")
 
 
 class MyMenuField(BaseSchema):
@@ -251,6 +252,7 @@ class MyMenuField(BaseSchema):
     sort: int = Field(description="同表内排序")
     visible: bool = Field(description="字段是否可见")
     editable: bool = Field(description="字段是否可编辑")
+    help_key: str | None = Field(description="帮助锚点（字段级；NULL = 未登记）")
 
 
 class MyMenuForm(BaseSchema):
@@ -261,6 +263,7 @@ class MyMenuForm(BaseSchema):
     business_id: SnowflakeIdStr = Field(description="所属业务码 ID")
     business_code: str = Field(description="业务权限码")
     component: str | None = Field(description="表单视图组件标识")
+    help_key: str | None = Field(description="帮助锚点（表单级；NULL = 未登记）")
     buttons: Annotated[ConcurrentStableList[MyMenuButton], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="按钮元数据（按动作权限标记）"
     )
@@ -280,6 +283,7 @@ class MyMenuNode(BaseSchema):
     icon: str | None = Field(description="完整 icon key")
     sort: int = Field(description="同级排序")
     hidden: bool = Field(description="仅隐藏侧栏入口（路由可直达）")
+    help_key: str | None = Field(description="帮助锚点（菜单/模块级；NULL = 未登记）")
     forms: Annotated[ConcurrentStableList[MyMenuForm], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="该入口关联的表单元数据（挂接链完整时非空）"
     )

@@ -1327,6 +1327,33 @@
         "title": "ApiResponse[FormList]",
         "type": "object"
       },
+      "ApiResponse_HelpContextResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpContextResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpContextResponse]",
+        "type": "object"
+      },
       "ApiResponse_ImportExecuteResult_": {
         "additionalProperties": false,
         "properties": {
@@ -6450,6 +6477,169 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HelpArticleItem": {
+        "additionalProperties": false,
+        "description": "命中文章（含正文；页面内帮助一次请求即可弹窗）。",
+        "properties": {
+          "content": {
+            "description": "正文（已清洗 HTML）",
+            "title": "Content",
+            "type": "string"
+          },
+          "id": {
+            "description": "文章主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "description": "来源（builtin 平台内建 / product 产品包 / tenant 租户维护）",
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "description": "标题（按请求语言解析）",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "content",
+          "source"
+        ],
+        "title": "HelpArticleItem",
+        "type": "object"
+      },
+      "HelpArticleSummaryItem": {
+        "additionalProperties": false,
+        "description": "文章摘要（「相关内容」列表用，不含正文）。",
+        "properties": {
+          "id": {
+            "description": "文章主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "description": "来源（builtin / product / tenant）",
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "description": "标题",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "source"
+        ],
+        "title": "HelpArticleSummaryItem",
+        "type": "object"
+      },
+      "HelpCategoryItem": {
+        "additionalProperties": false,
+        "description": "帮助分类摘要（未命中兜底列表用）。",
+        "properties": {
+          "id": {
+            "description": "分类主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "分类名（按请求语言解析）",
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "description": "分类路径（/ 分隔，自根到本节点）",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "path"
+        ],
+        "title": "HelpCategoryItem",
+        "type": "object"
+      },
+      "HelpContextResponse": {
+        "additionalProperties": false,
+        "description": "页面内帮助解析结果。",
+        "properties": {
+          "article": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpArticleItem"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "命中文章（未命中为 null）"
+          },
+          "button_visible": {
+            "description": "帮助按钮显隐（锚点已登记且有可展示文章才为 true）",
+            "title": "Button Visible",
+            "type": "boolean"
+          },
+          "categories": {
+            "description": "分类列表（未命中时前端据此打开分类）",
+            "items": {
+              "$ref": "#/components/schemas/HelpCategoryItem"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "命中锚点（全局级与未命中为 null）",
+            "title": "Help Key"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "命中层级（field 字段 / action 动作 / form 表单 / module 模块 / global 全局；未命中为 null）",
+            "title": "Level"
+          },
+          "matched": {
+            "description": "是否命中可展示文章（按钮显隐判据）",
+            "title": "Matched",
+            "type": "boolean"
+          },
+          "related": {
+            "description": "同一锚点的其余文章（相关内容）",
+            "items": {
+              "$ref": "#/components/schemas/HelpArticleSummaryItem"
+            },
+            "title": "Related",
+            "type": "array"
+          }
+        },
+        "required": [
+          "matched",
+          "button_visible"
+        ],
+        "title": "HelpContextResponse",
+        "type": "object"
+      },
       "IconCreateRequest": {
         "additionalProperties": false,
         "description": "图标新增请求：`{code, name, category, tags?, svg}`。",
@@ -8528,6 +8718,18 @@
         "additionalProperties": false,
         "description": "动态菜单下的按钮元数据（按权限码标记可见）。",
         "properties": {
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（按钮级；NULL = 未登记，不显示帮助按钮）",
+            "title": "Help Key"
+          },
           "id": {
             "description": "按钮主键",
             "title": "Id",
@@ -8571,7 +8773,8 @@
           "name",
           "type",
           "sort",
-          "visible"
+          "visible",
+          "help_key"
         ],
         "title": "MyMenuButton",
         "type": "object"
@@ -8589,6 +8792,18 @@
             "description": "字段键",
             "title": "Field Key",
             "type": "string"
+          },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（字段级；NULL = 未登记）",
+            "title": "Help Key"
           },
           "id": {
             "description": "字段主键",
@@ -8623,7 +8838,8 @@
           "type",
           "sort",
           "visible",
-          "editable"
+          "editable",
+          "help_key"
         ],
         "title": "MyMenuField",
         "type": "object"
@@ -8670,6 +8886,18 @@
             "title": "Fields",
             "type": "array"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（表单级；NULL = 未登记）",
+            "title": "Help Key"
+          },
           "id": {
             "description": "表单主键",
             "title": "Id",
@@ -8686,7 +8914,8 @@
           "menu_id",
           "business_id",
           "business_code",
-          "component"
+          "component",
+          "help_key"
         ],
         "title": "MyMenuForm",
         "type": "object"
@@ -8722,6 +8951,18 @@
             },
             "title": "Forms",
             "type": "array"
+          },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（菜单/模块级；NULL = 未登记）",
+            "title": "Help Key"
           },
           "hidden": {
             "description": "仅隐藏侧栏入口（路由可直达）",
@@ -8774,7 +9015,8 @@
           "component",
           "icon",
           "sort",
-          "hidden"
+          "hidden",
+          "help_key"
         ],
         "title": "MyMenuNode",
         "type": "object"
@@ -19856,6 +20098,190 @@
         "summary": "Update Form",
         "tags": [
           "menu"
+        ]
+      }
+    },
+    "/api/v1/help/context": {
+      "get": {
+        "description": "按字段 → 动作 → 表单 → 模块 → 全局逐级解析页面内帮助。\n\nArgs:\n    request: 请求对象（解析语言 / 透传内容侧实现）。\n    uow: 请求级工作单元（平台库）。\n    cache: 缓存 Region（锚点索引）。\n    config: 系统参数读取基座（缓存 TTL）。\n    resolver: 内容侧解析实现。\n    module_key: 模块键。\n    form_key: 表单键（业务码）。\n    field_key: 字段键。\n    action_code: 动作码或完整权限码。\n    product_key: 产品段（模块级消歧）。\n\nReturns:\n    ApiResponse: 统一响应，data 为解析结果（未命中时 `matched=false` + 分类列表）。",
+        "operationId": "help_context_api_v1_help_context_get",
+        "parameters": [
+          {
+            "description": "模块键（菜单锚点第 2 段）",
+            "in": "query",
+            "name": "module_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "模块键（菜单锚点第 2 段）",
+              "title": "Module Key"
+            }
+          },
+          {
+            "description": "表单键（业务码）",
+            "in": "query",
+            "name": "form_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "表单键（业务码）",
+              "title": "Form Key"
+            }
+          },
+          {
+            "description": "字段键（需同时提供 form_key）",
+            "in": "query",
+            "name": "field_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "字段键（需同时提供 form_key）",
+              "title": "Field Key"
+            }
+          },
+          {
+            "description": "动作码或完整权限码（业务码:动作码）",
+            "in": "query",
+            "name": "action_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 129,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "动作码或完整权限码（业务码:动作码）",
+              "title": "Action Code"
+            }
+          },
+          {
+            "description": "产品段（仅模块级消歧；可空）",
+            "in": "query",
+            "name": "product_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "产品段（仅模块级消歧；可空）",
+              "title": "Product Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpContextResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Help Context",
+        "tags": [
+          "help"
         ]
       }
     },

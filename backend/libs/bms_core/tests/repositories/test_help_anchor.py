@@ -13,11 +13,11 @@ from sqlalchemy import Connection, Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
-from bms_core.models.platform.permission_meta import SysAction
-from bms_core.repositories.help_anchor import find_help_key_conflict, list_help_anchors
+from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
+from bms_core.repositories.help_anchor import find_help_key_conflict, list_help_anchors, load_help_anchor_index
 from bms_core.testing.transaction import rollback_session
 
-_MODELS = (SysMenu, SysForm, SysField, SysButton, SysAction)
+_MODELS = (SysMenu, SysForm, SysField, SysButton, SysAction, SysBusiness, SysPermission)
 
 
 def _create_table(table: Table, connection: Connection) -> None:
@@ -106,3 +106,80 @@ async def test_list_help_anchors_skips_null_and_deleted(session: AsyncSession) -
     entries = await list_help_anchors(session)
     assert sorted(entry.table for entry in entries) == ["sys_action", "sys_menu"]
     assert {entry.help_key for entry in entries} == {"platform:one:::", "platform::::probe_action"}
+
+
+@pytest.mark.kiwi_id(2521)
+async def test_load_help_anchor_index_collects_enabled_rows(session: AsyncSession) -> None:
+    """索引归集：只取启用且未软删行；非法 / 失联 / 停用行不进索引。"""
+    business = SysBusiness(code="probe_biz", name="业务", status="enabled")
+    disabled_business = SysBusiness(code="probe_off", name="停用业务", status="disabled")
+    action = SysAction(code="probe_create", name="新建", status="enabled", help_key="platform::::probe_create")
+    menu = SysMenu(name="模块", path="/probe/module", status="enabled", help_key="platform:probe_mod:::")
+    disabled_menu = SysMenu(name="停用模块", path="/probe/off", status="disabled", help_key="platform:probe_off:::")
+    broken_menu = SysMenu(name="坏锚点", path="/probe/broken", status="enabled", help_key="probe-broken")
+    orphan_form_business = SysBusiness(code="probe_orphan", name="孤儿业务", status="enabled")
+    session.add_all([business, disabled_business, action, menu, disabled_menu, broken_menu, orphan_form_business])
+    await session.flush()
+
+    form = SysForm(business_id=business.id, status="enabled", help_key="platform:probe_mod:probe_biz::")
+    orphan_form = SysForm(
+        business_id=orphan_form_business.id, status="enabled", help_key="platform:probe_mod:probe_orphan::"
+    )
+    disabled_form = SysForm(
+        business_id=disabled_business.id, status="disabled", help_key="platform:probe_mod:probe_off::"
+    )
+    missing_business_form = SysForm(business_id=999999, status="enabled", help_key="platform:probe_mod:missing::")
+    session.add_all([form, orphan_form, disabled_form, missing_business_form])
+    await session.flush()
+
+    permission = SysPermission(business_id=business.id, action_id=action.id, status="enabled")
+    missing_business_permission = SysPermission(business_id=999999, action_id=action.id, status="enabled")
+    missing_action_permission = SysPermission(business_id=business.id, action_id=999999, status="enabled")
+    session.add_all([permission, missing_business_permission, missing_action_permission])
+    await session.flush()
+
+    button = SysButton(
+        form_id=form.id,
+        permission_id=permission.id,
+        name="新建",
+        status="enabled",
+        help_key="platform:probe_mod:probe_biz::probe_create",
+    )
+    orphan_button = SysButton(
+        form_id=form.id,
+        permission_id=999999,
+        name="失联",
+        status="enabled",
+        help_key="platform:probe_mod:probe_biz::lost",
+    )
+    field = SysField(
+        form_id=form.id,
+        field_key="probe_field",
+        name="字段",
+        type="input",
+        status="enabled",
+        help_key="platform:probe_mod:probe_biz:probe_field:",
+    )
+    deleted_field = SysField(
+        form_id=form.id,
+        field_key="probe_deleted",
+        name="已删字段",
+        type="input",
+        status="enabled",
+        help_key="platform:probe_mod:probe_biz:probe_deleted:",
+    )
+    session.add_all([button, orphan_button, field, deleted_field])
+    await session.flush()
+    deleted_field.soft_delete()
+    await session.flush()
+
+    index = await load_help_anchor_index(session)
+    assert [(anchor.product, anchor.module_key) for anchor in index.menus] == [("platform", "probe_mod")]
+    assert index.menus[0].model_id == int(menu.id)
+    assert dict(index.forms) == {
+        "probe_biz": "platform:probe_mod:probe_biz::",
+        "probe_orphan": "platform:probe_mod:probe_orphan::",
+    }
+    assert dict(index.fields) == {("probe_biz", "probe_field"): "platform:probe_mod:probe_biz:probe_field:"}
+    assert dict(index.buttons) == {("probe_biz", "probe_create"): "platform:probe_mod:probe_biz::probe_create"}
+    assert dict(index.actions) == {"probe_create": "platform::::probe_create"}

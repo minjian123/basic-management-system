@@ -8,14 +8,35 @@
 """
 
 from bms_core.cache.base import CacheRegion
+from bms_core.config.base import BaseConfigSource
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.dict.base import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE
-from bms_core.menu import menu_tree_key, menu_version_key
+from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL, MENU_TREE_CACHE_TTL_KEY, menu_tree_key, menu_version_key
 from bms_core.permission.cache import current_permission_cache_store
 from bms_core.permission.version import permission_version_key
 
-__all__ = ["bump_metadata_version", "metadata_version"]
+__all__ = ["bump_metadata_version", "menu_cache_ttl", "metadata_version"]
+
+
+async def menu_cache_ttl(config: BaseConfigSource) -> int:
+    """取菜单与锚点缓存的 TTL（`sys_config` 参数，缺省 300 秒）。
+
+    菜单快照与帮助锚点索引同源（同一元数据版本号），TTL 参数统一走 `menu.tree_cache_ttl`，
+    运维只调一处；非法整数回落缺省值。
+
+    Args:
+        config: 系统参数读取基座。
+
+    Returns:
+        int: 缓存有效期（秒，最小 1）。
+    """
+    raw = await config.get(MENU_TREE_CACHE_TTL_KEY, str(DEFAULT_MENU_TREE_CACHE_TTL))
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_MENU_TREE_CACHE_TTL
+    return max(1, value)
 
 
 async def metadata_version(cache: CacheRegion) -> int:

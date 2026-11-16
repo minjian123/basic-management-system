@@ -29,7 +29,6 @@ from bms_core.core.context import current_tenant
 from bms_core.db.session import get_uow as get_tenant_uow
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
-from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL, MENU_TREE_CACHE_TTL_KEY
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.permission.base import BasePermissionChecker, prepare_permission_dependency, require_permission
@@ -59,6 +58,7 @@ from bms_platform.domains.menu_form.schemas.menu import (
 )
 from bms_platform.domains.menu_form.services.menu import MenuFormService
 from bms_platform.domains.menu_form.services.my_menu import MyMenuService
+from bms_platform.services.metadata_cache import menu_cache_ttl
 from bms_platform.wiring import build_menu_service
 
 menu_router = BaseRouter(
@@ -140,12 +140,7 @@ async def _tree_ttl(config: BaseConfigSource) -> int:
     Returns:
         int: 缓存有效期（秒，最小 1）。
     """
-    raw = await config.get(MENU_TREE_CACHE_TTL_KEY, str(DEFAULT_MENU_TREE_CACHE_TTL))
-    try:
-        value = int(raw)
-    except ValueError:
-        return DEFAULT_MENU_TREE_CACHE_TTL
-    return max(1, value)
+    return await menu_cache_ttl(config)
 
 
 def _menu_item(row: SysMenu, i18n: ConcurrentStableDict[str, str]) -> MenuItem:

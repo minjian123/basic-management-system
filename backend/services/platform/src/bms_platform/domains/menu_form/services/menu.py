@@ -82,6 +82,7 @@ class SnapshotButton(BaseSchema):
     name: str = Field(description="按钮名")
     type: str = Field(description="按钮形态")
     sort: int = Field(description="排序")
+    help_key: str | None = Field(default=None, description="帮助锚点（按钮级；NULL = 未登记）")
 
 
 class SnapshotField(BaseSchema):
@@ -92,6 +93,7 @@ class SnapshotField(BaseSchema):
     name: str = Field(description="字段名（按 locale 本地化，缺省回退默认文案）")
     type: str = Field(description="字段类型")
     sort: int = Field(description="排序")
+    help_key: str | None = Field(default=None, description="帮助锚点（字段级；NULL = 未登记）")
 
 
 class SnapshotForm(BaseSchema):
@@ -101,6 +103,7 @@ class SnapshotForm(BaseSchema):
     business_id: int = Field(description="业务码 ID")
     business_code: str = Field(description="业务权限码")
     component: str | None = Field(description="表单视图组件标识")
+    help_key: str | None = Field(default=None, description="帮助锚点（表单级；NULL = 未登记）")
     buttons: Annotated[ConcurrentStableList[SnapshotButton], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="按钮元数据"
     )
@@ -120,6 +123,7 @@ class SnapshotMenu(BaseSchema):
     icon: str | None = Field(description="完整 icon key")
     sort: int = Field(description="排序")
     hidden: bool = Field(description="仅隐藏侧栏入口")
+    help_key: str | None = Field(default=None, description="帮助锚点（菜单/模块级；NULL = 未登记）")
     forms: Annotated[ConcurrentStableList[SnapshotForm], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="该入口关联的表单元数据（挂接链完整时非空）"
     )
@@ -181,6 +185,7 @@ def _snapshot_form(
                 name=button.name,
                 type=button.type,
                 sort=button.sort,
+                help_key=button.help_key,
             )
         )
     return SnapshotForm(
@@ -188,6 +193,7 @@ def _snapshot_form(
         business_id=business.id,
         business_code=business.code,
         component=form.component,
+        help_key=form.help_key,
         buttons=buttons,
         fields=ConcurrentStableList(
             SnapshotField(
@@ -196,6 +202,7 @@ def _snapshot_form(
                 name=field_i18n.get(field.id, field.name),
                 type=field.type,
                 sort=field.sort,
+                help_key=field.help_key,
             )
             for field in (fields_by_form.get(form.id) or ())
         ),
@@ -516,6 +523,7 @@ class MenuFormService(BaseFrameworkObject):
                     icon=menu.icon,
                     sort=menu.sort,
                     hidden=menu.hidden,
+                    help_key=menu.help_key,
                     forms=form_metas,
                 )
             )

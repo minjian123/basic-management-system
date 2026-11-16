@@ -81,6 +81,7 @@ from bms_core.globalsearch.base import BaseAuditSearch, BaseFileContentSearch, B
 from bms_core.health.base import BaseHealthCheckRegistry
 from bms_core.health.checks import CatalogHealthCheck, DatabaseHealthCheck, RedisHealthCheck
 from bms_core.health.registry import HealthCheckRegistry
+from bms_core.help.content import BaseHelpContentResolver
 from bms_core.i18n.base import BaseTranslator
 from bms_core.i18n.cache import I18nCacheRegion, MemoryI18nCacheRegion, RedisI18nCacheRegion
 from bms_core.i18n.db import DbTranslator
@@ -240,6 +241,7 @@ _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.fieldtype.null",
         "bms_core.globalsearch.null",
         "bms_core.health.null",
+        "bms_core.help.null",
         "bms_core.i18n.null",
         "bms_core.icon.null",
         "bms_core.idempotency.null",
@@ -350,6 +352,7 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("llm_provider", BaseLlmProvider, "llm_provider", "llm_provider"),
         PluginWiring("search_index", BaseSearchIndex, "search_index", "search_index"),
         PluginWiring("global_search", BaseGlobalSearch, "global_search", "global_search"),
+        PluginWiring("help_content", BaseHelpContentResolver, "help_content", "help_content_resolver"),
         PluginWiring("audit_search", BaseAuditSearch, "audit_search", "audit_search"),
         PluginWiring("file_content_search", BaseFileContentSearch, "file_content_search", "file_content_search"),
         PluginWiring("notifier", BaseNotifier, "notifier", "notifier"),

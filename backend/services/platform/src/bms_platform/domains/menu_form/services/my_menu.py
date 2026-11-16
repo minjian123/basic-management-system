@@ -160,6 +160,7 @@ class MyMenuService(BaseFrameworkObject):
             icon=menu.icon,
             sort=menu.sort,
             hidden=menu.hidden,
+            help_key=menu.help_key,
             forms=ConcurrentStableList(self._to_form(menu.id, form) for form in self._visible_forms(menu)),
             children=ConcurrentStableList(),
         )
@@ -180,6 +181,7 @@ class MyMenuService(BaseFrameworkObject):
             business_id=form.business_id,
             business_code=form.business_code,
             component=form.component,
+            help_key=form.help_key,
             buttons=ConcurrentStableList(
                 MyMenuButton(
                     id=button.id,
@@ -189,6 +191,7 @@ class MyMenuService(BaseFrameworkObject):
                     type=button.type,
                     sort=button.sort,
                     visible=self._checker.check(button.permission_code),
+                    help_key=button.help_key,
                 )
                 for button in form.buttons
             ),
@@ -226,6 +229,7 @@ class MyMenuService(BaseFrameworkObject):
                     sort=field.sort,
                     visible=visible,
                     editable=editable,
+                    help_key=field.help_key,
                 )
             )
         return result

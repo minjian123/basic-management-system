@@ -15,6 +15,7 @@ from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.help.content import BaseHelpContentResolver
 from bms_core.metrics.base import BaseMetrics
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.permission.resolver import BaseRoleResolver
@@ -26,6 +27,7 @@ from bms_platform.domains.menu_form.repositories.menu import (
     MenuFormRepository,
     MenuRepository,
 )
+from bms_platform.domains.menu_form.services.help_context import HelpContextService
 from bms_platform.domains.menu_form.services.menu import MenuFormService
 from bms_platform.domains.permission_meta.repositories.business import (
     ActionRepository,
@@ -52,6 +54,7 @@ from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
 
 __all__ = [
+    "build_help_context_service",
     "build_menu_service",
     "build_permission_service",
     "role_assignment",
@@ -134,6 +137,25 @@ def build_menu_service(
         references=MetadataReferenceRepository(tenant_session) if tenant_session is not None else None,
         audit=audit,
     )
+
+
+def build_help_context_service(
+    *,
+    uow: UnitOfWork,
+    cache: CacheRegion,
+    resolver: BaseHelpContentResolver,
+) -> HelpContextService:
+    """构造帮助解析服务（锚点索引回源 + 缓存 + 内容侧端口）。
+
+    Args:
+        uow: 请求级工作单元（平台库：五张元数据表）。
+        cache: 缓存 Region（锚点索引与元数据版本）。
+        resolver: 内容侧解析实现（`[help_content].provider` 装配）。
+
+    Returns:
+        HelpContextService: 页面内帮助解析服务实例。
+    """
+    return HelpContextService(session=cast("DbSession", uow.session), cache=cache, resolver=resolver)
 
 
 def role_query(session: DbSession) -> RoleQueryPort:

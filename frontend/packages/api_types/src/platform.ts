@@ -1658,6 +1658,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/help/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Help Context
+         * @description 按字段 → 动作 → 表单 → 模块 → 全局逐级解析页面内帮助。
+         *
+         *     Args:
+         *         request: 请求对象（解析语言 / 透传内容侧实现）。
+         *         uow: 请求级工作单元（平台库）。
+         *         cache: 缓存 Region（锚点索引）。
+         *         config: 系统参数读取基座（缓存 TTL）。
+         *         resolver: 内容侧解析实现。
+         *         module_key: 模块键。
+         *         form_key: 表单键（业务码）。
+         *         field_key: 字段键。
+         *         action_code: 动作码或完整权限码。
+         *         product_key: 产品段（模块级消歧）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为解析结果（未命中时 `matched=false` + 分类列表）。
+         */
+        get: operations["help_context_api_v1_help_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/i18n/cache/invalidate": {
         parameters: {
             query?: never;
@@ -5900,6 +5935,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[HelpContextResponse] */
+        ApiResponse_HelpContextResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpContextResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ImportExecuteResult] */
         ApiResponse_ImportExecuteResult_: {
             /**
@@ -8907,6 +8956,112 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HelpArticleItem
+         * @description 命中文章（含正文；页面内帮助一次请求即可弹窗）。
+         */
+        HelpArticleItem: {
+            /**
+             * Content
+             * @description 正文（已清洗 HTML）
+             */
+            content: string;
+            /**
+             * Id
+             * @description 文章主键
+             */
+            id: string;
+            /**
+             * Source
+             * @description 来源（builtin 平台内建 / product 产品包 / tenant 租户维护）
+             */
+            source: string;
+            /**
+             * Title
+             * @description 标题（按请求语言解析）
+             */
+            title: string;
+        };
+        /**
+         * HelpArticleSummaryItem
+         * @description 文章摘要（「相关内容」列表用，不含正文）。
+         */
+        HelpArticleSummaryItem: {
+            /**
+             * Id
+             * @description 文章主键
+             */
+            id: string;
+            /**
+             * Source
+             * @description 来源（builtin / product / tenant）
+             */
+            source: string;
+            /**
+             * Title
+             * @description 标题
+             */
+            title: string;
+        };
+        /**
+         * HelpCategoryItem
+         * @description 帮助分类摘要（未命中兜底列表用）。
+         */
+        HelpCategoryItem: {
+            /**
+             * Id
+             * @description 分类主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 分类名（按请求语言解析）
+             */
+            name: string;
+            /**
+             * Path
+             * @description 分类路径（/ 分隔，自根到本节点）
+             */
+            path: string;
+        };
+        /**
+         * HelpContextResponse
+         * @description 页面内帮助解析结果。
+         */
+        HelpContextResponse: {
+            /** @description 命中文章（未命中为 null） */
+            article?: components["schemas"]["HelpArticleItem"] | null;
+            /**
+             * Button Visible
+             * @description 帮助按钮显隐（锚点已登记且有可展示文章才为 true）
+             */
+            button_visible: boolean;
+            /**
+             * Categories
+             * @description 分类列表（未命中时前端据此打开分类）
+             */
+            categories?: components["schemas"]["HelpCategoryItem"][];
+            /**
+             * Help Key
+             * @description 命中锚点（全局级与未命中为 null）
+             */
+            help_key?: string | null;
+            /**
+             * Level
+             * @description 命中层级（field 字段 / action 动作 / form 表单 / module 模块 / global 全局；未命中为 null）
+             */
+            level?: string | null;
+            /**
+             * Matched
+             * @description 是否命中可展示文章（按钮显隐判据）
+             */
+            matched: boolean;
+            /**
+             * Related
+             * @description 同一锚点的其余文章（相关内容）
+             */
+            related?: components["schemas"]["HelpArticleSummaryItem"][];
+        };
+        /**
          * IconCreateRequest
          * @description 图标新增请求：`{code, name, category, tags?, svg}`。
          */
@@ -10138,6 +10293,11 @@ export interface components {
          */
         MyMenuButton: {
             /**
+             * Help Key
+             * @description 帮助锚点（按钮级；NULL = 未登记，不显示帮助按钮）
+             */
+            help_key: string | null;
+            /**
              * Id
              * @description 按钮主键
              */
@@ -10188,6 +10348,11 @@ export interface components {
              * @description 字段键
              */
             field_key: string;
+            /**
+             * Help Key
+             * @description 帮助锚点（字段级；NULL = 未登记）
+             */
+            help_key: string | null;
             /**
              * Id
              * @description 字段主键
@@ -10245,6 +10410,11 @@ export interface components {
              */
             fields?: components["schemas"]["MyMenuField"][];
             /**
+             * Help Key
+             * @description 帮助锚点（表单级；NULL = 未登记）
+             */
+            help_key: string | null;
+            /**
              * Id
              * @description 表单主键
              */
@@ -10275,6 +10445,11 @@ export interface components {
              * @description 该入口关联的表单元数据（挂接链完整时非空）
              */
             forms?: components["schemas"]["MyMenuForm"][];
+            /**
+             * Help Key
+             * @description 帮助锚点（菜单/模块级；NULL = 未登记）
+             */
+            help_key: string | null;
             /**
              * Hidden
              * @description 仅隐藏侧栏入口（路由可直达）
@@ -17622,6 +17797,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    help_context_api_v1_help_context_get: {
+        parameters: {
+            query?: {
+                /** @description 模块键（菜单锚点第 2 段） */
+                module_key?: string | null;
+                /** @description 表单键（业务码） */
+                form_key?: string | null;
+                /** @description 字段键（需同时提供 form_key） */
+                field_key?: string | null;
+                /** @description 动作码或完整权限码（业务码:动作码） */
+                action_code?: string | null;
+                /** @description 产品段（仅模块级消歧；可空） */
+                product_key?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpContextResponse_"];
                 };
             };
             /** @description 未认证 */

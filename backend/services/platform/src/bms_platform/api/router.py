@@ -27,6 +27,7 @@ from bms_platform.domains.log.api import internal_audit as internal_audit_api
 from bms_platform.domains.log.api.logs import login_router as login_log_api
 from bms_platform.domains.log.api.logs import router as operation_log_api
 from bms_platform.domains.menu_form.api import form_key, menu
+from bms_platform.domains.menu_form.api import help as menu_help
 from bms_platform.domains.permission_meta.api import icon, permission, permission_meta
 from bms_platform.domains.platform_config.api import configs, internal_config, query_scheme
 from bms_platform.domains.platform_registry.api import (
@@ -97,6 +98,8 @@ api_router = mount_service_routers(
             menu.form_router,
             menu.button_router,
             menu.field_router,
+            # 页面内帮助解析（08_02）：五级链 / 未命中降级 / 按钮显隐（登录即可）
+            menu_help.help_router,
             permission_meta.business_router,
             permission_meta.action_router,
             permission_meta.permission_router,
