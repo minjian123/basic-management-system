@@ -572,10 +572,11 @@ async def test_warm_views_skips_consumer_when_service_key_blank() -> None:
 
 
 @pytest.mark.anyio
-async def test_bootstrap_degrades_when_storage_unavailable(
+@pytest.mark.kiwi_id(2511)
+async def test_bootstrap_rejects_when_storage_unavailable(
     service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """库不可读 / 未建表：降级放行（WARNING + `grant_sync_degraded`），不阻断启动。"""
+    """库不可读 / 未建表：拒启（数据库没准备好属部署错误，不带病启动）。"""
     from sqlalchemy.exc import OperationalError
 
     from bms_platform.domains.platform_registry.services import capability_grant_bootstrap as bootstrap
@@ -594,9 +595,10 @@ async def test_bootstrap_degrades_when_storage_unavailable(
 
     monkeypatch.setattr(bootstrap, "CapabilityGrantService", _UnavailableService)
 
-    await bootstrap.bootstrap_capability_grants(service_app)
+    from bms_core.core.exceptions import CatalogError
 
-    assert service_app.state.grant_sync_degraded is True
+    with pytest.raises(CatalogError, match="能力分配声明同步失败：库未就绪"):
+        await bootstrap.bootstrap_capability_grants(service_app)
 
 
 @pytest.mark.anyio

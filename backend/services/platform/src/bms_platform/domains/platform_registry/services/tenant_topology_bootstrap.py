@@ -78,11 +78,10 @@ async def bootstrap_tenant_topologies(app: FastAPI) -> None:
             await DbUnitOfWork(session).commit()
             snapshots = await service.snapshot()
     except SQLAlchemyError as exc:
-        # 库不可读 / 未建表：与能力分配同步同口径降级放行（记 WARNING + 打降级标记），保留 07B 过渡实现；
-        # 「表可读但缺域」不在此列——那种属装配错误，仍按下方 CatalogError 拒启。
-        _LOGGER.warning("tenant_topology_unavailable", error=type(exc).__name__, detail=str(exc))
-        app.state.topology_degraded = True
-        return
+        # 库不可读 / 未建表：数据库未就绪属部署错误，拒启；
+        # 「表可读但缺域」同属装配错误，由下方 CatalogError 拒启。
+        _LOGGER.critical("tenant_topology_unavailable", error=type(exc).__name__, detail=str(exc))
+        raise CatalogError(f"租户部署拓扑装配失败：库未就绪（{type(exc).__name__}: {exc}）") from exc
     except CatalogError:
         raise
     except Exception as exc:

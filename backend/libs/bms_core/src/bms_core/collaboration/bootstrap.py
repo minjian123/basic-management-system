@@ -41,19 +41,11 @@ from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
 from bms_core.services.module_registry import domain_service_view
 
 __all__ = [
-    "GRANT_VIEW_DEGRADED_FLAG",
-    "TOPOLOGY_DEGRADED_FLAG",
     "TOPOLOGY_SNAPSHOT_PATH",
     "bootstrap_remote_capability_grants",
     "bootstrap_remote_topologies",
     "warm_capability_grant_views",
 ]
-
-GRANT_VIEW_DEGRADED_FLAG = "grant_view_degraded"
-"""授权视图降级标记（`app.state` 属性名；启动预热失败时置 True，观测与排障用）。"""
-
-TOPOLOGY_DEGRADED_FLAG = "topology_degraded"
-"""部署拓扑降级标记（`app.state` 属性名；快照拉取失败 / 为空时置 True，此时沿用过渡实现）。"""
 
 TOPOLOGY_SNAPSHOT_PATH = "/api/v1/platform/internal/tenant-topologies"
 """拓扑全量快照的内部出口路径（服务间读取，`require_auth_or_service`）。"""
@@ -81,14 +73,10 @@ async def warm_capability_grant_views(service_key: str, *, consumer: bool = True
 async def bootstrap_remote_capability_grants(app: FastAPI) -> None:
     """产品进程引导：登记远端授权视图来源并预热本服务承载域视图。
 
-    失败语义分两类：
+    失败语义：**装配缺失**（`app.state.service_client` 未登记）与**来源不可达**（平台未就绪 /
+    出口异常）一律抛 `CatalogError` **拒启**——平台没就绪属部署顺序问题，不带病启动。
 
-    - **装配缺失**（`app.state.service_client` 未登记）：抛 `CatalogError`——属配置漂移，拒启；
-    - **来源不可达**（平台未就绪 / 出口异常）：告警 + 置 `app.state.grant_view_degraded = True`，
-      不拒启；被收编端点首访时 `ensure_grant_view` 仍抛 `CatalogError`（fail-closed）。
-
-    签名与 `StartupHook` 同口径（`Awaitable[None]`）：产品侧可直接登记为启动钩子，无需包一层；
-    预热结果经 `app.state.grant_view_degraded` 观测。
+    签名与 `StartupHook` 同口径（`Awaitable[None]`）：产品侧可直接登记为启动钩子，无需包一层。
 
     Args:
         app: 应用实例（取配置 / 服务身份 / 服务间调用客户端）。
@@ -104,15 +92,13 @@ async def bootstrap_remote_capability_grants(app: FastAPI) -> None:
     try:
         await warm_capability_grant_views(service_key, consumer=False)
     except Exception as exc:
-        _LOGGER.warning(
+        _LOGGER.critical(
             "capability_grant_view_unavailable",
             service=service_key,
             error=type(exc).__name__,
             detail=str(exc),
         )
-        app.state.grant_view_degraded = True
-        return
-    app.state.grant_view_degraded = False
+        raise CatalogError(f"授权视图预热失败（{type(exc).__name__}: {exc}）") from exc
 
 
 def _service_key(app: FastAPI) -> str:
@@ -133,12 +119,9 @@ async def bootstrap_remote_topologies(app: FastAPI) -> None:
     拓扑快照是「业务域 → 部署单元与库」的解析依据，只有平台进程能直读本库；其它进程经内部出口
     `GET /api/v1/platform/internal/tenant-topologies` 取全量快照常驻进程内（拓扑只在发布时变化）。
 
-    失败语义分三类：
-
-    - **开关关闭**（`[topology].distribute = false`，单测环境）：跳过并记 INFO，沿用 07B 过渡实现；
-    - **装配缺失**（`app.state.service_client` 未登记）：抛 `CatalogError`——配置漂移，拒启；
-    - **平台未就绪 / 快照为空 / 出口异常**：告警 + 置 `app.state.topology_degraded = True`，
-      保留过渡实现、不拒启（行为等同改造前，不会错址）。
+    失败语义：**开关关闭**（`[topology].distribute = false`，单测环境）跳过并记 INFO，沿用 07B 过渡实现；
+    **装配缺失**（`app.state.service_client` 未登记）、**平台未就绪 / 快照为空 / 出口异常**一律抛
+    `CatalogError` **拒启**——拓扑是业务域寻址依据，带旧实现启动会错址。
 
     `[topology].units` 内出现未登记单元时 `CatalogError` **拒启**（配置漂移，不降级）。
 
@@ -162,24 +145,21 @@ async def bootstrap_remote_topologies(app: FastAPI) -> None:
     try:
         snapshots = await _fetch_topology_snapshots(client)
     except Exception as exc:
-        _LOGGER.warning(
+        _LOGGER.critical(
             "tenant_topology_unavailable",
             service=service_key,
             error=type(exc).__name__,
             detail=str(exc),
         )
-        app.state.topology_degraded = True
-        return
+        raise CatalogError(f"拓扑快照拉取失败（{type(exc).__name__}: {exc}）") from exc
     if not snapshots:
-        _LOGGER.warning("tenant_topology_empty", service=service_key, detail="平台尚未自举默认拓扑")
-        app.state.topology_degraded = True
-        return
+        _LOGGER.critical("tenant_topology_empty", service=service_key, detail="平台尚未自举默认拓扑")
+        raise CatalogError("拓扑快照为空：平台尚未自举默认拓扑（先完成平台启动）")
     for snapshot in snapshots:
         register_topology_snapshot(snapshot)
     register_topology_resolver(TenantTopologyResolver())
     register_instance_context(service_key, settings.topology.units)
     app.state.resources.register(TopologyResolverResource())
-    app.state.topology_degraded = False
     _LOGGER.info("tenant_topology_distributed", service=service_key, snapshots=len(snapshots))
 
 

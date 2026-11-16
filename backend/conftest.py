@@ -10,7 +10,7 @@
 准备集内容与口径见《[测试规范]「测试数据」节》与任务 04-6-2 详细设计 §4。
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import pytest
 
@@ -29,6 +29,27 @@ def pytest_configure(config: pytest.Config) -> None:
     from bms_core.testing.coverage_guard import assert_entrypoint
 
     assert_entrypoint(config)
+
+
+@pytest.fixture(autouse=True)
+def _disable_topology_distribution(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """测试环境关闭拓扑分发（单进程测试没有「平台已就绪」的对端）。
+
+    分发失败现在是拒启（部署顺序问题）；测试环境没有真实对端，属于「本来就该关」的配置，
+    不是降级。需要验证分发本身的用例直接构造 `Settings(distribute=True)`，不受本开关影响。
+
+    Args:
+        monkeypatch: pytest 替换器。
+
+    Yields:
+        None: 用例运行期。
+    """
+    from bms_core.core.config import get_settings
+
+    monkeypatch.setenv("BMS_TOPOLOGY__DISTRIBUTE", "false")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture(scope="session")

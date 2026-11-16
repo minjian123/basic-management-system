@@ -1,10 +1,11 @@
-"""启动接库服务目录校验测试（Kiwi 2163）：清单 / 契约 / 拒启 / 空库容错 / 只读快照 / 降级。
+"""启动接库服务目录校验测试（Kiwi 2163）：清单 / 契约 / 拒启 / 故障注入 / 只读快照。
 
 - 覆盖 `service_lifespan` 的接库校验链路（`_validate_service_catalog` + `validate_catalog`）：
-  正常种子库启动通过、空目录告警放行、冲突逐项拒启（`CatalogError` 码 40003）、
-  库不可读拒启、启动前后目录行快照一致（运行时只读边界）；
-- **06_01 取数路径**：`platform` 本地读本服务平台库（权威，读失败拒启）；
-  其余服务经契约取快照 → 用例以桩替换快照源；**契约不可达时降级放行**（`catalog_degraded`）。
+  正常种子库启动通过、冲突逐项拒启（`CatalogError` 码 40003）、库不可读拒启、
+  启动前后目录行快照一致（运行时只读边界）；
+- **失败一律拒启**（2026-11-16 拍板）：目录为空、契约不可达都直接抛 `CatalogError`，
+  不再「告警放行」——部署错误当场暴露，不带病启动；
+- 本文件用独立库属「故障注入」：要能把库置成缺行 / 错行 / 不可读等状态，声明必须断言报错。
 """
 
 import logging
@@ -30,8 +31,10 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import CatalogError, ServiceUnavailableError
+from bms_core.models.ownership import SysTableOwnership
 from bms_core.models.platform.catalog import SysModule
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ServiceGroup
+from bms_core.services.table_registry import table_ownership_view
 from bms_platform.domains.platform_registry.sources.catalog_source import read_catalog
 
 # 工程级 / 子集运行自足（09_01）：platform 权威读取器由服务包装配期登记（bms_platform.main::configure_service）；
@@ -116,7 +119,10 @@ def _create_app(*, service: str = "platform", contract: str = "0.1.0") -> FastAP
 
 
 async def _write_records(url: str, records: ConcurrentStableList[ModuleRecord]) -> None:
-    """建表并写入目录记录（测试种子）。
+    """建表并写入目录记录（测试种子），同时把表归属登记播种成「已迁移且已播种」态。
+
+    表归属登记为空/不可读现在会直接拒启（部署错误），所以平台用例的库必须同时具备这份登记；
+    本函数的被测对象仍是目录校验，表归属只是前置的「库已准备好」。
 
     Args:
         url: 平台库连接串。
@@ -127,7 +133,21 @@ async def _write_records(url: str, records: ConcurrentStableList[ModuleRecord]) 
     try:
         async with engine.begin() as connection:
             await connection.run_sync(cast("Table", SysModule.__table__).create, checkfirst=True)
+            await connection.run_sync(cast("Table", SysTableOwnership.__table__).create, checkfirst=True)
         async with factory() as session:
+            seeded = (await session.execute(select(SysTableOwnership.table_name))).scalars().first()
+            if seeded is None:
+                for record in table_ownership_view():
+                    session.add(
+                        SysTableOwnership(
+                            table_name=record.table_name,
+                            owner=record.owner,
+                            domain=record.domain,
+                            datasource=record.datasource,
+                            status=record.status,
+                            note=record.note,
+                        )
+                    )
             for record in records:
                 session.add(SysModule(**{field: getattr(record, field) for field in _FIELDS}))
             await session.commit()
@@ -169,6 +189,9 @@ def catalog_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     """
     url = f"sqlite+aiosqlite:///{tmp_path / 'catalog_startup.db'}"
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", url)
+    # 本文件只测目录校验：关掉拓扑分发（单测环境口径），避免产品进程启动钩子先因「平台未就绪」拒启
+    monkeypatch.setenv("BMS_TOPOLOGY__DISTRIBUTE", "false")
+    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
     get_settings.cache_clear()
     return url
 
@@ -186,13 +209,14 @@ async def test_lifespan_accepts_seeded_catalog(catalog_db_url: str) -> None:
 
 
 @pytest.mark.kiwi_id(2163)
-async def test_lifespan_tolerates_empty_catalog(catalog_db_url: str) -> None:
-    """空目录（未播种）：仅告警放行，不阻断启动。"""
+@pytest.mark.kiwi_id(2511)
+async def test_lifespan_rejects_empty_catalog(catalog_db_url: str) -> None:
+    """空目录（未播种）：直接拒启（部署错误，不再带病启动）。"""
     await _write_records(catalog_db_url, ConcurrentStableList())
     app = _create_app()
-    with _capture_bms_logs() as logs:
+    with _capture_bms_logs() as logs, pytest.raises(CatalogError, match="服务目录为空"):
         async with service_lifespan(app):
-            assert app.state.startup_complete is True
+            pass
     assert any("service_catalog_empty" in message for message in logs.messages)
 
 
@@ -342,20 +366,18 @@ async def test_lifespan_rejects_unregistered_running_service(
 
 
 @pytest.mark.kiwi_id(2163)
-async def test_lifespan_degrades_when_snapshot_unavailable(
-    catalog_db_url: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """非目录权威服务：快照契约不可达 → 告警放行 + `catalog_degraded`（不拒启）。"""
+@pytest.mark.kiwi_id(2511)
+async def test_lifespan_rejects_snapshot_unavailable(catalog_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """非目录权威服务：快照契约不可达 → 拒启（部署顺序问题，不带病启动）。"""
 
     async def _unreachable(app: object) -> ConcurrentStableList[ModuleRecord]:  # pragma: no cover - 桩内联
         raise ServiceUnavailableError("服务目录快照契约调用失败（503）")
 
     monkeypatch.setattr("bms_core.application.load_catalog_snapshot", _unreachable)
     app = _create_app(service="mdm")
-    with _capture_bms_logs() as logs:
+    with _capture_bms_logs() as logs, pytest.raises(CatalogError, match="服务目录快照取数失败"):
         async with service_lifespan(app):
-            assert app.state.startup_complete is True
-            assert app.state.catalog_degraded is True
+            pass
     assert any("service_catalog_snapshot_unavailable" in message for message in logs.messages)
 
 

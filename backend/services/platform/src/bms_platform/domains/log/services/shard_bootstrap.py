@@ -1,7 +1,7 @@
 """审计分片启动预热与预创建（06_01）。
 
 - `ensure_audit_shards`：确保「当月 + 未来 `months_ahead` 月」两类日志分片存在（幂等）。
-- `bootstrap_audit_shards`：启动钩子——预热失败只告警、不阻断服务启动（写路径仍会在消费时兜底建表）。
+- `bootstrap_audit_shards`：启动钩子——预热失败即拒启（任一分片建不出来，审计写路径的兜底也建不出来）。
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from typing import cast
 from fastapi import FastAPI
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
@@ -57,10 +58,13 @@ async def ensure_audit_shards(
 
 
 async def bootstrap_audit_shards(app: FastAPI) -> None:
-    """启动钩子：预热当月 / 次月审计分片（失败只告警）。
+    """启动钩子：预热当月 / 次月审计分片（失败即拒启）。
 
     Args:
         app: 应用实例（取引擎注册表 / 会话工厂 / 配置）。
+
+    Raises:
+        CatalogError: 分片建表失败（库未就绪 / DDL 失败）。
     """
     settings = app.state.settings
     if not settings.audit_log.enabled:
@@ -73,7 +77,7 @@ async def bootstrap_audit_shards(app: FastAPI) -> None:
             session.begin(),
         ):
             months = await ensure_audit_shards(session, months_ahead=settings.audit_log.precreate_months_ahead)
-    except Exception as exc:  # 预热失败不阻断启动；消费时 ensure_shard 兜底
-        _LOGGER.warning("audit_shard_bootstrap_failed", error=repr(exc))
-        return
+    except Exception as exc:
+        _LOGGER.critical("audit_shard_bootstrap_failed", error=repr(exc))
+        raise CatalogError(f"审计分片预热失败（{type(exc).__name__}: {exc}）") from exc
     _LOGGER.info("audit_shard_bootstrap", months=list(months))

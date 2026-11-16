@@ -207,10 +207,11 @@ async def test_bootstrap_appends_registered_domains_missing_from_default(
             assert merged[domain] == service
 
 
-async def test_hook_degrades_when_table_not_ready(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
-    """库未就绪（未建表 / 不可读）降级：记降级标记、保留 07B 过渡实现，不拒启。
+@pytest.mark.kiwi_id(2511)
+async def test_hook_rejects_when_table_not_ready(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """库未就绪（未建表 / 不可读）→ 拒启（数据库没准备好属部署错误，不带病启动）。
 
-    与「拓扑未配置」区分：表可读但缺域仍拒启（见其他用例），此处只覆盖环境未就绪。
+    与「拓扑未配置」区分：表可读但缺域同样拒启（见其他用例）。
     """
 
     async def _boom(*_: object) -> int:
@@ -218,6 +219,6 @@ async def test_hook_degrades_when_table_not_ready(service_app: FastAPI, monkeypa
 
     reset_topology_resolver()
     monkeypatch.setattr(TenantTopologyService, "ensure_default", _boom)
-    await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
-    assert service_app.state.topology_degraded is True
+    with pytest.raises(CatalogError, match="租户部署拓扑装配失败：库未就绪"):
+        await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
     assert isinstance(resolve_topology(), DomainLayoutTopologyResolver)

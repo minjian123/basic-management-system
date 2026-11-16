@@ -12,6 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import get_settings
+from bms_core.core.exceptions import CatalogError
 from bms_core.schemas.product import ProductResponse
 from bms_core.services.module_registry import ProductRecord, product_catalog_view
 from bms_platform.main import ApplicationFactory
@@ -147,20 +148,17 @@ async def test_products_response_fields_whitelist(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(2250)
-@pytest.mark.own_db("被测对象是未播种空库的启动容错与空清单口径：需把库置成无任何产品档案的状态，共享库恒为已播种态")
+@pytest.mark.own_db("故障注入：把库置成未播种态，断言启动期接库校验直接拒启（不再告警放行）")
+@pytest.mark.kiwi_id(2511)
 async def test_list_products_empty_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """未播种空库：清单空数组 + total=0；明细 404（与启动空目录容错口径一致）。"""
+    """未播种空库：启动直接拒启（部署错误，不再容错放行）。"""
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", f"sqlite+aiosqlite:///{tmp_path / 'empty.db'}")
+    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
     get_settings.cache_clear()
     app = ApplicationFactory().create(None)
-    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
-        listed = await client.get("/api/v1/products")
-        assert listed.json()["data"] == {"list": [], "total": 0, "page": 1, "size": 20}
-
-        missing = await client.get("/api/v1/products/biz")
-        assert missing.status_code == 404
-        assert missing.json()["code"] == 10002
+    with pytest.raises(CatalogError, match="服务目录为空"):
+        async with lifespan(app):
+            pass
 
 
 @pytest.mark.kiwi_id(2250)

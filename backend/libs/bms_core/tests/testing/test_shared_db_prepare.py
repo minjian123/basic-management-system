@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.testing import fixtures
+from bms_core.testing.shared_db import seed_table_ownership
 
 pytestmark = [pytest.mark.kiwi_id(2400), pytest.mark.own_db("被测对象就是共享库准备集：建表与种子本身")]
 
@@ -321,3 +322,14 @@ def _query(url: str, statement: str) -> ConcurrentStableList[ConcurrentStableLis
             await engine.dispose()
 
     return asyncio.run(_run())
+
+
+@pytest.mark.kiwi_id(2511)
+async def test_seed_table_ownership_is_idempotent(tmp_path: Path) -> None:
+    """表归属播种幂等：二次执行不新增行（启动期接库对账的输入，缺失即拒启）。"""
+    url = f"sqlite+aiosqlite:///{(tmp_path / 'ownership.db').as_posix()}"
+    await seed_table_ownership(url)
+    first = await _count_async(url, "SELECT COUNT(*) FROM sys_table_ownership")
+    await seed_table_ownership(url)
+    assert first > 0
+    assert await _count_async(url, "SELECT COUNT(*) FROM sys_table_ownership") == first

@@ -18,6 +18,7 @@ from httpx import AsyncClient
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import AuthError
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
+from tests_support.shared_db import prepare_platform
 
 pytestmark = pytest.mark.own_db(
     "被测对象是产品声明注册通道的全量对账（首次全新增 / 幂等 / 覆盖 / 退役计数），需未注册声明的空库状态"
@@ -44,6 +45,7 @@ def _isolated_platform_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platf
     """
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", f"sqlite+aiosqlite:///{tmp_path / 'declarations.db'}")
     get_settings.cache_clear()
+    prepare_platform(f"sqlite+aiosqlite:///{tmp_path / 'declarations.db'}")
     yield
     get_settings.cache_clear()
 

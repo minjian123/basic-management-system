@@ -83,7 +83,6 @@ def _app() -> Any:
             ),
             engine_registry=None,
             session_factory=None,
-            declaration_register_degraded=False,
         )
     )
 
@@ -151,8 +150,6 @@ async def test_bootstrap_skips_when_disabled(monkeypatch: pytest.MonkeyPatch) ->
 
     await module.bootstrap_platform_declarations(app)
 
-    assert app.state.declaration_register_degraded is False
-
 
 async def test_bootstrap_rejects_product_key_mismatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, session: AsyncSession
@@ -175,8 +172,6 @@ async def test_bootstrap_registers_and_logs_warnings(
 
     app = _app()
     await module.bootstrap_platform_declarations(app)
-
-    assert app.state.declaration_register_degraded is False
 
 
 async def test_bootstrap_logs_report_warnings(
@@ -220,8 +215,6 @@ async def test_bootstrap_logs_report_warnings(
     app = _app()
     await module.bootstrap_platform_declarations(app)
 
-    assert app.state.declaration_register_degraded is False
-
 
 async def test_startup_hook_registers_platform_declarations(service_app: Any, client: Any) -> None:
     """真启动链：钩子把本仓平台声明写进库，快照出口随即能看到平台服务行。
@@ -236,8 +229,6 @@ async def test_startup_hook_registers_platform_declarations(service_app: Any, cl
     service_app.state.settings.registry.register_on_startup = True
 
     await module.bootstrap_platform_declarations(service_app)
-
-    assert getattr(service_app.state, "declaration_register_degraded", False) is False
     from bms_core.db.keys import PLATFORM_DB_KEY
     from bms_core.db.session import session_scope
     from bms_platform.domains.platform_registry.repositories.declaration_repository import (
@@ -253,8 +244,9 @@ async def test_startup_hook_registers_platform_declarations(service_app: Any, cl
     assert "sys" in [record.module_key for record in view.of("services")]
 
 
-async def test_bootstrap_degrades_when_db_unavailable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """库不可用（SQLAlchemyError）：降级放行并打标记，不拒启。"""
+@pytest.mark.kiwi_id(2511)
+async def test_bootstrap_rejects_when_db_unavailable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """库不可用（SQLAlchemyError）：拒启（数据库没准备好属部署错误，不带病启动）。"""
     monkeypatch.setattr(module, "local_manifest_paths", lambda: ConcurrentStableList([_manifest_file(tmp_path)]))
 
     @asynccontextmanager
@@ -274,9 +266,8 @@ async def test_bootstrap_degrades_when_db_unavailable(tmp_path: Path, monkeypatc
     monkeypatch.setattr(module, "session_scope", _broken)
 
     app = _app()
-    await module.bootstrap_platform_declarations(app)
-
-    assert app.state.declaration_register_degraded is True
+    with pytest.raises(CatalogError, match="平台声明注册失败：库未就绪"):
+        await module.bootstrap_platform_declarations(app)
 
 
 async def test_bootstrap_propagates_catalog_error(

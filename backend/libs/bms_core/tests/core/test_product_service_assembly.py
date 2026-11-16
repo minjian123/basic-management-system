@@ -240,7 +240,6 @@ async def test_product_service_assembles_and_starts(monkeypatch: pytest.MonkeyPa
     app = _ProductFactory().create(None)
     async with service_lifespan(app):
         assert app.state.startup_complete is True
-        assert app.state.catalog_degraded is False
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             health = await client.get("/healthz")
             ready = await client.get("/readyz")
@@ -361,6 +360,10 @@ async def test_merged_catalog_conflict_rejected_at_startup(monkeypatch: pytest.M
 @pytest.mark.kiwi_id(2251)
 async def test_catalog_reconciliation_uses_merged_records(monkeypatch: pytest.MonkeyPatch) -> None:
     """接库对账走合并清单：库中「平台 + 产品」行通过；产品行缺失 / 字段不符即拒启（先注册后建表守门）。"""
+    from bms_core.core.config import get_settings
+
+    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
+    get_settings.cache_clear()
     merged = (*SERVICE_CATALOG, *_PRODUCT_RECORDS)
     _snapshot(monkeypatch, merged)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     app = _ProductFactory().create(None)

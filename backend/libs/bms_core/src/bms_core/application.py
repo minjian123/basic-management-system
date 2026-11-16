@@ -178,13 +178,13 @@ def _validate_data_sources(settings: Settings, app: FastAPI | None = None) -> No
 
 
 async def _validate_service_catalog(app: FastAPI) -> None:
-    """接库服务目录校验：取目录快照校验并拒启（空目录仅告警放行；06_01 起改经契约）。
+    """接库服务目录校验：取目录快照校验并拒启（失败一律拒启，不放行）。
 
     取数路径（见 `bms_core/catalog/loader.py`）：
 
     - `platform`（目录单一权威）：本地读**本服务平台库** `sys_module`，读失败即拒启（`CatalogError`）；
-    - 其余服务：经 `service_client` 调 `GET /api/v1/modules/snapshot`；**不可达 / 响应非法时告警放行**
-      并置 `app.state.catalog_degraded = True`（`/readyz` 的 `catalog` 非必需项可见降级，不产生 503）。
+    - 其余服务：经 `service_client` 调 `GET /api/v1/modules/snapshot`；**不可达 / 响应非法 / 目录为空
+      一律拒启**（部署错误当场暴露，不带病启动）。
 
     对账清单取**应用级视图**（`app.state.module_registry.catalog_records()`；平台服务等于
     `SERVICE_CATALOG`，产品服务为「平台清单 + `service_records()` 注入记录」）——产品行随注入进入
@@ -202,13 +202,12 @@ async def _validate_service_catalog(app: FastAPI) -> None:
         records = await load_catalog_snapshot(app)
     except CatalogError:
         raise
-    except Exception as exc:  # 契约不可达 / 未装配 / 响应非法：降级放行（CI 离线校验为硬门禁）
-        logger.warning("service_catalog_snapshot_unavailable", detail=f"{type(exc).__name__}: {exc}")
-        app.state.catalog_degraded = True
-        return
+    except Exception as exc:  # 契约不可达 / 未装配 / 响应非法：部署或装配错误，拒启
+        logger.critical("service_catalog_snapshot_unavailable", detail=f"{type(exc).__name__}: {exc}")
+        raise CatalogError(f"服务目录快照取数失败（{type(exc).__name__}: {exc}）") from exc
     if not records:
-        logger.warning("service_catalog_empty", hint="服务目录无登记行，跳过接库校验")
-        return
+        logger.critical("service_catalog_empty", hint="服务目录无登记行")
+        raise CatalogError("服务目录为空：本服务库未播种服务目录行（先执行服务目录种子）")
     # 常量维度对账的取数面：**平台行 + 本产品行**（其余产品行归各自进程 / 注册通道）
     product_key = cast("str | None", app.state.service_product_key)
     catalog = _scope_catalog(cast("ModuleRegistry", app.state.module_registry).catalog_records(), product_key)
@@ -283,7 +282,7 @@ async def _validate_table_ownership(app: FastAPI) -> None:
     违规即拒启（配置级错误，不应放行）；
     - **接库对账**（仅 `platform` 服务——`sys_table_ownership` 归其平台服务库，非其归属库不跨服务直读）：
     读本服务平台服务库与清单双向对账，不一致即拒启（`CatalogError`，登记类冲突复用既有错误码）；
-    库不可读（未迁移）→ WARNING 放行 + `app.state.ownership_degraded = True`（与 `catalog` 降级同口径）。
+    库不可读（未迁移）/ 无登记行同样拒启——库没准备好属部署错误，不带病启动。
 
     Args:
         app: 应用实例（取服务身份 / 引擎注册表 / 会话工厂）。
@@ -307,13 +306,12 @@ async def _validate_table_ownership(app: FastAPI) -> None:
         ) as session:
             statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))
             records = [TableRecord.from_row(row) for row in (await session.execute(statement)).scalars().all()]
-    except Exception as exc:  # 库不可读（未迁移）：降级放行（CI 接库对账为硬门禁）
-        logger.warning("table_ownership_unavailable", detail=f"{type(exc).__name__}: {exc}")
-        app.state.ownership_degraded = True
-        return
+    except Exception as exc:  # 库不可读（未迁移）：数据库未就绪，拒启
+        logger.critical("table_ownership_unavailable", detail=f"{type(exc).__name__}: {exc}")
+        raise CatalogError(f"表归属登记库不可读（{type(exc).__name__}: {exc}）") from exc
     if not records:
-        logger.warning("table_ownership_empty", hint="表归属登记无登记行，跳过接库对账（先执行 ops.seed_tables）")
-        return
+        logger.critical("table_ownership_empty", hint="表归属登记无登记行（先执行 ops.seed_tables）")
+        raise CatalogError("表归属登记为空：本服务平台服务库未播种登记行（先执行 ops.seed_tables）")
     errors = validate_table_ownership(table_ownership_view(), ConcurrentStableList(records))
     if errors:
         logger.critical("table_ownership_invalid", scope="database", errors=errors)
@@ -481,7 +479,8 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         # 本实例承载集合；平台进程内部跳过（本库即权威，由启动钩子装载）。
         # **顺序**：必须在声明装载之后——承载集合校验与单元判定依赖域登记视图与承载服务映射。
         await bootstrap_remote_topologies(app)
-        await _validate_service_catalog(app)
+        if settings.app.validate_catalog_on_startup:
+            await _validate_service_catalog(app)
         await _validate_capability_usages(app)
         await _validate_table_ownership(app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))
@@ -771,8 +770,6 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.event_consumer_records = ConcurrentStableList(self.event_consumer_records())
         app.state.settings = settings
         app.state.startup_complete = False
-        app.state.catalog_degraded = False
-        app.state.ownership_degraded = False
 
         # 扩展点声明（07D 02）：产品声明「需要哪些扩展点」→ 供规则链构造与装配期核对
         extension_requirements = self.extension_requirements()

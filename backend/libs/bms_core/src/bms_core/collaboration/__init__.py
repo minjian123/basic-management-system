@@ -20,8 +20,6 @@ from bms_core.collaboration.base import (
     CapabilityTarget,
 )
 from bms_core.collaboration.bootstrap import (
-    GRANT_VIEW_DEGRADED_FLAG,
-    TOPOLOGY_DEGRADED_FLAG,
     TOPOLOGY_SNAPSHOT_PATH,
     bootstrap_remote_capability_grants,
     bootstrap_remote_topologies,
@@ -121,7 +119,6 @@ __all__ = [
     "DEGRADE_MODES",
     "DEGRADE_NONE",
     "DEGRADE_STALE",
-    "GRANT_VIEW_DEGRADED_FLAG",
     "GRANT_VIEW_PATH",
     "GRANT_VIEW_TTL_SECONDS",
     "GROUPED_UNIT_PREFIX",
@@ -136,7 +133,6 @@ __all__ = [
     "TEMPLATE_ISOLATED",
     "TEMPLATE_SINGLE",
     "TEMPLATE_UNIT_PREFIX",
-    "TOPOLOGY_DEGRADED_FLAG",
     "TOPOLOGY_ENTRY_DISABLED",
     "TOPOLOGY_ENTRY_ENABLED",
     "TOPOLOGY_SNAPSHOT_LIMIT",

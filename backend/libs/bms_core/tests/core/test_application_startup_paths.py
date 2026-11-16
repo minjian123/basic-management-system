@@ -224,9 +224,52 @@ async def test_service_lifespan_warns_on_pool_budget(monkeypatch: pytest.MonkeyP
     """启动期连接池预算超限：平台 / 租户两类各记一条告警，不阻断启动。"""
     monkeypatch.setattr(app_module, "pool_budget_warnings", _platform_warnings)
     monkeypatch.setattr(app_module, "tenant_pool_budget_warnings", _tenant_warnings)
+    _skip_db_validation(monkeypatch)
     app = ApplicationFactory().create(None)
     async with app_module.service_lifespan(app):
         assert app.state.service_identity.name == "core_test"
+
+
+def _skip_remote_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """跳过跨服务引导（拓扑快照 / 授权视图）：本文件测启动顺序与钩子，非 platform 进程没有对端。
+
+    Args:
+        monkeypatch: pytest 替换器。
+    """
+
+    async def _noop(app: object) -> None:
+        del app
+
+    monkeypatch.setattr(app_module, "bootstrap_remote_topologies", _noop)
+
+
+def _skip_db_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """跳过接库校验（本文件的启动顺序 / 钩子用例不测接库对账；库未播种时校验会拒启）。
+
+    Args:
+        monkeypatch: pytest 替换器。
+    """
+
+    async def _noop(app: object) -> None:
+        del app
+
+    _skip_remote_bootstrap(monkeypatch)
+    monkeypatch.setattr(app_module, "_validate_service_catalog", _noop)
+    monkeypatch.setattr(app_module, "_validate_table_ownership", _noop)
+
+
+def _skip_ownership_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """只跳过表归属接库校验（用例需要保留目录校验的替身时用）。
+
+    Args:
+        monkeypatch: pytest 替换器。
+    """
+
+    async def _noop(app: object) -> None:
+        del app
+
+    _skip_remote_bootstrap(monkeypatch)
+    monkeypatch.setattr(app_module, "_validate_table_ownership", _noop)
 
 
 async def test_record_db_inventory_skips_without_metrics() -> None:
@@ -247,12 +290,11 @@ async def test_validate_table_ownership_offline_conflict() -> None:
         reset_table_records()
 
 
-async def test_validate_table_ownership_degrades_when_db_unreadable(monkeypatch: pytest.MonkeyPatch) -> None:
-    """接库不可读（未迁移）→ 降级放行并标记 `ownership_degraded`。"""
+async def test_validate_table_ownership_rejects_when_db_unreadable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """接库不可读（未迁移）→ 拒启（部署错误，不带病启动）。"""
     monkeypatch.setattr(app_module, "session_scope", _broken_scope)
-    app = _app()
-    await app_module._validate_table_ownership(app)  # pyright: ignore[reportPrivateUsage]
-    assert app.state.ownership_degraded is True
+    with pytest.raises(CatalogError, match="表归属登记库不可读"):
+        await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
 
 
 async def test_validate_table_ownership_rejects_db_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -265,13 +307,44 @@ async def test_validate_table_ownership_rejects_db_mismatch(monkeypatch: pytest.
 
 
 async def test_validate_table_ownership_passes_when_consistent(monkeypatch: pytest.MonkeyPatch) -> None:
-    """接库记录与清单一致 → 正常返回（不抛错，不置降级标记）。"""
+    """接库记录与清单一致 → 正常返回（不抛错）。"""
     monkeypatch.setattr(app_module, "session_scope", _session_scope)
     monkeypatch.setattr(app_module, "TableRecord", SimpleNamespace(from_row=_from_row))
     monkeypatch.setattr(app_module, "validate_table_ownership", _ownership_ok)
-    app = _app()
-    await app_module._validate_table_ownership(app)  # pyright: ignore[reportPrivateUsage]
-    assert getattr(app.state, "ownership_degraded", False) is False
+    await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2511)
+async def test_validate_table_ownership_rejects_when_registry_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """接库登记为空（未播种）→ 拒启（部署错误，不带病启动）。"""
+
+    class _EmptyScalars:
+        def all(self) -> ConcurrentStableList[object]:
+            return ConcurrentStableList()
+
+    class _EmptyResult:
+        def scalars(self) -> _EmptyScalars:
+            return _EmptyScalars()
+
+    class _EmptySession:
+        async def execute(self, statement: object) -> _EmptyResult:
+            del statement
+            return _EmptyResult()
+
+    class _EmptyScope:
+        async def __aenter__(self) -> _EmptySession:
+            return _EmptySession()
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+
+    def _empty_scope(*args: object, **kwargs: object) -> _EmptyScope:
+        del args, kwargs
+        return _EmptyScope()
+
+    monkeypatch.setattr(app_module, "session_scope", _empty_scope)
+    with pytest.raises(CatalogError, match="表归属登记为空"):
+        await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2299)
@@ -286,6 +359,7 @@ async def test_lifespan_assembles_base_capabilities_before_db_bootstrap(
     执行时取到的是真实客户端（即基础能力已先行装配）。
     """
     monkeypatch.setenv("BMS_REDIS__PROVIDER", "redis")
+    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
     get_settings.cache_clear()
     clear_shared_redis_client()
     observed: ConcurrentStableList[str] = ConcurrentStableList()
@@ -300,6 +374,7 @@ async def test_lifespan_assembles_base_capabilities_before_db_bootstrap(
 
     monkeypatch.setattr(app_module, "ensure_unit_schema", _spy_schema)
     monkeypatch.setattr(app_module, "_validate_service_catalog", _spy_catalog)
+    _skip_ownership_validation(monkeypatch)
     app = ApplicationFactory().create(None)
     async with app_module.service_lifespan(app):
         assert app.state.startup_complete is True
@@ -351,8 +426,9 @@ class _HookedFactory(ApplicationFactory):
         return ConcurrentStableList((_hook,))
 
 
-async def test_lifespan_runs_registered_startup_hooks() -> None:
+async def test_lifespan_runs_registered_startup_hooks(monkeypatch: pytest.MonkeyPatch) -> None:
     """启动钩子装配完成后按登记序执行（缺省空清单之外的注册路径）。"""
+    _skip_db_validation(monkeypatch)
     _HookedFactory.calls = ConcurrentStableList()
     app = _HookedFactory().create(None)
     async with app_module.service_lifespan(app):
@@ -376,6 +452,7 @@ async def test_assembly_tolerates_empty_product_manifests(monkeypatch: pytest.Mo
         return ConcurrentStableList()
 
     monkeypatch.setattr(app_module, "load_product_manifests", _empty_manifests)
+    _skip_db_validation(monkeypatch)
     app = ApplicationFactory().create(None)
     async with app_module.service_lifespan(app):
         assert app.state.startup_complete is True

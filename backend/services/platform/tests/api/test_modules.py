@@ -197,25 +197,22 @@ def test_module_response_tenant_base_from_loaded_manifest() -> None:
 
 
 @pytest.mark.kiwi_id(2164)
-@pytest.mark.own_db("被测对象是未播种空库的启动容错与空清单口径：需把库置成无任何服务登记的状态，共享库恒为已播种态")
+@pytest.mark.own_db("故障注入：把库置成未播种态，断言启动期接库校验直接拒启（不再告警放行）")
+@pytest.mark.kiwi_id(2511)
 async def test_list_modules_empty_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """未播种空库：清单空数组 + total=0；明细 404（与启动空目录容错口径一致）。
+    """未播种空库：启动直接拒启（部署错误，不再容错放行）。
 
     07B `02_06` 起平台启动会自注册 10 条服务行（写入 `sys_module`），故本用例关闭启动注册
-    以保留「空库」语义——空目录容错是独立能力，不该被自注册掩盖。
+    以保留「空库」语义——空目录是部署错误，必须在启动期拦下。
     """
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", f"sqlite+aiosqlite:///{tmp_path / 'empty.db'}")
     monkeypatch.setenv("BMS_REGISTRY__REGISTER_ON_STARTUP", "false")
+    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
     get_settings.cache_clear()
     app = ApplicationFactory().create(None)
-    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.headers.update(auth_headers())
-        listed = await client.get("/api/v1/modules")
-        assert listed.json()["data"] == {"list": [], "total": 0, "page": 1, "size": 20}
-
-        missing = await client.get("/api/v1/modules/pur")
-        assert missing.status_code == 404
-        assert missing.json()["code"] == 10002
+    with pytest.raises(CatalogError, match="服务目录为空"):
+        async with lifespan(app):
+            pass
 
 
 @pytest.mark.kiwi_id(2164)

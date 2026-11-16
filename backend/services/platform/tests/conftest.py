@@ -43,6 +43,7 @@ from bms_core.testing.fixtures import (
 from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
+from bms_core.testing.shared_db import seed_table_ownership
 from bms_platform.domains.permission_meta.permission.checker import register_platform_permission
 from bms_platform.main import ApplicationFactory
 from ops.seed_module import seed_modules
@@ -330,6 +331,7 @@ def isolated_platform_db_url(
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform_isolated.db'}"
     asyncio.run(seed_tenants(url))
     asyncio.run(seed_modules(url))
+    asyncio.run(seed_table_ownership(url))
     return url
 
 

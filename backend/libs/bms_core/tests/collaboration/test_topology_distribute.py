@@ -180,7 +180,6 @@ async def test_bootstrap_registers_snapshots_and_resolver() -> None:
     assert isinstance(resolve_topology(), TenantTopologyResolver)
     assert topology_snapshot(7) is not None
     assert resolve_for(7, "mdm").unit_key == "grp-ops"
-    assert app.state.topology_degraded is False
     resource_stub = cast("_ResourceStub", app.state.resources)
     assert len(resource_stub.registered) == 1
 
@@ -213,37 +212,39 @@ async def test_bootstrap_requires_service_client() -> None:
         await bootstrap_remote_topologies(_app())
 
 
-async def test_bootstrap_degrades_when_endpoint_unreachable() -> None:
-    """用例 15：出口不可达 → 告警降级、保留过渡实现（行为等同改造前，不会错址）。"""
+@pytest.mark.kiwi_id(2511)
+async def test_bootstrap_rejects_when_endpoint_unreachable() -> None:
+    """用例 15：出口不可达 → `CatalogError` 拒启（拓扑寻址依据缺失，不带旧实现启动）。"""
     client = _ClientStub(error=RuntimeError("connect refused"))
     app = _app(client)
 
-    await bootstrap_remote_topologies(app)
+    with pytest.raises(CatalogError, match="拓扑快照拉取失败"):
+        await bootstrap_remote_topologies(app)
 
-    assert app.state.topology_degraded is True
     assert isinstance(resolve_topology(), DomainLayoutTopologyResolver)
 
 
-async def test_bootstrap_degrades_on_non_200() -> None:
-    """出口返回非 200 同样降级（平台重启窗口内不把产品拖下水）。"""
+@pytest.mark.kiwi_id(2511)
+async def test_bootstrap_rejects_on_non_200() -> None:
+    """出口返回非 200 同样拒启（平台未就绪属部署顺序问题）。"""
     app = _app(_ClientStub(status_code=503))
 
-    await bootstrap_remote_topologies(app)
+    with pytest.raises(CatalogError, match="拓扑快照拉取失败"):
+        await bootstrap_remote_topologies(app)
 
-    assert app.state.topology_degraded is True
 
-
-async def test_bootstrap_degrades_on_empty_snapshot() -> None:
-    """平台尚未自举（空快照）→ 降级而非装载一个恒报错的解析器。"""
+@pytest.mark.kiwi_id(2511)
+async def test_bootstrap_rejects_on_empty_snapshot() -> None:
+    """平台尚未自举（空快照）→ 拒启，不装载一个恒报错的解析器。"""
     empty: dict[str, object] = {  # bare-collections:allow（出口响应夹具须原生 dict）
         "code": 0,
         "data": {"default_version": 0, "snapshots": []},
     }
     app = _app(_ClientStub(content=json.dumps(empty).encode()))
 
-    await bootstrap_remote_topologies(app)
+    with pytest.raises(CatalogError, match="拓扑快照为空"):
+        await bootstrap_remote_topologies(app)
 
-    assert app.state.topology_degraded is True
     assert isinstance(resolve_topology(), DomainLayoutTopologyResolver)
 
 

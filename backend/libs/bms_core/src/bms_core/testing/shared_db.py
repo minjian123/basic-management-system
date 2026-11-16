@@ -21,8 +21,9 @@ from __future__ import annotations
 import asyncio
 import importlib
 from collections.abc import Iterable
+from typing import cast
 
-from sqlalchemy import MetaData, select, update
+from sqlalchemy import MetaData, Table, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -32,6 +33,8 @@ from bms_core.core.exceptions import ConfigError
 from bms_core.db.bootstrap import domains_metadata
 from bms_core.db.migration import BASE_MODEL_MODULES, COMMON_MODEL_MODULES, DATASOURCE_TENANT, known_domains
 from bms_core.models.base import Base
+from bms_core.models.ownership import SysTableOwnership
+from bms_core.services.table_registry import table_ownership_view
 from bms_core.tenant.seed.tenant import seed_tenants
 
 __all__ = [
@@ -42,6 +45,7 @@ __all__ = [
     "prepare_platform_async",
     "prepare_tenant",
     "prepare_tenant_async",
+    "seed_table_ownership",
 ]
 
 SEED_TENANT_IDS: ConcurrentStableList[tuple[str, int]] = ConcurrentStableList((("demo", 1001), ("acme", 2002)))
@@ -117,6 +121,7 @@ async def prepare_platform_async(
     if targets:
         await seed_tenants(url)
         await align_seed_tenant_ids(url, targets)
+    await seed_table_ownership(url)
     if seed_catalog:
         await _seed_catalog(url)
 
@@ -262,6 +267,37 @@ async def _seed_catalog(url: str) -> None:
     from bms_core.tenant.seed.module import seed_modules
 
     await seed_modules(url)
+
+
+async def seed_table_ownership(url: str) -> None:
+    """播种表归属登记（幂等）：启动期接库对账的输入，缺失即拒启。
+
+    Args:
+        url: 共享平台库连接串。
+    """
+    engine = create_async_engine(url, poolclass=NullPool)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(cast("Table", SysTableOwnership.__table__).create, checkfirst=True)
+        async with factory() as session:
+            existing = await session.scalar(select(SysTableOwnership.table_name))
+            if existing is not None:
+                return
+            for record in table_ownership_view():
+                session.add(
+                    SysTableOwnership(
+                        table_name=record.table_name,
+                        owner=record.owner,
+                        domain=record.domain,
+                        datasource=record.datasource,
+                        status=record.status,
+                        note=record.note,
+                    )
+                )
+            await session.commit()
+    finally:
+        await engine.dispose()
 
 
 async def _seed_configs(url: str) -> None:

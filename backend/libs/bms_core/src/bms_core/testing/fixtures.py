@@ -126,6 +126,12 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_CAPTCHA__PROVIDER", "")
     monkeypatch.setenv("BMS_MASKING__PROVIDER", "")
     monkeypatch.setenv("BMS_DISTRIBUTED_LOCK__PROVIDER", "")
+    # 拓扑分发关闭（2026-11-16）：分发失败改拒启后，单测没有「平台已就绪」的对端，
+    # 属「本来就该关」的配置而非降级；验证分发的用例直接构造 Settings(distribute=True)。
+    monkeypatch.setenv("BMS_TOPOLOGY__DISTRIBUTE", "false")
+    # 单进程测试没有平台对端：启动期目录校验显式关闭（不是容错，是「无对端」的环境配置）；
+    # 校验本身由 `tests/core/test_service_catalog_startup.py` 显式开启覆盖。
+    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "false")
     # 操作审计中间件（06_01）默认关闭：单测不因每个写请求额外写发件箱（审计专项用例显式开启）
     monkeypatch.setenv("BMS_AUDIT_LOG__ENABLED", "false")
     # 权限 / 数据范围强制占位：`get_settings()` 是进程级单例，服务套件（platform / identity）会在

@@ -80,10 +80,9 @@ async def bootstrap_platform_declarations(app: FastAPI) -> None:
             # 表现为「日志显示注册成功、库里查不到行」，并让后续产品进程经 HTTP 拉取时对账全红。
             await session.commit()
     except SQLAlchemyError as exc:
-        # 库未初始化：与「授权声明同步」同口径降级放行（记 WARNING + 打标记），取用仍 fail-closed
-        _LOGGER.warning("declaration_register_unavailable", error=type(exc).__name__, detail=str(exc))
-        app.state.declaration_register_degraded = True
-        return
+        # 库未初始化：数据库未就绪属部署错误，拒启（不再带病启动）
+        _LOGGER.critical("declaration_register_unavailable", error=type(exc).__name__, detail=str(exc))
+        raise CatalogError(f"平台声明注册失败：库未就绪（{type(exc).__name__}: {exc}）") from exc
     except CatalogError:
         raise
     except Exception as exc:

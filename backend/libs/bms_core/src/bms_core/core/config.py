@@ -104,6 +104,13 @@ class AppSettings(BaseSettings):
     `deploy/contracts/`）；`app.openapi()` 方法不受影响，CI 契约生成仍可用。
     """
 
+    validate_catalog_on_startup: bool = True
+    """启动期是否执行接库服务目录校验（`_validate_service_catalog`）。
+
+    缺省开（生产必须）：目录为空 / 快照不可达都拒启。单进程测试没有平台对端，由测试基座置
+    `false`——这是「无对端」的环境配置，不是容错降级；校验本身仍由基座目录用例显式开启覆盖。
+    """
+
     package_prefix: str = "bms"
     """服务包名前缀（env `BMS_APP__PACKAGE_PREFIX`）——链的服务模型模块按
     `{package_prefix}_{service}.models` 解析（见 `db/migration.py::service_model_modules`）。

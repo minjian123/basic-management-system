@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.config import AuditLogSettings
+from bms_core.core.exceptions import CatalogError
 from bms_platform.domains.log.repositories.shard import LogShardRepository
 from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION
 from bms_platform.domains.log.services import shard_bootstrap
@@ -45,8 +46,9 @@ async def test_bootstrap_skips_when_disabled() -> None:
     await bootstrap_audit_shards(app)  # 不抛错即通过
 
 
+@pytest.mark.kiwi_id(2511)
 async def test_bootstrap_success_and_failure_paths(log_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
-    """启动钩子：成功建表；会话异常只告警不抛。"""
+    """启动钩子：成功建表；会话异常拒启（不再静默吞错）。"""
 
     @asynccontextmanager
     async def _scope(*args: object, **kwargs: object) -> AsyncGenerator[Any]:
@@ -75,4 +77,5 @@ async def test_bootstrap_success_and_failure_paths(log_session: AsyncSession, mo
         yield  # pragma: no cover - 不可达（保持异步生成器形态）
 
     monkeypatch.setattr(shard_bootstrap, "session_scope", _broken)
-    await bootstrap_audit_shards(app)  # 异常被吞掉
+    with pytest.raises(CatalogError, match="审计分片预热失败"):
+        await bootstrap_audit_shards(app)

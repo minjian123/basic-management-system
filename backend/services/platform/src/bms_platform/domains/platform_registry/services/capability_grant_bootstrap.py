@@ -100,11 +100,9 @@ async def bootstrap_capability_grants(app: FastAPI) -> None:
             )
             report = await service.sync_declared()
     except SQLAlchemyError as exc:
-        # 库不可读 / 未建表：与「表归属接库校验」同口径降级放行（记 WARNING + 打降级标记），
-        # 不因「还没初始化库」把整个服务拒之门外；入站判定仍 fail-closed（未装配来源即未授权）。
-        _LOGGER.warning("capability_grant_sync_unavailable", error=type(exc).__name__, detail=str(exc))
-        app.state.grant_sync_degraded = True
-        return
+        # 库不可读 / 未建表：数据库未就绪属部署错误，拒启（入站判定仍 fail-closed）
+        _LOGGER.critical("capability_grant_sync_unavailable", error=type(exc).__name__, detail=str(exc))
+        raise CatalogError(f"能力分配声明同步失败：库未就绪（{type(exc).__name__}: {exc}）") from exc
     except CatalogError:
         raise
     except Exception as exc:

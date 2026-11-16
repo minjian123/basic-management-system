@@ -1,7 +1,7 @@
 """授权视图进程引导（07B `03_01`）：产品进程来源登记 + 承载域预热 + 降级语义。
 
 覆盖详细设计 §3.8 / §6 用例 20 的基座部分：远端来源登记、只按承载域预热（不请求消费方维度）、
-来源不可达时告警降级（不拒启）且首访仍 fail-closed、装配缺客户端按配置漂移拒启。
+来源不可达时拒启（部署顺序问题）且首访仍 fail-closed、装配缺客户端按配置漂移拒启。
 """
 
 from collections.abc import Iterator
@@ -18,7 +18,6 @@ from bms_core.collaboration import (
     reset_capability_grants,
     warm_capability_grant_views,
 )
-from bms_core.collaboration.bootstrap import GRANT_VIEW_DEGRADED_FLAG
 from bms_core.collaboration.grant import GRANT_VIEW_PATH
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import Settings
@@ -106,14 +105,15 @@ async def test_bootstrap_registers_source_and_warms_carried_domain() -> None:
     assert client.paths.to_list() == [GRANT_VIEW_PATH]
 
 
-async def test_bootstrap_marks_not_degraded_on_success() -> None:
-    """引导成功：`grant_view_degraded` 复位为 False（降级标记只在失败时置真）。"""
+async def test_bootstrap_warms_views_on_success() -> None:
+    """引导成功：首访承载域 `provider` 视图可用（不需惰性加载、不抛错）。"""
     register_domain_services(ConcurrentStableFrozenDict({"mdm": SERVICE_KEY}))
     app = _app(client=_ClientStub(content=b'{"code":0,"data":{"grants":[]}}'))
 
     await bootstrap_remote_capability_grants(app)
 
-    assert app.state.grant_view_degraded is False
+    snapshot = await ensure_grant_view(provider="mdm")
+    assert list(snapshot.grants) == []
 
 
 async def test_warm_views_skips_consumer_when_disabled() -> None:
@@ -157,14 +157,17 @@ async def test_remote_grants_feed_provider_view() -> None:
     ]
 
 
-async def test_bootstrap_degrades_when_source_unavailable() -> None:
-    """来源不可达：告警降级（不拒启），且首访仍 fail-closed（抛 `CatalogError`）。"""
+@pytest.mark.kiwi_id(2511)
+async def test_bootstrap_rejects_when_source_unavailable() -> None:
+    """来源不可达：拒启（平台没就绪属部署顺序问题），首访仍 fail-closed。"""
     register_domain_services(ConcurrentStableFrozenDict({"mdm": SERVICE_KEY}))
     app = _app(client=_ClientStub(status_code=503))
 
-    await bootstrap_remote_capability_grants(app)
+    with pytest.raises(CatalogError, match="授权视图预热失败"):
+        await bootstrap_remote_capability_grants(app)
 
-    assert getattr(app.state, GRANT_VIEW_DEGRADED_FLAG) is True
+    with pytest.raises(CatalogError):
+        await ensure_grant_view(provider="mdm")
     with pytest.raises(CatalogError):
         await ensure_grant_view(provider="mdm")
 

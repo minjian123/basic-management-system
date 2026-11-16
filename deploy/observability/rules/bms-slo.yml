@@ -44,7 +44,7 @@ groups:
           component: catalog
         annotations:
           summary: "服务目录快照降级（{{ $labels.service }}）"
-          description: "服务目录快照不可达（非必需健康项，不摘流）；启动校验降级放行中，检查目录权威服务与快照契约。"
+          description: "服务目录快照不可达（非必需健康项，不摘流）；属运行期探测降级，检查目录权威服务与快照契约。"
 
   - name: bms-http-slo
     rules:
