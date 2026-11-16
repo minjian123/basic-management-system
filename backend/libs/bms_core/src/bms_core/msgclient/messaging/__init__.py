@@ -15,7 +15,7 @@
 """
 
 from bms_core.msgclient.messaging.codes import rule_for_consume, rule_for_publish
-from bms_core.msgclient.messaging.config import MessagingConfig
+from bms_core.msgclient.messaging.config import MessagingConfig, TransportChannel
 from bms_core.msgclient.messaging.consumer import (
     Assignment,
     CommitResult,
@@ -33,16 +33,22 @@ from bms_core.msgclient.messaging.producer import (
     SucceededItem,
 )
 from bms_core.msgclient.messaging.stats import ClientStats
-from bms_core.msgclient.messaging.transport import ApiOutcome, MessagingTransport
+from bms_core.msgclient.messaging.transport import ApiOutcome, ApiRequest, MessagingTransport
+from bms_core.msgclient.messaging.transport_factory import build_transport
+from bms_core.msgclient.messaging.transport_frame import FrameTransport
+from bms_core.msgclient.messaging.transport_json import JsonTransport
 
 __all__ = [
     "CLIENT_ERROR_CODE",
     "ApiOutcome",
+    "ApiRequest",
     "Assignment",
     "ClientAction",
     "ClientStats",
     "CommitResult",
     "FailedItem",
+    "FrameTransport",
+    "JsonTransport",
     "MessagingConfig",
     "MessagingTransport",
     "MsgClientError",
@@ -54,6 +60,8 @@ __all__ = [
     "PublishBatchResult",
     "ReceivedMessage",
     "SucceededItem",
+    "TransportChannel",
+    "build_transport",
     "rule_for_consume",
     "rule_for_publish",
 ]

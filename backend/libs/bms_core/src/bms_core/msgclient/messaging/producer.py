@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 from dataclasses import dataclass, field, replace
 from typing import cast
 
@@ -24,11 +23,12 @@ from bms_core.core.concurrent import (
 )
 from bms_core.core.exceptions import ParamError
 from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
+from bms_core.msgclient.frame import FrameType
 from bms_core.msgclient.messaging.codes import rule_for_publish
 from bms_core.msgclient.messaging.config import MessagingConfig
 from bms_core.msgclient.messaging.errors import ClientAction, MsgClientError
 from bms_core.msgclient.messaging.stats import ClientStats
-from bms_core.msgclient.messaging.transport import ApiOutcome, MessagingTransport
+from bms_core.msgclient.messaging.transport import ApiOutcome, ApiRequest, MessagingTransport
 from bms_core.msgclient.retry import compute_backoff_ms
 
 __all__ = [
@@ -265,7 +265,7 @@ class MsgProducer(BaseFrameworkObject):
             self.stats.incr("requests_total", op="publish")
             endpoint = self._endpoint()
             try:
-                outcome = await self.transport.post(endpoint, PUBLISH_PATH, self.body(message))
+                outcome = await self.transport.post(endpoint, self.request(message))
                 ack = self._ack(outcome, message)
             except MsgClientError as exc:
                 redirects, retries = self._handle_failure(exc, retries=retries, redirects=redirects)
@@ -325,25 +325,31 @@ class MsgProducer(BaseFrameworkObject):
             requested=total,
         )
 
-    def body(self, message: OutgoingMessage) -> dict[str, object]:  # bare-collections:allow（JSON 序列化边界）
-        """组装发布请求体（JSON 结构；幂等键另写入头）。
+    def request(self, message: OutgoingMessage) -> ApiRequest:
+        """组装一次发布请求（业务字段 + 消息体；幂等键写进消息头）。
+
+        **幂等键放消息头而不是 HTTP 头**：服务端 `PublishRequest.headers` 是契约字段，会随消息落库、
+        消费侧能读到；发布路径目前**不做去重**，所以它只是「消费侧可见 + 本地表」的依据。
 
         Args:
             message: 待发布消息。
 
         Returns:
-            dict[str, object]: 请求体。
+            ApiRequest: 与承载无关的请求（JSON 摊成请求体、帧摊成帧头 + payload 段）。
         """
-        headers = {key: value for key, value in message.headers.items()}
+        headers: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+        for key, value in message.headers.items():
+            headers.set(key, value)
         if message.idempotency_key is not None:
-            headers["x-msg-idem-key"] = message.idempotency_key
-        body: dict[str, object] = {  # bare-collections:allow（同上：JSON 序列化边界）
-            "namespace": message.namespace,
-            "topic": message.topic,
-            "payload": base64.b64encode(message.payload).decode("ascii"),
-            "headers": headers,
-            "acks": message.acks,
-        }
+            headers.set("x-msg-idem-key", message.idempotency_key)
+        fields: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "namespace": message.namespace,
+                "topic": message.topic,
+                "headers": headers,
+                "acks": message.acks,
+            }
+        )
         for name, value in (
             ("key", message.key),
             ("delay_level", message.delay_level),
@@ -353,8 +359,13 @@ class MsgProducer(BaseFrameworkObject):
             ("trace_flags", message.trace_flags),
         ):
             if value is not None:
-                body[name] = value
-        return body
+                fields.set(name, value)
+        return ApiRequest(
+            frame_type=int(FrameType.PUBLISH),
+            path=PUBLISH_PATH,
+            fields=ConcurrentStableFrozenDict(fields),
+            payload=message.payload,
+        )
 
     async def close(self) -> None:
         """关闭传输层（幂等）。"""

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from enum import StrEnum
 from urllib.parse import urlparse
 
 from bms_core.core.concurrent import (
@@ -23,7 +24,21 @@ from bms_core.core.exceptions import ParamError
 from bms_core.core.roots import BaseValueObject
 from bms_core.msgclient.retry import Clock, JitterSource, RetryPolicy, SystemClock, SystemJitter
 
-__all__ = ["MessagingConfig"]
+__all__ = ["MessagingConfig", "TransportChannel"]
+
+
+class TransportChannel(StrEnum):
+    """数据面的承载形态（03-6-1：换帧后默认走帧，JSON 保留为可选中实现）。
+
+    两条通道对外语义等价（同一份业务字段、同一份回执、同一套错误分类），差别只在承载：
+    帧形态把业务字段放帧头、消息体走 payload 段；JSON 形态把两者都放请求体。
+    """
+
+    FRAME = "frame"
+    """帧形态（`application/x-msg-frame`）：默认值。"""
+
+    JSON = "json"
+    """JSON 形态（`application/json`）：回退与对拍用，服务端同样支持。"""
 
 
 def _empty_endpoints() -> ConcurrentStableFrozenList[str]:
@@ -42,6 +57,26 @@ def _empty_node_addresses() -> ConcurrentStableFrozenDict[str, str]:
         ConcurrentStableFrozenDict[str, str]: 空映射。
     """
     return ConcurrentStableFrozenDict()
+
+
+def _channel_of(value: object) -> TransportChannel:
+    """把配置里的通道值规整成枚举（允许写字符串，便于配置化）。
+
+    Args:
+        value: 通道值（枚举或 `frame` / `json` 字符串）。
+
+    Returns:
+        TransportChannel: 通道枚举。
+
+    Raises:
+        ParamError: 取值不在枚举内。
+    """
+    if isinstance(value, TransportChannel):
+        return value
+    try:
+        return TransportChannel(value)
+    except ValueError as exc:
+        raise ParamError(f"channel 只能是 frame 或 json（当前 {value!r}）") from exc
 
 
 @dataclass(frozen=True)
@@ -63,6 +98,7 @@ class MessagingConfig(BaseValueObject):
         idempotency_ttl_ms: 本地幂等表条目存活时长（毫秒）。
         idempotency_capacity: 本地幂等表条数上限（超出按插入序淘汰）。
         publish_concurrency: 批量发布的并发窗口。
+        channel: 承载形态（缺省帧；见 `TransportChannel`）。
         clock: 可注入时钟（缺省 `SystemClock`；用例注入 fake 以确定性断言退避与过期）。
         jitter: 可注入抖动源（缺省 `SystemJitter`）。
     """
@@ -81,6 +117,7 @@ class MessagingConfig(BaseValueObject):
     idempotency_ttl_ms: int = 300_000
     idempotency_capacity: int = 1_024
     publish_concurrency: int = 8
+    channel: TransportChannel = TransportChannel.FRAME
     clock: Clock = field(default_factory=SystemClock)
     jitter: JitterSource = field(default_factory=SystemJitter)
 
@@ -88,7 +125,7 @@ class MessagingConfig(BaseValueObject):
         """校验配置（构造期即失败，避免把错配带到第一次发布）。
 
         Raises:
-            ParamError: 地址池为空 / 地址非法 / 租户为空 / 取值为非正数。
+            ParamError: 地址池为空 / 地址非法 / 租户为空 / 取值为非正数 / 通道取值非法。
         """
         if not self.endpoints:
             raise ParamError("endpoints 不能为空：至少给一个服务地址")
@@ -96,6 +133,7 @@ class MessagingConfig(BaseValueObject):
             self._check_endpoint(endpoint)
         if not self.tenant.strip():
             raise ParamError("tenant 不能为空：租户标识用于 X-Tenant-ID")
+        object.__setattr__(self, "channel", _channel_of(self.channel))
         for name, value in (
             ("connect_timeout_ms", self.connect_timeout_ms),
             ("request_timeout_ms", self.request_timeout_ms),

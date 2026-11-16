@@ -1,25 +1,39 @@
-"""03-6 用例：生产端（Kiwi 2510）。
+"""03-6 / 03-6-1 用例：生产端（Kiwi 2510；两条通道参数化各跑一遍）。
 
-覆盖要点：单条发布的请求体组装与回执解析；本地幂等表的三条路径（命中 / 过期 / 容量淘汰）；
+覆盖要点：单条发布的请求字段落位与回执解析；本地幂等表的三条路径（命中 / 过期 / 容量淘汰）；
 `350033` 改投（含节点地址命中、未命中、改投用尽）；`350005` 退避（`Retry-After` 封顶）与重试用尽；
 `350032` 结果未知默认不重试、开启 `retry_ambiguous` 后才重试；批量的成功 / 部分失败 / 快速失败。
+
+**断言通道无关**：`server.fields()` 与 `server.payload()` 把「请求体」与「帧头 + payload 段」抹平成同一视图，
+所以同一份断言在帧通道与 JSON 通道上一字不改地跑两遍——这就是「两通道语义等价」的机器判据。
 """
 
 from __future__ import annotations
 
-import base64
-import json
+from collections.abc import Mapping
 from dataclasses import replace
+from typing import cast
 
 import pytest
 from msgclient_support.rpc_retry import FakeClock
 
-from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import ParamError
-from bms_core.msgclient.messaging import ClientAction, MsgClientError, OutgoingMessage
-from bms_core.msgclient.retry import JitterMode, RetryPolicy
+from bms_core.msgclient.messaging import (
+    ClientAction,
+    MessagingConfig,
+    MsgClientError,
+    OutgoingMessage,
+    TransportChannel,
+)
+from bms_core.msgclient.retry import Clock, JitterMode, RetryPolicy
 
-from ._support import ScriptedServer, build_config, build_producer, ok_body
+from ._support import ScriptedServer, build_config, build_producer
+from ._support import channel as channel  # 夹具出口（用例按名字注入）
 
 pytestmark = pytest.mark.kiwi_id(2510)
 
@@ -37,34 +51,47 @@ def _message(**overrides: object) -> OutgoingMessage:
     return replace(base, **overrides)
 
 
+def _config(channel: TransportChannel, *, clock: Clock | None = None, **overrides: object) -> MessagingConfig:
+    """构造指定通道的配置。
+
+    Args:
+        channel: 通道。
+        clock: 注入时钟（缺省用 fake）。
+        overrides: 覆盖字段。
+
+    Returns:
+        MessagingConfig: 配置。
+    """
+    return build_config(channel=channel, clock=clock, **overrides)
+
+
 @pytest.mark.asyncio
-async def test_publish_success_body_and_ack() -> None:
-    """发布成功：请求体含 base64 载荷与可选字段；回执按响应解析（含 offset / deliver_at）。"""
+async def test_publish_success_fields_and_ack(channel: TransportChannel) -> None:
+    """发布成功：业务字段与消息体按形态落位；回执按响应解析（含 offset / deliver_at）。"""
     server = ScriptedServer()
     server.push(
         "/msg/publish",
-        body=ok_body(
-            data={
-                "message_id": "m1",
-                "log_id": "l1",
-                "topic": "orders",
-                "partition": 2,
-                "offset": 7,
-                "deliver_at": "2026-11-16T00:00:00Z",
-            }
-        ),
+        data={
+            "message_id": "m1",
+            "log_id": "l1",
+            "topic": "orders",
+            "partition": 2,
+            "offset": 7,
+            "deliver_at": "2026-11-16T00:00:00Z",
+        },
     )
-    producer, stats = build_producer(build_config(), server)
+    producer, stats = build_producer(_config(channel), server)
     ack = await producer.publish(
         _message(key="k", acks="all", idempotency_key="idem-1", trace_id="t", span_id="s", trace_flags="1")
     )
 
-    decoded = json.loads(server.requests[0].read())
-    assert decoded["payload"] == base64.b64encode(b"hello").decode("ascii")
-    assert decoded["acks"] == "all"
-    assert decoded["key"] == "k"
-    assert decoded["headers"]["x-msg-idem-key"] == "idem-1"
-    assert decoded["trace_id"] == "t"
+    fields = server.fields(0)
+    assert server.payload(0) == b"hello"
+    assert fields.get("acks") == "all"
+    assert fields.get("key") == "k"
+    assert fields.get("trace_id") == "t"
+    message_headers = cast("Mapping[str, object]", fields.get("headers"))
+    assert dict(message_headers) == {"x-msg-idem-key": "idem-1"}
 
     assert ack.message_id == "m1"
     assert ack.partition == 2
@@ -75,11 +102,22 @@ async def test_publish_success_body_and_ack() -> None:
 
 
 @pytest.mark.asyncio
-async def test_publish_ack_without_offset_and_deliver_at() -> None:
+async def test_publish_keeps_caller_headers(channel: TransportChannel) -> None:
+    """调用方自带消息头：原样带上（与幂等键写同一个 `headers` 映射）。"""
+    server = ScriptedServer()
+    server.push("/msg/publish", data={"message_id": "m1", "log_id": "l1", "partition": 0})
+    producer, _ = build_producer(_config(channel), server)
+    await producer.publish(_message(headers=ConcurrentStableFrozenDict({"biz-tag": "v1"}), idempotency_key="idem-2"))
+    message_headers = cast("Mapping[str, object]", server.fields(0).get("headers"))
+    assert dict(message_headers) == {"biz-tag": "v1", "x-msg-idem-key": "idem-2"}
+
+
+@pytest.mark.asyncio
+async def test_publish_ack_without_offset_and_deliver_at(channel: TransportChannel) -> None:
     """普通发布的回执：offset 缺失照实落 None，`topic` 回落入参。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m1", "log_id": "l1", "partition": 1}))
-    producer, _ = build_producer(build_config(), server)
+    server.push("/msg/publish", data={"message_id": "m1", "log_id": "l1", "partition": 1})
+    producer, _ = build_producer(_config(channel), server)
     ack = await producer.publish(_message())
     assert ack.offset is None
     assert ack.deliver_at is None
@@ -87,11 +125,11 @@ async def test_publish_ack_without_offset_and_deliver_at() -> None:
 
 
 @pytest.mark.asyncio
-async def test_idempotency_hit_skips_request() -> None:
+async def test_idempotency_hit_skips_request(channel: TransportChannel) -> None:
     """同幂等键第二次调用：不发请求、返回 `deduplicated=True`，并记一次命中。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m1", "log_id": "l1", "partition": 0}))
-    producer, stats = build_producer(build_config(), server)
+    server.push("/msg/publish", data={"message_id": "m1", "log_id": "l1", "partition": 0})
+    producer, stats = build_producer(_config(channel), server)
     first = await producer.publish(_message(idempotency_key="k1"))
     second = await producer.publish(_message(idempotency_key="k1"))
     assert len(server.requests) == 1
@@ -102,13 +140,13 @@ async def test_idempotency_hit_skips_request() -> None:
 
 
 @pytest.mark.asyncio
-async def test_idempotency_expires() -> None:
+async def test_idempotency_expires(channel: TransportChannel) -> None:
     """超过 TTL：条目过期后重新发请求。"""
     clock = FakeClock()
     server = ScriptedServer()
     for _ in range(2):
-        server.push("/msg/publish", body=ok_body(data={"message_id": "m1", "log_id": "l1", "partition": 0}))
-    producer, _ = build_producer(build_config(clock=clock, idempotency_ttl_ms=1_000), server)
+        server.push("/msg/publish", data={"message_id": "m1", "log_id": "l1", "partition": 0})
+    producer, _ = build_producer(_config(channel, clock=clock, idempotency_ttl_ms=1_000), server)
     await producer.publish(_message(idempotency_key="k1"))
     clock.advance(1_001)
     await producer.publish(_message(idempotency_key="k1"))
@@ -116,12 +154,12 @@ async def test_idempotency_expires() -> None:
 
 
 @pytest.mark.asyncio
-async def test_idempotency_capacity_evicts_oldest() -> None:
+async def test_idempotency_capacity_evicts_oldest(channel: TransportChannel) -> None:
     """容量为 1：写入第二个键时按插入序淘汰第一个，旧键再发会重新请求。"""
     server = ScriptedServer()
     for _ in range(3):
-        server.push("/msg/publish", body=ok_body(data={"message_id": "m1", "log_id": "l1", "partition": 0}))
-    producer, _ = build_producer(build_config(idempotency_capacity=1), server)
+        server.push("/msg/publish", data={"message_id": "m1", "log_id": "l1", "partition": 0})
+    producer, _ = build_producer(_config(channel, idempotency_capacity=1), server)
     await producer.publish(_message(idempotency_key="k1"))
     await producer.publish(_message(idempotency_key="k2"))
     await producer.publish(_message(idempotency_key="k1"))
@@ -129,48 +167,46 @@ async def test_idempotency_capacity_evicts_oldest() -> None:
 
 
 @pytest.mark.asyncio
-async def test_publish_rejects_empty_namespace() -> None:
+async def test_publish_rejects_empty_namespace(channel: TransportChannel) -> None:
     """命名空间为空：发布前拦住（服务端会判 350010，早点说清）。"""
-    producer, _ = build_producer(build_config(), ScriptedServer())
+    producer, _ = build_producer(_config(channel), ScriptedServer())
     with pytest.raises(ParamError, match="namespace 不能为空"):
         await producer.publish(_message(namespace=" "))
 
 
 @pytest.mark.asyncio
-async def test_publish_rejects_empty_topic() -> None:
+async def test_publish_rejects_empty_topic(channel: TransportChannel) -> None:
     """主题为空：同样发布前拦住。"""
-    producer, _ = build_producer(build_config(), ScriptedServer())
+    producer, _ = build_producer(_config(channel), ScriptedServer())
     with pytest.raises(ParamError, match="topic 不能为空"):
         await producer.publish(_message(topic=""))
 
 
 @pytest.mark.asyncio
-async def test_publish_rejects_bad_acks() -> None:
+async def test_publish_rejects_bad_acks(channel: TransportChannel) -> None:
     """`acks` 不在闭集：拒绝（服务端只收 1 / all）。"""
-    producer, _ = build_producer(build_config(), ScriptedServer())
+    producer, _ = build_producer(_config(channel), ScriptedServer())
     with pytest.raises(ParamError, match="acks 只能是 1 或 all"):
         await producer.publish(_message(acks="2"))
 
 
 @pytest.mark.asyncio
-async def test_publish_rejects_long_key() -> None:
+async def test_publish_rejects_long_key(channel: TransportChannel) -> None:
     """分区键超长：拒绝（服务端上限 256）。"""
-    producer, _ = build_producer(build_config(), ScriptedServer())
+    producer, _ = build_producer(_config(channel), ScriptedServer())
     with pytest.raises(ParamError, match="key 长度不得超过"):
         await producer.publish(_message(key="k" * 257))
 
 
 @pytest.mark.asyncio
-async def test_refresh_redirects_to_leader_address() -> None:
+async def test_refresh_redirects_to_leader_address(channel: TransportChannel) -> None:
     """`350033` 且节点地址表命中：第二次请求直接打到新 leader 地址。"""
     clock = FakeClock()
     server = ScriptedServer()
-    server.push(
-        "/msg/publish",
-        body=ok_body(350033, data={"leader": "msg-2", "epoch": 4, "reason": "not_leader"}),
-    )
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m2", "log_id": "l2", "partition": 0}))
-    config = build_config(
+    server.push("/msg/publish", code=350033, data={"leader": "msg-2", "epoch": 4, "reason": "not_leader"})
+    server.push("/msg/publish", data={"message_id": "m2", "log_id": "l2", "partition": 0})
+    config = _config(
+        channel,
         clock=clock,
         endpoints=ConcurrentStableFrozenList(["http://msg-1:8000", "http://msg-2:8000"]),
         node_addresses=ConcurrentStableFrozenDict({"msg-2": "http://msg-9:8000"}),
@@ -186,46 +222,46 @@ async def test_refresh_redirects_to_leader_address() -> None:
 
 
 @pytest.mark.asyncio
-async def test_refresh_without_leader_address_rotates_endpoint() -> None:
+async def test_refresh_without_leader_address_rotates_endpoint(channel: TransportChannel) -> None:
     """`350033` 但节点地址表没这个节点：换地址轮询（第二个地址）。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(350033, data={"leader": "msg-x"}))
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m2", "log_id": "l2", "partition": 0}))
-    config = build_config(endpoints=ConcurrentStableFrozenList(["http://msg-1:8000", "http://msg-2:8000"]))
+    server.push("/msg/publish", code=350033, data={"leader": "msg-x"})
+    server.push("/msg/publish", data={"message_id": "m2", "log_id": "l2", "partition": 0})
+    config = _config(channel, endpoints=ConcurrentStableFrozenList(["http://msg-1:8000", "http://msg-2:8000"]))
     producer, _ = build_producer(config, server)
     await producer.publish(_message())
     assert str(server.requests[1].url).startswith("http://msg-2:8000")
 
 
 @pytest.mark.asyncio
-async def test_refresh_with_empty_leader_keeps_rotation() -> None:
+async def test_refresh_with_empty_leader_keeps_rotation(channel: TransportChannel) -> None:
     """`350033` 但 `data.leader` 为空串：不改投目标，走轮询。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(350033, data={"leader": ""}))
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m2", "log_id": "l2", "partition": 0}))
-    producer, _ = build_producer(build_config(), server)
+    server.push("/msg/publish", code=350033, data={"leader": ""})
+    server.push("/msg/publish", data={"message_id": "m2", "log_id": "l2", "partition": 0})
+    producer, _ = build_producer(_config(channel), server)
     await producer.publish(_message())
     assert len(server.requests) == 2
 
 
 @pytest.mark.asyncio
-async def test_refresh_with_non_string_leader_keeps_rotation() -> None:
+async def test_refresh_with_non_string_leader_keeps_rotation(channel: TransportChannel) -> None:
     """`350033` 但 `data.leader` 不是字符串：同样走轮询。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(350033, data={"leader": 123}))
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m2", "log_id": "l2", "partition": 0}))
-    producer, _ = build_producer(build_config(), server)
+    server.push("/msg/publish", code=350033, data={"leader": 123})
+    server.push("/msg/publish", data={"message_id": "m2", "log_id": "l2", "partition": 0})
+    producer, _ = build_producer(_config(channel), server)
     await producer.publish(_message())
     assert len(server.requests) == 2
 
 
 @pytest.mark.asyncio
-async def test_refresh_exhausted_raises_refresh() -> None:
+async def test_refresh_exhausted_raises_refresh(channel: TransportChannel) -> None:
     """改投次数用尽：抛出 `refresh` 类错误并记一次错误。"""
     server = ScriptedServer()
     for _ in range(2):
-        server.push("/msg/publish", body=ok_body(350033, data={"leader": "msg-2"}))
-    producer, stats = build_producer(build_config(max_redirects=1), server)
+        server.push("/msg/publish", code=350033, data={"leader": "msg-2"})
+    producer, stats = build_producer(_config(channel, max_redirects=1), server)
     with pytest.raises(MsgClientError) as captured:
         await producer.publish(_message())
     assert captured.value.action is ClientAction.REFRESH
@@ -234,41 +270,41 @@ async def test_refresh_exhausted_raises_refresh() -> None:
 
 
 @pytest.mark.asyncio
-async def test_retry_then_success_uses_backoff() -> None:
+async def test_retry_then_success_uses_backoff(channel: TransportChannel) -> None:
     """限流一次后成功：按指数退避等待一次（100ms），并记一次重试。"""
     clock = FakeClock()
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(350005))
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m2", "log_id": "l2", "partition": 0}))
-    producer, stats = build_producer(build_config(clock=clock), server)
+    server.push("/msg/publish", code=350005)
+    server.push("/msg/publish", data={"message_id": "m2", "log_id": "l2", "partition": 0})
+    producer, stats = build_producer(_config(channel, clock=clock), server)
     await producer.publish(_message())
     assert clock.sleeps == [100]
     assert stats.snapshot().get("retries_total{op=publish,reason=350005}") == 1
 
 
 @pytest.mark.asyncio
-async def test_retry_after_capped_by_policy() -> None:
+async def test_retry_after_capped_by_policy(channel: TransportChannel) -> None:
     """`Retry-After` 优先，但受策略封顶（3000ms 压到 2000ms）。"""
     clock = FakeClock()
     server = ScriptedServer()
     server.push(
         "/msg/publish",
-        body=ok_body(350005),
+        code=350005,
         headers=ConcurrentStableFrozenDict({"Retry-After": "3"}),
     )
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m2", "log_id": "l2", "partition": 0}))
-    producer, _ = build_producer(build_config(clock=clock), server)
+    server.push("/msg/publish", data={"message_id": "m2", "log_id": "l2", "partition": 0})
+    producer, _ = build_producer(_config(channel, clock=clock), server)
     await producer.publish(_message())
     assert clock.sleeps == [2_000]
 
 
 @pytest.mark.asyncio
-async def test_retry_exhausted_raises_retry() -> None:
+async def test_retry_exhausted_raises_retry(channel: TransportChannel) -> None:
     """重试次数用尽：抛出 `retry` 类错误。"""
     server = ScriptedServer()
     for _ in range(2):
-        server.push("/msg/publish", body=ok_body(350005))
-    producer, stats = build_producer(build_config(retry=_retry_policy(max_retries=1)), server)
+        server.push("/msg/publish", code=350005)
+    producer, stats = build_producer(_config(channel, retry=_retry_policy(max_retries=1)), server)
     with pytest.raises(MsgClientError) as captured:
         await producer.publish(_message())
     assert captured.value.action is ClientAction.RETRY
@@ -276,11 +312,11 @@ async def test_retry_exhausted_raises_retry() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ambiguous_not_retried_by_default() -> None:
+async def test_ambiguous_not_retried_by_default(channel: TransportChannel) -> None:
     """`350032` 提交超时：默认不重试，抛错并标结果未知。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(350032, data={"reason": "commit_timeout"}))
-    producer, _ = build_producer(build_config(), server)
+    server.push("/msg/publish", code=350032, data={"reason": "commit_timeout"})
+    producer, _ = build_producer(_config(channel), server)
     with pytest.raises(MsgClientError) as captured:
         await producer.publish(_message())
     assert captured.value.outcome_unknown is True
@@ -288,39 +324,37 @@ async def test_ambiguous_not_retried_by_default() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ambiguous_retried_when_enabled() -> None:
+async def test_ambiguous_retried_when_enabled(channel: TransportChannel) -> None:
     """开启 `retry_ambiguous` 后：`350032` 会再发一次（仍保留结果未知标记）。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(350032))
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m2", "log_id": "l2", "partition": 0}))
-    producer, _ = build_producer(build_config(retry_ambiguous=True), server)
+    server.push("/msg/publish", code=350032)
+    server.push("/msg/publish", data={"message_id": "m2", "log_id": "l2", "partition": 0})
+    producer, _ = build_producer(_config(channel, retry_ambiguous=True), server)
     ack = await producer.publish(_message())
     assert ack.message_id == "m2"
     assert len(server.requests) == 2
 
 
 @pytest.mark.asyncio
-async def test_publish_many_all_success() -> None:
+async def test_publish_many_all_success(channel: TransportChannel) -> None:
     """批量：两条都成功，结果按原始下标归位。"""
     server = ScriptedServer()
     for index in range(2):
-        server.push("/msg/publish", body=ok_body(data={"message_id": f"m{index}", "log_id": "l", "partition": 0}))
-    producer, _ = build_producer(build_config(publish_concurrency=1), server)
-    result = await producer.publish_many(
-        ConcurrentStableList([_message(), _message()]),
-    )
+        server.push("/msg/publish", data={"message_id": f"m{index}", "log_id": "l", "partition": 0})
+    producer, _ = build_producer(_config(channel, publish_concurrency=1), server)
+    result = await producer.publish_many(ConcurrentStableList([_message(), _message()]))
     assert result.requested == 2
     assert [item.index for item in result.succeeded] == [0, 1]
     assert result.failed == ConcurrentStableFrozenList()
 
 
 @pytest.mark.asyncio
-async def test_publish_many_partial_failure() -> None:
+async def test_publish_many_partial_failure(channel: TransportChannel) -> None:
     """批量：一条被拒（主题不存在）不影响另一条，失败项带下标与错误。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(350001))
-    server.push("/msg/publish", body=ok_body(data={"message_id": "m1", "log_id": "l", "partition": 0}))
-    producer, _ = build_producer(build_config(publish_concurrency=1), server)
+    server.push("/msg/publish", code=350001)
+    server.push("/msg/publish", data={"message_id": "m1", "log_id": "l", "partition": 0})
+    producer, _ = build_producer(_config(channel, publish_concurrency=1), server)
     result = await producer.publish_many(ConcurrentStableList([_message(), _message()]))
     assert [item.index for item in result.succeeded] == [1]
     assert [item.index for item in result.failed] == [0]
@@ -329,11 +363,11 @@ async def test_publish_many_partial_failure() -> None:
 
 
 @pytest.mark.asyncio
-async def test_publish_many_fail_fast_cancels_unstarted() -> None:
+async def test_publish_many_fail_fast_cancels_unstarted(channel: TransportChannel) -> None:
     """快速失败：并发度为 1 时，首个失败后未开始的条目被标记为取消（未发请求）。"""
     server = ScriptedServer()
-    server.push("/msg/publish", body=ok_body(350001))
-    producer, _ = build_producer(build_config(publish_concurrency=1), server)
+    server.push("/msg/publish", code=350001)
+    producer, _ = build_producer(_config(channel, publish_concurrency=1), server)
     result = await producer.publish_many(
         ConcurrentStableList([_message(), _message(), _message()]),
         fail_fast=True,
@@ -344,18 +378,18 @@ async def test_publish_many_fail_fast_cancels_unstarted() -> None:
 
 
 @pytest.mark.asyncio
-async def test_publish_many_empty() -> None:
+async def test_publish_many_empty(channel: TransportChannel) -> None:
     """空批量：不起协程、不报错，`requested` 为 0。"""
-    producer, _ = build_producer(build_config(), ScriptedServer())
+    producer, _ = build_producer(_config(channel), ScriptedServer())
     result = await producer.publish_many(ConcurrentStableList([]))
     assert result.requested == 0
     assert result.succeeded == ConcurrentStableFrozenList()
 
 
 @pytest.mark.asyncio
-async def test_producer_close() -> None:
+async def test_producer_close(channel: TransportChannel) -> None:
     """关闭生产端即关闭传输层（幂等）。"""
-    producer, _ = build_producer(build_config(), ScriptedServer())
+    producer, _ = build_producer(_config(channel), ScriptedServer())
     await producer.close()
     await producer.close()
 

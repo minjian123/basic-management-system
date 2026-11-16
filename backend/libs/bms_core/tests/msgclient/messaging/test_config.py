@@ -13,7 +13,7 @@ from msgclient_support.rpc_retry import FakeClock, FixedJitter
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import ParamError
-from bms_core.msgclient.messaging import MessagingConfig
+from bms_core.msgclient.messaging import MessagingConfig, TransportChannel
 from bms_core.msgclient.retry import JitterMode, RetryPolicy
 
 pytestmark = pytest.mark.kiwi_id(2510)
@@ -44,6 +44,22 @@ def test_config_accepts_valid_values() -> None:
     assert config.endpoints[0] == "http://msg-1:8000"
     assert config.tenant == "t1"
     assert config.retry.max_retries == RetryPolicy().max_retries
+
+
+def test_config_defaults_to_frame_channel() -> None:
+    """未指定承载：缺省帧（03-6-1 换帧后帧是默认形态）。"""
+    assert _config().channel is TransportChannel.FRAME
+
+
+def test_config_accepts_channel_string() -> None:
+    """承载可写成字符串：规整成枚举（便于将来从配置文件读）。"""
+    assert _config(channel="json").channel is TransportChannel.JSON
+
+
+def test_config_rejects_unknown_channel() -> None:
+    """承载取值不在枚举内：构造期即拒（否则会静默落到帧实现）。"""
+    with pytest.raises(ParamError, match="channel 只能是 frame 或 json"):
+        _config(channel="grpc")
 
 
 def test_config_rejects_empty_endpoints() -> None:

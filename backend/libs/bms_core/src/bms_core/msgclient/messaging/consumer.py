@@ -17,17 +17,19 @@ from dataclasses import dataclass, field
 from typing import cast
 
 from bms_core.core.concurrent import (
+    ConcurrentStableDict,
     ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
 from bms_core.core.exceptions import ParamError
 from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
+from bms_core.msgclient.frame import FrameType
 from bms_core.msgclient.messaging.codes import rule_for_consume
 from bms_core.msgclient.messaging.config import MessagingConfig
 from bms_core.msgclient.messaging.errors import ClientAction, MsgClientError
 from bms_core.msgclient.messaging.stats import ClientStats
-from bms_core.msgclient.messaging.transport import ApiOutcome, MessagingTransport
+from bms_core.msgclient.messaging.transport import ApiOutcome, ApiRequest, MessagingTransport
 
 __all__ = [
     "Assignment",
@@ -37,14 +39,14 @@ __all__ = [
     "ReceivedMessage",
 ]
 
-JOIN_PATH = "/msg/groups/join"
-"""加入消费组（服务端主导分配）。"""
+JOIN_PATH = "/msg/join"
+"""加入消费组（服务端主导分配；**只有 JSON 形态**——`FrameType` 无 JOIN，帧闸门也没挂该端点）。"""
 
-HEARTBEAT_PATH = "/msg/groups/heartbeat"
-"""成员心跳（顺带清理同组超时成员、必要时重算分配）。"""
+HEARTBEAT_PATH = "/msg/heartbeat"
+"""成员心跳（顺带清理同组超时成员、必要时重算分配；只有 JSON 形态）。"""
 
-LEAVE_PATH = "/msg/groups/leave"
-"""离开消费组（幂等）。"""
+LEAVE_PATH = "/msg/leave"
+"""离开消费组（幂等；只有 JSON 形态）。"""
 
 CONSUME_PATH = "/msg/consume"
 """拉取一批消息（成员制：分区必须在该成员分配内）。"""
@@ -316,13 +318,8 @@ class MsgConsumer(BaseFrameworkObject):
             MsgClientError: 服务端拒绝（主题不存在 / 配额 / 成员类）。
         """
         self._ensure_open()
-        body: dict[str, object] = {  # bare-collections:allow（httpx 的 JSON 序列化只接受内置 dict）
-            "group": self.group,
-            "namespace": self.namespace,
-            "topic": self.topic,
-            "consumer_id": self.consumer_id,
-        }
-        assignment = self._assignment_of((await self._request(JOIN_PATH, body)).data)
+        outcome = await self._request(JOIN_PATH, frame_type=None, fields=self._member_fields())
+        assignment = self._assignment_of(outcome.data)
         self._assignment = assignment
         self._cursor = 0
         if self._heartbeat_task is None:
@@ -352,19 +349,14 @@ class MsgConsumer(BaseFrameworkObject):
         if not 0 <= max_wait_ms <= MAX_WAIT_LIMIT_MS:
             raise ParamError(f"max_wait_ms 必须在 0~{MAX_WAIT_LIMIT_MS}")
         partition = self._next_partition()
-        body: dict[str, object] = {  # bare-collections:allow（httpx 的 JSON 序列化只接受内置 dict）
-            "group": self.group,
-            "consumer_id": self.consumer_id,
-            "namespace": self.namespace,
-            "topic": self.topic,
-            "partition": partition,
-            "max_messages": max_messages,
-            "max_wait_ms": max_wait_ms,
-        }
+        fields: ConcurrentStableDict[str, object] = self._member_fields()
+        fields.set("partition", partition)
+        fields.set("max_messages", max_messages)
+        fields.set("max_wait_ms", max_wait_ms)
         rejoined = False
         while True:
             try:
-                outcome = await self._request(CONSUME_PATH, body)
+                outcome = await self._request(CONSUME_PATH, frame_type=int(FrameType.CONSUME), fields=fields)
             except MsgClientError as exc:
                 if exc.action is ClientAction.REFRESH and not rejoined:
                     rejoined = True
@@ -373,11 +365,11 @@ class MsgConsumer(BaseFrameworkObject):
                     # 重新加入后分配可能整体改变，本轮改拉新分配里的下一个分区；
                     # `partition` 同步更新，否则返回结果会带着失效分区的号（排障时会指向错分区）。
                     partition = self._next_partition()
-                    body["partition"] = partition
+                    fields.set("partition", partition)
                     continue
                 raise
             break
-        return self._poll_result(outcome.data, partition)
+        return self._poll_result(outcome, partition)
 
     async def ack(self, message: ReceivedMessage) -> CommitResult:
         """确认一条消息（位点前进）。
@@ -392,7 +384,7 @@ class MsgConsumer(BaseFrameworkObject):
             ParamError: 客户端已关闭。
             MsgClientError: 服务端拒绝（位点非法 / 成员失效 / 已进死信）。
         """
-        return await self._settle(ACK_PATH, message, extra=None)
+        return await self._settle(ACK_PATH, message, frame_type=int(FrameType.ACK), extra=None)
 
     async def ack_many(self, messages: ConcurrentStableList[ReceivedMessage]) -> CommitResult:
         """按顺序确认一批消息（服务端无批量端点，逐条等价封装）。
@@ -427,7 +419,7 @@ class MsgConsumer(BaseFrameworkObject):
         """
         if reason not in ("schema_invalid", "processing_failed"):
             raise ParamError(f"reason 只能是 schema_invalid 或 processing_failed（当前 {reason}）")
-        return await self._settle(NACK_PATH, message, extra=("reason", reason))
+        return await self._settle(NACK_PATH, message, frame_type=int(FrameType.NACK), extra=("reason", reason))
 
     async def heartbeat(self) -> Assignment:
         """发一次心跳（顺带取回可能变化的分配）。
@@ -438,13 +430,8 @@ class MsgConsumer(BaseFrameworkObject):
         Raises:
             MsgClientError: 组不存在 / 成员失效。
         """
-        body: dict[str, object] = {  # bare-collections:allow（httpx 的 JSON 序列化只接受内置 dict）
-            "group": self.group,
-            "namespace": self.namespace,
-            "topic": self.topic,
-            "consumer_id": self.consumer_id,
-        }
-        assignment = self._assignment_of((await self._request(HEARTBEAT_PATH, body)).data)
+        outcome = await self._request(HEARTBEAT_PATH, frame_type=None, fields=self._member_fields())
+        assignment = self._assignment_of(outcome.data)
         self._assignment = assignment
         self.stats.incr("heartbeat_total")
         return assignment
@@ -478,12 +465,20 @@ class MsgConsumer(BaseFrameworkObject):
             self.stats.incr("leave_failed_total", code=str(exc.code))
         await self.transport.close()
 
-    async def _settle(self, path: str, message: ReceivedMessage, *, extra: tuple[str, str] | None) -> CommitResult:
+    async def _settle(
+        self,
+        path: str,
+        message: ReceivedMessage,
+        *,
+        frame_type: int,
+        extra: tuple[str, str] | None,
+    ) -> CommitResult:
         """确认 / 拒绝的公共实现（两者请求体只差 `reason`）。
 
         Args:
             path: 端点路径。
             message: 目标消息。
+            frame_type: 帧类型（`ACK` / `NACK`）。
             extra: 额外的单个键值（`nack` 的 `reason`）。
 
         Returns:
@@ -493,17 +488,13 @@ class MsgConsumer(BaseFrameworkObject):
             MsgClientError: 服务端拒绝。
         """
         self._ensure_open()
-        body: dict[str, object] = {  # bare-collections:allow（httpx 的 JSON 序列化只接受内置 dict）
-            "group": self.group,
-            "consumer_id": self.consumer_id,
-            "namespace": self.namespace,
-            "topic": self.topic,
-            "partition": message.partition,
-            "offset": message.offset,
-        }
+        fields: ConcurrentStableDict[str, object] = self._member_fields()
+        fields.set("partition", message.partition)
+        fields.set("offset", message.offset)
         if extra is not None:
-            body[extra[0]] = extra[1]
-        return CommitResult(committed_offset=_as_int((await self._request(path, body)).data.get("committed_offset")))
+            fields.set(extra[0], extra[1])
+        outcome = await self._request(path, frame_type=frame_type, fields=fields)
+        return CommitResult(committed_offset=_as_int(outcome.data.get("committed_offset")))
 
     async def _heartbeat_loop(self) -> None:
         """按服务端间隔发心跳（失败只记计数，成员失效由 `poll` 的重连处置）。"""
@@ -522,20 +513,36 @@ class MsgConsumer(BaseFrameworkObject):
         Raises:
             MsgClientError: 服务端拒绝。
         """
-        body: dict[str, object] = {  # bare-collections:allow（httpx 的 JSON 序列化只接受内置 dict）
-            "group": self.group,
-            "namespace": self.namespace,
-            "topic": self.topic,
-            "consumer_id": self.consumer_id,
-        }
-        await self._request(LEAVE_PATH, body)
+        await self._request(LEAVE_PATH, frame_type=None, fields=self._member_fields())
 
-    async def _request(self, path: str, body: object) -> ApiOutcome:
+    def _member_fields(self) -> ConcurrentStableDict[str, object]:
+        """成员三端点的公共字段（`join` / `heartbeat` / `leave` 只差这几项）。
+
+        Returns:
+            ConcurrentStableDict[str, object]: 字段（组 / 命名空间 / 主题 / 成员标识）。
+        """
+        return ConcurrentStableDict(
+            {
+                "group": self.group,
+                "namespace": self.namespace,
+                "topic": self.topic,
+                "consumer_id": self.consumer_id,
+            }
+        )
+
+    async def _request(
+        self,
+        path: str,
+        *,
+        frame_type: int | None,
+        fields: ConcurrentStableDict[str, object],
+    ) -> ApiOutcome:
         """发请求并按消费端码表分类（`code != 0` 即抛）。
 
         Args:
             path: 端点路径。
-            body: 请求体。
+            frame_type: 帧类型；`None` 表示该端点没有帧形态（成员三端点，走 JSON）。
+            fields: 业务字段。
 
         Returns:
             ApiOutcome: 传输层解析结果（`code == 0`）。
@@ -543,7 +550,12 @@ class MsgConsumer(BaseFrameworkObject):
         Raises:
             MsgClientError: 服务端拒绝（按码表分类）。
         """
-        outcome = await self.transport.post(self._endpoint(), path, body)
+        request = ApiRequest(
+            frame_type=frame_type,
+            path=path,
+            fields=ConcurrentStableFrozenDict(fields),
+        )
+        outcome = await self.transport.post(self._endpoint(), request)
         if outcome.code == 0:
             return outcome
         rule = rule_for_consume(outcome.code)
@@ -603,20 +615,24 @@ class MsgConsumer(BaseFrameworkObject):
             session_timeout_ms=_as_int(data.get("session_timeout_ms"), 30_000),
         )
 
-    def _poll_result(self, data: ConcurrentStableFrozenDict[str, object], partition: int) -> PollResult:
-        """把响应 `data` 转成拉取结果（`payload` 解 base64）。
+    def _poll_result(self, outcome: ApiOutcome, partition: int) -> PollResult:
+        """把响应转成拉取结果（消息体优先取帧通道的切片，否则解 base64）。
 
         Args:
-            data: 响应 `data`。
+            outcome: 传输层解析结果（`payload_segments` 与 `data["messages"]` 按下标对应）。
             partition: 本次拉取的分区号。
 
         Returns:
             PollResult: 拉取结果。
         """
+        data = outcome.data
+        segments = outcome.payload_segments
         messages: ConcurrentStableList[ReceivedMessage] = ConcurrentStableList()
-        for item in _items(data.get("messages")):
-            if isinstance(item, dict):
-                messages.add(self._message_of(cast("object", item), partition))
+        for index, item in enumerate(_items(data.get("messages"))):
+            if not isinstance(item, dict):
+                continue
+            payload = segments[index] if index < len(segments) else None
+            messages.add(self._message_of(cast("object", item), partition, payload))
         return PollResult(
             messages=ConcurrentStableFrozenList(messages),
             partition=partition,
@@ -625,25 +641,26 @@ class MsgConsumer(BaseFrameworkObject):
             inflight_bytes=_as_int(data.get("inflight_bytes")),
         )
 
-    def _message_of(self, item: object, partition: int) -> ReceivedMessage:
+    def _message_of(self, item: object, partition: int, payload: bytes | None) -> ReceivedMessage:
         """把一条 `MessageItem` 转成 `ReceivedMessage`。
 
         Args:
             item: 响应里的一条消息（内置 dict）。
             partition: 本次拉取的分区号。
+            payload: 消息体原始字节（帧通道给值；None 表示按 JSON 的 base64 字段解码）。
 
         Returns:
             ReceivedMessage: 消息对象。
         """
         raw: dict[str, object] = cast("dict[str, object]", item)  # bare-collections:allow（响应体是内置 JSON 结构）
-        payload = raw.get("payload")
+        encoded = raw.get("payload")
         headers = raw.get("headers")
         return ReceivedMessage(
             message_id=str(raw.get("message_id") or ""),
             topic=str(raw.get("topic") or self.topic),
             partition=_as_int(raw.get("partition"), partition),
             offset=_as_int(raw.get("offset")),
-            payload=base64.b64decode(str(payload)) if payload else b"",
+            payload=payload if payload is not None else (base64.b64decode(str(encoded)) if encoded else b""),
             key=None if raw.get("key") is None else str(raw.get("key")),
             headers=ConcurrentStableFrozenDict(
                 _headers_of(headers),
