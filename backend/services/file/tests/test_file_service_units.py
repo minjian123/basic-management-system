@@ -258,6 +258,12 @@ async def test_orphan_cleanup_counts_single_failure(harness: _Harness, monkeypat
     assert result.failed >= 1
 
 
+async def test_orphan_cleanup_without_tenant_and_empty_batch(harness: _Harness) -> None:
+    """未指定租户 + 空批：不扫任何行（覆盖范围过滤的「不传」分支，且不触碰他人数据）。"""
+    result = await harness.service.cleanup_orphans(limit=0)
+    assert (result.scanned, result.orphaned, result.failed) == (0, 0, 0)
+
+
 async def test_orphan_cleanup_records_metrics(harness: _Harness, monkeypatch: pytest.MonkeyPatch) -> None:
     """回收成功：指标记孤儿清理计数。"""
     calls: ConcurrentStableList[str] = ConcurrentStableList()

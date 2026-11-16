@@ -2114,6 +2114,7 @@ export interface paths {
          *         query: 分页与排序请求（page / size / order_by / order；排序白名单逐项校验、非法忽略）。
          *         status: 状态筛选；缺省返回全部。
          *         group: 归属分组筛选；缺省返回全部。
+         *         service_key: 服务键精确筛选；缺省返回全部。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。
@@ -3234,6 +3235,7 @@ export interface paths {
          *         session: 平台库只读会话。
          *         query: 分页与排序请求（page / size / order_by / order；排序白名单逐项校验、非法忽略）。
          *         status: 状态筛选；缺省返回全部。
+         *         product_key: 产品键精确筛选；缺省返回全部。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。
@@ -17944,6 +17946,8 @@ export interface operations {
                 status?: string | null;
                 /** @description 归属分组筛选（foundation / capability / product）；缺省全部 */
                 group?: string | null;
+                /** @description 服务键精确筛选（service_key）；缺省全部 */
+                service_key?: string | null;
                 /** @description 页码（从 1 起） */
                 page?: number;
                 /** @description 每页条数（默认 20，上限 200） */
@@ -21064,6 +21068,8 @@ export interface operations {
             query?: {
                 /** @description 状态筛选（enabled / disabled / planned / retired）；缺省全部 */
                 status?: string | null;
+                /** @description 产品键精确筛选（product_key）；缺省全部 */
+                product_key?: string | null;
                 /** @description 页码（从 1 起） */
                 page?: number;
                 /** @description 每页条数（默认 20，上限 200） */

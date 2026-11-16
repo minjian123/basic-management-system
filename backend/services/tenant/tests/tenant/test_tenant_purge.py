@@ -444,6 +444,13 @@ async def test_scan_waits_when_archive_not_ready(session: AsyncSession, ns: Name
     assert row is not None and row.purge_at is None
 
 
+async def test_scan_without_scope_and_empty_batch(session: AsyncSession) -> None:
+    """未指定编码 + 空批：不扫任何行（覆盖范围过滤的「不传」分支，且不触碰他人数据）。"""
+    outcome = await _scan(session, settings=None, batch_size=0)
+    assert outcome.backfilled == 0
+    assert list(outcome.targets) == []
+
+
 async def test_scan_returns_due_targets_only(session: AsyncSession, ns: Namespace) -> None:
     """扫描目标：只取「已到期」的行，未到期与待回填不进入目标。"""
     due = await _seed(session, ns, suffix="due", purge_at=NOW - timedelta(days=1))
