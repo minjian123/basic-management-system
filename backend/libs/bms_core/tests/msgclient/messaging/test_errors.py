@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableFrozenDict
@@ -37,5 +39,6 @@ def test_error_keeps_given_data() -> None:
         data=ConcurrentStableFrozenDict({"leader": "msg-2", "epoch": 3}),
         retry_after_ms=100,
     )
-    assert error.data.get("leader") == "msg-2"
+    data = cast("ConcurrentStableFrozenDict[str, object]", error.data)
+    assert data.get("leader") == "msg-2"
     assert error.retry_after_ms == 100

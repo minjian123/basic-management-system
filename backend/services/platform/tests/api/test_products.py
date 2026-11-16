@@ -153,6 +153,7 @@ async def test_products_response_fields_whitelist(client: AsyncClient) -> None:
 async def test_list_products_empty_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """未播种空库：启动直接拒启（部署错误，不再容错放行）。"""
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", f"sqlite+aiosqlite:///{tmp_path / 'empty.db'}")
+    monkeypatch.setenv("BMS_REGISTRY__REGISTER_ON_STARTUP", "false")
     monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
     get_settings.cache_clear()
     app = ApplicationFactory().create(None)
