@@ -9,11 +9,11 @@
 | 项 | 值 |
 | --- | --- |
 | 归属库 | 平台服务库 `bms_platform` |
-| 覆盖模块 | 12-操作日志 / 13-登录日志（分片台账） |
-| 上游依据 | [需求 05-1](../../../项目/08_通用能力/需求/05_需求_日志与审计.md#r05-1)、《[概要设计 · 操作日志](../../概要设计/11_概要设计_操作日志.md)》§4.2「新月份分片表提前创建」 |
+| 覆盖模块 | 12-操作日志 / 13-登录日志 / 29-审计合规（分片台账） |
+| 上游依据 | [需求 05-1](../../../项目/08_通用能力/需求/05_需求_日志与审计.md#r05-1)、[需求 05-2](../../../项目/08_通用能力/需求/05_需求_日志与审计.md#r05-2)、《[概要设计 · 操作日志](../../概要设计/11_概要设计_操作日志.md)》§4.2「新月份分片表提前创建」 |
 | ORM 模型 | `bms_core/models/platform/log.py::SysAuditShard`（继承 `BaseModel`） |
 | 状态 | 已设计 |
-| 相关节点 | [sys_operation_log](sys_operation_log.md)、[sys_login_log](sys_login_log.md) |
+| 相关节点 | [sys_operation_log](sys_operation_log.md)、[sys_login_log](sys_login_log.md)、[sys_data_audit_log](sys_data_audit_log.md) |
 
 ## 2. 字段 <a id="fields"></a>
 
@@ -21,7 +21,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `log_type` | VARCHAR(16) | 否 | 与 `shard_month` 复合唯一 | 日志类型（`operation` / `login`；后续可扩 `data_audit` / `open`） |
+| `log_type` | VARCHAR(16) | 否 | 与 `shard_month` 复合唯一 | 日志类型（`operation` / `login` / `data_audit`；后续可扩 `open`） |
 | `shard_month` | CHAR(6) | 否 | 同上 | 分片月份（`yyyyMM`） |
 | `physical_table` | VARCHAR(64) | 否 | — | 物理表名（如 `sys_operation_log_202611`） |
 | `status` | VARCHAR(16) | 否 | 默认 `active` | 状态（`active` / `archived`；归档状态由 14_01 更新） |
@@ -45,5 +45,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-11-03 | v1 | 新建（06_01）：审计分片台账，支撑运行期建表 / 查询路由 / 预创建 / 归档清单 | minjian |
+| 2026-11-16 | v2 | 06_02：`log_type` 取值增 `data_audit`（字段级变更审计复用同一台账，不新增表） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
