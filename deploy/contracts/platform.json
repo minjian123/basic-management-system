@@ -13,6 +13,19 @@
             "title": "Code",
             "type": "string"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
+          },
           "i18n": {
             "additionalProperties": {
               "type": "string"
@@ -48,6 +61,18 @@
             "title": "Code",
             "type": "string"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；NULL = 未登记）",
+            "title": "Help Key"
+          },
           "i18n": {
             "additionalProperties": {
               "type": "string"
@@ -77,6 +102,7 @@
           "code",
           "name",
           "status",
+          "help_key",
           "i18n"
         ],
         "title": "ActionItem",
@@ -102,6 +128,19 @@
         "additionalProperties": false,
         "description": "更新动作码请求（`code` 不可改，只改名称与状态）。",
         "properties": {
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
+          },
           "i18n": {
             "additionalProperties": {
               "type": "string"
@@ -3828,6 +3867,19 @@
             "title": "Form Id",
             "type": "integer"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
+          },
           "name": {
             "description": "按钮名（界面可见文本）",
             "maxLength": 128,
@@ -3885,6 +3937,18 @@
             "title": "Form Id",
             "type": "string"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；NULL = 未登记）",
+            "title": "Help Key"
+          },
           "id": {
             "description": "按钮主键",
             "title": "Id",
@@ -3923,7 +3987,8 @@
           "name",
           "type",
           "sort",
-          "status"
+          "status",
+          "help_key"
         ],
         "title": "ButtonItem",
         "type": "object"
@@ -3948,6 +4013,19 @@
         "additionalProperties": false,
         "description": "更新按钮请求。",
         "properties": {
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
+          },
           "name": {
             "description": "按钮名",
             "maxLength": 128,
@@ -5851,6 +5929,19 @@
             "title": "Form Id",
             "type": "integer"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
+          },
           "i18n": {
             "additionalProperties": {
               "type": "string"
@@ -5906,6 +5997,18 @@
             "title": "Form Id",
             "type": "string"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；NULL = 未登记）",
+            "title": "Help Key"
+          },
           "i18n": {
             "additionalProperties": {
               "type": "string"
@@ -5948,6 +6051,7 @@
           "type",
           "sort",
           "status",
+          "help_key",
           "i18n"
         ],
         "title": "FieldItem",
@@ -5973,6 +6077,19 @@
         "additionalProperties": false,
         "description": "更新字段请求（只提交多语言文案映射）。",
         "properties": {
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
+          },
           "i18n": {
             "additionalProperties": {
               "type": "string"
@@ -6035,6 +6152,19 @@
             "description": "表单视图组件标识",
             "title": "Component"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
+          },
           "menu_ids": {
             "description": "关联菜单入口 ID 清单（可空）",
             "items": {
@@ -6087,6 +6217,18 @@
             "title": "Created At",
             "type": "string"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；NULL = 未登记）",
+            "title": "Help Key"
+          },
           "id": {
             "description": "表单主键",
             "title": "Id",
@@ -6117,6 +6259,7 @@
           "business_id",
           "component",
           "status",
+          "help_key",
           "created_at",
           "updated_at"
         ],
@@ -6255,6 +6398,19 @@
             ],
             "description": "表单视图组件标识",
             "title": "Component"
+          },
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
           },
           "menu_ids": {
             "description": "关联菜单入口 ID 清单（全量；空 = 解除全部入口）",
@@ -7675,6 +7831,19 @@
             "description": "视图组件标识（可空 = 目录节点）",
             "title": "Component"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
+          },
           "hidden": {
             "default": false,
             "description": "仅隐藏侧栏入口（权限仍生效）",
@@ -7764,6 +7933,18 @@
             "description": "视图组件标识",
             "title": "Component"
           },
+          "help_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；NULL = 未登记）",
+            "title": "Help Key"
+          },
           "hidden": {
             "description": "仅隐藏侧栏入口",
             "title": "Hidden",
@@ -7830,6 +8011,7 @@
           "sort",
           "hidden",
           "status",
+          "help_key",
           "i18n"
         ],
         "title": "MenuItem",
@@ -7867,6 +8049,19 @@
             ],
             "description": "视图组件标识",
             "title": "Component"
+          },
+          "help_key": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助锚点（五段式；null = 未登记）",
+            "title": "Help Key"
           },
           "hidden": {
             "default": false,

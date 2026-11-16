@@ -114,6 +114,7 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (40208, "缺少必填语言的文案", "Text for the required locale is missing"),
         (40209, "菜单编码冲突", "Menu code conflict"),
         (40210, "权限码已存在", "Permission code already exists"),
+        (40211, "帮助锚点非法", "Invalid help anchor key"),
         (40501, "参数不存在", "Configuration key not found"),
         (40502, "参数已存在", "Configuration key already exists"),
         (40503, "参数键非法", "Invalid configuration key"),

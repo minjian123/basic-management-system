@@ -40,6 +40,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableSet,
 )
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
+from bms_core.help.anchors import PLATFORM_PRODUCT_KEY, HelpAnchorKind
 from bms_core.models.platform.menu_form import (
     SysButton,
     SysField,
@@ -57,6 +58,7 @@ from bms_core.models.platform.permission_meta import (
     SysPermission,
 )
 from bms_core.tenant.seed.contract import ExpectedRow
+from bms_core.tenant.seed.help_anchor import HelpAnchorDeclaration, apply_help_anchor_declarations
 from bms_core.tenant.seed.tenant import resolve_url
 
 RUN_IMAGE = "*"
@@ -484,6 +486,93 @@ FIELD_SEEDS: ConcurrentStableList[tuple[str, str, str, str, str, int]] = Concurr
 )
 
 
+MENU_HELP_KEYS: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+"""菜单锚点声明（`path → help_key`；08_01）。缺省空：不改变现有播种结果。"""
+
+FORM_HELP_KEYS: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+"""表单锚点声明（业务码 → `help_key`；08_01）。"""
+
+FIELD_HELP_KEYS: ConcurrentStableDict[tuple[str, str], str] = ConcurrentStableDict()
+"""字段锚点声明（`(业务码, field_key) → help_key`；08_01）。"""
+
+BUTTON_HELP_KEYS: ConcurrentStableDict[tuple[str, str], str] = ConcurrentStableDict()
+"""按钮锚点声明（`(业务码, action_code) → help_key`；08_01）。"""
+
+ACTION_HELP_KEYS: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+"""动作码锚点声明（动作码 → `help_key`；08_01，全局动词兜底）。"""
+
+
+def _help_anchor_declarations() -> ConcurrentStableList[HelpAnchorDeclaration]:
+    """把平台可选锚点声明表转为统一声明清单。
+
+    Returns:
+        ConcurrentStableList[HelpAnchorDeclaration]: 声明清单（插入序：菜单 → 表单 → 字段 → 按钮 → 动作码）。
+    """
+    declarations: ConcurrentStableList[HelpAnchorDeclaration] = ConcurrentStableList()
+    for path, help_key in MENU_HELP_KEYS.items():
+        declarations.add(
+            HelpAnchorDeclaration(
+                kind=HelpAnchorKind.MENU,
+                help_key=help_key,
+                declaring_product=PLATFORM_PRODUCT_KEY,
+                menu_path=path,
+            )
+        )
+    for business_code, help_key in FORM_HELP_KEYS.items():
+        declarations.add(
+            HelpAnchorDeclaration(
+                kind=HelpAnchorKind.FORM,
+                help_key=help_key,
+                declaring_product=PLATFORM_PRODUCT_KEY,
+                business_code=business_code,
+            )
+        )
+    for (business_code, field_key), help_key in FIELD_HELP_KEYS.items():
+        declarations.add(
+            HelpAnchorDeclaration(
+                kind=HelpAnchorKind.FIELD,
+                help_key=help_key,
+                declaring_product=PLATFORM_PRODUCT_KEY,
+                business_code=business_code,
+                field_key=field_key,
+            )
+        )
+    for (business_code, action_code), help_key in BUTTON_HELP_KEYS.items():
+        declarations.add(
+            HelpAnchorDeclaration(
+                kind=HelpAnchorKind.BUTTON,
+                help_key=help_key,
+                declaring_product=PLATFORM_PRODUCT_KEY,
+                business_code=business_code,
+                action_code=action_code,
+            )
+        )
+    for action_code, help_key in ACTION_HELP_KEYS.items():
+        declarations.add(
+            HelpAnchorDeclaration(
+                kind=HelpAnchorKind.ACTION,
+                help_key=help_key,
+                declaring_product=PLATFORM_PRODUCT_KEY,
+                action_code=action_code,
+            )
+        )
+    return declarations
+
+
+async def _apply_help_keys(session: AsyncSession) -> None:
+    """装载平台锚点声明（无声明时零操作；任一违规整批拒载）。
+
+    Args:
+        session: 数据库会话（不提交）。
+
+    Raises:
+        MenuHelpKeyInvalidError: 声明格式 / 形状 / 唯一性 / 目标不存在（40211）。
+    """
+    declarations = _help_anchor_declarations()
+    if declarations:
+        await apply_help_anchor_declarations(session, declarations)
+
+
 _MENU_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
     (
         cast("Table", SysBusiness.__table__),
@@ -779,6 +868,7 @@ async def _seed_menu_in_session(session: AsyncSession) -> tuple[int, int, int]:
             skipped += 1
         created += await _add_i18n(session, SysFieldI18n, "field_id", existing_field.id, zh, en)
 
+    await _apply_help_keys(session)
     checked = await _verify_derived_names(session)
     return created, skipped, checked
 

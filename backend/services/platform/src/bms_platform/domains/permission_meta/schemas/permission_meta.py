@@ -48,6 +48,7 @@ class ActionCreateRequest(BaseSchema):
         description="动作码（snake_case：小写字母开头，仅小写字母 / 数字 / 下划线；创建后只读）",
     )
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
     i18n: I18nNames = Field(description="多语言名称映射（locale → 文案）；必含请求语言文案")
 
 
@@ -55,6 +56,7 @@ class ActionUpdateRequest(BaseSchema):
     """更新动作码请求（`code` 不可改，只改名称与状态）。"""
 
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
     i18n: I18nNames = Field(description="多语言名称映射（locale → 文案）；必含请求语言文案")
 
 
@@ -118,6 +120,7 @@ class ActionItem(BaseSchema):
     code: str = Field(description="动作码")
     name: str = Field(description="名称（默认文案）")
     status: str = Field(description="状态（enabled/disabled）")
+    help_key: str | None = Field(description="帮助锚点（五段式；NULL = 未登记）")
     i18n: I18nNames = Field(description="多语言名称（locale → 文案）")
 
 

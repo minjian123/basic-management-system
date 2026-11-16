@@ -15,23 +15,28 @@ from typing import Annotated, Any, Protocol, cast
 
 from pydantic import Field
 
+from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import (
     ConflictError,
     MenuFieldKeyConflictError,
+    MenuHelpKeyInvalidError,
     MenuNotFoundError,
     MenuPathConflictError,
     MenuReferencedError,
 )
+from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.serialization import normalize_collections
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.events.base import EventEnvelope
+from bms_core.help.anchors import ANCHOR_TABLES, HelpAnchorKind, validate_help_key
 from bms_core.menu import menu_tree_key
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
 from bms_core.outbox.base import BaseOutboxStore
+from bms_core.repositories.help_anchor import find_help_key_conflict
 from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 from bms_platform.domains.menu_form.repositories.menu import (
     ButtonRepository,
@@ -63,6 +68,9 @@ CHANGED_MENU = "menu"
 CHANGED_FORM = "form"
 CHANGED_BUTTON = "button"
 CHANGED_FIELD = "field"
+
+_LOGGER = get_logger("bms.menu")
+"""菜单域日志（锚点留痕失败只告警，不反噬业务写）。"""
 
 
 class SnapshotButton(BaseSchema):
@@ -215,6 +223,7 @@ def _menu_item(row: SysMenu, i18n: ConcurrentStableDict[str, str]) -> MenuItem:
         hidden=row.hidden,
         status=row.status,
         i18n=i18n,
+        help_key=row.help_key,
     )
 
 
@@ -258,6 +267,7 @@ class MenuFormService(BaseFrameworkObject):
         outbox: BaseOutboxStore,
         cache: CacheRegion,
         references: RoleReferenceProbe | None = None,
+        audit: AuditCapturer | None = None,
     ) -> None:
         """初始化。
 
@@ -274,6 +284,7 @@ class MenuFormService(BaseFrameworkObject):
             outbox: 发件箱存储（事件发布）。
             cache: 缓存 Region（应用级）。
             references: 角色授权引用探测（角色域只读面；租户库会话，写入校验用）。
+            audit: 字段级审计捕获器（仅 `help_key` 变更显式留痕；`None` 不留痕）。
         """
         self._uow = uow
         self._businesses = businesses
@@ -287,6 +298,7 @@ class MenuFormService(BaseFrameworkObject):
         self._references = references
         self._outbox = outbox
         self._cache = cache
+        self._audit = audit
 
     @property
     def _session(self) -> DbSession:
@@ -296,6 +308,69 @@ class MenuFormService(BaseFrameworkObject):
             DbSession: 工作单元绑定的会话。
         """
         return cast("DbSession", self._uow.session)
+
+    # ------------------------------------------------------------------ 帮助锚点
+
+    async def _checked_help_key(
+        self,
+        raw: str | None,
+        *,
+        kind: HelpAnchorKind,
+        exclude_id: int | None = None,
+    ) -> str | None:
+        """校验并归一 `help_key`，并做跨表唯一性探测。
+
+        Args:
+            raw: 原始值（`None` / 空串 = 未登记）。
+            kind: 节点类型（决定形状与排除表）。
+            exclude_id: 更新自身时排除的记录主键。
+
+        Returns:
+            str | None: 归一后的值；未登记返回 `None`。
+
+        Raises:
+            MenuHelpKeyInvalidError: 格式 / 形状非法（40211）。
+            MenuHelpKeyInvalidError: 已被其它元数据行占用（40211）。
+        """
+        value = validate_help_key(raw, kind=kind)
+        if value is None:
+            return None
+        conflict = await find_help_key_conflict(self._session, value, exclude_kind=kind, exclude_id=exclude_id)
+        if conflict is not None:
+            raise MenuHelpKeyInvalidError(f"help_key 已被 {conflict.table}#{conflict.model_id} 占用：{value!r}")
+        return value
+
+    def _capture_help_key(
+        self,
+        *,
+        kind: HelpAnchorKind,
+        model_id: int,
+        old: str | None,
+        new: str | None,
+    ) -> None:
+        """`help_key` 实际变化时显式留痕（失败只告警，不反噬业务写）。
+
+        Args:
+            kind: 节点类型。
+            model_id: 记录主键。
+            old: 变更前值。
+            new: 变更后值。
+        """
+        if self._audit is None or old == new:
+            return
+        try:
+            self._audit.capture(
+                table=ANCHOR_TABLES[kind],
+                model_id=model_id,
+                changes=ConcurrentStableList((FieldChange(field="help_key", old=old, new=new),)),
+            )
+        except Exception as exc:  # 留痕失败不得反噬业务写
+            _LOGGER.warning(
+                "help_key_audit_capture_failed",
+                table=ANCHOR_TABLES[kind],
+                model_id=model_id,
+                error_type=type(exc).__name__,
+            )
 
     # ------------------------------------------------------------------ 缓存
 
@@ -532,6 +607,7 @@ class MenuFormService(BaseFrameworkObject):
                 business_id=row.business_id,
                 component=row.component,
                 status=row.status,
+                help_key=row.help_key,
                 created_at=row.created_at,
                 updated_at=row.updated_at,
             )
@@ -560,6 +636,7 @@ class MenuFormService(BaseFrameworkObject):
                     type=row.type,
                     sort=row.sort,
                     status=row.status,
+                    help_key=row.help_key,
                 )
                 for row in rows
             )
@@ -588,6 +665,7 @@ class MenuFormService(BaseFrameworkObject):
                     sort=row.sort,
                     status=row.status,
                     i18n=i18n_out(all_i18n.get(row.id), name=row.name, locale=locale),
+                    help_key=row.help_key,
                 )
                 for row in rows
             )
@@ -616,6 +694,7 @@ class MenuFormService(BaseFrameworkObject):
         require_i18n_name(names, locale=locale)
         name = derive_default_name(names, required_locale=locale)
         async with self._uow.begin():
+            checked = await self._checked_help_key(req.help_key, kind=HelpAnchorKind.MENU)
             await self._ensure_parent(req.parent_id)
             if await self._menus.get_by_path(req.path) is not None:
                 raise MenuPathConflictError(f"路由路径已存在：{req.path}")
@@ -628,6 +707,7 @@ class MenuFormService(BaseFrameworkObject):
                 sort=req.sort,
                 hidden=req.hidden,
                 status=req.status,
+                help_key=checked,
             )
             await self._menus.replace_i18n(row.id, names)
             await self._publish_form_updated(form_id=None, menu_id=row.id, business_id=None, changed_type=CHANGED_MENU)
@@ -657,6 +737,8 @@ class MenuFormService(BaseFrameworkObject):
             current = await self._menus.get(menu_id)
             if current is None:
                 raise MenuNotFoundError(f"菜单不存在：{menu_id}")
+            previous_help_key = current.help_key
+            checked = await self._checked_help_key(req.help_key, kind=HelpAnchorKind.MENU, exclude_id=menu_id)
             await self._ensure_parent(req.parent_id)
             existing = await self._menus.get_by_path(req.path)
             if existing is not None and existing.id != menu_id:
@@ -671,10 +753,12 @@ class MenuFormService(BaseFrameworkObject):
                 sort=req.sort,
                 hidden=req.hidden,
                 status=req.status,
+                help_key=checked,
             )
             if updated is None:
                 raise MenuNotFoundError(f"菜单不存在：{menu_id}")
             await self._menus.replace_i18n(menu_id, names)
+            self._capture_help_key(kind=HelpAnchorKind.MENU, model_id=menu_id, old=previous_help_key, new=checked)
             await self._publish_form_updated(form_id=None, menu_id=menu_id, business_id=None, changed_type=CHANGED_MENU)
         await self.invalidate()
         return updated, i18n_out(names, name=name, locale=locale)
@@ -727,6 +811,7 @@ class MenuFormService(BaseFrameworkObject):
         business_id: int,
         component: str | None,
         status: str,
+        help_key: str | None = None,
     ) -> SysForm:
         """新增表单（业务 1:1；菜单入口多对多，可空 = 孤儿表单）。
 
@@ -735,6 +820,7 @@ class MenuFormService(BaseFrameworkObject):
             business_id: 业务码 ID。
             component: 表单视图组件标识。
             status: 状态。
+            help_key: 帮助锚点（可空；`None` = 未登记）。
 
         Returns:
             SysForm: 新建表单。
@@ -742,15 +828,19 @@ class MenuFormService(BaseFrameworkObject):
         Raises:
             MenuNotFoundError: 菜单或业务码不存在（40201）。
             ConflictError: 业务码已被其它表单挂接（1:1）。
+            MenuHelpKeyInvalidError: 锚点格式 / 唯一性非法（40211）。
         """
         async with self._uow.begin():
+            checked = await self._checked_help_key(help_key, kind=HelpAnchorKind.FORM)
             normalized = self._dedupe(menu_ids)
             await self._ensure_menus(normalized)
             if await self._businesses.get(business_id) is None:
                 raise MenuNotFoundError(f"业务码不存在：{business_id}")
             if await self._forms.get_by_business(business_id) is not None:
                 raise ConflictError(f"业务码已挂表单：{business_id}")
-            row = await self._forms.create(business_id=business_id, component=component, status=status)
+            row = await self._forms.create(
+                business_id=business_id, component=component, status=status, help_key=checked
+            )
             for menu_id in normalized:
                 await self._menu_forms.create(menu_id=menu_id, form_id=row.id)
             await self._publish_form_updated(
@@ -767,6 +857,7 @@ class MenuFormService(BaseFrameworkObject):
         business_id: int,
         component: str | None,
         status: str,
+        help_key: str | None = None,
     ) -> SysForm:
         """更新表单（菜单入口关联**全量替换**）。
 
@@ -776,6 +867,7 @@ class MenuFormService(BaseFrameworkObject):
             business_id: 业务码 ID。
             component: 表单视图组件标识。
             status: 状态。
+            help_key: 帮助锚点（`None` = 清空 / 未登记）。
 
         Returns:
             SysForm: 更新后表单。
@@ -783,11 +875,14 @@ class MenuFormService(BaseFrameworkObject):
         Raises:
             MenuNotFoundError: 表单 / 菜单 / 业务码不存在（40201）。
             ConflictError: 业务码已被其它表单挂接（1:1）。
+            MenuHelpKeyInvalidError: 锚点格式 / 唯一性非法（40211）。
         """
         async with self._uow.begin():
             current = await self._forms.get(form_id)
             if current is None:
                 raise MenuNotFoundError(f"表单不存在：{form_id}")
+            previous_help_key = current.help_key
+            checked = await self._checked_help_key(help_key, kind=HelpAnchorKind.FORM, exclude_id=form_id)
             normalized = self._dedupe(menu_ids)
             await self._ensure_menus(normalized)
             if await self._businesses.get(business_id) is None:
@@ -795,12 +890,15 @@ class MenuFormService(BaseFrameworkObject):
             existing = await self._forms.get_by_business(business_id)
             if existing is not None and existing.id != form_id:
                 raise ConflictError(f"业务码已挂表单：{business_id}")
-            updated = await self._forms.update(form_id, business_id=business_id, component=component, status=status)
+            updated = await self._forms.update(
+                form_id, business_id=business_id, component=component, status=status, help_key=checked
+            )
             if updated is None:
                 raise MenuNotFoundError(f"表单不存在：{form_id}")
             await self._menu_forms.delete_by_form(form_id)
             for menu_id in normalized:
                 await self._menu_forms.create(menu_id=menu_id, form_id=form_id)
+            self._capture_help_key(kind=HelpAnchorKind.FORM, model_id=form_id, old=previous_help_key, new=checked)
             await self._publish_form_updated(
                 form_id=form_id, menu_id=None, business_id=business_id, changed_type=CHANGED_FORM
             )
@@ -872,7 +970,15 @@ class MenuFormService(BaseFrameworkObject):
     # ------------------------------------------------------------------ 写（按钮）
 
     async def create_button(
-        self, *, form_id: int, permission_id: int, name: str, type: str, sort: int, status: str
+        self,
+        *,
+        form_id: int,
+        permission_id: int,
+        name: str,
+        type: str,
+        sort: int,
+        status: str,
+        help_key: str | None = None,
     ) -> SysButton:
         """新增按钮（表单 + 权限码 1:1）。
 
@@ -883,6 +989,7 @@ class MenuFormService(BaseFrameworkObject):
             type: 按钮形态。
             sort: 排序。
             status: 状态。
+            help_key: 帮助锚点（动作级；`None` = 未登记）。
 
         Returns:
             SysButton: 新建按钮。
@@ -890,8 +997,10 @@ class MenuFormService(BaseFrameworkObject):
         Raises:
             MenuNotFoundError: 表单或权限码不存在（40201）。
             ConflictError: 同表单同权限码已存在按钮，或权限码业务与表单业务不一致。
+            MenuHelpKeyInvalidError: 锚点格式 / 唯一性非法（40211）。
         """
         async with self._uow.begin():
+            checked = await self._checked_help_key(help_key, kind=HelpAnchorKind.BUTTON)
             form = await self._forms.get(form_id)
             if form is None:
                 raise MenuNotFoundError(f"表单不存在：{form_id}")
@@ -903,7 +1012,13 @@ class MenuFormService(BaseFrameworkObject):
             if await self._buttons.get_by_form_permission(form_id, permission_id) is not None:
                 raise ConflictError(f"同表单同权限码按钮已存在：{form_id}/{permission_id}")
             row = await self._buttons.create(
-                form_id=form_id, permission_id=permission_id, name=name, type=type, sort=sort, status=status
+                form_id=form_id,
+                permission_id=permission_id,
+                name=name,
+                type=type,
+                sort=sort,
+                status=status,
+                help_key=checked,
             )
             await self._publish_form_updated(
                 form_id=form_id, menu_id=None, business_id=form.business_id, changed_type=CHANGED_BUTTON
@@ -912,7 +1027,15 @@ class MenuFormService(BaseFrameworkObject):
         return row
 
     async def update_button(
-        self, button_id: int, *, permission_id: int, name: str, type: str, sort: int, status: str
+        self,
+        button_id: int,
+        *,
+        permission_id: int,
+        name: str,
+        type: str,
+        sort: int,
+        status: str,
+        help_key: str | None = None,
     ) -> SysButton:
         """更新按钮。
 
@@ -923,6 +1046,7 @@ class MenuFormService(BaseFrameworkObject):
             type: 按钮形态。
             sort: 排序。
             status: 状态。
+            help_key: 帮助锚点（`None` = 清空 / 未登记）。
 
         Returns:
             SysButton: 更新后按钮。
@@ -930,11 +1054,14 @@ class MenuFormService(BaseFrameworkObject):
         Raises:
             MenuNotFoundError: 按钮或权限码不存在（40201）。
             ConflictError: 改后与同表单其它按钮同权限码，或权限码业务与表单业务不一致。
+            MenuHelpKeyInvalidError: 锚点格式 / 唯一性非法（40211）。
         """
         async with self._uow.begin():
             current = await self._buttons.get(button_id)
             if current is None:
                 raise MenuNotFoundError(f"按钮不存在：{button_id}")
+            previous_help_key = current.help_key
+            checked = await self._checked_help_key(help_key, kind=HelpAnchorKind.BUTTON, exclude_id=button_id)
             permission = await self._permissions.get(permission_id)
             if permission is None:
                 raise MenuNotFoundError(f"权限码不存在：{permission_id}")
@@ -945,10 +1072,17 @@ class MenuFormService(BaseFrameworkObject):
             if existing is not None and existing.id != button_id:
                 raise ConflictError(f"同表单同权限码按钮已存在：{current.form_id}/{permission_id}")
             updated = await self._buttons.update(
-                button_id, permission_id=permission_id, name=name, type=type, sort=sort, status=status
+                button_id,
+                permission_id=permission_id,
+                name=name,
+                type=type,
+                sort=sort,
+                status=status,
+                help_key=checked,
             )
             if updated is None:
                 raise MenuNotFoundError(f"按钮不存在：{button_id}")
+            self._capture_help_key(kind=HelpAnchorKind.BUTTON, model_id=button_id, old=previous_help_key, new=checked)
             await self._publish_form_updated(
                 form_id=current.form_id,
                 menu_id=None,
@@ -992,6 +1126,7 @@ class MenuFormService(BaseFrameworkObject):
         sort: int,
         status: str,
         i18n: ConcurrentStableDict[str, str],
+        help_key: str | None = None,
     ) -> tuple[SysField, ConcurrentStableDict[str, str]]:
         """新增字段（表单内字段键唯一；只收多语言文案映射，字段名由服务端派生）。
 
@@ -1002,6 +1137,7 @@ class MenuFormService(BaseFrameworkObject):
             sort: 排序。
             status: 状态。
             i18n: 多语言文案映射（必含请求语言文案）。
+            help_key: 帮助锚点（字段级；`None` = 未登记）。
 
         Returns:
             tuple[SysField, ConcurrentStableDict[str, str]]: 新建字段与该字段的完整多语言映射（出参用）。
@@ -1010,19 +1146,21 @@ class MenuFormService(BaseFrameworkObject):
             MenuI18nRequiredError: 缺少必填语言（请求语言）的文案（40208）。
             MenuNotFoundError: 表单不存在（40201）。
             MenuFieldKeyConflictError: 字段键在表单内重复（40205）。
+            MenuHelpKeyInvalidError: 锚点格式 / 唯一性非法（40211）。
         """
         locale = request_locale()
         names = clean_i18n(i18n)
         require_i18n_name(names, locale=locale)
         name = derive_default_name(names, required_locale=locale)
         async with self._uow.begin():
+            checked = await self._checked_help_key(help_key, kind=HelpAnchorKind.FIELD)
             form = await self._forms.get(form_id)
             if form is None:
                 raise MenuNotFoundError(f"表单不存在：{form_id}")
             if await self._fields.get_by_form_key(form_id, field_key) is not None:
                 raise MenuFieldKeyConflictError(f"字段键在表单内重复：{field_key}")
             row = await self._fields.create(
-                form_id=form_id, field_key=field_key, name=name, type=type, sort=sort, status=status
+                form_id=form_id, field_key=field_key, name=name, type=type, sort=sort, status=status, help_key=checked
             )
             await self._fields.replace_i18n(row.id, names)
             await self._publish_form_updated(
@@ -1039,6 +1177,7 @@ class MenuFormService(BaseFrameworkObject):
         sort: int,
         status: str,
         i18n: ConcurrentStableDict[str, str],
+        help_key: str | None = None,
     ) -> tuple[SysField, ConcurrentStableDict[str, str]]:
         """更新字段（只收多语言文案映射，字段名重新派生）。
 
@@ -1048,6 +1187,7 @@ class MenuFormService(BaseFrameworkObject):
             sort: 排序。
             status: 状态。
             i18n: 多语言文案映射（必含请求语言文案）。
+            help_key: 帮助锚点（`None` = 清空 / 未登记）。
 
         Returns:
             tuple[SysField, ConcurrentStableDict[str, str]]: 更新后字段与该字段的完整多语言映射（出参用）。
@@ -1055,6 +1195,7 @@ class MenuFormService(BaseFrameworkObject):
         Raises:
             MenuI18nRequiredError: 缺少必填语言（请求语言）的文案（40208）。
             MenuNotFoundError: 字段不存在（40201）。
+            MenuHelpKeyInvalidError: 锚点格式 / 唯一性非法（40211）。
         """
         locale = request_locale()
         names = clean_i18n(i18n)
@@ -1064,10 +1205,15 @@ class MenuFormService(BaseFrameworkObject):
             current = await self._fields.get(field_id)
             if current is None:
                 raise MenuNotFoundError(f"字段不存在：{field_id}")
-            updated = await self._fields.update(field_id, name=name, type=type, sort=sort, status=status)
+            previous_help_key = current.help_key
+            checked = await self._checked_help_key(help_key, kind=HelpAnchorKind.FIELD, exclude_id=field_id)
+            updated = await self._fields.update(
+                field_id, name=name, type=type, sort=sort, status=status, help_key=checked
+            )
             if updated is None:
                 raise MenuNotFoundError(f"字段不存在：{field_id}")
             await self._fields.replace_i18n(field_id, names)
+            self._capture_help_key(kind=HelpAnchorKind.FIELD, model_id=field_id, old=previous_help_key, new=checked)
             form = await self._forms.get(current.form_id)
             await self._publish_form_updated(
                 form_id=current.form_id,

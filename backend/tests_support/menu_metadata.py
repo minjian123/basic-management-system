@@ -14,6 +14,7 @@ from typing import Any, cast
 from sqlalchemy import Table, delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.base import Base
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.platform.menu_form import (
@@ -189,6 +190,29 @@ async def outbox_types(aggregate_key: str) -> list[str]:
         return [str(item) for item in rows]
     finally:
         await engine.dispose()
+
+
+async def outbox_payloads(event_type: str) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+    """取指定事件类型的发件箱负载清单（插入序）。
+
+    Args:
+        event_type: 事件类型（如 `sys.data.changed`）。
+
+    Returns:
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: 事件负载（插入序）。
+    """
+    engine = create_async_engine(platform_url())
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            statement = select(SysOutbox.payload).where(SysOutbox.event_type == event_type)
+            payloads = (await session.execute(statement)).scalars().all()
+    finally:
+        await engine.dispose()
+    result: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+    for payload in payloads:
+        result.add(ConcurrentStableDict(payload))
+    return result
 
 
 async def reset_menu_tables() -> None:

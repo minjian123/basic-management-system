@@ -5198,6 +5198,11 @@ export interface components {
              */
             code: string;
             /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
+            /**
              * I18N
              * @description 多语言名称映射（locale → 文案）；必含请求语言文案
              */
@@ -5222,6 +5227,11 @@ export interface components {
              * @description 动作码
              */
             code: string;
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；NULL = 未登记）
+             */
+            help_key: string | null;
             /**
              * I18N
              * @description 多语言名称（locale → 文案）
@@ -5261,6 +5271,11 @@ export interface components {
          * @description 更新动作码请求（`code` 不可改，只改名称与状态）。
          */
         ActionUpdateRequest: {
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
             /**
              * I18N
              * @description 多语言名称映射（locale → 文案）；必含请求语言文案
@@ -7269,6 +7284,11 @@ export interface components {
              */
             form_id: number;
             /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
+            /**
              * Name
              * @description 按钮名（界面可见文本）
              */
@@ -7309,6 +7329,11 @@ export interface components {
              * @description 所属表单 ID
              */
             form_id: string;
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；NULL = 未登记）
+             */
+            help_key: string | null;
             /**
              * Id
              * @description 按钮主键
@@ -7356,6 +7381,11 @@ export interface components {
          * @description 更新按钮请求。
          */
         ButtonUpdateRequest: {
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
             /**
              * Name
              * @description 按钮名
@@ -8555,6 +8585,11 @@ export interface components {
              */
             form_id: number;
             /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
+            /**
              * I18N
              * @description 多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案
              */
@@ -8595,6 +8630,11 @@ export interface components {
              * @description 所属表单 ID
              */
             form_id: string;
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；NULL = 未登记）
+             */
+            help_key: string | null;
             /**
              * I18N
              * @description 多语言名称（locale → 文案）
@@ -8645,6 +8685,11 @@ export interface components {
          */
         FieldUpdateRequest: {
             /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
+            /**
              * I18N
              * @description 多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案
              */
@@ -8686,6 +8731,11 @@ export interface components {
              */
             component?: string | null;
             /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
+            /**
              * Menu Ids
              * @description 关联菜单入口 ID 清单（可空）
              */
@@ -8719,6 +8769,11 @@ export interface components {
              * @description 创建时间（UTC）
              */
             created_at: string;
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；NULL = 未登记）
+             */
+            help_key: string | null;
             /**
              * Id
              * @description 表单主键
@@ -8828,6 +8883,11 @@ export interface components {
              * @description 表单视图组件标识
              */
             component?: string | null;
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
             /**
              * Menu Ids
              * @description 关联菜单入口 ID 清单（全量；空 = 解除全部入口）
@@ -9660,6 +9720,11 @@ export interface components {
              */
             component?: string | null;
             /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
+            /**
              * Hidden
              * @description 仅隐藏侧栏入口（权限仍生效）
              * @default false
@@ -9717,6 +9782,11 @@ export interface components {
              * @description 视图组件标识
              */
             component: string | null;
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；NULL = 未登记）
+             */
+            help_key: string | null;
             /**
              * Hidden
              * @description 仅隐藏侧栏入口
@@ -9786,6 +9856,11 @@ export interface components {
              * @description 视图组件标识
              */
             component?: string | null;
+            /**
+             * Help Key
+             * @description 帮助锚点（五段式；null = 未登记）
+             */
+            help_key?: string | null;
             /**
              * Hidden
              * @description 仅隐藏侧栏入口

@@ -5,19 +5,25 @@
 - 写路径统一：工作单元内变更 → 递增元数据版本（与菜单表单域共用 `bms_platform.services.metadata_cache`）。
 """
 
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
+from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
     MenuCodeConflictError,
+    MenuHelpKeyInvalidError,
     MenuNotFoundError,
     MenuPermissionExistsError,
     MenuReferencedError,
 )
+from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
+from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.help.anchors import ANCHOR_TABLES, HelpAnchorKind, validate_help_key
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
+from bms_core.repositories.help_anchor import find_help_key_conflict
 from bms_platform.domains.permission_meta.repositories.business import (
     ActionRepository,
     BusinessRepository,
@@ -43,6 +49,9 @@ from bms_platform.services.i18n_text import clean_i18n, derive_default_name, i18
 from bms_platform.services.metadata_cache import bump_metadata_version
 
 __all__ = ["PermissionMetadataService"]
+
+_LOGGER = get_logger("bms.permission_meta")
+"""权限元数据日志（锚点留痕失败只告警，不反噬业务写）。"""
 
 
 class ButtonProbe(Protocol):
@@ -80,6 +89,7 @@ class PermissionMetadataService(BaseFrameworkObject):
         forms: FormProbe,
         cache: CacheRegion,
         references: RoleReferenceProbe | None = None,
+        audit: AuditCapturer | None = None,
     ) -> None:
         """初始化。
 
@@ -92,6 +102,7 @@ class PermissionMetadataService(BaseFrameworkObject):
             forms: 表单挂接探测（菜单表单域的只读面）。
             cache: 缓存 Region（版本号失效）。
             references: 角色授权引用探测（角色域的只读面；缺省不探测）。
+            audit: 字段级审计捕获器（仅 `help_key` 变更显式留痕；缺省不留痕）。
         """
         self._uow = uow
         self._businesses = businesses
@@ -101,6 +112,68 @@ class PermissionMetadataService(BaseFrameworkObject):
         self._forms = forms
         self._cache = cache
         self._references = references
+        self._audit = audit
+
+    @property
+    def _session(self) -> DbSession:
+        """请求级会话。
+
+        Returns:
+            DbSession: 工作单元绑定的会话。
+        """
+        return cast("DbSession", self._uow.session)
+
+    async def _checked_help_key(
+        self,
+        raw: str | None,
+        *,
+        kind: HelpAnchorKind,
+        exclude_id: int | None = None,
+    ) -> str | None:
+        """校验并归一 `help_key`，并做跨表唯一性探测。
+
+        Args:
+            raw: 原始值（`None` / 空串 = 未登记）。
+            kind: 节点类型。
+            exclude_id: 更新自身时排除的记录主键。
+
+        Returns:
+            str | None: 归一后的值；未登记返回 `None`。
+
+        Raises:
+            MenuHelpKeyInvalidError: 格式 / 形状 / 唯一性非法（40211）。
+        """
+        value = validate_help_key(raw, kind=kind)
+        if value is None:
+            return None
+        conflict = await find_help_key_conflict(self._session, value, exclude_kind=kind, exclude_id=exclude_id)
+        if conflict is not None:
+            raise MenuHelpKeyInvalidError(f"help_key 已被 {conflict.table}#{conflict.model_id} 占用：{value!r}")
+        return value
+
+    def _capture_help_key(self, *, model_id: int, old: str | None, new: str | None) -> None:
+        """`help_key` 实际变化时显式留痕（失败只告警，不反噬业务写）。
+
+        Args:
+            model_id: 动作码主键。
+            old: 变更前值。
+            new: 变更后值。
+        """
+        if self._audit is None or old == new:
+            return
+        try:
+            self._audit.capture(
+                table=ANCHOR_TABLES[HelpAnchorKind.ACTION],
+                model_id=model_id,
+                changes=ConcurrentStableList((FieldChange(field="help_key", old=old, new=new),)),
+            )
+        except Exception as exc:  # 留痕失败不得反噬业务写
+            _LOGGER.warning(
+                "help_key_audit_capture_failed",
+                table=ANCHOR_TABLES[HelpAnchorKind.ACTION],
+                model_id=model_id,
+                error_type=type(exc).__name__,
+            )
 
     async def invalidate(self) -> None:
         """递增元数据版本（与菜单表单域共用双版本失效）。"""
@@ -147,6 +220,7 @@ class PermissionMetadataService(BaseFrameworkObject):
                     name=row.name,
                     status=row.status,
                     i18n=i18n_out(all_i18n.get(row.id), name=row.name, locale=locale),
+                    help_key=row.help_key,
                 )
                 for row in rows
             )
@@ -309,14 +383,15 @@ class PermissionMetadataService(BaseFrameworkObject):
         require_i18n_name(names, locale=locale)
         name = derive_default_name(names, required_locale=locale)
         async with self._uow.begin():
+            checked = await self._checked_help_key(req.help_key, kind=HelpAnchorKind.ACTION)
             if await self._actions.get_by_code(req.code) is not None:
                 raise MenuCodeConflictError(f"动作码已存在：{req.code}")
             deleted = await self._actions.get_deleted_by_code(req.code)
             if deleted is not None:
                 deleted.restore()
-                row = await self._actions.update(deleted.id, name=name, status=req.status)
+                row = await self._actions.update(deleted.id, name=name, status=req.status, help_key=checked)
             else:
-                row = await self._actions.create(code=req.code, name=name, status=req.status)
+                row = await self._actions.create(code=req.code, name=name, status=req.status, help_key=checked)
             if row is None:  # pragma: no cover - 恢复后行必存在
                 raise MenuNotFoundError(f"动作码不存在：{req.code}")
             await self._actions.replace_i18n(row.id, names)
@@ -345,15 +420,18 @@ class PermissionMetadataService(BaseFrameworkObject):
             current = await self._actions.get(action_id)
             if current is None:
                 raise MenuNotFoundError(f"动作码不存在：{action_id}")
+            previous_help_key = current.help_key
+            checked = await self._checked_help_key(req.help_key, kind=HelpAnchorKind.ACTION, exclude_id=action_id)
             if current.status == "enabled" and req.status == "disabled":
                 for permission in await self._permissions.list_by_action(action_id):
                     await self._ensure_permission_stoppable(permission.id)
                 for permission in await self._permissions.list_by_action(action_id):
                     await self._permissions.update(permission.id, status="disabled")
-            updated = await self._actions.update(action_id, name=name, status=req.status)
+            updated = await self._actions.update(action_id, name=name, status=req.status, help_key=checked)
             if updated is None:  # pragma: no cover - 已探测存在
                 raise MenuNotFoundError(f"动作码不存在：{action_id}")
             await self._actions.replace_i18n(action_id, names)
+            self._capture_help_key(model_id=action_id, old=previous_help_key, new=checked)
         await self.invalidate()
         return updated
 

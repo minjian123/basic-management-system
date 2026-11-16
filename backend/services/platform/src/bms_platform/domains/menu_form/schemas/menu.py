@@ -43,6 +43,7 @@ class MenuCreateRequest(BaseSchema):
     sort: int = Field(default=0, description="同级排序（升序）")
     hidden: bool = Field(default=False, description="仅隐藏侧栏入口（权限仍生效）")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
     i18n: I18nNames = Field(description="多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案")
 
 
@@ -56,6 +57,7 @@ class MenuUpdateRequest(BaseSchema):
     sort: int = Field(default=0, description="同级排序（升序）")
     hidden: bool = Field(default=False, description="仅隐藏侧栏入口")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
     i18n: I18nNames = Field(description="多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案")
 
 
@@ -68,6 +70,7 @@ class FormCreateRequest(BaseSchema):
     business_id: SnowflakeIdStr = Field(gt=0, description="所属业务码 ID")
     component: str | None = Field(default=None, max_length=255, description="表单视图组件标识")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
 
 
 class FormUpdateRequest(BaseSchema):
@@ -79,6 +82,7 @@ class FormUpdateRequest(BaseSchema):
     business_id: SnowflakeIdStr = Field(gt=0, description="所属业务码 ID")
     component: str | None = Field(default=None, max_length=255, description="表单视图组件标识")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
 
 
 class ButtonCreateRequest(BaseSchema):
@@ -90,6 +94,7 @@ class ButtonCreateRequest(BaseSchema):
     type: ButtonType = Field(default="toolbar", description="按钮形态（toolbar/interface）")
     sort: int = Field(default=0, description="同表内排序（升序）")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
 
 
 class ButtonUpdateRequest(BaseSchema):
@@ -100,6 +105,7 @@ class ButtonUpdateRequest(BaseSchema):
     type: ButtonType = Field(default="toolbar", description="按钮形态（toolbar/interface）")
     sort: int = Field(default=0, description="同表内排序（升序）")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
 
 
 class FieldCreateRequest(BaseSchema):
@@ -110,6 +116,7 @@ class FieldCreateRequest(BaseSchema):
     type: str = Field(min_length=1, max_length=32, description="字段类型（组件语义键）")
     sort: int = Field(default=0, description="同表内排序（升序）")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
     i18n: I18nNames = Field(description="多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案")
 
 
@@ -119,6 +126,7 @@ class FieldUpdateRequest(BaseSchema):
     type: str = Field(min_length=1, max_length=32, description="字段类型（组件语义键）")
     sort: int = Field(default=0, description="同表内排序（升序）")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
+    help_key: str | None = Field(default=None, max_length=255, description="帮助锚点（五段式；null = 未登记）")
     i18n: I18nNames = Field(description="多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案")
 
 
@@ -137,6 +145,7 @@ class MenuItem(BaseSchema):
     sort: int = Field(description="同级排序")
     hidden: bool = Field(description="仅隐藏侧栏入口")
     status: str = Field(description="状态（enabled/disabled）")
+    help_key: str | None = Field(description="帮助锚点（五段式；NULL = 未登记）")
     i18n: I18nNames = Field(description="多语言名称（locale → 文案）")
     children: Annotated[ConcurrentStableList[MenuItem], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="子菜单（树形）"
@@ -161,6 +170,7 @@ class FormItem(BaseSchema):
     business_id: SnowflakeIdStr = Field(description="所属业务码 ID")
     component: str | None = Field(description="表单视图组件标识")
     status: str = Field(description="状态（enabled/disabled）")
+    help_key: str | None = Field(description="帮助锚点（五段式；NULL = 未登记）")
     created_at: datetime = Field(description="创建时间（UTC）")
     updated_at: datetime = Field(description="更新时间（UTC）")
 
@@ -183,6 +193,7 @@ class ButtonItem(BaseSchema):
     type: str = Field(description="按钮形态（toolbar/interface）")
     sort: int = Field(description="同表内排序")
     status: str = Field(description="状态（enabled/disabled）")
+    help_key: str | None = Field(description="帮助锚点（五段式；NULL = 未登记）")
 
 
 class ButtonList(BaseSchema):
@@ -203,6 +214,7 @@ class FieldItem(BaseSchema):
     type: str = Field(description="字段类型（组件语义键）")
     sort: int = Field(description="同表内排序")
     status: str = Field(description="状态（enabled/disabled）")
+    help_key: str | None = Field(description="帮助锚点（五段式；NULL = 未登记）")
     i18n: I18nNames = Field(description="多语言名称（locale → 文案）")
 
 

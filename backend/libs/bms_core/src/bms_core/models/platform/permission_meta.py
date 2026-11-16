@@ -65,6 +65,9 @@ class SysAction(BaseModel):
     code: Mapped[str] = mapped_column(String(64), comment="动作码（如 query/create/manage；全局唯一动词）")
     name: Mapped[str] = mapped_column(String(128), comment="名称（默认文案）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    help_key: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="帮助锚点（动作码全局兜底五段式；NULL=未登记）"
+    )
     parent_id: Mapped[int | None] = mapped_column(
         SnowflakeId, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )

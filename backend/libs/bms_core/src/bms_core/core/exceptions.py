@@ -1116,6 +1116,19 @@ class MenuPermissionExistsError(MenuError):
         MenuError.__init__(self, ErrorCode.MENU_PERMISSION_EXISTS, message, data=data)
 
 
+class MenuHelpKeyInvalidError(MenuError):
+    """帮助锚点 `help_key` 非法（`40211` / 400）：格式 / 形状 / 长度 / 产品段不符或跨表重复。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化锚点非法异常。
+
+        Args:
+            message: 提示信息（须带具体违规段与原因）。
+            data: 随附数据（可选；批量校验时为违规清单）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_HELP_KEY_INVALID, message, http_status=400, data=data)
+
+
 class ConfigParamError(BizError):
     """系统参数管理子段（系统配置段内 `405xx`）异常基类。
 

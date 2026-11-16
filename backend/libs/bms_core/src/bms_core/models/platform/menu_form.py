@@ -28,6 +28,9 @@ class SysMenu(BaseModel):
     sort: Mapped[int] = mapped_column(Integer, default=0, comment="同级排序（升序）")
     hidden: Mapped[bool] = mapped_column(Boolean, default=False, comment="仅隐藏侧栏入口（权限仍生效）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    help_key: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="帮助锚点（五段式；NULL=未登记；应用层校验格式与跨表唯一）"
+    )
 
 
 class SysMenuI18n(BaseModel):
@@ -55,6 +58,9 @@ class SysForm(BaseModel):
     business_id: Mapped[int] = mapped_column(SnowflakeId, comment="所属业务码 ID（逻辑外键 → sys_business.id；1:1）")
     component: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="表单视图组件标识")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    help_key: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="帮助锚点（表单级五段式；NULL=未登记）"
+    )
 
 
 class SysMenuForm(BaseModel):
@@ -85,6 +91,9 @@ class SysButton(BaseModel):
     type: Mapped[str] = mapped_column(String(16), default="toolbar", comment="按钮形态（toolbar/interface）")
     sort: Mapped[int] = mapped_column(Integer, default=0, comment="同表内排序（升序）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    help_key: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="帮助锚点（按钮级/动作级五段式；NULL=未登记）"
+    )
     parent_id: Mapped[int | None] = mapped_column(
         SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )
@@ -102,6 +111,9 @@ class SysField(BaseModel):
     type: Mapped[str] = mapped_column(String(32), comment="字段类型（组件语义键）")
     sort: Mapped[int] = mapped_column(Integer, default=0, comment="同表内排序（升序）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    help_key: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="帮助锚点（字段级五段式；NULL=未登记）"
+    )
     parent_id: Mapped[int | None] = mapped_column(
         SnowflakeId, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

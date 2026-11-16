@@ -70,6 +70,7 @@ def build_permission_service(
     outbox: BaseOutboxStore,
     cache: CacheRegion,
     tenant_session: DbSession | None = None,
+    audit: AuditCapturer | None = None,
 ) -> PermissionMetadataService:
     """构造权限元数据服务（本域仓储 + 菜单表单 / 角色域的只读探测）。
 
@@ -78,6 +79,7 @@ def build_permission_service(
         outbox: 发件箱存储（保留参数，权限元数据写路径不发布事件）。
         cache: 缓存 Region（元数据版本失效）。
         tenant_session: 租户库会话（角色授权引用探测；None 表示不探测）。
+        audit: 字段级审计捕获器（锚点变更显式留痕；None 不留痕）。
 
     Returns:
         PermissionMetadataService: 权限元数据服务实例。
@@ -92,6 +94,7 @@ def build_permission_service(
         forms=FormRepository(session),
         cache=cache,
         references=MetadataReferenceRepository(tenant_session) if tenant_session is not None else None,
+        audit=audit,
     )
 
 
@@ -101,6 +104,7 @@ def build_menu_service(
     outbox: BaseOutboxStore,
     cache: CacheRegion,
     tenant_session: DbSession | None = None,
+    audit: AuditCapturer | None = None,
 ) -> MenuFormService:
     """构造菜单表单服务（本域仓储 + 权限元数据读取器 + 角色授权引用探测）。
 
@@ -109,6 +113,7 @@ def build_menu_service(
         outbox: 发件箱存储（事件发布）。
         cache: 缓存 Region（元数据快照与版本）。
         tenant_session: 租户库会话（角色授权引用探测；None 表示不探测）。
+        audit: 字段级审计捕获器（锚点变更显式留痕；None 不留痕）。
 
     Returns:
         MenuFormService: 菜单表单服务实例。
@@ -127,6 +132,7 @@ def build_menu_service(
         outbox=outbox,
         cache=cache,
         references=MetadataReferenceRepository(tenant_session) if tenant_session is not None else None,
+        audit=audit,
     )
 
 

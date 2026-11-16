@@ -21,6 +21,7 @@ from bms_core.api.deps import (
     get_permission_checker,
     get_platform_uow,
 )
+from bms_core.audit.base import AuditCapturer, get_audit_capturer
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -91,6 +92,7 @@ OutboxDep = Annotated[BaseOutboxStore, Depends(get_outbox_store)]
 CacheDep = Annotated[CacheRegion, Depends(get_cache_region)]
 ConfigDep = Annotated[BaseConfigSource, Depends(get_config_source)]
 CheckerDep = Annotated[BasePermissionChecker, Depends(get_permission_checker)]
+AuditDep = Annotated[AuditCapturer, Depends(get_audit_capturer)]
 
 MenuIdQuery = Annotated[int | None, Query(gt=0, description="菜单主键（可空 = 全部）")]
 FormIdQuery = Annotated[int | None, Query(gt=0, description="表单主键（可空 = 全部）")]
@@ -106,6 +108,7 @@ def _service(
     outbox: BaseOutboxStore,
     cache: CacheRegion,
     tenant_uow: UnitOfWork | None = None,
+    audit: AuditCapturer | None = None,
 ) -> MenuFormService:
     """构造菜单表单服务（请求级会话）。
 
@@ -114,6 +117,7 @@ def _service(
         outbox: 发件箱存储。
         cache: 缓存 Region。
         tenant_uow: 租户库工作单元（角色授权引用探测；缺省不探测）。
+        audit: 字段级审计捕获器（锚点变更显式留痕；缺省不留痕）。
 
     Returns:
         MenuFormService: 菜单表单服务实例。
@@ -123,6 +127,7 @@ def _service(
         outbox=outbox,
         cache=cache,
         tenant_session=tenant_uow.session if tenant_uow is not None else None,
+        audit=audit,
     )
 
 
@@ -164,6 +169,7 @@ def _menu_item(row: SysMenu, i18n: ConcurrentStableDict[str, str]) -> MenuItem:
         hidden=row.hidden,
         status=row.status,
         i18n=i18n,
+        help_key=row.help_key,
     )
 
 
@@ -185,6 +191,7 @@ def _form_item(row: SysForm, menu_ids: ConcurrentStableList[SnowflakeIdStr]) -> 
         status=row.status,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        help_key=row.help_key,
     )
 
 
@@ -205,6 +212,7 @@ def _button_item(row: SysButton) -> ButtonItem:
         type=row.type,
         sort=row.sort,
         status=row.status,
+        help_key=row.help_key,
     )
 
 
@@ -227,6 +235,7 @@ def _field_item(row: SysField, i18n: ConcurrentStableDict[str, str]) -> FieldIte
         sort=row.sort,
         status=row.status,
         i18n=i18n,
+        help_key=row.help_key,
     )
 
 
@@ -309,7 +318,9 @@ async def list_menus(uow: UowDep, outbox: OutboxDep, cache: CacheDep) -> ApiResp
 
 
 @menu_router.post("", dependencies=[_REQUIRE_MENU_CREATE])
-async def create_menu(req: MenuCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep) -> ApiResponse[MenuItem]:
+async def create_menu(
+    req: MenuCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
+) -> ApiResponse[MenuItem]:
     """新增菜单。
 
     Args:
@@ -321,13 +332,13 @@ async def create_menu(req: MenuCreateRequest, uow: UowDep, outbox: OutboxDep, ca
     Returns:
         ApiResponse: 统一响应，data 为菜单行。
     """
-    row, i18n = await _service(uow, outbox, cache).create_menu(req)
+    row, i18n = await _service(uow, outbox, cache, audit=audit).create_menu(req)
     return ApiResponse.ok(_menu_item(row, i18n))
 
 
 @menu_router.put("/{menu_id}", dependencies=[_REQUIRE_MENU_UPDATE])
 async def update_menu(
-    menu_id: int, req: MenuUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep
+    menu_id: int, req: MenuUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
 ) -> ApiResponse[MenuItem]:
     """更新菜单。
 
@@ -341,7 +352,7 @@ async def update_menu(
     Returns:
         ApiResponse: 统一响应，data 为更新后的菜单行。
     """
-    row, i18n = await _service(uow, outbox, cache).update_menu(menu_id, req)
+    row, i18n = await _service(uow, outbox, cache, audit=audit).update_menu(menu_id, req)
     return ApiResponse.ok(_menu_item(row, i18n))
 
 
@@ -386,7 +397,9 @@ async def list_forms(
 
 
 @form_router.post("", dependencies=[_REQUIRE_MENU_CREATE])
-async def create_form(req: FormCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep) -> ApiResponse[FormItem]:
+async def create_form(
+    req: FormCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
+) -> ApiResponse[FormItem]:
     """新增表单（业务 1:1；菜单入口多对多）。
 
     Args:
@@ -398,15 +411,19 @@ async def create_form(req: FormCreateRequest, uow: UowDep, outbox: OutboxDep, ca
     Returns:
         ApiResponse: 统一响应，data 为表单行。
     """
-    row = await _service(uow, outbox, cache).create_form(
-        menu_ids=req.menu_ids, business_id=req.business_id, component=req.component, status=req.status
+    row = await _service(uow, outbox, cache, audit=audit).create_form(
+        menu_ids=req.menu_ids,
+        business_id=req.business_id,
+        component=req.component,
+        status=req.status,
+        help_key=req.help_key,
     )
     return ApiResponse.ok(_form_item(row, req.menu_ids or ConcurrentStableList()))
 
 
 @form_router.put("/{form_id}", dependencies=[_REQUIRE_MENU_UPDATE])
 async def update_form(
-    form_id: int, req: FormUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep
+    form_id: int, req: FormUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
 ) -> ApiResponse[FormItem]:
     """更新表单（菜单入口关联全量替换）。
 
@@ -420,8 +437,13 @@ async def update_form(
     Returns:
         ApiResponse: 统一响应，data 为更新后的表单行。
     """
-    row = await _service(uow, outbox, cache).update_form(
-        form_id, menu_ids=req.menu_ids, business_id=req.business_id, component=req.component, status=req.status
+    row = await _service(uow, outbox, cache, audit=audit).update_form(
+        form_id,
+        menu_ids=req.menu_ids,
+        business_id=req.business_id,
+        component=req.component,
+        status=req.status,
+        help_key=req.help_key,
     )
     return ApiResponse.ok(_form_item(row, req.menu_ids or ConcurrentStableList()))
 
@@ -468,7 +490,7 @@ async def list_buttons(
 
 @button_router.post("", dependencies=[_REQUIRE_MENU_CREATE])
 async def create_button(
-    req: ButtonCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep
+    req: ButtonCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
 ) -> ApiResponse[ButtonItem]:
     """新增按钮（表单 + 动作 1:1）。
 
@@ -481,20 +503,21 @@ async def create_button(
     Returns:
         ApiResponse: 统一响应，data 为按钮行。
     """
-    row = await _service(uow, outbox, cache).create_button(
+    row = await _service(uow, outbox, cache, audit=audit).create_button(
         form_id=req.form_id,
         permission_id=req.permission_id,
         name=req.name,
         type=req.type,
         sort=req.sort,
         status=req.status,
+        help_key=req.help_key,
     )
     return ApiResponse.ok(_button_item(row))
 
 
 @button_router.put("/{button_id}", dependencies=[_REQUIRE_MENU_UPDATE])
 async def update_button(
-    button_id: int, req: ButtonUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep
+    button_id: int, req: ButtonUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
 ) -> ApiResponse[ButtonItem]:
     """更新按钮。
 
@@ -508,13 +531,14 @@ async def update_button(
     Returns:
         ApiResponse: 统一响应，data 为更新后的按钮行。
     """
-    row = await _service(uow, outbox, cache).update_button(
+    row = await _service(uow, outbox, cache, audit=audit).update_button(
         button_id,
         permission_id=req.permission_id,
         name=req.name,
         type=req.type,
         sort=req.sort,
         status=req.status,
+        help_key=req.help_key,
     )
     return ApiResponse.ok(_button_item(row))
 
@@ -559,7 +583,7 @@ async def list_fields(
 
 @field_router.post("", dependencies=[_REQUIRE_MENU_CREATE])
 async def create_field(
-    req: FieldCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep
+    req: FieldCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
 ) -> ApiResponse[FieldItem]:
     """新增字段（表单内字段键唯一）。
 
@@ -572,20 +596,21 @@ async def create_field(
     Returns:
         ApiResponse: 统一响应，data 为字段行。
     """
-    row, i18n = await _service(uow, outbox, cache).create_field(
+    row, i18n = await _service(uow, outbox, cache, audit=audit).create_field(
         form_id=req.form_id,
         field_key=req.field_key,
         type=req.type,
         sort=req.sort,
         status=req.status,
         i18n=req.i18n,
+        help_key=req.help_key,
     )
     return ApiResponse.ok(_field_item(row, i18n))
 
 
 @field_router.put("/{field_id}", dependencies=[_REQUIRE_MENU_UPDATE])
 async def update_field(
-    field_id: int, req: FieldUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep
+    field_id: int, req: FieldUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
 ) -> ApiResponse[FieldItem]:
     """更新字段。
 
@@ -599,8 +624,13 @@ async def update_field(
     Returns:
         ApiResponse: 统一响应，data 为更新后的字段行。
     """
-    row, i18n = await _service(uow, outbox, cache).update_field(
-        field_id, type=req.type, sort=req.sort, status=req.status, i18n=req.i18n
+    row, i18n = await _service(uow, outbox, cache, audit=audit).update_field(
+        field_id,
+        type=req.type,
+        sort=req.sort,
+        status=req.status,
+        i18n=req.i18n,
+        help_key=req.help_key,
     )
     return ApiResponse.ok(_field_item(row, i18n))
 

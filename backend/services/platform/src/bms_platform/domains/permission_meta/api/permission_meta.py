@@ -10,6 +10,7 @@ from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import get_cache_region, get_outbox_store, get_platform_uow
+from bms_core.audit.base import AuditCapturer, get_audit_capturer
 from bms_core.cache.base import CacheRegion
 from bms_core.core.exceptions import MenuNotFoundError
 from bms_core.db.session import get_uow as get_tenant_uow
@@ -69,6 +70,7 @@ _REQUIRE_ACTION_QUERY = Depends(require_permission("action:query"))
 _REQUIRE_ACTION_MANAGE = Depends(require_permission("action:manage"))
 _REQUIRE_PERMISSION_QUERY = Depends(require_permission("permission:query"))
 _REQUIRE_PERMISSION_MANAGE = Depends(require_permission("permission:manage"))
+AuditDep = Annotated[AuditCapturer, Depends(get_audit_capturer)]
 
 
 def _service(
@@ -76,6 +78,7 @@ def _service(
     outbox: BaseOutboxStore,
     cache: CacheRegion,
     tenant_uow: UnitOfWork | None = None,
+    audit: AuditCapturer | None = None,
 ) -> PermissionMetadataService:
     """构造权限元数据服务（请求级会话）。
 
@@ -93,6 +96,7 @@ def _service(
         outbox=outbox,
         cache=cache,
         tenant_session=tenant_uow.session if tenant_uow is not None else None,
+        audit=audit,
     )
 
 
@@ -215,7 +219,7 @@ async def delete_business(
 
 @action_router.post("", dependencies=[_REQUIRE_ACTION_MANAGE])
 async def create_action(
-    req: ActionCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep
+    req: ActionCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep, audit: AuditDep
 ) -> ApiResponse[ActionItem]:
     """新增动作码。
 
@@ -228,7 +232,7 @@ async def create_action(
     Returns:
         ApiResponse: 统一响应，data 为动作码行。
     """
-    row = await _service(uow, outbox, cache).create_action(req)
+    row = await _service(uow, outbox, cache, audit=audit).create_action(req)
     return ApiResponse.ok(await _action_item(uow, outbox, cache, row.id))
 
 
@@ -240,6 +244,7 @@ async def update_action(
     tenant_uow: TenantUowDep,
     outbox: OutboxDep,
     cache: CacheDep,
+    audit: AuditDep,
 ) -> ApiResponse[ActionItem]:
     """更新动作码（`code` 不可改；停用时连带停用其权限码）。
 
@@ -253,7 +258,7 @@ async def update_action(
     Returns:
         ApiResponse: 统一响应，data 为动作码行。
     """
-    await _service(uow, outbox, cache, tenant_uow).update_action(action_id, req)
+    await _service(uow, outbox, cache, tenant_uow, audit).update_action(action_id, req)
     return ApiResponse.ok(await _action_item(uow, outbox, cache, action_id))
 
 
