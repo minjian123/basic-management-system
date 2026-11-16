@@ -16,6 +16,7 @@ from __future__ import annotations
 from enum import StrEnum
 
 from bms_core.core.concurrent import ConcurrentStableFrozenDict
+from bms_core.core.exceptions import BizError
 from bms_core.msgclient.errors import ErrorCategory
 
 __all__ = ["CLIENT_ERROR_CODE", "ClientAction", "MsgClientError"]
@@ -42,7 +43,7 @@ CLIENT_ERROR_CODE = 0
 """
 
 
-class MsgClientError(Exception):
+class MsgClientError(BizError):
     """消息客户端统一错误。
 
     Attributes:
@@ -77,14 +78,13 @@ class MsgClientError(Exception):
             outcome_unknown: 结果是否未知。
             retry_after_ms: 建议重试间隔（毫秒）。
         """
-        super().__init__(message)
-        self.code = int(code)
-        self.category = category
-        self.action = action
-        self.message = message
-        self.data: ConcurrentStableFrozenDict[str, object] = (
+        normalized: ConcurrentStableFrozenDict[str, object] = (
             data if data is not None else ConcurrentStableFrozenDict[str, object]()
         )
+        # 客户端传输层错误不属业务失败：`http_status=500` 保持「未预期故障」语义
+        super().__init__(code, message, http_status=500, data=normalized)
+        self.category = category
+        self.action = action
         self.outcome_unknown = outcome_unknown
         self.retry_after_ms = retry_after_ms
 

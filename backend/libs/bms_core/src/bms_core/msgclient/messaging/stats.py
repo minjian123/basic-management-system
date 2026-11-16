@@ -7,11 +7,12 @@
 from __future__ import annotations
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
+from bms_core.core.roots import BaseFrameworkObject
 
 __all__ = ["ClientStats"]
 
 
-class ClientStats:
+class ClientStats(BaseFrameworkObject):
     """进程内计数器（键为「指标名 + 标签串」，与 Prometheus 样本标识同构）。
 
     Attributes:

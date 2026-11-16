@@ -22,7 +22,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
 )
 from bms_core.core.exceptions import ParamError
-from bms_core.core.roots import BaseValueObject
+from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
 from bms_core.msgclient.messaging.codes import rule_for_consume
 from bms_core.msgclient.messaging.config import MessagingConfig
 from bms_core.msgclient.messaging.errors import ClientAction, MsgClientError
@@ -248,7 +248,7 @@ def _items(value: object) -> ConcurrentStableFrozenList[object]:
     return ConcurrentStableFrozenList(cast("list[object]", value))
 
 
-class MsgConsumer:
+class MsgConsumer(BaseFrameworkObject):
     """消息消费端（一个实例绑定一个组的一个主题；分区由服务端分配）。
 
     Attributes:

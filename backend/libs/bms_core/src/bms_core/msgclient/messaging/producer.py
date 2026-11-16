@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from dataclasses import dataclass, field, replace
+from typing import cast
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -22,7 +23,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
 )
 from bms_core.core.exceptions import ParamError
-from bms_core.core.roots import BaseValueObject
+from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
 from bms_core.msgclient.messaging.codes import rule_for_publish
 from bms_core.msgclient.messaging.config import MessagingConfig
 from bms_core.msgclient.messaging.errors import ClientAction, MsgClientError
@@ -217,7 +218,7 @@ def _as_text(value: object) -> str | None:
     return None if value is None else str(value)
 
 
-class MsgProducer:
+class MsgProducer(BaseFrameworkObject):
     """消息生产端（单实例可被多个协程共享；计数器在事件循环内自增，无锁竞争）。
 
     Attributes:
@@ -462,7 +463,8 @@ class MsgProducer:
         Args:
             exc: `350033` 类错误。
         """
-        leader = exc.data.get("leader")
+        data = cast("ConcurrentStableFrozenDict[str, object]", exc.data)
+        leader = data.get("leader")
         if not isinstance(leader, str) or not leader:
             return
         address = self.config.node_addresses.get(leader)

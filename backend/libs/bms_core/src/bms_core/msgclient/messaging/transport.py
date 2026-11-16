@@ -16,7 +16,7 @@ from typing import cast
 import httpx
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
-from bms_core.core.roots import BaseValueObject
+from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
 from bms_core.msgclient.errors import ErrorCategory
 from bms_core.msgclient.messaging.config import MessagingConfig
 from bms_core.msgclient.messaging.errors import CLIENT_ERROR_CODE, ClientAction, MsgClientError
@@ -67,7 +67,7 @@ class ApiOutcome(BaseValueObject):
     retry_after_ms: int | None = None
 
 
-class MessagingTransport:
+class MessagingTransport(BaseFrameworkObject):
     """消息收发共用的 JSON 传输（单实例可被生产端与消费端共享）。
 
     Attributes:
