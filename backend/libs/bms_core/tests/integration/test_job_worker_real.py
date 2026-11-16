@@ -1,18 +1,19 @@
 """真 Redis 集成护栏（Kiwi 2392）：唤醒信号跨进程往返 / 双 worker 竞争只执行一次。
 
 未配置 `BMS_REDIS__URL` 时自动跳过（不计覆盖率分母）。
+
+作业落点用共享平台库；作业类型按命名空间派生唯一值，用例结束删除本用例自造行。
 """
 
 import asyncio
 import os
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from uuid import uuid4
 
 import pytest
 from redis.asyncio import Redis
-from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.jobs import store
@@ -22,14 +23,12 @@ from bms_core.jobs.registry import JobHandlerRegistry
 from bms_core.jobs.signal import JobChangeSignal
 from bms_core.jobs.spec import JobSubmission, JobTypeSpec
 from bms_core.jobs.worker import JobWorker
-from bms_core.models.base import Base
 from bms_core.models.job import SysJob, SysJobError
-from bms_core.models.outbox import SysOutbox
+from bms_core.testing.namespace import Namespace
 
 pytestmark = [
     pytest.mark.kiwi_id(2392),
     pytest.mark.skipif(not os.environ.get("BMS_REDIS__URL"), reason="未配置真 Redis（BMS_REDIS__URL）"),
-    pytest.mark.own_db("被测对象是真 Redis 跨进程作业唤醒：库只是作业落点，需与真 Redis 配合的独立库"),
 ]
 
 
@@ -44,8 +43,24 @@ class _Counting(BaseJobHandler):
         return JobResult.success(ConcurrentStableDict({"calls": self.calls}))
 
 
+def _counting_handler(name: str) -> _Counting:
+    """按作业类型派生计数 handler（避免与其他用例的作业互相抢占）。
+
+    Args:
+        name: 本用例唯一作业类型。
+
+    Returns:
+        _Counting: 计数 handler。
+    """
+
+    class _NamedCounting(_Counting):
+        job_type = name
+
+    return _NamedCounting()
+
+
 class _FakeRegistry:
-    """最小引擎注册表替身（单库 SQLite）。"""
+    """最小引擎注册表替身（单库）。"""
 
     def __init__(self, engine: Any) -> None:
         self._engine = engine
@@ -57,20 +72,21 @@ class _FakeRegistry:
         return self._engine
 
 
-async def _worker(engine: Any, handler: _Counting, worker_id: str) -> JobWorker:
+async def _worker(engine: Any, handler: _Counting, worker_id: str, job_type: str) -> JobWorker:
     """构造单库 worker。
 
     Args:
         engine: 异步引擎。
         handler: 计数 handler。
         worker_id: 执行者标识。
+        job_type: 作业类型。
 
     Returns:
         JobWorker: worker。
     """
     registry = JobHandlerRegistry()
-    registry.load({handler.job_type: handler})
-    specs = {"demo.real": JobTypeSpec(job_type="demo.real", service_key="platform", domain_key="job")}
+    registry.load({job_type: handler})
+    specs = {job_type: JobTypeSpec(job_type=job_type, service_key="platform", domain_key="job")}
 
     async def _keys() -> ConcurrentStableList[str]:
         return ConcurrentStableList(["platform"])
@@ -106,40 +122,37 @@ async def test_signal_roundtrip() -> None:
         await client.aclose()
 
 
-async def test_two_workers_execute_once(tmp_path: Path) -> None:
+async def test_two_workers_execute_once(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
     """真 Redis 唤醒 + 两个 worker：同一作业只执行一次。"""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'real.db'}")
-    async with engine.begin() as connection:
-        await connection.run_sync(
-            lambda conn: Base.metadata.create_all(
-                conn,
-                tables=[
-                    cast("Table", SysJob.__table__),
-                    cast("Table", SysJobError.__table__),
-                    cast("Table", SysOutbox.__table__),
-                ],
-            )
-        )
-    maker = async_sessionmaker(engine, expire_on_commit=False)
+    job_type = f"demo.real{ns.prefix}"
+    maker = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
     async with maker() as session, session.begin():
-        await store.submit_job(
+        job, _ = await store.submit_job(
             session,
-            submission=JobSubmission(job_type="demo.real", payload=ConcurrentStableDict({"n": 1})),
+            submission=JobSubmission(job_type=job_type, payload=ConcurrentStableDict({"n": 1})),
             service_key="platform",
             domain_key="job",
             max_attempts=2,
         )
-    first_handler = _Counting()
-    second_handler = _Counting()
-    first = await _worker(engine, first_handler, "real-w1")
-    second = await _worker(engine, second_handler, "real-w2")
+    job_id = job.id
+    first_handler = _counting_handler(job_type)
+    second_handler = _counting_handler(job_type)
+    first = await _worker(shared_platform_engine, first_handler, "real-w1", job_type)
+    second = await _worker(shared_platform_engine, second_handler, "real-w2", job_type)
     try:
         await asyncio.gather(first.tick(), second.tick())
         assert first_handler.calls + second_handler.calls == 1
         async with maker() as session:
-            row = (await session.execute(select(SysJob))).scalars().one()
+            row = (await session.execute(select(SysJob).where(SysJob.id == job_id))).scalars().one()
         assert row.status == "succeeded"
     finally:
         await first.aclose()
         await second.aclose()
-        await engine.dispose()
+        async with maker() as session:
+            jobs = (await session.execute(select(SysJob).where(SysJob.id == job_id))).scalars().all()
+            errors = (await session.execute(select(SysJobError).where(SysJobError.job_id == job_id))).scalars().all()
+            for row in jobs:
+                await session.delete(row)
+            for row in errors:
+                await session.delete(row)
+            await session.commit()

@@ -12,7 +12,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.platform.catalog import SysModule, SysProduct
 from bms_core.services.module_registry import PRODUCT_CATALOG, SERVICE_CATALOG
 
-pytestmark = pytest.mark.own_db("被测对象是服务目录与产品档案种子脚本（幂等 upsert / 既有行补齐）")
+pytestmark = pytest.mark.own_db("运维种子脚本的建表 / 首建全量 / 空库引导校验即被测：需空库验证首播与提示")
 
 _TOTAL_SEEDS = len(SERVICE_CATALOG) + len(PRODUCT_CATALOG)
 """种子总行数（服务目录 + 产品档案）。"""

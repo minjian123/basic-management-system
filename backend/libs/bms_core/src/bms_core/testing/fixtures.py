@@ -59,6 +59,7 @@ __all__ = (
     "shared_platform_engine",
     "shared_tenant_db_url",
     "shared_tenant_engine",
+    "tenant_db",
     "test_db_dir",
     "version_for",
     "worker_id_for_snowflake",
@@ -218,6 +219,24 @@ def platform_db(
         return
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def tenant_db(shared_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> str:
+    """把租户库连接串指向共享租户库（单库叠加口径）。
+
+    与各服务 conftest 的同名夹具同义：用例显式请求本夹具才注入，未请求的套件不受影响。
+
+    Args:
+        shared_tenant_db_url: 共享租户库连接串（会话级）。
+        monkeypatch: pytest monkeypatch 夹具。
+
+    Returns:
+        str: 共享租户库连接串。
+    """
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
+    get_settings.cache_clear()
+    return shared_tenant_db_url
 
 
 @pytest.fixture

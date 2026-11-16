@@ -38,6 +38,7 @@ from bms_core.testing.fixtures import (
     shared_platform_engine,
     shared_tenant_db_url,
     shared_tenant_engine,
+    tenant_db,
     test_db_dir,
 )
 from bms_core.testing.write_locks import (
@@ -68,6 +69,7 @@ __all__ = (
     "shared_platform_engine",
     "shared_tenant_db_url",
     "shared_tenant_engine",
+    "tenant_db",
     "tenant_db_write",
     "tenant_db_write_whole",
     "test_db_dir",

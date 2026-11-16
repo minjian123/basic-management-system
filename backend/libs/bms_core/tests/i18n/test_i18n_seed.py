@@ -19,7 +19,7 @@ from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
 
 pytestmark = [
     pytest.mark.kiwi_id(2404),
-    pytest.mark.own_db("种子写入与建表即被测：临时库验证幂等、默认语言唯一与未覆盖行刷新"),
+    pytest.mark.own_db("播种首建 + 默认语言唯一 + 未覆盖行刷新即被测：需空表验证首播与补默认"),
 ]
 
 _ZH = "zh-CN"

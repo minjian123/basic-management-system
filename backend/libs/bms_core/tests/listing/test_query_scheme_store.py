@@ -1,12 +1,10 @@
 """查询方案真实存储用例（Kiwi 963，02-4-27）：落库 CRUD / 三级默认解析 / 个人方案 owner 过滤。
 
-测试库：临时 SQLite 文件（按 `platform:tenant` 链表集幂等建表）。
+测试库：共享租户库（`tenant_db`）。落库数据按命名空间 `field_key` 收敛，用例结束删除本用例自造行。
 """
 
-import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from contextlib import asynccontextmanager, contextmanager
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -17,22 +15,11 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ConcurrentConflictError, NotFoundError
-from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.listing.base import QueryScheme, QuerySchemeScope, QuerySchemeTarget
 from bms_core.listing.store import SqlQuerySchemeStore, _to_scheme  # pyright: ignore[reportPrivateUsage]
-
-pytestmark = pytest.mark.own_db("被测对象是查询方案落库存储：需自造方案表结构验证三级默认与 owner 过滤")
-
-
-def _build_schema(url: str) -> None:
-    """对目标库幂等建 `platform:tenant` 链表集（与启动期 / `ops.init_schema` 同一表集派生点）。
-
-    Args:
-        url: 数据库 URL。
-    """
-    asyncio.run(apply_unit_schema("platform", "tenant", url, target="listing_test"))
+from bms_core.testing.namespace import Namespace
 
 
 @contextmanager
@@ -70,30 +57,25 @@ async def _close_open_engines() -> AsyncIterator[None]:  # pyright: ignore[repor
 
 
 @pytest.fixture
-def scheme_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[SqlQuerySchemeStore]:
-    """临时库 + 查询方案真实存储。
+def scheme_store(tenant_db: str) -> Iterator[SqlQuerySchemeStore]:
+    """共享租户库 + 查询方案真实存储。
 
     Args:
-        tmp_path: 临时目录。
-        monkeypatch: 环境变量覆盖。
+        tenant_db: 租户库连接串（夹具副作用：注入共享租户库并重置配置单例）。
 
     Yields:
         SqlQuerySchemeStore: 存储实例。
     """
-    url = f"sqlite+aiosqlite:///{tmp_path / 'scheme_test.db'}"
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
-    get_settings.cache_clear()
-    _build_schema(url)
+    del tenant_db
     registry = EngineRegistry(EngineFactory(get_settings()))
     _OPEN_ENGINES.add(registry)
-    store = SqlQuerySchemeStore(engines=registry)
-    yield store
-    get_settings.cache_clear()
+    yield SqlQuerySchemeStore(engines=registry)
 
 
 @pytest.mark.kiwi_id(963)
-async def test_query_scheme_crud_and_default_resolution(scheme_store: SqlQuerySchemeStore) -> None:
+async def test_query_scheme_crud_and_default_resolution(scheme_store: SqlQuerySchemeStore, ns: Namespace) -> None:
     """方案 CRUD 与三级默认解析（个人 > 租户 > 平台）与 owner 过滤。"""
+    field_key = ns.code("field")
     with _as_user(1001):
         personal = await scheme_store.save(
             QueryScheme(
@@ -101,14 +83,15 @@ async def test_query_scheme_crud_and_default_resolution(scheme_store: SqlQuerySc
                 scope=QuerySchemeScope.USER,
                 target=QuerySchemeTarget.ITEMS,
                 data_source_key="region",
+                field_key=field_key,
                 conditions=ConcurrentStableDict({"logic": "AND", "children": []}),
                 is_default=True,
             )
         )
         assert personal.id is not None
-        listed = await scheme_store.list(QuerySchemeTarget.ITEMS)
+        listed = await scheme_store.list(QuerySchemeTarget.ITEMS, field_key=field_key)
         assert [scheme.name for scheme in listed] == ["我的常用"]
-        resolved = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS)
+        resolved = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key=field_key)
         assert resolved is not None
         assert resolved.name == "我的常用"
 
@@ -118,50 +101,60 @@ async def test_query_scheme_crud_and_default_resolution(scheme_store: SqlQuerySc
                 scope=QuerySchemeScope.PLATFORM,
                 target=QuerySchemeTarget.ITEMS,
                 data_source_key="region",
+                field_key=field_key,
                 is_default=True,
             )
         )
         assert platform.id is not None
-        # 个人优先于平台
-        resolved2 = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS)
-        assert resolved2 is not None
-        assert resolved2.name == "我的常用"
-        # 更新（乐观锁正常路径）与删除
-        personal.name = "我的常用改"
-        updated = await scheme_store.save(personal)
-        assert updated.name == "我的常用改"
-        assert await scheme_store.get(personal.id or 0) is not None
-        assert await scheme_store.delete(personal.id or 0) is True
-        assert await scheme_store.get(personal.id or 0) is None
+        try:
+            # 个人优先于平台
+            resolved2 = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key=field_key)
+            assert resolved2 is not None
+            assert resolved2.name == "我的常用"
+            # 更新（乐观锁正常路径）与删除
+            personal.name = "我的常用改"
+            updated = await scheme_store.save(personal)
+            assert updated.name == "我的常用改"
+            assert await scheme_store.get(personal.id or 0) is not None
+            assert await scheme_store.delete(personal.id or 0) is True
+            assert await scheme_store.get(personal.id or 0) is None
 
-    with _as_user(2002):
-        # 他人个人方案不可见；平台方案可见
-        listed_other = await scheme_store.list(QuerySchemeTarget.ITEMS)
-        assert [scheme.name for scheme in listed_other] == ["平台默认"]
-        resolved_other = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS)
-        assert resolved_other is not None
-        assert resolved_other.name == "平台默认"
+            with _as_user(2002):
+                # 他人个人方案不可见；平台方案可见
+                listed_other = await scheme_store.list(QuerySchemeTarget.ITEMS, field_key=field_key)
+                assert [scheme.name for scheme in listed_other] == ["平台默认"]
+                resolved_other = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key=field_key)
+                assert resolved_other is not None
+                assert resolved_other.name == "平台默认"
+        finally:
+            assert await scheme_store.delete(platform.id or 0) is True
 
 
-async def test_query_scheme_field_key_filters_and_missing_paths(scheme_store: SqlQuerySchemeStore) -> None:
+async def test_query_scheme_field_key_filters_and_missing_paths(
+    scheme_store: SqlQuerySchemeStore, ns: Namespace
+) -> None:
     """`field_key` 过滤、更新不存在方案拒 10002、删除不存在返 False、无默认方案返 None。"""
+    field_key = ns.code("field")
     with _as_user(1001):
-        await scheme_store.save(
+        saved = await scheme_store.save(
             QueryScheme(
                 name="带字段键",
                 scope=QuerySchemeScope.USER,
                 target=QuerySchemeTarget.ITEMS,
                 data_source_key="region",
-                field_key="purchase_order",
+                field_key=field_key,
                 is_default=True,
             )
         )
-        by_field = await scheme_store.list(QuerySchemeTarget.ITEMS, field_key="purchase_order")
-        assert [scheme.name for scheme in by_field] == ["带字段键"]
-        assert await scheme_store.list(QuerySchemeTarget.ITEMS, field_key="absent") == ()
-        resolved = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key="purchase_order")
-        assert resolved is not None and resolved.name == "带字段键"
-        assert await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key="absent") is None
+        try:
+            by_field = await scheme_store.list(QuerySchemeTarget.ITEMS, field_key=field_key)
+            assert [scheme.name for scheme in by_field] == ["带字段键"]
+            assert await scheme_store.list(QuerySchemeTarget.ITEMS, field_key=ns.code("absent")) == ()
+            resolved = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key=field_key)
+            assert resolved is not None and resolved.name == "带字段键"
+            assert await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key=ns.code("absent")) is None
+        finally:
+            assert await scheme_store.delete(saved.id or 0) is True
 
     with pytest.raises(NotFoundError):
         await scheme_store.save(

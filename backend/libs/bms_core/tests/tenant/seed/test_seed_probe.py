@@ -2,15 +2,15 @@
 
 **Kiwi 编号**：本批新增用例暂不标 `kiwi_id`，统一归 `05_01` 回填。
 
-**覆盖面**：`snapshot` 真实取数（SQLite）、`diff` 的 created / updated / skipped 三态、
+**覆盖面**：`snapshot` 真实取数（共享平台库）、`diff` 的 created / updated / skipped 三态、
 未登记表跳过、非法快照兜底、`register_seed_probes` 的登记与无方法跳过。
 """
 
-from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import Table, create_engine, text
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -18,6 +18,8 @@ from bms_core.core.concurrent import (
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
+from bms_core.core.id import id_generator
+from bms_core.models.platform.permission_meta import SysBusiness
 from bms_core.services.module_registry import SeedRecord
 from bms_core.tenant.seed.probe import (
     SeedStatsProbe,
@@ -25,8 +27,7 @@ from bms_core.tenant.seed.probe import (
     _as_snapshot,  # pyright: ignore[reportPrivateUsage]
     register_seed_probes,
 )
-
-pytestmark = pytest.mark.own_db("被测对象是种子统计探针：需真实库取数前后求差")
+from bms_core.testing.namespace import Namespace
 
 
 def _probe(
@@ -100,29 +101,27 @@ def test_as_snapshot_normalizes_inputs() -> None:  # pyright: ignore[reportPriva
 # ---- snapshot 真实取数 ----
 
 
-def test_snapshot_reads_real_table(tmp_path: Path) -> None:
+async def test_snapshot_reads_real_table(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
     """`snapshot` 在真实 SQLite 连接上按自然键 / 值列取快照。"""
-    from bms_core.models.base import Base
-    from bms_core.models.platform.permission_meta import SysBusiness
-
-    url = f"sqlite:///{tmp_path / 'probe.db'}"
-    engine = create_engine(url)
+    code = f"{ns.prefix}biz"
+    name = f"探针-{ns.prefix}"
+    record_id = id_generator.next_id()
+    maker: async_sessionmaker[Any] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with maker() as session:
+        session.add(SysBusiness(id=record_id, code=code, name=name, status="enabled"))
+        await session.commit()
     try:
-        Base.metadata.create_all(engine, tables=[cast("Table", SysBusiness.__table__)])
-        with engine.begin() as connection:
-            connection.execute(
-                text(
-                    "INSERT INTO sys_business (form_key, code, name, status, id, created_at, updated_at, version) "
-                    "VALUES ('business', 'mdm', '主数据', 'enabled', 1, '2026-01-01', '2026-01-01', 1)"
-                )
-            )
         probe = _probe("sys_business", keys=ConcurrentStableList(["code"]), values=ConcurrentStableList(["name"]))
-        with engine.connect() as connection:
-            snapshot = probe.snapshot(connection)
+        async with shared_platform_engine.connect() as connection:
+            snapshot = await connection.run_sync(probe.snapshot)
         assert "sys_business" in snapshot
-        assert snapshot["sys_business"]["mdm"] == ("主数据",)
+        assert snapshot["sys_business"][code] == (name,)
     finally:
-        engine.dispose()
+        async with maker() as session:
+            rows = (await session.execute(select(SysBusiness).where(SysBusiness.id == record_id))).scalars().all()
+            for row in rows:
+                await session.delete(row)
+            await session.commit()
 
 
 def test_snapshot_skips_unregistered_table() -> None:
