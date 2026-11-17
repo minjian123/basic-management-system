@@ -422,6 +422,11 @@ provider = ""
 # 显式配置（含 null）一律尊重，便于联调期临时回退占位实现。
 provider = ""
 
+[help_coverage]
+# 帮助覆盖率台账的缺口豁免文件（08_04）：可多个，相对路径按进程工作目录（backend/）解析；
+# 缺省读仓内平台豁免文件；文件不存在视为空清单。产品仓接入时在部署配置追加各自路径。
+exemption_paths = ["../deploy/help/coverage_exemptions.json"]
+
 [notifier]
 # 通知发送实现：空串 = null 占位；http = 经 service_client 调通知服务内部发送端点
 # （identity 未显式配置时在 prepare_settings 置 http；其他服务保持占位）

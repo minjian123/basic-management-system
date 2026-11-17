@@ -802,6 +802,18 @@ class PluginSelection(BaseSettings):
     """非敏感选项（键位由各实现解读；密钥不入配置 / 不入日志）。"""
 
 
+class HelpCoverageSettings(BaseSettings):
+    """帮助覆盖率台账配置（`[help_coverage]`；08_04）。
+
+    只承载**部署可变的文件路径**；阻断开关走命令行 / 环境变量，不混入配置。
+    """
+
+    exemption_paths: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["../deploy/help/coverage_exemptions.json"])
+    )
+    """豁免文件路径（可多个；相对路径按进程工作目录解析，缺省读仓内平台豁免文件）。"""
+
+
 class PermissionSettings(PluginSelection):
     """权限引擎配置（`[permission]`；在能力选择之外追加引擎档位）。
 
@@ -1955,6 +1967,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     hash_chain: PluginSelection = Field(default_factory=PluginSelection)
     health_check_registry: PluginSelection = Field(default_factory=PluginSelection)
     help_content: PluginSelection = Field(default_factory=PluginSelection)
+    help_coverage: HelpCoverageSettings = Field(default_factory=HelpCoverageSettings)
     http_client: PluginSelection = Field(default_factory=PluginSelection)
     i18n_cache_region: PluginSelection = Field(default_factory=PluginSelection)
     i18n_options: I18nSettings = Field(default_factory=I18nSettings, validation_alias="i18n")

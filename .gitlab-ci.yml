@@ -447,6 +447,42 @@ backend-modules:
     # 注册通道已写入服务目录与产品档案；CI 里只有刚建完的空表，跑必报「服务目录为空 / 注册表缺该声明」
     # （2026-10-28 #1279、#1281 实测）——不在 CI 跑，该口径由部署验收（`deploy/` 启动链路）覆盖。
 
+# ---- 帮助覆盖率台账（08_04）：告警档。临时 SQLite + 平台种子跑通脚本并留台账产物；缺口不阻断，
+#      强档（--strict / BMS_HELP_COVERAGE_STRICT=1）留给阶段收口与发布验收。----
+help-coverage:
+  stage: lint
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  variables:
+    BMS_ENV: test
+    BMS_LOG__LEVEL: INFO
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - backend/libs/bms_core/src/bms_core/help/**/*
+          - backend/libs/bms_core/src/bms_core/repositories/help_*.py
+          - backend/libs/bms_core/src/bms_core/tenant/seed/menu.py
+          - backend/services/platform/src/bms_platform/domains/menu_form/**/*
+          - backend/ops/help_coverage.py
+          - deploy/help/**/*
+          - .gitlab-ci.yml
+      exists:
+        - backend/pyproject.toml
+    - when: manual
+      allow_failure: true
+  script:
+    - cd backend
+    - uv sync --frozen
+    - rm -f ../tmp/ci-help-coverage.db
+    - uv run python -m ops.seed_module --write --url "sqlite+aiosqlite:///../tmp/ci-help-coverage.db"
+    - uv run python -m ops.seed_menu --url "sqlite+aiosqlite:///../tmp/ci-help-coverage.db"
+    - uv run python -m ops.help_coverage --url "sqlite+aiosqlite:///../tmp/ci-help-coverage.db" --format markdown --output ../tmp/help-coverage.md
+  artifacts:
+    when: always
+    paths:
+      - tmp/help-coverage.md
+    expire_in: 30 days
+
 backend-test:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314

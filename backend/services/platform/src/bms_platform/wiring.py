@@ -28,6 +28,7 @@ from bms_platform.domains.menu_form.repositories.menu import (
     MenuRepository,
 )
 from bms_platform.domains.menu_form.services.help_context import HelpContextService
+from bms_platform.domains.menu_form.services.help_coverage import HelpCoverageService
 from bms_platform.domains.menu_form.services.menu import MenuFormService
 from bms_platform.domains.permission_meta.repositories.business import (
     ActionRepository,
@@ -55,6 +56,7 @@ from bms_platform.domains.user.repositories.user import UserRepository
 
 __all__ = [
     "build_help_context_service",
+    "build_help_coverage_service",
     "build_menu_service",
     "build_permission_service",
     "role_assignment",
@@ -156,6 +158,19 @@ def build_help_context_service(
         HelpContextService: 页面内帮助解析服务实例。
     """
     return HelpContextService(session=cast("DbSession", uow.session), cache=cache, resolver=resolver)
+
+
+def build_help_coverage_service(*, uow: UnitOfWork, exemption_paths: ConcurrentStableList[str]) -> HelpCoverageService:
+    """构造帮助覆盖率台账服务（平台库只读快照 + 豁免文件）。
+
+    Args:
+        uow: 请求级工作单元（平台库：元数据五表 + 模块登记 + 锚点）。
+        exemption_paths: 豁免文件路径（部署配置）。
+
+    Returns:
+        HelpCoverageService: 覆盖率台账服务。
+    """
+    return HelpCoverageService(session=cast("DbSession", uow.session), exemption_paths=exemption_paths)
 
 
 def role_query(session: DbSession) -> RoleQueryPort:

@@ -1693,6 +1693,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/help/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Help Coverage
+         * @description 帮助覆盖率台账（按产品 / 模块分组，缺口精确到动作码）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元（平台库）。
+         *         settings: 应用配置（豁免文件路径）。
+         *         product_key: 产品过滤。
+         *         module_key: 模块过滤。
+         *         kind: 明细类别过滤。
+         *         include_covered: 明细是否包含已覆盖行。
+         *         include_reference: 是否返回参考统计。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为覆盖率台账。
+         */
+        get: operations["help_coverage_api_v1_help_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/i18n/cache/invalidate": {
         parameters: {
             query?: never;
@@ -5949,6 +5981,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[HelpCoverageResponse] */
+        ApiResponse_HelpCoverageResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpCoverageResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ImportExecuteResult] */
         ApiResponse_ImportExecuteResult_: {
             /**
@@ -9060,6 +9106,502 @@ export interface components {
              * @description 同一锚点的其余文章（相关内容）
              */
             related?: components["schemas"]["HelpArticleSummaryItem"][];
+        };
+        /**
+         * HelpCoverageActionFallbackItem
+         * @description 动作码兜底参考（不计入分母）。
+         */
+        HelpCoverageActionFallbackItem: {
+            /**
+             * Declared
+             * @description 已声明动作码兜底锚点数
+             */
+            declared: number;
+            /**
+             * Gap
+             * @description 未声明动作码兜底数
+             */
+            gap: number;
+            /**
+             * Total
+             * @description 动作码总数
+             */
+            total: number;
+        };
+        /**
+         * HelpCoverageAnchorCountsItem
+         * @description 按节点类型的锚点计数。
+         */
+        HelpCoverageAnchorCountsItem: {
+            /**
+             * Action
+             * @description 动作码锚点数
+             */
+            action: number;
+            /**
+             * Button
+             * @description 按钮锚点数
+             */
+            button: number;
+            /**
+             * Field
+             * @description 字段锚点数
+             */
+            field: number;
+            /**
+             * Form
+             * @description 表单锚点数
+             */
+            form: number;
+            /**
+             * Menu
+             * @description 菜单锚点数
+             */
+            menu: number;
+        };
+        /**
+         * HelpCoverageBaselineDiffItem
+         * @description 与上次台账快照的对比。
+         */
+        HelpCoverageBaselineDiffItem: {
+            /**
+             * Action Coverage Delta
+             * @description 动作原始覆盖率变化
+             */
+            action_coverage_delta: number;
+            /**
+             * Baseline As Of
+             * @description 基线快照日期
+             */
+            baseline_as_of: string;
+            /**
+             * Cleared Gaps
+             * @description 已消除缺口
+             */
+            cleared_gaps?: string[];
+            /**
+             * Menu Coverage Delta
+             * @description 菜单原始覆盖率变化
+             */
+            menu_coverage_delta: number;
+            /**
+             * New Gaps
+             * @description 新增缺口
+             */
+            new_gaps?: string[];
+            /**
+             * Still Gaps
+             * @description 仍存在的缺口
+             */
+            still_gaps?: string[];
+        };
+        /**
+         * HelpCoverageCountsItem
+         * @description 一组覆盖计数（动作 / 菜单 / 参考）。
+         */
+        HelpCoverageCountsItem: {
+            /**
+             * Coverage
+             * @description 原始覆盖率（已声明 / 总数；总数为 0 记 1.0）
+             */
+            coverage: number;
+            /**
+             * Covered
+             * @description 已声明 help_key 数
+             */
+            covered: number;
+            /**
+             * Effective Coverage
+             * @description 豁免后有效率（（已声明 + 有效豁免）/ 总数）
+             */
+            effective_coverage: number;
+            /**
+             * Exempt
+             * @description 有效豁免数
+             */
+            exempt: number;
+            /**
+             * Gap
+             * @description 豁免后缺口（未声明且无有效豁免）
+             */
+            gap: number;
+            /**
+             * Total
+             * @description 分母总数
+             */
+            total: number;
+        };
+        /**
+         * HelpCoverageCoveredItem
+         * @description 基准内已覆盖计数。
+         */
+        HelpCoverageCoveredItem: {
+            /**
+             * Action
+             * @description 已声明锚点的动作数
+             */
+            action: number;
+            /**
+             * Menu
+             * @description 已声明锚点的菜单数
+             */
+            menu: number;
+        };
+        /**
+         * HelpCoverageExemptionItem
+         * @description 一条缺口豁免。
+         */
+        HelpCoverageExemptionItem: {
+            /**
+             * Expires At
+             * @description 失效日期（YYYY-MM-DD，含当日有效）
+             */
+            expires_at: string;
+            /**
+             * Key
+             * @description 动作码（业务码:动作码）或菜单路径
+             */
+            key: string;
+            /**
+             * Kind
+             * @description 类别（action / menu）
+             */
+            kind: string;
+            /**
+             * Owner
+             * @description 归口任务 / 责任人
+             */
+            owner: string;
+            /**
+             * Product Key
+             * @description 可选产品段（与台账推导值一致）
+             */
+            product_key?: string | null;
+            /**
+             * Reason
+             * @description 豁免理由
+             */
+            reason: string;
+        };
+        /**
+         * HelpCoverageExemptionsItem
+         * @description 豁免判定结果。
+         */
+        HelpCoverageExemptionsItem: {
+            /**
+             * Applied
+             * @description 生效豁免
+             */
+            applied?: components["schemas"]["HelpCoverageExemptionItem"][];
+            /**
+             * Expired
+             * @description 过期豁免（仍计缺口）
+             */
+            expired?: components["schemas"]["HelpCoverageExemptionItem"][];
+            /**
+             * Stale
+             * @description 陈旧豁免（基准中不存在）
+             */
+            stale?: components["schemas"]["HelpCoverageExemptionItem"][];
+        };
+        /**
+         * HelpCoverageGroupItem
+         * @description 一个产品 / 模块分组。
+         */
+        HelpCoverageGroupItem: {
+            /** @description 动作覆盖计数 */
+            action: components["schemas"]["HelpCoverageCountsItem"];
+            /** @description 菜单覆盖计数 */
+            menu: components["schemas"]["HelpCoverageCountsItem"];
+            /**
+             * Module Key
+             * @description 模块键（未登记业务码时即业务码）
+             */
+            module_key: string;
+            /**
+             * Product Key
+             * @description 产品键
+             */
+            product_key: string;
+            /** @description 表单 / 字段参考计数 */
+            reference: components["schemas"]["HelpCoverageGroupReferenceItem"];
+        };
+        /**
+         * HelpCoverageGroupReferenceItem
+         * @description 分组内表单 / 字段参考计数。
+         */
+        HelpCoverageGroupReferenceItem: {
+            /**
+             * Field Declared
+             * @description 字段锚点已登记数
+             */
+            field_declared: number;
+            /**
+             * Field Total
+             * @description 字段总数
+             */
+            field_total: number;
+            /**
+             * Form Declared
+             * @description 表单锚点已登记数
+             */
+            form_declared: number;
+            /**
+             * Form Total
+             * @description 表单总数
+             */
+            form_total: number;
+        };
+        /**
+         * HelpCoverageOrphanItem
+         * @description 不在覆盖基准内、但登记了锚点的行。
+         */
+        HelpCoverageOrphanItem: {
+            /**
+             * Help Key
+             * @description 锚点值
+             */
+            help_key: string;
+            /**
+             * Kind
+             * @description 类别（menu / action）
+             */
+            kind: string;
+            /**
+             * Model Id
+             * @description 记录主键
+             */
+            model_id: string;
+            /**
+             * Reason
+             * @description 未进入基准的原因
+             */
+            reason: string;
+            /**
+             * Table
+             * @description 逻辑表名
+             */
+            table: string;
+        };
+        /**
+         * HelpCoverageReconciliationItem
+         * @description 覆盖数与已登记锚点的对账结果。
+         */
+        HelpCoverageReconciliationItem: {
+            /** @description 五类锚点计数 */
+            anchors: components["schemas"]["HelpCoverageAnchorCountsItem"];
+            /**
+             * Consistent
+             * @description 覆盖数 + 孤儿数 = 锚点总数且无重复锚点
+             */
+            consistent: boolean;
+            /** @description 基准内已覆盖的菜单 / 动作计数 */
+            covered: components["schemas"]["HelpCoverageCoveredItem"];
+            /**
+             * Duplicate Help Keys
+             * @description 跨表重复锚点（应为空）
+             */
+            duplicate_help_keys?: string[];
+            /**
+             * Orphans
+             * @description 基准外锚点
+             */
+            orphans?: components["schemas"]["HelpCoverageOrphanItem"][];
+            /** @description 表单 / 字段 / 动作码参考锚点数 */
+            reference_anchor_counts: components["schemas"]["HelpCoverageAnchorCountsItem"];
+        };
+        /**
+         * HelpCoverageReferenceItem
+         * @description 全局参考统计（表单 / 字段 / 动作码兜底）。
+         */
+        HelpCoverageReferenceItem: {
+            /** @description 动作码兜底参考统计 */
+            action_fallback: components["schemas"]["HelpCoverageActionFallbackItem"];
+            /** @description 字段参考统计 */
+            field: components["schemas"]["HelpCoverageCountsItem"];
+            /** @description 表单参考统计 */
+            form: components["schemas"]["HelpCoverageCountsItem"];
+        };
+        /**
+         * HelpCoverageResponse
+         * @description 帮助覆盖率台账响应。
+         */
+        HelpCoverageResponse: {
+            /**
+             * As Of
+             * @description 判定日期（YYYY-MM-DD）
+             */
+            as_of: string;
+            /** @description 基线对比（接口恒为 null） */
+            baseline_diff?: components["schemas"]["HelpCoverageBaselineDiffItem"] | null;
+            /** @description 豁免判定结果 */
+            exemptions: components["schemas"]["HelpCoverageExemptionsItem"];
+            /**
+             * Groups
+             * @description 分产品 / 模块台账
+             */
+            groups?: components["schemas"]["HelpCoverageGroupItem"][];
+            /**
+             * Kind
+             * @description 载荷类型（固定 help-coverage）
+             */
+            kind: string;
+            /** @description 锚点对账 */
+            reconciliation: components["schemas"]["HelpCoverageReconciliationItem"];
+            /**
+             * Schema Version
+             * @description 结构版本
+             */
+            schema_version: number;
+            /** @description 过滤范围 */
+            scope: components["schemas"]["HelpCoverageScopeItem"];
+            /** @description 摘要 */
+            summary: components["schemas"]["HelpCoverageSummaryItem"];
+            /**
+             * Units
+             * @description 明细（默认缺口与豁免）
+             */
+            units?: components["schemas"]["HelpCoverageUnitItem"][];
+            /** @description 阻断判定 */
+            verdict: components["schemas"]["HelpCoverageVerdictItem"];
+        };
+        /**
+         * HelpCoverageScopeItem
+         * @description 本次台账的过滤范围。
+         */
+        HelpCoverageScopeItem: {
+            /**
+             * Include Covered
+             * @description 明细是否包含已覆盖行
+             */
+            include_covered: boolean;
+            /**
+             * Kinds
+             * @description 明细类别过滤
+             */
+            kinds?: string[];
+            /**
+             * Module Keys
+             * @description 模块过滤
+             */
+            module_keys?: string[];
+            /**
+             * Product Keys
+             * @description 产品过滤
+             */
+            product_keys?: string[];
+        };
+        /**
+         * HelpCoverageSummaryItem
+         * @description 台账摘要。
+         */
+        HelpCoverageSummaryItem: {
+            /** @description 动作覆盖计数 */
+            action: components["schemas"]["HelpCoverageCountsItem"];
+            /** @description 菜单覆盖计数 */
+            menu: components["schemas"]["HelpCoverageCountsItem"];
+            /** @description 参考统计 */
+            reference: components["schemas"]["HelpCoverageReferenceItem"];
+        };
+        /**
+         * HelpCoverageUnitItem
+         * @description 一条覆盖明细（缺口 / 豁免 / 已覆盖）。
+         */
+        HelpCoverageUnitItem: {
+            /**
+             * Action Code
+             * @description 动作码（菜单为 null）
+             */
+            action_code?: string | null;
+            /**
+             * Business Code
+             * @description 归属业务码
+             */
+            business_code: string;
+            /**
+             * Covered
+             * @description 是否已声明锚点
+             */
+            covered: boolean;
+            /** @description 命中的有效豁免 */
+            exempt?: components["schemas"]["HelpCoverageExemptionItem"] | null;
+            /**
+             * Fallback Help Key
+             * @description 动作码兜底锚点（参考）
+             */
+            fallback_help_key?: string | null;
+            /**
+             * Help Key
+             * @description 该行锚点（未登记为 null）
+             */
+            help_key?: string | null;
+            /**
+             * Key
+             * @description 动作码（业务码:动作码）或菜单路径
+             */
+            key: string;
+            /**
+             * Kind
+             * @description 类别（action / menu）
+             */
+            kind: string;
+            /**
+             * Menu Paths
+             * @description 关联菜单路径
+             */
+            menu_paths?: string[];
+            /**
+             * Model Id
+             * @description 元数据主键
+             */
+            model_id: string;
+            /**
+             * Module Key
+             * @description 模块键
+             */
+            module_key: string;
+            /**
+             * Multi Business
+             * @description 菜单挂多个业务码
+             * @default false
+             */
+            multi_business: boolean;
+            /**
+             * Product Key
+             * @description 产品键
+             */
+            product_key: string;
+            /**
+             * Status
+             * @description 状态（covered / gap / exempt）
+             */
+            status: string;
+        };
+        /**
+         * HelpCoverageVerdictItem
+         * @description 阻断判定（接口只读展示，不改变服务行为）。
+         */
+        HelpCoverageVerdictItem: {
+            /**
+             * Action Gap
+             * @description 动作豁免后缺口
+             */
+            action_gap: number;
+            /**
+             * Blocked
+             * @description 强档是否阻断
+             */
+            blocked: boolean;
+            /**
+             * Consistent
+             * @description 对账是否一致
+             */
+            consistent: boolean;
+            /**
+             * Menu Gap
+             * @description 菜单豁免后缺口
+             */
+            menu_gap: number;
         };
         /**
          * IconCreateRequest
@@ -17882,6 +18424,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_HelpContextResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    help_coverage_api_v1_help_coverage_get: {
+        parameters: {
+            query?: {
+                /** @description 产品过滤 */
+                product_key?: string | null;
+                /** @description 模块过滤 */
+                module_key?: string | null;
+                /** @description 明细类别过滤（action / menu；不影响摘要与对账） */
+                kind?: string | null;
+                /** @description 明细是否包含已覆盖行 */
+                include_covered?: boolean;
+                /** @description 是否返回表单 / 字段参考统计 */
+                include_reference?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpCoverageResponse_"];
                 };
             };
             /** @description 未认证 */
