@@ -18,6 +18,7 @@ from bms_core.core.concurrent import (
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.optionset.base import BaseOptionSetRegistry
 from bms_core.permission.field import BaseFieldPermissionProvider, FieldPermission
+from bms_platform.domains.form_design.ports import RoleSummaryReader, RoleSummaryView
 from bms_platform.domains.form_design.repositories.metadata import BusinessFormSnapshot, MetadataRepository
 
 __all__ = [
@@ -134,8 +135,9 @@ class FieldPermissionAdapter(BaseFrameworkObject):
         for item in narrowings:
             bucket = merged.get(item.field_key)
             if bucket is None:
-                bucket = ConcurrentStableList()
-                merged.set(item.field_key, bucket)
+                created: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+                merged.set(item.field_key, created)
+                bucket = created
             record: ConcurrentStableDict[str, object] = ConcurrentStableDict(
                 {"visible": item.visible, "editable": item.editable}
             )
@@ -148,14 +150,14 @@ class FieldPermissionAdapter(BaseFrameworkObject):
         return result
 
 
-class RoleQueryAdapter(BaseFrameworkObject):
+class RoleQueryAdapter[SummaryT: RoleSummaryView](BaseFrameworkObject):
     """`RolePort` 适配：委托角色读面（按用户取角色摘要）。"""
 
-    def __init__(self, roles: object) -> None:
+    def __init__(self, roles: RoleSummaryReader[SummaryT]) -> None:
         """初始化。
 
         Args:
-            roles: 角色读面实现（`RoleQueryService`；按鸭子类型注入，避免域间 import）。
+            roles: 角色读面实现（`RoleQueryService`；经 `RoleSummaryReader` 泛型注入，避免域间 import）。
         """
         self._roles = roles
 
@@ -168,7 +170,7 @@ class RoleQueryAdapter(BaseFrameworkObject):
         Returns:
             ConcurrentStableList[tuple[str, int]]: 角色类型与主键（无分配返回空）。
         """
-        summaries = await self._roles.list_by_user(user_id)  # pyright: ignore[reportAttributeAccessIssue]
+        summaries = await self._roles.list_by_user(user_id)
         result: ConcurrentStableList[tuple[str, int]] = ConcurrentStableList()
         for item in summaries:
             result.add((str(item.role_type), int(item.id)))

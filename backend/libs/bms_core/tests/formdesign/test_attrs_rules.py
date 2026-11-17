@@ -1,11 +1,14 @@
 """字段属性归一与规则编译（Kiwi 2526）：必填 / 长度 / 范围 / 正则 / 选项集 + 六类拒收。"""
 
+from typing import cast
+
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import FormAttrInvalidError
 from bms_core.formdesign.attrs import (
     MAX_PATTERN_LENGTH,
+    FieldAttrs,
     compile_rules,
     dump_attrs,
     dump_attrs_config,
@@ -17,7 +20,7 @@ from bms_core.formdesign.attrs import (
 
 pytestmark = pytest.mark.kiwi_id(2526)
 
-_OPTION_VALUES = ConcurrentStableFrozenList(("active", "disabled"))
+_OPTION_VALUES = ConcurrentStableFrozenList[str](("active", "disabled"))
 
 
 def test_normalize_attrs_drops_unknown_and_keeps_rules() -> None:
@@ -146,3 +149,83 @@ def test_dump_attrs_emits_camel_case_keys() -> None:
     assert dumped["defaultValue"] == 1
     assert dumped["optionSetKey"] == "bms.a.b"
     assert dumped["readonly"] is True
+
+
+def test_normalize_attrs_accepts_scalar_and_non_mapping_forms() -> None:
+    """`required` 认字符串 / 数值形态；规则参数认字符串数值；非映射输入回落空属性；`FieldAttrs` 原样返回。"""
+    assert normalize_attrs({"required": "yes"}).required is True
+    assert normalize_attrs({"required": 1}).required is True
+    numeric_raw = cast("dict[str, object]", {"rules": [{"kind": "length", "min": "2", "max": "abc", "pattern": {}}]})
+    numeric = normalize_attrs(numeric_raw)
+    assert numeric.rules[0].min == 2.0
+    assert numeric.rules[0].max is None
+    kept_raw = cast("dict[str, object]", {"rules": [1, {"kind": "length", "max": 3}]})
+    kept = normalize_attrs(kept_raw)
+    assert [rule.kind for rule in kept.rules] == ["length"]
+    original = FieldAttrs(required=True)
+    assert normalize_attrs(original) is original
+    assert normalize_attrs(12345).required is False
+    assert normalize_attrs("not-a-mapping").required is False
+
+
+def test_dump_attrs_emits_rule_message_widget_and_hidden() -> None:
+    """规则自带文案 / 控件覆盖 / 隐藏标记一并下发（前端按需取用）。"""
+    dumped = dump_attrs(
+        normalize_attrs({"rules": [{"kind": "required", "message": "必填"}], "widget": "textarea", "hidden": True})
+    )
+    rules = dumped["rules"]
+    assert isinstance(rules, list)
+    assert rules[0]["message"] == "必填"
+    assert dumped["widget"] == "textarea"
+    assert dumped["hidden"] is True
+
+
+def test_validate_attrs_rejects_pattern_default_and_range_edges() -> None:
+    """正则规则空 pattern / 多选默认值非数组 / 默认值长度不足 / 默认值低于下限 均拒收。"""
+    cases = (
+        ({"rules": [{"kind": "pattern"}]}, "text"),
+        ({"optionSetKey": "bms.x.y", "defaultValue": 5}, "option_multi"),
+        ({"defaultValue": "ab", "rules": [{"kind": "length", "min": 3}]}, "text"),
+        ({"defaultValue": 1, "rules": [{"kind": "range", "min": 5}]}, "number"),
+    )
+    for raw, field_type in cases:
+        with pytest.raises(FormAttrInvalidError):
+            validate_attrs(
+                raw,
+                field_type=field_type,
+                is_option_registered=True,
+                option_values=_OPTION_VALUES,
+            )
+
+
+def test_validate_attrs_accepts_in_domain_defaults() -> None:
+    """默认值在值域内 / 长度下限满足 / 范围上限满足 均放行（只做越界拦截）。"""
+    multi = validate_attrs(
+        {"optionSetKey": "bms.x.y", "defaultValue": ["active"]},
+        field_type="option_multi",
+        is_option_registered=True,
+        option_values=_OPTION_VALUES,
+    )
+    assert multi.default_value == ["active"]
+    long_enough = validate_attrs(
+        {"defaultValue": "abcd", "rules": [{"kind": "length", "min": 2}]},
+        field_type="text",
+        is_option_registered=False,
+        option_values=_OPTION_VALUES,
+    )
+    assert long_enough.default_value == "abcd"
+    in_range = validate_attrs(
+        {"defaultValue": 5, "rules": [{"kind": "range", "min": 1, "max": 9}]},
+        field_type="number",
+        is_option_registered=False,
+        option_values=_OPTION_VALUES,
+    )
+    assert in_range.default_value == 5
+
+
+def test_normalize_attrs_treats_unparsable_rule_bounds_as_none() -> None:
+    """规则上下限为不可解析形态（映射 / 列表）时按未配置处理。"""
+    raw = cast("dict[str, object]", {"rules": [{"kind": "length", "min": {}, "max": []}]})
+    attrs = normalize_attrs(raw)
+    assert attrs.rules[0].min is None
+    assert attrs.rules[0].max is None

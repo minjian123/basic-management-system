@@ -27,6 +27,8 @@
 | `file` | `VARCHAR(255)` | `VARCHAR(255)` | `VARCHAR(255)` | `VARCHAR2(255 CHAR)` |
 """
 
+from typing import Any
+
 from sqlalchemy import DateTime, Numeric, SmallInteger, String, Text
 from sqlalchemy.types import TypeEngine
 
@@ -84,13 +86,13 @@ _LOGICAL_TYPE_NAMES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
 """逻辑类型名（文档登记与错误提示用；不参与 DDL 编译）。"""
 
 
-def _type_factories() -> ConcurrentStableDict[str, TypeEngine[object]]:
+def _type_factories() -> ConcurrentStableDict[str, TypeEngine[Any]]:
     """构造类型实例表（每次新建实例：SQLAlchemy 类型对象不宜跨列共享）。
 
     Returns:
-        ConcurrentStableDict[str, TypeEngine[object]]: 类型标识 → SQLAlchemy 类型实例。
+        ConcurrentStableDict[str, TypeEngine[Any]]: 类型标识 → SQLAlchemy 类型实例。
     """
-    return ConcurrentStableDict[str, TypeEngine[object]](
+    return ConcurrentStableDict[str, TypeEngine[Any]](
         {
             "text": String(255),
             "longtext": Text(),
@@ -116,14 +118,14 @@ def is_ext_field_type(field_type: str) -> bool:
     return field_type in EXT_FIELD_TYPE_KEYS
 
 
-def ext_column_type(field_type: str) -> TypeEngine[object]:
+def ext_column_type(field_type: str) -> TypeEngine[Any]:
     """取自建字段类型的 SQLAlchemy 类型实例（DDL 编译用）。
 
     Args:
         field_type: 字段类型标识。
 
     Returns:
-        TypeEngine[object]: 类型实例（新实例，可安全挂到列上）。
+        TypeEngine[Any]: 类型实例（新实例，可安全挂到列上）。
 
     Raises:
         NotFoundError: 类型不在白名单（10002；调用方应先以 `is_ext_field_type` 判 `40404`）。

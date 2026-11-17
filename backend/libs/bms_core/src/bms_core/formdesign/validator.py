@@ -78,8 +78,15 @@ class ValidationResult(BaseValueObject):
 class BaseFormValidator(BaseProvider, ABC):
     """表单动态校验契约：按表单码读取生效布局 / 属性并校验字段值。"""
 
-    key: str = FORM_VALIDATOR_PLUGIN_KEY
-    """能力键。"""
+    @property
+    def key(self) -> str:
+        """能力键（`BaseProvider` 以只读属性声明，此处实现为常量）。
+
+        Returns:
+            str: 能力键（恒为 `form_validator`）。
+        """
+        return FORM_VALIDATOR_PLUGIN_KEY
+
     plugin_key: str = FORM_VALIDATOR_PLUGIN_KEY
     """插件键（注册表查表用）。"""
     plugin_name: str = NULL_PLUGIN_NAME

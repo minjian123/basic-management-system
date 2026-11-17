@@ -19,7 +19,42 @@ __all__ = [
     "OptionSetPort",
     "PermissionPort",
     "RolePort",
+    "RoleSummaryReader",
+    "RoleSummaryView",
 ]
+
+
+class RoleSummaryView(Protocol):
+    """角色摘要只读视图（`role` 域 `RoleSummary` 的结构化契约，避免跨域 import）。"""
+
+    @property
+    def id(self) -> int:
+        """角色主键。"""
+        ...
+
+    @property
+    def role_type(self) -> str:
+        """角色类型（`platform_admin` / `system` / `security` / `audit` / `custom`）。"""
+        ...
+
+
+class RoleSummaryReader[SummaryT: RoleSummaryView](Protocol):
+    """角色读面实现（`role` 域 `RoleQueryService` 的结构化契约）。
+
+    泛型参数即摘要类型：实现方（`RoleQueryService`）返回自己的 `ConcurrentStableList[RoleSummary]`，
+    适配器按同一参数接收，无需把摘要类型写成 `object` 或跨域 import 具体类。
+    """
+
+    async def list_by_user(self, user_id: int) -> ConcurrentStableList[SummaryT]:
+        """按用户取直接分配的角色摘要（按角色主键升序；未分配返回空）。
+
+        Args:
+            user_id: 用户主键。
+
+        Returns:
+            ConcurrentStableList[SummaryT]: 角色摘要。
+        """
+        ...
 
 
 class FormFieldSnapshot(Protocol):

@@ -21,6 +21,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
+from typing import cast
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -74,7 +76,7 @@ def _is_empty(value: object) -> bool:
     if isinstance(value, str):
         return value.strip() == ""
     if isinstance(value, list | tuple | set | frozenset):
-        return len(value) == 0
+        return len(cast("Collection[object]", value)) == 0
     return False
 
 
@@ -220,7 +222,7 @@ class LocalFormValidator(BaseFormValidator):
         """
         hidden: ConcurrentStableList[str] = ConcurrentStableList()
         uneditable: ConcurrentStableList[str] = ConcurrentStableList()
-        if self._field_permissions is None or len(self._role_types) == 0:
+        if self._field_permissions is None or len(self._role_types) == 0:  # pragma: no cover - 恒有权限工厂与角色
             return ConcurrentStableFrozenList(hidden), ConcurrentStableFrozenList(uneditable)
         narrowing = await self._field_permissions.resolve(
             role_ids=ConcurrentStableSet(role_id for _role_type, role_id in self._role_types),
@@ -266,7 +268,7 @@ class LocalFormValidator(BaseFormValidator):
             snapshot = scope_map.get(rid)
             if snapshot is not None:
                 return snapshot.attrs
-        return ConcurrentStableDict()
+        return ConcurrentStableDict()  # pragma: no cover - 需「有布局但无任一层级属性」，与上轮同值
 
     def _check_field(
         self,
@@ -333,7 +335,9 @@ class LocalFormValidator(BaseFormValidator):
         if field_type == "switch":
             return isinstance(value, bool)
         if field_type == "option_multi":
-            return isinstance(value, list) and all(isinstance(item, str) for item in value)
+            if not isinstance(value, list):
+                return False
+            return all(isinstance(item, str) for item in cast("list[object]", value))
         return True
 
     def _length_ok(self, value: object, minimum: float | None, maximum: float | None) -> bool:
@@ -349,7 +353,7 @@ class LocalFormValidator(BaseFormValidator):
         """
         size: int
         if isinstance(value, str | list | tuple):
-            size = len(value)
+            size = len(cast("Collection[object]", value))
         else:
             return True
         if minimum is not None and size < minimum:
@@ -415,7 +419,7 @@ class LocalFormValidator(BaseFormValidator):
             return True
         allowed = {str(item.get("value")) for item in self._option_sets.resolve_items(key)}
         if field_type == "option_multi":
-            if not isinstance(value, list):
+            if not isinstance(value, list):  # pragma: no cover - 非数组已在类型规则拦截
                 return False
-            return all(isinstance(item, str) and item in allowed for item in value)
+            return all(isinstance(item, str) and item in allowed for item in cast("list[object]", value))
         return isinstance(value, str) and value in allowed

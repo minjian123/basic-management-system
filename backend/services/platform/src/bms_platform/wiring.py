@@ -12,8 +12,8 @@ from typing import cast
 from bms_core.audit.base import AuditCapturer
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
-from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.core.context import get_current_tenant
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.context import get_current_tenant, get_current_user_id
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.help.content import BaseHelpContentResolver
@@ -27,6 +27,7 @@ from bms_core.permission.field import current_field_permission_provider_factory
 from bms_core.permission.resolver import BaseRoleResolver
 from bms_core.registry.forms import FormRegistry
 from bms_core.servicecall.base import BaseServiceClient
+from bms_core.transfer.base import ColumnSpec
 from bms_platform.domains.form_design.repositories.adapters import (
     FieldPermissionAdapter,
     OptionSetAdapter,
@@ -81,9 +82,9 @@ __all__ = [
     "build_help_context_service",
     "build_help_coverage_service",
     "build_local_form_validator",
-    "build_local_form_validator_from_request",
     "build_menu_service",
     "build_permission_service",
+    "current_form_role_types",
     "role_assignment",
     "role_assignment_writer",
     "role_grant",
@@ -331,7 +332,9 @@ async def bind_form_design_resolvers(app: object | None = None) -> None:
     from bms_core.formdesign.import_columns import layout_columns_of, register_layout_column_resolver
     from bms_core.models.platform.form_design import SysFieldExt, SysFormFieldAttr, SysFormLayout
 
-    async def _resolve(*, form_code: str, session: DbSession) -> tuple[object, object]:
+    async def _resolve(
+        *, form_code: str, session: DbSession
+    ) -> tuple[ConcurrentStableFrozenList[str], ConcurrentStableDict[str, ColumnSpec]]:
         """按表单取布局字段序与自建字段列规格（回调实现）。
 
         Args:
@@ -417,54 +420,26 @@ def build_form_design_service(
         outbox=outbox,
         tenant=get_current_tenant(),
     )
-    service.bind_ddl(_build_ddl_executor(tenant_session, lock=lock))
     return service
 
 
-def _build_ddl_executor(session: DbSession, *, lock: BaseDistributedLock) -> object:
-    """构造 DDL 执行器（独立函数便于用例替换）。
+async def current_form_role_types(tenant_uow: UnitOfWork) -> ConcurrentStableList[tuple[str, int]]:
+    r"""取当前用户的直接角色集（`(role_type, role_id)`；供表单动态校验与渲染同源解析）。
+
+    **为什么放装配面**：角色读面属 `role` 域，`form_design` 域实现不得 import 他域，
+    故由装配面构造适配器再取结果，域侧只拿到纯数据。
 
     Args:
-        session: 租户库会话。
-        lock: 分布式锁。
+        tenant_uow: 请求级工作单元（租户库：`sys_user_role`）。
 
     Returns:
-        object: DDL 执行器实例。
+        ConcurrentStableList[tuple[str, int]]: 角色类型与主键（未登录为空）。
     """
-    from bms_platform.domains.form_design.services.ddl import FormDdlExecutor
-
-    return FormDdlExecutor(session, lock=lock, tenant=get_current_tenant())
-
-
-def build_local_form_validator_from_request(request: object) -> LocalFormValidator:
-    r"""插件工厂：按请求构造表单动态校验器（\`form_validator:local\` 登记用）。
-
-    Args:
-        request: 请求对象（取租户 / 平台库工作单元、缓存与选项集注册表）。
-
-    Returns:
-        LocalFormValidator: 校验器实例。
-    """
-    from bms_core.api.deps import (
-        get_option_set_registry as _get_option_sets,
-    )
-    from bms_core.api.deps import (
-        get_platform_uow as _get_platform_uow,
-    )
-    from bms_core.api.deps import (
-        get_uow as _get_tenant_uow,
-    )
-
-    tenant_uow = _get_tenant_uow(request)  # type: ignore[arg-type]
-    platform_uow = _get_platform_uow(request)  # type: ignore[arg-type]
-    registry = getattr(getattr(request, "app", None), "state", None)
-    form_registry = getattr(registry, "form_registry", None)
-    return build_local_form_validator(
-        tenant_uow=tenant_uow,
-        platform_uow=platform_uow,
-        option_set_registry=_get_option_sets(request),  # type: ignore[arg-type]
-        registry=form_registry,
-    )
+    user_id = get_current_user_id()
+    if user_id is None:
+        return ConcurrentStableList()
+    session = cast("DbSession", tenant_uow.session)
+    return await RoleQueryAdapter(RoleQueryService(session)).roles_of_user(user_id)
 
 
 def build_local_form_validator(
@@ -473,6 +448,7 @@ def build_local_form_validator(
     platform_uow: UnitOfWork,
     option_set_registry: BaseOptionSetRegistry,
     registry: FormRegistry | None = None,
+    role_types: ConcurrentStableList[tuple[str, int]] | None = None,
 ) -> LocalFormValidator:
     """构造表单动态校验真实实现（按生效布局 / 属性校验）。
 
@@ -480,6 +456,8 @@ def build_local_form_validator(
         tenant_uow: 请求级工作单元（租户库）。
         platform_uow: 平台库工作单元（只读元数据）。
         option_set_registry: 选项集注册表（值域判定）。
+        registry: 表单标识清单（None 用构建期清单）。
+        role_types: 当前用户角色集（`(role_type, role_id)`；None 表示无角色视图）。
 
     Returns:
         LocalFormValidator: 校验器实例。
@@ -487,7 +465,6 @@ def build_local_form_validator(
     tenant_session = cast("DbSession", tenant_uow.session)
     platform_session = cast("DbSession", platform_uow.session)
     factory = current_field_permission_provider_factory()
-    role_types: ConcurrentStableList[tuple[str, int]] | None = None
     return LocalFormValidator(
         session=tenant_session,
         layouts=FormLayoutRepository(tenant_session),

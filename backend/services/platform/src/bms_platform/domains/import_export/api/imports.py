@@ -1,7 +1,7 @@
 """导入接口：模板 / 执行 / 异步状态 / 错误明细（`/api/v1/imports`）。"""
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, cast
 from urllib.parse import quote
 
 from fastapi import Depends, File, Header, Path, Response, UploadFile
@@ -27,6 +27,7 @@ from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.context import current_tenant, current_user_id
 from bms_core.core.objects import BaseFrameworkObject
+from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_context, current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore
@@ -148,7 +149,7 @@ async def _service(deps: _ImportDeps) -> ImportService:
 async def _rate_limit(deps: _ImportDeps) -> None:
     """用户维度限流（默认 10 次/分钟）。"""
     user_id = current_user_id.get()
-    if user_id is None:  # pragma: no cover（鉴权路由下不可达；防御性分支）
+    if user_id is None:  # pragma: no cover - 鉴权路由下 user_id 恒存在（防御性分支）
         return
     limits = await ImportLimits.load(deps.config)
     key = build_rate_limit_key(dimension="user", target=str(user_id), tenant=current_tenant.get())
@@ -227,7 +228,7 @@ def build_import_router(
             Response: xlsx 文件流。
         """
         await _rate_limit(deps)
-        content, filename = await (await _service(deps)).template(biz, session=deps.uow.session)
+        content, filename = await (await _service(deps)).template(biz, session=cast("DbSession", deps.uow.session))
         return Response(
             content=content,
             media_type=XLSX_CONTENT_TYPE,

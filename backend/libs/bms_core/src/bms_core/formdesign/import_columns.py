@@ -13,8 +13,7 @@ property 无法查库，因此在基座加异步钩子 `columns_for(session)`（
 4. 自建字段只取 `active`（`pending` / `failed` 不进模板，避免导入写不存在的列）。
 """
 
-from collections.abc import Awaitable, Callable
-from typing import Any, cast
+from typing import Any, Protocol
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -22,6 +21,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
+from bms_core.db.session import DbSession
 from bms_core.formdesign.layout import collect_field_keys, is_layout_empty, parse_layout_config
 from bms_core.transfer.base import ColumnSpec
 
@@ -101,12 +101,12 @@ del ConcurrentStableFrozenDict
 
 
 async def layout_columns_of(
-    session: object,
+    session: DbSession,
     *,
     form_code: str,
-    layout_model: object,
-    attr_model: object,
-    ext_model: object,
+    layout_model: type[Any],
+    attr_model: type[Any],
+    ext_model: type[Any],
 ) -> tuple[ConcurrentStableFrozenList[str], ConcurrentStableDict[str, ColumnSpec]]:
     """取某表单的布局字段序与自建字段列规格（基座实现，模型由调用方注入）。
 
@@ -126,10 +126,9 @@ async def layout_columns_of(
     """
     from sqlalchemy import select
 
-    live = cast("Any", session)
     layout_rows = (
         (
-            await live.execute(
+            await session.execute(
                 select(layout_model).where(
                     layout_model.form_code == form_code,
                     layout_model.deleted_at.is_(None),
@@ -152,7 +151,7 @@ async def layout_columns_of(
         return ConcurrentStableFrozenList(()), ConcurrentStableDict()
     ext_rows = (
         (
-            await live.execute(
+            await session.execute(
                 select(ext_model).where(
                     ext_model.form_code == form_code,
                     ext_model.deleted_at.is_(None),
@@ -178,8 +177,26 @@ async def layout_columns_of(
     return collect_field_keys(parse_layout_config(chosen.layout_config)), specs
 
 
-LayoutColumnResolver = Callable[..., Awaitable[tuple[object, object]]]
-r"""布局列解析回调：\`async (form_code: str) -> (字段键序, 自建字段列规格)\`。"""
+class LayoutColumnResolver(Protocol):
+    r"""布局列解析回调：\`async (*, form_code, session) -> (字段键序, 自建字段列规格)\`。"""
+
+    async def __call__(
+        self,
+        *,
+        form_code: str,
+        session: DbSession,
+    ) -> tuple[ConcurrentStableFrozenList[str], ConcurrentStableDict[str, ColumnSpec]]:
+        r"""取某表单的布局字段序与自建字段列规格。
+
+        Args:
+            form_code: 表单标识（业务码）。
+            session: 租户库会话。
+
+        Returns:
+            tuple: （字段键序, 自建字段列规格）。
+        """
+        ...
+
 
 _RESOLVER: ConcurrentStableList[LayoutColumnResolver] = ConcurrentStableList()
 """已登记的解析回调（装配面登记；运行期只读，取首个）。"""

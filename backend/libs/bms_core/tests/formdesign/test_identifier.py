@@ -76,3 +76,9 @@ def test_validate_table_name_rejects(raw: str) -> None:
 def test_validate_table_name_accepts() -> None:
     """合法表名通过并小写归一。"""
     assert validate_table_name("Biz_Demo") == "biz_demo"
+
+
+def test_derive_column_name_collapses_repeated_underscores() -> None:
+    """连续下划线折叠为单个（`a__b` → `ext_a_b`），保证列名稳定可读。"""
+    assert derive_column_name("a__b") == "ext_a_b"
+    assert derive_column_name("a___b") == "ext_a_b"

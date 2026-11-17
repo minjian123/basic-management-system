@@ -9332,7 +9332,7 @@ export interface components {
             form_code: string;
             /**
              * Role Id
-             * @description 角色 ID（role 层级必填；其余层级必须为 0）
+             * @description 角色 ID（role 层级必填；其余层级固定 0）
              * @default 0
              */
             role_id: number;
@@ -10860,7 +10860,7 @@ export interface components {
             };
             /**
              * Role Id
-             * @description 角色 ID（role 层级必填；其余层级必须为 0）
+             * @description 角色 ID（role 层级必填；其余层级固定 0）
              * @default 0
              */
             role_id: number;

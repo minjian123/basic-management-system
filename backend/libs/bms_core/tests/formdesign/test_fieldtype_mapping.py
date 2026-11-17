@@ -5,7 +5,7 @@ from alembic.ddl.base import AddColumn
 from sqlalchemy import Column
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.db import dialects  # noqa: F401 - 注册 dmxa 方言
+from bms_core.db import dialects  # 仅导入副作用：注册 dmxa 方言
 from bms_core.fieldtype.mapping import (
     EXT_FIELD_TYPE_KEYS,
     ext_column_type,
@@ -77,7 +77,9 @@ def _compile(field_type: str, dialect_name: str) -> str:
 
         dialect = postgresql.dialect()
     else:
-        from dmSQLAlchemy.dmpython import DMDialect_dmPython
+        from dmSQLAlchemy.dmpython import (  # pyright: ignore[reportMissingTypeStubs]
+            DMDialect_dmPython,
+        )
 
         dialect = DMDialect_dmPython()
     column = Column(f"ext_{field_type}", ext_column_type(field_type), nullable=True)
@@ -119,3 +121,6 @@ def test_ext_column_type_rejects_unknown() -> None:
 def test_add_column_ddl_carries_only_whitelisted_tokens() -> None:
     """DDL 文本只由白名单标识符 + 方言类型构成（不拼用户输入）。"""
     assert _compile("text", "sqlite") == "ALTER TABLE biz_demo ADD COLUMN ext_text VARCHAR(255)"
+
+
+del dialects

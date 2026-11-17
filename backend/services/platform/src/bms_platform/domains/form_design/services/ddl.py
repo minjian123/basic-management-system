@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 
 from alembic.ddl.base import AddColumn
 from sqlalchemy import Column, inspect, text
+from sqlalchemy.engine import Dialect, Inspector
 from sqlalchemy.types import TypeEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
@@ -122,20 +124,6 @@ class FormDdlExecutor:
                 ) from exc
             return DdlOutcome(column_name=column_name, created=True)
 
-    async def column_exists(self, field: SysFieldExt) -> bool:
-        """探测物理列是否已存在（巡检对账 / 重试用）。
-
-        Args:
-            field: 自建字段行。
-
-        Returns:
-            bool: 存在为 True。
-        """
-        table_name = validate_table_name(field.table_name)
-        column_name = validate_column_name(field.column_name)
-        existing = await self._existing_columns(table_name)
-        return column_name in existing
-
     async def _execute_ddl(self, sql: str) -> None:
         """在**当前会话**上执行 DDL（同一事务上下文中立即可见）。
 
@@ -159,11 +147,11 @@ class FormDdlExecutor:
         """
 
         def _collect(session_or_connection: object) -> ConcurrentStableList[str]:
-            target = session_or_connection
+            target: Any = session_or_connection
             get_bind = getattr(session_or_connection, "get_bind", None)
-            if callable(get_bind):
+            if callable(get_bind):  # pragma: no cover - 同步门面分支（见下）
                 target = get_bind()
-            inspector = inspect(target)
+            inspector = cast("Inspector", inspect(target))
             collected: ConcurrentStableList[str] = ConcurrentStableList()
             with contextlib.suppress(AttributeError):
                 inspector.clear_cache()
@@ -173,17 +161,34 @@ class FormDdlExecutor:
 
         run_sync = getattr(self._session, "run_sync", None)
         if callable(run_sync):
-            return cast("ConcurrentStableList[str]", await run_sync(_collect))
+            return await cast("Awaitable[ConcurrentStableList[str]]", run_sync(_collect))
+        return await self._collect_from_sync_facade(_collect)  # pragma: no cover - 同下（异步会话恒有 run_sync）
+
+    async def _collect_from_sync_facade(  # pragma: no cover - 同步门面（DM8 等同步方言）分支，异步会话下不可达
+        self,
+        collect: Callable[[object], ConcurrentStableList[str]],
+    ) -> ConcurrentStableList[str]:
+        """同步门面分支：无 `run_sync` 时经 `raw.connection()` 在线程里探测列。
+
+        Args:
+            collect: 列收集器（接收会话或连接）。
+
+        Returns:
+            ConcurrentStableList[str]: 现有列名（小写）。
+
+        Raises:
+            FormDdlFailedError: 会话既无 `run_sync` 也无 `raw`（会话契约保证不会发生）。
+        """
         raw = getattr(self._session, "raw", None)
-        if raw is None:  # pragma: no cover - 会话契约保证二者之一
+        if raw is None:
             raise FormDdlFailedError("会话不支持连接探测，无法执行 DDL")
-        return await asyncio.to_thread(lambda: _collect(raw.connection()))
+        return await asyncio.to_thread(lambda: collect(raw.connection()))
 
     def _compile(
         self,
         table_name: str,
         column_name: str,
-        column_type: TypeEngine[object],
+        column_type: TypeEngine[Any],
         comment: str,
     ) -> str:
         """按方言编译 `ALTER TABLE ... ADD COLUMN`（参数化元素，不拼字符串）。
@@ -199,20 +204,20 @@ class FormDdlExecutor:
         """
         dialect = self._dialect()
         column = Column(column_name, column_type, nullable=True, comment=comment)
-        return str(AddColumn(table_name, column).compile(dialect=dialect))  # pyright: ignore[reportArgumentType]
+        return str(AddColumn(table_name, column).compile(dialect=dialect))
 
-    def _dialect(self) -> object:
+    def _dialect(self) -> Dialect:
         """取当前会话绑定的方言（决定 `VARCHAR2` 等方言落点）。
 
         异步会话的 `get_bind()` 返回 `AsyncEngine`（方言在 `sync_engine`），同步门面返回
         `Engine` / `Connection`（方言直接可得）——两处都取，避免方言丢失。
 
         Returns:
-            object: SQLAlchemy 方言实例。
+            Dialect: SQLAlchemy 方言实例。
         """
         bind = self._session.get_bind()
         dialect = getattr(bind, "dialect", None)
-        if dialect is None:
+        if dialect is None:  # pragma: no cover - 引擎缺 `dialect` 时回落到 `sync_engine`（异步引擎自身已代理）
             dialect = getattr(getattr(bind, "sync_engine", None), "dialect", None)
         if dialect is None:  # pragma: no cover - 会话契约保证有方言
             raise FormDdlFailedError("会话未绑定方言，无法编译 DDL")

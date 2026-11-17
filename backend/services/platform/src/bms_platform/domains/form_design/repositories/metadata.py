@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any, Protocol
 
 from sqlalchemy import select
 
@@ -19,12 +19,37 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.registry.forms import FormRecord, FormRegistry
+from bms_platform.domains.form_design.ports import FormFieldSnapshot
 
 __all__ = [
     "BusinessFormSnapshot",
     "FieldSnapshot",
     "MetadataRepository",
+    "PlatformModelCollection",
 ]
+
+
+class PlatformModelCollection(Protocol):
+    r"""平台库三表模型集合（装配面注入的 \`_PlatformMetadataModels\`）。
+
+    域实现不 import 他域模型，模型类由装配面以本协议注入；ORM 模型类的列属性是运行期元数据，
+    类型层面以 \`type[Any]\` 表达（SQLAlchemy 的列表达式无法在静态类型上逐列声明）。
+    """
+
+    @property
+    def business(self) -> type[Any]:
+        """业务码模型（`sys_business`）。"""
+        ...
+
+    @property
+    def form(self) -> type[Any]:
+        """表单模型（`sys_form`）。"""
+        ...
+
+    @property
+    def field(self) -> type[Any]:
+        """字段模型（`sys_field`）。"""
+        ...
 
 
 @dataclass(frozen=True)
@@ -55,8 +80,8 @@ class BusinessFormSnapshot(BaseValueObject):
     """表单状态。"""
     table_name: str | None = None
     """派生物理表名（表单标识清单解析；不可解析为 None）。"""
-    fields: ConcurrentStableList[FieldSnapshot] = field(default_factory=lambda: ConcurrentStableList())
-    """平台字段清单（`sort` 升序）。"""
+    fields: ConcurrentStableList[FormFieldSnapshot] = field(default_factory=lambda: ConcurrentStableList())
+    """平台字段清单（`sort` 升序；契约按 `FormMetadataSnapshot` 声明，构造时填 `FieldSnapshot`）。"""
 
 
 class MetadataRepository:
@@ -72,14 +97,14 @@ class MetadataRepository:
         session: DbSession,
         *,
         registry: FormRegistry | None = None,
-        models: object | None = None,
+        models: PlatformModelCollection,
     ) -> None:
         r"""初始化。
 
         Args:
             session: 平台库会话。
             registry: 表单标识清单（None 用构建期清单，产品注入项由装配面传入）。
-            models: 平台表模型集合（\`business\` / \`form\` / \`field\` 三个属性；装配面注入）。
+            models: 平台表模型集合（\`business\` / \`form\` / \`field\` 三个模型类；装配面注入）。
         """
         self._session = session
         self._registry = registry if registry is not None else FormRegistry()
@@ -94,7 +119,7 @@ class MetadataRepository:
         Returns:
             BusinessFormSnapshot | None: 快照；不可定制返回 None。
         """
-        business_model = cast("Any", self._models).business
+        business_model = self._models.business
         business = (
             (
                 await self._session.execute(
@@ -110,7 +135,7 @@ class MetadataRepository:
         )
         if business is None:
             return None
-        form_model = cast("Any", self._models).form
+        form_model = self._models.form
         form = (
             (
                 await self._session.execute(
@@ -125,7 +150,7 @@ class MetadataRepository:
         )
         if form is None:
             return None
-        field_model = cast("Any", self._models).field
+        field_model = self._models.field
         rows = (
             (
                 await self._session.execute(
@@ -137,7 +162,7 @@ class MetadataRepository:
             .scalars()
             .all()
         )
-        fields: ConcurrentStableList[FieldSnapshot] = ConcurrentStableList(
+        fields: ConcurrentStableList[FormFieldSnapshot] = ConcurrentStableList(
             FieldSnapshot(
                 field_key=row.field_key,
                 name=row.name,
@@ -171,4 +196,4 @@ class MetadataRepository:
         record = records.get(form_code)
         if record is None:
             return None
-        return cast("str", record.table)
+        return record.table

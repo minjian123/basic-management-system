@@ -40,7 +40,11 @@ from bms_platform.domains.form_design.schemas.effective import (
     ValidateFieldError,
 )
 from bms_platform.domains.form_design.services.layout import FormDesignService
-from bms_platform.wiring import build_form_design_service, build_local_form_validator
+from bms_platform.wiring import (
+    build_form_design_service,
+    build_local_form_validator,
+    current_form_role_types,
+)
 
 __all__ = ["effective_router", "validate_router"]
 
@@ -95,7 +99,7 @@ def _service(
 ServiceDep = Annotated[FormDesignService, Depends(_service)]
 
 
-def _validator(
+async def _validator(
     request: Request,
     tenant_uow: Annotated[UnitOfWork, Depends(get_uow)],
     platform_uow: Annotated[UnitOfWork, Depends(get_platform_uow)],
@@ -106,6 +110,8 @@ def _validator(
     **为什么不走插件注册表**：注册表在应用装配期构建（早于任何请求），而校验器需请求级会话；
     直接在依赖里构造既满足「每次请求独立会话」的口径，也避免每次校验再解析一次插件。
 
+    **角色集同源**：校验与渲染走同一套三级解析，角色集在此取当前用户直接角色（未登录为空）。
+
     Args:
         request: 请求对象（取表单标识清单）。
         tenant_uow: 租户库工作单元。
@@ -115,11 +121,13 @@ def _validator(
     Returns:
         BaseFormValidator: 校验器实例。
     """
+    role_types = await current_form_role_types(tenant_uow)
     return build_local_form_validator(
         tenant_uow=tenant_uow,
         platform_uow=platform_uow,
         option_set_registry=option_sets,
         registry=cast("FormRegistry", request.app.state.form_registry),
+        role_types=role_types,
     )
 
 
@@ -142,19 +150,20 @@ async def layout_effective(
     Returns:
         ApiResponse[LayoutEffectiveResponse]: 统一响应，data 为生效布局与字段清单。
     """
-    if form_code == "":
+    if form_code == "":  # pragma: no cover - 路径段非空才会匹配本路由，属防御性断言
         raise ParamError("表单标识不得为空")
     role_types = await service.role_types(get_current_user_id())
     assembled = await service.effect(form_code, level="role", role_types=role_types)
     fields: ConcurrentStableList[EffectiveField] = ConcurrentStableList()
     for item in assembled.fields:
+        raw_sort = item.get("sort")
         fields.add(
             EffectiveField(
                 key=str(item.get("key")),
                 label=str(item.get("label")),
                 type=str(item.get("type")),
                 group=str(item.get("group")),
-                sort=int(item.get("sort") or 0),
+                sort=raw_sort if isinstance(raw_sort, int) else 0,
                 status=str(item.get("status")),
                 disabled=bool(item.get("disabled")),
                 attrs=cast("ConcurrentStableDict[str, object]", item.get("attrs") or ConcurrentStableDict()),

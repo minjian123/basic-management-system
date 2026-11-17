@@ -180,10 +180,10 @@ def _normalize_rules(raw: object) -> ConcurrentStableFrozenList[FieldRule]:
     rules: ConcurrentStableList[FieldRule] = ConcurrentStableList()
     if not isinstance(raw, list):
         return ConcurrentStableFrozenList(())
-    for item in raw:
+    for item in cast("list[object]", raw):
         if not isinstance(item, Mapping):
             continue
-        record = ConcurrentStableDict(cast("Mapping[str, object]", item))
+        record = cast("dict[str, object]", item)
         kind = _as_optional_str(record.get("kind"))
         if kind is None or kind not in FIELD_RULE_KINDS:
             continue
@@ -212,7 +212,7 @@ def normalize_attrs(raw: object) -> FieldAttrs:
         return raw
     if not isinstance(raw, Mapping):
         return FieldAttrs()
-    record = ConcurrentStableDict(raw)
+    record = cast("dict[str, object]", raw)
     rules = _normalize_rules(record.get("rules"))
     required = _as_bool(record.get("required"))
     if not required:
@@ -409,7 +409,7 @@ def validate_attrs(
             else:
                 if not isinstance(default_value, list):
                     raise FormAttrInvalidError("多选默认值须为数组")
-                members = ConcurrentStableList(str(item) for item in default_value)
+                members = ConcurrentStableList(str(item) for item in cast("list[object]", default_value))
                 for item in members:
                     if item not in option_values:
                         raise FormAttrInvalidError(f"默认值不在选项集值域内：{item!r}")

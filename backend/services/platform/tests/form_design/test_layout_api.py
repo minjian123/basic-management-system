@@ -232,7 +232,7 @@ async def test_save_attrs_rejects_invalid(client: AsyncClient, ns: Namespace) ->
             "form_code": code,
             "scope": "tenant",
             "role_id": 0,
-            "fields": [{"field_key": "status", "field_type": "option", "attrs": {}}],
+            "fields": [{"field_key": "status", "field_type": "option", "attrs": {"required": False}}],
         },
     )
     assert missing_option.json()["code"] == 40408

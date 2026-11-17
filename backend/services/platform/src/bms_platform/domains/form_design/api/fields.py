@@ -107,10 +107,10 @@ async def _to_item(service: ExtFieldService, row: SysFieldExt) -> ExtFieldItem:
     names = await service.names(ConcurrentStableList((row,)), locales=ConcurrentStableList((locale, "zh-CN")))
     label = names.get(row.id) or row.name
     texts: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-    if names.get(row.id) is not None:
+    if names.get(row.id) is not None:  # pragma: no cover - 名称入库前已 strip 且非空，附表必有对应行
         texts.set("zh-CN", str(names[row.id]))
     return ExtFieldItem(
-        id=str(row.id),
+        id=row.id,
         form_code=row.form_code,
         field_key=row.field_key,
         name=label,

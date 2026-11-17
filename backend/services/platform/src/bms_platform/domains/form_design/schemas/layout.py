@@ -47,7 +47,7 @@ class LayoutSaveRequest(BaseSchema):
 
     form_code: str = Field(min_length=1, max_length=64, description="表单标识（业务码）")
     scope: str = Field(min_length=1, max_length=16, description="层级（platform / tenant / role）")
-    role_id: SnowflakeIdStr = Field(default="0", description="角色 ID（role 层级必填；其余层级固定 0）")
+    role_id: SnowflakeIdStr = Field(default=0, description="角色 ID（role 层级必填；其余层级固定 0）")
     layout_config: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_DICT,
         description="布局配置（main + query + detail + dictAdvanced）",
@@ -59,7 +59,7 @@ class FieldAttrSaveRequest(BaseSchema):
 
     form_code: str = Field(min_length=1, max_length=64, description="表单标识（业务码）")
     scope: str = Field(min_length=1, max_length=16, description="层级（platform / tenant / role）")
-    role_id: SnowflakeIdStr = Field(default="0", description="角色 ID（role 层级必填；其余层级固定 0）")
+    role_id: SnowflakeIdStr = Field(default=0, description="角色 ID（role 层级必填；其余层级固定 0）")
     fields: Annotated[ConcurrentStableList[FieldAttrItem], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST,
         description="字段属性清单（整份覆盖；空列表表示清空该层属性）",

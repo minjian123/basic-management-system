@@ -13,10 +13,12 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import Any, cast
 
 from sqlalchemy import Table, inspect, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import Base
@@ -27,6 +29,7 @@ __all__ = [
     "ensure_models",
     "list_columns",
     "run_statement",
+    "tenant_session",
 ]
 
 
@@ -111,4 +114,26 @@ async def run_statement(url: str, statement: str) -> None:
         async with engine.begin() as connection:
             await connection.execute(text(statement))
     finally:
+        await engine.dispose()
+
+
+@asynccontextmanager
+async def tenant_session(url: str) -> AsyncGenerator[AsyncSession]:
+    """取一条共享库会话（用例直调域实现时用；用完即关，不清理数据）。
+
+    只提供会话管道，不含任何业务逻辑；隔离仍靠用例命名空间（`form_code` 唯一）。
+
+    Args:
+        url: 数据库连接串（共享测试租户库）。
+
+    Yields:
+        AsyncSession: 会话（调用方负责 commit）。
+    """
+    engine = create_async_engine(url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    session = factory()
+    try:
+        yield session
+    finally:
+        await session.close()
         await engine.dispose()

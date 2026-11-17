@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
-    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
@@ -120,11 +119,11 @@ class AssembledLayout:
         self.permissions = permissions
         self.option_sets = option_sets
 
-    def layout_config(self) -> ConcurrentStableFrozenDict[str, object]:
+    def layout_config(self) -> ConcurrentStableDict[str, object]:
         """取布局配置字典（下发用）。
 
         Returns:
-            ConcurrentStableFrozenDict[str, object]: `layout_config` 结构。
+            ConcurrentStableDict[str, object]: `layout_config` 结构。
         """
         return layout_to_config(self.layout)
 
@@ -148,8 +147,9 @@ def collect_levels(
         slot = (row.scope, row.role_id)
         bucket = attr_index.get(slot)
         if bucket is None:
-            bucket = ConcurrentStableDict()
-            attr_index.set(slot, bucket)
+            created: ConcurrentStableDict[str, FieldAttrs] = ConcurrentStableDict()
+            attr_index.set(slot, created)
+            bucket = created
         bucket.set(row.field_key, parse_attrs_config(row.attrs))
     levels: ConcurrentStableDict[str, ConcurrentStableDict[int, LevelSnapshot]] = ConcurrentStableDict()
     for scope in (SCOPE_PLATFORM, SCOPE_TENANT, SCOPE_ROLE):
@@ -220,7 +220,9 @@ def merge_fields(
         field_attrs = attrs.get(str(item.get("key"))) or FieldAttrs()
         record: ConcurrentStableDict[str, object] = ConcurrentStableDict(item)
         record.set("attrs", dump_attrs(field_attrs))
-        merged.add((int(item.get("sort") or 0), str(item.get("key")), record))
+        raw_sort = item.get("sort")
+        sort_value = raw_sort if isinstance(raw_sort, int) else 0
+        merged.add((sort_value, str(item.get("key")), record))
     for row in ext_fields:
         field_attrs = attrs.get(row.field_key) or FieldAttrs()
         record = ConcurrentStableDict(
@@ -356,16 +358,14 @@ def assemble_layout(
                 chosen = candidate
                 source = SCOPE_ROLE
                 break
-            if role_layout is not None:
-                chosen = LevelSnapshot(
-                    scope=SCOPE_ROLE,
-                    role_id=role_id,
-                    layout=role_layout,
-                    attrs=(candidate.attrs if candidate is not None else ConcurrentStableDict()),
-                )
-                source = SCOPE_ROLE
-                break
-            continue
+            chosen = LevelSnapshot(
+                scope=SCOPE_ROLE,
+                role_id=role_id,
+                layout=role_layout,
+                attrs=(candidate.attrs if candidate is not None else ConcurrentStableDict()),
+            )
+            source = SCOPE_ROLE
+            break
         candidate = scope_map.get(0)
         if candidate is not None and candidate.layout is not None and not is_layout_empty(candidate.layout):
             chosen = candidate

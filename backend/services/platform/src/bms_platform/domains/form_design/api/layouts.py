@@ -9,6 +9,7 @@
 from typing import Annotated, cast
 
 from fastapi import Depends, Query, Request
+from starlette.applications import Starlette
 
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import (
@@ -41,19 +42,16 @@ from bms_platform.domains.form_design.services.layout import FormDesignService
 from bms_platform.wiring import build_form_design_service
 
 
-def _root_app(request: Request) -> object:
+def _root_app(request: Request) -> Starlette:
     r"""取根应用（\`request.app\` 在子路由挂载下可能是内层应用；\`scope["app"]\` 才是根）。
 
     Args:
         request: 请求对象。
 
     Returns:
-        object: 根应用（含 \`state\`）。
+        Starlette: 根应用（含 \`state\`）。
     """
-    scope_app = request.scope.get("app")
-    if scope_app is not None:
-        return scope_app
-    return request.app
+    return cast("Starlette", request.scope.get("app") or request.app)
 
 
 __all__ = ["router"]
@@ -125,10 +123,10 @@ async def list_layouts(service: ServiceDep, form_code: FormCodeQuery) -> ApiResp
     for row in layouts:
         layout_rows.add(
             LayoutLevelRow(
-                id=str(row.id),
+                id=row.id,
                 form_code=row.form_code,
                 scope=row.scope,
-                role_id=str(row.role_id),
+                role_id=row.role_id,
                 layout_config=service.layout_config_of(row),
                 status=row.status,
             )
@@ -137,10 +135,10 @@ async def list_layouts(service: ServiceDep, form_code: FormCodeQuery) -> ApiResp
     for row in attrs:
         attr_rows.add(
             FieldAttrRow(
-                id=str(row.id),
+                id=row.id,
                 form_code=row.form_code,
                 scope=row.scope,
-                role_id=str(row.role_id),
+                role_id=row.role_id,
                 field_key=row.field_key,
                 attrs=service.attrs_of(row),
             )
@@ -187,9 +185,9 @@ async def save_layout(
     )
     return ApiResponse.ok(
         LayoutSaveResult(
-            id=str(row.id),
+            id=row.id,
             scope=row.scope,
-            role_id=str(row.role_id),
+            role_id=row.role_id,
             applied=True,
             warnings=ConcurrentStableList(),
         )
@@ -224,9 +222,9 @@ async def delete_layout(request: Request, service: ServiceDep, layout_id: str) -
     row, removed = deleted
     return ApiResponse.ok(
         LayoutSaveResult(
-            id=str(row.id),
+            id=row.id,
             scope=row.scope,
-            role_id=str(row.role_id),
+            role_id=row.role_id,
             applied=removed,
             warnings=ConcurrentStableList(),
         )
@@ -262,12 +260,12 @@ async def save_attrs(
         require_platform_admin=payload.scope == "platform",
         user_id=get_current_user_id(),
     )
-    first_id = str(rows[0].id) if len(rows) > 0 else "0"
+    first_id = rows[0].id if len(rows) > 0 else 0
     return ApiResponse.ok(
         LayoutSaveResult(
             id=first_id,
             scope=payload.scope,
-            role_id=str(payload.role_id),
+            role_id=payload.role_id,
             applied=True,
             warnings=ConcurrentStableList(),
         )
@@ -302,9 +300,9 @@ async def delete_attrs(request: Request, service: ServiceDep, attr_id: str) -> A
     row, removed = deleted
     return ApiResponse.ok(
         LayoutSaveResult(
-            id=str(row.id),
+            id=row.id,
             scope=row.scope,
-            role_id=str(row.role_id),
+            role_id=row.role_id,
             applied=removed,
             warnings=ConcurrentStableList(),
         )

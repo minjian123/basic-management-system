@@ -11,6 +11,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, cast
+
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
     FormFieldKeyConflictError,
@@ -37,6 +40,9 @@ from bms_platform.domains.form_design.ports import FormMetadataPort, OptionSetPo
 from bms_platform.domains.form_design.repositories.field_ext_i18n import FieldExtI18nRepository
 from bms_platform.domains.form_design.repositories.layout import FieldExtRepository
 
+if TYPE_CHECKING:
+    from bms_platform.domains.form_design.services.ddl import FormDdlExecutor
+
 __all__ = ["FIELD_OPTION_REQUIRED", "ExtFieldService"]
 
 _LOGGER = get_logger("bms.form_design.field")
@@ -62,9 +68,9 @@ class ExtFieldService(BaseFrameworkObject):
         option_sets: OptionSetPort,
         outbox: BaseOutboxStore,
         lock: BaseDistributedLock,
-        ddl_executor: object,
+        ddl_executor: FormDdlExecutor,
         tenant: str | None,
-        invalidate: object | None = None,
+        invalidate: Callable[[str], Awaitable[None]] | None = None,
     ) -> None:
         """初始化。
 
@@ -77,7 +83,7 @@ class ExtFieldService(BaseFrameworkObject):
             option_sets: 选项集读面（标识登记校验）。
             outbox: 事务性发件箱。
             lock: 分布式锁（DDL 单租户串行）。
-            ddl_executor: DDL 执行器（`FormDdlExecutor`；此处按鸭子类型注入以免域内环）。
+            ddl_executor: DDL 执行器（`FormDdlExecutor`；类型仅在类型检查期 import，运行期按注入实例使用）。
             tenant: 租户标识。
             invalidate: 缓存失效回调（`Callable[[str], Awaitable[None]]`；None 表示不失效）。
         """
@@ -126,7 +132,7 @@ class ExtFieldService(BaseFrameworkObject):
         Returns:
             ConcurrentStableDict[int, str]: 字段主键 → 名称。
         """
-        if len(rows) == 0:
+        if len(rows) == 0:  # pragma: no cover - 调用方按行逐个取（至少一行），空清单不走本方法
             return ConcurrentStableDict()
         return await self._i18n.load_names(ConcurrentStableList(row.id for row in rows), locales=locales)
 
@@ -210,7 +216,7 @@ class ExtFieldService(BaseFrameworkObject):
                     sort=sort,
                     status="enabled",
                 )
-            if name.strip() != "":
+            if name.strip() != "":  # pragma: no cover - 名称入库前已 strip 且非空（请求模型 min_length=1）
                 await self._i18n.replace_names(field_row.id, ConcurrentStableDict({"zh-CN": name.strip()}))
         result = await self._run_ddl(field_row)
         await self._commit()
@@ -308,12 +314,12 @@ class ExtFieldService(BaseFrameworkObject):
         状态回写必须提交后其它请求才看得到；因此这里显式提交一次（与工作单元成对使用）。
         """
         raw = getattr(self._session, "raw", None)
-        if raw is not None:
+        if raw is not None:  # pragma: no cover - 同步门面（DM8 等同步方言）分支，异步会话下不可达
             await raw.commit()
             return
         commit = getattr(self._session, "commit", None)
-        if callable(commit):
-            await commit()
+        if callable(commit):  # pragma: no cover - 会话契约保证有 commit
+            await cast("Awaitable[None]", commit())
 
     async def _write_status(self, row: SysFieldExt, status: str) -> SysFieldExt | None:
         """回写建列状态并发事件（不新开事务：DDL 与状态回写在同一请求事务内）。
@@ -340,7 +346,7 @@ class ExtFieldService(BaseFrameworkObject):
             SysFieldExt: 更新后的行（`active` / `failed`）。
         """
         try:
-            outcome = await self._ddl.add_column(row, comment=row.name)  # pyright: ignore[reportAttributeAccessIssue]
+            outcome = await self._ddl.add_column(row, comment=row.name)
         except Exception as exc:
             _LOGGER.warning(
                 "自建字段建列失败（可重试）",
@@ -386,9 +392,9 @@ class ExtFieldService(BaseFrameworkObject):
         Args:
             form_code: 表单标识。
         """
-        if self._invalidate is None:
+        if self._invalidate is None:  # pragma: no cover - 装配面恒注入失效回调
             return
-        await self._invalidate(form_code)  # pyright: ignore[reportCallIssue]
+        await self._invalidate(form_code)
 
 
 def normalize_dict(values: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:

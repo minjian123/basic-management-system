@@ -111,13 +111,16 @@ class FormLayoutRepository(BaseDbRepository[SysFormLayout]):
         Returns:
             bool: 删到为 True。
         """
-        statement = sa_delete(SysFormLayout).where(
+        conditions = (
             SysFormLayout.form_code == form_code,
             SysFormLayout.scope == scope,
             SysFormLayout.role_id == role_id,
         )
-        result = await self._session.execute(statement)
-        return bool(result.rowcount)
+        rows = (await self._session.execute(self._select().where(*conditions))).scalars().all()
+        if len(rows) == 0:
+            return False
+        await self._session.execute(sa_delete(SysFormLayout).where(*conditions))
+        return True
 
 
 class FieldAttrRepository(BaseDbRepository[SysFormFieldAttr]):
@@ -138,25 +141,6 @@ class FieldAttrRepository(BaseDbRepository[SysFormFieldAttr]):
             self._select()
             .where(self._column("form_code") == form_code)
             .order_by(self._column("scope").asc(), self._column("role_id").asc(), self._column("field_key").asc())
-        )
-        rows = (await self._session.execute(statement)).scalars().all()
-        return ConcurrentStableList(rows)
-
-    async def list_by_level(self, form_code: str, scope: str, role_id: int) -> ConcurrentStableList[SysFormFieldAttr]:
-        """取指定层级的属性行（未删行）。
-
-        Args:
-            form_code: 表单标识。
-            scope: 层级。
-            role_id: 角色 ID。
-
-        Returns:
-            ConcurrentStableList[SysFormFieldAttr]: 属性行。
-        """
-        statement = self._select().where(
-            self._column("form_code") == form_code,
-            self._column("scope") == scope,
-            self._column("role_id") == role_id,
         )
         rows = (await self._session.execute(statement)).scalars().all()
         return ConcurrentStableList(rows)
@@ -210,13 +194,16 @@ class FieldAttrRepository(BaseDbRepository[SysFormFieldAttr]):
         Returns:
             bool: 删到为 True。
         """
-        statement = sa_delete(SysFormFieldAttr).where(
+        conditions = (
             SysFormFieldAttr.form_code == form_code,
             SysFormFieldAttr.scope == scope,
             SysFormFieldAttr.role_id == role_id,
         )
-        result = await self._session.execute(statement)
-        return bool(result.rowcount)
+        rows = (await self._session.execute(self._select().where(*conditions))).scalars().all()
+        if len(rows) == 0:
+            return False
+        await self._session.execute(sa_delete(SysFormFieldAttr).where(*conditions))
+        return True
 
 
 class FieldExtRepository(BaseDbRepository[SysFieldExt]):
@@ -254,22 +241,6 @@ class FieldExtRepository(BaseDbRepository[SysFieldExt]):
         statement = self._select().where(
             self._column("form_code") == form_code,
             self._column("field_key") == field_key,
-        )
-        return (await self._session.execute(statement)).scalars().first()
-
-    async def get_by_column(self, form_code: str, column_name: str) -> SysFieldExt | None:
-        """按物理列名取自建字段（未删行；列冲突判定用）。
-
-        Args:
-            form_code: 表单标识。
-            column_name: 物理列名。
-
-        Returns:
-            SysFieldExt | None: 自建字段行；不存在返回 None。
-        """
-        statement = self._select().where(
-            self._column("form_code") == form_code,
-            self._column("column_name") == column_name,
         )
         return (await self._session.execute(statement)).scalars().first()
 
