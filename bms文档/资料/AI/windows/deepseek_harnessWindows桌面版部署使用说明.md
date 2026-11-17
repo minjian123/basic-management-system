@@ -1,6 +1,6 @@
 # deepseek_harness Windows 桌面版部署使用说明
 
-> mjpc（Windows 11 侧）· DeepSeek Harness 桌面版 `0.2.2-rc.3`（Electron 44.7.0）· 插件市场与 Our Free Model 的安装与更新
+> mjpc（Windows 11 侧）· DeepSeek Harness 桌面版 `0.2.2-rc.3`（Electron 44.7.0）· 插件市场、Our Free Model 与 dsh-purge 的安装与更新
 
 [文档首页](../../../文档首页.md) › 资料 › [AI](../) › [windows](./) › deepseek_harness Windows 桌面版部署使用说明
 
@@ -18,7 +18,7 @@ mjpc 是同机双系统：Ubuntu 侧跑的是**源码版** dsh（`node apps/cli/
 | 安装方式 | 安装包（`DeepSeek Harness.exe`） | `git clone` + `pnpm install` + `pnpm run build` |
 | profile 目录 | `~/.dsh/profiles/desktop/` | `~/.dsh/profiles/web/` |
 | 插件管理 | 应用内 in-process 插件管理器（设置 → 插件） | `dsh plugin --profile web add <pkg>`（转发 pnpm） |
-| 命令行 | **不提供** `dsh` 命令 | `node apps/cli/lib/bin.js` |
+| 命令行 | **有，但未进 PATH**：`resources\runtime\cli\bin\dsh.cmd`，须带 `--profile desktop` | `node apps/cli/lib/bin.js` |
 | 访问地址 | 应用自动起 Web 服务（随机端口，仅 `127.0.0.1`） | `http://127.0.0.1:3080` |
 
 > 本文档的取值（安装路径、端口、进程号）均取自 mjpc Windows 侧实测；机器通用信息见《[本地资源](../../../用户文档/本地资源.md)》。
@@ -35,17 +35,17 @@ C:\Users\<用户>\AppData\Local\Programs\DeepSeek Harness\
 ├── version                       # Electron 版本（本机 44.7.0）
 ├── Uninstall DeepSeek Harness.exe
 └── resources\
-    ├── app.asar                  # 应用主体（约 174 MB）
+    ├── app.asar                  # 应用主体（约 199 MB；dsh-purge 应用宿主补丁后解包为 app\，原档改名 app.asar.bak）
     ├── app.asar.unpacked\        # 原生模块（node-pty / sherpa-onnx / libreoffice-kit 等）
     ├── runtime\                  # 内置运行时
     │   ├── versions.json         # node 24.21.0 / pnpm 11.28.5
     │   ├── bin\                  # 内置 node
-    │   ├── cli\                  # dsh 命令包装（未加入 PATH）
+    │   ├── cli\bin\dsh.cmd       # dsh 命令包装（未加入 PATH，见 2.2）
     │   └── primary-runtime\      # node / pnpm / python 三套依赖
     └── app-update.yml            # 自动更新源（nightly 通道）
 ```
 
-应用整体约 **1.0 GB**（含内置 node、pnpm、Python 及其库）。版本信息有两层，不要混：
+应用整体约 **1.0 GB**（含内置 node、pnpm、Python 及其库；打 dsh-purge 宿主补丁后约 2.4 GB，见 4.5.4）。版本信息有两层，不要混：
 
 | 项 | 取值 | 来源 |
 | --- | --- | --- |
@@ -55,10 +55,12 @@ C:\Users\<用户>\AppData\Local\Programs\DeepSeek Harness\
 
 ### 2.2 与源码版的关键差异 <a id="install-diff"></a>
 
-- **不提供 `dsh` 命令行**：`resources\cli\` 下有命令包装，但**未加入 PATH**，`~\.dsh\bin\` 也不存在。因此源码版文档里的
-  `dsh plugin ...` 在 Windows 侧**无法直接执行**，这是排障时最容易走错的一步。
+- **`dsh` 命令有，但未加入 PATH**：命令包装在 `resources\runtime\cli\bin\dsh.cmd`（调用 Electron 的 `--expose-internals` 跑
+  `dsh-desktop-host` 的 CLI），`~\.dsh\bin\` 不存在。因此在 PowerShell 里要用**全路径**调用，并显式带 `--profile desktop`：
+  `& "<安装目录>\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop list`（实测可用）。源码版文档里的 `dsh xxx`
+  把 `dsh` 换成该全路径即可，不需要另建 shim。
 - **profile 固定为 `desktop`**：环境变量 `DSH_PROFILE=desktop`，profile 目录 `C:\Users\<用户>\.dsh\profiles\desktop\`。
-  桌面端独占该 profile（`dsh` CLI 对 `--profile desktop` 有硬性拒绝，仅安装器自身可管理）。
+  桌面端**独占**该 profile——运行中的桌面进程持有它，装/改插件前必须完全退出 DSH（5.2）；CLI 本身不会拒绝 `--profile desktop`。
 - **Web 服务由应用托管**：主进程派生一个 `dsh-desktop-host` 子进程跑 Web 服务，端口**随机**（本机实测 `127.0.0.1:60910`），
   仅监听 `127.0.0.1`。浏览器访问由应用内的 WebView 承载，一般不单独开浏览器。
 
@@ -85,6 +87,9 @@ C:\Users\<用户>\.dsh\                # DSH_HOME（DSH 自身数据）
 ├── .credentials.yaml              # API Key（write-only）
 ├── sessions\ / storages\          # 会话与存储
 ├── logs\                          # 启动诊断（startup-*.log）
+├── prompt-inject.md               # dsh-purge 注入文件（每步重贴，见 4.5）
+├── dsh-purge\                     # dsh-purge 状态（applied.json / installed-rev 等）
+├── dsh-purge-community\backups\   # dsh-purge 写宿主前的快照
 ├── dsh-market\                    # 插件市场的构建标识
 └── our-free-model\                # Our Free Model 数据（设置、目录缓存、备份）
 ```
@@ -278,6 +283,137 @@ flowchart LR
 | `updateNotifiedFor` | 已提示过的新版本（不代表已安装） |
 | `catalogSyncedAt` | 模型清单上次同步时间（与插件版本无关） |
 
+### 4.5 dsh-purge Community（宿主补丁） <a id="plugins-purge"></a>
+
+社区插件，在官方宿主上关闭沙箱与审批拦截、剥离官方身份提示词，并把 `~\.dsh\prompt-inject.md` 作为每一步 system prompt 的
+section 重新贴上。**它不是纯插件**：真正起作用的部分写在解包后的宿主 `resources\app` 里（`@deepseek-ai` 各包的提示词、沙箱与
+审批代码），装完必须再做一次「应用」，而「应用」会把 `app.asar` 解包成目录并改写 `dsh.cmd` 包装。
+
+| 项 | 值 |
+| --- | --- |
+| 包名 / 版本 | `dsh-purge-community`，1.7.18 |
+| 仓库 | <https://github.com/kingcharleslzy-ai/dsh-purge>（MIT；发行页附 `SHA256SUMS.txt`） |
+| 安装入口 | 官方 CLI：`dsh plugin --profile desktop add <发行 TGZ>` |
+| 依赖记法 | `dependencies` 记发行 TGZ 的 https URL；`dsh.profile.bundles` 末尾追加 `dsh-purge-community` |
+| 插件落位 | `profiles\desktop\node_modules\dsh-purge-community\`：`bin/community.js` 命令入口、`lib/reapply-cli.js` 解包换包入口 |
+| 宿主落位 | `resources\app\`（解包后的宿主）；原 `app.asar` 改名 `app.asar.bak`，另留 `app.dshpurge-prev*\` 快照目录 |
+| 注入文件 | `~\.dsh\prompt-inject.md`（实测 25128 字节；面板或 `dsh-purge --edit` 可改） |
+| 状态 | `~\.dsh\dsh-purge\`：`applied.json`、`installed-rev`、`unpacked-asar.json`、`override-state.json` |
+| 快照 | `~\.dsh\dsh-purge-community\backups\<时间戳>-<哈希>\`，每次写宿主前一份（实测 1.8 MB / 343 个文件） |
+
+#### 4.5.1 安装（先完全退出 DSH）
+
+```powershell
+$dsh = "C:\Users\$env:USERNAME\AppData\Local\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd"
+$tgz = "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.7.18/dsh-purge-community-1.7.18.tgz"
+
+& $dsh plugin --profile desktop add $tgz
+& $dsh plugin --profile desktop list     # 核对：dsh-purge-community@1.7.18
+```
+
+- **必须用发行 TGZ 的固定版本 URL**，不要写成 `add dsh-purge-community`（npm 上没有该包），也不要用 `npx` 另拉一套宿主。
+- 装前先完全退出 DSH（5.1），装完**不要**立刻重开，先做 4.5.2 的应用。
+- 发行页的 `SHA256SUMS.txt` 可核对下载包（本机实测 `7a1f102e…f43b084`，与官方一致）。
+- 装完面板会多出「Purge」分区（状态 / 应用 / 维护 / 本机备份），左侧栏也有整页入口。
+
+#### 4.5.2 应用宿主补丁（两阶段，容易漏第二步）
+
+```mermaid
+flowchart TD
+  A["完全退出 DSH"] --> B["面板点「应用」"]
+  A --> C["或命令行跑<br/>lib/reapply-cli.js"]
+  B --> D["app.asar 解包为 resources/app<br/>原档改名 app.asar.bak"]
+  C --> D
+  D --> E["写入宿主补丁<br/>默认跳过前端包 client.js"]
+  E --> F["自检 state=pending<br/>回退层 #56 / #77 未落盘"]
+  F --> G["再跑 purge-community apply<br/>（preserveClientBundles=false）"]
+  G --> H["自检 state=ok"]
+```
+
+第一阶段解包并写入绝大多数补丁，但 `reapply` 默认 `preserveClientBundles=true`，会**跳过**前端包
+`dsh-client-ui-conversation\lib\client.js`（避免运行时改 mtime）；因此首轮自检会在「回退不残留」层留下 #56
+`REWIND_HIDE_CUT_ONLY`、#77 `REWIND_DROP_SENT_ON_APPEND` 两条 pending。补齐用官方 CLI 的 `apply`：
+
+```powershell
+$exe = "C:\Users\$env:USERNAME\AppData\Local\Programs\DeepSeek Harness\DeepSeek Harness.exe"
+$cli = "C:\Users\$env:USERNAME\.dsh\profiles\desktop\node_modules\dsh-purge-community\bin\community.js"
+
+$env:ELECTRON_RUN_AS_NODE = '1'
+& $exe $cli apply            # 第二遍：把 #56 / #77 / #96 等前端补丁写进 client.js
+& $exe $cli selfcheck --json
+```
+
+- `apply` 在宿主**仍是密封 `app.asar`** 时会被直接拒绝（提示「官方宿主在 app.asar 里，点「应用」会解开…」），所以顺序
+  必须是**先解包、再 apply**。
+- 命令行走桌面版自带的 Electron 运行时（`ELECTRON_RUN_AS_NODE=1`），不需要另装 node。
+- 单独跑 `lib/reapply-cli.js` 时，实例定位会落到少一层 `dsh` 的 `resources\app\node_modules\@deepseek-ai`（空目录），
+  需显式设 `$env:DSH_BASE = "<安装目录>\resources\app\dsh\node_modules\@deepseek-ai"`；面板入口没有这个问题。
+- 应用完**再完全退出并重开 DSH**，宿主与前端包才以新代码装载（5.2）。
+
+#### 4.5.3 自检口径（实测值）
+
+`purge-community selfcheck --json` 把补丁折成 22 个宿主层 + 运行时注入 / profile 权限 / 磁盘布局 3 项。本机合格状态：
+
+| 字段 | 实测值 | 说明 |
+| --- | --- | --- |
+| `state` / `needsApply` | `ok` / `false` | 各层全部通过，没有待应用项 |
+| `level` / `qualified` | `qualified` / `true` | 宿主 `0.2.2-rc.3` 逐条锚点回归验证 |
+| `patch.applied` | `76 / 77` | 计入统计的补丁（`all` 为 88） |
+| `patch.na` | 7 | 目标预设 / hooks 插件未安装（#28、#30、#31、#64、#65、#71、#76） |
+| `patch.skipped` | 3 | #35 自标记型、#80 预设未装、#54 本版锚点漂移（optional，非阻断） |
+| `patch.disabled` | 2 | 可选开关补丁 #18 / #19 默认关闭（重复调用提醒、工具结果修剪） |
+| `patch.not_applicable` | 11 | 上述不适用项合计 |
+| 运行时注入 | 25128 字节 | `~\.dsh\prompt-inject.md` 作为 dsh-purge section 每步重贴 |
+
+> 若 `state` 变成 `pending` 且只差 #56 / #77，就是 4.5.2 的第二阶段没跑；若变成 `broken`，先跑
+> `purge-community diagnose` 看锚点漂移，再用 `reanchor` 钉本地覆盖，不要直接改宿主文件。
+
+#### 4.5.4 磁盘占用
+
+解包后 `resources\` 会同时留下多份内容，占用显著变大（实测安装目录从约 1.0 GB 涨到 **2.4 GB**）：
+
+```text
+resources\
+├── app\                      # 451 MB / 21785 个文件 —— 正在使用的解包宿主
+├── app.asar.bak              # 199 MB —— 原始归档（整档回滚用，勿删）
+├── app.dshpurge-prev\        # 448 MB —— 上一份解包快照
+├── app.dshpurge-prev-<uuid>\ # 448 MB —— 更早一份解包快照
+└── app.asar.unpacked\        # 原生模块，未变
+```
+
+`app.dshpurge-prev*\` 快照可手动清理（保留最近一份即可），但删掉 `app.asar.bak` 就失去「还原成官方密封宿主」的能力。
+
+#### 4.5.5 回滚
+
+按影响面从小到大：
+
+| 目标 | 命令 / 入口 | 结果 |
+| --- | --- | --- |
+| 只撤宿主补丁，保留插件 | `purge-community revert` | 宿主文件与 `dsh.cmd` 回到打补丁前，插件仍在 |
+| 撤掉插件本身 | `purge-community uninstall` | 先还原宿主，再从 `bundles` 摘除并删插件目录 |
+| 回到某次写宿主前的插件快照 | `purge-community rollback <备份ID>`，或面板「Purge → 状态 → 本机备份」 | 用 `~\.dsh\dsh-purge-community\backups\` 里对应目录覆盖插件文件 |
+| 整档回到官方形态 | 下方手工步骤 | 恢复密封 `app.asar`，DSH 按官方方式启动 |
+
+手工整档回退（**破坏性，先完全退出 DSH**）：
+
+```powershell
+$res = "C:\Users\$env:USERNAME\AppData\Local\Programs\DeepSeek Harness\resources"
+Remove-Item -Recurse -Force "$res\app"                       # 删解包宿主
+Move-Item "$res\app.asar.bak" "$res\app.asar"                # 原始归档复位
+Copy-Item "$res\runtime\cli\bin\dsh.cmd.dsh-purge.bak" "$res\runtime\cli\bin\dsh.cmd" -Force
+```
+
+> `dsh.cmd` 被 dsh-purge 改过（加了「`app.asar` 不存在时回落到 `app\`」的分支），旁边留有 `.dsh-purge.bak` 原件。
+> 只回退宿主不还原 `dsh.cmd` 也能启动，但包装脚本会指向已不存在的 `app`。
+
+#### 4.5.6 日常注意
+
+- **DSH 每次官方升级都会换掉宿主**，补丁随之失效——升级后要重跑一次「应用」。`app-update.yml` 走 nightly 通道，
+  升级频繁，别指望补丁长期有效。
+- 面板「应用」会**自动重启 DSH**；命令行 `apply` 不会，需自己重开。
+- 装了 dsh-purge 后宿主代码与官方发行版**不再逐字节一致**（`client.js`、提示词、沙箱与审批相关包均带 `[dsh-purge]` 标记）。
+  排查登录、审批、沙箱类异常时先 `revert` 再复现，不要在打过补丁的宿主上判断官方 bug。
+
 ## 5. 启动、停止与排障 <a id="run"></a>
 
 ### 5.1 进程模型 <a id="run-process"></a>
@@ -308,7 +444,9 @@ flowchart LR
 | --- | --- |
 | 市场里点更新 `dshmarket` 一直失败，报「不能在自己的请求里先卸载自己」 | 自引用死结（4.2.1），改用手工流程（4.3）。 |
 | 市场提示「有 agent 正在运行，拒绝更新」 | 替换插件文件前禁止有会话在跑；等会话结束，或按 4.3 手工更新。 |
-| `dsh` 命令在 Windows 侧找不到 | 桌面版不提供命令行（2.2），用内置 pnpm 直连 profile 目录。 |
+| `dsh` 命令在 Windows 侧找不到 | 命令包装在 `resources\runtime\cli\bin\dsh.cmd`，未加入 PATH（2.2）；用全路径调用，或改用内置 pnpm 直连 profile 目录。 |
+| Purge 提示「官方宿主在 app.asar 里，点「应用」会解开…」 | 宿主仍是密封归档时的正常拒绝；先「应用」解包，再 `apply` 补齐（4.5.2）。 |
+| Purge 自检 `state=pending`，只差 #56 / #77 | `reapply` 默认跳过前端包 `client.js`；补跑一次 `apply`（4.5.2）。 |
 | 手工更新后版本号没变 / 插件没生效 | 未完全退出 DSH（5.2）；或只改了 `package.json` 没重装；或漏改 `dsh.profile.bundles`。 |
 | 装的是刚发布的新版本，pnpm 却回退了旧版 | 24 小时发布新鲜度门槛（4.3.3），加进 `minimumReleaseAgeExclude` 白名单。 |
 | 桌面版启动报 `web boot: N entries did not activate` | 有插件的 client 半身加载失败（本机 2026-10-18 实测：`@linxin666/dsh-remote-web-ui`、`dsh-context`、`dsh-better-sidebar` 三个）。看 `AppData\Roaming\@deepseek-ai\dsh-desktop\logs\crash-*-web-boot.log` 定位具体插件，多为插件版本与当前宿主不兼容，按 4.3 回滚或改版本。 |
@@ -324,4 +462,4 @@ flowchart LR
 - 《[本地资源](../../../用户文档/本地资源.md)》：机器硬件与账号（已 gitignore，不入库）
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档遵循的规范
 
-> 依《文档生成规范》编写 · 桌面版实测基于 DSH 0.2.2-rc.3（Electron 44.7.0；2026-11-13 安装，2026-11-14 复核版本与插件）
+> 依《文档生成规范》编写 · 桌面版实测基于 DSH 0.2.2-rc.3（Electron 44.7.0）；插件实测含插件市场、Our Free Model 与 dsh-purge 1.7.18
