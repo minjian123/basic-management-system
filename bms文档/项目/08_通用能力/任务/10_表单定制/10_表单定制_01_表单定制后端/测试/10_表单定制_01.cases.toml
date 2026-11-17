@@ -22,6 +22,6 @@ text = """
 <p>⑨ <b>导入模板联动</b>：导入列按有效布局派生（布局字段序 + 自建 <code>active</code> 字段追加 + 布局未引用的原列保序在末尾）；无布局配置时等于原列集；<code>BaseImportDefinition.columns_for</code> 默认回退静态列集（既有定义零改动）。</p>
 <p>⑩ <b>缓存与失效</b>：布局 / 字段清单两 key + 版本键 <code>INCR</code>；保存后下一请求读到新值；缓存不可用降级直连库不阻断写。</p>
 <p>⑪ <b>事件</b>：布局 / 属性 / 自建字段变更在写事务内经事务性发件箱发 <code>sys.form.updated</code>，<code>changed_type</code> 取 layout / attr / ext_field。</p>
-<p><b>自动化文件</b>：<code>bms/backend/libs/bms_core/tests/formdesign/{test_layout_resolve,test_attrs_rules,test_identifier,test_fieldtype_mapping,test_validator_local,test_import_columns}.py</code>、<code>bms/backend/libs/bms_core/tests/transfer/test_import_definition_columns.py</code>、<code>bms/backend/services/platform/tests/form_design/{test_layout_api,test_field_ext_api,test_effective_api,test_validate_api,test_user_form_validation,test_import_columns_derived,test_cache_invalidation}.py</code></p>
+<p><b>自动化文件</b>：<code>bms/backend/libs/bms_core/tests/formdesign/{test_layout_resolve,test_attrs_rules,test_identifier,test_fieldtype_mapping,test_validator_local,test_import_columns}.py</code>、<code>bms/backend/libs/bms_core/tests/transfer/test_import_definition_columns.py</code>、<code>bms/backend/services/platform/tests/form_design/{test_layout_api,test_field_ext_api,test_effective_api,test_validate_api,test_runtime_paths}.py</code>、<code>bms/backend/services/platform/tests/users/test_form_design_hooks.py</code>、<code>bms/backend/services/platform/tests/test_package_shape.py</code></p>
 <p><b>kiwi_id 标注</b>：<code>@pytest.mark.kiwi_id(&lt;本用例编号&gt;)</code></p>
 """
