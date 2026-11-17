@@ -75,13 +75,13 @@ afterEach(() => {
 })
 
 describe('AppHeaderBar 补充（07-06_01 补修）', () => {
-  it('待办通知：提示功能开发中', async () => {
+  it('通知：宿主能力未装配时显示占位（不发起请求）', async () => {
     const info = vi.spyOn(ElMessage, 'info').mockImplementation(() => undefined as never)
     const { wrapper } = await mountBar()
 
-    await wrapper.find('[data-test="header-todo"]').trigger('click')
-
-    expect(info).toHaveBeenCalledWith('待办通知：功能开发中，见后续任务')
+    expect(wrapper.find('[data-test="header-notice"]').attributes('data-ready')).toBe('false')
+    expect(wrapper.find('[data-test="placeholder"]').exists()).toBe(true)
+    expect(info).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -127,11 +127,12 @@ describe('AppHeaderBar 补充（07-06_01 补修）', () => {
     wrapper.unmount()
   })
 
-  it('待办角标为 0 时隐藏（无数据源不显示角标）', async () => {
+  it('通知铃铛未就绪不显示角标（无数据源占位）', async () => {
     const { wrapper } = await mountBar()
 
-    expect(wrapper.findComponent({ name: 'ElBadge' }).props('hidden')).toBe(true)
+    expect(wrapper.find('[data-test="notice-badge"]').exists()).toBe(false)
 
     wrapper.unmount()
   })
 })
+

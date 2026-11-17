@@ -13,6 +13,7 @@ import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
 import App from './App.vue'
+import { installAppCapabilities } from './capabilities'
 import { refreshAccessToken } from './api/identity'
 import { ensureProductCatalog, resetProductCatalog } from './api/catalog'
 import { installHttpAdapter } from './api/http'
@@ -42,6 +43,8 @@ applyInitialTheme()
 // → 模块路由作用域 → 路由安装（触发初始导航）→ 应用挂载。
 installPlatformRegistrations()
 installObservability()
+// 宿主能力默认源（字典 / 远程字典 / 上传 / 验证码 / 通知 / 审计）：启动期装配一次，端点随令牌动态取值。
+installAppCapabilities()
 
 const app = createApp(App)
 const pinia = createPinia()

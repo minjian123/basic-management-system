@@ -59,6 +59,16 @@ export function uploadTransportOptions(): SourceEndpointOptions {
   return sourceEndpoint('file')
 }
 
+/** 通知取数适配器选项（`notification`）。 */
+export function notificationOptions(): SourceEndpointOptions {
+  return sourceEndpoint('notification')
+}
+
+/** 审计取数适配器选项（`platform`：数据变更审计与链校验同服务）。 */
+export function auditOptions(): SourceEndpointOptions {
+  return sourceEndpoint('platform')
+}
+
 /** 全文检索引擎选项（`search`）。 */
 export function searchEngineOptions(): SourceEndpointOptions {
   return sourceEndpoint('search')

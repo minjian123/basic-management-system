@@ -1,7 +1,6 @@
 // kiwi_id: 965
 /** 文件上传字段用例（06_07）：契约套件（核心 + 投影）+ 四件 + 工具（HTTP 通路 / 哈希 / 图片处理 / 裁剪）+ 占位契约复用。 */
 
-import { FILE_PART_SIZE } from '@bms/core'
 import {
   createUploadTransportStub,
   describeFileUploadContract,
@@ -341,14 +340,14 @@ describe('上传工具', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     const transport = createHttpUploadTransport({ endpoint: '/api/v1' })
-    await transport.check({ sha256: 'a'.repeat(64), size: 10 })
+    await transport.check({ name: 'a.pdf', sha256: 'a'.repeat(64), size: 10 })
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/v1/files/dedup')
-    await transport.initiate({ name: 'a.pdf', size: 10, mime: 'application/pdf', partSize: FILE_PART_SIZE })
+    await transport.initiate({ name: 'a.pdf', size: 10, mime: 'application/pdf', sha256: 'a'.repeat(64) })
     const initCall = fetchMock.mock.calls[1]
-    expect(String(initCall?.[0])).toContain('/api/v1/files/uploads')
-    expect(String((initCall?.[1] as RequestInit).body)).toContain('"part_size"')
+    expect(String(initCall?.[0])).toContain('/api/v1/files/multipart')
+    expect(String((initCall?.[1] as RequestInit).body)).toContain('"sha256"')
     await transport.listParts({ uploadId: 'u1' })
-    expect(String(fetchMock.mock.calls[2]?.[0])).toContain('/files/uploads/u1/parts')
+    expect(String(fetchMock.mock.calls[2]?.[0])).toContain('/files/multipart/u1')
     await transport.resolveFiles({ ids: ['f1', 'f2'] })
     expect(String(fetchMock.mock.calls[3]?.[0])).toContain('ids=f1%2Cf2')
     await transport.presign({ fileId: 'f1', purpose: 'preview' })
@@ -356,7 +355,7 @@ describe('上传工具', () => {
 
     vi.stubGlobal('fetch', undefined)
     const degraded = createHttpUploadTransport()
-    expect(await degraded.check({ sha256: 'a'.repeat(64), size: 10 })).toBeUndefined()
+    expect(await degraded.check({ name: 'a.pdf', sha256: 'a'.repeat(64), size: 10 })).toBeUndefined()
   })
 
   it('注册表默认键与自定义登记', () => {

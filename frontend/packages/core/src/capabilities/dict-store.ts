@@ -243,6 +243,39 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   }
 
   /**
+   * 带版本重取单类型（无论是否已加载；同类型在途去重；版本一致后端回 `items=null` 零传输）。
+   *
+   * @param dataSourceKey 字典类型码。
+   * @returns 无。
+   */
+  async revalidateType(dataSourceKey: string): Promise<void> {
+    if (dataSourceKey === '' || !this.canRequest() || this._typeLoader === undefined) {
+      return
+    }
+    const inflight = this._pending.get(dataSourceKey)
+    if (inflight !== undefined) {
+      return inflight
+    }
+    const task = this._loadOne(dataSourceKey)
+    this._pending.set(dataSourceKey, task)
+    try {
+      await task
+    } finally {
+      this._pending.delete(dataSourceKey)
+    }
+  }
+
+  /**
+   * 带版本重取多类型（逐类型并发；各自版本比对）。
+   *
+   * @param dataSourceKeys 字典类型码序列。
+   * @returns 无。
+   */
+  async revalidateTypes(dataSourceKeys: readonly string[]): Promise<void> {
+    await Promise.all([...new Set(dataSourceKeys)].map((key) => this.revalidateType(key)))
+  }
+
+  /**
    * 远程搜索（关键字；结果仅作候选，不写类型缓存）。
    *
    * @param dataSourceKey 字典类型码。

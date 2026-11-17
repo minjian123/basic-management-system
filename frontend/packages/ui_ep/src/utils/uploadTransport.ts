@@ -14,10 +14,9 @@ import {
   BaseUploadTransport,
   UploadTransportProvider,
   UploadTransportRegistry,
-  buildDedupQuery,
+  buildDedupBody,
   buildMultipartInit,
   buildResolveQuery,
-  fileExtOf,
   type UploadAbortSignal,
   type UploadCheckQuery,
   type UploadHashQuery,
@@ -79,13 +78,13 @@ class HttpUploadTransport extends BaseUploadTransport {
   }
 
   /**
-   * 秒传判定。
+   * 秒传判定（`POST /files/dedup`；命中回既有对象引用，未命中 `data=null`）。
    *
    * @param query 判定入参。
    * @returns 既有对象引用或 `null`。
    */
   override async check(query: UploadCheckQuery): Promise<unknown> {
-    return this.#request('GET', '/files/dedup', buildDedupQuery(query.sha256, query.size))
+    return this.#request('POST', '/files/dedup', buildDedupBody(query))
   }
 
   /**
@@ -107,28 +106,26 @@ class HttpUploadTransport extends BaseUploadTransport {
   }
 
   /**
-   * 分片初始化（对象键缺省按 `files/{yyyyMMdd}/{uuid}{ext}` 生成）。
+   * 分片初始化（`POST /files/multipart`；对象键由后端按主键派生）。
    *
    * @param query 初始化入参。
    * @returns 会话。
    */
   override async initiate(query: UploadInitQuery): Promise<unknown> {
-    const key = query.key !== undefined && query.key !== '' ? query.key : defaultObjectKey(query.name)
     return this.#request(
       'POST',
-      '/files/uploads',
+      '/files/multipart',
       buildMultipartInit({
-        key,
+        name: query.name,
         size: query.size,
-        ...(query.sha256 === undefined ? {} : { sha256: query.sha256 }),
+        sha256: query.sha256 ?? '',
         ...(query.mime === '' ? {} : { mime: query.mime }),
-        ...(query.partSize === undefined ? {} : { partSize: query.partSize }),
       }),
     )
   }
 
   /**
-   * 分片上传（表单字段 `data`，切片归本实现）。
+   * 分片上传（表单字段 `data`，切片归本实现；头 `X-Part-Sha256` 供服务端复算比对）。
    *
    * @param query 分片入参。
    * @returns 分片结果。
@@ -142,9 +139,10 @@ class HttpUploadTransport extends BaseUploadTransport {
     form.append('data', blob.slice(query.start, query.end), `part-${query.partNo}`)
     return this.#request(
       'PUT',
-      `/files/uploads/${encodeURIComponent(query.uploadId)}/parts/${query.partNo}`,
+      `/files/multipart/${encodeURIComponent(query.uploadId)}/parts/${query.partNo}`,
       form,
       query.signal,
+      query.sha256 === undefined || query.sha256 === '' ? undefined : { 'X-Part-Sha256': query.sha256 },
     )
   }
 
@@ -155,7 +153,7 @@ class HttpUploadTransport extends BaseUploadTransport {
    * @returns 对象元数据。
    */
   override async complete(query: UploadSessionQuery): Promise<unknown> {
-    return this.#request('POST', `/files/uploads/${encodeURIComponent(query.uploadId)}/complete`, {})
+    return this.#request('POST', `/files/multipart/${encodeURIComponent(query.uploadId)}/complete`, {})
   }
 
   /**
@@ -165,17 +163,17 @@ class HttpUploadTransport extends BaseUploadTransport {
    * @returns 无数据体。
    */
   override async abort(query: UploadSessionQuery): Promise<unknown> {
-    return this.#request('DELETE', `/files/uploads/${encodeURIComponent(query.uploadId)}`, {})
+    return this.#request('DELETE', `/files/multipart/${encodeURIComponent(query.uploadId)}`, {})
   }
 
   /**
-   * 已传分片查询（断点续传）。
+   * 已传分片查询（断点续传；`GET /files/multipart/{upload_id}` 回 `uploaded` / `missing`）。
    *
    * @param query 会话入参。
    * @returns 已传分片列表。
    */
   override async listParts(query: UploadSessionQuery): Promise<unknown> {
-    return this.#request('GET', `/files/uploads/${encodeURIComponent(query.uploadId)}/parts`, {})
+    return this.#request('GET', `/files/multipart/${encodeURIComponent(query.uploadId)}`, {})
   }
 
   /**
@@ -208,6 +206,7 @@ class HttpUploadTransport extends BaseUploadTransport {
    * @param path 路径（相对端点前缀）。
    * @param payload 查询参数（GET / DELETE）或请求体（POST / PUT；`FormData` 直传）。
    * @param abortSignal 中断信号（可选）。
+   * @param extraHeaders 单次请求附加头（可选，如 `X-Part-Sha256`）。
    * @returns 数据体（无 `fetch` 能力时降级 `undefined`）。
    */
   async #request(
@@ -215,6 +214,7 @@ class HttpUploadTransport extends BaseUploadTransport {
     path: string,
     payload: Record<string, unknown> | FormData,
     abortSignal?: UploadAbortSignal,
+    extraHeaders?: Record<string, string>,
   ): Promise<unknown> {
     const fetchFn = globalThis.fetch
     if (typeof fetchFn !== 'function') {
@@ -222,9 +222,10 @@ class HttpUploadTransport extends BaseUploadTransport {
     }
     const endpoint = (this.#options.endpoint ?? '/api/v1').replace(/\/+$/, '')
     const headers = typeof this.#options.headers === 'function' ? this.#options.headers() : this.#options.headers
+    const merged = { ...(headers ?? {}), ...(extraHeaders ?? {}) }
     const watch = watchAbort(abortSignal)
     try {
-      const init: RequestInit = { method, headers: { ...(headers ?? {}) }, ...(watch.signal === undefined ? {} : { signal: watch.signal }) }
+      const init: RequestInit = { method, headers: { ...merged }, ...(watch.signal === undefined ? {} : { signal: watch.signal }) }
       let url = `${endpoint}${path}`
       if (payload instanceof FormData) {
         init.body = payload
@@ -238,7 +239,7 @@ class HttpUploadTransport extends BaseUploadTransport {
         }
         url = search.size > 0 ? `${url}?${search.toString()}` : url
       } else {
-        init.headers = { 'Content-Type': 'application/json', ...(headers ?? {}) }
+        init.headers = { 'Content-Type': 'application/json', ...merged }
         init.body = JSON.stringify(payload)
       }
       const response = await fetchFn(url, init)
@@ -264,31 +265,6 @@ export function createHttpUploadTransport(options: UploadTransportOptions = {}):
 
 /** 登记内建 HTTP 通路（默认键，宿主可覆盖）。 */
 registerUploadTransport('http', createHttpUploadTransport)
-
-/**
- * 生成缺省对象键（`files/{yyyyMMdd}/{uuid}{ext}`；租户前缀由实现侧按需拼接）。
- *
- * @param name 文件名。
- * @returns 对象键。
- */
-function defaultObjectKey(name: string): string {
-  const now = new Date()
-  const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
-  const ext = fileExtOf(name)
-  return `files/${date}/${randomId()}${ext === '' ? '' : `.${ext}`}`
-}
-
-/**
- * 随机标识（`crypto.randomUUID` 优先，能力缺失回退时间戳 + 随机数）。
- *
- * @returns 随机标识。
- */
-function randomId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID()
-  }
-  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
-}
 
 /**
  * 桥接中断信号（结构信号 → `AbortSignal`；轮询检测中断）。

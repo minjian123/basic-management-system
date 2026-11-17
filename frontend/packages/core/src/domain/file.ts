@@ -250,26 +250,28 @@ export interface FileHashResult {
   partHashes: readonly string[]
 }
 
-/** 秒传判定入参。 */
-export interface DedupQuery {
+/** 秒传判定入参（`POST /files/dedup` 请求体；`name` / `size` / `sha256` 必填）。 */
+export interface DedupBodyInput {
+  /** 原始文件名（含扩展名）。 */
+  name: string
+  /** 文件字节数。 */
+  size: number
   /** 整文件 SHA-256。 */
   sha256: string
-  /** 文件字节数。 */
-  size: number
+  /** 内容类型（可选，后端仅作预检）。 */
+  mime?: string
 }
 
-/** 分片初始化入参（线参数构造用）。 */
+/** 分片初始化入参（`POST /files/multipart` 请求体）。 */
 export interface MultipartInitInput {
-  /** 目标对象键（缺省由通路实现生成）。 */
-  key?: string
+  /** 原始文件名（含扩展名）。 */
+  name: string
   /** 文件字节数。 */
   size: number
-  /** 整文件 SHA-256（可选）。 */
-  sha256?: string
-  /** 内容类型（可选）。 */
+  /** 整文件 SHA-256（后端必填）。 */
+  sha256: string
+  /** 内容类型（可选；空串不传）。 */
   mime?: string
-  /** 分片大小（字节，可选；缺省由后端取基座缺省）。 */
-  partSize?: number
 }
 
 /** 分片结果（归一结果）。 */
@@ -935,35 +937,33 @@ export function shouldSkipCompress(size: number, skipSize: number = IMAGE_COMPRE
 }
 
 /**
- * 构造秒传判定线参数。
+ * 构造秒传判定请求体（`POST /files/dedup`；`name` / `size` / `sha256` 必填，`mime` 非空才传）。
  *
- * @param sha256 整文件 SHA-256。
- * @param size 字节数。
- * @returns 线参数。
+ * @param input 秒传入参。
+ * @returns 请求体。
  */
-export function buildDedupQuery(sha256: string, size: number): Record<string, unknown> {
-  return { sha256, size }
+export function buildDedupBody(input: DedupBodyInput): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    name: input.name,
+    size: input.size,
+    sha256: input.sha256,
+  }
+  if (input.mime !== undefined && input.mime !== '') {
+    body.mime = input.mime
+  }
+  return body
 }
 
 /**
- * 构造分片初始化线参数（非空才传）。
+ * 构造分片初始化请求体（`POST /files/multipart`；对象键由后端按主键派生，不接受前端指定）。
  *
  * @param input 初始化入参。
- * @returns 线参数。
+ * @returns 请求体。
  */
 export function buildMultipartInit(input: MultipartInitInput): Record<string, unknown> {
-  const query: Record<string, unknown> = { size: input.size }
-  if (input.key !== undefined && input.key !== '') {
-    query.key = input.key
-  }
-  if (input.sha256 !== undefined && input.sha256 !== '') {
-    query.sha256 = input.sha256
-  }
+  const query: Record<string, unknown> = { name: input.name, size: input.size, sha256: input.sha256 }
   if (input.mime !== undefined && input.mime !== '') {
     query.mime = input.mime
-  }
-  if (input.partSize !== undefined && input.partSize > 0) {
-    query.part_size = input.partSize
   }
   return query
 }

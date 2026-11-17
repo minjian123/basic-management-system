@@ -124,6 +124,8 @@ export interface UseBaseDictSelectResult {
   clearSelection(): void
   /** 加载候选。 */
   load(): Promise<void>
+  /** 带版本重取候选（展开 / 聚焦）。 */
+  revalidate(): Promise<void>
   /** 远程搜索。 */
   searchRemote(keyword: string): Promise<DictItem[]>
   /** 批量回显（入参为条目 id）。 */
@@ -294,6 +296,7 @@ export function useBaseDictSelect(options: UseBaseDictSelectOptions = {}): UseBa
     remove: (next) => select.remove(next),
     clearSelection: () => select.clearSelection(),
     load: () => select.load(),
+    revalidate: () => select.revalidate(),
     searchRemote: (next) => select.searchRemote(next),
     resolve: (extra) => select.resolve(extra),
     invalidate: () => select.invalidate(),

@@ -27,7 +27,9 @@ from bms_core.api.deps import (
 )
 from bms_core.audit.base import AuditCapturer
 from bms_core.config.base import BaseConfigSource
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_tenant
+from bms_core.core.exceptions import ParamError
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
@@ -69,6 +71,9 @@ _REQUIRE_QUERY = Depends(require_permission("file:query"))
 _REQUIRE_DOWNLOAD = Depends(require_permission("file:download"))
 _REQUIRE_DELETE = Depends(require_permission("file:delete"))
 
+# 批量回显主键上限（与前端 `buildResolveQuery` 口径同源）。
+_MAX_IDS = 200
+
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 StorageDep = Annotated[BaseObjectStorage, Depends(get_object_storage)]
 MultipartDep = Annotated[BaseMultipartUpload, Depends(get_multipart_upload)]
@@ -95,6 +100,7 @@ StatusQuery = Annotated[str | None, Query(description="状态（uploading/comple
 FromQuery = Annotated[datetime | None, Query(description="创建时间下限（含）")]
 ToQuery = Annotated[datetime | None, Query(description="创建时间上限（含）")]
 LimitQuery = Annotated[int | None, Query(gt=0, le=1000, description="单批清理上限")]
+IdsQuery = Annotated[str | None, Query(description="文件主键集合（逗号分隔正整数，最多 200 个；批量回显）")]
 OptionalName = Annotated[str | None, Query(description="覆盖文件名（可选，缺省取上传文件名）")]
 UploadBody = Annotated[UploadFile, File(description="文件内容（表单字段 file）")]
 PartBody = Annotated[UploadFile, File(description="分片内容（表单字段 data）")]
@@ -136,6 +142,38 @@ def _service(
         audit=audit,
         metrics=metrics,
     )
+
+
+def _parse_ids(raw: str | None) -> ConcurrentStableList[int] | None:
+    """解析批量回显主键串（逗号分隔正整数，去重保序；空串视为不筛选）。
+
+    Args:
+        raw: 原始 `ids` 查询参数。
+
+    Returns:
+        ConcurrentStableList[int] | None: 主键集合；未提供时 None。
+
+    Raises:
+        ParamError: 非正整数、空段之外的非法形态或超出上限（`10001`）。
+    """
+    if raw is None or raw.strip() == "":
+        return None
+    tokens = [token.strip() for token in raw.split(",")]
+    if any(token == "" for token in tokens):
+        raise ParamError("ids 须为逗号分隔的正整数")
+    if len(tokens) > _MAX_IDS:
+        raise ParamError(f"ids 最多 {_MAX_IDS} 个")
+    values = ConcurrentStableList[int]()
+    for token in tokens:
+        try:
+            value = int(token)
+        except ValueError as exc:
+            raise ParamError("ids 须为逗号分隔的正整数") from exc
+        if value <= 0:
+            raise ParamError("ids 须为逗号分隔的正整数")
+        if value not in values:
+            values.append(value)
+    return values
 
 
 @router.post("", dependencies=[_REQUIRE_UPLOAD])
@@ -440,8 +478,9 @@ async def list_files(
     status: StatusQuery = None,
     created_from: FromQuery = None,
     created_to: ToQuery = None,
+    ids: IdsQuery = None,
 ) -> ApiResponse:
-    """文件列表（名称 / 类型 / 上传人 / 状态 / 时间范围筛选 + 分页）。
+    """文件列表（名称 / 类型 / 上传人 / 状态 / 时间范围 / 主键集合筛选 + 分页）。
 
     Args:
         uow: 工作单元。
@@ -459,6 +498,7 @@ async def list_files(
         status: 状态。
         created_from: 创建时间下限。
         created_to: 创建时间上限。
+        ids: 文件主键集合（逗号分隔；批量回显）。
 
     Returns:
         ApiResponse: 统一响应，data 为分页结果。
@@ -472,6 +512,7 @@ async def list_files(
         status=status,
         created_from=created_from,
         created_to=created_to,
+        ids=_parse_ids(ids),
     )
     return ApiResponse.ok(result)
 

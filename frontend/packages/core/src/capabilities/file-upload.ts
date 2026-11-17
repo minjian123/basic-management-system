@@ -664,6 +664,23 @@ export abstract class BaseFileUpload extends BaseInput<string | string[]> {
   }
 
   /**
+   * 取预览地址与过期时间（经预签名按标识取址；未注入回退已有 `url`，`expiresAt=0` 表示不过期）。
+   *
+   * @param id 文件标识。
+   * @returns 地址与过期时间戳；不可用返回 `undefined`。
+   */
+  async previewResultOf(id: string): Promise<{ url: string; expiresAt: number } | undefined> {
+    if (this.presigned !== undefined) {
+      const result = await this.presigned.resolve(id, { purpose: 'get' })
+      if (result !== undefined) {
+        return { url: result.url, expiresAt: result.expiresAt }
+      }
+    }
+    const fallback = this.fileOf(id)?.url
+    return fallback === undefined ? undefined : { url: fallback, expiresAt: 0 }
+  }
+
+  /**
    * 下载文件（经下载触发能力；未注入即不动作）。
    *
    * @param id 文件标识。

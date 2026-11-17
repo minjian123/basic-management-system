@@ -67,8 +67,9 @@ class FileRepository(BaseDbRepository[SysFile]):
         status: str | None = None,
         created_from: datetime | None = None,
         created_to: datetime | None = None,
+        ids: ConcurrentStableList[int] | None = None,
     ) -> tuple[ConcurrentStableList[SysFile], int]:
-        """按名称 / 类型 / 上传人 / 状态 / 时间范围筛选分页（按创建时间倒序）。
+        """按名称 / 类型 / 上传人 / 状态 / 时间范围 / 主键集合筛选分页（按创建时间倒序）。
 
         Args:
             page: 页码（从 1 起）。
@@ -79,11 +80,14 @@ class FileRepository(BaseDbRepository[SysFile]):
             status: 状态。
             created_from: 创建时间下限（含）。
             created_to: 创建时间上限（含）。
+            ids: 文件主键集合（批量回显；与其余筛选叠加）。
 
         Returns:
             tuple[ConcurrentStableList[SysFile], int]: （当页记录, 总数）。
         """
         statement = self._select()
+        if ids:
+            statement = statement.where(self._column("id").in_(list(ids)))
         if name:
             statement = statement.where(self._column("name").like(f"%{name}%"))
         if mime_type:

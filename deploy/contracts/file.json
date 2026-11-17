@@ -323,7 +323,7 @@
     },
     "/api/v1/files": {
       "get": {
-        "description": "文件列表（名称 / 类型 / 上传人 / 状态 / 时间范围筛选 + 分页）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    page: 分页参数。\n    name: 名称关键字。\n    mime_type: 内容类型前缀。\n    uploader_id: 上传人。\n    status: 状态。\n    created_from: 创建时间下限。\n    created_to: 创建时间上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "description": "文件列表（名称 / 类型 / 上传人 / 状态 / 时间范围 / 主键集合筛选 + 分页）。\n\nArgs:\n    uow: 工作单元。\n    storage: 对象存储。\n    multipart: 分片上传。\n    config: 系统参数。\n    client: 服务调用客户端。\n    outbox: 发件箱。\n    audit: 审计捕获器。\n    metrics: 指标。\n    page: 分页参数。\n    name: 名称关键字。\n    mime_type: 内容类型前缀。\n    uploader_id: 上传人。\n    status: 状态。\n    created_from: 创建时间下限。\n    created_to: 创建时间上限。\n    ids: 文件主键集合（逗号分隔；批量回显）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
         "operationId": "list_files_api_v1_files_get",
         "parameters": [
           {
@@ -434,6 +434,24 @@
               ],
               "description": "创建时间上限（含）",
               "title": "Created To"
+            }
+          },
+          {
+            "description": "文件主键集合（逗号分隔正整数，最多 200 个；批量回显）",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "文件主键集合（逗号分隔正整数，最多 200 个；批量回显）",
+              "title": "Ids"
             }
           },
           {

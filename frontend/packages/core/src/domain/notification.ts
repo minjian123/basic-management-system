@@ -163,11 +163,37 @@ function normalizeText(value: unknown): string | undefined {
  * @param value 原始类型。
  * @returns 消息类型。
  */
+/** 后端业务类型 → 前端消息类型的别名映射（09_01；未知回落 `notice`）。 */
+export const NOTIFICATION_TYPE_ALIASES: Readonly<Record<string, NotificationMessageType>> = {
+  approval: 'todo',
+  todo: 'todo',
+  system: 'system',
+  message: 'notice',
+  notice: 'notice',
+  announcement: 'notice',
+  import: 'notice',
+  alert: 'notice',
+}
+
+/**
+ * 归一消息类型（兼容后端业务类型别名；未知回落 `notice`）。
+ *
+ * @param value 原始类型。
+ * @returns 前端消息类型。
+ */
+export function normalizeNotificationType(value: unknown): NotificationMessageType {
+  const text = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  return NOTIFICATION_TYPE_ALIASES[text] ?? 'notice'
+}
+
+/**
+ * 归一消息类型（内部同名函数体）。
+ *
+ * @param value 原始类型。
+ * @returns 前端消息类型。
+ */
 function normalizeType(value: unknown): NotificationMessageType {
-  const text = typeof value === 'string' ? value.trim() : ''
-  return (NOTIFICATION_TYPES as readonly string[]).includes(text)
-    ? (text as NotificationMessageType)
-    : 'notice'
+  return normalizeNotificationType(value)
 }
 
 /**
@@ -260,7 +286,7 @@ export function normalizeNotificationPage(value: unknown): NotificationPage {
     return { items: [], total: 0 }
   }
   const raw = value as Record<string, unknown>
-  const items = normalizeNotificationMessages(raw.items)
+  const items = normalizeNotificationMessages(raw.items ?? raw.list)
   const totalRaw = raw.total
   const total =
     typeof totalRaw === 'number' && Number.isFinite(totalRaw) && totalRaw >= 0 ? Math.floor(totalRaw) : items.length

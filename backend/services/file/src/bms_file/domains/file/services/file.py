@@ -485,6 +485,7 @@ class FileService(BaseFrameworkObject):
         status: str | None = None,
         created_from: datetime | None = None,
         created_to: datetime | None = None,
+        ids: ConcurrentStableList[int] | None = None,
     ) -> FilePage:
         """文件列表（筛选 + 分页）。
 
@@ -497,6 +498,7 @@ class FileService(BaseFrameworkObject):
             status: 状态。
             created_from: 创建时间下限。
             created_to: 创建时间上限。
+            ids: 文件主键集合（批量回显；超量由接口层拒绝）。
 
         Returns:
             FilePage: 分页结果。
@@ -511,6 +513,7 @@ class FileService(BaseFrameworkObject):
                 status=status,
                 created_from=created_from,
                 created_to=created_to,
+                ids=ids,
             )
             items = ConcurrentStableList(FileItem.model_validate(row) for row in rows)
             return FilePage(list=items, total=total, page=page, size=size)

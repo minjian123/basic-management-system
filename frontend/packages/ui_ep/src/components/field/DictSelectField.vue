@@ -23,6 +23,11 @@ import type { InputOptions } from '../input/types'
 /** 字段值类型（单值 / 多选数组）。 */
 export type DictFieldValue = string | number | (string | number)[]
 
+/** 带版本重取节流间隔（毫秒，同字段）。 */
+const REVALIDATE_INTERVAL_MS = 3000
+/** 最近一次带版本重取时间戳。 */
+let lastRevalidateAt = 0
+
 interface Props {
   /** 值（受控）。 */
   modelValue?: DictFieldValue
@@ -203,14 +208,36 @@ function onRemoteSearch(keyword: string): void {
 }
 
 /**
- * 下拉展开（首次展开触发首屏候选）。
+ * 下拉展开（首次展开触发首屏候选；已加载则带版本重取，3 秒节流）。
  *
  * @param visible 是否展开。
  */
 function onVisibleChange(visible: boolean): void {
-  if (visible && api.items.value.length === 0) {
-    void api.load()
+  if (!visible) {
+    return
   }
+  if (api.items.value.length === 0) {
+    void api.load()
+    return
+  }
+  void revalidateThrottled()
+}
+
+/** 聚焦（与展开共用同一节流；键盘直接输入时也能拿到新版本）。 */
+function onFocus(): void {
+  if (api.items.value.length > 0) {
+    void revalidateThrottled()
+  }
+}
+
+/** 带版本重取（同字段 3 秒内只发一次）。 */
+async function revalidateThrottled(): Promise<void> {
+  const now = Date.now()
+  if (now - lastRevalidateAt < REVALIDATE_INTERVAL_MS) {
+    return
+  }
+  lastRevalidateAt = now
+  await api.revalidate()
 }
 
 /**
@@ -317,6 +344,7 @@ function colorClass(item: DictItem): string {
       :placeholder="placeholder"
       data-test="dict-select"
       @visible-change="onVisibleChange"
+      @focus="onFocus"
       @update:model-value="onSelectUpdate"
     >
       <template #empty>
@@ -342,6 +370,7 @@ function colorClass(item: DictItem): string {
       :placeholder="placeholder"
       data-test="dict-select"
       @visible-change="onVisibleChange"
+      @focus="onFocus"
       @update:model-value="onSelectUpdate"
     >
       <el-option

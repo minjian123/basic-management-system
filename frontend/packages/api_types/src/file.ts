@@ -41,7 +41,7 @@ export interface paths {
         };
         /**
          * List Files
-         * @description 文件列表（名称 / 类型 / 上传人 / 状态 / 时间范围筛选 + 分页）。
+         * @description 文件列表（名称 / 类型 / 上传人 / 状态 / 时间范围 / 主键集合筛选 + 分页）。
          *
          *     Args:
          *         uow: 工作单元。
@@ -59,6 +59,7 @@ export interface paths {
          *         status: 状态。
          *         created_from: 创建时间下限。
          *         created_to: 创建时间上限。
+         *         ids: 文件主键集合（逗号分隔；批量回显）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为分页结果。
@@ -770,6 +771,8 @@ export interface operations {
                 created_from?: string | null;
                 /** @description 创建时间上限（含） */
                 created_to?: string | null;
+                /** @description 文件主键集合（逗号分隔正整数，最多 200 个；批量回显） */
+                ids?: string | null;
                 /** @description 页码（从 1 起） */
                 page?: number;
                 /** @description 每页条数（默认 20，上限 200） */

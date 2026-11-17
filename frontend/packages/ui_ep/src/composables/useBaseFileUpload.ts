@@ -138,6 +138,8 @@ export interface UseBaseFileUploadResult {
   resolveFiles(ids?: readonly string[]): Promise<void>
   /** 预览地址（经预签名）。 */
   previewUrlOf(id: string): Promise<string | undefined>
+  /** 预览地址与过期时间（经预签名；`expiresAt=0` 表示不过期）。 */
+  previewResultOf(id: string): Promise<{ url: string; expiresAt: number } | undefined>
   /** 下载文件（经下载触发）。 */
   downloadFile(id: string): Promise<unknown>
   /** 展示文案（失效标记）。 */
@@ -293,6 +295,7 @@ export function useBaseFileUpload(options: UseBaseFileUploadOptions = {}): UseBa
     moveFile: (from, to) => upload.moveFile(from, to),
     resolveFiles: (ids) => upload.resolveFiles(ids),
     previewUrlOf: (id) => upload.previewUrlOf(id),
+    previewResultOf: (id) => upload.previewResultOf(id),
     downloadFile: (id) => upload.downloadFile(id),
     labelOf: (id) => upload.labelOf(id),
     mergeRefs: (next) => upload.mergeRefs(next),

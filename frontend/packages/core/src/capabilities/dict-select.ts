@@ -475,10 +475,38 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   }
 
   /**
+   * 带版本重取候选（展开 / 聚焦时调用；版本一致后端回 `items=null`，保留现有候选）。
+   *
+   * @returns 无。
+   */
+  async revalidate(): Promise<void> {
+    if (!this.ready || this.dataSourceKey === '') {
+      return
+    }
+    const store = this.store
+    if (store === undefined || !store.ready || store.source === undefined || this.parentId !== '') {
+      return
+    }
+    this.errorCode = undefined
+    this.errorMessage = ''
+    await store.revalidateType(this.dataSourceKey)
+    const failure = store.errorOf(this.dataSourceKey)
+    if (failure !== undefined) {
+      this.#applyError(failure)
+      this.emitUpdate()
+      return
+    }
+    if (store.isLarge(this.dataSourceKey) && !isBlankDictKeyword(this.keyword)) {
+      this.#applyCandidates(await store.searchRemote(this.dataSourceKey, this.keyword))
+      return
+    }
+    this.#applyCandidates(this.#filterTopLevel(store.itemsOf(this.dataSourceKey)))
+  }
+
+  /**
    * 失效缓存（类型缓存 + 本地二次缓存）。
    */
-  invalidate(): void {
-    this.store?.invalidate(this.dataSourceKey)
+  invalidate(): void {    this.store?.invalidate(this.dataSourceKey)
     this.items.splice(0, this.items.length)
     this.options.splice(0, this.options.length)
     this._missing.clear()

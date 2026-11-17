@@ -34,27 +34,31 @@ export interface UploadWholeQuery {
   signal?: UploadAbortSignal
 }
 
-/** 秒传判定入参。 */
+/** 秒传判定入参（`POST /files/dedup`）。 */
 export interface UploadCheckQuery {
+  /** 原始文件名（含扩展名）。 */
+  name: string
   /** 整文件 SHA-256。 */
   sha256: string
   /** 文件字节数。 */
   size: number
+  /** 内容类型（可选，后端仅作预检）。 */
+  mime?: string
 }
 
 /** 分片初始化入参。 */
 export interface UploadInitQuery {
-  /** 目标对象键（缺省由实现生成）。 */
+  /** 目标对象键（后端按主键派生，不再接受前端指定；保留字段供定制实现）。 */
   key?: string
-  /** 文件名。 */
+  /** 原始文件名（含扩展名）。 */
   name: string
   /** 字节数。 */
   size: number
   /** 内容类型。 */
   mime: string
-  /** 整文件 SHA-256（可选）。 */
+  /** 整文件 SHA-256（后端必填；引擎在分片模式下必算）。 */
   sha256?: string
-  /** 分片大小（字节，可选）。 */
+  /** 分片大小（字节，可选；后端按参数取缺省）。 */
   partSize?: number
 }
 

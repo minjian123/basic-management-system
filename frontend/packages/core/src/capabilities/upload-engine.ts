@@ -92,6 +92,12 @@ interface EngineTask<TFile> {
   uploadedParts: number[]
   /** 已传字节数。 */
   doneBytes: number
+  /** 整文件 SHA-256（算过即复用；续传与秒传共用一次计算）。 */
+  sha256: string | undefined
+  /** 每片 SHA-256（与分片计划同序；分片请求头 `X-Part-Sha256`）。 */
+  partHashes: string[]
+  /** 是否已计算哈希（避免重复全量读取）。 */
+  hashed: boolean
 }
 
 /**
@@ -119,26 +125,34 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * 读取哈希结果（兼容裸串 / `{ sha256 }`）。
+ * 读取哈希结果（兼容裸串 / `{ sha256, partHashes }` / `{ sha256, part_hashes }`）。
  *
  * @param raw 原始结果。
- * @returns SHA-256；不可用返回 `undefined`。
+ * @returns 整文件摘要与每片摘要。
  */
-function readSha256(raw: unknown): string | undefined {
+function readHashResult(raw: unknown): { sha256: string | undefined; partHashes: string[] } {
   if (typeof raw === 'string' && raw !== '') {
-    return raw
+    return { sha256: raw, partHashes: [] }
   }
-  if (raw !== null && typeof raw === 'object') {
-    const value = (raw as Record<string, unknown>).sha256
-    if (typeof value === 'string' && value !== '') {
-      return value
+  if (raw === null || typeof raw !== 'object') {
+    return { sha256: undefined, partHashes: [] }
+  }
+  const source = raw as Record<string, unknown>
+  const sha256 = typeof source.sha256 === 'string' && source.sha256 !== '' ? source.sha256 : undefined
+  const rawParts = source.partHashes ?? source.part_hashes
+  const partHashes: string[] = []
+  if (Array.isArray(rawParts)) {
+    for (const entry of rawParts) {
+      if (typeof entry === 'string' && entry !== '') {
+        partHashes.push(entry)
+      }
     }
   }
-  return undefined
+  return { sha256, partHashes }
 }
 
 /**
- * 读取已传分片（兼容数组 / `{ parts }` / `{ uploaded_parts }`）。
+ * 读取已传分片（兼容数组 / `{ uploaded }` / `{ parts }` / `{ uploaded_parts }`）。
  *
  * @param raw 原始结果。
  * @param fallback 回落值。
@@ -148,7 +162,10 @@ function readUploadedParts(raw: unknown, fallback: readonly number[]): number[] 
   const list = Array.isArray(raw)
     ? raw
     : raw !== null && typeof raw === 'object'
-      ? ((raw as Record<string, unknown>).parts ?? (raw as Record<string, unknown>).uploaded_parts ?? (raw as Record<string, unknown>).uploadedParts)
+      ? ((raw as Record<string, unknown>).uploaded ??
+        (raw as Record<string, unknown>).parts ??
+        (raw as Record<string, unknown>).uploaded_parts ??
+        (raw as Record<string, unknown>).uploadedParts)
       : undefined
   if (!Array.isArray(list)) {
     return [...fallback]
@@ -399,6 +416,9 @@ export abstract class BaseUploadEngine<TFile = unknown> extends BasePlaceholderS
       session: undefined,
       uploadedParts: [],
       doneBytes: 0,
+      sha256: undefined,
+      partHashes: [],
+      hashed: false,
     })
     this.tasks.push(snapshot)
     this.errorCode = undefined
@@ -549,21 +569,25 @@ export abstract class BaseUploadEngine<TFile = unknown> extends BasePlaceholderS
       }
       let sha256: string | undefined
       if (!resume) {
+        const mode = decideUploadMode(task.meta.size, this.wholeMaxSize)
+        snapshot.mode = mode
         if (this.autoDedup && transport.check !== undefined) {
-          snapshot.phase = 'hashing'
-          snapshot.percent = 0
-          this.touch()
-          if (transport.hash !== undefined) {
-            this.markLoaded()
-            sha256 = readSha256(await transport.hash({ file: task.file, partSize: this.partSize, signal: task.signal }))
-          }
+          await this.ensureHashes(task, transport)
+          sha256 = task.sha256
           if (task.signal.aborted) {
             this.cancelTask(task)
             return
           }
           if (sha256 !== undefined) {
             this.markLoaded()
-            const ref = normalizeDedupRef(await transport.check({ sha256, size: task.meta.size }))
+            const ref = normalizeDedupRef(
+              await transport.check({
+                name: task.meta.name,
+                sha256,
+                size: task.meta.size,
+                ...(task.meta.mime === '' ? {} : { mime: task.meta.mime }),
+              }),
+            )
             if (ref !== undefined) {
               snapshot.mode = 'whole'
               this.finishTask(task, ref)
@@ -575,8 +599,6 @@ export abstract class BaseUploadEngine<TFile = unknown> extends BasePlaceholderS
           this.cancelTask(task)
           return
         }
-        const mode = decideUploadMode(task.meta.size, this.wholeMaxSize)
-        snapshot.mode = mode
         if (mode === 'whole' && transport.uploadWhole !== undefined) {
           snapshot.phase = 'uploading'
           this.markLoaded()
@@ -609,7 +631,7 @@ export abstract class BaseUploadEngine<TFile = unknown> extends BasePlaceholderS
           return
         }
       }
-      // 分片路径（含续传）
+      // 分片路径（含续传；后端初始化与每片校验都要求摘要）
       const initiate = transport.initiate
       const uploadPart = transport.uploadPart
       const complete = transport.complete
@@ -619,6 +641,12 @@ export abstract class BaseUploadEngine<TFile = unknown> extends BasePlaceholderS
       }
       let session = task.session
       if (session === undefined) {
+        await this.ensureHashes(task, transport)
+        sha256 = task.sha256
+        if (task.signal.aborted) {
+          this.cancelTask(task)
+          return
+        }
         snapshot.phase = 'uploading'
         this.markLoaded()
         const raw = await initiate({
@@ -696,6 +724,28 @@ export abstract class BaseUploadEngine<TFile = unknown> extends BasePlaceholderS
   }
 
   /**
+   * 确保整文件与每片哈希已计算（同任务只算一次；通路未提供哈希则跳过）。
+   *
+   * @param task 内部任务。
+   * @param transport 上传通路。
+   */
+  private async ensureHashes(task: EngineTask<TFile>, transport: UploadTransportAdapter): Promise<void> {
+    if (task.hashed || transport.hash === undefined) {
+      return
+    }
+    task.snapshot.phase = 'hashing'
+    task.snapshot.percent = 0
+    this.touch()
+    this.markLoaded()
+    const hashed = readHashResult(
+      await transport.hash({ file: task.file, partSize: this.partSize, signal: task.signal }),
+    )
+    task.sha256 = hashed.sha256
+    task.partHashes = hashed.partHashes
+    task.hashed = true
+  }
+
+  /**
    * 上传单个分片（含指数退避重试）。
    *
    * @param task 内部任务。
@@ -724,6 +774,7 @@ export abstract class BaseUploadEngine<TFile = unknown> extends BasePlaceholderS
           file: task.file,
           start: plan.start,
           end: plan.end,
+          ...(task.partHashes[plan.partNo - 1] === undefined ? {} : { sha256: task.partHashes[plan.partNo - 1] }),
           signal: task.signal,
         })
         if (task.signal.aborted) {

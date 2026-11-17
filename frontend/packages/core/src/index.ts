@@ -1483,6 +1483,7 @@ export {
   NOTIFICATION_POLL_INTERVAL,
   NOTIFICATION_READ_FILTERS,
   NOTIFICATION_RECENT_LIMIT,
+  NOTIFICATION_TYPE_ALIASES,
   NOTIFICATION_TYPES,
   applyIncoming,
   applyOptimisticRead,
@@ -1503,6 +1504,7 @@ export {
   normalizeNotificationMessage,
   normalizeNotificationMessages,
   normalizeNotificationPage,
+  normalizeNotificationType,
   parseUnreadCount,
   recentMessages,
   resolveMessageSemantic,
@@ -1518,6 +1520,14 @@ export {
   type NotificationRealtimePayload,
   type NotificationSnapshot,
 } from './domain/notification'
+export {
+  groupAuditRows,
+  normalizeAuditRow,
+  normalizeAuditRows,
+  parseAuditJson,
+  type AuditRecordGroup,
+  type AuditRow,
+} from './domain/audit'
 export {
   DICT_DATA_CACHE_MAX,
   DICT_DATA_DEFAULT_PAGE_SIZE,
@@ -1694,7 +1704,7 @@ export {
   UPLOAD_MODES,
   UPLOAD_TASK_PHASES,
   applyFileSelection,
-  buildDedupQuery,
+  buildDedupBody,
   buildMultipartInit,
   buildResolveQuery,
   checkFileMeta,
@@ -1730,7 +1740,7 @@ export {
   resolveFileErrorText,
   retryDelayMs,
   shouldSkipCompress,
-  type DedupQuery,
+  type DedupBodyInput,
   type FileCheckOptions,
   type FileCheckResult,
   type FileHashResult,

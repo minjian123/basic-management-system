@@ -229,13 +229,13 @@ function previewFiles(): PreviewFile[] {
 }
 
 /**
- * 预签名取址（供预览件）。
+ * 预签名取址（供预览件；透传过期时间，便于有效期复用与过期重取）。
  *
  * @param file 预览文件。
  */
 async function previewFetcher(file: PreviewFile): Promise<{ url: string; expiresAt: number }> {
-  const url = await state.previewUrlOf(file.id)
-  return { url: url ?? '', expiresAt: 0 }
+  const result = await state.previewResultOf(file.id)
+  return result ?? { url: '', expiresAt: 0 }
 }
 
 /**

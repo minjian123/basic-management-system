@@ -224,14 +224,19 @@ function close(): void {
   emit('close')
 }
 
-function download(): void {
+async function download(): Promise<void> {
   const file = current.value
   if (!file) {
     return
   }
   emit('download', file)
-  if (sourceUrl.value !== '') {
-    triggerDownload({ url: sourceUrl.value, filename: file.name })
+  let url = sourceUrl.value
+  if (url === '' && props.presignedFetcher) {
+    presigned.setFetcher(() => props.presignedFetcher?.(file) as Promise<PresignedResult>)
+    url = (await presigned.get()) ?? ''
+  }
+  if (url !== '') {
+    triggerDownload({ url, filename: file.name })
   }
 }
 
@@ -322,6 +327,9 @@ onBeforeUnmount(() => offKeydown())
           <div class="bms-file-preview__stage" :data-kind="kind" data-test="stage">
             <div v-if="errorReason !== ''" class="bms-file-preview__error" data-test="preview-error">
               {{ errorText }}
+              <div class="bms-file-preview__error-actions">
+                <el-button size="small" data-test="error-download" @click="download">下载文件</el-button>
+              </div>
             </div>
             <img
               v-else-if="kind === 'image' && sourceUrl !== ''"
@@ -524,6 +532,10 @@ onBeforeUnmount(() => offKeydown())
 
 .bms-file-preview__error {
   color: var(--bms-color-danger);
+}
+
+.bms-file-preview__error-actions {
+  margin-top: var(--bms-space-3);
 }
 
 .bms-file-preview__empty {

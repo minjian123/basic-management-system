@@ -493,7 +493,24 @@ export {
   type UseBaseFileUploadOptions,
   type UseBaseFileUploadResult,
 } from './composables/useBaseFileUpload'
+export {
+  useAuditDiff,
+  type AuditFieldDiffView,
+  type AuditRecordView,
+  type UseAuditDiffOptions,
+  type UseAuditDiffResult,
+} from './composables/useAuditDiff'
+export {
+  createHttpAuditQuery,
+  type AuditHttpOptions,
+  type AuditPageQuery,
+  type AuditQueryAdapter,
+} from './utils/auditQuery'
 export { createHttpUploadTransport, registerUploadTransport, uploadTransportRegistry } from './utils/uploadTransport'
+export {
+  createHttpNotificationJobs,
+  type NotificationHttpOptions,
+} from './utils/notificationCenter'
 export { hashFile, type FileHashWorkerRequest, type FileHashWorkerResponse } from './utils/fileHash'
 export {
   compressImage,
