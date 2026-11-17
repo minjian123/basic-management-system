@@ -8,6 +8,7 @@ DOMAINS: ConcurrentStableList[str] = ConcurrentStableList(
         "role",
         "permission_meta",
         "menu_form",
+        "help",
         "platform_config",
         "platform_registry",
     )

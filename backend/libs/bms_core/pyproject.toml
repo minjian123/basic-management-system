@@ -48,6 +48,9 @@ dependencies = [
     # 富文本 HTML 白名单清洗（07_02 公告正文）：nh3（Rust ammonia）跨平台 wheel，
     # 公告与后续帮助中心共用；禁止业务侧自研正则清洗。
     "nh3>=0.2",
+    # 产品帮助包解析（08_03）：help/package.yaml 与 includes 的 YAML 读取；装载在
+    # 生产也要执行，故放运行期依赖（不是 dev 组）。
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]

@@ -21,6 +21,10 @@ from bms_core.permission.rbac import RBAC_PROVIDER_NAME
 from bms_core.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
+from bms_platform.domains.help.services.resolver import (  # noqa: F401  (导入即登记 help_content:db)
+    DB_HELP_CONTENT_PROVIDER,
+    DatabaseHelpContentResolver,  # pyright: ignore[reportUnusedImport]
+)
 from bms_platform.domains.job.jobs import event_consumer_records as job_event_consumer_records
 from bms_platform.domains.job.services.bootstrap import bootstrap_job_types
 from bms_platform.domains.log.jobs import event_consumer_records as log_event_consumer_records
@@ -83,6 +87,20 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         # 平台侧装配：真实校验器 + 直查本库数据来源工厂 + 字段权限 provider 工厂
         register_platform_permission(settings)
         register_rbac_data_scope(settings)
+
+    def configure_plugins(self, app: FastAPI, settings: Settings) -> None:
+        """登记帮助内容侧落库实现（08_03）。
+
+        `[help_content].provider` 未显式配置时置 `db`；显式配置（含 `null`）一律尊重。
+        注册表在 `register_platform_plugins` 之后、`build_plugin_registry()` 之前冻结，故实现
+        工厂（依赖应用级 `engine_registry`）必须在本钩子登记。
+
+        Args:
+            app: 应用实例（取引擎注册表）。
+            settings: 应用配置（可变）。
+        """
+        if not settings.help_content.provider:
+            settings.help_content.provider = DB_HELP_CONTENT_PROVIDER
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """平台业务路由。

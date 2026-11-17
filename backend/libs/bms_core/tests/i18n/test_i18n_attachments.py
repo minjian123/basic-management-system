@@ -21,6 +21,7 @@ from bms_core.i18n.attachments import (
 )
 from bms_core.models.base import BaseModel
 from bms_core.models.platform import catalog, icon, menu_form, permission_meta
+from bms_core.models.platform import help as help_models
 from bms_notification.domains.notification.i18n_attachments import register_notice_i18n_attachments
 from bms_notification.domains.notification.models import mail as mail_models
 from bms_notification.domains.notification.models import notice as notice_models
@@ -33,7 +34,7 @@ _MODELS_ROOT = Path(__file__).resolve().parents[2] / "src" / "bms_core" / "model
 _SERVICE_MODELS_ROOT = Path(__file__).resolve().parents[4] / "services"
 """模型根：基座 + 各服务（i18n 附表可随服务表落库，07_02 起）。"""
 
-_MODEL_MODULES = (catalog, icon, menu_form, permission_meta, notice_models, mail_models)
+_MODEL_MODULES = (catalog, help_models, icon, menu_form, permission_meta, notice_models, mail_models)
 """已落库附表所属模型模块（导入即注册 `BaseModel.metadata`，供列名一致性校验）。"""
 
 
@@ -68,11 +69,11 @@ def _iter_model_tables() -> ConcurrentStableSet[str]:
 
 
 def test_attachment_counts() -> None:
-    """台账行数与状态分布（8 张已落库 + 3 张待落地）。"""
+    """台账行数与状态分布（9 张已落库 + 2 张待落地）。"""
     attachments = all_attachments()
     assert len(attachments) == 11
-    assert len(landed_attachments()) == 8
-    assert len(pending_attachments()) == 3
+    assert len(landed_attachments()) == 9
+    assert len(pending_attachments()) == 2
     assert {item.status for item in attachments.values()} == {ATTACHMENT_LANDED, ATTACHMENT_PENDING}
 
 

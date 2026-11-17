@@ -9,6 +9,9 @@
 
 2026-11-16：基座准备集补播种「表归属登记」（启动期接库对账的输入，缺失即拒启）；本薄壳
 源码摘要即库版本戳，故在此同步 bump，确保旧共享库重建。
+
+2026-11-17：08_03 帮助内容五表进入 platform 服务租户链（`bms_core.models.platform.help`），
+再次 bump 版本戳，确保共享测试库补建 `sys_help_*` 表。
 """
 
 from __future__ import annotations

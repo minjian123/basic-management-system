@@ -1129,6 +1129,84 @@ class MenuHelpKeyInvalidError(MenuError):
         MenuError.__init__(self, ErrorCode.MENU_HELP_KEY_INVALID, message, http_status=400, data=data)
 
 
+class HelpAnchorUnresolvedError(MenuError):
+    """帮助包目标锚点不可解析（`40008` / 400）：`help_key` 不存在或类型不匹配。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化锚点不可解析异常。
+
+        Args:
+            message: 提示信息（须带目标类型与键）。
+            data: 随附数据（可选；宽松模式为违规清单）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_ANCHOR_UNRESOLVED, message, http_status=400, data=data)
+
+
+class HelpPackageInvalidError(MenuError):
+    """帮助包结构 / 内容非法（`40009` / 400）：清单、文章、分类、来源留痕或默认语言不合规。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化帮助包非法异常。
+
+        Args:
+            message: 提示信息（须带文件与违规字段）。
+            data: 随附数据（可选；宽松模式为跳过清单）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_PACKAGE_INVALID, message, http_status=400, data=data)
+
+
+class HelpPackageChecksumMismatchError(MenuError):
+    """帮助包校验和不符（`40010` / 400）：格式非法或与实际内容不一致。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化校验和不符异常。
+
+        Args:
+            message: 提示信息（含期望值与实际值）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_PACKAGE_CHECKSUM_MISMATCH, message, http_status=400, data=data)
+
+
+class HelpPackageVersionConflictError(MenuError):
+    """帮助包版本冲突（`40011` / 400）：同版本不同校验和，或低于当前最高版本。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化版本冲突异常。
+
+        Args:
+            message: 提示信息（含产品、版本与期望版本）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_PACKAGE_VERSION_CONFLICT, message, http_status=400, data=data)
+
+
+class HelpPackageNotLoadedError(MenuError):
+    """帮助包未装载（`40012` / 404）：卸载时该产品没有任何包登记行。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化包未装载异常。
+
+        Args:
+            message: 提示信息（含产品键）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_PACKAGE_NOT_LOADED, message, http_status=404, data=data)
+
+
+class HelpCategoryPathUnresolvedError(MenuError):
+    """帮助分类路径不可解析（`40013` / 400）：包内未声明且租户既有分类中不存在。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化分类路径不可解析异常。
+
+        Args:
+            message: 提示信息（含文章 `source_key` 与分类路径）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_CATEGORY_PATH_UNRESOLVED, message, http_status=400, data=data)
+
+
 class ConfigParamError(BizError):
     """系统参数管理子段（系统配置段内 `405xx`）异常基类。
 

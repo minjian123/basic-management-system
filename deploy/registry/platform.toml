@@ -380,6 +380,18 @@ public_api = [
 ]
 
 [[domains]]
+domain_key = "help"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/help/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/help.py",
+]
+public_api = [
+  "bms_platform.domains.help.public",
+]
+
+[[domains]]
 domain_key = "platform_config"
 service_key = "platform"
 status = "placement"

@@ -19,7 +19,7 @@ dev = [
     "kiwitcms-pytest-plugin>=15.4",
     "minio>=7.2",
     # 网关声明式配置（apisix.yaml）结构校验：生成器为免依赖手写 YAML，用例需解析验证
-    "pyyaml>=6.0",
+    # （帮助包解析已把 pyyaml 提升为 bms_core 运行期依赖，本组不再重复声明）
     "pytest-xdist>=3.8.0",
 ]
 
