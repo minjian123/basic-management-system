@@ -41,6 +41,7 @@
         <el-button :disabled="!selRows.length" @click="batchToggle">启用/停用</el-button>
         <el-button :disabled="selRows.length !== 1" @click="openPwd">重置密码</el-button>
         <span class="ep-side">
+          <el-button data-test="list-help" @click="openHelp">帮助</el-button>
           <span class="proto-hint">导入归导入导出阶段、导出归平台业务页面阶段，本页不提供该两按钮</span>
         </span>
       </div>
@@ -124,6 +125,34 @@
       <template #footer>
         <el-button @click="pwd.visible = false">取消</el-button>
         <el-button type="danger" @click="doResetPwd">确认重置</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="helpVisible" title="用户管理" width="640px" top="8vh">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <el-tag size="small" type="success">模块级</el-tag>
+        <el-tag size="small" type="info">平台内置</el-tag>
+      </div>
+      <div style="max-height:60vh;overflow:auto;font-size:13px;line-height:1.85;color:#1f2328">
+        <h3 style="font-size:15px;margin:0 0 6px">用户管理</h3>
+        <p>用于维护平台账号、组织归属与角色分配。列表页支持按用户名、昵称、手机号搜索；双击行打开表单页。</p>
+        <h4 style="font-size:13px;margin:10px 0 4px">常用操作</h4>
+        <ul style="margin:6px 0 6px 20px;padding:0">
+          <li><b>新增</b>：创建账号并分配初始角色。</li>
+          <li><b>停用 / 启用</b>：停用后账号无法登录，历史数据保留。</li>
+          <li><b>重置密码</b>：重置后原密码失效，所有会话退出。</li>
+        </ul>
+        <h4 style="font-size:13px;margin:10px 0 4px">权限说明</h4>
+        <p>仅具备“用户查询”权限的账号可查看本页；按钮按动作权限显隐。</p>
+      </div>
+      <template #footer>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <el-button size="small" text @click="toast('刷新当前页面帮助')">刷新</el-button>
+          <div>
+            <el-button size="small" @click="toast('打开帮助中心（归帮助内容任务）')">帮助中心</el-button>
+            <el-button size="small" type="primary" @click="helpVisible = false">关闭</el-button>
+          </div>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -234,7 +263,9 @@
       }
       function closePage() { toast('关闭用户管理模块页（返回）'); }
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
-      return { rows, query, selRows, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, reload, toggleStatus, batchToggle, delSel, pwd, openPwd, doResetPwd, openForm, closePage, toast };
+      var helpVisible = ref(false);
+      function openHelp() { helpVisible.value = true; }
+      return { rows, query, selRows, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, reload, toggleStatus, batchToggle, delSel, pwd, openPwd, doResetPwd, openForm, closePage, toast, helpVisible, openHelp };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

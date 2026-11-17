@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 工具栏（通用 / 列表 / 表单 / 帮助动作 / 溢出）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-card { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:12px; }
+  .tb-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .tb-left, .tb-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .tb-sp { flex:1; min-width:8px; }
+  .tb-caption { color:#8c959f; font-size:12px; margin:12px 0 6px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#8c959f; font-size:12px; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .help-article { font-size:13px; line-height:1.85; color:#1f2328; }
+  .help-article h3 { font-size:15px; margin:12px 0 6px; }
+  .help-article h4 { font-size:13px; margin:10px 0 4px; }
+  .help-article ul { margin:6px 0 6px 20px; padding:0; }
+  .help-body { max-height:60vh; overflow:auto; padding-right:4px; }
+  .meta-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .cat-item { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #eaeef2; border-radius:6px; margin-bottom:6px; cursor:pointer; }
+  .cat-item:hover { border-color:#0969da; background:#f6f8fa; }
+  .cat-path { color:#8c959f; font-size:12px; }
+  .rel-item { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #eaeef2; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="13_组件设计_工具栏.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 工具栏 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="13_组件设计_工具栏.md">《组件设计 · 工具栏》</a>：演示通用工具栏的动作分组、权限显隐、禁用态、溢出收纳，以及「列表工具栏 / 表单工具栏」两个派生与基类内建的帮助动作；帮助弹层用 640px 长文阅读对话框。
+    页面落点见既有 <a href="../../../原型设计/08_用户管理/02_用户列表页.html">用户列表页</a> 与 <a href="../../../原型设计/08_用户管理/03_用户表单页.html">用户表单页</a>。
+  </div>
+
+  <div id="app">
+    <div class="dp-bar">
+      <span class="dp-hint">工具栏形态：</span>
+      <el-radio-group v-model="variant" size="small">
+        <el-radio-button label="list">列表工具栏</el-radio-button>
+        <el-radio-button label="form-read">表单工具栏（只读）</el-radio-button>
+        <el-radio-button label="form-edit">表单工具栏（编辑）</el-radio-button>
+      </el-radio-group>
+      <el-divider direction="vertical" />
+      <el-checkbox v-model="hasDeletePerm" size="small">有删除权限</el-checkbox>
+      <el-checkbox v-model="hasExportPerm" size="small">有导出权限</el-checkbox>
+      <el-checkbox v-model="selected" size="small">列表有选中</el-checkbox>
+      <el-checkbox v-model="dense" size="small">动作较多（溢出）</el-checkbox>
+    </div>
+
+    <div class="tb-caption">通用工具栏（左侧组 + 弹性空隙 + 右侧组）</div>
+    <div class="ep-card">
+      <div class="tb-row" data-test="toolbar">
+        <div class="tb-left">
+          <template v-for="action in leftActions" :key="action.key">
+            <el-button
+              v-if="visible(action)"
+              :type="action.type || (action.danger ? 'danger' : 'default')"
+              :disabled="disabled(action)"
+              :plain="action.danger ? true : action.plain"
+              @click="onAction(action)"
+            >{{ action.label }}</el-button>
+          </template>
+        </div>
+        <span class="tb-sp"></span>
+        <div class="tb-right">
+          <template v-for="action in rightVisible" :key="action.key">
+            <el-button
+              v-if="visible(action)"
+              :type="action.type || (action.danger ? 'danger' : 'default')"
+              :disabled="disabled(action)"
+              :plain="action.danger ? true : action.plain"
+              @click="onAction(action)"
+            >{{ action.label }}</el-button>
+          </template>
+          <el-dropdown v-if="rightOverflow.length" trigger="click" @command="onActionByKey">
+            <el-button>更多 ▾</el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="action in rightOverflow" :key="action.key" :command="action.key" :disabled="action.disabled">
+                  {{ action.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          <el-button v-if="helpVisibleAction" data-test="toolbar-help" @click="openHelp">帮助</el-button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dp-bar" style="margin-top:12px">
+      <span class="dp-hint">帮助解析结果：</span>
+      <el-radio-group v-model="helpScenario" size="small">
+        <el-radio-button label="matched">命中文章</el-radio-button>
+        <el-radio-button label="anchor-miss">有锚点无文章</el-radio-button>
+        <el-radio-button label="none">无锚点</el-radio-button>
+        <el-radio-button label="error">加载失败</el-radio-button>
+      </el-radio-group>
+      <span style="flex:1"></span>
+      <el-button size="small" :disabled="!helpVisibleAction" @click="openHelp">打开帮助</el-button>
+    </div>
+
+    <div class="dp-state">{{ log }}</div>
+
+    <el-dialog v-model="helpVisible" :title="dialogTitle" width="640px" top="7vh">
+      <div v-if="helpScenario === 'error'" data-test="help-error">
+        <el-alert type="error" :closable="false" title="帮助加载失败" description="请检查网络后重试；本次失败不会自动重试。" />
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <el-button size="small" type="primary" @click="retryHelp">重试</el-button>
+          <el-button size="small" @click="helpVisible = false">关闭</el-button>
+        </div>
+      </div>
+      <template v-else-if="helpScenario === 'matched'">
+        <div class="meta-row">
+          <el-tag size="small" type="success">表单级</el-tag>
+          <el-tag size="small" type="info">平台内置</el-tag>
+        </div>
+        <div class="help-body help-article" v-html="article.content"></div>
+        <div style="margin-top:16px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">相关内容</div>
+          <div v-for="item in article.related" :key="item.id" class="rel-item">
+            <span>{{ item.title }}</span>
+            <el-button size="small" text type="primary" @click="toast('查看相关内容：' + item.title)">查看</el-button>
+          </div>
+        </div>
+      </template>
+      <template v-else-if="helpScenario === 'anchor-miss'">
+        <el-empty description="暂无帮助内容" :image-size="64">
+          <template #description>
+            <div style="font-size:13px;color:#57606a">当前页面已登记帮助锚点，但暂时没有可展示的文章；可先按分类浏览。</div>
+          </template>
+        </el-empty>
+        <div v-for="cat in categories" :key="cat.id" class="cat-item" @click="toast('打开分类：' + cat.name)">
+          <span>{{ cat.name }}</span>
+          <span class="cat-path">{{ cat.path }}</span>
+        </div>
+      </template>
+      <template v-else>
+        <el-empty description="暂无帮助" :image-size="64">
+          <template #description>
+            <div style="font-size:13px;color:#57606a">当前页面没有登记帮助锚点；可打开帮助中心按分类查找。</div>
+          </template>
+        </el-empty>
+        <div style="text-align:center">
+          <el-button size="small" type="primary" @click="toast('打开帮助中心（归帮助内容任务）')">打开帮助中心</el-button>
+        </div>
+      </template>
+      <template #footer>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <el-button size="small" text @click="retryHelp" :disabled="helpScenario === 'error'">刷新</el-button>
+          <div>
+            <el-button size="small" @click="toast('打开帮助中心（归帮助内容任务）')">帮助中心</el-button>
+            <el-button size="small" type="primary" @click="helpVisible = false">关闭</el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed } = Vue;
+  var { ElMessage } = ElementPlus;
+
+  var ARTICLE = {
+    title: '用户表单字段说明',
+    content: '<h3>用户表单</h3><p>表单用于维护账号基本信息、组织归属与角色分配。带 <b>*</b> 的字段为必填项。</p><h4>字段说明</h4><ul><li><b>用户名</b>：登录账号，创建后不可修改。</li><li><b>昵称</b>：界面展示名称，可重复。</li><li><b>手机号 / 邮箱</b>：用于找回密码与接收通知，至少填写一项。</li><li><b>部门</b>：决定数据权限范围。</li></ul><h4>保存说明</h4><p>保存为整体提交；记录被他人修改时会提示并重新加载。</p><h4>系统信息</h4><p>「系统信息」页签只读展示表单标识、创建人与修改人。</p>',
+    related: [
+      { id: 'r1', title: '字段权限与脱敏' },
+      { id: 'r2', title: '账号安全与密码策略' }
+    ]
+  };
+
+  var app = createApp({
+    setup: function () {
+      var variant = ref('list');
+      var hasDeletePerm = ref(true);
+      var hasExportPerm = ref(true);
+      var selected = ref(false);
+      var dense = ref(false);
+      var helpVisible = ref(false);
+      var helpScenario = ref('matched');
+      var log = ref('工具栏只负责按声明渲染与回传；帮助动作由基类内建，列表 / 表单派生只摆放位置。');
+
+      var categories = ref([
+        { id: 'c1', name: '快速上手', path: '快速上手' },
+        { id: 'c2', name: '系统管理', path: '系统管理 / 用户与权限' },
+        { id: 'c3', name: '常见问题', path: '常见问题' }
+      ]);
+
+      var listLeft = [
+        { key: 'create', label: '新增', type: 'primary' },
+        { key: 'refresh', label: '刷新' },
+        { key: 'close', label: '关闭' },
+        { key: 'delete', label: '删除', danger: true, perm: 'delete' },
+        { key: 'batch', label: '批量操作', bind: 'selected' }
+      ];
+      var listRight = [
+        { key: 'export', label: '导出', perm: 'export' },
+        { key: 'columns', label: '自定义列' },
+        { key: 'more', label: '更多设置' }
+      ];
+      var formReadLeft = [
+        { key: 'edit', label: '修改', type: 'primary' },
+        { key: 'delete', label: '删除', danger: true, perm: 'delete' },
+        { key: 'refresh', label: '刷新' },
+        { key: 'close', label: '关闭' }
+      ];
+      var formEditLeft = [
+        { key: 'save', label: '保存', type: 'primary' },
+        { key: 'cancel', label: '取消' },
+        { key: 'close', label: '关闭' }
+      ];
+
+      var leftActions = computed(function () {
+        if (variant.value === 'list') return listLeft;
+        return variant.value === 'form-read' ? formReadLeft : formEditLeft;
+      });
+      var rightActions = computed(function () {
+        return variant.value === 'list' ? listRight : [];
+      });
+      var rightVisible = computed(function () {
+        if (!dense.value || variant.value !== 'list') return rightActions.value;
+        return rightActions.value.slice(0, 2);
+      });
+      var rightOverflow = computed(function () {
+        if (!dense.value || variant.value !== 'list') return [];
+        return rightActions.value.slice(2);
+      });
+      var helpVisibleAction = computed(function () {
+        return helpScenario.value !== 'none';
+      });
+
+      function visible(action) {
+        if (action.kind === 'help') return helpVisibleAction.value;
+        if (action.perm === 'delete' && !hasDeletePerm.value) return false;
+        if (action.perm === 'export' && !hasExportPerm.value) return false;
+        if (action.bind === 'selected' && !selected.value) return true;
+        return true;
+      }
+
+      function disabled(action) {
+        if (action.bind === 'selected') return !selected.value;
+        return Boolean(action.disabled);
+      }
+
+      function onAction(action) {
+        if (action.kind === 'help') {
+          openHelp();
+          return;
+        }
+        if (action.bind === 'selected' && !selected.value) {
+          ElMessage.info('批量操作随选中态启用');
+          return;
+        }
+        log.value = '触发动作：' + action.label + '（由页面处理业务，工具栏只回传动作键）';
+        ElMessage.info('动作：' + action.label);
+      }
+
+      function onActionByKey(key) {
+        var action = rightOverflow.value.find(function (item) { return item.key === key; });
+        if (action) onAction(action);
+      }
+
+      function openHelp() {
+        if (helpScenario.value === 'none') {
+          ElMessage.info('当前页面没有登记帮助锚点，帮助动作不显示');
+          return;
+        }
+        helpVisible.value = true;
+        log.value = '帮助动作：由工具栏基类统一触发，上下文交给帮助能力解析';
+      }
+
+      function retryHelp() {
+        if (helpScenario.value === 'error') helpScenario.value = 'matched';
+        log.value = '重新解析当前上下文帮助（同上下文并发合并，不自动轮询）';
+      }
+
+      function toast(message) { log.value = message; ElMessage.info(message); }
+
+      return {
+        variant, hasDeletePerm, hasExportPerm, selected, dense,
+        helpVisible, helpScenario, log, categories, article: ARTICLE,
+        leftActions, rightVisible, rightOverflow, helpVisibleAction,
+        visible, disabled, onAction, onActionByKey, openHelp, retryHelp, toast,
+        dialogTitle: computed(function () { return helpScenario.value === 'matched' ? ARTICLE.title : '帮助'; })
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

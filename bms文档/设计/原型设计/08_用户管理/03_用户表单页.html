@@ -47,6 +47,7 @@
         </template>
         <el-button @click="tryClose">关闭</el-button>
         <span class="ep-side">
+          <el-button data-test="form-help" @click="openHelp">帮助</el-button>
           <span v-if="dirty" class="proto-hint" style="color:#cf222e">● 有未保存变更</span>
           <span v-else-if="form.builtin" class="proto-hint">内置管理员：不可停用 / 删除（30009）</span>
           <span v-else class="proto-hint">编辑后关闭 / 切换页签将触发未保存拦截</span>
@@ -234,6 +235,35 @@
       <template #footer>
         <el-button @click="pluginPicker.visible = false">取消</el-button>
         <el-button type="primary" @click="savePluginPick">保存并提交</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="helpVisible" title="用户表单字段说明" width="640px" top="8vh">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <el-tag size="small" type="success">表单级</el-tag>
+        <el-tag size="small" type="info">平台内置</el-tag>
+      </div>
+      <div style="max-height:60vh;overflow:auto;font-size:13px;line-height:1.85;color:#1f2328">
+        <h3 style="font-size:15px;margin:0 0 6px">用户表单</h3>
+        <p>表单用于维护账号基本信息、组织归属与角色分配。带 <b>*</b> 的字段为必填项。</p>
+        <h4 style="font-size:13px;margin:10px 0 4px">字段说明</h4>
+        <ul style="margin:6px 0 6px 20px;padding:0">
+          <li><b>用户名</b>：登录账号，创建后不可修改。</li>
+          <li><b>昵称</b>：界面展示名称，可重复。</li>
+          <li><b>手机号 / 邮箱</b>：用于找回密码与接收通知，至少填写一项。</li>
+          <li><b>部门</b>：决定数据权限范围。</li>
+        </ul>
+        <h4 style="font-size:13px;margin:10px 0 4px">保存说明</h4>
+        <p>保存为整体提交；记录被他人修改时会提示并重新加载。</p>
+      </div>
+      <template #footer>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <el-button size="small" text @click="toast('刷新当前页面帮助')">刷新</el-button>
+          <div>
+            <el-button size="small" @click="toast('打开帮助中心（归帮助内容任务）')">帮助中心</el-button>
+            <el-button size="small" type="primary" @click="helpVisible = false">关闭</el-button>
+          </div>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -438,7 +468,9 @@
         }
       })();
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
-      return { editing, section, assignTab, dirty, mdmPluginLoaded, form, sys, ssoIdentities, assignHasItems, assignedRoles, candidateRoles, rolePicker, assignedPosts, assignedDepts, pluginPicker, filteredCandidateRoles, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, tryClose, roleTypeText, openRolePicker, saveRolePick, unassignRole, openPostPicker, setPrimaryPost, unbindPost, openDeptPicker, setPrimaryDept, unbindDept, savePluginPick, toast };
+      var helpVisible = ref(false);
+      function openHelp() { helpVisible.value = true; }
+      return { editing, section, assignTab, dirty, mdmPluginLoaded, form, sys, ssoIdentities, assignHasItems, assignedRoles, candidateRoles, rolePicker, assignedPosts, assignedDepts, pluginPicker, filteredCandidateRoles, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, tryClose, roleTypeText, openRolePicker, saveRolePick, unassignRole, openPostPicker, setPrimaryPost, unbindPost, openDeptPicker, setPrimaryDept, unbindDept, savePluginPick, toast, helpVisible, openHelp };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

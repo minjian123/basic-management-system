@@ -63,6 +63,7 @@
       <el-input class="tn-search" v-model="globalKw" placeholder="全局搜索：模块 / 单据" clearable size="default"
         @focus="ElMessage.info('原型演示：全局搜索（命令面板）')"></el-input>
       <span class="tn-right">
+        <el-button text data-test="header-help" @click="openHelp">❓ 帮助</el-button>
         <el-badge :value="3" :max="99">
           <el-button text @click="openTabByName('通知中心')">🔔 待办</el-button>
         </el-badge>
@@ -179,6 +180,28 @@
     <div class="tc-item" @click="ctxCmd('others')">关闭其他</div>
     <div class="tc-item" @click="ctxCmd('all')">关闭全部</div>
   </div>
+
+  <!-- 顶栏帮助入口：常驻可见；有页面上下文时按上下文解析，无上下文时走全局级 -->
+  <el-dialog v-model="helpVisible" title="BMS 快速上手" width="640px" top="8vh">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <el-tag size="small" type="info">全局</el-tag>
+      <el-tag size="small" type="info">平台内置</el-tag>
+    </div>
+    <div style="max-height:60vh;overflow:auto;font-size:13px;line-height:1.85;color:#1f2328">
+      <p>左侧菜单进入功能模块，顶栏可切换租户、查看通知与进入个人中心。</p>
+      <p><b>页面内帮助</b>：页面工具栏右侧的帮助入口按当前页面锚点解析；<b>顶栏帮助</b>在无页面上下文时展示通用帮助。</p>
+      <p><b>常见入口</b>：全局搜索按模块名 / 单据号定位；个人中心可修改密码、语言与时区、通知偏好。</p>
+    </div>
+    <template #footer>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <el-button size="small" text @click="helpToast('刷新帮助')">刷新</el-button>
+        <div>
+          <el-button size="small" @click="helpToast('打开帮助中心（归帮助内容任务）')">帮助中心</el-button>
+          <el-button size="small" type="primary" @click="helpVisible = false">关闭</el-button>
+        </div>
+      </div>
+    </template>
+  </el-dialog>
 </div>
 
 <script src="../资源/vendor/vue.global.prod.js"></script>
@@ -402,6 +425,11 @@
         }
       }
 
+      // 顶栏帮助入口：常驻可见，打开全局帮助弹窗（有页面上下文时按上下文解析，归工具栏帮助动作）
+      var helpVisible = ref(false);
+      function openHelp() { helpVisible.value = true; }
+      function helpToast(message) { ElMessage.info(message); }
+
       // Tab 溢出"更多"下拉（《布局设计-主框架》3.7）：el-tabs 头部溢出时显示，收纳全部 Tab 供切换
       var showMore = ref(false);
       function checkMore() {
@@ -425,7 +453,8 @@
       }
       return {
         menus, collapsed, menuKw, globalKw, tenant, activeTab, tabs, filteredMenus, showMore,
-        ElMessage, onMenuSelect, onTabRemove, openTabByName, showCtx, ctxCmd, moreCmd, rmDetail, tenantCmd, userCmd
+        ElMessage, onMenuSelect, onTabRemove, openTabByName, showCtx, ctxCmd, moreCmd, rmDetail, tenantCmd, userCmd,
+        helpVisible, openHelp, helpToast
       };
     }
   });

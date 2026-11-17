@@ -89,6 +89,11 @@
             <el-button size="small" @click="openDrawer('edit'); nestedHint = true">打开抽屉 → 在抽屉内确认</el-button>
             <span class="dp-hint">抽屉底部「危险操作」可触发嵌套确认</span>
           </div>
+          <div class="ep-section">长文阅读（对话框 · 640）</div>
+          <div class="dp-bar">
+            <el-button size="small" @click="longVisible = true">打开长文阅读</el-button>
+            <span class="dp-hint">标题与底部操作固定、正文独立滚动、最大高度 80vh；用于帮助文章 / 说明类长文</span>
+          </div>
           <div class="dp-state">{{ confirmLog }}</div>
         </div>
       </el-tab-pane>
@@ -206,6 +211,38 @@
       </template>
     </el-dialog>
 
+    <!-- ===== 长文阅读对话框（640 / 标题与底部固定、正文滚动） ===== -->
+    <el-dialog v-model="longVisible" title="用户表单字段说明" width="640px" top="7vh">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <el-tag size="small" type="success">表单级</el-tag>
+        <el-tag size="small" type="info">平台内置</el-tag>
+      </div>
+      <div style="max-height:60vh;overflow:auto;font-size:13px;line-height:1.85;color:#1f2328">
+        <h3 style="font-size:15px;margin:0 0 6px">用户表单</h3>
+        <p>表单用于维护账号基本信息、组织归属与角色分配。带 <b>*</b> 的字段为必填项。</p>
+        <h4 style="font-size:13px;margin:10px 0 4px">字段说明</h4>
+        <ul style="margin:6px 0 6px 20px;padding:0">
+          <li><b>用户名</b>：登录账号，创建后不可修改。</li>
+          <li><b>昵称</b>：界面展示名称，可重复。</li>
+          <li><b>手机号 / 邮箱</b>：用于找回密码与接收通知，至少填写一项。</li>
+          <li><b>部门</b>：决定数据权限范围。</li>
+        </ul>
+        <h4 style="font-size:13px;margin:10px 0 4px">保存说明</h4>
+        <p>保存为整体提交；记录被他人修改时会提示并重新加载。</p>
+        <h4 style="font-size:13px;margin:10px 0 4px">系统信息</h4>
+        <p>「系统信息」页签只读展示表单标识、创建人与修改人。</p>
+      </div>
+      <template #footer>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <el-button size="small" text @click="confirmLog = '刷新长文内容'">刷新</el-button>
+          <div>
+            <el-button size="small" @click="confirmLog = '打开帮助中心（归帮助内容任务）'">帮助中心</el-button>
+            <el-button size="small" type="primary" @click="longVisible = false">关闭</el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- ===== 移动端底部弹出 ===== -->
     <van-popup v-model:show="vanVisible" position="bottom" round :style="{ height: '60%' }">
       <div style="padding:16px">
@@ -260,6 +297,7 @@
       var confirmDialogVisible = ref(false);
       var confirmInput = ref('');
       var confirmLog = ref('等待操作…');
+      var longVisible = ref(false);
 
       var perm = reactive({ create: true, update: true, delete: true });
 
@@ -379,6 +417,7 @@
         openDrawer, requestCloseDrawer, beforeCloseDrawer, submitDrawer,
         dialogVisible, pwdForm, pwdFormRef, pwdRules, beforeCloseDialog, submitPwd,
         confirmDialogVisible, confirmInput, confirmLog, confirmDelete, doDelete, nestedConfirmFromDrawer,
+        longVisible,
         perm, vanVisible, vanForm, vanConfirm, vanSave
       };
     }
