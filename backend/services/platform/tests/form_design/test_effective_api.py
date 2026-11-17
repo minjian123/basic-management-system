@@ -10,7 +10,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing.namespace import Namespace
 from tests_support.permission_admin import setup_min_tenant
 
-from .helpers import register_form_key, reset_form_design_tables, seed_business, seed_form_with_fields
+from .helpers import ensure_form_design_tables, register_form_key, seed_business, seed_form_with_fields
 
 pytestmark = pytest.mark.kiwi_id(2526)
 
@@ -20,13 +20,13 @@ _EFFECTIVE = "/api/v1/forms/{code}/layout-effective"
 
 @pytest_asyncio.fixture(autouse=True)
 async def prepared(tenant_db: str, service_app: Any) -> None:
-    """租户库 + 系统管理员主体 + 清空表单定制四表。
+    """租户库 + 系统管理员主体 + 四表存在性（不清表，隔离靠命名空间）。
 
     Args:
-        tenant_db: 共享租户库连接串。
+        tenant_db: 共享测试租户库连接串。
     """
     await setup_min_tenant(tenant_db)
-    await reset_form_design_tables()
+    await ensure_form_design_tables()
 
 
 async def _form(ns: Namespace, suffix: str, *, app: object) -> str:

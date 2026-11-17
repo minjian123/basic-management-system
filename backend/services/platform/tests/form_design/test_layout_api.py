@@ -11,8 +11,8 @@ from bms_core.testing.namespace import Namespace
 from tests_support.permission_admin import setup_min_tenant
 
 from .helpers import (
+    ensure_form_design_tables,
     outbox_types_in_tenant,
-    reset_form_design_tables,
     seed_business,
     seed_form_with_fields,
 )
@@ -25,13 +25,15 @@ _ATTRS = "/api/v1/form-design/attrs"
 
 @pytest_asyncio.fixture(autouse=True)
 async def prepared(tenant_db: str) -> None:
-    """真实权限校验所需租户库 + 内置系统管理员主体 + 清空表单定制四表。
+    """真实权限校验所需租户库 + 内置系统管理员主体 + 表单定制四表存在性。
+
+    单库叠加口径：**不清表**，隔离靠用例命名空间（`form_code = ns.prefix_suffix`）。
 
     Args:
-        tenant_db: 共享租户库连接串。
+        tenant_db: 共享测试租户库连接串。
     """
     await setup_min_tenant(tenant_db)
-    await reset_form_design_tables()
+    await ensure_form_design_tables()
 
 
 async def _form(ns: Namespace, suffix: str) -> str:

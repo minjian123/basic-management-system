@@ -3,14 +3,20 @@
 为什么放在 `tests_support`：测试库隔离护栏（`base test-db-isolation`）把「用例自建 SQLite 引擎」
 列为违规（单库叠加口径），只放行共享基座模块；本模块即该基座（与 `tests_support/shared_db.py` 同口径）。
 用例只调本模块的函数，不直接构造引擎。
+
+**为什么没有「清表」**（2026-11-18 修订）：单库叠加口径下全 worker 共用一份租户库
+（`bms_core.testing.shared_db`），**整表 delete 会删掉并行中他人用例正在断言的行**——
+这类写法在 `services/identity/tests/auth/conftest.py` 已被明确取消（见
+`auth/session_helpers.py` 模块说明）。本域的隔离靠**用例命名空间**（`ns` → 唯一 `form_code`）：
+四表查询一律按 `form_code` 过滤、探针表名由 `form_code` 派生，故无需清场即可互不干扰。
 """
 
 from __future__ import annotations
 
 from typing import Any, cast
 
-from sqlalchemy import Table, delete, inspect, text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import Table, inspect, text
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import Base
@@ -18,14 +24,14 @@ from bms_core.models.base import Base
 __all__ = [
     "create_probe_table",
     "drop_probe_table",
+    "ensure_models",
     "list_columns",
-    "purge_models",
     "run_statement",
 ]
 
 
-async def purge_models(url: str, models: ConcurrentStableList[Any]) -> None:
-    """建表（缺则建）并清空给定模型对应表。
+async def ensure_models(url: str, models: ConcurrentStableList[Any]) -> None:
+    """确保给定模型对应表存在（缺则建；**不清空**——单库叠加下清表会删他人数据）。
 
     Args:
         url: 数据库连接串。
@@ -35,15 +41,15 @@ async def purge_models(url: str, models: ConcurrentStableList[Any]) -> None:
     try:
         tables = [cast("Table", model.__table__) for model in models]
         async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
-            for table in tables:
-                await connection.execute(delete(table))
+            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables, checkfirst=True))
     finally:
         await engine.dispose()
 
 
 async def create_probe_table(url: str, name: str, *, columns: str = "id INTEGER PRIMARY KEY, code VARCHAR(64)") -> None:
     """重建探针表（先删后建，确保结构与列集合从干净状态开始）。
+
+    探针表名由调用方按用例命名空间派生（`biz_{form_code}`），故「先删」只影响本用例自己的表。
 
     Args:
         url: 数据库连接串。
@@ -106,6 +112,3 @@ async def run_statement(url: str, statement: str) -> None:
             await connection.execute(text(statement))
     finally:
         await engine.dispose()
-
-
-del async_sessionmaker

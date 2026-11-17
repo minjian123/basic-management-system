@@ -1,55 +1,27 @@
-"""菜单元数据测试替身（Kiwi 2242）：直插业务 / 动作码与表单、清场与发件箱读取。
+"""菜单元数据测试替身（Kiwi 2242）：直插业务 / 动作码与表单、发件箱读取。
 
-业务 / 动作权限码无写接口（平台只读口径），用例内直插以构造授权对象；菜单元数据表位于
-平台服务库，逐用例清场以隔离数据（会话级平台库共享）。
+业务 / 动作权限码无写接口（平台只读口径），用例内直插以构造授权对象。
 
 单库化（04-6-2）后菜单元数据落**共享平台库**、全 worker 叠加：业务码 / 表单 / 菜单一律由调用方
 按用例命名空间派生；动作码是全局动词（`create` / `query` 等固定词），「查无 → 插入」必须跨进程
 串行（`(code, deleted_at)` 唯一约束在 NULL 上不生效，见 `tests_support/locks.py`）。
+
+**本模块不提供清场**（2026-11-18 修订）：原 `reset_menu_tables()` 逐例清空菜单元数据十二表，
+在单库叠加下会删掉并行中他人用例正在断言的业务码 / 表单（与 `services/identity/tests/auth`
+取消 `delete(SysSession)` 同一理由）。该函数自 04-6-2 收口后已无调用者，本次一并删除；
+隔离一律靠调用方按 `ns` 派生业务码。
 """
 
 import os
-from typing import Any, cast
 
-from sqlalchemy import Table, delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.models.base import Base
 from bms_core.models.outbox import SysOutbox
-from bms_core.models.platform.menu_form import (
-    SysButton,
-    SysField,
-    SysFieldI18n,
-    SysForm,
-    SysMenu,
-    SysMenuForm,
-    SysMenuI18n,
-)
-from bms_core.models.platform.permission_meta import (
-    SysAction,
-    SysActionI18n,
-    SysBusiness,
-    SysBusinessI18n,
-    SysPermission,
-)
+from bms_core.models.platform.menu_form import SysForm, SysMenuForm
+from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
 from tests_support.locks import file_lock
-
-MENU_MODELS: tuple[Any, ...] = (
-    SysMenuI18n,
-    SysMenu,
-    SysButton,
-    SysFieldI18n,
-    SysField,
-    SysMenuForm,
-    SysForm,
-    SysPermission,
-    SysActionI18n,
-    SysAction,
-    SysBusinessI18n,
-    SysBusiness,
-)
-"""菜单元数据十二表（清场顺序：先子后父；含 `sys_menu_form` 关联与 `sys_permission`）。"""
 
 
 def platform_url() -> str:
@@ -213,19 +185,3 @@ async def outbox_payloads(event_type: str) -> ConcurrentStableList[ConcurrentSta
     for payload in payloads:
         result.add(ConcurrentStableDict(payload))
     return result
-
-
-async def reset_menu_tables() -> None:
-    """菜单元数据十表建表（缺则建）并清空（会话级平台库共享，逐用例调用于隔离数据）。
-
-    用例侧以 autouse 夹具调用本函数（`tests_support` 只导出普通函数，夹具就地声明）。
-    """
-    tables = [cast("Table", model.__table__) for model in MENU_MODELS]
-    engine = create_async_engine(platform_url())
-    try:
-        async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
-            for table in tables:
-                await connection.execute(delete(table))
-    finally:
-        await engine.dispose()

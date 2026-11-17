@@ -1,7 +1,13 @@
-"""表单定制用例共用助手：造业务码 / 表单 / 字段、清表、探针表与清单注入。
+"""表单定制用例共用助手：造业务码 / 表单 / 字段、探针表与清单注入。
 
 **建引擎能力全部下沉 `tests_support/form_design.py`**：测试库隔离护栏只放行共享基座建引擎，
 用例侧只调函数（单库叠加口径，见《测试规范》「测试数据」节）。
+
+**隔离靠命名空间，不靠清表**（2026-11-18 修订）：本域四表落共享租户库、全 worker 叠加，
+整表 delete 会删掉并行中他人用例正在断言的行（与 `services/identity/tests/auth` 取消
+`delete(SysSession)` 同一理由）。所有夹具只**建表（缺则建）**；隔离由
+`form_code = {ns.prefix}_{suffix}` 与探针表名 `biz_{form_code}` 保证。业务码 / 表单 / 字段
+在平台库同样是命名空间内新建，用例结束不清理。
 """
 
 from __future__ import annotations
@@ -13,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.models.outbox import SysOutbox
 from bms_core.models.platform.form_design import (
     SysFieldExt,
     SysFieldExtI18n,
@@ -22,12 +29,11 @@ from bms_core.models.platform.form_design import (
 from bms_core.models.platform.menu_form import SysField, SysForm
 from bms_core.models.platform.permission_meta import SysBusiness
 from bms_core.registry.forms import FormRecord, FormRegistry, merge_form_records
-from bms_core.testing.schema import ensure_tables  # noqa: F401 - 保留共享建表入口引用
 from tests_support.form_design import (
     create_probe_table,
     drop_probe_table,
+    ensure_models,
     list_columns,
-    purge_models,
     run_statement,
 )
 
@@ -35,12 +41,11 @@ __all__ = [
     "FORM_DESIGN_MODELS",
     "create_probe_table",
     "drop_probe_table",
+    "ensure_form_design_tables",
     "list_columns",
     "outbox_types_in_tenant",
     "platform_url",
-    "purge_business",
     "register_form_key",
-    "reset_form_design_tables",
     "run_statement",
     "seed_business",
     "seed_form_with_fields",
@@ -55,7 +60,7 @@ FORM_DESIGN_MODELS: ConcurrentStableList[Any] = ConcurrentStableList(
         SysFieldExt,
     )
 )
-"""表单定制四表（清场顺序：先子后父）。"""
+"""表单定制四表（只用于「确保存在」，不做清场）。"""
 
 
 def platform_url() -> str:
@@ -68,7 +73,7 @@ def platform_url() -> str:
 
 
 def tenant_url() -> str:
-    """当前用例的共享租户库连接串。
+    """当前用例的共享测试租户库连接串（单库叠加口径）。
 
     Returns:
         str: 租户库连接串。
@@ -76,43 +81,13 @@ def tenant_url() -> str:
     return os.environ["BMS_DATABASE__TENANTS__URL"]
 
 
-async def reset_form_design_tables() -> None:
-    """建表（缺则建）并清空表单定制四表（共享租户库逐用例隔离）。"""
-    await purge_models(tenant_url(), FORM_DESIGN_MODELS)
-
-
-async def purge_business(code: str) -> None:
-    """物理删除某业务码及其表单 / 字段（种子幂等前置）。
-
-    Args:
-        code: 业务码。
-    """
-    url = platform_url()
-    engine = create_async_engine(url)  # own_db: 共享基座之外仅此处读平台库元数据，见模块说明
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            business_ids = (
-                (await session.execute(select(SysBusiness.id).where(SysBusiness.code == code))).scalars().all()
-            )
-            if not business_ids:
-                return
-            form_ids = (
-                (await session.execute(select(SysForm.id).where(SysForm.business_id.in_(list(business_ids)))))
-                .scalars()
-                .all()
-            )
-            if form_ids:
-                await session.execute(SysField.__table__.delete().where(SysField.form_id.in_(list(form_ids))))
-                await session.execute(SysForm.__table__.delete().where(SysForm.id.in_(list(form_ids))))
-            await session.execute(SysBusiness.__table__.delete().where(SysBusiness.id.in_(list(business_ids))))
-            await session.commit()
-    finally:
-        await engine.dispose()
+async def ensure_form_design_tables() -> None:
+    """确保表单定制四表存在（缺则建；**不清空**，隔离靠用例命名空间）。"""
+    await ensure_models(tenant_url(), FORM_DESIGN_MODELS)
 
 
 async def seed_business(code: str, name: str = "测试业务") -> int:
-    """直插业务码（平台库；`code` 即表单标识，重跑前先清旧行保证幂等）。
+    """直插业务码（平台库；`code` 即表单标识，调用方按命名空间派生保证唯一）。
 
     Args:
         code: 业务码。
@@ -121,9 +96,8 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
     Returns:
         int: 业务码主键。
     """
-    await purge_business(code)
     url = platform_url()
-    engine = create_async_engine(url)  # own_db: 同上（共享基座内的平台元数据直插，见模块说明）
+    engine = create_async_engine(url)  # own_db: 共享基座之外仅此处直插平台元数据，见模块说明
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
@@ -185,10 +159,7 @@ async def outbox_types_in_tenant(aggregate_key: str) -> ConcurrentStableList[str
     Returns:
         ConcurrentStableList[str]: 事件类型清单（插入序）。
     """
-    from bms_core.models.outbox import SysOutbox
-
     url = tenant_url()
-    await purge_models(url, ConcurrentStableList((SysOutbox,)) and ConcurrentStableList(()))
     engine = create_async_engine(url)  # own_db: 同上（共享基座内的发件箱读取，见模块说明）
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
