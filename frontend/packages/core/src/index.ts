@@ -303,6 +303,19 @@ export { BaseModalShell } from './capabilities/modal-shell'
 export { BaseFormContainer } from './capabilities/form-container'
 export { BaseContainer } from './capabilities/container'
 export { BaseLayout } from './capabilities/layout'
+export {
+  BaseFormToolbar,
+  BaseListToolbar,
+  BaseToolbar,
+  FORM_TOOLBAR_DEFAULTS,
+  LIST_TOOLBAR_DEFAULTS,
+  type ToolbarHelpMode,
+  type ToolbarPermChecker,
+} from './capabilities/toolbar'
+export {
+  BaseHelpContext,
+  type HelpContextFetcher,
+} from './capabilities/help-context'
 export { BaseMediaContent, type MediaState } from './capabilities/media'
 export { BaseFeedback, type FeedbackState } from './capabilities/feedback'
 export {
@@ -1520,6 +1533,46 @@ export {
   type NotificationRealtimePayload,
   type NotificationSnapshot,
 } from './domain/notification'
+export {
+  HELP_EMPTY_TEXT,
+  HELP_LEVELS,
+  HELP_LEVEL_LABELS,
+  HELP_NO_ARTICLE_TEXT,
+  HELP_SOURCES,
+  HELP_SOURCE_LABELS,
+  buildHelpQuery,
+  emptyHelpResult,
+  helpContextKey,
+  helpLevelLabel,
+  helpSourceLabel,
+  normalizeHelpContext,
+  normalizeHelpResult,
+  type HelpArticle,
+  type HelpArticleSummary,
+  type HelpCategory,
+  type HelpContextInput,
+  type HelpDescriptor,
+  type HelpLevel,
+  type HelpResult,
+  type HelpSource,
+} from './domain/help'
+export {
+  TOOLBAR_HELP_KEY,
+  TOOLBAR_HELP_ORDER,
+  TOOLBAR_MAX_RIGHT,
+  filterToolbarActions,
+  groupToolbarActions,
+  isToolbarActionDisabled,
+  mergeToolbarActions,
+  visibleToolbarActions,
+  type ToolbarAction,
+  type ToolbarActionOverride,
+  type ToolbarActionState,
+  type ToolbarActionType,
+  type ToolbarGroup,
+  type ToolbarGroups,
+  type ToolbarMode,
+} from './domain/toolbar'
 export {
   groupAuditRows,
   normalizeAuditRow,

@@ -2,7 +2,8 @@
 // 用户管理页（平台内建页）：表单框架宿主——列表 Tab（固定不可关）+ 用户记录 Tab（新增 / 双击行打开）。
 // 结构对照原型《08_用户管理/02_用户列表页.html》：列表三段式**无操作列** + 状态列**内联开关**；
 // 筛选仅「关键字 + 状态」（不含部门 / 岗位 / 角色——部门 / 岗位关系归主数据产品，仅经记录页插件呈现）。
-import { EmptyState, FormFrame, InlineSwitchCell, PageContainer, type FormFrameTab } from '@bms/ui_ep'
+import { EmptyState, FormFrame, InlineSwitchCell, ListToolbar, PageContainer, type FormFrameTab } from '@bms/ui_ep'
+import type { ToolbarAction, ToolbarActionOverride } from '@bms/core'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 
@@ -14,6 +15,7 @@ import {
   type UserItem,
   type UserStatus,
 } from '@/api/user'
+import { usePageHelpContext } from '@/composables/usePageHelpContext'
 import { recordTabKey, useTabsStore } from '@/stores/tabs'
 import { useSessionStore } from '@/stores/session'
 
@@ -55,6 +57,35 @@ const pwdForce = ref(true)
 
 /** 权限判定。 */
 const can = (code: string): boolean => session.codes.includes(code)
+/** 页面帮助上下文（列表按模块级；无锚点不显示入口）。 */
+const { help: pageHelp, fetcher: helpFetcher } = usePageHelpContext()
+
+/** 列表工具栏页面覆盖（保留既有 data-test 与顺序）。 */
+const toolbarOverrides: ToolbarActionOverride[] = [
+  { key: 'create', label: '新增', type: 'primary', permission: 'user:create', order: 10, testId: 'user-create' },
+  { key: 'refresh', label: '刷新', order: 20, testId: 'user-refresh' },
+  { key: 'close', label: '关闭', order: 30, testId: 'user-close-page' },
+  {
+    key: 'batch-delete',
+    label: '删除',
+    danger: true,
+    permission: 'user:delete',
+    order: 40,
+    testId: 'user-batch-delete',
+  },
+  { key: 'batch-toggle', label: '启用/停用', order: 50, testId: 'user-batch-toggle' },
+]
+/** 列表工具栏页面动作（默认集之外）。 */
+const toolbarActions: ToolbarAction[] = [
+  {
+    key: 'reset-pwd',
+    label: '重置密码',
+    group: 'left',
+    order: 60,
+    permission: 'user:reset_pwd',
+    testId: 'user-reset-pwd',
+  },
+]
 /** 表单框架页签。 */
 const frameTabs = computed<FormFrameTab[]>(() =>
   tabs.tabs.map((tab) => ({ key: tab.key, title: tab.title, type: tab.type, closable: tab.closable, dirty: tab.dirty })),
@@ -232,6 +263,36 @@ async function doResetPassword(): Promise<void> {
 }
 
 /**
+ * 列表工具栏动作分发（既有业务函数不变，只换触发入口）。
+ *
+ * @param key 动作键。
+ */
+function onToolbarAction(key: string): void {
+  switch (key) {
+    case 'create':
+      openCreate()
+      return
+    case 'refresh':
+      void load()
+      return
+    case 'close':
+      tabs.reset(LIST_KEY, '用户管理')
+      return
+    case 'batch-delete':
+      void removeSelected()
+      return
+    case 'batch-toggle':
+      void batchToggle()
+      return
+    case 'reset-pwd':
+      openResetPassword()
+      return
+    default:
+      return
+  }
+}
+
+/**
  * 记录保存成功回调（刷新列表并同步页签标题）。
  *
  * @param user 保存后的用户详情。
@@ -275,32 +336,17 @@ onMounted(() => {
       @close="tabs.close"
     >
       <template #list>
-        <div class="user-view__toolbar">
-          <el-button v-if="can('user:create')" type="primary" data-test="user-create" @click="openCreate">新增</el-button>
-          <el-button data-test="user-refresh" @click="load">刷新</el-button>
-          <el-button data-test="user-close-page" @click="tabs.reset(LIST_KEY, '用户管理')">关闭</el-button>
-          <el-button
-            v-if="can('user:delete')"
-            type="danger"
-            plain
-            :disabled="selection.length === 0"
-            data-test="user-batch-delete"
-            @click="removeSelected"
-          >
-            删除
-          </el-button>
-          <el-button :disabled="selection.length === 0" data-test="user-batch-toggle" @click="batchToggle">
-            启用/停用
-          </el-button>
-          <el-button
-            v-if="can('user:reset_pwd')"
-            :disabled="selection.length !== 1"
-            data-test="user-reset-pwd"
-            @click="openResetPassword"
-          >
-            重置密码
-          </el-button>
-        </div>
+        <list-toolbar
+          :overrides="toolbarOverrides"
+          :actions="toolbarActions"
+          :perm-checker="can"
+          :loading="loading"
+          :selected-count="selection.length"
+          :help="pageHelp"
+          :help-fetcher="helpFetcher"
+          data-test="user-toolbar"
+          @action="onToolbarAction"
+        />
 
         <div class="user-view__filter">
           <el-input

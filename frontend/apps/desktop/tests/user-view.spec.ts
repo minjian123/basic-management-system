@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, nextTick } from 'vue'
 
 import { deleteUser, listUsers, resetUserPassword, updateUserStatus } from '@/api/user'
+import { useMenuStore } from '@/stores/menu'
 import { useSessionStore } from '@/stores/session'
 import { useTabsStore } from '@/stores/tabs'
 import UserView from '@/views/system/user/UserView.vue'
@@ -120,6 +121,22 @@ beforeEach(() => {
 })
 
 describe('UserView（02_02）', () => {
+  it('工具栏迁移：动作保留既有 data-test；帮助入口按菜单锚点显示', async () => {
+    const { wrapper, pinia } = await mountView(['user:create'])
+    expect(wrapper.find('[data-test="user-toolbar"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="user-create"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="user-refresh"]').exists()).toBe(true)
+
+    expect(wrapper.find('[data-test="help-entry"]').exists()).toBe(false)
+    useMenuStore(pinia).$patch({ helpKeyByPath: { '/': 'platform:system:::' } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="help-entry"]').exists()).toBe(true)
+
+    const state = (wrapper.vm as unknown as { $: { setupState: { onToolbarAction: (key: string) => void } } }).$
+      .setupState
+    state.onToolbarAction('unknown')
+  })
+
   it('列表装载：三段式（工具栏 / 筛选 / 表格）与状态列内联开关', async () => {
     const { wrapper } = await mountView(['user:create', 'user:delete', 'user:reset_pwd'])
 

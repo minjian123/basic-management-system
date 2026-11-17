@@ -31,7 +31,7 @@ from bms_core.help.content import (
 )
 from bms_core.help.index import HelpAnchorIndex, HelpMenuAnchor
 
-__all__ = ["HelpContextInput", "build_help_candidates", "resolve_help_context"]
+__all__ = ["HelpContextInput", "build_help_candidates", "has_anchor", "resolve_help_context"]
 
 
 @dataclass(frozen=True)
@@ -130,6 +130,21 @@ def build_help_candidates(
     return candidates
 
 
+def has_anchor(candidates: ConcurrentStableList[HelpAnchorCandidate]) -> bool:
+    """候选链中是否含已登记锚点（全局级不算锚点）。
+
+    页面内帮助按钮显隐用「元数据是否登记锚点」判定（登记了就有入口，文章缺省提示「暂无帮助」），
+    与命中判据 `matched` 分开：`anchor_found=True / matched=False` 即「有锚点无文章」。
+
+    Args:
+        candidates: 有序候选（首项最贴近当前上下文；末项恒为全局级）。
+
+    Returns:
+        bool: 除全局级外存在任一锚点即 True。
+    """
+    return any(candidate.help_key is not None for candidate in candidates)
+
+
 async def resolve_help_context(
     *,
     index: HelpAnchorIndex,
@@ -137,6 +152,7 @@ async def resolve_help_context(
     locale: str,
     resolver: BaseHelpContentResolver,
     request: Request | None = None,
+    candidates: ConcurrentStableList[HelpAnchorCandidate] | None = None,
 ) -> HelpContentResult:
     """按候选链向内容侧解析（未命中返回空结果，不是错误）。
 
@@ -146,14 +162,16 @@ async def resolve_help_context(
         locale: 请求语言标识。
         resolver: 内容侧解析实现。
         request: 当前请求（透传给实现；可空）。
+        candidates: 已构建的候选链（调用方需同时判定 `anchor_found` 时传入，避免重复构建）；
+            未传则按索引与上下文现构建。
 
     Returns:
         HelpContentResult: 解析结果。
     """
-    candidates = build_help_candidates(index, context)
+    ordered = build_help_candidates(index, context) if candidates is None else candidates
     query = HelpContentQuery(
         locale=locale,
-        candidates=ConcurrentStableFrozenList(candidates),
+        candidates=ConcurrentStableFrozenList(ordered),
         module_key=context.module_key,
         form_key=context.form_key,
         action_code=context.action_code,

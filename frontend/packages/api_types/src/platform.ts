@@ -9074,6 +9074,12 @@ export interface components {
          * @description 页面内帮助解析结果。
          */
         HelpContextResponse: {
+            /**
+             * Anchor Found
+             * @description 元数据是否登记锚点（页面内帮助入口显隐判据）
+             * @default false
+             */
+            anchor_found: boolean;
             /** @description 命中文章（未命中为 null） */
             article?: components["schemas"]["HelpArticleItem"] | null;
             /**

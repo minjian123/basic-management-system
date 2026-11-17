@@ -31,6 +31,7 @@ const RESPONSE: MyMenuResponse = {
       icon: 'el:setting',
       sort: 10,
       hidden: false,
+      help_key: 'platform:sys:::',
       forms: [],
       children: [
         {
@@ -49,6 +50,7 @@ const RESPONSE: MyMenuResponse = {
               business_id: '1',
               business_code: 'user',
               component: 'sys/users',
+              help_key: 'platform:sys:user::',
               buttons: [
                 {
                   id: '20',
@@ -58,6 +60,7 @@ const RESPONSE: MyMenuResponse = {
                   type: 'toolbar',
                   sort: 1,
                   visible: true,
+                  help_key: 'platform:sys:user::user:create',
                 },
               ],
               fields: [
@@ -69,6 +72,7 @@ const RESPONSE: MyMenuResponse = {
                   sort: 1,
                   visible: true,
                   editable: false,
+                  help_key: 'platform:sys:user:username:',
                 },
               ],
             },
@@ -78,8 +82,49 @@ const RESPONSE: MyMenuResponse = {
               business_id: '2',
               business_code: 'user_extra',
               component: null,
-              buttons: [],
-              fields: [],
+              buttons: [
+                {
+                  id: '21',
+                  permission_id: '31',
+                  permission_code: 'user:query',
+                  name: '查询',
+                  type: 'toolbar',
+                  sort: 1,
+                  visible: true,
+                  help_key: null,
+                },
+                {
+                  id: '22',
+                  permission_id: '32',
+                  permission_code: 'user:export',
+                  name: '导出',
+                  type: 'toolbar',
+                  sort: 2,
+                  visible: true,
+                  help_key: '',
+                },
+              ],
+              fields: [
+                {
+                  id: '41',
+                  field_key: 'nickname',
+                  name: '昵称',
+                  type: 'input',
+                  sort: 1,
+                  visible: true,
+                  editable: true,
+                },
+                {
+                  id: '42',
+                  field_key: 'email',
+                  name: '邮箱',
+                  type: 'input',
+                  sort: 2,
+                  visible: true,
+                  editable: true,
+                  help_key: '',
+                },
+              ],
             },
           ],
           children: [],
@@ -116,6 +161,12 @@ describe('useMenuStore（03_01）', () => {
     expect(store.tree[0]?.children?.map((node) => node.path)).toEqual(['/sys/users'])
     expect(store.formOf('/sys/users')?.businessCode).toBe('user')
     expect(store.formOf('/sys/users')?.visibleButtonCodes).toEqual(['user:create'])
+    expect(store.formOf('/sys/users')?.helpKey).toBe('platform:sys:user::')
+    expect(store.formOf('/sys/users')?.fieldHelpKeys).toEqual({ username: 'platform:sys:user:username:' })
+    expect(store.formOf('/sys/users')?.buttonHelpKeys).toEqual({
+      'user:create': 'platform:sys:user::user:create',
+    })
+    expect(store.helpKeyByPath).toEqual({ '/sys': 'platform:sys:::' })
     expect(store.formOf('/sys')).toBeUndefined()
     expect(store.fieldPermissions('10')).toEqual({ username: { visible: true, editable: false } })
     // 多对多（02_03）：同一入口的多个表单全部进索引，按路径取首个为主表单

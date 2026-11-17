@@ -17,7 +17,7 @@ from bms_core.help.content import (
     HelpContentResult,
     HelpLevel,
 )
-from bms_core.help.context import HelpContextInput, build_help_candidates, resolve_help_context
+from bms_core.help.context import HelpContextInput, build_help_candidates, has_anchor, resolve_help_context
 from bms_core.help.index import HelpAnchorIndex, HelpMenuAnchor
 
 pytestmark = pytest.mark.kiwi_id(2521)
@@ -198,6 +198,27 @@ async def test_resolve_help_context_passes_ordered_query() -> None:
     assert query.form_key == _FORM_KEY
     assert query.action_code == _ACTION
     assert next(candidate.level for candidate in query.candidates) is HelpLevel.FIELD
+
+
+def test_has_anchor_ignores_global_candidate() -> None:
+    """锚点判定：除全局级外任一候选有锚点即真（全空上下文只剩全局级为假）。"""
+    assert has_anchor(build_help_candidates(_index(), _context())) is True
+    assert has_anchor(build_help_candidates(_index(), HelpContextInput.of())) is False
+
+
+async def test_resolve_help_context_accepts_prebuilt_candidates() -> None:
+    """调用方已构建候选时直接复用（不重复构建，供服务层同时判定 anchor_found）。"""
+    candidates = build_help_candidates(_index(), _context())
+    resolver = _RecordingResolver(HelpContentResult())
+    await resolve_help_context(
+        index=_index(),
+        context=_context(),
+        locale="zh-CN",
+        resolver=resolver,
+        candidates=candidates,
+    )
+    query = resolver.queries[0]
+    assert [candidate.help_key for candidate in query.candidates] == [candidate.help_key for candidate in candidates]
 
 
 def test_context_input_normalizes_whitespace() -> None:

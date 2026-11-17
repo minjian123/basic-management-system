@@ -1,12 +1,13 @@
 <script setup lang="ts">
 // 顶栏业务区右侧组（《布局设计 · 导航》§3）：通知铃铛 / 租户切换 / 用户下拉（偏好设置 · 修改密码 · 退出登录）。
 // 通知取数经宿主能力装配的通知 HTTP 适配器（09_01）；铃铛只渲染，取数 / 已读 / 未读校准由通知中心编排承担。
-import { NoticeBell, NoticeDetail, useBaseNotification, type NoticeItem } from '@bms/ui_ep'
+import { HelpEntry, NoticeBell, NoticeDetail, useBaseNotification, type NoticeItem } from '@bms/ui_ep'
 import { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAppCapabilities } from '@/composables/useAppCapabilities'
+import { usePageHelpContext } from '@/composables/usePageHelpContext'
 import { useSessionStore } from '@/stores/session'
 
 defineOptions({ name: 'AppHeaderBar' })
@@ -29,6 +30,9 @@ const notice = useBaseNotification(
     ? { ready: false }
     : { ready: true, jobs: capabilities.notificationJobs },
 )
+
+/** 页面帮助上下文（顶栏入口常驻；无上下文走全局级）。 */
+const { help: pageHelp, fetcher: helpFetcher } = usePageHelpContext()
 
 /** 详情弹层显隐。 */
 const detailVisible = ref(false)
@@ -124,6 +128,13 @@ async function onUserCommand(command: string): Promise<void> {
 
 <template>
   <div class="app-header-bar" data-test="app-header-bar">
+    <help-entry
+      mode="header"
+      :descriptor="pageHelp"
+      :fetcher="helpFetcher"
+      data-test="header-help-entry"
+    />
+
     <notice-bell
       :ready="notice.ready.value"
       :unread-count="unreadCount"

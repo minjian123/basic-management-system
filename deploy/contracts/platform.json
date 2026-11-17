@@ -6598,6 +6598,12 @@
         "additionalProperties": false,
         "description": "页面内帮助解析结果。",
         "properties": {
+          "anchor_found": {
+            "default": false,
+            "description": "元数据是否登记锚点（页面内帮助入口显隐判据）",
+            "title": "Anchor Found",
+            "type": "boolean"
+          },
           "article": {
             "anyOf": [
               {

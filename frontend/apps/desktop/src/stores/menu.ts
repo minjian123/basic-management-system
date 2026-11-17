@@ -27,6 +27,12 @@ export interface FormMeta {
   visibleButtonCodes: string[]
   /** 字段权限（字段键 → 可见 / 可编辑）。 */
   fieldPerms: Record<string, FieldPermission>
+  /** 表单锚点（无则 `null`）。 */
+  helpKey: string | null
+  /** 字段键 → 字段锚点（仅登记了锚点的字段）。 */
+  fieldHelpKeys: Record<string, string>
+  /** 动作权限码 → 按钮锚点（仅登记了锚点的按钮）。 */
+  buttonHelpKeys: Record<string, string>
 }
 
 /** 菜单 store 状态。 */
@@ -37,6 +43,8 @@ interface MenuState {
   forms: Record<string, FormMeta>
   /** 菜单路径 → 表单主键。 */
   formIdByPath: Record<string, string>
+  /** 菜单路径 → 菜单锚点（`help_key`；仅登记了锚点的菜单）。 */
+  helpKeyByPath: Record<string, string>
   /** 当前用户权限码集合。 */
   permissions: string[]
   /** 当前语言。 */
@@ -83,8 +91,18 @@ function toMenuNode(node: MyMenuNode): MenuNode {
  */
 function toFormMeta(form: MyMenuForm): FormMeta {
   const fieldPerms: Record<string, FieldPermission> = {}
+  const fieldHelpKeys: Record<string, string> = {}
   for (const field of form.fields ?? []) {
     fieldPerms[field.field_key] = { visible: field.visible, editable: field.editable }
+    if (typeof field.help_key === 'string' && field.help_key !== '') {
+      fieldHelpKeys[field.field_key] = field.help_key
+    }
+  }
+  const buttonHelpKeys: Record<string, string> = {}
+  for (const button of form.buttons ?? []) {
+    if (typeof button.help_key === 'string' && button.help_key !== '') {
+      buttonHelpKeys[button.permission_code] = button.help_key
+    }
   }
   return {
     id: form.id,
@@ -94,11 +112,14 @@ function toFormMeta(form: MyMenuForm): FormMeta {
       .filter((button) => button.visible)
       .map((button) => button.permission_code),
     fieldPerms,
+    helpKey: form.help_key ?? null,
+    fieldHelpKeys,
+    buttonHelpKeys,
   }
 }
 
 /**
- * 递归收集表单元数据（表单主键索引 + 菜单路径索引）。
+ * 递归收集表单元数据（表单主键索引 + 菜单路径索引 + 菜单锚点索引）。
  *
  * 菜单 ↔ 表单为**多对多**（02_03 返工）：一个菜单入口可关联多个表单，全部进表单主键索引；
  * 「菜单路径 → 表单主键」取该入口的**首个**关联作为主表单（既有按路径取表单元数据的消费口径）。
@@ -106,13 +127,18 @@ function toFormMeta(form: MyMenuForm): FormMeta {
  * @param nodes 契约菜单节点（树）。
  * @param forms 输出：表单主键 → 元数据。
  * @param byPath 输出：菜单路径 → 主表单主键。
+ * @param helpKeys 输出：菜单路径 → 菜单锚点（仅登记了锚点的菜单）。
  */
 function collectForms(
   nodes: readonly MyMenuNode[],
   forms: Record<string, FormMeta>,
   byPath: Record<string, string>,
+  helpKeys: Record<string, string>,
 ): void {
   for (const node of nodes) {
+    if (typeof node.help_key === 'string' && node.help_key !== '') {
+      helpKeys[node.path] = node.help_key
+    }
     const nodeForms = node.forms ?? []
     for (const form of nodeForms) {
       forms[form.id] = toFormMeta(form)
@@ -121,7 +147,7 @@ function collectForms(
     if (primary !== undefined) {
       byPath[node.path] = primary.id
     }
-    collectForms(node.children ?? [], forms, byPath)
+    collectForms(node.children ?? [], forms, byPath, helpKeys)
   }
 }
 
@@ -130,6 +156,7 @@ export const useMenuStore = defineStore('menu', {
     tree: [],
     forms: {},
     formIdByPath: {},
+    helpKeyByPath: {},
     permissions: [],
     locale: '',
     version: 0,
@@ -177,6 +204,7 @@ export const useMenuStore = defineStore('menu', {
       this.tree = []
       this.forms = {}
       this.formIdByPath = {}
+      this.helpKeyByPath = {}
       this.permissions = []
       this.locale = ''
       this.version = 0
@@ -203,11 +231,13 @@ export const useMenuStore = defineStore('menu', {
       const nodes = data.menus ?? []
       const forms: Record<string, FormMeta> = {}
       const byPath: Record<string, string> = {}
-      collectForms(nodes, forms, byPath)
+      const helpKeys: Record<string, string> = {}
+      collectForms(nodes, forms, byPath, helpKeys)
       const permissions = [...(data.permissions ?? [])]
       this.tree = nodes.map(toMenuNode)
       this.forms = forms
       this.formIdByPath = byPath
+      this.helpKeyByPath = helpKeys
       this.permissions = permissions
       this.locale = data.locale
       this.version = data.version

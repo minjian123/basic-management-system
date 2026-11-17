@@ -57,6 +57,8 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'design_token': [],
   container: ['sized'],
   layout: ['sized'],
+  toolbar: ['layout'],
+  'help_context': ['data_state'],
   'media_content': ['sized'],
   'modal_shell': ['overlay'],
   clickable: [],

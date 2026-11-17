@@ -61,10 +61,11 @@ async function mountBar(signedIn = true): Promise<{
 }
 
 describe('AppHeaderBar（顶栏业务区，07-06_01 补修）', () => {
-  it('渲染通知 / 租户 / 用户三入口与展示名', async () => {
+  it('渲染通知 / 帮助 / 租户 / 用户入口与展示名', async () => {
     const { wrapper } = await mountBar()
 
     expect(wrapper.find('[data-test="header-notice"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="header-help"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="header-tenant"]').text()).toContain('demo')
     expect(wrapper.find('[data-test="header-user"]').text()).toContain('管理员')
   })

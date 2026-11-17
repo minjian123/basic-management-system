@@ -11,6 +11,7 @@ import {
   type BaseDictRemoteSource,
   type BaseDictSource,
   type BaseUploadTransport,
+  type HelpContextFetcher,
   type NotificationJobs,
 } from '@bms/core'
 import {
@@ -18,6 +19,7 @@ import {
   createHttpCaptchaSource,
   createHttpDictRemoteSource,
   createHttpDictSource,
+  createHttpHelpFetcher,
   createHttpNotificationJobs,
   createHttpUploadTransport,
   type AuditQueryAdapter,
@@ -28,6 +30,7 @@ import {
   captchaSourceOptions,
   dictRemoteSourceOptions,
   dictSourceOptions,
+  helpOptions,
   notificationOptions,
   uploadTransportOptions,
 } from './api/endpoints'
@@ -46,6 +49,8 @@ export interface AppCapabilities {
   notificationJobs: NotificationJobs
   /** 审计取数适配器（平台服务）。 */
   auditQuery: AuditQueryAdapter
+  /** 页面内帮助取数器（平台服务）。 */
+  helpFetcher: HelpContextFetcher
 }
 
 /** 已装配能力（单例；未装配为 `undefined`）。 */
@@ -67,6 +72,7 @@ export function installAppCapabilities(): AppCapabilities {
     captchaSource: createHttpCaptchaSource(captchaSourceOptions()),
     notificationJobs: createHttpNotificationJobs(notificationOptions()),
     auditQuery: createHttpAuditQuery(auditOptions()),
+    helpFetcher: createHttpHelpFetcher(helpOptions()),
   }
   return installed
 }

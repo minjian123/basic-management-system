@@ -1,7 +1,9 @@
 """帮助解析契约：页面内帮助的五级解析响应（`GET /api/v1/help/context`）。
 
 命中返回文章与锚点定位；未命中返回空 + 分类列表（前端据此提示「暂无帮助」并打开分类）。
-`button_visible` 恒等于 `matched`：锚点已登记且有可展示文章才显示帮助按钮。
+`anchor_found` 表示元数据是否登记了锚点（页面内帮助入口显隐判据）；`button_visible` 保持旧语义，
+恒等于 `matched`（锚点已登记且有可展示文章）。页面内帮助入口改用 `anchor_found`：登记了锚点即显示，
+文章缺省提示「暂无帮助 + 分类」。
 """
 
 from typing import Annotated
@@ -56,3 +58,4 @@ class HelpContextResponse(BaseSchema):
         default_factory=CONTRACT_STABLE_LIST, description="分类列表（未命中时前端据此打开分类）"
     )
     button_visible: bool = Field(description="帮助按钮显隐（锚点已登记且有可展示文章才为 true）")
+    anchor_found: bool = Field(default=False, description="元数据是否登记锚点（页面内帮助入口显隐判据）")

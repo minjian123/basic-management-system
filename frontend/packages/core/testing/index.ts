@@ -35,6 +35,8 @@ export * from './captcha'
 export * from './multilingual-name'
 export * from './field-input'
 export * from './module'
+export * from './toolbar'
+export * from './help-context'
 
 /** 契约用例套件定义体。 */
 export type ContractDefine = () => void

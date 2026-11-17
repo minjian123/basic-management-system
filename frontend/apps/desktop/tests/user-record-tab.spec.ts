@@ -39,6 +39,7 @@ vi.mock('@/api/user', () => ({
 vi.mock('@/api/role', () => ({ listRoles: vi.fn() }))
 
 const { useSessionStore } = await import('@/stores/session')
+const { useMenuStore } = await import('@/stores/menu')
 const UserRecordTab = (await import('@/views/system/user/UserRecordTab.vue')).default
 
 /** 用例内共享的 pinia 实例。 */
@@ -146,6 +147,26 @@ beforeEach(() => {
 })
 
 describe('用户记录页（02_02 · Kiwi 2277）', () => {
+  it('工具栏迁移：只读 / 编辑动作保留既有 data-test；帮助入口按表单锚点显示', async () => {
+    const wrapper = await mountRecord()
+    expect(wrapper.find('[data-test="user-record-toolbar"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="user-record-edit"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="user-record-refresh"]').exists()).toBe(true)
+
+    expect(wrapper.find('[data-test="help-entry"]').exists()).toBe(false)
+    useMenuStore(pinia).$patch({ helpKeyByPath: { '/': 'platform:system:::' } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="help-entry"]').exists()).toBe(true)
+
+    // 工具栏动作分发：保存入口与未知动作键（业务函数不变）
+    await wrapper.find('[data-test="user-record-edit"]').trigger('click')
+    await wrapper.find('[data-test="user-record-save"]').trigger('click')
+    await flushPromises()
+    const state = (wrapper.vm as unknown as { $: { setupState: { onToolbarAction: (key: string) => void } } }).$
+      .setupState
+    state.onToolbarAction('unknown')
+  })
+
   it('详情载入：回填表单、置查看态并载入 SSO 身份', async () => {
     listUserIdentities.mockResolvedValue({
       items: [{ idp_key: 'oidc', external_id: 'sub-1', tenant_id: 't1' }],

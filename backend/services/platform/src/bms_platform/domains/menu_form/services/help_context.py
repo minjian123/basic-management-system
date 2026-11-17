@@ -13,7 +13,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.help.content import BaseHelpContentResolver, HelpContentResult
-from bms_core.help.context import HelpContextInput, resolve_help_context
+from bms_core.help.context import HelpContextInput, build_help_candidates, has_anchor, resolve_help_context
 from bms_core.help.index import load_cached_help_anchor_index
 from bms_core.repositories.help_anchor import load_help_anchor_index
 from bms_platform.domains.menu_form.schemas.help import (
@@ -68,21 +68,24 @@ class HelpContextService(BaseFrameworkObject):
             ttl=ttl,
             build=lambda: load_help_anchor_index(self._session),
         )
+        candidates = build_help_candidates(index, context)
         result = await resolve_help_context(
             index=index,
             context=context,
             locale=locale,
             resolver=self._resolver,
             request=request,
+            candidates=candidates,
         )
-        return _to_response(result)
+        return _to_response(result, anchor_found=has_anchor(candidates))
 
 
-def _to_response(result: HelpContentResult) -> HelpContextResponse:
+def _to_response(result: HelpContentResult, *, anchor_found: bool) -> HelpContextResponse:
     """解析结果 → 接口契约（值对象 → 响应模型）。
 
     Args:
         result: 内容侧解析结果。
+        anchor_found: 候选链中是否存在已登记锚点（页面内按钮显隐判据）。
 
     Returns:
         HelpContextResponse: 帮助解析响应。
@@ -109,4 +112,5 @@ def _to_response(result: HelpContentResult) -> HelpContextResponse:
             HelpCategoryItem(id=item.category_id, name=item.name, path=item.path) for item in result.categories
         ),
         button_visible=result.matched,
+        anchor_found=anchor_found,
     )

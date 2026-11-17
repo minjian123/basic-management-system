@@ -45,6 +45,7 @@ describe('宿主能力装配（09_01）', () => {
     expect(first.captchaSource).toBeDefined()
     expect(first.notificationJobs).toBeDefined()
     expect(first.auditQuery).toBeDefined()
+    expect(first.helpFetcher).toBeDefined()
     expect(installAppCapabilities()).toBe(first)
     expect(getAppCapabilities()).toBe(first)
 

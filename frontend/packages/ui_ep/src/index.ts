@@ -50,6 +50,7 @@ export {
   type PreviewFile,
   type PreviewKind,
 } from './components/display/FilePreview.vue'
+export { default as HelpEntry } from './components/display/HelpEntry.vue'
 export { default as GlobalSearch } from './components/search/GlobalSearch.vue'
 // 搜索对外类型经核心领域模块统一导出（保持既有公开名）。
 export { type SearchDomain, type SearchGroup, type SearchHit } from '@bms/core'
@@ -301,6 +302,8 @@ export { default as CollapsePanel } from './components/layout/CollapsePanel.vue'
 export { default as DualTabs } from './components/layout/DualTabs.vue'
 export { default as DictRecordLayout } from './components/layout/DictRecordLayout.vue'
 export { default as FormFrame, type FormFrameTab } from './components/layout/FormFrame.vue'
+export { default as FormToolbar } from './components/layout/FormToolbar.vue'
+export { default as ListToolbar } from './components/layout/ListToolbar.vue'
 export { default as FormLayoutShell } from './components/layout/FormLayoutShell.vue'
 export { default as MainLayout } from './components/layout/MainLayout.vue'
 export { default as PageContainer, type BreadcrumbItem } from './components/layout/PageContainer.vue'
@@ -319,6 +322,7 @@ export { default as SplitPane, type SplitDirection } from './components/layout/S
 export { default as TreeMasterDetail, type MasterTreeNode } from './components/layout/TreeMasterDetail.vue'
 export { default as ConfirmDialog } from './components/modal/ConfirmDialog.vue'
 export { default as FormDialog } from './components/modal/FormDialog.vue'
+export { default as LongTextDialog } from './components/modal/LongTextDialog.vue'
 export { default as FormDrawer } from './components/modal/FormDrawer.vue'
 export { useConfirm, type ConfirmOptions, type ConfirmState } from './composables/useConfirm'
 export { useFeedback, type UseFeedbackResult } from './composables/useFeedback'
@@ -606,6 +610,17 @@ export {
 export { useSideMenu, type UseSideMenuOptions, type UseSideMenuResult } from './composables/useSideMenu'
 export { useTabNav, type TabNavItem, type UseTabNavOptions, type UseTabNavResult } from './composables/useTabNav'
 export { useModalShell, type UseModalShellResult } from './composables/useModalShell'
+export {
+  useBaseToolbar,
+  type UseBaseToolbarOptions,
+  type UseBaseToolbarResult,
+} from './composables/useBaseToolbar'
+export {
+  useBaseHelpContext,
+  type UseBaseHelpContextOptions,
+  type UseBaseHelpContextResult,
+} from './composables/useBaseHelpContext'
+export { createHttpHelpFetcher, type HelpHttpOptions } from './utils/helpContext'
 export { useFormModal, type UseFormModalOptions, type UseFormModalResult } from './composables/useFormModal'
 export {
   useBaseFormPage,

@@ -69,6 +69,11 @@ export function auditOptions(): SourceEndpointOptions {
   return sourceEndpoint('platform')
 }
 
+/** 页面内帮助取数选项（`platform`：五级解析同服务）。 */
+export function helpOptions(): SourceEndpointOptions {
+  return sourceEndpoint('platform')
+}
+
 /** 全文检索引擎选项（`search`）。 */
 export function searchEngineOptions(): SourceEndpointOptions {
   return sourceEndpoint('search')

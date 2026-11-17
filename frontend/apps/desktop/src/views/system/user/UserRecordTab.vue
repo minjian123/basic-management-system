@@ -8,11 +8,13 @@
 import {
   DictRecordLayout,
   EmptyState,
+  FormToolbar,
   type HostSubmitterEntry,
   type HostSubmitterSegment,
   type HostSubmitterRegistrar,
   type SysInfoData,
 } from '@bms/ui_ep'
+import type { ToolbarActionOverride } from '@bms/core'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 
@@ -30,6 +32,7 @@ import {
   type UserStatus,
 } from '@/api/user'
 import { registries, registriesRevision } from '@/module/registries'
+import { usePageHelpContext } from '@/composables/usePageHelpContext'
 import { useSessionStore } from '@/stores/session'
 
 import { USER_STATUS_OPTIONS } from './labels'
@@ -86,6 +89,24 @@ const baseline = ref<{ name: string; phone: string; email: string; status: UserS
 
 /** 权限码（按钮显隐）。 */
 const can = (code: string): boolean => session.codes.includes(code)
+/** 页面帮助上下文（表单按业务码；无锚点不显示入口）。 */
+const { help: pageHelp, fetcher: helpFetcher } = usePageHelpContext()
+
+/** 表单工具栏页面覆盖（保留既有 data-test 与只读 / 编辑分态）。 */
+const toolbarOverrides = computed<ToolbarActionOverride[]>(() => [
+  { key: 'edit', permission: 'user:update', testId: 'user-record-edit' },
+  { key: 'save', testId: 'user-record-save' },
+  { key: 'cancel', testId: 'user-record-cancel', hidden: isNew.value },
+  {
+    key: 'delete',
+    permission: 'user:delete',
+    showIn: ['readonly', 'editing'],
+    hidden: isNew.value,
+    testId: 'user-record-delete',
+  },
+  { key: 'refresh', testId: 'user-record-refresh' },
+  { key: 'close', testId: 'user-record-close' },
+])
 /**
  * 是否存在未保存变更（基础资料 + 各插件草稿）。
  *
@@ -336,6 +357,36 @@ async function remove(): Promise<void> {
   }
 }
 
+/**
+ * 表单工具栏动作分发（既有业务函数不变，只换触发入口）。
+ *
+ * @param key 动作键。
+ */
+function onToolbarAction(key: string): void {
+  switch (key) {
+    case 'edit':
+      startEdit()
+      return
+    case 'save':
+      void save()
+      return
+    case 'cancel':
+      cancelEdit()
+      return
+    case 'delete':
+      void remove()
+      return
+    case 'refresh':
+      void load()
+      return
+    case 'close':
+      emit('close')
+      return
+    default:
+      return
+  }
+}
+
 watch(
   () => props.userId,
   () => {
@@ -365,31 +416,23 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
       module-empty-text="暂无可用的分配项：无「用户分配」权限或分配插件未加载"
     >
       <template #toolbar>
-        <template v-if="isNew">
-          <el-button type="primary" :loading="saving" data-test="user-record-save" @click="save">保存</el-button>
-        </template>
-        <template v-else>
-          <el-button v-if="editing" type="primary" :loading="saving" data-test="user-record-save" @click="save">
-            保存
-          </el-button>
-          <el-button v-if="editing" data-test="user-record-cancel" @click="cancelEdit">取消</el-button>
-          <el-button v-else-if="can('user:update')" data-test="user-record-edit" @click="startEdit">修改</el-button>
-          <el-button
-            v-if="!isNew && can('user:delete')"
-            type="danger"
-            plain
-            data-test="user-record-delete"
-            @click="remove"
-          >
-            删除
-          </el-button>
-        </template>
-        <el-button data-test="user-record-refresh" @click="load">刷新</el-button>
-        <el-button data-test="user-record-close" @click="emit('close')">关闭</el-button>
-        <span class="user-record__side">
-          <span v-if="loading" class="user-record__hint" data-test="user-record-loading">载入中…</span>
-          <span v-if="dirty" class="user-record__dirty" data-test="user-record-dirty">● 有未保存变更</span>
-        </span>
+        <form-toolbar
+          :overrides="toolbarOverrides"
+          :perm-checker="can"
+          :editing="editing || isNew"
+          :loading="saving"
+          :help="pageHelp"
+          :help-fetcher="helpFetcher"
+          data-test="user-record-toolbar"
+          @action="onToolbarAction"
+        >
+          <template #side>
+            <span class="user-record__side">
+              <span v-if="loading" class="user-record__hint" data-test="user-record-loading">载入中…</span>
+              <span v-if="dirty" class="user-record__dirty" data-test="user-record-dirty">● 有未保存变更</span>
+            </span>
+          </template>
+        </form-toolbar>
       </template>
 
       <template #first-row>

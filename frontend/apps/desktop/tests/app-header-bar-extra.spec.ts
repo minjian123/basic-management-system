@@ -80,6 +80,7 @@ describe('AppHeaderBar 补充（07-06_01 补修）', () => {
     const { wrapper } = await mountBar()
 
     expect(wrapper.find('[data-test="header-notice"]').attributes('data-ready')).toBe('false')
+    expect(wrapper.find('[data-test="header-help"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="placeholder"]').exists()).toBe(true)
     expect(info).not.toHaveBeenCalled()
     wrapper.unmount()

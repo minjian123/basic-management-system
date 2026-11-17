@@ -528,3 +528,27 @@ async def test_help_context_requires_auth_and_rejects_bad_query(client: AsyncCli
     assert empty_value.json()["code"] == 10001
     too_long = await client.get(_CONTEXT, params={"module_key": "a" * 65})
     assert too_long.json()["code"] == 10001
+
+
+@pytest.mark.kiwi_id(2525)
+async def test_help_context_reports_anchor_found(client: AsyncClient, ns: Namespace, stub: _StubResolver) -> None:
+    """入口显隐三态：有锚点无文章（`anchor_found` 真、`matched` 假）/ 有锚点有文章 / 无锚点（仅全局级）。"""
+    graph = await _graph(client, ns)
+    params = _params(graph)
+
+    no_article = await _context(client, params)
+    assert no_article["anchor_found"] is True
+    assert no_article["matched"] is False
+    assert no_article["button_visible"] is False
+
+    stub.hits.set(graph.form_anchor, _article(_FORM_ARTICLE_ID, "表单帮助"))
+    hit = await _context(client, params)
+    assert hit["anchor_found"] is True
+    assert hit["matched"] is True
+    assert hit["button_visible"] is True
+
+    stub.hits.set(None, _article(_GLOBAL_ARTICLE_ID, "全局帮助"))
+    global_only = await _context(client, ConcurrentStableDict())
+    assert global_only["anchor_found"] is False
+    assert global_only["level"] == "global"
+    assert global_only["matched"] is True
