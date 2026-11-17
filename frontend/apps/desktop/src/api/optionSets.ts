@@ -48,6 +48,16 @@ export function toOptionSetSnapshot(optionSet: OptionSetDto): OptionSetSnapshot 
 }
 
 /**
+ * 拉取全部已注册选项集标识（`10_02` 设计器：属性面板与自建字段只引用注册表选项集）。
+ *
+ * @returns 选项集标识清单（装载序）。
+ */
+export async function listOptionSetKeys(): Promise<string[]> {
+  const response = await get<Schemas['OptionSetListResponse']>('platform', '/option-sets')
+  return response.items.map((item) => item.option_set_key)
+}
+
+/**
  * 拉取指定选项集并建索引（`optionSetKey` → 解析后条目）。
  *
  * @param keys 选项集标识清单。

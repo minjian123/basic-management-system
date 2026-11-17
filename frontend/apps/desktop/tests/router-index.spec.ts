@@ -18,6 +18,8 @@ describe('应用路由骨架（Kiwi 2191）', () => {
     expect(named('ServerError')).toBe('/500')
     expect(named('SysUserDetail')).toBe('/sys/users/:id')
     expect(named('SystemAccountLock')).toBe('/sys/account-locks')
+    expect(named('SystemFormDesign')).toBe('/sys/form-design')
+    expect(named('SystemFormRuntime')).toBe('/sys/form-runtime')
     expect(named('NotFound')).toBe('/:pathMatch(.*)*')
   })
 
@@ -30,6 +32,8 @@ describe('应用路由骨架（Kiwi 2191）', () => {
     expect(byName('HomeView')).toMatchObject({ title: '工作台', keepAlive: true })
     expect(byName('SystemAccountLock')).toMatchObject({ title: '账号锁定', keepAlive: true })
     expect(byName('Login')).toMatchObject({ title: '登录' })
+    expect(byName('SystemFormDesign')).toMatchObject({ title: '表单定制' })
+    expect(byName('SystemFormRuntime')).toMatchObject({ title: '表单运行时' })
   })
 
   it('开发态追加模块观测面板路由；生产构建条件为假时不追加（不进产物）', async () => {

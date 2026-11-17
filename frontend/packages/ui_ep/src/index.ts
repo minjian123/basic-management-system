@@ -137,6 +137,14 @@ export {
   type FormLayoutShape as FormLayout,
 } from './components/form_design/FormDesigner.vue'
 export type { FieldPropertyPatch, SectionPropertyPatch, CanvasPropertyPatch } from './components/form_design/FieldPropertyPanel.vue'
+// 结构化字段属性面板（10_02）：轻量件（仅 Element Plus 表单控件），设计器页与后续表单页共用，静态出口不另分包。
+export { default as FieldAttrPanel } from './components/form_design/FieldAttrPanel.vue'
+export {
+  ATTR_RULE_LABELS,
+  ruleText as attrRuleText,
+  type AttrRuleKind,
+  type FieldAttrsPatch,
+} from './components/form_design/fieldAttrs'
 export type { ExtFieldCreated } from './components/form_design/ExtFieldDialog.vue'
 export type { DesignerMoveEvent } from './components/form_design/FormDesignerCanvas.vue'
 // 说明：`FormRendererBody` 为独立分包懒加载入口（`defineAsyncComponent`），

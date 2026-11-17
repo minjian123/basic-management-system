@@ -1151,6 +1151,11 @@ export {
   type SubmitPayload,
 } from './domain/form-render'
 export {
+  FORM_QUERY_TYPES,
+  formQueryFields,
+  type FormQuerySource,
+} from './domain/form-query'
+export {
   DEFAULT_LOCALE,
   EMPTY_I18N_FILTER,
   I18N_CACHE_FAILED_TEXT,

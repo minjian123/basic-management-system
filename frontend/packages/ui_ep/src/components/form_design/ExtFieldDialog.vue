@@ -27,6 +27,8 @@ interface Props {
   existingKeys?: string[]
   /** 类型白名单（缺省取核心常量）。 */
   types?: string[]
+  /** 已注册的选项集标识清单（提供时枚举类型渲染为下拉，只引用注册表选项集）。 */
+  optionSets?: string[]
   /** 禁用（占位 / 只读）。 */
   disabled?: boolean
   /** 提交中。 */
@@ -44,6 +46,7 @@ const props = withDefaults(defineProps<Props>(), {
   formCode: '',
   existingKeys: () => [],
   types: () => [...EXT_FIELD_TYPES],
+  optionSets: () => [],
   disabled: false,
   pending: false,
   ddlStatus: undefined,
@@ -67,6 +70,8 @@ const nameEn = ref('')
 const type = ref(props.types[0] ?? 'text')
 /** 选项集（每行 `值|文本`）。 */
 const optionsText = ref('')
+/** 选项集标识（注册表模式下选择）。 */
+const optionSetKey = ref('')
 
 watch(
   () => props.visible,
@@ -76,21 +81,30 @@ watch(
       nameEn.value = ''
       type.value = props.types[0] ?? 'text'
       optionsText.value = ''
+      optionSetKey.value = ''
     }
   },
 )
 
+/** 是否按注册表选项集选择（提供 `optionSets` 即只允许引用已注册标识）。 */
+const registryMode = computed(() => props.optionSets.length > 0)
+
 /** 解析选项集文本（每行 `值|文本`，值缺省取文本）。 */
-const options = computed<ExtFieldOption[]>(() =>
-  optionsText.value
+const options = computed<ExtFieldOption[]>(() => {
+  if (registryMode.value) {
+    return optionSetKey.value === ''
+      ? []
+      : [{ value: optionSetKey.value, label: optionSetKey.value }]
+  }
+  return optionsText.value
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line !== '')
     .map((line) => {
       const [value, label] = line.split('|')
       return { value: (value ?? '').trim(), label: (label ?? value ?? '').trim() }
-    }),
-)
+    })
+})
 
 /** 草稿。 */
 const draft = computed<ExtFieldDraft>(() => ({
@@ -186,8 +200,21 @@ function submit(): void {
               <el-option v-for="item in types" :key="item" :label="item" :value="item" />
             </el-select>
           </el-form-item>
-          <el-form-item v-if="needsOptions" label="选项集（每行 `值|文本`）">
+          <el-form-item v-if="needsOptions" :label="registryMode ? '选项集（引用已注册标识）' : '选项集（每行 `值|文本`）'">
+            <el-select
+              v-if="registryMode"
+              data-test="ext-option-set"
+              :model-value="optionSetKey"
+              :disabled="locked"
+              filterable
+              clearable
+              style="width: 100%"
+              @update:model-value="optionSetKey = $event === undefined ? '' : String($event)"
+            >
+              <el-option v-for="key in optionSets" :key="key" :label="key" :value="key" />
+            </el-select>
             <el-input
+              v-else
               data-test="ext-options"
               type="textarea"
               :rows="3"

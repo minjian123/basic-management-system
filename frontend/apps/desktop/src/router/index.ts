@@ -77,6 +77,19 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/system/icon/IconView.vue'),
     meta: { title: '自定义图标', keepAlive: true },
   },
+  // 表单定制（10_02）：设计器与运行时样板页；菜单入口归阶段十五，当前按路径直达。
+  {
+    path: '/sys/form-design',
+    name: 'SystemFormDesign',
+    component: () => import('@/views/system/formdesign/FormDesignerView.vue'),
+    meta: { title: '表单定制' },
+  },
+  {
+    path: '/sys/form-runtime',
+    name: 'SystemFormRuntime',
+    component: () => import('@/views/system/formdesign/FormRuntimeView.vue'),
+    meta: { title: '表单运行时' },
+  },
   // 自助改密（首登强制改密 / 常规改密）：受保护静态路由，守卫在 `must_change_password` 时强制跳转。
   {
     path: '/change-password',

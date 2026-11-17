@@ -364,4 +364,29 @@ describe('ExtFieldDialog 自建字段对话框', () => {
     expect(dialog.emitted('retry')?.[0]).toEqual([{ fieldKey: 'ext_broken' }])
     dialog.unmount()
   })
+
+  it('提供选项集清单时枚举类型走注册表下拉（只引用已注册标识）', async () => {
+    const dialog = mount(ExtFieldDialog, {
+      props: { visible: true, optionSets: ['bms.demo.level', 'bms.demo.stage'] },
+      attachTo: document.body,
+    })
+    await settleDialog()
+    dialog.findAllComponents({ name: 'ElInput' })[0]?.vm.$emit('update:modelValue', 'level')
+    await flushPromises()
+    dialog.findAllComponents({ name: 'ElSelect' })[0]?.vm.$emit('update:modelValue', 'option')
+    await flushPromises()
+    expect(document.querySelector('[data-test="ext-option-set"]')).not.toBeNull()
+    expect(document.querySelector('[data-test="ext-options"]')).toBeNull()
+
+    dialog.findAllComponents({ name: 'ElSelect' })[1]?.vm.$emit('update:modelValue', 'bms.demo.level')
+    await flushPromises()
+    ;(document.querySelector('[data-test="ext-submit"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(dialog.emitted('submit')?.[0]?.[0]).toMatchObject({
+      name: 'level',
+      type: 'option',
+      options: [{ value: 'bms.demo.level', label: 'bms.demo.level' }],
+    })
+    dialog.unmount()
+  })
 })
