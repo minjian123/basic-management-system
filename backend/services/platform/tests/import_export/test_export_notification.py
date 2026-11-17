@@ -60,9 +60,7 @@ async def test_export_notification_enqueued(monkeypatch: pytest.MonkeyPatch) -> 
         return _User("en-US")
 
     monkeypatch.setattr(UserRepository, "get", _get)
-    monkeypatch.setattr(
-        "bms_platform.domains.import_export.export_jobs.enqueue_notification_request", _fake_enqueue
-    )
+    monkeypatch.setattr("bms_platform.domains.import_export.export_jobs.enqueue_notification_request", _fake_enqueue)
     await _notify_export_completed(_ctx(), ExportPayload(biz="users", kind="excel", actor=1001), 12)
     assert len(sent) == 1
     assert sent[0].type == "import"
@@ -80,15 +78,14 @@ async def test_export_notification_skips_without_actor(monkeypatch: pytest.Monke
         sent.add(request)
         return "evt"
 
-    monkeypatch.setattr(
-        "bms_platform.domains.import_export.export_jobs.enqueue_notification_request", _fake_enqueue
-    )
+    monkeypatch.setattr("bms_platform.domains.import_export.export_jobs.enqueue_notification_request", _fake_enqueue)
     await _notify_export_completed(_ctx(), ExportPayload(biz="users", kind="excel"), 12)
     assert sent == []
 
 
 async def test_export_notification_failure_is_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
     """入队失败不影响导出（不抛出）。"""
+
     async def _fail(session: object, request: NotificationRequest, *, tenant_id: str | None = None) -> str:
         del session, request, tenant_id
         raise RuntimeError("outbox down")
@@ -107,5 +104,3 @@ def test_export_payload_roundtrip() -> None:
     payload = ExportPayload(biz="users", kind="excel", actor=1001)
     assert payload.to_job_payload()["actor"] == 1001
     assert payload.to_job_payload()["biz"] == "users"
-
-

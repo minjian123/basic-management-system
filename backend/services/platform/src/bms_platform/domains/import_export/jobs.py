@@ -146,8 +146,9 @@ async def _run(
 ) -> JobResult:
     """执行核心流程（拆方法便于测试）。"""
     async with ctx.session() as session:
-        rows = await executor.parse(data, definition=definition)
-        valid, errors = await executor.validate(definition, rows, session=session)
+        columns = await executor.columns(definition, session=session)
+        rows = await executor.parse(data, definition=definition, columns=columns)
+        valid, errors = await executor.validate(definition, rows, session=session, columns=columns)
         error_rows = len({error.row for error in errors})
         if errors:
             for error in errors:

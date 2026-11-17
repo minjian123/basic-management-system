@@ -852,3 +852,7 @@ db_keys = []
 # 选项集实现选择（静态值域注册表；local = 装载清单声明，空串 = null 占位不校验）
 # 值域条目在 `deploy/registry/<仓>.toml` 的 `[[option_sets]]` 声明，加值只改配置。
 provider = "local"
+
+[form_validator]
+# 表单动态校验提供者（10_01）：local = 按生效布局 / 属性校验；null = 占位恒通过（无配置时保持原接口行为）
+provider = "local"

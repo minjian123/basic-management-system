@@ -1540,6 +1540,241 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/form-design/attrs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Attrs
+         * @description 保存某层级字段属性（整份覆盖式）。
+         *
+         *     需要 `formdesign:manage`；`scope=platform` 要求平台超管；属性非法返回 `40408`。
+         *
+         *     Args:
+         *         request: 请求对象（取角色集）。
+         *         service: 表单定制服务。
+         *         payload: 保存请求。
+         *
+         *     Returns:
+         *         ApiResponse[LayoutSaveResult]: 统一响应，data 为写入结果。
+         */
+        put: operations["save_attrs_api_v1_form_design_attrs_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-design/attrs/{attr_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Attrs
+         * @description 删除某层级的全部属性（恢复默认）。
+         *
+         *     需要 `formdesign:manage`。主键不存在返回 `10002`。
+         *
+         *     Args:
+         *         request: 请求对象（取角色集）。
+         *         service: 表单定制服务。
+         *         attr_id: 属性主键（字符串化雪花 ID）。
+         *
+         *     Returns:
+         *         ApiResponse[LayoutSaveResult]: 统一响应，data 为删除结果。
+         */
+        delete: operations["delete_attrs_api_v1_form_design_attrs__attr_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-design/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Fields
+         * @description 列示该表单的自建字段（含 `ddl_status`）。
+         *
+         *     需要 `formdesign:query`；业务码不存在或不可定制返回 `40401`。
+         *
+         *     Args:
+         *         service: 自建字段服务。
+         *         form_code: 表单标识（业务码）。
+         *
+         *     Returns:
+         *         ApiResponse[ExtFieldListResponse]: 统一响应，data 为自建字段清单。
+         */
+        get: operations["list_fields_api_v1_form_design_fields_get"];
+        put?: never;
+        /**
+         * Create Field
+         * @description 新建自建字段并触发动态 DDL。
+         *
+         *     需要 `formdesign:manage`；字段键非法 `10001`、冲突 `40402`、类型 / 选项集非法 `40404`、
+         *     建列失败随行返回 `ddl_status=failed`（可重试）。
+         *
+         *     Args:
+         *         service: 自建字段服务。
+         *         payload: 新建请求。
+         *
+         *     Returns:
+         *         ApiResponse[ExtFieldItem]: 统一响应，data 为新建字段（含建列状态）。
+         */
+        post: operations["create_field_api_v1_form_design_fields_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-design/fields/{field_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Field
+         * @description 编辑自建字段（停用不删列）。
+         *
+         *     需要 `formdesign:manage`；字段不存在 `10002`；选项集非法 `40404`。
+         *
+         *     Args:
+         *         service: 自建字段服务。
+         *         field_id: 字段主键（字符串化雪花 ID）。
+         *         payload: 编辑请求。
+         *
+         *     Returns:
+         *         ApiResponse[ExtFieldItem]: 统一响应，data 为更新后的字段。
+         */
+        put: operations["update_field_api_v1_form_design_fields__field_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-design/fields/{field_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Field
+         * @description 重试建列（复用同一元数据与列名）。
+         *
+         *     需要 `formdesign:manage`；字段不存在 `10002`。
+         *
+         *     Args:
+         *         service: 自建字段服务。
+         *         field_id: 字段主键（字符串化雪花 ID）。
+         *
+         *     Returns:
+         *         ApiResponse[ExtFieldItem]: 统一响应，data 为重试后的字段。
+         */
+        post: operations["retry_field_api_v1_form_design_fields__field_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-design/layouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Layouts
+         * @description 取该表单的三层布局 + 三层属性。
+         *
+         *     需要 `formdesign:query`；业务码不存在或不可定制返回 `40401`。
+         *
+         *     Args:
+         *         service: 表单定制服务。
+         *         form_code: 表单标识（业务码）。
+         *
+         *     Returns:
+         *         ApiResponse[LayoutListResponse]: 统一响应，data 为布局 / 属性清单与已配置层级。
+         */
+        get: operations["list_layouts_api_v1_form_design_layouts_get"];
+        /**
+         * Save Layout
+         * @description 保存某层级布局（整份覆盖式）。
+         *
+         *     需要 `formdesign:manage`；`scope=platform` 要求平台超管；布局结构非法返回 `40403`。
+         *
+         *     Args:
+         *         request: 请求对象（取角色集）。
+         *         service: 表单定制服务。
+         *         payload: 保存请求。
+         *
+         *     Returns:
+         *         ApiResponse[LayoutSaveResult]: 统一响应，data 为写入结果。
+         */
+        put: operations["save_layout_api_v1_form_design_layouts_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-design/layouts/{layout_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Layout
+         * @description 删除某层级布局（恢复默认：回退下一级）。
+         *
+         *     需要 `formdesign:manage`。主键不存在返回 `10002`。
+         *
+         *     Args:
+         *         request: 请求对象（取角色集）。
+         *         service: 表单定制服务。
+         *         layout_id: 布局主键（字符串化雪花 ID）。
+         *
+         *     Returns:
+         *         ApiResponse[LayoutSaveResult]: 统一响应，data 为删除结果。
+         */
+        delete: operations["delete_layout_api_v1_form_design_layouts__layout_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/form-keys": {
         parameters: {
             query?: never;
@@ -1609,6 +1844,68 @@ export interface paths {
          *         ApiResponse: 统一响应，data 为表单行。
          */
         post: operations["create_form_api_v1_forms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forms/{form_code}/layout-effective": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Layout Effective
+         * @description 当前用户生效布局（渲染路径，登录即可）。
+         *
+         *     三级解析（角色视图 → 租户覆盖 → 平台默认 → 空布局回退）+ 字段权限叠加（权限优先）；
+         *     业务码不存在或不可定制返回 `40401`。
+         *
+         *     Args:
+         *         request: 请求对象（取角色集）。
+         *         service: 表单定制服务。
+         *         form_code: 表单标识（业务码）。
+         *
+         *     Returns:
+         *         ApiResponse[LayoutEffectiveResponse]: 统一响应，data 为生效布局与字段清单。
+         */
+        get: operations["layout_effective_api_v1_forms__form_code__layout_effective_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forms/{form_code}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Values
+         * @description 动态校验自测端点（与业务接口同源，登录即可）。
+         *
+         *     按当前生效布局 / 属性校验字段值；失败项返回 `field_key` + `rule`（前端按 rule 取词）。
+         *
+         *     Args:
+         *         request: 请求对象（取角色集）。
+         *         form_code: 表单标识（业务码）。
+         *         payload: 待校验值。
+         *         validator: 表单动态校验器（应用级注入）。
+         *
+         *     Returns:
+         *         ApiResponse[FormValidateResponse]: 统一响应，data 为校验结果。
+         */
+        post: operations["validate_values_api_v1_forms__form_code__validate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5897,6 +6194,34 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[ExtFieldItem] */
+        ApiResponse_ExtFieldItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ExtFieldItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ExtFieldListResponse] */
+        ApiResponse_ExtFieldListResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ExtFieldListResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[FieldItem] */
         ApiResponse_FieldItem_: {
             /**
@@ -5961,6 +6286,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["FormList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[FormValidateResponse] */
+        ApiResponse_FormValidateResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["FormValidateResponse"] | null;
             /**
              * Message
              * @default ok
@@ -6045,6 +6384,48 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["InternalPreferenceResolveResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LayoutEffectiveResponse] */
+        ApiResponse_LayoutEffectiveResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LayoutEffectiveResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LayoutListResponse] */
+        ApiResponse_LayoutListResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LayoutListResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LayoutSaveResult] */
+        ApiResponse_LayoutSaveResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LayoutSaveResult"] | null;
             /**
              * Message
              * @default ok
@@ -8494,6 +8875,73 @@ export interface components {
             version: number;
         };
         /**
+         * EffectiveField
+         * @description 合并字段清单项（已剔除不可见字段）。
+         */
+        EffectiveField: {
+            /**
+             * Attrs
+             * @description 生效字段属性
+             */
+            attrs?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Disabled
+             * @description 是否不可拖入（停用 / 建列失败）
+             * @default false
+             */
+            disabled: boolean;
+            /**
+             * Group
+             * @description 来源分组（platform / tenant）
+             */
+            group: string;
+            /**
+             * Key
+             * @description 字段键
+             */
+            key: string;
+            /**
+             * Label
+             * @description 字段名（当前 locale）
+             */
+            label: string;
+            /**
+             * Sort
+             * @description 排序
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（active / pending / failed / disabled）
+             */
+            status: string;
+            /**
+             * Type
+             * @description 字段类型
+             */
+            type: string;
+        };
+        /**
+         * EffectiveFieldPermission
+         * @description 字段权限标记（仅收窄项）。
+         */
+        EffectiveFieldPermission: {
+            /**
+             * Editable
+             * @description 是否可编辑
+             * @default true
+             */
+            editable: boolean;
+            /**
+             * Visible
+             * @description 是否可见
+             * @default true
+             */
+            visible: boolean;
+        };
+        /**
          * EnabledLocaleItem
          * @description 启用语言清单条目（登录即可读；供多语言文案字段渲染语言格）。
          */
@@ -8663,6 +9111,236 @@ export interface components {
              * @description 表达式文本（字段 + 运算符 + 预置变量）
              */
             expr: string;
+        };
+        /**
+         * ExtFieldCreateRequest
+         * @description 新建自建字段（触发动态 DDL）。
+         */
+        ExtFieldCreateRequest: {
+            /**
+             * Field Key
+             * @description 字段键（小写字母开头，仅小写 / 数字 / 下划线）
+             */
+            field_key: string;
+            /**
+             * Form Code
+             * @description 表单标识（业务码）
+             */
+            form_code: string;
+            /**
+             * Name
+             * @description 字段名（默认文案）
+             */
+            name: string;
+            /**
+             * Option Set Key
+             * @description 选项集标识（枚举类型必填）
+             */
+            option_set_key?: string | null;
+            /**
+             * Sort
+             * @description 同表单内排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Type
+             * @description 字段类型（text / longtext / number / datetime / option / option_multi / switch / file）
+             */
+            type: string;
+        };
+        /**
+         * ExtFieldItem
+         * @description 自建字段项（列表响应）。
+         */
+        ExtFieldItem: {
+            /**
+             * Column Name
+             * @description 物理列名（ext_ 前缀）
+             */
+            column_name: string;
+            /**
+             * Ddl Status
+             * @description 建列生命周期（pending / active / failed）
+             */
+            ddl_status: string;
+            /**
+             * Field Key
+             * @description 字段键
+             */
+            field_key: string;
+            /**
+             * Form Code
+             * @description 表单标识
+             */
+            form_code: string;
+            /**
+             * Id
+             * @description 字段主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 字段名（当前 locale）
+             */
+            name: string;
+            /**
+             * Names
+             * @description 多语言名（locale → 文案）
+             */
+            names?: {
+                [key: string]: string;
+            };
+            /**
+             * Option Set Key
+             * @description 选项集标识
+             */
+            option_set_key?: string | null;
+            /**
+             * Sort
+             * @description 排序
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status: string;
+            /**
+             * Table Name
+             * @description 目标物理表名
+             */
+            table_name: string;
+            /**
+             * Type
+             * @description 字段类型
+             */
+            type: string;
+        };
+        /**
+         * ExtFieldListResponse
+         * @description 自建字段清单响应。
+         */
+        ExtFieldListResponse: {
+            /**
+             * Items
+             * @description 自建字段清单（sort 升序）
+             */
+            items?: components["schemas"]["ExtFieldItem"][];
+        };
+        /**
+         * ExtFieldUpdateRequest
+         * @description 编辑自建字段（停用不删列）。
+         */
+        ExtFieldUpdateRequest: {
+            /**
+             * Name
+             * @description 字段名（None 表示不改）
+             */
+            name?: string | null;
+            /**
+             * Option Set Key
+             * @description 选项集标识（None 表示不改）
+             */
+            option_set_key?: string | null;
+            /**
+             * Sort
+             * @description 排序（None 表示不改）
+             */
+            sort?: number | null;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status?: string | null;
+        };
+        /**
+         * FieldAttrItem
+         * @description 单字段属性项（保存请求项）。
+         */
+        FieldAttrItem: {
+            /**
+             * Attrs
+             * @description 字段属性（required / placeholder / defaultValue / rules / optionSetKey / widget / readonly 等）
+             */
+            attrs?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Field Key
+             * @description 字段键
+             */
+            field_key: string;
+            /**
+             * Field Type
+             * @description 字段类型（枚举类型必配选项集）
+             */
+            field_type: string;
+        };
+        /**
+         * FieldAttrRow
+         * @description 层级字段属性行（列表响应项）。
+         */
+        FieldAttrRow: {
+            /**
+             * Attrs
+             * @description 字段属性（归一后）
+             */
+            attrs?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Field Key
+             * @description 字段键
+             */
+            field_key: string;
+            /**
+             * Form Code
+             * @description 表单标识
+             */
+            form_code: string;
+            /**
+             * Id
+             * @description 属性主键
+             */
+            id: string;
+            /**
+             * Role Id
+             * @description 角色 ID
+             */
+            role_id: string;
+            /**
+             * Scope
+             * @description 层级
+             */
+            scope: string;
+        };
+        /**
+         * FieldAttrSaveRequest
+         * @description 保存层级字段属性请求（整份覆盖式）。
+         */
+        FieldAttrSaveRequest: {
+            /**
+             * Fields
+             * @description 字段属性清单（整份覆盖；空列表表示清空该层属性）
+             */
+            fields?: components["schemas"]["FieldAttrItem"][];
+            /**
+             * Form Code
+             * @description 表单标识（业务码）
+             */
+            form_code: string;
+            /**
+             * Role Id
+             * @description 角色 ID（role 层级必填；其余层级必须为 0）
+             * @default 0
+             */
+            role_id: number;
+            /**
+             * Scope
+             * @description 层级（platform / tenant / role）
+             */
+            scope: string;
         };
         /**
          * FieldCreateRequest
@@ -8995,6 +9673,35 @@ export interface components {
              * @enum {string}
              */
             status: "enabled" | "disabled";
+        };
+        /**
+         * FormValidateRequest
+         * @description 动态校验自测请求。
+         */
+        FormValidateRequest: {
+            /**
+             * Values
+             * @description 字段键 → 待校验值
+             */
+            values?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * FormValidateResponse
+         * @description 动态校验响应。
+         */
+        FormValidateResponse: {
+            /**
+             * Errors
+             * @description 字段级错误（通过时为空）
+             */
+            errors?: components["schemas"]["ValidateFieldError"][];
+            /**
+             * Valid
+             * @description 是否通过
+             */
+            valid: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -10018,6 +10725,208 @@ export interface components {
              * @default 0
              */
             priority: number;
+        };
+        /**
+         * LayoutEffectiveResponse
+         * @description 生效布局响应（与前端 `LayoutEffective` 同形）。
+         */
+        LayoutEffectiveResponse: {
+            /**
+             * Fallback
+             * @description 是否走空布局回退
+             */
+            fallback: boolean;
+            /**
+             * Fields
+             * @description 合并字段清单（已按权限剔除）
+             */
+            fields?: components["schemas"]["EffectiveField"][];
+            /**
+             * Layout
+             * @description 生效布局配置
+             */
+            layout?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Level
+             * @description 请求层级
+             */
+            level: string;
+            /**
+             * Option Sets
+             * @description 选项集快照集
+             */
+            option_sets?: components["schemas"]["OptionSetSnapshotModel"][];
+            /**
+             * Permissions
+             * @description 字段权限标记（仅收窄项）
+             */
+            permissions?: {
+                [key: string]: components["schemas"]["EffectiveFieldPermission"];
+            };
+            /**
+             * Readonly
+             * @description 是否只读（渲染路径恒 true）
+             * @default true
+             */
+            readonly: boolean;
+            /**
+             * Source
+             * @description 实际来源层级（role / tenant / platform / empty）
+             */
+            source: string;
+        };
+        /**
+         * LayoutLevelRow
+         * @description 层级布局行（列表响应项）。
+         */
+        LayoutLevelRow: {
+            /**
+             * Form Code
+             * @description 表单标识
+             */
+            form_code: string;
+            /**
+             * Id
+             * @description 布局主键
+             */
+            id: string;
+            /**
+             * Layout Config
+             * @description 布局配置（归一后）
+             */
+            layout_config?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Role Id
+             * @description 角色 ID（0 表示非角色层级）
+             */
+            role_id: string;
+            /**
+             * Scope
+             * @description 层级
+             */
+            scope: string;
+            /**
+             * Status
+             * @description 状态
+             */
+            status: string;
+        };
+        /**
+         * LayoutListResponse
+         * @description 三层布局 + 三层属性清单。
+         */
+        LayoutListResponse: {
+            /**
+             * Attrs
+             * @description 属性行清单
+             */
+            attrs?: components["schemas"]["FieldAttrRow"][];
+            /**
+             * Layouts
+             * @description 布局行清单
+             */
+            layouts?: components["schemas"]["LayoutLevelRow"][];
+            /**
+             * Levels
+             * @description 已配置层级（platform / tenant / role；空表示走默认栅格）
+             */
+            levels?: string[];
+            /**
+             * Warnings
+             * @description 失效 / 停用 / 重复引用告警（不阻断）
+             */
+            warnings?: components["schemas"]["LayoutWarning"][];
+        };
+        /**
+         * LayoutSaveRequest
+         * @description 保存层级布局请求（整份覆盖式；裸字符串引用与对象引用都接受）。
+         */
+        LayoutSaveRequest: {
+            /**
+             * Form Code
+             * @description 表单标识（业务码）
+             */
+            form_code: string;
+            /**
+             * Layout Config
+             * @description 布局配置（main + query + detail + dictAdvanced）
+             */
+            layout_config?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Role Id
+             * @description 角色 ID（role 层级必填；其余层级必须为 0）
+             * @default 0
+             */
+            role_id: number;
+            /**
+             * Scope
+             * @description 层级（platform / tenant / role）
+             */
+            scope: string;
+        };
+        /**
+         * LayoutSaveResult
+         * @description 布局 / 属性保存结果。
+         */
+        LayoutSaveResult: {
+            /**
+             * Applied
+             * @description 是否已生效（缓存已失效）
+             */
+            applied: boolean;
+            /**
+             * Id
+             * @description 主键（属性整份保存时取层级首个属性行；空层级为 0）
+             */
+            id: string;
+            /**
+             * Role Id
+             * @description 角色 ID
+             */
+            role_id: string;
+            /**
+             * Scope
+             * @description 层级
+             */
+            scope: string;
+            /**
+             * Warnings
+             * @description 布局引用告警（不阻断保存）
+             */
+            warnings?: components["schemas"]["LayoutWarning"][];
+        };
+        /**
+         * LayoutWarning
+         * @description 布局引用告警（失效 / 停用 / 重复；保存期告警不阻断）。
+         */
+        LayoutWarning: {
+            /**
+             * Field Key
+             * @description 涉事字段键
+             */
+            field_key?: string | null;
+            /**
+             * Kind
+             * @description 问题种类（unknown-field / disabled-field / duplicate-field / empty-section）
+             */
+            kind: string;
+            /**
+             * Message
+             * @description 说明
+             * @default
+             */
+            message: string;
+            /**
+             * Section Key
+             * @description 涉事分区键
+             */
+            section_key?: string | null;
         };
         /**
          * LocaleCreateRequest
@@ -11262,6 +12171,24 @@ export interface components {
              * @description 内容版本
              */
             version: number;
+        };
+        /**
+         * OptionSetSnapshotModel
+         * @description 选项集快照（随渲染元数据下发，前端零请求消费）。
+         */
+        OptionSetSnapshotModel: {
+            /**
+             * Items
+             * @description 条目（value / label / color / disabled / sort）
+             */
+            items?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Option Set Key
+             * @description 选项集标识
+             */
+            option_set_key: string;
         };
         /**
          * PermissionCreateRequest
@@ -13161,6 +14088,27 @@ export interface components {
              * @description 客户端版本（乐观锁比对）
              */
             version: number;
+        };
+        /**
+         * ValidateFieldError
+         * @description 字段级校验错误。
+         */
+        ValidateFieldError: {
+            /**
+             * Field Key
+             * @description 字段键
+             */
+            field_key: string;
+            /**
+             * Message
+             * @description 后端补充说明（通常为空，前端按 rule 取词）
+             */
+            message?: string | null;
+            /**
+             * Rule
+             * @description 规则种类（required / length / range / pattern / options / type）
+             */
+            rule: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -18015,6 +18963,702 @@ export interface operations {
             };
         };
     };
+    save_attrs_api_v1_form_design_attrs_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldAttrSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LayoutSaveResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_attrs_api_v1_form_design_attrs__attr_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attr_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LayoutSaveResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_fields_api_v1_form_design_fields_get: {
+        parameters: {
+            query: {
+                /** @description 表单标识（业务码） */
+                form_code: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ExtFieldListResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_field_api_v1_form_design_fields_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtFieldCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ExtFieldItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_field_api_v1_form_design_fields__field_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtFieldUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ExtFieldItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    retry_field_api_v1_form_design_fields__field_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ExtFieldItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_layouts_api_v1_form_design_layouts_get: {
+        parameters: {
+            query: {
+                /** @description 表单标识（业务码） */
+                form_code: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LayoutListResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    save_layout_api_v1_form_design_layouts_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LayoutSaveResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_layout_api_v1_form_design_layouts__layout_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                layout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LayoutSaveResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
     list_form_keys_api_v1_form_keys_get: {
         parameters: {
             query?: {
@@ -18189,6 +19833,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_FormItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    layout_effective_api_v1_forms__form_code__layout_effective_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                form_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LayoutEffectiveResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    validate_values_api_v1_forms__form_code__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                form_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FormValidateResponse_"];
                 };
             };
             /** @description 未认证 */

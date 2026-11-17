@@ -135,9 +135,11 @@ def test_provider_resolves(monkeypatch: pytest.MonkeyPatch) -> None:
 
     sentinel = object()
     monkeypatch.setattr(module, "resolve_plugin", lambda *args, **kwargs: sentinel)
-    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(settings=SimpleNamespace(
-        notification_preference=SimpleNamespace(provider="http")
-    ))))
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(settings=SimpleNamespace(notification_preference=SimpleNamespace(provider="http")))
+        )
+    )
     assert get_notification_preference_store(cast("object", request)) is sentinel  # pyright: ignore[reportArgumentType]
 
 

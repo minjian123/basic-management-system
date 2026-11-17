@@ -281,9 +281,22 @@
       "public_api": [
         "bms_platform.domains.archive.public"
       ]
+    },
+    {
+      "domain_key": "form_design",
+      "service_key": "platform",
+      "status": "placement",
+      "paths": [
+        "backend/services/platform/src/bms_platform/domains/form_design/**/*.py",
+        "backend/libs/bms_core/src/bms_core/models/platform/form_design.py"
+      ],
+      "public_api": [
+        "bms_platform.domains.form_design.public"
+      ]
     }
   ],
   "shared_paths": [
+    "backend/libs/bms_core/src/bms_core/formdesign/**/*.py",
     "backend/services/*/src/*/*.py",
     "backend/services/*/src/*/*/__init__.py",
     "backend/services/*/src/*/api/router.py",

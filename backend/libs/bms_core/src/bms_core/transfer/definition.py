@@ -138,7 +138,23 @@ class BaseImportDefinition(BaseFrameworkObject, ABC):
     @property
     @abstractmethod
     def columns(self) -> ConcurrentStableFrozenList[ColumnSpec]:
-        """导入列集（固定列序）。"""
+        """导入列集（固定列序；无布局配置时的基线列集）。"""
+
+    async def columns_for(self, session: DbSession) -> ConcurrentStableFrozenList[ColumnSpec]:
+        """按布局派生的导入列集（10_01 钩子）。
+
+        默认实现返回静态 `columns`（既有定义零改动、既有用例行为不变）；需要「列随表单布局变化」的
+        定义覆写本方法（如 `users` 定义按 `sys_form_layout` / `sys_field_ext` 派生，见
+        `bms_core/formdesign/import_columns.py`）。
+
+        Args:
+            session: 当前会话（覆写者查布局 / 自建字段用）。
+
+        Returns:
+            ConcurrentStableFrozenList[ColumnSpec]: 导入列集（列序即模板列序）。
+        """
+        del session
+        return self.columns
 
     async def preload(self, session: DbSession, rows: ConcurrentStableList[ParsedRow]) -> object:
         """批量预取（库内已存在键等），返回值给 `validate_row` 使用。

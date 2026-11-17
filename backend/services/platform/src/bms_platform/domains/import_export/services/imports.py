@@ -11,7 +11,7 @@ from typing import cast
 from bms_core.audit.base import AuditCapturer
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import (
     ConflictError,
     ImportBizNotRegisteredError,
@@ -34,6 +34,7 @@ from bms_core.jobs.spec import JobSubmission
 from bms_core.models.job import JOB_TERMINAL_STATUSES, SysJob
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.tenant_module.quota import TenantQuotaClient
+from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.definition import (
     BaseImportDefinition,
     ImportDefinitionRegistry,
@@ -117,20 +118,20 @@ class ImportExecutor(BaseFrameworkObject):
             raise ImportBizNotRegisteredError(f"导入业务未注册：{biz}")
         return definition
 
-    async def parse(self, data: bytes, *, definition: BaseImportDefinition) -> ConcurrentStableList[ParsedRow]:
-        """解析文件并校验行数上限。
+    async def parse_plain(self, data: bytes, *, definition: BaseImportDefinition) -> ConcurrentStableList[ParsedRow]:
+        r"""按静态列集粗解析（只用于行数估算，不查库；随后在事务内按派生列集重新解析）。
 
         Args:
             data: 文件字节。
             definition: 业务定义。
 
         Returns:
-            ConcurrentStableList[ParsedRow]: 数据行。
+            ConcurrentStableList[ParsedRow]: 数据行（粗解析结果）。
 
         Raises:
-            ImportRowLimitExceededError: 数据行数超限（`50304`）。
-            ImportFileInvalidError: 文件非法 / 无数据行（`50302`）。
-            ImportTemplateMismatchError: sheet 缺失 / 表头不匹配（`50301`）。
+            ImportRowLimitExceededError: 数据行数超限（\`50304\`）。
+            ImportFileInvalidError: 文件非法 / 无数据行（\`50302\`）。
+            ImportTemplateMismatchError: sheet 缺失 / 表头不匹配（\`50301\`）。
         """
         try:
             rows = await self._importer.parse_rows(data, columns=definition.columns)
@@ -142,8 +143,61 @@ class ImportExecutor(BaseFrameworkObject):
             raise ImportRowLimitExceededError(f"数据行数超限（{len(rows)} > {self._limits.max_rows}）")
         return rows
 
+    async def columns(
+        self, definition: BaseImportDefinition, *, session: DbSession
+    ) -> ConcurrentStableFrozenList[ColumnSpec]:
+        """取生效导入列集（按布局派生；10_01）。
+
+        与文件解析分离：本方法可能查库（派生列），调用方须在**事务之外**或**已开启事务但未嵌套**的位置调用。
+
+        Args:
+            definition: 业务定义。
+            session: 当前会话。
+
+        Returns:
+            ConcurrentStableFrozenList[ColumnSpec]: 生效列集。
+        """
+        return await definition.columns_for(session)
+
+    async def parse(
+        self,
+        data: bytes,
+        *,
+        definition: BaseImportDefinition,
+        columns: ConcurrentStableFrozenList[ColumnSpec],
+    ) -> ConcurrentStableList[ParsedRow]:
+        r"""解析文件并校验行数上限。
+
+        Args:
+            data: 文件字节。
+            definition: 业务定义。
+            columns: 生效列集（由 \`columns\` 取得，保证与模板一致）。
+
+        Returns:
+            ConcurrentStableList[ParsedRow]: 数据行。
+
+        Raises:
+            ImportRowLimitExceededError: 数据行数超限（`50304`）。
+            ImportFileInvalidError: 文件非法 / 无数据行（`50302`）。
+            ImportTemplateMismatchError: sheet 缺失 / 表头不匹配（`50301`）。
+        """
+        try:
+            rows = await self._importer.parse_rows(data, columns=columns)
+        except XlsxTemplateMismatchError as exc:
+            raise ImportTemplateMismatchError(str(exc)) from exc
+        except XlsxInvalidFileError as exc:
+            raise ImportFileInvalidError(str(exc)) from exc
+        if len(rows) > self._limits.max_rows:
+            raise ImportRowLimitExceededError(f"数据行数超限（{len(rows)} > {self._limits.max_rows}）")
+        return rows
+
     async def validate(
-        self, definition: BaseImportDefinition, rows: ConcurrentStableList[ParsedRow], *, session: DbSession
+        self,
+        definition: BaseImportDefinition,
+        rows: ConcurrentStableList[ParsedRow],
+        *,
+        session: DbSession,
+        columns: ConcurrentStableFrozenList[ColumnSpec],
     ) -> tuple[ConcurrentStableList[ParsedRow], ConcurrentStableList[RowError]]:
         """全量预检（业务定义逐行校验）。
 
@@ -151,6 +205,7 @@ class ImportExecutor(BaseFrameworkObject):
             definition: 业务定义。
             rows: 解析行。
             session: 当前会话（定义预取库内键）。
+            columns: 生效列集（与解析同源）。
 
         Returns:
             tuple: （合法行, 全部行错误）。
@@ -158,7 +213,7 @@ class ImportExecutor(BaseFrameworkObject):
         preloaded = await definition.preload(session, rows)
         valid: ConcurrentStableList[ParsedRow] = ConcurrentStableList()
         errors: ConcurrentStableList[RowError] = ConcurrentStableList()
-        generic = await self._importer.validate_rows(rows, columns=definition.columns)
+        generic = await self._importer.validate_rows(rows, columns=columns)
         for error in generic.errors:
             errors.add(error)
         for row in generic.valid_rows:
@@ -258,11 +313,12 @@ class ImportService(BaseFrameworkObject):
         self._limits = limits
         self._checker = checker
 
-    def template(self, biz: str) -> tuple[bytes, str]:
-        """生成模板。
+    async def template(self, biz: str, *, session: DbSession) -> tuple[bytes, str]:
+        """生成模板（列集按布局派生；10_01）。
 
         Args:
             biz: 业务标识。
+            session: 当前会话（列集按布局派生时查库用）。
 
         Returns:
             tuple[bytes, str]: （xlsx 字节, 文件名）。
@@ -271,7 +327,8 @@ class ImportService(BaseFrameworkObject):
             ImportBizNotRegisteredError: 未注册（`50307`）。
         """
         definition = self._executor.definition(biz)
-        return build_template(definition.columns), f"{definition.title}-导入模板.xlsx"
+        columns = await definition.columns_for(session)
+        return build_template(columns), f"{definition.title}-导入模板.xlsx"
 
     async def execute(
         self,
@@ -327,8 +384,8 @@ class ImportService(BaseFrameworkObject):
         token = secrets.token_urlsafe(24)
         source_key = build_import_source_key(tenant_code, token)
         try:
-            rows = await self._executor.parse(data, definition=definition)
             await self._source_store.put(source_key, data)
+            rows = await self._executor.parse_plain(data, definition=definition)
             if len(rows) <= self._limits.sync_max_rows:
                 result = await self._execute_inline(
                     biz=biz,

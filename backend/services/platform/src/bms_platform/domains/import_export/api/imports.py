@@ -227,7 +227,7 @@ def build_import_router(
             Response: xlsx 文件流。
         """
         await _rate_limit(deps)
-        content, filename = (await _service(deps)).template(biz)
+        content, filename = await (await _service(deps)).template(biz, session=deps.uow.session)
         return Response(
             content=content,
             media_type=XLSX_CONTENT_TYPE,

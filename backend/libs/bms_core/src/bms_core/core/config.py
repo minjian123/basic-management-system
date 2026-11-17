@@ -1962,6 +1962,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     fallback: PluginSelection = Field(default_factory=PluginSelection)
     field_type_registry: PluginSelection = Field(default_factory=PluginSelection)
     file_content_search: PluginSelection = Field(default_factory=PluginSelection)
+    form_validator: PluginSelection = Field(default_factory=PluginSelection)
+    """表单动态校验提供者（`[form_validator]`；缺省 `local`，占位实现 `null`；10_01）。"""
     gateway: GatewaySettings = Field(default_factory=GatewaySettings)
     global_search: PluginSelection = Field(default_factory=PluginSelection)
     hash_chain: PluginSelection = Field(default_factory=PluginSelection)

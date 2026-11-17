@@ -133,6 +133,6 @@ async def test_repository_get_many_and_count(shared_tenant_engine: AsyncEngine) 
             )
             assert values == {"ui.theme": {"mode": "dark"}, "notify.channels": {"inbox": True}}
             assert await repository.count_for_user(user_id) == 3
-            assert await PreferenceRepository(cast("DbSession", session)).get_many(
-                user_id, ConcurrentStableList()
-            ) == {}
+            assert (
+                await PreferenceRepository(cast("DbSession", session)).get_many(user_id, ConcurrentStableList()) == {}
+            )

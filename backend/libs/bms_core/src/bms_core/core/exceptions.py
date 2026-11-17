@@ -2406,3 +2406,133 @@ class ArchiveQueryRangeExceededError(BizError):
             data: 随附数据（可选）。
         """
         BizError.__init__(self, ErrorCode.ARCHIVE_QUERY_RANGE_EXCEEDED, message, http_status=400, data=data)
+
+
+class FormDesignError(BizError):
+    """表单定制子段（系统配置段内 `404xx`）异常基类：布局 / 属性 / 自建字段 / DDL / 校验（10_01）。
+
+    码位与概要《表单定制》「错误码与异常处理」节对应；实体不存在按 404，其余业务校验按 200
+    （与菜单元数据域同口径：业务失败统一 200 + 业务码）。
+    """
+
+    def __init__(
+        self,
+        code: ErrorCode,
+        message: str | None = None,
+        *,
+        http_status: int = 200,
+        data: object | None = None,
+    ) -> None:
+        """初始化表单定制域异常。
+
+        Args:
+            code: 错误码（`404xx` 段）。
+            message: 提示信息。
+            http_status: HTTP 状态码（缺省 200）。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, code, message, http_status=http_status, data=data)
+
+
+class FormNotCustomizableError(FormDesignError):
+    """表单不存在 / 不可定制（`40401` / 404）：无效业务码、平台库表、分片表或物理表不可解析。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化表单不可定制异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        FormDesignError.__init__(self, ErrorCode.FORM_NOT_CUSTOMIZABLE, message, http_status=404, data=data)
+
+
+class FormFieldKeyConflictError(FormDesignError):
+    """字段 key 与平台字段或既有自建字段冲突（`40402`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化字段键冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        FormDesignError.__init__(self, ErrorCode.FORM_FIELD_KEY_CONFLICT, message, data=data)
+
+
+class FormLayoutInvalidError(FormDesignError):
+    """布局结构非法（`40403`）：列数、分区结构或字段引用格式错误。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化布局结构非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选；批量时为问题清单）。
+        """
+        FormDesignError.__init__(self, ErrorCode.FORM_LAYOUT_INVALID, message, data=data)
+
+
+class FormFieldTypeInvalidError(FormDesignError):
+    """字段类型不在白名单（`40404`）：含富文本等未放开类型。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化字段类型非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        FormDesignError.__init__(self, ErrorCode.FORM_FIELD_TYPE_INVALID, message, data=data)
+
+
+class FormDdlFailedError(FormDesignError):
+    """建列失败（`40405`）：DDL 执行异常，可重试。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化建列失败异常。
+
+        Args:
+            message: 提示信息（含异常类型与目标列）。
+            data: 随附数据（可选）。
+        """
+        FormDesignError.__init__(self, ErrorCode.FORM_DDL_FAILED, message, data=data)
+
+
+class FormColumnConflictError(FormDesignError):
+    """物理列已存在且元数据不一致（`40406`）：同名列冲突，复用需先恢复元数据。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化列冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        FormDesignError.__init__(self, ErrorCode.FORM_COLUMN_CONFLICT, message, data=data)
+
+
+class FormFieldDisabledReferencedError(FormDesignError):
+    """布局引用已停用 / 建列失败的自建字段（`40407`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化引用停用字段异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        FormDesignError.__init__(self, ErrorCode.FORM_FIELD_DISABLED_REFERENCED, message, data=data)
+
+
+class FormAttrInvalidError(FormDesignError):
+    """字段属性校验规则非法（`40408`）：正则 / 长度 / 范围 / 选项集标识 / 默认值越域。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化属性非法异常。
+
+        Args:
+            message: 提示信息（须带具体违规规则与原因）。
+            data: 随附数据（可选）。
+        """
+        FormDesignError.__init__(self, ErrorCode.FORM_ATTR_INVALID, message, data=data)

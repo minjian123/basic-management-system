@@ -36,9 +36,7 @@ async def test_detail_and_unread(shared_tenant_engine: AsyncEngine) -> None:
         await session.flush()
         tokens = use_user(1)
         try:
-            center = DatabaseNotificationCenter(
-                session_opener=lambda: session_opener(session), transactional=False
-            )
+            center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             assert await center.unread_count() == 1
             preview = await center.detail(int(row.id), mark_read=False)
             assert preview.is_read is False
@@ -57,9 +55,7 @@ async def test_list_with_filters(shared_tenant_engine: AsyncEngine) -> None:
         await session.flush()
         tokens = use_user(1)
         try:
-            center = DatabaseNotificationCenter(
-                session_opener=lambda: session_opener(session), transactional=False
-            )
+            center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             page = await center.list(
                 BaseFilterQuery(filters=ConcurrentStableList((FilterSpec(field="type", value="approval"),))),
                 BasePageQuery(),
@@ -82,9 +78,7 @@ async def test_mark_read_and_all(shared_tenant_engine: AsyncEngine) -> None:
         await session.flush()
         tokens = use_user(1)
         try:
-            center = DatabaseNotificationCenter(
-                session_opener=lambda: session_opener(session), transactional=False
-            )
+            center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             assert await center.mark_read(ConcurrentStableList((int(first.id),))) == 1
             assert await center.mark_all_read() == 0
             with pytest.raises(NotificationBatchInvalidError):
@@ -103,9 +97,7 @@ async def test_delete_and_forbidden(shared_tenant_engine: AsyncEngine) -> None:
         await session.flush()
         tokens = use_user(1)
         try:
-            center = DatabaseNotificationCenter(
-                session_opener=lambda: session_opener(session), transactional=False
-            )
+            center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             assert await center.delete(int(own.id)) is True
             with pytest.raises(NotificationNotFoundError):
                 await center.delete(int(own.id))
@@ -164,9 +156,7 @@ async def test_invalid_filter(shared_tenant_engine: AsyncEngine) -> None:
     async with rollback_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
-            center = DatabaseNotificationCenter(
-                session_opener=lambda: session_opener(session), transactional=False
-            )
+            center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             for spec in (
                 FilterSpec(field="title", value="x"),
                 FilterSpec(field="type", operator="like", value="system"),

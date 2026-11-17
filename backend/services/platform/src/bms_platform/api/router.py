@@ -17,6 +17,9 @@ from bms_platform.domains.archive.api import logs as archive_logs_api
 from bms_platform.domains.archive.api import policies as archive_policies_api
 from bms_platform.domains.audit.api import chain as audit_chain_api
 from bms_platform.domains.audit.api import data_changes as audit_data_change_api
+from bms_platform.domains.form_design.api import effective as form_design_effective_api
+from bms_platform.domains.form_design.api import fields as form_design_fields_api
+from bms_platform.domains.form_design.api import layouts as form_design_layouts_api
 from bms_platform.domains.i18n.api import locales as i18n_locales
 from bms_platform.domains.i18n.api import messages as i18n_messages
 from bms_platform.domains.import_export.api.exports import build_export_router
@@ -151,6 +154,11 @@ api_router = mount_service_routers(
             archive_policies_api.router,
             archive_logs_api.router,
             archive_data_api.router,
+            # 表单定制（10_01）：布局 / 属性、自建字段与动态 DDL、渲染路径与动态校验
+            form_design_layouts_api.router,
+            form_design_fields_api.router,
+            form_design_effective_api.effective_router,
+            form_design_effective_api.validate_router,
         ]
     )
 )

@@ -22,6 +22,7 @@ from bms_core.core.concurrent import (
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.formdesign.import_columns import current_layout_column_resolver, derive_import_columns
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.definition import BaseImportDefinition, ImportRowContext
@@ -135,12 +136,26 @@ class UserImportDefinition(BaseImportDefinition):
 
     @property
     def columns(self) -> ConcurrentStableFrozenList[ColumnSpec]:
-        """导入列集。
+        """导入列集（无布局配置时的基线列集）。
 
         Returns:
             ConcurrentStableFrozenList[ColumnSpec]: 固定列序。
         """
         return _USER_COLUMNS
+
+    async def columns_for(self, session: DbSession) -> ConcurrentStableFrozenList[ColumnSpec]:
+        """按表单布局派生的导入列集（10_01）。
+
+        取 `user` 表单的生效布局字段序（平台字段 + 已生效自建字段），布局未引用的原列保序追加在末尾；
+        无布局配置时等于静态 `columns`（既有导入行为零变化）。
+
+        Args:
+            session: 当前会话（租户库：布局 / 属性 / 自建字段）。
+
+        Returns:
+            ConcurrentStableFrozenList[ColumnSpec]: 派生后的列集。
+        """
+        return await derive_user_import_columns(session, base=_USER_COLUMNS)
 
     async def preload(self, session: DbSession, rows: ConcurrentStableList[ParsedRow]) -> _UserPreload:
         """预取库内已存在账号并统计文件内重复。
@@ -230,3 +245,37 @@ class UserImportDefinition(BaseImportDefinition):
                 )
             )
             self._audit.capture(table="sys_user", model_id=int(user.id), changes=changes, actor=ctx.actor)
+
+
+async def derive_user_import_columns(
+    session: DbSession,
+    *,
+    base: ConcurrentStableFrozenList[ColumnSpec],
+) -> ConcurrentStableFrozenList[ColumnSpec]:
+    """按 `user` 表单布局派生用户导入列（10_01；无配置时等于基线列集）。
+
+    Args:
+        session: 租户库会话。
+        base: 基线列集（`columns`）。
+
+    Returns:
+        ConcurrentStableFrozenList[ColumnSpec]: 派生后的列集。
+    """
+    base_specs: ConcurrentStableDict[str, ColumnSpec] = ConcurrentStableDict()
+    for spec in base:
+        base_specs.set(spec.key, spec)
+    resolver = current_layout_column_resolver()
+    if resolver is None:
+        return derive_import_columns(
+            layout_keys=ConcurrentStableFrozenList(()),
+            extra_specs=ConcurrentStableDict(),
+            layout_specs=ConcurrentStableDict(),
+            base_specs=base_specs,
+        )
+    layout_keys, ext_specs = await resolver(form_code="user", session=session)
+    return derive_import_columns(
+        layout_keys=layout_keys,
+        extra_specs=ext_specs,
+        layout_specs=ConcurrentStableDict(),
+        base_specs=base_specs,
+    )

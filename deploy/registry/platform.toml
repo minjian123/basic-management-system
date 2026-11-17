@@ -29,6 +29,8 @@ product_key = "platform"
 # 新增**新形态目录**（不落在 ① 的模式内）时必须显式登记：否则「域实现未登记」会红，
 # 这是设计意图——目录形态变了，归属要由人决定，不能靠通配自动放行。
 domain_shared_paths = [
+  # 基座横切面（能力域包：不进业务域，与 jobs / permission / dict 等基座能力同形态）
+  "backend/libs/bms_core/src/bms_core/formdesign/**/*.py",
   # ① 骨架面
   "backend/services/*/src/*/*.py",
   "backend/services/*/src/*/*/__init__.py",
@@ -583,6 +585,18 @@ paths = [
 ]
 public_api = [
   "bms_platform.domains.archive.public",
+]
+
+[[domains]]
+domain_key = "form_design"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/form_design/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/form_design.py",
+]
+public_api = [
+  "bms_platform.domains.form_design.public",
 ]
 
 

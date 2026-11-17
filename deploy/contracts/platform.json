@@ -1192,6 +1192,60 @@
         "title": "ApiResponse[ExportJobStatus]",
         "type": "object"
       },
+      "ApiResponse_ExtFieldItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtFieldItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ExtFieldItem]",
+        "type": "object"
+      },
+      "ApiResponse_ExtFieldListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtFieldListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ExtFieldListResponse]",
+        "type": "object"
+      },
       "ApiResponse_FieldItem_": {
         "additionalProperties": false,
         "properties": {
@@ -1325,6 +1379,33 @@
           }
         },
         "title": "ApiResponse[FormList]",
+        "type": "object"
+      },
+      "ApiResponse_FormValidateResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormValidateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[FormValidateResponse]",
         "type": "object"
       },
       "ApiResponse_HelpContextResponse_": {
@@ -1487,6 +1568,87 @@
           }
         },
         "title": "ApiResponse[InternalPreferenceResolveResponse]",
+        "type": "object"
+      },
+      "ApiResponse_LayoutEffectiveResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LayoutEffectiveResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LayoutEffectiveResponse]",
+        "type": "object"
+      },
+      "ApiResponse_LayoutListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LayoutListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LayoutListResponse]",
+        "type": "object"
+      },
+      "ApiResponse_LayoutSaveResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LayoutSaveResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LayoutSaveResult]",
         "type": "object"
       },
       "ApiResponse_LocaleDeleteResult_": {
@@ -5712,6 +5874,84 @@
         "title": "DictTypeResult",
         "type": "object"
       },
+      "EffectiveField": {
+        "additionalProperties": false,
+        "description": "合并字段清单项（已剔除不可见字段）。",
+        "properties": {
+          "attrs": {
+            "additionalProperties": true,
+            "description": "生效字段属性",
+            "title": "Attrs",
+            "type": "object"
+          },
+          "disabled": {
+            "default": false,
+            "description": "是否不可拖入（停用 / 建列失败）",
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "group": {
+            "description": "来源分组（platform / tenant）",
+            "title": "Group",
+            "type": "string"
+          },
+          "key": {
+            "description": "字段键",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "description": "字段名（当前 locale）",
+            "title": "Label",
+            "type": "string"
+          },
+          "sort": {
+            "description": "排序",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "description": "状态（active / pending / failed / disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "description": "字段类型",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "type",
+          "group",
+          "sort",
+          "status"
+        ],
+        "title": "EffectiveField",
+        "type": "object"
+      },
+      "EffectiveFieldPermission": {
+        "additionalProperties": false,
+        "description": "字段权限标记（仅收窄项）。",
+        "properties": {
+          "editable": {
+            "default": true,
+            "description": "是否可编辑",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "visible": {
+            "default": true,
+            "description": "是否可见",
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "title": "EffectiveFieldPermission",
+        "type": "object"
+      },
       "EnabledLocaleItem": {
         "additionalProperties": false,
         "description": "启用语言清单条目（登录即可读；供多语言文案字段渲染语言格）。",
@@ -5964,6 +6204,350 @@
           "expr"
         ],
         "title": "ExpressionValidateRequest",
+        "type": "object"
+      },
+      "ExtFieldCreateRequest": {
+        "additionalProperties": false,
+        "description": "新建自建字段（触发动态 DDL）。",
+        "properties": {
+          "field_key": {
+            "description": "字段键（小写字母开头，仅小写 / 数字 / 下划线）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Field Key",
+            "type": "string"
+          },
+          "form_code": {
+            "description": "表单标识（业务码）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Form Code",
+            "type": "string"
+          },
+          "name": {
+            "description": "字段名（默认文案）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "option_set_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "选项集标识（枚举类型必填）",
+            "title": "Option Set Key"
+          },
+          "sort": {
+            "default": 0,
+            "description": "同表单内排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "type": {
+            "description": "字段类型（text / longtext / number / datetime / option / option_multi / switch / file）",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_code",
+          "field_key",
+          "name",
+          "type"
+        ],
+        "title": "ExtFieldCreateRequest",
+        "type": "object"
+      },
+      "ExtFieldItem": {
+        "additionalProperties": false,
+        "description": "自建字段项（列表响应）。",
+        "properties": {
+          "column_name": {
+            "description": "物理列名（ext_ 前缀）",
+            "title": "Column Name",
+            "type": "string"
+          },
+          "ddl_status": {
+            "description": "建列生命周期（pending / active / failed）",
+            "title": "Ddl Status",
+            "type": "string"
+          },
+          "field_key": {
+            "description": "字段键",
+            "title": "Field Key",
+            "type": "string"
+          },
+          "form_code": {
+            "description": "表单标识",
+            "title": "Form Code",
+            "type": "string"
+          },
+          "id": {
+            "description": "字段主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "字段名（当前 locale）",
+            "title": "Name",
+            "type": "string"
+          },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "多语言名（locale → 文案）",
+            "title": "Names",
+            "type": "object"
+          },
+          "option_set_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "选项集标识",
+            "title": "Option Set Key"
+          },
+          "sort": {
+            "description": "排序",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "description": "状态（enabled / disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "table_name": {
+            "description": "目标物理表名",
+            "title": "Table Name",
+            "type": "string"
+          },
+          "type": {
+            "description": "字段类型",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "form_code",
+          "field_key",
+          "name",
+          "type",
+          "column_name",
+          "table_name",
+          "ddl_status",
+          "sort",
+          "status"
+        ],
+        "title": "ExtFieldItem",
+        "type": "object"
+      },
+      "ExtFieldListResponse": {
+        "additionalProperties": false,
+        "description": "自建字段清单响应。",
+        "properties": {
+          "items": {
+            "description": "自建字段清单（sort 升序）",
+            "items": {
+              "$ref": "#/components/schemas/ExtFieldItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "ExtFieldListResponse",
+        "type": "object"
+      },
+      "ExtFieldUpdateRequest": {
+        "additionalProperties": false,
+        "description": "编辑自建字段（停用不删列）。",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "字段名（None 表示不改）",
+            "title": "Name"
+          },
+          "option_set_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "选项集标识（None 表示不改）",
+            "title": "Option Set Key"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "排序（None 表示不改）",
+            "title": "Sort"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（enabled / disabled）",
+            "title": "Status"
+          }
+        },
+        "title": "ExtFieldUpdateRequest",
+        "type": "object"
+      },
+      "FieldAttrItem": {
+        "additionalProperties": false,
+        "description": "单字段属性项（保存请求项）。",
+        "properties": {
+          "attrs": {
+            "additionalProperties": true,
+            "description": "字段属性（required / placeholder / defaultValue / rules / optionSetKey / widget / readonly 等）",
+            "title": "Attrs",
+            "type": "object"
+          },
+          "field_key": {
+            "description": "字段键",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Field Key",
+            "type": "string"
+          },
+          "field_type": {
+            "description": "字段类型（枚举类型必配选项集）",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Field Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_key",
+          "field_type"
+        ],
+        "title": "FieldAttrItem",
+        "type": "object"
+      },
+      "FieldAttrRow": {
+        "additionalProperties": false,
+        "description": "层级字段属性行（列表响应项）。",
+        "properties": {
+          "attrs": {
+            "additionalProperties": true,
+            "description": "字段属性（归一后）",
+            "title": "Attrs",
+            "type": "object"
+          },
+          "field_key": {
+            "description": "字段键",
+            "title": "Field Key",
+            "type": "string"
+          },
+          "form_code": {
+            "description": "表单标识",
+            "title": "Form Code",
+            "type": "string"
+          },
+          "id": {
+            "description": "属性主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "role_id": {
+            "description": "角色 ID",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "层级",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "form_code",
+          "scope",
+          "role_id",
+          "field_key"
+        ],
+        "title": "FieldAttrRow",
+        "type": "object"
+      },
+      "FieldAttrSaveRequest": {
+        "additionalProperties": false,
+        "description": "保存层级字段属性请求（整份覆盖式）。",
+        "properties": {
+          "fields": {
+            "description": "字段属性清单（整份覆盖；空列表表示清空该层属性）",
+            "items": {
+              "$ref": "#/components/schemas/FieldAttrItem"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "form_code": {
+            "description": "表单标识（业务码）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Form Code",
+            "type": "string"
+          },
+          "role_id": {
+            "default": 0,
+            "description": "角色 ID（role 层级必填；其余层级必须为 0）",
+            "title": "Role Id",
+            "type": "integer"
+          },
+          "scope": {
+            "description": "层级（platform / tenant / role）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_code",
+          "scope"
+        ],
+        "title": "FieldAttrSaveRequest",
         "type": "object"
       },
       "FieldCreateRequest": {
@@ -6489,6 +7073,44 @@
           "business_id"
         ],
         "title": "FormUpdateRequest",
+        "type": "object"
+      },
+      "FormValidateRequest": {
+        "additionalProperties": false,
+        "description": "动态校验自测请求。",
+        "properties": {
+          "values": {
+            "additionalProperties": true,
+            "description": "字段键 → 待校验值",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "FormValidateRequest",
+        "type": "object"
+      },
+      "FormValidateResponse": {
+        "additionalProperties": false,
+        "description": "动态校验响应。",
+        "properties": {
+          "errors": {
+            "description": "字段级错误（通过时为空）",
+            "items": {
+              "$ref": "#/components/schemas/ValidateFieldError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "valid": {
+            "description": "是否通过",
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid"
+        ],
+        "title": "FormValidateResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -8115,6 +8737,282 @@
           "job_type"
         ],
         "title": "JobSubmitRequest",
+        "type": "object"
+      },
+      "LayoutEffectiveResponse": {
+        "additionalProperties": false,
+        "description": "生效布局响应（与前端 `LayoutEffective` 同形）。",
+        "properties": {
+          "fallback": {
+            "description": "是否走空布局回退",
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "fields": {
+            "description": "合并字段清单（已按权限剔除）",
+            "items": {
+              "$ref": "#/components/schemas/EffectiveField"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "layout": {
+            "additionalProperties": true,
+            "description": "生效布局配置",
+            "title": "Layout",
+            "type": "object"
+          },
+          "level": {
+            "description": "请求层级",
+            "title": "Level",
+            "type": "string"
+          },
+          "option_sets": {
+            "description": "选项集快照集",
+            "items": {
+              "$ref": "#/components/schemas/OptionSetSnapshotModel"
+            },
+            "title": "Option Sets",
+            "type": "array"
+          },
+          "permissions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EffectiveFieldPermission"
+            },
+            "description": "字段权限标记（仅收窄项）",
+            "title": "Permissions",
+            "type": "object"
+          },
+          "readonly": {
+            "default": true,
+            "description": "是否只读（渲染路径恒 true）",
+            "title": "Readonly",
+            "type": "boolean"
+          },
+          "source": {
+            "description": "实际来源层级（role / tenant / platform / empty）",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "level",
+          "source",
+          "fallback"
+        ],
+        "title": "LayoutEffectiveResponse",
+        "type": "object"
+      },
+      "LayoutLevelRow": {
+        "additionalProperties": false,
+        "description": "层级布局行（列表响应项）。",
+        "properties": {
+          "form_code": {
+            "description": "表单标识",
+            "title": "Form Code",
+            "type": "string"
+          },
+          "id": {
+            "description": "布局主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "layout_config": {
+            "additionalProperties": true,
+            "description": "布局配置（归一后）",
+            "title": "Layout Config",
+            "type": "object"
+          },
+          "role_id": {
+            "description": "角色 ID（0 表示非角色层级）",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "层级",
+            "title": "Scope",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "form_code",
+          "scope",
+          "role_id",
+          "status"
+        ],
+        "title": "LayoutLevelRow",
+        "type": "object"
+      },
+      "LayoutListResponse": {
+        "additionalProperties": false,
+        "description": "三层布局 + 三层属性清单。",
+        "properties": {
+          "attrs": {
+            "description": "属性行清单",
+            "items": {
+              "$ref": "#/components/schemas/FieldAttrRow"
+            },
+            "title": "Attrs",
+            "type": "array"
+          },
+          "layouts": {
+            "description": "布局行清单",
+            "items": {
+              "$ref": "#/components/schemas/LayoutLevelRow"
+            },
+            "title": "Layouts",
+            "type": "array"
+          },
+          "levels": {
+            "description": "已配置层级（platform / tenant / role；空表示走默认栅格）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Levels",
+            "type": "array"
+          },
+          "warnings": {
+            "description": "失效 / 停用 / 重复引用告警（不阻断）",
+            "items": {
+              "$ref": "#/components/schemas/LayoutWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "title": "LayoutListResponse",
+        "type": "object"
+      },
+      "LayoutSaveRequest": {
+        "additionalProperties": false,
+        "description": "保存层级布局请求（整份覆盖式；裸字符串引用与对象引用都接受）。",
+        "properties": {
+          "form_code": {
+            "description": "表单标识（业务码）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Form Code",
+            "type": "string"
+          },
+          "layout_config": {
+            "additionalProperties": true,
+            "description": "布局配置（main + query + detail + dictAdvanced）",
+            "title": "Layout Config",
+            "type": "object"
+          },
+          "role_id": {
+            "default": 0,
+            "description": "角色 ID（role 层级必填；其余层级必须为 0）",
+            "title": "Role Id",
+            "type": "integer"
+          },
+          "scope": {
+            "description": "层级（platform / tenant / role）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_code",
+          "scope"
+        ],
+        "title": "LayoutSaveRequest",
+        "type": "object"
+      },
+      "LayoutSaveResult": {
+        "additionalProperties": false,
+        "description": "布局 / 属性保存结果。",
+        "properties": {
+          "applied": {
+            "description": "是否已生效（缓存已失效）",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "主键（属性整份保存时取层级首个属性行；空层级为 0）",
+            "title": "Id",
+            "type": "string"
+          },
+          "role_id": {
+            "description": "角色 ID",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "层级",
+            "title": "Scope",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "布局引用告警（不阻断保存）",
+            "items": {
+              "$ref": "#/components/schemas/LayoutWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "role_id",
+          "applied"
+        ],
+        "title": "LayoutSaveResult",
+        "type": "object"
+      },
+      "LayoutWarning": {
+        "additionalProperties": false,
+        "description": "布局引用告警（失效 / 停用 / 重复；保存期告警不阻断）。",
+        "properties": {
+          "field_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "涉事字段键",
+            "title": "Field Key"
+          },
+          "kind": {
+            "description": "问题种类（unknown-field / disabled-field / duplicate-field / empty-section）",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "description": "说明",
+            "title": "Message",
+            "type": "string"
+          },
+          "section_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "涉事分区键",
+            "title": "Section Key"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "LayoutWarning",
         "type": "object"
       },
       "LocaleCreateRequest": {
@@ -10182,6 +11080,31 @@
           "items"
         ],
         "title": "OptionSetResponse",
+        "type": "object"
+      },
+      "OptionSetSnapshotModel": {
+        "additionalProperties": false,
+        "description": "选项集快照（随渲染元数据下发，前端零请求消费）。",
+        "properties": {
+          "items": {
+            "description": "条目（value / label / color / disabled / sort）",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "option_set_key": {
+            "description": "选项集标识",
+            "title": "Option Set Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "option_set_key"
+        ],
+        "title": "OptionSetSnapshotModel",
         "type": "object"
       },
       "PermissionCreateRequest": {
@@ -13272,6 +14195,40 @@
           "version"
         ],
         "title": "UserUpdateRequest",
+        "type": "object"
+      },
+      "ValidateFieldError": {
+        "additionalProperties": false,
+        "description": "字段级校验错误。",
+        "properties": {
+          "field_key": {
+            "description": "字段键",
+            "title": "Field Key",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "后端补充说明（通常为空，前端按 rule 取词）",
+            "title": "Message"
+          },
+          "rule": {
+            "description": "规则种类（required / length / range / pattern / options / type）",
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_key",
+          "rule"
+        ],
+        "title": "ValidateFieldError",
         "type": "object"
       },
       "ValidationError": {
@@ -20398,6 +21355,854 @@
         ]
       }
     },
+    "/api/v1/form-design/attrs": {
+      "put": {
+        "description": "保存某层级字段属性（整份覆盖式）。\n\n需要 `formdesign:manage`；`scope=platform` 要求平台超管；属性非法返回 `40408`。\n\nArgs:\n    request: 请求对象（取角色集）。\n    service: 表单定制服务。\n    payload: 保存请求。\n\nReturns:\n    ApiResponse[LayoutSaveResult]: 统一响应，data 为写入结果。",
+        "operationId": "save_attrs_api_v1_form_design_attrs_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FieldAttrSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LayoutSaveResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Save Attrs",
+        "tags": [
+          "form-design"
+        ]
+      }
+    },
+    "/api/v1/form-design/attrs/{attr_id}": {
+      "delete": {
+        "description": "删除某层级的全部属性（恢复默认）。\n\n需要 `formdesign:manage`。主键不存在返回 `10002`。\n\nArgs:\n    request: 请求对象（取角色集）。\n    service: 表单定制服务。\n    attr_id: 属性主键（字符串化雪花 ID）。\n\nReturns:\n    ApiResponse[LayoutSaveResult]: 统一响应，data 为删除结果。",
+        "operationId": "delete_attrs_api_v1_form_design_attrs__attr_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attr_id",
+            "required": true,
+            "schema": {
+              "title": "Attr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LayoutSaveResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Attrs",
+        "tags": [
+          "form-design"
+        ]
+      }
+    },
+    "/api/v1/form-design/fields": {
+      "get": {
+        "description": "列示该表单的自建字段（含 `ddl_status`）。\n\n需要 `formdesign:query`；业务码不存在或不可定制返回 `40401`。\n\nArgs:\n    service: 自建字段服务。\n    form_code: 表单标识（业务码）。\n\nReturns:\n    ApiResponse[ExtFieldListResponse]: 统一响应，data 为自建字段清单。",
+        "operationId": "list_fields_api_v1_form_design_fields_get",
+        "parameters": [
+          {
+            "description": "表单标识（业务码）",
+            "in": "query",
+            "name": "form_code",
+            "required": true,
+            "schema": {
+              "description": "表单标识（业务码）",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Form Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExtFieldListResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Fields",
+        "tags": [
+          "form-design"
+        ]
+      },
+      "post": {
+        "description": "新建自建字段并触发动态 DDL。\n\n需要 `formdesign:manage`；字段键非法 `10001`、冲突 `40402`、类型 / 选项集非法 `40404`、\n建列失败随行返回 `ddl_status=failed`（可重试）。\n\nArgs:\n    service: 自建字段服务。\n    payload: 新建请求。\n\nReturns:\n    ApiResponse[ExtFieldItem]: 统一响应，data 为新建字段（含建列状态）。",
+        "operationId": "create_field_api_v1_form_design_fields_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtFieldCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExtFieldItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Field",
+        "tags": [
+          "form-design"
+        ]
+      }
+    },
+    "/api/v1/form-design/fields/{field_id}": {
+      "put": {
+        "description": "编辑自建字段（停用不删列）。\n\n需要 `formdesign:manage`；字段不存在 `10002`；选项集非法 `40404`。\n\nArgs:\n    service: 自建字段服务。\n    field_id: 字段主键（字符串化雪花 ID）。\n    payload: 编辑请求。\n\nReturns:\n    ApiResponse[ExtFieldItem]: 统一响应，data 为更新后的字段。",
+        "operationId": "update_field_api_v1_form_design_fields__field_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "field_id",
+            "required": true,
+            "schema": {
+              "title": "Field Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtFieldUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExtFieldItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Field",
+        "tags": [
+          "form-design"
+        ]
+      }
+    },
+    "/api/v1/form-design/fields/{field_id}/retry": {
+      "post": {
+        "description": "重试建列（复用同一元数据与列名）。\n\n需要 `formdesign:manage`；字段不存在 `10002`。\n\nArgs:\n    service: 自建字段服务。\n    field_id: 字段主键（字符串化雪花 ID）。\n\nReturns:\n    ApiResponse[ExtFieldItem]: 统一响应，data 为重试后的字段。",
+        "operationId": "retry_field_api_v1_form_design_fields__field_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "field_id",
+            "required": true,
+            "schema": {
+              "title": "Field Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExtFieldItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Retry Field",
+        "tags": [
+          "form-design"
+        ]
+      }
+    },
+    "/api/v1/form-design/layouts": {
+      "get": {
+        "description": "取该表单的三层布局 + 三层属性。\n\n需要 `formdesign:query`；业务码不存在或不可定制返回 `40401`。\n\nArgs:\n    service: 表单定制服务。\n    form_code: 表单标识（业务码）。\n\nReturns:\n    ApiResponse[LayoutListResponse]: 统一响应，data 为布局 / 属性清单与已配置层级。",
+        "operationId": "list_layouts_api_v1_form_design_layouts_get",
+        "parameters": [
+          {
+            "description": "表单标识（业务码）",
+            "in": "query",
+            "name": "form_code",
+            "required": true,
+            "schema": {
+              "description": "表单标识（业务码）",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Form Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LayoutListResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Layouts",
+        "tags": [
+          "form-design"
+        ]
+      },
+      "put": {
+        "description": "保存某层级布局（整份覆盖式）。\n\n需要 `formdesign:manage`；`scope=platform` 要求平台超管；布局结构非法返回 `40403`。\n\nArgs:\n    request: 请求对象（取角色集）。\n    service: 表单定制服务。\n    payload: 保存请求。\n\nReturns:\n    ApiResponse[LayoutSaveResult]: 统一响应，data 为写入结果。",
+        "operationId": "save_layout_api_v1_form_design_layouts_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LayoutSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LayoutSaveResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Save Layout",
+        "tags": [
+          "form-design"
+        ]
+      }
+    },
+    "/api/v1/form-design/layouts/{layout_id}": {
+      "delete": {
+        "description": "删除某层级布局（恢复默认：回退下一级）。\n\n需要 `formdesign:manage`。主键不存在返回 `10002`。\n\nArgs:\n    request: 请求对象（取角色集）。\n    service: 表单定制服务。\n    layout_id: 布局主键（字符串化雪花 ID）。\n\nReturns:\n    ApiResponse[LayoutSaveResult]: 统一响应，data 为删除结果。",
+        "operationId": "delete_layout_api_v1_form_design_layouts__layout_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "layout_id",
+            "required": true,
+            "schema": {
+              "title": "Layout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LayoutSaveResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Layout",
+        "tags": [
+          "form-design"
+        ]
+      }
+    },
     "/api/v1/form-keys": {
       "get": {
         "description": "列表单标识清单（供通用页面路由：`form_key → data_source_key`）。\n\n取数口径＝**应用级视图**（`app.state.form_registry`：`FORM_CATALOG` + 本服务经 `form_records()`\n注入的产品登记项），非直接读构建期清单常量。\n\nArgs:\n    request: 请求（取应用级清单视图）。\n    kind: 类型过滤（`dict` / `form`；空 = 全部）。\n\nReturns:\n    ApiResponse[FormKeyListResponse]: 统一响应，data 为表单标识清单（`items` 保序）。\n\nRaises:\n    ParamError: 类型取值非法。",
@@ -20690,6 +22495,202 @@
         "summary": "Create Form",
         "tags": [
           "menu"
+        ]
+      }
+    },
+    "/api/v1/forms/{form_code}/layout-effective": {
+      "get": {
+        "description": "当前用户生效布局（渲染路径，登录即可）。\n\n三级解析（角色视图 → 租户覆盖 → 平台默认 → 空布局回退）+ 字段权限叠加（权限优先）；\n业务码不存在或不可定制返回 `40401`。\n\nArgs:\n    request: 请求对象（取角色集）。\n    service: 表单定制服务。\n    form_code: 表单标识（业务码）。\n\nReturns:\n    ApiResponse[LayoutEffectiveResponse]: 统一响应，data 为生效布局与字段清单。",
+        "operationId": "layout_effective_api_v1_forms__form_code__layout_effective_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "form_code",
+            "required": true,
+            "schema": {
+              "title": "Form Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LayoutEffectiveResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Layout Effective",
+        "tags": [
+          "form-design"
+        ]
+      }
+    },
+    "/api/v1/forms/{form_code}/validate": {
+      "post": {
+        "description": "动态校验自测端点（与业务接口同源，登录即可）。\n\n按当前生效布局 / 属性校验字段值；失败项返回 `field_key` + `rule`（前端按 rule 取词）。\n\nArgs:\n    request: 请求对象（取角色集）。\n    form_code: 表单标识（业务码）。\n    payload: 待校验值。\n    validator: 表单动态校验器（应用级注入）。\n\nReturns:\n    ApiResponse[FormValidateResponse]: 统一响应，data 为校验结果。",
+        "operationId": "validate_values_api_v1_forms__form_code__validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "form_code",
+            "required": true,
+            "schema": {
+              "title": "Form Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_FormValidateResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Validate Values",
+        "tags": [
+          "form-design"
         ]
       }
     },

@@ -39,6 +39,7 @@ from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.events.base import EventEnvelope
+from bms_core.formdesign.validator import BaseFormValidator
 from bms_core.models.platform.user import UNLOCK_MODE_AUTO, SysUser
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.password.base import BasePasswordPolicy
@@ -149,6 +150,7 @@ class UserAdminService(BaseFrameworkObject):
         policy: BasePasswordPolicy,
         outbox: BaseOutboxStore,
         sessions: UserSessionClient,
+        validator: BaseFormValidator | None = None,
     ) -> None:
         """初始化。
 
@@ -163,6 +165,7 @@ class UserAdminService(BaseFrameworkObject):
             policy: 密码策略（复杂度 / 历史）。
             outbox: 事务性发件箱存储（事件发布）。
             sessions: 用户会话失效客户端（跨服务）。
+            validator: 表单动态校验器（10_01；None 表示不校验，保持既有行为）。
         """
         self._session = session
         self._uow = uow
@@ -174,6 +177,27 @@ class UserAdminService(BaseFrameworkObject):
         self._policy = policy
         self._outbox = outbox
         self._sessions = sessions
+        self._validator = validator
+
+    async def _validate_form(self, values: ConcurrentStableDict[str, object]) -> None:
+        """按 `user` 表单的生效布局 / 属性做动态校验（10_01；未注入校验器时跳过）。
+
+        Args:
+            values: 待校验字段值（字段键 → 值）。
+
+        Raises:
+            ParamError: 校验失败（10001，`data.errors[]` 带字段级明细）。
+        """
+        if self._validator is None:
+            return
+        result = await self._validator.validate("user", values)
+        if result.valid:
+            return
+        details: ConcurrentStableList[object] = ConcurrentStableList(
+            ConcurrentStableDict({"field_key": error.field_key, "rule": error.rule}) for error in result.errors
+        )
+        names = "、".join(error.field_key for error in result.errors)
+        raise ParamError(f"字段校验未通过：{names}", data=ConcurrentStableDict({"errors": details}))
 
     # ------------------------------------------------------------------ 查询
 
@@ -249,6 +273,17 @@ class UserAdminService(BaseFrameworkObject):
         clean_phone = _clean_optional(phone)
         _require_pattern(clean_email, _EMAIL_PATTERN, "邮箱")
         _require_pattern(clean_phone, _PHONE_PATTERN, "手机号")
+        await self._validate_form(
+            ConcurrentStableDict(
+                {
+                    "username": normalized,
+                    "name": name.strip(),
+                    "status": status,
+                    "email": clean_email,
+                    "phone": clean_phone,
+                }
+            )
+        )
         generated: str | None = None
         async with self._uow.begin():
             if await self._users.get_by_username(normalized) is not None:

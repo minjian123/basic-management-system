@@ -29,9 +29,7 @@ class _User:
         self.timezone = timezone
 
 
-async def test_resolve_values_and_timezone(
-    shared_tenant_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_resolve_values_and_timezone(shared_tenant_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
     """按用户返回偏好值与时区。"""
     async with rollback_session(shared_tenant_engine) as session:
         repository = PreferenceRepository(session)
@@ -66,6 +64,7 @@ async def test_resolve_missing_user_and_bad_id(
 ) -> None:
     """用户不存在返回空值与空时区；非法主键拒绝。"""
     async with rollback_session(shared_tenant_engine) as session:
+
         async def _none(self: UserRepository, user_id: int) -> None:
             del self, user_id
             return None

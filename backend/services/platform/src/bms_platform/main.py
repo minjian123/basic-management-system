@@ -48,7 +48,12 @@ from bms_platform.domains.platform_registry.sources.dict_source import PlatformD
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.services.branch_handlers import build_branch_handlers
 from bms_platform.services.demo_service import DemoService
-from bms_platform.wiring import role_grant, role_reference, role_resolvers
+from bms_platform.wiring import (
+    bind_form_design_resolvers,
+    role_grant,
+    role_reference,
+    role_resolvers,
+)
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -136,6 +141,7 @@ class ApplicationFactory(BaseServiceApplicationFactory):
                 bootstrap_capability_grants,
                 bootstrap_tenant_topologies,
                 bootstrap_audit_shards,
+                bind_form_design_resolvers,
             )
         )
 

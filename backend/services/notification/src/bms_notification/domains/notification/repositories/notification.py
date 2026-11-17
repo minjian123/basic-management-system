@@ -50,9 +50,7 @@ class NotificationRepository(BaseDbRepository[SysNotification]):
             statement = statement.where(SysNotification.type == notification_type)
         if is_read is not None:
             statement = statement.where(SysNotification.is_read.is_(is_read))
-        total = int(
-            (await self._session.execute(select(func.count()).select_from(statement.subquery()))).scalar_one()
-        )
+        total = int((await self._session.execute(select(func.count()).select_from(statement.subquery()))).scalar_one())
         rows = (
             (
                 await self._session.execute(

@@ -30,9 +30,7 @@ class NotificationGenerationService(BaseFrameworkObject):
         """
         self._session = session
         self._outbox = (
-            outbox
-            if outbox is not None
-            else SqlOutboxStore(contract_mode=get_settings().event.contract_mode)
+            outbox if outbox is not None else SqlOutboxStore(contract_mode=get_settings().event.contract_mode)
         )
 
     async def create(self, request: NotificationRequest, *, tenant_id: str) -> SysNotification:

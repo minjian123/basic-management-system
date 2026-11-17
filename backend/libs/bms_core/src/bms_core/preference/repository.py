@@ -28,9 +28,7 @@ class PreferenceRepository(BaseDbRepository[SysUserPreference]):
         Returns:
             SysUserPreference | None: 偏好行；不存在 None。
         """
-        statement = (
-            self._select().where(SysUserPreference.user_id == user_id).where(SysUserPreference.pref_key == key)
-        )
+        statement = self._select().where(SysUserPreference.user_id == user_id).where(SysUserPreference.pref_key == key)
         return (await self._session.execute(statement)).scalars().first()
 
     async def get_many(self, user_id: int, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, object]:
@@ -47,9 +45,7 @@ class PreferenceRepository(BaseDbRepository[SysUserPreference]):
         if not keys:
             return result
         statement = (
-            self._select()
-            .where(SysUserPreference.user_id == user_id)
-            .where(SysUserPreference.pref_key.in_(list(keys)))
+            self._select().where(SysUserPreference.user_id == user_id).where(SysUserPreference.pref_key.in_(list(keys)))
         )
         for row in (await self._session.execute(statement)).scalars():
             try:

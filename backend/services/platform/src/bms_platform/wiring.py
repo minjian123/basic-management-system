@@ -13,13 +13,35 @@ from bms_core.audit.base import AuditCapturer
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.context import get_current_tenant
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.help.content import BaseHelpContentResolver
+from bms_core.lock.base import BaseDistributedLock
 from bms_core.metrics.base import BaseMetrics
+from bms_core.models.platform.menu_form import SysField, SysForm
+from bms_core.models.platform.permission_meta import SysBusiness
+from bms_core.optionset.base import BaseOptionSetRegistry
 from bms_core.outbox.base import BaseOutboxStore
+from bms_core.permission.field import current_field_permission_provider_factory
 from bms_core.permission.resolver import BaseRoleResolver
+from bms_core.registry.forms import FormRegistry
 from bms_core.servicecall.base import BaseServiceClient
+from bms_platform.domains.form_design.repositories.adapters import (
+    FieldPermissionAdapter,
+    OptionSetAdapter,
+    PlatformMetadataAdapter,
+    RoleQueryAdapter,
+)
+from bms_platform.domains.form_design.repositories.field_ext_i18n import FieldExtI18nRepository
+from bms_platform.domains.form_design.repositories.layout import (
+    FieldAttrRepository,
+    FieldExtRepository,
+    FormLayoutRepository,
+)
+from bms_platform.domains.form_design.repositories.metadata import MetadataRepository
+from bms_platform.domains.form_design.services.layout import FormDesignService
+from bms_platform.domains.form_design.services.validator import LocalFormValidator
 from bms_platform.domains.menu_form.repositories.menu import (
     ButtonRepository,
     FieldRepository,
@@ -55,8 +77,11 @@ from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
 
 __all__ = [
+    "build_form_design_service",
     "build_help_context_service",
     "build_help_coverage_service",
+    "build_local_form_validator",
+    "build_local_form_validator_from_request",
     "build_menu_service",
     "build_permission_service",
     "role_assignment",
@@ -289,4 +314,189 @@ def role_resolvers(
             DirectRoleResolver(UserRoleRepository(session)),
             DeptPostRoleResolver(service_client, require_roles=require_dept_post, metrics=metrics),
         ]
+    )
+
+
+# --------------------------------------------------------------------------- 表单定制（10_01）
+
+
+async def bind_form_design_resolvers(app: object | None = None) -> None:
+    r"""登记表单定制域向外提供的能力回调（应用装配期调用一次）。
+
+    目前一项：**导入列派生**——\`user\` 的导入定义需要「按 user 表单布局取列」，但不得 import
+    \`form_design\` 域模型；实现放装配面、经基座回调登记，跨域边界保持单向。
+
+    回调按调用方传入的会话（\`session\` 关键字）查三表，不持有长生命周期会话。
+    """
+    from bms_core.formdesign.import_columns import layout_columns_of, register_layout_column_resolver
+    from bms_core.models.platform.form_design import SysFieldExt, SysFormFieldAttr, SysFormLayout
+
+    async def _resolve(*, form_code: str, session: DbSession) -> tuple[object, object]:
+        """按表单取布局字段序与自建字段列规格（回调实现）。
+
+        Args:
+            form_code: 表单标识（业务码）。
+            session: 调用方会话（租户库）。
+
+        Returns:
+            tuple: （字段键序, 自建字段列规格）。
+        """
+        return await layout_columns_of(
+            session,
+            form_code=form_code,
+            layout_model=SysFormLayout,
+            attr_model=SysFormFieldAttr,
+            ext_model=SysFieldExt,
+        )
+
+    register_layout_column_resolver(_resolve)
+
+
+class _PlatformMetadataModels:
+    """平台库表单元数据三表模型集合（装配面注入给 MetadataRepository）。
+
+    装配面是唯一允许跨域的组合点：menu_form（表单 / 字段）与 permission_meta（业务码）的模型
+    在此汇聚，域实现只经 models.business/form/field 取用，不 import 他域。
+    """
+
+    business = SysBusiness
+    """业务码模型（sys_business）。"""
+    form = SysForm
+    """表单模型（sys_form）。"""
+    field = SysField
+    """字段模型（sys_field）。"""
+
+
+def build_form_design_service(
+    *,
+    tenant_uow: UnitOfWork,
+    platform_uow: UnitOfWork,
+    cache: CacheRegion,
+    outbox: BaseOutboxStore,
+    lock: BaseDistributedLock,
+    option_set_registry: BaseOptionSetRegistry,
+    registry: FormRegistry | None = None,
+) -> FormDesignService:
+    r"""构造表单定制服务（布局 / 属性 / 自建字段 / 生效解析）。
+
+    **为什么要两个会话**：布局与属性在租户库（\`platform:tenant\` 链），而业务码 / 表单 / 字段在
+    平台库（\`platform:platform\` 链）——两者分库，装配面同时持有并把只读面注入本域。
+
+    Args:
+        tenant_uow: 请求级工作单元（租户库：布局 / 属性 / 自建字段）。
+        platform_uow: 平台库工作单元（只读：业务码 / 表单 / 字段）。
+        cache: 缓存 Region（布局 / 字段清单缓存与版本键）。
+        outbox: 事务性发件箱（\`sys.form.updated\`）。
+        lock: 分布式锁（DDL 单租户串行）。
+        option_set_registry: 选项集注册表（属性校验与快照）。
+        registry: 表单标识清单（**应用级视图** \`app.state.form_registry\`；None 用构建期清单）。
+
+    Returns:
+        FormDesignService: 表单定制服务实例。
+    """
+    tenant_session = cast("DbSession", tenant_uow.session)
+    platform_session = cast("DbSession", platform_uow.session)
+    factory = current_field_permission_provider_factory()
+    roles = RoleQueryAdapter(RoleQueryService(tenant_session))
+    service = FormDesignService(
+        session=tenant_session,
+        uow=tenant_uow,
+        layouts=FormLayoutRepository(tenant_session),
+        attrs=FieldAttrRepository(tenant_session),
+        ext_fields=FieldExtRepository(tenant_session),
+        ext_i18n=FieldExtI18nRepository(tenant_session),
+        metadata=PlatformMetadataAdapter(
+            MetadataRepository(platform_session, registry=registry, models=_PlatformMetadataModels())
+        ),
+        permissions=(
+            FieldPermissionAdapter(factory(tenant_session, platform_session)) if factory is not None else None
+        ),
+        option_sets=OptionSetAdapter(option_set_registry),
+        roles=roles,
+        cache=cache,
+        outbox=outbox,
+        tenant=get_current_tenant(),
+    )
+    service.bind_ddl(_build_ddl_executor(tenant_session, lock=lock))
+    return service
+
+
+def _build_ddl_executor(session: DbSession, *, lock: BaseDistributedLock) -> object:
+    """构造 DDL 执行器（独立函数便于用例替换）。
+
+    Args:
+        session: 租户库会话。
+        lock: 分布式锁。
+
+    Returns:
+        object: DDL 执行器实例。
+    """
+    from bms_platform.domains.form_design.services.ddl import FormDdlExecutor
+
+    return FormDdlExecutor(session, lock=lock, tenant=get_current_tenant())
+
+
+def build_local_form_validator_from_request(request: object) -> LocalFormValidator:
+    r"""插件工厂：按请求构造表单动态校验器（\`form_validator:local\` 登记用）。
+
+    Args:
+        request: 请求对象（取租户 / 平台库工作单元、缓存与选项集注册表）。
+
+    Returns:
+        LocalFormValidator: 校验器实例。
+    """
+    from bms_core.api.deps import (
+        get_option_set_registry as _get_option_sets,
+    )
+    from bms_core.api.deps import (
+        get_platform_uow as _get_platform_uow,
+    )
+    from bms_core.api.deps import (
+        get_uow as _get_tenant_uow,
+    )
+
+    tenant_uow = _get_tenant_uow(request)  # type: ignore[arg-type]
+    platform_uow = _get_platform_uow(request)  # type: ignore[arg-type]
+    registry = getattr(getattr(request, "app", None), "state", None)
+    form_registry = getattr(registry, "form_registry", None)
+    return build_local_form_validator(
+        tenant_uow=tenant_uow,
+        platform_uow=platform_uow,
+        option_set_registry=_get_option_sets(request),  # type: ignore[arg-type]
+        registry=form_registry,
+    )
+
+
+def build_local_form_validator(
+    *,
+    tenant_uow: UnitOfWork,
+    platform_uow: UnitOfWork,
+    option_set_registry: BaseOptionSetRegistry,
+    registry: FormRegistry | None = None,
+) -> LocalFormValidator:
+    """构造表单动态校验真实实现（按生效布局 / 属性校验）。
+
+    Args:
+        tenant_uow: 请求级工作单元（租户库）。
+        platform_uow: 平台库工作单元（只读元数据）。
+        option_set_registry: 选项集注册表（值域判定）。
+
+    Returns:
+        LocalFormValidator: 校验器实例。
+    """
+    tenant_session = cast("DbSession", tenant_uow.session)
+    platform_session = cast("DbSession", platform_uow.session)
+    factory = current_field_permission_provider_factory()
+    role_types: ConcurrentStableList[tuple[str, int]] | None = None
+    return LocalFormValidator(
+        session=tenant_session,
+        layouts=FormLayoutRepository(tenant_session),
+        attrs=FieldAttrRepository(tenant_session),
+        ext_fields=FieldExtRepository(tenant_session),
+        metadata=PlatformMetadataAdapter(
+            MetadataRepository(platform_session, registry=registry, models=_PlatformMetadataModels())
+        ),
+        option_sets=OptionSetAdapter(option_set_registry),
+        field_permissions=factory(tenant_session, platform_session) if factory is not None else None,
+        role_types=role_types,
     )

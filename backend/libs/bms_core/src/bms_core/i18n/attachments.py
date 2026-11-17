@@ -126,7 +126,6 @@ I18N_ATTACHMENTS: ConcurrentStableDict[str, I18nAttachment] = ConcurrentStableDi
                 owner_table="sys_field_ext",
                 key_column="field_id",
                 text_columns=ConcurrentStableList(["name"]),
-                status=ATTACHMENT_PENDING,
                 owner_task="10_01 表单定制",
             ),
         )

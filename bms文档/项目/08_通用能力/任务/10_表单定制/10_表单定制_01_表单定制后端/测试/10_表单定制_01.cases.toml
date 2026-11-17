@@ -1,0 +1,27 @@
+# 10_01 表单定制后端 · Kiwi 用例登记清单
+
+# 口径：在 bms 仓根执行 `backend/.venv/Scripts/python.exe -m engkit kiwi register --cases <本文件>`（凭据取 `deploy/.env`）；
+# 文本字段写覆盖范围与自动化文件路径（《KiwiTCMS部署使用说明》§5.3：一任务一条用例，多条断言共用同一编号）。
+
+[[case]]
+summary = "表单定制后端（10_01）：三级布局解析 + 字段属性 + 动态 DDL 四库映射 + 服务端动态校验 + 导入列联动"
+category = "平台骨架"
+priority = "P2"
+status = "CONFIRMED"
+tags = ["自动化"]
+text = """
+<p><b>覆盖范围（详细设计 §8 验收映射，23 项）</b>：</p>
+<p>① <b>三级布局解析</b>：角色视图 → 租户覆盖 → 平台默认 → 空布局回退字段 sort 默认栅格；角色视图命中按 <code>role_type</code> 内置优先级（platform_admin &gt; system &gt; security &gt; audit &gt; custom）+ <code>role_id</code> 升序取首个非空布局；<code>source</code> / <code>fallback</code> 准确。</p>
+<p>② <b>字段权限优先</b>：<code>visible=false</code> 的字段从 <code>fields</code> 与分区 / 分组 / 查询区 / 明细列 / 字典高级查询引用中一并剔除（「无权限字段不下发」）；<code>editable=false</code> 保留并标 <code>permissions</code>，服务端跳过其必填校验。</p>
+<p>③ <b>布局要素</b>：分区 / 分组、1-3 列、跨列、字段顺序、标签宽（0~400）、查询区字段序、明细列宽（40~800）；裸字符串引用与 <code>colspan</code> / <code>colSpan</code> 两种写法兼容归一；非法列数回落 3；结构非法 <code>40403</code>。</p>
+<p>④ <b>字段属性</b>：必填 / 默认值 / 提示 / 长度 / 范围 / 正则 / 选项集来源 / 组件形态 / 只读 / 隐藏；三级属性与布局同层同源；非法正则、选项集未注册、默认值越域 <code>40408</code>；<code>attrs</code> 未知键丢弃不报错。</p>
+<p>⑤ <b>租户自建字段</b>：<code>ext_</code> 前缀列名派生；类型白名单 text/longtext/number/datetime/option/option_multi/switch/file（富文本不放开，<code>40404</code>）；<code>field_key</code> 冲突 <code>40402</code>；表单不可定制 / 物理表不可解析 <code>40401</code>。</p>
+<p>⑥ <b>动态 DDL</b>：SQLite 真建列（<code>inspect</code> 可查、<code>ddl_status=active</code>）；四库类型映射（8 类型 × 4 方言 <code>AddColumn.compile</code> 逐字断言，<code>longtext</code> 四库统一 TEXT）；单租户串行锁；失败 <code>failed</code> + <code>40405</code> + 可重试；停用不删列；重建复用同名列；列冲突 <code>40406</code>。</p>
+<p>⑦ <b>标识符注入拒收</b>：引号 / 分号 / 注释符 / 空格 / 大写 / 超长 / SQL 保留字 在登记阶段即拒；DDL 经参数化编译（<code>AddColumn</code>）不拼字符串。</p>
+<p>⑧ <b>服务端动态校验</b>：必填 / 长度 / 范围 / 正则 / 选项集五类规则各一正一反；失败 <code>10001</code> 且 <code>data.errors[]</code> 带 <code>field_key</code> 与 <code>rule</code>；<code>users</code> 试点——保存属性后 <code>POST /users</code> 缺该字段立刻被拒。</p>
+<p>⑨ <b>导入模板联动</b>：导入列按有效布局派生（布局字段序 + 自建 <code>active</code> 字段追加 + 布局未引用的原列保序在末尾）；无布局配置时等于原列集；<code>BaseImportDefinition.columns_for</code> 默认回退静态列集（既有定义零改动）。</p>
+<p>⑩ <b>缓存与失效</b>：布局 / 字段清单两 key + 版本键 <code>INCR</code>；保存后下一请求读到新值；缓存不可用降级直连库不阻断写。</p>
+<p>⑪ <b>事件</b>：布局 / 属性 / 自建字段变更在写事务内经事务性发件箱发 <code>sys.form.updated</code>，<code>changed_type</code> 取 layout / attr / ext_field。</p>
+<p><b>自动化文件</b>：<code>bms/backend/libs/bms_core/tests/formdesign/{test_layout_resolve,test_attrs_rules,test_identifier,test_fieldtype_mapping,test_validator_local,test_import_columns}.py</code>、<code>bms/backend/libs/bms_core/tests/transfer/test_import_definition_columns.py</code>、<code>bms/backend/services/platform/tests/form_design/{test_layout_api,test_field_ext_api,test_effective_api,test_validate_api,test_user_form_validation,test_import_columns_derived,test_cache_invalidation}.py</code></p>
+<p><b>kiwi_id 标注</b>：<code>@pytest.mark.kiwi_id(&lt;本用例编号&gt;)</code></p>
+"""
