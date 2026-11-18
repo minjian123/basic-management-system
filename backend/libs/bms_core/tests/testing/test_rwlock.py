@@ -192,16 +192,23 @@ async def test_release_write_without_holding_raises(tmp_path: Path) -> None:
         await gate.release(write=True)
 
 
-async def test_release_write_drops_borrowed_read_share(tmp_path: Path) -> None:
-    """写门内借用的读份额随写门一起作废（不降级：降级两步无原子性，会被等门者插入而死等）。"""
+async def test_borrowed_read_share_retires_with_write_gate(tmp_path: Path) -> None:
+    """写门内借用的读份额随写门作废：写门先释放、读门后释放**不报错**，只销账。
+
+    真实场景：FastAPI 的 yield 依赖把只读会话的生命周期拉到响应结束，读门可能晚于写门释放；
+    若此时判「未持有」会把正常请求打成 500（13_08 实测 `RuntimeError: 门 platform 释放模式不匹配`）。
+    """
     gate = _gate(tmp_path)
     await gate.acquire(write=True)
     await gate.acquire(write=False)
+    assert gate.mode == rwlock.WRITE
+    assert gate.depth == 2
 
     await gate.release(write=True)
+    assert gate.mode == rwlock.READ
+
+    await gate.release(write=False)
     assert gate.mode is None
-    with pytest.raises(RuntimeError, match="释放模式不匹配"):
-        await gate.release(write=False)
 
 
 async def test_read_gates_run_concurrently(tmp_path: Path) -> None:

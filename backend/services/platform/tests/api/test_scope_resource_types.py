@@ -9,42 +9,21 @@
 测试库：共享平台库 + 回滚会话；资源类型键按命名空间生成，写入不提交。
 """
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import Iterator
 
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.models.platform.declaration import SysScopeResourceType
 from bms_core.resource_scope import SCOPE_RESOURCE_DISABLED, reset_scope_resource_types
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
 from tests_support.auth import auth_headers
 
 API = "/api/v1/scope-resource-types"
 SNAPSHOT = "/api/v1/modules/snapshot"
-
-
-@pytest.fixture(autouse=True)
-async def _shared_rollback(
-    service_app: FastAPI,
-    shared_platform_engine: AsyncEngine,
-) -> AsyncIterator[None]:
-    """共享平台库回滚会话（整条用例持写锁；应用装配完成后再开事务）。
-
-    Args:
-        service_app: 平台应用实例（先装配，启动期写入先落库）。
-        shared_platform_engine: 共享平台库引擎。
-
-    Yields:
-        None: 回滚会话区间。
-    """
-    del service_app
-    async with rollback_session(shared_platform_engine):
-        yield
 
 
 @pytest.fixture(autouse=True)

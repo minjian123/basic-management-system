@@ -284,6 +284,7 @@ class DbGate:
         self._backend = _make_backend(path)
         self._read_depth = 0
         self._write_depth = 0
+        self._borrowed_reads = 0
         # 深度计数是跨协程 / 跨事件循环共享的进程级状态：`acquire` / `release` 在改计数前后有 await 点
         # （取放系统调用），不加锁会让并发读者互相覆盖计数（表现为提前放掉内核锁或永久泄漏）。
         # 用 `threading.Lock` 而非 `asyncio.Lock`：门是进程级单例，而 pytest-asyncio 每个用例一个新
@@ -299,7 +300,7 @@ class DbGate:
         """
         if self._write_depth:
             return WRITE
-        if self._read_depth:
+        if self._read_depth or self._borrowed_reads:
             return READ
         return None
 
@@ -310,7 +311,7 @@ class DbGate:
         Returns:
             int: 深度（0 表示未持有）。
         """
-        return self._read_depth + self._write_depth
+        return self._read_depth + self._write_depth + self._borrowed_reads
 
     async def acquire(self, *, write: bool) -> None:
         """取门（同模式可重入；写门内取读门视为已满足）。
@@ -341,7 +342,12 @@ class DbGate:
             self._record_holder(True)
             return
         with self._count_lock:
-            if self._read_depth or self._write_depth:
+            if self._write_depth:
+                # 写门已包含读能力：只记「借用份额」，不重复取内核共享锁，也不计入读深度——
+                # 写门释放时这些份额随写门作废（见 `release`）。
+                self._borrowed_reads += 1
+                return
+            if self._read_depth:
                 self._read_depth += 1
                 return
         await asyncio.to_thread(self._wait_and_lock, False)
@@ -381,6 +387,10 @@ class DbGate:
             self._backend.release()
             return
         with self._count_lock:
+            if self._borrowed_reads:
+                # 写门内借用的读份额：随写门一并作废，这里只销账、不碰内核锁。
+                self._borrowed_reads -= 1
+                return
             if not self._read_depth:
                 raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {READ}")
             self._read_depth -= 1
@@ -393,6 +403,10 @@ class DbGate:
     def close(self) -> None:
         """关闭门（会话或进程退出时调用）。"""
         self._backend.close()
+        with self._count_lock:
+            self._read_depth = 0
+            self._write_depth = 0
+            self._borrowed_reads = 0
         with contextlib.suppress(OSError):
             self._holder_path.unlink()
 

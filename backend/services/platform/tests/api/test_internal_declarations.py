@@ -6,39 +6,16 @@
 测试库：共享平台库 + 回滚会话；产品键按命名空间生成，全量上报的退役只在本用例事务内可见。
 """
 
-from collections.abc import AsyncIterator
-
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.exceptions import AuthError
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
 
 API = "/api/v1/platform/internal/declarations"
 SNAPSHOT_API = f"{API}/snapshot"
-
-
-@pytest.fixture(autouse=True)
-async def _declarations_rollback(
-    service_app: FastAPI,
-    shared_platform_engine: AsyncEngine,
-) -> AsyncIterator[None]:
-    """共享平台库回滚会话（整条用例持写锁；应用装配完成后再开事务）。
-
-    Args:
-        service_app: 平台应用实例（先装配，启动期声明同步先落库）。
-        shared_platform_engine: 共享平台库引擎。
-
-    Yields:
-        None: 回滚会话区间。
-    """
-    del service_app
-    async with rollback_session(shared_platform_engine):
-        yield
 
 
 def _manifest(ns: Namespace, *, path: str = "/api/v1/demo/roles") -> str:
@@ -71,7 +48,7 @@ status = "enabled"
 
 [[collaborations]]
 name = "{ns.prefix}.demo_op.roles"
-domain = "demo_op"
+domain = "{ns.prefix}_demo_op"
 kind = "read"
 path = "{path}"
 frontend_prefix = "{ns.prefix}"
@@ -84,7 +61,7 @@ reason = "断链按无角色"
 
 # 第九类：业务域声明（07B `04_02` 重开——域随声明到达，不再靠内存登记）
 [[domains]]
-domain_key = "demo_op"
+domain_key = "{ns.prefix}_demo_op"
 service_key = "{ns.prefix}"
 status = "planned"
 """
