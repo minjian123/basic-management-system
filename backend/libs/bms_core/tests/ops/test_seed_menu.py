@@ -18,9 +18,9 @@ from bms_core.testing.transaction import rollback_session
 # 08-03_01 补 `file:manage`（111 → 112）、03_06 补 `job` 业务码与 query / manage 权限码（44 → 45、112 → 114）；
 # 2026-11-16/17 通知与公告三条任务补 notification / notice 权限码（114 → 123）与动作码（31 → 32）；
 # 08_04 补 `help:manage`（123 → 124，当时未同步本基线，2026-11-18 一并校正）、
-# 10_02 补 `formdesign:manage`（124 → 125）。
+# 10_02 补 `formdesign:manage`（124 → 125）、11_01 补 `dashboard:manage`（125 → 126）。
 _BUSINESS_BEFORE = 45
-_PERMISSIONS_BEFORE = 125
+_PERMISSIONS_BEFORE = 126
 _ACTIONS_BEFORE = 32
 
 

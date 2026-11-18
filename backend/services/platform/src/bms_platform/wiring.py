@@ -25,9 +25,24 @@ from bms_core.optionset.base import BaseOptionSetRegistry
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.permission.field import current_field_permission_provider_factory
 from bms_core.permission.resolver import BaseRoleResolver
+from bms_core.preference.base import BasePreferenceStore
 from bms_core.registry.forms import FormRegistry
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.transfer.base import ColumnSpec
+from bms_platform.domains.dashboard.repositories.adapters import (
+    NotificationBadgeAdapter,
+    NullDatasetProbe,
+    NullTodoCountProvider,
+)
+from bms_platform.domains.dashboard.repositories.adapters import (
+    RoleQueryAdapter as DashboardRoleQueryAdapter,
+)
+from bms_platform.domains.dashboard.repositories.card import (
+    DashboardCardI18nRepository,
+    DashboardCardRepository,
+)
+from bms_platform.domains.dashboard.repositories.template import DashboardTemplateRepository
+from bms_platform.domains.dashboard.services.dashboard import DashboardService
 from bms_platform.domains.form_design.repositories.adapters import (
     FieldPermissionAdapter,
     OptionSetAdapter,
@@ -59,6 +74,7 @@ from bms_platform.domains.permission_meta.repositories.business import (
     PermissionRepository,
 )
 from bms_platform.domains.permission_meta.services.permission_meta import PermissionMetadataService
+from bms_platform.domains.role.dto import RoleSummary
 from bms_platform.domains.role.ports import (
     RoleAssignmentPort,
     RoleGrantPort,
@@ -78,6 +94,7 @@ from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
 
 __all__ = [
+    "build_dashboard_service",
     "build_form_design_service",
     "build_help_context_service",
     "build_help_coverage_service",
@@ -476,4 +493,45 @@ def build_local_form_validator(
         option_sets=OptionSetAdapter(option_set_registry),
         field_permissions=factory(tenant_session, platform_session) if factory is not None else None,
         role_types=role_types,
+    )
+
+
+# --------------------------------------------------------------------------- 首页工作台（11_01）
+
+
+def build_dashboard_service(
+    *,
+    tenant_uow: UnitOfWork,
+    cache: CacheRegion,
+    preferences: BasePreferenceStore,
+    service_client: BaseServiceClient,
+) -> DashboardService:
+    """构造首页工作台服务（卡片 / 模板 / 布局 / 角标）。
+
+    **为什么在装配面构造**：角色读面属 `role` 域、未读角标属通知服务、待办与数据集属未落地能力——
+    域实现不得 import 他域实现，由装配面注入端口实现（依赖方向恒为「装配 → 域」）。
+
+    Args:
+        tenant_uow: 请求级工作单元（租户库：卡片 / 模板）。
+        cache: 缓存 Region（卡片清单与解析结构）。
+        preferences: 用户偏好存储（个人布局）。
+        service_client: 服务间调用客户端（通知服务内部未读端点）。
+
+    Returns:
+        DashboardService: 首页工作台服务实例。
+    """
+    session = cast("DbSession", tenant_uow.session)
+    return DashboardService(
+        session=session,
+        uow=tenant_uow,
+        cards=DashboardCardRepository(session),
+        card_i18n=DashboardCardI18nRepository(session),
+        templates=DashboardTemplateRepository(session),
+        preferences=preferences,
+        roles=DashboardRoleQueryAdapter[RoleSummary](RoleQueryService(session)),
+        todo=NullTodoCountProvider(),
+        notifications=NotificationBadgeAdapter(client=service_client),
+        datasets=NullDatasetProbe(),
+        cache=cache,
+        tenant=get_current_tenant(),
     )

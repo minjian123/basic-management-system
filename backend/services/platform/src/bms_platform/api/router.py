@@ -17,6 +17,10 @@ from bms_platform.domains.archive.api import logs as archive_logs_api
 from bms_platform.domains.archive.api import policies as archive_policies_api
 from bms_platform.domains.audit.api import chain as audit_chain_api
 from bms_platform.domains.audit.api import data_changes as audit_data_change_api
+from bms_platform.domains.dashboard.api import badges as dashboard_badges_api
+from bms_platform.domains.dashboard.api import cards as dashboard_cards_api
+from bms_platform.domains.dashboard.api import layout as dashboard_layout_api
+from bms_platform.domains.dashboard.api import templates as dashboard_templates_api
 from bms_platform.domains.form_design.api import effective as form_design_effective_api
 from bms_platform.domains.form_design.api import fields as form_design_fields_api
 from bms_platform.domains.form_design.api import layouts as form_design_layouts_api
@@ -159,6 +163,11 @@ api_router = mount_service_routers(
             form_design_fields_api.router,
             form_design_effective_api.effective_router,
             form_design_effective_api.validate_router,
+            # 首页工作台（11_01）：布局解析 / 卡片注册 / 模板维护 / 角标聚合
+            dashboard_layout_api.router,
+            dashboard_cards_api.router,
+            dashboard_templates_api.router,
+            dashboard_badges_api.router,
         ]
     )
 )

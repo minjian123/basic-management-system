@@ -218,6 +218,20 @@ description = "三类内置管理员的授权（系统 / 安全 / 审计三权�
 [seeds.tables]
 sys_role_permission = "role_id,perm_type,target_id"
 
+[[seeds]]
+name = "seed-dashboard"
+service = "platform"
+db_key = "tenant_platform_{tenant}"
+module = "ops.seed_dashboard"
+entry = "seed_dashboard_entry"
+after = ["seed-menu"]
+description = "工作台内置卡与平台默认模板（sys_dashboard_card / sys_dashboard_card_i18n / sys_dashboard_template；11_01）"
+
+[seeds.tables]
+sys_dashboard_card = "code"
+sys_dashboard_card_i18n = "card_id,locale"
+sys_dashboard_template = "scope,role_id"
+
 # ---- 能力（第五类记录，07B `03_01`）----
 # 平台自身作为**提供方**的三条跨产品能力：入站判定改由能力分配派生（`require_capability`）。
 # - 能力名第二段是**业务域**（须在 deploy/boundaries/domain_layout.json 登记）；
@@ -597,6 +611,18 @@ paths = [
 ]
 public_api = [
   "bms_platform.domains.form_design.public",
+]
+
+[[domains]]
+domain_key = "dashboard"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/dashboard/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/dashboard.py",
+]
+public_api = [
+  "bms_platform.domains.dashboard.public",
 ]
 
 

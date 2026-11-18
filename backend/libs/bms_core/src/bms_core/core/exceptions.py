@@ -2536,3 +2536,133 @@ class FormAttrInvalidError(FormDesignError):
             data: 随附数据（可选）。
         """
         FormDesignError.__init__(self, ErrorCode.FORM_ATTR_INVALID, message, data=data)
+
+
+class DashboardError(BizError):
+    """首页工作台子段（系统配置段内 `403xx`）异常基类：卡片注册 / 模板 / 布局解析（11_01）。
+
+    码位与概要《首页工作台》「错误码与异常处理」节对应；实体不存在按 404，其余业务校验按 200
+    （与菜单元数据 / 表单定制同口径：业务失败统一 200 + 业务码）。
+    """
+
+    def __init__(
+        self,
+        code: ErrorCode,
+        message: str | None = None,
+        *,
+        http_status: int = 200,
+        data: object | None = None,
+    ) -> None:
+        """初始化工作台域异常。
+
+        Args:
+            code: 错误码（`403xx` 段）。
+            message: 提示信息。
+            http_status: HTTP 状态码（缺省 200）。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, code, message, http_status=http_status, data=data)
+
+
+class DashboardCardNotFoundError(DashboardError):
+    """卡片不存在或已停用（`40301` / 404）：布局 / 模板引用无效 `code`，或按码取卡未命中。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化卡片不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        DashboardError.__init__(self, ErrorCode.DASHBOARD_CARD_NOT_FOUND, message, http_status=404, data=data)
+
+
+class DashboardCardCodeConflictError(DashboardError):
+    """卡片标识重复（`40302`）：新建 / 编辑数据集卡时 `code` 已被占用。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化卡片码冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        DashboardError.__init__(self, ErrorCode.DASHBOARD_CARD_CODE_CONFLICT, message, data=data)
+
+
+class DashboardDatasetUnavailableError(DashboardError):
+    """数据集不存在或不可用（`40303`）：数据集卡引用的数据集已停用 / 删除。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化数据集不可用异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        DashboardError.__init__(self, ErrorCode.DASHBOARD_DATASET_UNAVAILABLE, message, data=data)
+
+
+class DashboardLayoutInvalidError(DashboardError):
+    """布局校验失败（`40304`）：尺寸越界、网格重叠、重复码、超量或结构非法。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化布局非法异常。
+
+        Args:
+            message: 提示信息（须带具体违规项）。
+            data: 随附数据（可选）。
+        """
+        DashboardError.__init__(self, ErrorCode.DASHBOARD_LAYOUT_INVALID, message, data=data)
+
+
+class DashboardRoleNotFoundError(DashboardError):
+    """角色不存在或已停用（`40305`）：角色模板绑定无效角色。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化角色不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        DashboardError.__init__(self, ErrorCode.DASHBOARD_ROLE_NOT_FOUND, message, data=data)
+
+
+class DashboardPlatformTemplateExistsError(DashboardError):
+    """平台默认模板仅允许一份（`40306`）：重复创建 `scope=platform` 模板。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化平台模板重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        DashboardError.__init__(self, ErrorCode.DASHBOARD_PLATFORM_TEMPLATE_EXISTS, message, data=data)
+
+
+class DashboardRoleTemplateExistsError(DashboardError):
+    """该角色已存在模板（`40307`）：为已有模板的角色重复创建角色模板。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化角色模板重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        DashboardError.__init__(self, ErrorCode.DASHBOARD_ROLE_TEMPLATE_EXISTS, message, data=data)
+
+
+class DashboardBuiltinCardLockedError(DashboardError):
+    """内置卡不可修改定义（`40308`）：租户对 `card_type=builtin` 执行编辑（除状态）或删除。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化内置卡锁定异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        DashboardError.__init__(self, ErrorCode.DASHBOARD_BUILTIN_CARD_LOCKED, message, data=data)

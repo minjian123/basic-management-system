@@ -32,3 +32,12 @@ path = "/api/v1/mail/internal/send"
 frontend_prefix = "notification"
 contract_version = "0.1.0"
 default_consumers = ["identity"]
+
+[[collaborations]]
+name = "notification.read"
+domain = "notification"
+kind = "read"
+path = "/api/v1/notifications/internal/unread-count"
+frontend_prefix = "notification"
+contract_version = "0.1.0"
+default_consumers = ["platform"]

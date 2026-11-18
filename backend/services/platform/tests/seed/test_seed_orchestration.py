@@ -443,6 +443,7 @@ def test_seed_ops_cover_platform_declaration() -> None:
         "seed-platform-grant",
         "seed-rbac-role",
         "seed-rbac-grant",
+        "seed-dashboard",
     )
 
 

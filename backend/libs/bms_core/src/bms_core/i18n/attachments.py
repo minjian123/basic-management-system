@@ -118,7 +118,7 @@ I18N_ATTACHMENTS: ConcurrentStableDict[str, I18nAttachment] = ConcurrentStableDi
                 owner_table="sys_dashboard_card",
                 key_column="card_id",
                 text_columns=ConcurrentStableList(["name"]),
-                status=ATTACHMENT_PENDING,
+                status=ATTACHMENT_LANDED,
                 owner_task="11_01 首页工作台",
             ),
             I18nAttachment(

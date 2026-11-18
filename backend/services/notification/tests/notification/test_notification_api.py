@@ -32,6 +32,8 @@ async def test_list_and_detail_with_db_center(
         )
         listed = await client.get(API, params={"type": "approval"})
         assert listed.json()["data"]["total"] == 1
+        read_only = await client.get(API, params={"is_read": "true"})
+        assert read_only.json()["data"]["total"] == 1
         assert (await client.get(f"{API}/unread-count")).json()["data"] == {"count": 1}
         detail = await client.get(f"{API}/{first.id}")
         assert detail.json()["data"]["is_read"] is True

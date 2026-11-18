@@ -444,6 +444,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/internal/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Internal Unread Count
+         * @description 按显式用户取未读数（服务间专用，不走登录态上下文）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元（租户库）。
+         *         user_id: 用户主键。
+         *
+         *     Returns:
+         *         ApiResponse[UnreadCountResponse]: 统一响应，data 为 `{count}`。
+         */
+        get: operations["internal_unread_count_api_v1_notifications_internal_unread_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/read": {
         parameters: {
             query?: never;
@@ -918,6 +945,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["SmsTemplateTestResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UnreadCountResponse] */
+        ApiResponse_UnreadCountResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UnreadCountResponse"] | null;
             /**
              * Message
              * @default ok
@@ -1969,6 +2010,18 @@ export interface components {
              * @description 状态（enabled/disabled）
              */
             status?: string | null;
+        };
+        /**
+         * UnreadCountResponse
+         * @description 未读计数响应（`unread_count` 及已读接口返回的操作后未读总数）。
+         */
+        UnreadCountResponse: {
+            /**
+             * Count
+             * @description 未读通知数
+             * @default 0
+             */
+            count: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -3623,6 +3676,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    internal_unread_count_api_v1_notifications_internal_unread_count_get: {
+        parameters: {
+            query: {
+                /** @description 用户主键（由调用方服务身份担保） */
+                user_id: number;
+            };
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UnreadCountResponse_"];
                 };
             };
             /** @description 未认证 */

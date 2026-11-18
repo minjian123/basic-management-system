@@ -352,6 +352,33 @@
         "title": "ApiResponse[SmsTemplateTestResult]",
         "type": "object"
       },
+      "ApiResponse_UnreadCountResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnreadCountResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UnreadCountResponse]",
+        "type": "object"
+      },
       "BasePageResponse_MailLogItem_": {
         "additionalProperties": false,
         "properties": {
@@ -2173,6 +2200,21 @@
           }
         },
         "title": "SmsTemplateUpdateRequest",
+        "type": "object"
+      },
+      "UnreadCountResponse": {
+        "additionalProperties": false,
+        "description": "未读计数响应（`unread_count` 及已读接口返回的操作后未读总数）。",
+        "properties": {
+          "count": {
+            "default": 0,
+            "description": "未读通知数",
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "title": "UnreadCountResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -5122,6 +5164,118 @@
         "summary": "List Notifications",
         "tags": [
           "notification"
+        ]
+      }
+    },
+    "/api/v1/notifications/internal/unread-count": {
+      "get": {
+        "description": "按显式用户取未读数（服务间专用，不走登录态上下文）。\n\nArgs:\n    uow: 请求级工作单元（租户库）。\n    user_id: 用户主键。\n\nReturns:\n    ApiResponse[UnreadCountResponse]: 统一响应，data 为 `{count}`。",
+        "operationId": "internal_unread_count_api_v1_notifications_internal_unread_count_get",
+        "parameters": [
+          {
+            "description": "用户主键（由调用方服务身份担保）",
+            "in": "query",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "description": "用户主键（由调用方服务身份担保）",
+              "exclusiveMinimum": 0,
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UnreadCountResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Internal Unread Count",
+        "tags": [
+          "notification-internal"
         ]
       }
     },

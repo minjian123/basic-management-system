@@ -11,15 +11,19 @@ from typing import Annotated, cast
 from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter, page_query, require_auth
+from bms_core.api.capability import require_capability_or_service
 from bms_core.api.deps import get_notification_center
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
+from bms_core.db.session import get_uow
+from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.notification.base import BaseNotificationCenter
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.filters import BaseFilterQuery, FilterSpec
 from bms_core.schemas.notification import NotificationReadRequest, UnreadCountResponse
 from bms_core.schemas.pagination import BasePageQuery
+from bms_notification.domains.notification.services.notification import NotificationService
 
 router = BaseRouter(
     key="notification",
@@ -175,3 +179,31 @@ async def delete_notification(center: CenterDep, notification_id: int) -> ApiRes
         ApiResponse: 统一响应，data 为是否删除到既有通知。
     """
     return ApiResponse.ok(await center.delete(notification_id))
+
+
+# ---- 内部面（服务间）：显式用户未读数（工作台角标统一出口的唯一取数方）----
+
+internal_router = BaseRouter(
+    key="notification_internal",
+    prefix="/notifications/internal",
+    tags=["notification-internal"],
+    dependencies=[Depends(require_capability_or_service("notification.read", "platform"))],
+)
+
+
+@internal_router.get("/unread-count")
+async def internal_unread_count(
+    uow: Annotated[DbUnitOfWork, Depends(get_uow)],
+    user_id: Annotated[int, Query(gt=0, description="用户主键（由调用方服务身份担保）")],
+) -> ApiResponse[UnreadCountResponse]:
+    """按显式用户取未读数（服务间专用，不走登录态上下文）。
+
+    Args:
+        uow: 请求级工作单元（租户库）。
+        user_id: 用户主键。
+
+    Returns:
+        ApiResponse[UnreadCountResponse]: 统一响应，data 为 `{count}`。
+    """
+    count = await NotificationService(uow.session).unread_count_for(user_id)
+    return ApiResponse.ok(UnreadCountResponse(count=count))

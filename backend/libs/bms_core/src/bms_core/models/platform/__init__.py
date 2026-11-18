@@ -14,6 +14,7 @@ MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.models.platform.archive",
         "bms_core.models.platform.capability_grant",
         "bms_core.models.platform.catalog",
+        "bms_core.models.platform.dashboard",
         "bms_core.models.platform.declaration",
         "bms_core.models.platform.demo",
         "bms_core.models.platform.form_design",

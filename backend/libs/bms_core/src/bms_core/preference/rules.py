@@ -14,14 +14,16 @@ from collections.abc import Mapping
 from datetime import time
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableFrozenList
+from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList
 from bms_core.core.exceptions import PreferenceDndInvalidError, PreferenceKeyInvalidError, PreferenceValueInvalidError
+from bms_core.dashboard.layout import CardSize, parse_layout
 from bms_core.preference.base import PREF_VALUE_MAX_BYTES, is_valid_pref_key
 
 __all__ = [
     "NOTIFY_CHANNELS",
     "PREFERENCE_DOMAINS",
     "is_allowed_pref_key",
+    "validate_dashboard_layout",
     "validate_notify_channels",
     "validate_notify_dnd",
     "validate_pref_value",
@@ -71,6 +73,8 @@ def validate_pref_value(key: str, value: object) -> str:
         validate_notify_channels(value)
     elif key == "notify.dnd":
         validate_notify_dnd(value)
+    elif key == "dashboard.layout":
+        validate_dashboard_layout(value)
     try:
         serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     except (TypeError, ValueError) as exc:
@@ -145,3 +149,25 @@ def _parse_hm(value: str) -> time | None:
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         return None
     return time(hour, minute)
+
+
+def validate_dashboard_layout(value: object) -> None:
+    """校验工作台个人布局结构（`dashboard.layout`）。
+
+    **为什么在基座校验**（11_01 决策 5）：个人布局除工作台保存入口外，还可能经偏好通用接口或移动端写入；
+    校验放在基座可保证任何写入路径都拦非法配置，不会出现「绕过工作台写坏布局」。
+
+    Args:
+        value: 偏好值（应为 `{"cards": [{code, x, y, w, h, visible}]}`）。
+
+    Raises:
+        PreferenceValueInvalidError: 结构非法（`30022`，含逐项原因）。
+    """
+    size_map: ConcurrentStableFrozenDict[str, CardSize] = ConcurrentStableFrozenDict({})
+    _layout, issues = parse_layout(value, sizes=size_map)
+    if not issues:
+        return
+    descriptions: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
+        f"{issue.code or '-'}:{issue.reason}" for issue in issues
+    )
+    raise PreferenceValueInvalidError("工作台布局结构非法：" + "、".join(descriptions))

@@ -922,6 +922,276 @@
         "title": "ApiResponse[CredentialVerifyResult]",
         "type": "object"
       },
+      "ApiResponse_DashboardBadges_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardBadges"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardBadges]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardCardDeleteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardCardDeleteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardCardDeleteResult]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardCardList_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardCardList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardCardList]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardCardRow_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardCardRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardCardRow]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardLayoutResetResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardLayoutResetResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardLayoutResetResult]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardLayoutResolve_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardLayoutResolve"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardLayoutResolve]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardLayoutSaveResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardLayoutSaveResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardLayoutSaveResult]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardTemplateDeleteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardTemplateDeleteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardTemplateDeleteResult]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardTemplateList_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardTemplateList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardTemplateList]",
+        "type": "object"
+      },
+      "ApiResponse_DashboardTemplateRow_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardTemplateRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DashboardTemplateRow]",
+        "type": "object"
+      },
       "ApiResponse_DataChangeItem_": {
         "additionalProperties": false,
         "properties": {
@@ -4993,6 +5263,994 @@
           "status"
         ],
         "title": "CredentialVerifyResult",
+        "type": "object"
+      },
+      "DashboardBadgeCount": {
+        "additionalProperties": false,
+        "description": "单个角标（计数 + 可用性；不可用时前端隐藏角标）。",
+        "properties": {
+          "available": {
+            "description": "数据来源是否可用",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "count": {
+            "description": "计数（不可用时为 0）",
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "不可用原因",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "count",
+          "available"
+        ],
+        "title": "DashboardBadgeCount",
+        "type": "object"
+      },
+      "DashboardBadges": {
+        "additionalProperties": false,
+        "description": "角标聚合响应（顶栏 / 侧边栏统一出口）。",
+        "properties": {
+          "notification": {
+            "$ref": "#/components/schemas/DashboardBadgeCount",
+            "description": "未读通知角标（通知服务为唯一口径）"
+          },
+          "todo": {
+            "$ref": "#/components/schemas/DashboardBadgeCount",
+            "description": "待办角标（工作流落地前不可用）"
+          }
+        },
+        "required": [
+          "todo",
+          "notification"
+        ],
+        "title": "DashboardBadges",
+        "type": "object"
+      },
+      "DashboardCardCreate": {
+        "additionalProperties": false,
+        "description": "新建卡片请求（只允许数据集卡）。",
+        "properties": {
+          "card_type": {
+            "default": "dataset",
+            "description": "卡片类型（只允许 dataset）",
+            "maxLength": 16,
+            "title": "Card Type",
+            "type": "string"
+          },
+          "chart_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图表样式覆盖（可选）",
+            "title": "Chart Config"
+          },
+          "chart_type": {
+            "description": "图表类型（取图表类型白名单）",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Chart Type",
+            "type": "string"
+          },
+          "code": {
+            "description": "卡片标识（小写字母开头，仅小写字母 / 数字 / 下划线）",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "dataset_id": {
+            "description": "数据集标识（逻辑外键 → 报表中心数据集）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "default_height": {
+            "default": 2,
+            "description": "默认高（行）",
+            "maximum": 6.0,
+            "minimum": 2.0,
+            "title": "Default Height",
+            "type": "integer"
+          },
+          "default_width": {
+            "default": 4,
+            "description": "默认宽（列）",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Default Width",
+            "type": "integer"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "语言 → 卡片名（可选；缺省语言按派生规则兜底）",
+            "title": "I18N",
+            "type": "object"
+          },
+          "mobile_supported": {
+            "default": true,
+            "description": "是否参与移动端单列布局",
+            "title": "Mobile Supported",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "卡片名（默认语言文案）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sort": {
+            "default": 0,
+            "description": "排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled / disabled）",
+            "maxLength": 16,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "dataset_id",
+          "chart_type"
+        ],
+        "title": "DashboardCardCreate",
+        "type": "object"
+      },
+      "DashboardCardDeleteResult": {
+        "additionalProperties": false,
+        "description": "删除卡片结果。",
+        "properties": {
+          "applied": {
+            "description": "是否删除到既有卡片",
+            "title": "Applied",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "applied"
+        ],
+        "title": "DashboardCardDeleteResult",
+        "type": "object"
+      },
+      "DashboardCardList": {
+        "additionalProperties": false,
+        "description": "卡片列表响应。",
+        "properties": {
+          "items": {
+            "description": "卡片清单（按 sort 升序）",
+            "items": {
+              "$ref": "#/components/schemas/DashboardCardRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "总数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total"
+        ],
+        "title": "DashboardCardList",
+        "type": "object"
+      },
+      "DashboardCardMeta": {
+        "additionalProperties": false,
+        "description": "卡片元数据（布局接口 `available_cards` 项，前端渲染依据）。",
+        "properties": {
+          "card_type": {
+            "description": "卡片类型（builtin / dataset）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Card Type",
+            "type": "string"
+          },
+          "chart_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图表样式覆盖（可选；非法配置由前端忽略并回退默认）",
+            "title": "Chart Config"
+          },
+          "chart_type": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图表类型（仅数据集卡）",
+            "title": "Chart Type"
+          },
+          "code": {
+            "description": "卡片标识",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "data_endpoint": {
+            "default": "",
+            "description": "卡片数据接口地址（空表示前端自取或占位）",
+            "maxLength": 256,
+            "title": "Data Endpoint",
+            "type": "string"
+          },
+          "dataset_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "数据集标识（仅数据集卡）",
+            "title": "Dataset Id"
+          },
+          "default_height": {
+            "description": "默认高（行）",
+            "maximum": 6.0,
+            "minimum": 2.0,
+            "title": "Default Height",
+            "type": "integer"
+          },
+          "default_width": {
+            "description": "默认宽（列）",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Default Width",
+            "type": "integer"
+          },
+          "mobile_supported": {
+            "description": "是否参与移动端单列布局",
+            "title": "Mobile Supported",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "卡片名（当前语言）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "render_key": {
+            "default": "",
+            "description": "前端渲染器标识（内置卡必填）",
+            "maxLength": 64,
+            "title": "Render Key",
+            "type": "string"
+          },
+          "sort": {
+            "description": "排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "card_type",
+          "default_width",
+          "default_height",
+          "mobile_supported",
+          "sort"
+        ],
+        "title": "DashboardCardMeta",
+        "type": "object"
+      },
+      "DashboardCardRow": {
+        "additionalProperties": false,
+        "description": "卡片管理面行（多状态与多语言文案）。",
+        "properties": {
+          "card_type": {
+            "description": "卡片类型（builtin / dataset）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Card Type",
+            "type": "string"
+          },
+          "chart_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图表样式覆盖（可选；非法配置由前端忽略并回退默认）",
+            "title": "Chart Config"
+          },
+          "chart_type": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图表类型（仅数据集卡）",
+            "title": "Chart Type"
+          },
+          "code": {
+            "description": "卡片标识",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "data_endpoint": {
+            "default": "",
+            "description": "卡片数据接口地址（空表示前端自取或占位）",
+            "maxLength": 256,
+            "title": "Data Endpoint",
+            "type": "string"
+          },
+          "dataset_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "数据集标识（仅数据集卡）",
+            "title": "Dataset Id"
+          },
+          "default_height": {
+            "description": "默认高（行）",
+            "maximum": 6.0,
+            "minimum": 2.0,
+            "title": "Default Height",
+            "type": "integer"
+          },
+          "default_width": {
+            "description": "默认宽（列）",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Default Width",
+            "type": "integer"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "语言 → 卡片名（含默认语言）",
+            "title": "I18N",
+            "type": "object"
+          },
+          "id": {
+            "description": "卡片主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "mobile_supported": {
+            "description": "是否参与移动端单列布局",
+            "title": "Mobile Supported",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "卡片名（当前语言）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "render_key": {
+            "default": "",
+            "description": "前端渲染器标识（内置卡必填）",
+            "maxLength": 64,
+            "title": "Render Key",
+            "type": "string"
+          },
+          "sort": {
+            "description": "排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "description": "状态（enabled / disabled）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "card_type",
+          "default_width",
+          "default_height",
+          "mobile_supported",
+          "sort",
+          "id",
+          "status"
+        ],
+        "title": "DashboardCardRow",
+        "type": "object"
+      },
+      "DashboardCardUpdate": {
+        "additionalProperties": false,
+        "description": "编辑卡片请求（数据集卡全字段；内置卡只允许 `status`）。",
+        "properties": {
+          "chart_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图表样式覆盖（None 表示不修改）",
+            "title": "Chart Config"
+          },
+          "chart_type": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "图表类型",
+            "title": "Chart Type"
+          },
+          "dataset_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "数据集标识",
+            "title": "Dataset Id"
+          },
+          "default_height": {
+            "anyOf": [
+              {
+                "maximum": 6.0,
+                "minimum": 2.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "默认高（行）",
+            "title": "Default Height"
+          },
+          "default_width": {
+            "anyOf": [
+              {
+                "maximum": 12.0,
+                "minimum": 2.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "默认宽（列）",
+            "title": "Default Width"
+          },
+          "i18n": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言 → 卡片名（None 表示不修改；整份覆盖）",
+            "title": "I18N"
+          },
+          "mobile_supported": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "是否参与移动端单列布局",
+            "title": "Mobile Supported"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "卡片名",
+            "title": "Name"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "排序（升序）",
+            "title": "Sort"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（enabled / disabled）",
+            "title": "Status"
+          }
+        },
+        "title": "DashboardCardUpdate",
+        "type": "object"
+      },
+      "DashboardLayoutCard": {
+        "additionalProperties": false,
+        "description": "布局中的一张卡片（网格位置与尺寸）。",
+        "properties": {
+          "code": {
+            "description": "卡片标识",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "h": {
+            "description": "高（行）",
+            "maximum": 6.0,
+            "minimum": 2.0,
+            "title": "H",
+            "type": "integer"
+          },
+          "visible": {
+            "default": true,
+            "description": "是否可见（不可见不占网格）",
+            "title": "Visible",
+            "type": "boolean"
+          },
+          "w": {
+            "description": "宽（列）",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "W",
+            "type": "integer"
+          },
+          "x": {
+            "description": "列偏移（0 ~ 12-w）",
+            "maximum": 11.0,
+            "minimum": 0.0,
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "description": "行偏移",
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "DashboardLayoutCard",
+        "type": "object"
+      },
+      "DashboardLayoutIssue": {
+        "additionalProperties": false,
+        "description": "布局问题 / 告警项。",
+        "properties": {
+          "code": {
+            "default": "",
+            "description": "涉及的卡片标识（结构级问题为空串）",
+            "title": "Code",
+            "type": "string"
+          },
+          "reason": {
+            "description": "原因（card_disabled / card_unknown / overlap 等）",
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "DashboardLayoutIssue",
+        "type": "object"
+      },
+      "DashboardLayoutPayload": {
+        "additionalProperties": false,
+        "description": "布局载荷（模板与个人布局同形）。",
+        "properties": {
+          "cards": {
+            "description": "卡片放置清单（插入序）",
+            "items": {
+              "$ref": "#/components/schemas/DashboardLayoutCard"
+            },
+            "title": "Cards",
+            "type": "array"
+          }
+        },
+        "title": "DashboardLayoutPayload",
+        "type": "object"
+      },
+      "DashboardLayoutResetResult": {
+        "additionalProperties": false,
+        "description": "一键重置结果。",
+        "properties": {
+          "applied": {
+            "description": "是否删除到既有个人布局",
+            "title": "Applied",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "applied"
+        ],
+        "title": "DashboardLayoutResetResult",
+        "type": "object"
+      },
+      "DashboardLayoutResolve": {
+        "additionalProperties": false,
+        "description": "布局解析响应（结构 + 可选卡片清单）。",
+        "properties": {
+          "available_cards": {
+            "description": "可选卡片清单（全部启用卡，按 sort 升序）",
+            "items": {
+              "$ref": "#/components/schemas/DashboardCardMeta"
+            },
+            "title": "Available Cards",
+            "type": "array"
+          },
+          "fallback": {
+            "description": "是否走到内置最小布局",
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "layout": {
+            "$ref": "#/components/schemas/DashboardLayoutPayload",
+            "description": "生效布局"
+          },
+          "role_id": {
+            "description": "命中的角色模板角色主键（无则 0）",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "source": {
+            "description": "来源层级（personal / role / platform / empty）",
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "template_id": {
+            "description": "命中的模板主键（个人 / 内置回退为 0）",
+            "title": "Template Id",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "剔除告警（未注册 / 已停用卡片）",
+            "items": {
+              "$ref": "#/components/schemas/DashboardLayoutIssue"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "layout",
+          "source",
+          "role_id",
+          "template_id",
+          "fallback"
+        ],
+        "title": "DashboardLayoutResolve",
+        "type": "object"
+      },
+      "DashboardLayoutSaveRequest": {
+        "additionalProperties": false,
+        "description": "保存个人布局请求（整份覆盖）。",
+        "properties": {
+          "layout": {
+            "additionalProperties": true,
+            "description": "布局配置（cards 清单）",
+            "title": "Layout",
+            "type": "object"
+          }
+        },
+        "title": "DashboardLayoutSaveRequest",
+        "type": "object"
+      },
+      "DashboardLayoutSaveResult": {
+        "additionalProperties": false,
+        "description": "保存个人布局结果。",
+        "properties": {
+          "applied": {
+            "description": "是否写入成功",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "告警（引用已停用卡片等）",
+            "items": {
+              "$ref": "#/components/schemas/DashboardLayoutIssue"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "applied"
+        ],
+        "title": "DashboardLayoutSaveResult",
+        "type": "object"
+      },
+      "DashboardTemplateCreate": {
+        "additionalProperties": false,
+        "description": "新建模板请求。",
+        "properties": {
+          "layout_config": {
+            "additionalProperties": true,
+            "description": "布局配置（cards 清单）",
+            "title": "Layout Config",
+            "type": "object"
+          },
+          "name": {
+            "description": "模板名称",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "role_id": {
+            "default": 0,
+            "description": "角色 ID（scope=role 必填；platform 固定 0）",
+            "title": "Role Id",
+            "type": "integer"
+          },
+          "scope": {
+            "description": "层级（platform / role）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled / disabled）",
+            "maxLength": 16,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "name"
+        ],
+        "title": "DashboardTemplateCreate",
+        "type": "object"
+      },
+      "DashboardTemplateDeleteResult": {
+        "additionalProperties": false,
+        "description": "删除模板结果。",
+        "properties": {
+          "applied": {
+            "description": "是否删除到既有模板",
+            "title": "Applied",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "applied"
+        ],
+        "title": "DashboardTemplateDeleteResult",
+        "type": "object"
+      },
+      "DashboardTemplateList": {
+        "additionalProperties": false,
+        "description": "模板列表响应。",
+        "properties": {
+          "items": {
+            "description": "模板清单（平台在前，角色按主键升序）",
+            "items": {
+              "$ref": "#/components/schemas/DashboardTemplateRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "总数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total"
+        ],
+        "title": "DashboardTemplateList",
+        "type": "object"
+      },
+      "DashboardTemplateRow": {
+        "additionalProperties": false,
+        "description": "模板行（列表 / 详情）。",
+        "properties": {
+          "card_count": {
+            "description": "布局内卡片数",
+            "minimum": 0.0,
+            "title": "Card Count",
+            "type": "integer"
+          },
+          "id": {
+            "description": "模板主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "模板名称",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "role_id": {
+            "description": "角色 ID（平台层级固定 0）",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "层级（platform / role）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（enabled / disabled）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "role_id",
+          "name",
+          "status",
+          "card_count"
+        ],
+        "title": "DashboardTemplateRow",
+        "type": "object"
+      },
+      "DashboardTemplateUpdate": {
+        "additionalProperties": false,
+        "description": "编辑模板请求（`scope` 与 `role_id` 不可改）。",
+        "properties": {
+          "layout_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "布局配置（None 表示不修改）",
+            "title": "Layout Config"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "模板名称",
+            "title": "Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（enabled / disabled）",
+            "title": "Status"
+          }
+        },
+        "title": "DashboardTemplateUpdate",
         "type": "object"
       },
       "DataChangeItem": {
@@ -19331,6 +20589,1084 @@
         "summary": "Restore Config",
         "tags": [
           "config"
+        ]
+      }
+    },
+    "/api/v1/dashboard/badges": {
+      "get": {
+        "description": "取待办与未读角标。\n\n登录即可；来源不可用时对应角标 `available=false`（前端隐藏角标）。\n\nArgs:\n    service: 工作台服务。\n    user_id: 当前用户主键。\n\nReturns:\n    ApiResponse[DashboardBadges]: 统一响应，data 为待办与未读角标。",
+        "operationId": "get_badges_api_v1_dashboard_badges_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardBadges_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Badges",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/cards": {
+      "get": {
+        "description": "卡片列表（含停用；按 `sort` 升序）。\n\n需要 `dashboard:query`。\n\nArgs:\n    request: 请求对象（取请求语言）。\n    service: 工作台服务。\n    card_type: 卡片类型筛选（可选）。\n\nReturns:\n    ApiResponse[DashboardCardList]: 统一响应，data 为卡片清单。",
+        "operationId": "list_cards_api_v1_dashboard_cards_get",
+        "parameters": [
+          {
+            "description": "卡片类型（builtin / dataset）",
+            "in": "query",
+            "name": "card_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "卡片类型（builtin / dataset）",
+              "title": "Card Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardCardList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Cards",
+        "tags": [
+          "dashboard"
+        ]
+      },
+      "post": {
+        "description": "新建数据集卡。\n\n需要 `dashboard:manage`；内置卡 `40308`、码重复 `40302`、数据集不可用 `40303`。\n\nArgs:\n    request: 请求对象（取请求语言）。\n    service: 工作台服务。\n    payload: 新建请求。\n\nReturns:\n    ApiResponse[DashboardCardRow]: 统一响应，data 为新建的卡片行。",
+        "operationId": "create_card_api_v1_dashboard_cards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardCardCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardCardRow_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Card",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/cards/{code}": {
+      "delete": {
+        "description": "删除卡片（数据集卡软删除；内置卡拒绝）。\n\n需要 `dashboard:manage`；内置卡 `40308`、卡片不存在 `40301`。\n\nArgs:\n    service: 工作台服务。\n    code: 卡片标识。\n\nReturns:\n    ApiResponse[DashboardCardDeleteResult]: 统一响应，data 为删除结果。",
+        "operationId": "delete_card_api_v1_dashboard_cards__code__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardCardDeleteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Card",
+        "tags": [
+          "dashboard"
+        ]
+      },
+      "put": {
+        "description": "编辑卡片（数据集卡全字段；内置卡只允许改状态）。\n\n需要 `dashboard:manage`；内置卡改定义 `40308`、卡片不存在 `40301`。\n\nArgs:\n    request: 请求对象（取请求语言）。\n    service: 工作台服务。\n    code: 卡片标识。\n    payload: 编辑请求。\n\nReturns:\n    ApiResponse[DashboardCardRow]: 统一响应，data 为更新后的卡片行。",
+        "operationId": "update_card_api_v1_dashboard_cards__code__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardCardUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardCardRow_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Card",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/layout": {
+      "delete": {
+        "description": "一键重置个人布局（回退角色模板 / 平台默认 / 内置最小布局）。\n\n登录即可。\n\nArgs:\n    service: 工作台服务。\n    user_id: 当前用户主键。\n\nReturns:\n    ApiResponse[DashboardLayoutResetResult]: 统一响应，data 为是否删除到既有个人布局。",
+        "operationId": "reset_layout_api_v1_dashboard_layout_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardLayoutResetResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Reset Layout",
+        "tags": [
+          "dashboard"
+        ]
+      },
+      "get": {
+        "description": "解析当前用户布局（三级回退 + 可选卡片清单）。\n\n登录即可；卡片名按 `Accept-Language` 本地化。\n\nArgs:\n    request: 请求对象（取请求语言）。\n    service: 工作台服务。\n    user_id: 当前用户主键。\n    roles: 当前用户角色集。\n\nReturns:\n    ApiResponse[DashboardLayoutResolve]: 统一响应，data 为布局与可选卡片清单。",
+        "operationId": "get_layout_api_v1_dashboard_layout_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardLayoutResolve_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Layout",
+        "tags": [
+          "dashboard"
+        ]
+      },
+      "put": {
+        "description": "保存个人布局（整份覆盖）。\n\n登录即可；结构非法 `40304`、引用未注册卡片 `40301`。\n\nArgs:\n    service: 工作台服务。\n    user_id: 当前用户主键。\n    payload: 保存请求。\n\nReturns:\n    ApiResponse[DashboardLayoutSaveResult]: 统一响应，data 为保存结果与告警。",
+        "operationId": "save_layout_api_v1_dashboard_layout_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardLayoutSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardLayoutSaveResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Save Layout",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/templates": {
+      "get": {
+        "description": "模板列表（平台在前，角色按主键升序）。\n\n需要 `dashboard:query`。\n\nArgs:\n    service: 工作台服务。\n    scope: 层级筛选（可选）。\n\nReturns:\n    ApiResponse[DashboardTemplateList]: 统一响应，data 为模板清单。",
+        "operationId": "list_templates_api_v1_dashboard_templates_get",
+        "parameters": [
+          {
+            "description": "层级筛选（platform / role）",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "层级筛选（platform / role）",
+              "title": "Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardTemplateList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Templates",
+        "tags": [
+          "dashboard"
+        ]
+      },
+      "post": {
+        "description": "新建模板。\n\n需要 `dashboard:manage`；平台层级要求平台超管。\n\nArgs:\n    service: 工作台服务。\n    roles: 当前用户角色集（平台层级判定）。\n    payload: 新建请求。\n\nReturns:\n    ApiResponse[DashboardTemplateRow]: 统一响应，data 为新建的模板行。",
+        "operationId": "create_template_api_v1_dashboard_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardTemplateCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardTemplateRow_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Template",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/templates/{template_id}": {
+      "delete": {
+        "description": "删除模板。\n\n需要 `dashboard:manage`；平台层级要求平台超管。\n\nArgs:\n    service: 工作台服务。\n    roles: 当前用户角色集（平台层级判定）。\n    template_id: 模板主键。\n\nReturns:\n    ApiResponse[DashboardTemplateDeleteResult]: 统一响应，data 为删除结果。",
+        "operationId": "delete_template_api_v1_dashboard_templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardTemplateDeleteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Template",
+        "tags": [
+          "dashboard"
+        ]
+      },
+      "put": {
+        "description": "编辑模板（`scope` 与 `role_id` 不可改）。\n\n需要 `dashboard:manage`；平台层级要求平台超管。\n\nArgs:\n    service: 工作台服务。\n    roles: 当前用户角色集（平台层级判定）。\n    template_id: 模板主键。\n    payload: 编辑请求。\n\nReturns:\n    ApiResponse[DashboardTemplateRow]: 统一响应，data 为更新后的模板行。",
+        "operationId": "update_template_api_v1_dashboard_templates__template_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardTemplateUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DashboardTemplateRow_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Template",
+        "tags": [
+          "dashboard"
         ]
       }
     },

@@ -1096,6 +1096,269 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Badges
+         * @description 取待办与未读角标。
+         *
+         *     登录即可；来源不可用时对应角标 `available=false`（前端隐藏角标）。
+         *
+         *     Args:
+         *         service: 工作台服务。
+         *         user_id: 当前用户主键。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardBadges]: 统一响应，data 为待办与未读角标。
+         */
+        get: operations["get_badges_api_v1_dashboard_badges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cards
+         * @description 卡片列表（含停用；按 `sort` 升序）。
+         *
+         *     需要 `dashboard:query`。
+         *
+         *     Args:
+         *         request: 请求对象（取请求语言）。
+         *         service: 工作台服务。
+         *         card_type: 卡片类型筛选（可选）。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardCardList]: 统一响应，data 为卡片清单。
+         */
+        get: operations["list_cards_api_v1_dashboard_cards_get"];
+        put?: never;
+        /**
+         * Create Card
+         * @description 新建数据集卡。
+         *
+         *     需要 `dashboard:manage`；内置卡 `40308`、码重复 `40302`、数据集不可用 `40303`。
+         *
+         *     Args:
+         *         request: 请求对象（取请求语言）。
+         *         service: 工作台服务。
+         *         payload: 新建请求。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardCardRow]: 统一响应，data 为新建的卡片行。
+         */
+        post: operations["create_card_api_v1_dashboard_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/cards/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Card
+         * @description 编辑卡片（数据集卡全字段；内置卡只允许改状态）。
+         *
+         *     需要 `dashboard:manage`；内置卡改定义 `40308`、卡片不存在 `40301`。
+         *
+         *     Args:
+         *         request: 请求对象（取请求语言）。
+         *         service: 工作台服务。
+         *         code: 卡片标识。
+         *         payload: 编辑请求。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardCardRow]: 统一响应，data 为更新后的卡片行。
+         */
+        put: operations["update_card_api_v1_dashboard_cards__code__put"];
+        post?: never;
+        /**
+         * Delete Card
+         * @description 删除卡片（数据集卡软删除；内置卡拒绝）。
+         *
+         *     需要 `dashboard:manage`；内置卡 `40308`、卡片不存在 `40301`。
+         *
+         *     Args:
+         *         service: 工作台服务。
+         *         code: 卡片标识。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardCardDeleteResult]: 统一响应，data 为删除结果。
+         */
+        delete: operations["delete_card_api_v1_dashboard_cards__code__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Layout
+         * @description 解析当前用户布局（三级回退 + 可选卡片清单）。
+         *
+         *     登录即可；卡片名按 `Accept-Language` 本地化。
+         *
+         *     Args:
+         *         request: 请求对象（取请求语言）。
+         *         service: 工作台服务。
+         *         user_id: 当前用户主键。
+         *         roles: 当前用户角色集。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardLayoutResolve]: 统一响应，data 为布局与可选卡片清单。
+         */
+        get: operations["get_layout_api_v1_dashboard_layout_get"];
+        /**
+         * Save Layout
+         * @description 保存个人布局（整份覆盖）。
+         *
+         *     登录即可；结构非法 `40304`、引用未注册卡片 `40301`。
+         *
+         *     Args:
+         *         service: 工作台服务。
+         *         user_id: 当前用户主键。
+         *         payload: 保存请求。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardLayoutSaveResult]: 统一响应，data 为保存结果与告警。
+         */
+        put: operations["save_layout_api_v1_dashboard_layout_put"];
+        post?: never;
+        /**
+         * Reset Layout
+         * @description 一键重置个人布局（回退角色模板 / 平台默认 / 内置最小布局）。
+         *
+         *     登录即可。
+         *
+         *     Args:
+         *         service: 工作台服务。
+         *         user_id: 当前用户主键。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardLayoutResetResult]: 统一响应，data 为是否删除到既有个人布局。
+         */
+        delete: operations["reset_layout_api_v1_dashboard_layout_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Templates
+         * @description 模板列表（平台在前，角色按主键升序）。
+         *
+         *     需要 `dashboard:query`。
+         *
+         *     Args:
+         *         service: 工作台服务。
+         *         scope: 层级筛选（可选）。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardTemplateList]: 统一响应，data 为模板清单。
+         */
+        get: operations["list_templates_api_v1_dashboard_templates_get"];
+        put?: never;
+        /**
+         * Create Template
+         * @description 新建模板。
+         *
+         *     需要 `dashboard:manage`；平台层级要求平台超管。
+         *
+         *     Args:
+         *         service: 工作台服务。
+         *         roles: 当前用户角色集（平台层级判定）。
+         *         payload: 新建请求。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardTemplateRow]: 统一响应，data 为新建的模板行。
+         */
+        post: operations["create_template_api_v1_dashboard_templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Template
+         * @description 编辑模板（`scope` 与 `role_id` 不可改）。
+         *
+         *     需要 `dashboard:manage`；平台层级要求平台超管。
+         *
+         *     Args:
+         *         service: 工作台服务。
+         *         roles: 当前用户角色集（平台层级判定）。
+         *         template_id: 模板主键。
+         *         payload: 编辑请求。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardTemplateRow]: 统一响应，data 为更新后的模板行。
+         */
+        put: operations["update_template_api_v1_dashboard_templates__template_id__put"];
+        post?: never;
+        /**
+         * Delete Template
+         * @description 删除模板。
+         *
+         *     需要 `dashboard:manage`；平台层级要求平台超管。
+         *
+         *     Args:
+         *         service: 工作台服务。
+         *         roles: 当前用户角色集（平台层级判定）。
+         *         template_id: 模板主键。
+         *
+         *     Returns:
+         *         ApiResponse[DashboardTemplateDeleteResult]: 统一响应，data 为删除结果。
+         */
+        delete: operations["delete_template_api_v1_dashboard_templates__template_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/data-sources": {
         parameters: {
             query?: never;
@@ -6054,6 +6317,146 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[DashboardBadges] */
+        ApiResponse_DashboardBadges_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardBadges"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardCardDeleteResult] */
+        ApiResponse_DashboardCardDeleteResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardCardDeleteResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardCardList] */
+        ApiResponse_DashboardCardList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardCardList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardCardRow] */
+        ApiResponse_DashboardCardRow_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardCardRow"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardLayoutResetResult] */
+        ApiResponse_DashboardLayoutResetResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardLayoutResetResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardLayoutResolve] */
+        ApiResponse_DashboardLayoutResolve_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardLayoutResolve"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardLayoutSaveResult] */
+        ApiResponse_DashboardLayoutSaveResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardLayoutSaveResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardTemplateDeleteResult] */
+        ApiResponse_DashboardTemplateDeleteResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardTemplateDeleteResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardTemplateList] */
+        ApiResponse_DashboardTemplateList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardTemplateList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DashboardTemplateRow] */
+        ApiResponse_DashboardTemplateRow_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DashboardTemplateRow"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[DataChangeItem] */
         ApiResponse_DataChangeItem_: {
             /**
@@ -8290,6 +8693,621 @@ export interface components {
              * @description 口令是否匹配
              */
             valid: boolean;
+        };
+        /**
+         * DashboardBadgeCount
+         * @description 单个角标（计数 + 可用性；不可用时前端隐藏角标）。
+         */
+        DashboardBadgeCount: {
+            /**
+             * Available
+             * @description 数据来源是否可用
+             */
+            available: boolean;
+            /**
+             * Count
+             * @description 计数（不可用时为 0）
+             */
+            count: number;
+            /**
+             * Reason
+             * @description 不可用原因
+             */
+            reason?: string | null;
+        };
+        /**
+         * DashboardBadges
+         * @description 角标聚合响应（顶栏 / 侧边栏统一出口）。
+         */
+        DashboardBadges: {
+            /** @description 未读通知角标（通知服务为唯一口径） */
+            notification: components["schemas"]["DashboardBadgeCount"];
+            /** @description 待办角标（工作流落地前不可用） */
+            todo: components["schemas"]["DashboardBadgeCount"];
+        };
+        /**
+         * DashboardCardCreate
+         * @description 新建卡片请求（只允许数据集卡）。
+         */
+        DashboardCardCreate: {
+            /**
+             * Card Type
+             * @description 卡片类型（只允许 dataset）
+             * @default dataset
+             */
+            card_type: string;
+            /**
+             * Chart Config
+             * @description 图表样式覆盖（可选）
+             */
+            chart_config?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Chart Type
+             * @description 图表类型（取图表类型白名单）
+             */
+            chart_type: string;
+            /**
+             * Code
+             * @description 卡片标识（小写字母开头，仅小写字母 / 数字 / 下划线）
+             */
+            code: string;
+            /**
+             * Dataset Id
+             * @description 数据集标识（逻辑外键 → 报表中心数据集）
+             */
+            dataset_id: string;
+            /**
+             * Default Height
+             * @description 默认高（行）
+             * @default 2
+             */
+            default_height: number;
+            /**
+             * Default Width
+             * @description 默认宽（列）
+             * @default 4
+             */
+            default_width: number;
+            /**
+             * I18N
+             * @description 语言 → 卡片名（可选；缺省语言按派生规则兜底）
+             */
+            i18n?: {
+                [key: string]: string;
+            };
+            /**
+             * Mobile Supported
+             * @description 是否参与移动端单列布局
+             * @default true
+             */
+            mobile_supported: boolean;
+            /**
+             * Name
+             * @description 卡片名（默认语言文案）
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             * @default enabled
+             */
+            status: string;
+        };
+        /**
+         * DashboardCardDeleteResult
+         * @description 删除卡片结果。
+         */
+        DashboardCardDeleteResult: {
+            /**
+             * Applied
+             * @description 是否删除到既有卡片
+             */
+            applied: boolean;
+        };
+        /**
+         * DashboardCardList
+         * @description 卡片列表响应。
+         */
+        DashboardCardList: {
+            /**
+             * Items
+             * @description 卡片清单（按 sort 升序）
+             */
+            items?: components["schemas"]["DashboardCardRow"][];
+            /**
+             * Total
+             * @description 总数
+             */
+            total: number;
+        };
+        /**
+         * DashboardCardMeta
+         * @description 卡片元数据（布局接口 `available_cards` 项，前端渲染依据）。
+         */
+        DashboardCardMeta: {
+            /**
+             * Card Type
+             * @description 卡片类型（builtin / dataset）
+             */
+            card_type: string;
+            /**
+             * Chart Config
+             * @description 图表样式覆盖（可选；非法配置由前端忽略并回退默认）
+             */
+            chart_config?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Chart Type
+             * @description 图表类型（仅数据集卡）
+             */
+            chart_type?: string | null;
+            /**
+             * Code
+             * @description 卡片标识
+             */
+            code: string;
+            /**
+             * Data Endpoint
+             * @description 卡片数据接口地址（空表示前端自取或占位）
+             * @default
+             */
+            data_endpoint: string;
+            /**
+             * Dataset Id
+             * @description 数据集标识（仅数据集卡）
+             */
+            dataset_id?: string | null;
+            /**
+             * Default Height
+             * @description 默认高（行）
+             */
+            default_height: number;
+            /**
+             * Default Width
+             * @description 默认宽（列）
+             */
+            default_width: number;
+            /**
+             * Mobile Supported
+             * @description 是否参与移动端单列布局
+             */
+            mobile_supported: boolean;
+            /**
+             * Name
+             * @description 卡片名（当前语言）
+             */
+            name: string;
+            /**
+             * Render Key
+             * @description 前端渲染器标识（内置卡必填）
+             * @default
+             */
+            render_key: string;
+            /**
+             * Sort
+             * @description 排序（升序）
+             */
+            sort: number;
+        };
+        /**
+         * DashboardCardRow
+         * @description 卡片管理面行（多状态与多语言文案）。
+         */
+        DashboardCardRow: {
+            /**
+             * Card Type
+             * @description 卡片类型（builtin / dataset）
+             */
+            card_type: string;
+            /**
+             * Chart Config
+             * @description 图表样式覆盖（可选；非法配置由前端忽略并回退默认）
+             */
+            chart_config?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Chart Type
+             * @description 图表类型（仅数据集卡）
+             */
+            chart_type?: string | null;
+            /**
+             * Code
+             * @description 卡片标识
+             */
+            code: string;
+            /**
+             * Data Endpoint
+             * @description 卡片数据接口地址（空表示前端自取或占位）
+             * @default
+             */
+            data_endpoint: string;
+            /**
+             * Dataset Id
+             * @description 数据集标识（仅数据集卡）
+             */
+            dataset_id?: string | null;
+            /**
+             * Default Height
+             * @description 默认高（行）
+             */
+            default_height: number;
+            /**
+             * Default Width
+             * @description 默认宽（列）
+             */
+            default_width: number;
+            /**
+             * I18N
+             * @description 语言 → 卡片名（含默认语言）
+             */
+            i18n?: {
+                [key: string]: string;
+            };
+            /**
+             * Id
+             * @description 卡片主键
+             */
+            id: string;
+            /**
+             * Mobile Supported
+             * @description 是否参与移动端单列布局
+             */
+            mobile_supported: boolean;
+            /**
+             * Name
+             * @description 卡片名（当前语言）
+             */
+            name: string;
+            /**
+             * Render Key
+             * @description 前端渲染器标识（内置卡必填）
+             * @default
+             */
+            render_key: string;
+            /**
+             * Sort
+             * @description 排序（升序）
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status: string;
+        };
+        /**
+         * DashboardCardUpdate
+         * @description 编辑卡片请求（数据集卡全字段；内置卡只允许 `status`）。
+         */
+        DashboardCardUpdate: {
+            /**
+             * Chart Config
+             * @description 图表样式覆盖（None 表示不修改）
+             */
+            chart_config?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Chart Type
+             * @description 图表类型
+             */
+            chart_type?: string | null;
+            /**
+             * Dataset Id
+             * @description 数据集标识
+             */
+            dataset_id?: string | null;
+            /**
+             * Default Height
+             * @description 默认高（行）
+             */
+            default_height?: number | null;
+            /**
+             * Default Width
+             * @description 默认宽（列）
+             */
+            default_width?: number | null;
+            /**
+             * I18N
+             * @description 语言 → 卡片名（None 表示不修改；整份覆盖）
+             */
+            i18n?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Mobile Supported
+             * @description 是否参与移动端单列布局
+             */
+            mobile_supported?: boolean | null;
+            /**
+             * Name
+             * @description 卡片名
+             */
+            name?: string | null;
+            /**
+             * Sort
+             * @description 排序（升序）
+             */
+            sort?: number | null;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status?: string | null;
+        };
+        /**
+         * DashboardLayoutCard
+         * @description 布局中的一张卡片（网格位置与尺寸）。
+         */
+        DashboardLayoutCard: {
+            /**
+             * Code
+             * @description 卡片标识
+             */
+            code: string;
+            /**
+             * H
+             * @description 高（行）
+             */
+            h: number;
+            /**
+             * Visible
+             * @description 是否可见（不可见不占网格）
+             * @default true
+             */
+            visible: boolean;
+            /**
+             * W
+             * @description 宽（列）
+             */
+            w: number;
+            /**
+             * X
+             * @description 列偏移（0 ~ 12-w）
+             */
+            x: number;
+            /**
+             * Y
+             * @description 行偏移
+             */
+            y: number;
+        };
+        /**
+         * DashboardLayoutIssue
+         * @description 布局问题 / 告警项。
+         */
+        DashboardLayoutIssue: {
+            /**
+             * Code
+             * @description 涉及的卡片标识（结构级问题为空串）
+             * @default
+             */
+            code: string;
+            /**
+             * Reason
+             * @description 原因（card_disabled / card_unknown / overlap 等）
+             */
+            reason: string;
+        };
+        /**
+         * DashboardLayoutPayload
+         * @description 布局载荷（模板与个人布局同形）。
+         */
+        DashboardLayoutPayload: {
+            /**
+             * Cards
+             * @description 卡片放置清单（插入序）
+             */
+            cards?: components["schemas"]["DashboardLayoutCard"][];
+        };
+        /**
+         * DashboardLayoutResetResult
+         * @description 一键重置结果。
+         */
+        DashboardLayoutResetResult: {
+            /**
+             * Applied
+             * @description 是否删除到既有个人布局
+             */
+            applied: boolean;
+        };
+        /**
+         * DashboardLayoutResolve
+         * @description 布局解析响应（结构 + 可选卡片清单）。
+         */
+        DashboardLayoutResolve: {
+            /**
+             * Available Cards
+             * @description 可选卡片清单（全部启用卡，按 sort 升序）
+             */
+            available_cards?: components["schemas"]["DashboardCardMeta"][];
+            /**
+             * Fallback
+             * @description 是否走到内置最小布局
+             */
+            fallback: boolean;
+            /** @description 生效布局 */
+            layout: components["schemas"]["DashboardLayoutPayload"];
+            /**
+             * Role Id
+             * @description 命中的角色模板角色主键（无则 0）
+             */
+            role_id: string;
+            /**
+             * Source
+             * @description 来源层级（personal / role / platform / empty）
+             */
+            source: string;
+            /**
+             * Template Id
+             * @description 命中的模板主键（个人 / 内置回退为 0）
+             */
+            template_id: string;
+            /**
+             * Warnings
+             * @description 剔除告警（未注册 / 已停用卡片）
+             */
+            warnings?: components["schemas"]["DashboardLayoutIssue"][];
+        };
+        /**
+         * DashboardLayoutSaveRequest
+         * @description 保存个人布局请求（整份覆盖）。
+         */
+        DashboardLayoutSaveRequest: {
+            /**
+             * Layout
+             * @description 布局配置（cards 清单）
+             */
+            layout?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * DashboardLayoutSaveResult
+         * @description 保存个人布局结果。
+         */
+        DashboardLayoutSaveResult: {
+            /**
+             * Applied
+             * @description 是否写入成功
+             */
+            applied: boolean;
+            /**
+             * Warnings
+             * @description 告警（引用已停用卡片等）
+             */
+            warnings?: components["schemas"]["DashboardLayoutIssue"][];
+        };
+        /**
+         * DashboardTemplateCreate
+         * @description 新建模板请求。
+         */
+        DashboardTemplateCreate: {
+            /**
+             * Layout Config
+             * @description 布局配置（cards 清单）
+             */
+            layout_config?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Name
+             * @description 模板名称
+             */
+            name: string;
+            /**
+             * Role Id
+             * @description 角色 ID（scope=role 必填；platform 固定 0）
+             * @default 0
+             */
+            role_id: number;
+            /**
+             * Scope
+             * @description 层级（platform / role）
+             */
+            scope: string;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             * @default enabled
+             */
+            status: string;
+        };
+        /**
+         * DashboardTemplateDeleteResult
+         * @description 删除模板结果。
+         */
+        DashboardTemplateDeleteResult: {
+            /**
+             * Applied
+             * @description 是否删除到既有模板
+             */
+            applied: boolean;
+        };
+        /**
+         * DashboardTemplateList
+         * @description 模板列表响应。
+         */
+        DashboardTemplateList: {
+            /**
+             * Items
+             * @description 模板清单（平台在前，角色按主键升序）
+             */
+            items?: components["schemas"]["DashboardTemplateRow"][];
+            /**
+             * Total
+             * @description 总数
+             */
+            total: number;
+        };
+        /**
+         * DashboardTemplateRow
+         * @description 模板行（列表 / 详情）。
+         */
+        DashboardTemplateRow: {
+            /**
+             * Card Count
+             * @description 布局内卡片数
+             */
+            card_count: number;
+            /**
+             * Id
+             * @description 模板主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 模板名称
+             */
+            name: string;
+            /**
+             * Role Id
+             * @description 角色 ID（平台层级固定 0）
+             */
+            role_id: string;
+            /**
+             * Scope
+             * @description 层级（platform / role）
+             */
+            scope: string;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status: string;
+        };
+        /**
+         * DashboardTemplateUpdate
+         * @description 编辑模板请求（`scope` 与 `role_id` 不可改）。
+         */
+        DashboardTemplateUpdate: {
+            /**
+             * Layout Config
+             * @description 布局配置（None 表示不修改）
+             */
+            layout_config?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Name
+             * @description 模板名称
+             */
+            name?: string | null;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status?: string | null;
         };
         /**
          * DataChangeItem
@@ -17483,6 +18501,901 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_ConfigItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_badges_api_v1_dashboard_badges_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardBadges_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_cards_api_v1_dashboard_cards_get: {
+        parameters: {
+            query?: {
+                /** @description 卡片类型（builtin / dataset） */
+                card_type?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardCardList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_card_api_v1_dashboard_cards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardCardCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardCardRow_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_card_api_v1_dashboard_cards__code__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardCardUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardCardRow_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_card_api_v1_dashboard_cards__code__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardCardDeleteResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_layout_api_v1_dashboard_layout_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardLayoutResolve_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    save_layout_api_v1_dashboard_layout_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardLayoutSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardLayoutSaveResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    reset_layout_api_v1_dashboard_layout_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardLayoutResetResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_templates_api_v1_dashboard_templates_get: {
+        parameters: {
+            query?: {
+                /** @description 层级筛选（platform / role） */
+                scope?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardTemplateList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_template_api_v1_dashboard_templates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardTemplateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardTemplateRow_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_template_api_v1_dashboard_templates__template_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardTemplateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardTemplateRow_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_template_api_v1_dashboard_templates__template_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_DashboardTemplateDeleteResult_"];
                 };
             };
             /** @description 未认证 */

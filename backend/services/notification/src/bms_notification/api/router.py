@@ -12,6 +12,7 @@ api_router = mount_service_routers(
     ConcurrentStableList(
         [
             notification.router,
+            notification.internal_router,
             notice.router,
             notice.internal_router,
             mail.router,

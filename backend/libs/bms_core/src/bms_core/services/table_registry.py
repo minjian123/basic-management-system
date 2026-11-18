@@ -445,6 +445,27 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             note="租户自建字段名多语言附表（10_01 落库）",
         ),
         TableRecord(
+            table_name="sys_dashboard_card",
+            owner="platform",
+            domain="dashboard",
+            datasource=Datasource.TENANT,
+            note="工作台卡片注册表（内置功能卡 / 数据集图表卡；11_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_dashboard_card_i18n",
+            owner="platform",
+            domain="dashboard",
+            datasource=Datasource.TENANT,
+            note="工作台卡片名多语言附表（11_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_dashboard_template",
+            owner="platform",
+            domain="dashboard",
+            datasource=Datasource.TENANT,
+            note="工作台模板（平台默认 / 角色模板；11_01 落库）",
+        ),
+        TableRecord(
             table_name="sys_user_identity",
             owner="identity",
             domain="identity_federation",

@@ -32,6 +32,7 @@ SEED_OPS: ConcurrentStableList[str] = ConcurrentStableList(
         "seed-platform-grant",
         "seed-rbac-role",
         "seed-rbac-grant",
+        "seed-dashboard",
     )
 )
 """平台侧登记的种子分支操作名（与 `deploy/registry/platform.toml` 的 `name` 一一对应）。"""
@@ -48,6 +49,7 @@ def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegi
     """
     from bms_core.i18n.seed import seed_i18n_entry
     from bms_core.tenant.seed.config import seed_configs_entry
+    from bms_core.tenant.seed.dashboard import seed_dashboard_entry
     from bms_core.tenant.seed.menu import seed_menu_entry
     from bms_core.tenant.seed.module import seed_modules_entry
     from bms_core.tenant.seed.tables import seed_tables_entry
@@ -65,6 +67,7 @@ def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegi
     handlers.set("seed-platform-grant", cast("BranchHandler", seed_platform_grants_entry))
     handlers.set("seed-rbac-role", cast("BranchHandler", seed_rbac_roles_entry))
     handlers.set("seed-rbac-grant", cast("BranchHandler", seed_rbac_grants_entry))
+    handlers.set("seed-dashboard", cast("BranchHandler", seed_dashboard_entry))
     for op, handler in handlers.items():
         if registry.resolve(op) is not None:
             continue

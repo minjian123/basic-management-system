@@ -40,6 +40,8 @@ from bms_core.models.platform.form_design import (
     SysFormFieldAttr,
     SysFormLayout,
 )
+from bms_core.permission.role_priority import ROLE_TYPE_PRIORITY as ROLE_TYPE_PRIORITY
+from bms_core.permission.role_priority import pick_role_candidate
 
 __all__ = [
     "ROLE_TYPE_PRIORITY",
@@ -52,16 +54,8 @@ __all__ = [
     "strip_invisible",
 ]
 
-ROLE_TYPE_PRIORITY: ConcurrentStableList[str] = ConcurrentStableList(
-    (
-        "platform_admin",
-        "system",
-        "security",
-        "audit",
-        "custom",
-    )
-)
-"""角色视图命中优先级（任务 10_01 决策 5）：`sys_role` 无 `sort` 列，按内置类型 + `role_id` 升序。"""
+"""角色视图命中优先级的单一定义在 `bms_core/permission/role_priority.py`（11_01 上移），
+本模块经 `__all__` 再导出 `ROLE_TYPE_PRIORITY` 与 `pick_role_level` 以保持既有引用不变。"""
 
 
 class LevelSnapshot:
@@ -188,15 +182,7 @@ def pick_role_level(
     Returns:
         tuple[int | None, FormLayout | None]: （选中角色 ID, 布局）；无命中返回 `(None, None)`。
     """
-    ordered: ConcurrentStableList[tuple[int, str, int, FormLayout | None]] = ConcurrentStableList()
-    for role_type, role_id, layout in candidates:
-        rank = ROLE_TYPE_PRIORITY.index(role_type) if role_type in ROLE_TYPE_PRIORITY else len(ROLE_TYPE_PRIORITY)
-        ordered.add((rank, role_type, role_id, layout))
-    sorted_items = sorted(ordered, key=lambda item: (item[0], item[2]))
-    for _rank, _role_type, role_id, layout in sorted_items:
-        if layout is not None and not is_layout_empty(layout):
-            return role_id, layout
-    return None, None
+    return pick_role_candidate(candidates, is_empty=is_layout_empty)
 
 
 def merge_fields(

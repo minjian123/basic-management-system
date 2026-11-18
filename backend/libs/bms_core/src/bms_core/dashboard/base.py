@@ -15,11 +15,12 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
 from bms_core.core.provider import BaseProvider, BaseProviderRegistry
+from bms_core.models.platform.dashboard import CARD_TYPES as CARD_TYPES
 
 __all__ = [
     "CARD_TYPES",
@@ -27,9 +28,6 @@ __all__ = [
     "BaseDashboardCardRegistry",
     "get_dashboard_card_registry",
 ]
-
-CARD_TYPES: ConcurrentStableList[str] = ConcurrentStableList(("builtin", "dataset"))
-"""卡片类型（双轨制：内置功能卡 / 数据集图表卡）；占位期仅登记不校验。"""
 
 
 class BaseDashboardCardProvider(BaseProvider, ABC):

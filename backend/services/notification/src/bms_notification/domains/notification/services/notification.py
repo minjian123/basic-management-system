@@ -105,6 +105,17 @@ class NotificationService(BaseFrameworkObject):
         """
         return await self._repository.unread_count(self._require_user())
 
+    async def unread_count_for(self, user_id: int) -> int:
+        """按显式用户取未读数（服务间内部面用；不经登录态上下文）。
+
+        Args:
+            user_id: 用户主键（由调用方服务身份担保，入站已校验）。
+
+        Returns:
+            int: 未读数。
+        """
+        return await self._repository.unread_count(user_id)
+
     async def mark_read(self, ids: ConcurrentStableList[int]) -> int:
         """按 id 批量标记已读（幂等）。
 
