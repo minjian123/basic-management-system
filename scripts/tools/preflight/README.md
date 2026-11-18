@@ -15,7 +15,10 @@
 #   diff_coverage_gate.py 改动行覆盖率门禁：转发 `engkit coverage-changed`（**提交环专用**：只判本次 diff
 #                         触达的可执行行；推送环仍走 coverage_gate 的模块级 100%）
 #   coverage_report.py    查覆盖率缺口的唯一入口：转发 `engkit coverage` / `engkit coverage-changed`，
-#                         缺口明细落 `.cache/coverage/gaps.txt`（模块级 `--module` / 改动行 `--changed`）
+#                         缺口明细落 `.cache/coverage/gaps.txt`（人读）+ `gaps.json`（结构化，逐文件行号）。
+#                         三种口径：`--module` 模块级 / `--changed` 改动行 / `--changed-files` 批量查全部
+#                         改动文件（缺省 `git diff HEAD` + 未跟踪；`--since <基准>` 可换基准；不参与
+#                         判定的文件逐条列出，清单全不参与时显式放行而不判全仓）
 #   parallel_jobs.py      `--jobs` 映射：转发 `engkit.preflight.jobs_args / describe`
 #   heavy_command_guard.py 重命令拦截：转发 `engkit.guard`（判定 / 提示 / pytest 插件入口）
 #   full_test_guard.py    全量测试守卫：转发 `engkit.guard`（开发期间一律拒绝；仅推送入口内部授权 / CI 放行）
@@ -35,7 +38,9 @@
 # 手动调用 `engkit preflight` 一律拒绝（CI 环境除外）。工作树有未提交改动（含未跟踪文件）即拒绝；
 # 档位按**待推提交**自动选：全为文档 → 快速档（静态 + 护栏 + 自测，秒级）；含代码 → 定向档
 # （静态 + 定向用例 + 覆盖率门禁）。**全量测试只由 CI 执行**：本地 `--full` 只到全量静态 + 定向用例。
-# 真跑 / 被拒两类事件记入 `.cache/preflight/audit.jsonl`（写盘失败 fail-open）。
+# 真跑 / 被拒两类事件记入 `.cache/preflight/audit.jsonl`（写盘失败 fail-open）；每次真跑的完整输出
+# （stdout + stderr + 全部子命令原始输出）落 `.cache/preflight/last-run.log`，结尾打印绝对路径——
+# 终端截断不必再跑第二遍；pytest 段固定带 `-rf --tb=long`，失败摘要与完整 traceback 首轮即给全。
 #
 # 开发环口径（`测试改动内容.py`，等价 `engkit run-changed`）：依赖深度 direct（不做传递闭包、
 # 不退化工程级全量）、不采集覆盖率、只对改动文件跑 ruff、前端只跑直接命中包；间接依赖与覆盖率
