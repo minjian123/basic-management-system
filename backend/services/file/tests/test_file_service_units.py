@@ -66,7 +66,6 @@ class _Harness:
 async def harness(
     shared_tenant_engine: AsyncEngine,
     tenant_db: str,
-    tenant_db_write: None,
     ns: Namespace,
     tmp_path: Path,
 ) -> AsyncIterator[_Harness]:
@@ -75,14 +74,13 @@ async def harness(
     Args:
         shared_tenant_engine: 共享租户库引擎。
         tenant_db: 租户库连接串（夹具副作用：注入共享租户库并重置配置单例）。
-        tenant_db_write: 租户库整条用例写锁（回滚会话准备阶段即开写事务）。
         ns: 本用例命名空间。
         tmp_path: 用例临时目录（对象文件落点）。
 
     Yields:
         _Harness: 装配结果。
     """
-    del tenant_db, tenant_db_write
+    del tenant_db
     root = tmp_path / "objects"
     async with rollback_session(shared_tenant_engine) as session:
         service = FileService(

@@ -49,18 +49,15 @@ status = "enabled"
 @pytest.fixture
 async def session(
     shared_platform_engine: AsyncEngine,
-    platform_db_write: None,
 ) -> AsyncIterator[AsyncSession]:
     """共享平台库上的回滚会话（整条用例持写锁）。
 
     Args:
         shared_platform_engine: 共享平台库引擎。
-        platform_db_write: 平台库整条用例写锁（回滚会话准备阶段即开写事务）。
 
     Yields:
         AsyncSession: 会话。
     """
-    del platform_db_write
     async with rollback_session(shared_platform_engine) as db:
         yield db
 
@@ -216,7 +213,6 @@ async def test_bootstrap_logs_report_warnings(
 async def _declarations_rollback(
     service_app: Any,
     shared_platform_engine: AsyncEngine,
-    platform_db_write: None,
 ) -> AsyncIterator[None]:
     """真启动链用例的共享库回滚区间（应用装配完成后再开事务）。
 
@@ -225,12 +221,10 @@ async def _declarations_rollback(
     Args:
         service_app: 平台应用实例（先装配，启动期声明同步先落库）。
         shared_platform_engine: 共享平台库引擎。
-        platform_db_write: 平台库整条用例写锁。
 
     Yields:
         None: 回滚会话区间。
     """
-    del platform_db_write
     async with rollback_session(shared_platform_engine):
         yield
 

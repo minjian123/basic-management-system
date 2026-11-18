@@ -11,9 +11,10 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.testing.rwlock import READ, DbGate, gate_path
 
 PLATFORM_GATE = "platform"
@@ -108,6 +109,22 @@ async def upgrade_to_write(name: str) -> AsyncGenerator[None]:
         await target.release(write=True)
         for _ in range(depth):
             await target.acquire(write=False)
+
+
+def write_window(db_key: str) -> AbstractAsyncContextManager[None]:
+    """按库键取写门：一段**显式写区间**的跨进程互斥（直连共享引擎的用例用）。
+
+    与 `platform_db_write` / `tenant_db_write` 的分工：那两个是夹具，作用域是**整条用例**（含同用例
+    其它夹具的 setup / teardown），只留给「跨多步的全局状态临界区」（如平台默认键的「复位 → 用例 →
+    复位」）；单次写事务请用本函数，`async with write_window(...)` 包住的区间就是临界区。
+
+    Args:
+        db_key: 数据源键（平台库键取平台门，其余取租户门）。
+
+    Returns:
+        AbstractAsyncContextManager[None]: 写门上下文。
+    """
+    return write_gate(PLATFORM_GATE if db_key == PLATFORM_DB_KEY else TENANT_GATE)
 
 
 def close_gates() -> None:

@@ -13,6 +13,7 @@ from typing import cast
 import pytest
 
 from bms_core.db import gate as gate_module
+from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.testing import gates, plugin, rwlock
 
 pytestmark = pytest.mark.kiwi_id(2533)
@@ -57,6 +58,22 @@ async def test_read_gate_context_releases() -> None:
 async def test_write_gate_context_releases() -> None:
     """写门上下文进出后回到未持有。"""
     async with gates.write_gate(gates.TENANT_GATE):
+        assert gates.gate(gates.TENANT_GATE).mode == rwlock.WRITE
+
+    assert gates.gate(gates.TENANT_GATE).mode is None
+
+
+async def test_write_window_takes_platform_gate() -> None:
+    """写窗口按平台库键取平台写门，退出即释放（直连引擎的单次写）。"""
+    async with gates.write_window(PLATFORM_DB_KEY):
+        assert gates.gate(gates.PLATFORM_GATE).mode == rwlock.WRITE
+
+    assert gates.gate(gates.PLATFORM_GATE).mode is None
+
+
+async def test_write_window_takes_tenant_gate_for_other_keys() -> None:
+    """非平台库键一律走租户写门。"""
+    async with gates.write_window("tenant_demo"):
         assert gates.gate(gates.TENANT_GATE).mode == rwlock.WRITE
 
     assert gates.gate(gates.TENANT_GATE).mode is None
