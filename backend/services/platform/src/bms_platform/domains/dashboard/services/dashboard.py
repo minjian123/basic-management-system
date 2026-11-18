@@ -280,7 +280,7 @@ class DashboardService(BaseFrameworkObject):
             return None
         try:
             parsed = json.loads(row.chart_config)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             _LOGGER.warning("卡片图表配置非法（按未配置处理）", code=row.code)
             return None
         if not isinstance(parsed, dict):
@@ -750,9 +750,7 @@ class DashboardService(BaseFrameworkObject):
             await self._bump_version()
             return self._template_row(row)
 
-    async def delete_template(
-        self, *, template_id: int, role_types: ConcurrentStableList[tuple[str, int]]
-    ) -> bool:
+    async def delete_template(self, *, template_id: int, role_types: ConcurrentStableList[tuple[str, int]]) -> bool:
         """删除模板（平台模板删后回退内置最小布局）。
 
         Args:

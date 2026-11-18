@@ -90,9 +90,7 @@ async def update_template(
     Returns:
         ApiResponse[DashboardTemplateRow]: 统一响应，data 为更新后的模板行。
     """
-    return ApiResponse.ok(
-        await service.update_template(template_id=template_id, payload=payload, role_types=roles)
-    )
+    return ApiResponse.ok(await service.update_template(template_id=template_id, payload=payload, role_types=roles))
 
 
 @router.delete("/templates/{template_id}", dependencies=[_REQUIRE_MANAGE])

@@ -136,9 +136,9 @@ class LayoutResolver(BaseFrameworkObject):
         self._templates = templates
         self._preferences = preferences
 
-    async def cards_and_sizes(self) -> tuple[
-        ConcurrentStableFrozenDict[str, bool], ConcurrentStableFrozenDict[str, CardSize]
-    ]:
+    async def cards_and_sizes(
+        self,
+    ) -> tuple[ConcurrentStableFrozenDict[str, bool], ConcurrentStableFrozenDict[str, CardSize]]:
         """取卡片启用状态与默认尺寸（全量卡片，含停用）。
 
         Returns:

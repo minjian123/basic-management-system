@@ -157,9 +157,9 @@ async def test_update_dataset_card_fields(client: AsyncClient, ns: Namespace) ->
     assert row["default_width"] == 12
     assert row["status"] == "disabled"
 
-    renamed = _body(
-        await client.put(f"{_CARDS}/{code}", json={"i18n": {"en-US": "Renamed", "zh-CN": "重命名"}})
-    )["data"]
+    renamed = _body(await client.put(f"{_CARDS}/{code}", json={"i18n": {"en-US": "Renamed", "zh-CN": "重命名"}}))[
+        "data"
+    ]
     assert renamed["name"] == "重命名"
     assert int(renamed["id"]) == int(created["id"])
 

@@ -490,8 +490,14 @@ def layout_json(layout: DashboardLayout) -> str:
     """
     payload = {
         "cards": [
-            {"code": placement.code, "x": placement.x, "y": placement.y, "w": placement.w, "h": placement.h,
-             "visible": placement.visible}
+            {
+                "code": placement.code,
+                "x": placement.x,
+                "y": placement.y,
+                "w": placement.w,
+                "h": placement.h,
+                "visible": placement.visible,
+            }
             for placement in layout.cards
         ]
     }
@@ -509,5 +515,5 @@ def load_layout_config(text: str) -> object:
     """
     try:
         return json.loads(text)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return {}

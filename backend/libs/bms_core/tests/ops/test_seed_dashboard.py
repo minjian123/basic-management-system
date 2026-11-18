@@ -56,8 +56,10 @@ async def test_seed_inserts_builtin_cards_texts_and_template() -> None:
         assert len(texts) == len(BUILTIN_CARDS)
         assert {row.locale for row in texts} == {"en-US"}
         template = (
-            await session.execute(select(SysDashboardTemplate).where(SysDashboardTemplate.scope == SCOPE_PLATFORM))
-        ).scalars().first()
+            (await session.execute(select(SysDashboardTemplate).where(SysDashboardTemplate.scope == SCOPE_PLATFORM)))
+            .scalars()
+            .first()
+        )
         assert template is not None
         assert template.name == PLATFORM_TEMPLATE_NAME
         layout = json.loads(template.layout_config)
@@ -70,8 +72,8 @@ async def test_seed_is_idempotent_and_keeps_tenant_changes() -> None:
         await seed_dashboard(session)
         await session.commit()
         card = (
-            await session.execute(select(SysDashboardCard).where(SysDashboardCard.code == "todo"))
-        ).scalars().first()
+            (await session.execute(select(SysDashboardCard).where(SysDashboardCard.code == "todo"))).scalars().first()
+        )
         assert card is not None
         card.status = "disabled"
         template = (await session.execute(select(SysDashboardTemplate))).scalars().first()
@@ -83,8 +85,8 @@ async def test_seed_is_idempotent_and_keeps_tenant_changes() -> None:
         await session.commit()
         assert again == DashboardSeedOutcome()
         reloaded = (
-            await session.execute(select(SysDashboardCard).where(SysDashboardCard.code == "todo"))
-        ).scalars().first()
+            (await session.execute(select(SysDashboardCard).where(SysDashboardCard.code == "todo"))).scalars().first()
+        )
         assert reloaded is not None and reloaded.status == "disabled"
         kept = (await session.execute(select(SysDashboardTemplate))).scalars().first()
         assert kept is not None and kept.name == "租户改名"

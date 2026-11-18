@@ -195,9 +195,7 @@ def test_filter_placements_reports_unknown_and_disabled() -> None:
     """过滤：未注册 → `card_unknown`；已停用 → `card_disabled`；其余保留。"""
     raw = {"cards": [{"code": "todo"}, {"code": "notice"}, {"code": "ghost"}]}
     layout = normalize_layout(raw, sizes=_sizes(("todo", 4, 2), ("notice", 4, 2)))
-    kept, issues = filter_placements(
-        layout, enabled=ConcurrentStableFrozenDict({"todo": True, "notice": False})
-    )
+    kept, issues = filter_placements(layout, enabled=ConcurrentStableFrozenDict({"todo": True, "notice": False}))
     assert [item.code for item in kept.cards] == ["todo"]
     assert sorted(_reasons(issues)) == ["card_disabled", "card_unknown"]
 

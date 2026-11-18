@@ -52,9 +52,7 @@ class SysDashboardCard(BaseModel):
     """工作台卡片注册表（`sys_dashboard_card`）：内置功能卡与租户数据集图表卡统一登记。"""
 
     __tablename__ = "sys_dashboard_card"
-    __table_args__ = (
-        UniqueConstraint("code", "deleted_at", name="uq_sys_dashboard_card_code_deleted_at"),
-    )
+    __table_args__ = (UniqueConstraint("code", "deleted_at", name="uq_sys_dashboard_card_code_deleted_at"),)
 
     code: Mapped[str] = mapped_column(
         String(64),

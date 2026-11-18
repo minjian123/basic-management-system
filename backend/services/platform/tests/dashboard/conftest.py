@@ -56,8 +56,6 @@ async def shared_platform_template(shared_tenant_db_url: str) -> None:
     if await find_platform_template(shared_tenant_db_url) is not None:
         return
     try:
-        await seed_template(
-            shared_tenant_db_url, name="平台默认布局（用例）", layout=_platform_layout()
-        )
+        await seed_template(shared_tenant_db_url, name="平台默认布局（用例）", layout=_platform_layout())
     except IntegrityError:
         return

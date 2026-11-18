@@ -75,6 +75,8 @@ def _plain(value: object) -> object:
     if hasattr(value, "__iter__"):
         return [_plain(item) for item in cast("Iterable[object]", value)]
     return value
+
+
 """个人布局偏好键（与本域常量一致）。"""
 
 
@@ -368,10 +370,14 @@ async def assign_role(url: str, role_id: int, user_id: int) -> None:
         factory = async_sessionmaker(engine, expire_on_commit=False)
         async with factory() as session:
             existing = (
-                await session.execute(
-                    select(SysUserRole).where(SysUserRole.role_id == role_id, SysUserRole.user_id == user_id)
+                (
+                    await session.execute(
+                        select(SysUserRole).where(SysUserRole.role_id == role_id, SysUserRole.user_id == user_id)
+                    )
                 )
-            ).scalars().first()
+                .scalars()
+                .first()
+            )
             if existing is None:
                 session.add(SysUserRole(role_id=role_id, user_id=user_id))
                 await session.commit()

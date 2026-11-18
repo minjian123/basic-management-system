@@ -242,8 +242,7 @@ async def seed_dashboard(session: DbSession) -> DashboardSeedOutcome:
     if (await session.execute(template_statement)).scalars().first() is None:
         cards = await _active_cards(session)
         sizes: ConcurrentStableList[CardSize] = ConcurrentStableList(
-            CardSize(code=card.code, width=int(card.default_width), height=int(card.default_height))
-            for card in cards
+            CardSize(code=card.code, width=int(card.default_width), height=int(card.default_height)) for card in cards
         )
         session.add(
             SysDashboardTemplate(

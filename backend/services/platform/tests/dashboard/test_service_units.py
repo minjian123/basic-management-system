@@ -32,6 +32,7 @@ from bms_platform.domains.dashboard.services.dashboard import DashboardService
 
 pytestmark = pytest.mark.kiwi_id(2528)
 
+
 @dataclass
 class _RoleSummaryStub:
     """角色摘要替身（只含工作台读面所需字段）。"""
@@ -583,8 +584,10 @@ async def test_catalog_cache_hit_returns_cached_items() -> None:
     cache = _FakeCache()
     service = _service(cards=_FakeCards(ConcurrentStableList((_card_row("todo"),))), cache=cache)
     first = await service.resolve_layout(user_id=1, role_types=ConcurrentStableList(), locale="zh-CN")
-    cache.data.set("demo:layout:v0:1", {"layout": {"cards": []}, "source": "empty", "role_id": 0,
-                                        "template_id": 0, "fallback": True, "warnings": []})
+    cache.data.set(
+        "demo:layout:v0:1",
+        {"layout": {"cards": []}, "source": "empty", "role_id": 0, "template_id": 0, "fallback": True, "warnings": []},
+    )
     second = await service.resolve_layout(user_id=1, role_types=ConcurrentStableList(), locale="zh-CN")
     assert [item.code for item in first.available_cards] == [item.code for item in second.available_cards]
     assert second.source == "empty"
@@ -742,9 +745,22 @@ async def test_catalog_skips_non_dict_cache_entries() -> None:
     """缓存载荷含非对象项时跳过（防脏缓存导致解析崩溃）。"""
     cache = _FakeCache()
     service = _service(cards=_FakeCards(ConcurrentStableList((_card_row("todo"),))), cache=cache)
-    cache.data.set("demo:cards:v0:zh-CN", ["bad", {"code": "todo", "name": "待办", "card_type": "builtin",
-                                                   "render_key": "todo", "default_width": 4, "default_height": 2,
-                                                   "mobile_supported": True, "sort": 10}])
+    cache.data.set(
+        "demo:cards:v0:zh-CN",
+        [
+            "bad",
+            {
+                "code": "todo",
+                "name": "待办",
+                "card_type": "builtin",
+                "render_key": "todo",
+                "default_width": 4,
+                "default_height": 2,
+                "mobile_supported": True,
+                "sort": 10,
+            },
+        ],
+    )
     data = await service.resolve_layout(user_id=1, role_types=ConcurrentStableList(), locale="zh-CN")
     assert [item.code for item in data.available_cards] == ["todo"]
 
@@ -774,7 +790,5 @@ async def test_derive_name_uses_any_language_when_locale_missing() -> None:
 async def test_role_level_returns_none_when_no_template_matches() -> None:
     """用户有角色但无角色模板 → 角色层级返回 None（继续平台 / 空回退）。"""
     service = _service(cards=_FakeCards(ConcurrentStableList((_card_row("todo"),))), templates=_FakeTemplates())
-    data = await service.resolve_layout(
-        user_id=1, role_types=ConcurrentStableList((("custom", 7),)), locale="zh-CN"
-    )
+    data = await service.resolve_layout(user_id=1, role_types=ConcurrentStableList((("custom", 7),)), locale="zh-CN")
     assert data.source == "empty"

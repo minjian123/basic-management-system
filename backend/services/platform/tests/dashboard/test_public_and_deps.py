@@ -41,9 +41,7 @@ def test_current_user_id_falls_back_to_zero() -> None:
 async def test_load_all_names_without_ids_returns_empty() -> None:
     """空主键清单不查库（批量装载短路）。"""
     repository = DashboardCardI18nRepository(cast("object", None))  # pyright: ignore[reportArgumentType]
-    result = await repository.load_all_names(
-        ConcurrentStableList(), locales=ConcurrentStableList(("zh-CN",))
-    )
+    result = await repository.load_all_names(ConcurrentStableList(), locales=ConcurrentStableList(("zh-CN",)))
     assert dict(result) == {}
 
 
