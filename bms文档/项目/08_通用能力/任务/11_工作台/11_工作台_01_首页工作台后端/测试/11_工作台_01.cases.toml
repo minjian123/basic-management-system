@@ -1,0 +1,26 @@
+# 11_01 首页工作台后端 · Kiwi 用例登记清单
+
+# 口径：在 bms 仓根执行 `backend/.venv/Scripts/python.exe -m engkit kiwi register --cases <本文件>`（凭据取 `deploy/.env`）；
+# 文本字段写覆盖范围与自动化文件路径（《KiwiTCMS部署使用说明》§5.3：一任务一条用例，多条断言共用同一编号）。
+
+[[case]]
+summary = "首页工作台后端（11_01）：三级布局解析 + 卡片注册与内置卡锁定 + 平台/角色模板 + 一键重置 + 待办与未读角标 + 租户库种子"
+category = "平台骨架"
+priority = "P2"
+status = "CONFIRMED"
+tags = ["自动化"]
+text = """
+<p><b>覆盖范围（任务书 §3 验收映射，14 组）</b>：</p>
+<p>① <b>三级解析</b>：个人布局 → 角色模板（角色类型优先级 + 角色主键升序取首个非空）→ 平台默认 → 内置最小布局回退；<code>source</code> / <code>fallback</code> / <code>template_id</code> / <code>role_id</code> 准确。</p>
+<p>② <b>解析期过滤</b>：未注册 / 已停用卡片从布局剔除并给 <code>warnings[]</code>（<code>card_unknown</code> / <code>card_disabled</code>），整页不报错；<code>available_cards</code> 只含启用卡。</p>
+<p>③ <b>个人布局</b>：保存为整份覆盖，结构非法 / 尺寸越界 / 重叠 / 重复码 / 超量 <code>40304</code>、未注册码 <code>40301</code>；停用卡引用放行但告警；一键重置回退上一级且 <code>applied</code> 反映是否确有个人布局；只影响本人。</p>
+<p>④ <b>偏好基座校验</b>：<code>dashboard.layout</code> 结构非法在偏好层即拒（<code>30022</code>），绕过工作台入口也无法写坏布局。</p>
+<p>⑤ <b>卡片注册</b>：内置卡（<code>builtin</code>）只可改 <code>status</code>，改定义 / 删除 <code>40308</code>；数据集卡（<code>dataset</code>）增改删、码重复 <code>40302</code>、图表类型白名单、默认尺寸夹取、多语言名派生与回显。</p>
+<p>⑥ <b>模板维护</b>：平台默认模板全库唯一（重复 <code>40306</code>，写操作要求平台超管，非超管 <code>30001</code>）；角色模板一角色一份（重复 <code>40307</code>、角色无效 <code>40305</code>）；删除即回退。</p>
+<p>⑦ <b>角标统一出口</b>：<code>GET /dashboard/badges</code> 返回待办与未读；待办占位（<code>available=false</code> / <code>workflow_unavailable</code>）、未读经通知服务内部端点真实取数、单角标不可达只降级自身。</p>
+<p>⑧ <b>缓存与失效</b>：卡片清单与解析结构按租户版本键缓存；卡片 / 模板写操作递增版本即时生效；布局保存 / 重置只失效本人。</p>
+<p>⑨ <b>租户库种子</b>：6 张内置卡（todo / notice / notification / quick_links / help / stats）+ 英文文案 + 平台默认模板；幂等且只增不改（租户停用后重跑仍停用、模板改名保留）。</p>
+<p>⑩ <b>域与契约</b>：新增 <code>dashboard</code> 域 12 端点、三表归属与域布局重渲染、错误码 <code>40301~40308</code>、权限码 <code>dashboard:query</code> / <code>dashboard:manage</code>、通知能力 <code>notification.read</code>、契约快照与前端类型重生成。</p>
+<p><b>自动化文件</b>：<code>bms/backend/services/platform/tests/dashboard/{test_layout_resolve,test_layout_api,test_cards_api,test_templates_api,test_badges_api,test_service_units,test_public_and_deps}.py</code>、<code>bms/backend/libs/bms_core/tests/dashboard/{test_layout_normalize,test_role_priority}.py</code>、<code>bms/backend/libs/bms_core/tests/preference/test_dashboard_layout_rules.py</code>、<code>bms/backend/libs/bms_core/tests/ops/test_seed_dashboard.py</code>、<code>bms/backend/services/notification/tests/notification/test_internal_unread.py</code></p>
+<p><b>kiwi_id 标注</b>：<code>@pytest.mark.kiwi_id(2528)</code></p>
+"""

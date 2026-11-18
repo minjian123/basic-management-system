@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, cast
+from typing import Annotated
 
 from fastapi import Depends
 
@@ -10,14 +10,11 @@ from bms_core.api.deps import get_cache_region, get_preference_store, get_servic
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import get_current_user_id
-from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.preference.base import BasePreferenceStore
 from bms_core.servicecall.base import BaseServiceClient
-from bms_platform.domains.dashboard.repositories.adapters import RoleQueryAdapter
 from bms_platform.domains.dashboard.services.dashboard import DashboardService
-from bms_platform.domains.role.services.role_query import RoleQueryService
-from bms_platform.wiring import build_dashboard_service
+from bms_platform.wiring import build_dashboard_role_port, build_dashboard_service
 
 __all__ = ["RoleTypesDep", "ServiceDep", "UserIdDep", "current_roles", "current_user_id", "dashboard_service"]
 
@@ -64,8 +61,7 @@ async def current_roles(
     user_id = get_current_user_id()
     if user_id is None:
         return ConcurrentStableList()
-    session = cast("DbSession", tenant_uow.session)
-    return await RoleQueryAdapter(RoleQueryService(session)).roles_of_user(user_id)
+    return await build_dashboard_role_port(tenant_uow).roles_of_user(user_id)
 
 
 RoleTypesDep = Annotated[ConcurrentStableList[tuple[str, int]], Depends(current_roles)]

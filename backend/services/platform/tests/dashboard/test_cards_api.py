@@ -49,7 +49,7 @@ def _create_payload(code: str, **overrides: object) -> object:
     Returns:
         object: 请求体（内置结构，供 httpx 直接序列化）。
     """
-    payload: dict[str, object] = {
+    payload: Any = {
         "code": code,
         "name": "数据集卡",
         "card_type": "dataset",

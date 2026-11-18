@@ -94,6 +94,7 @@ from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
 
 __all__ = [
+    "build_dashboard_role_port",
     "build_dashboard_service",
     "build_form_design_service",
     "build_help_context_service",
@@ -497,6 +498,21 @@ def build_local_form_validator(
 
 
 # --------------------------------------------------------------------------- 首页工作台（11_01）
+
+
+def build_dashboard_role_port(tenant_uow: UnitOfWork) -> DashboardRoleQueryAdapter[RoleSummary]:
+    """构造工作台角色读面端口（角色域实现只在装配面出现）。
+
+    **为什么单独出口**：路由的「当前用户角色集」依赖也需要角色读面，域内不得 import 他域实现，
+    由装配面构造后以端口形态注入。
+
+    Args:
+        tenant_uow: 请求级工作单元（租户库）。
+
+    Returns:
+        DashboardRoleQueryAdapter[RoleSummary]: 角色读面端口实现。
+    """
+    return DashboardRoleQueryAdapter[RoleSummary](RoleQueryService(cast("DbSession", tenant_uow.session)))
 
 
 def build_dashboard_service(

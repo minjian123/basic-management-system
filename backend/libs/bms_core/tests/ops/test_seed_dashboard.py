@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.platform.dashboard import (
     SCOPE_PLATFORM,
     SysDashboardCard,
@@ -25,17 +25,20 @@ from tests_support.dashboard import memory_dashboard_session
 pytestmark = pytest.mark.kiwi_id(2528)
 
 
-async def _cards(session: AsyncSession) -> list[SysDashboardCard]:
+async def _cards(session: AsyncSession) -> ConcurrentStableList[SysDashboardCard]:
     """取全部卡片。
 
     Args:
         session: 会话。
 
     Returns:
-        list[SysDashboardCard]: 卡片行。
+        ConcurrentStableList[SysDashboardCard]: 卡片行（按 `sort` 升序）。
     """
     rows = (await session.execute(select(SysDashboardCard).order_by(SysDashboardCard.sort))).scalars().all()
-    return list(rows)
+    cards: ConcurrentStableList[SysDashboardCard] = ConcurrentStableList()
+    for row in rows:
+        cards.add(row)
+    return cards
 
 
 async def test_seed_inserts_builtin_cards_texts_and_template() -> None:
