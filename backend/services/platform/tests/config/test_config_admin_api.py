@@ -27,7 +27,6 @@ from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from tests_support.locks import file_lock
 from tests_support.permission_admin import assign_system_admin
 
 pytestmark = [pytest.mark.kiwi_id(2373)]
@@ -55,10 +54,7 @@ _KEYS: ConcurrentStableList[str] = ConcurrentStableList(
         "audit.archive.operation_log_days",
     )
 )
-"""本文件读写的平台默认键（用例前后统一复位；与 `test_config_platform_defaults.py` 同锁串行）。"""
-
-_LOCK_NAME = "config-platform-defaults"
-"""跨进程锁名（与 `test_config_platform_defaults.py` 同值：两文件读写同一批全局键）。"""
+"""本文件读写的平台默认键（用例前后统一复位；与 `test_config_platform_defaults.py` 同走租户库写门）。"""
 
 _ROLE_CODE_PATTERN_OVERRIDE = "^[a-z][a-z0-9_-]{0,63}$"
 """`role.code_pattern` 的覆盖值（刻意比默认更宽松：并行中他人建角色不会被本用例收紧的口径打断）。"""
@@ -108,28 +104,31 @@ async def _soft_delete(db: AsyncSession, config_key: str) -> None:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def config_global_state(tenant_db: str, shared_tenant_engine: AsyncEngine) -> AsyncIterator[None]:
-    """串行持有「平台默认键」跨进程锁，并在用例前后复位这批键。
+async def config_global_state(
+    tenant_db: str, shared_tenant_engine: AsyncEngine, tenant_db_write: None
+) -> AsyncIterator[None]:
+    """持用例级租户库**写门**，并在用例前后复位平台默认键。
 
     平台默认键在共享库里是**全局状态**（全 worker 共用一份 `tenant.db`），必须整体串行：
-    键复位 → 用例读写 → 键再复位。
+    键复位 → 用例读写 → 键再复位。13_08 起整段临界区改由跨进程写门承担（原为同名文件锁，
+    同一需求）：写门独占且由内核在进程退出时回收，比文件锁轮询快、不会留残锁。
 
     Args:
         tenant_db: 共享租户库连接串（套件夹具已注入 `BMS_DATABASE__TENANTS__URL`）。
         shared_tenant_engine: 共享租户库引擎（基座夹具，不在此自建引擎）。
+        tenant_db_write: 租户库写门（用例级读门上升级；本夹具直连引擎写库必须在写门内）。
 
     Yields:
         None: 用例运行期。
     """
     del tenant_db
-    with file_lock(_LOCK_NAME):
-        await ensure_tables(shared_tenant_engine, _TABLES)
-        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-        async with factory() as db:
-            await _reset(db)
-            await assign_system_admin()
-            yield
-            await _reset(db)
+    await ensure_tables(shared_tenant_engine, _TABLES)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    async with factory() as db:
+        await _reset(db)
+        await assign_system_admin()
+        yield
+        await _reset(db)
 
 
 @pytest_asyncio.fixture

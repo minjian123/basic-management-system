@@ -25,10 +25,13 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import ctypes
 import os
 import sys
+import threading
 import time
+import traceback
 from pathlib import Path
 from typing import Any, Final, Literal, Protocol, cast
 
@@ -276,9 +279,16 @@ class DbGate:
             path: 锁文件路径。
         """
         self.name = name
+        self._path = path
+        self._holder_path = path.with_suffix(".holder")
         self._backend = _make_backend(path)
         self._read_depth = 0
         self._write_depth = 0
+        # 深度计数是跨协程 / 跨事件循环共享的进程级状态：`acquire` / `release` 在改计数前后有 await 点
+        # （取放系统调用），不加锁会让并发读者互相覆盖计数（表现为提前放掉内核锁或永久泄漏）。
+        # 用 `threading.Lock` 而非 `asyncio.Lock`：门是进程级单例，而 pytest-asyncio 每个用例一个新
+        # 事件循环，`asyncio.Lock` 会绑死在首个循环上。
+        self._count_lock = threading.Lock()
 
     @property
     def mode(self) -> Mode | None:
@@ -316,25 +326,37 @@ class DbGate:
             TimeoutError: 等待超时。
         """
         if write:
-            if self._write_depth:
-                self._write_depth += 1
-                return
-            if self._read_depth:
-                raise RuntimeError(
-                    f"门 {self.name} 已以 {READ} 模式持有：禁止原地升级；"
-                    "请在 bms_core.testing.gates 的写门上下文内完成写操作"
-                )
+            with self._count_lock:
+                if self._write_depth:
+                    self._write_depth += 1
+                    return
+                if self._read_depth:
+                    raise RuntimeError(
+                        f"门 {self.name} 已以 {READ} 模式持有：禁止原地升级；"
+                        "请在 bms_core.testing.gates 的写门上下文内完成写操作"
+                    )
             await asyncio.to_thread(self._wait_and_lock, True)
-            self._write_depth = 1
+            with self._count_lock:
+                self._write_depth = 1
+            self._record_holder(True)
             return
-        if self._read_depth or self._write_depth:
-            self._read_depth += 1
-            return
+        with self._count_lock:
+            if self._read_depth or self._write_depth:
+                self._read_depth += 1
+                return
         await asyncio.to_thread(self._wait_and_lock, False)
-        self._read_depth = 1
+        with self._count_lock:
+            self._read_depth = 1
+        self._record_holder(False)
 
     async def release(self, *, write: bool) -> None:
         """放门（先写后读由调用方保证顺序）。
+
+        **解锁一律同步执行**（不走 `asyncio.to_thread`）：解锁是微秒级系统调用，而释放常发生在
+        `finally` / 事件循环收尾阶段——此时线程池已关闭，`to_thread` 会抛
+        `RuntimeError: cannot schedule new futures after shutdown`，内核锁因此**永久泄漏**，
+        本进程计数已归零（以为没持有），其它 worker 却等满 180s 超时（13_08 并行实测：
+        一组 platform 用例出现 58 次「等待数据库门超时」）。
 
         Args:
             write: 独占 True，共享 False。
@@ -343,26 +365,75 @@ class DbGate:
             RuntimeError: 释放模式与持有模式不一致。
         """
         if write:
-            if not self._write_depth:
-                raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {WRITE}")
-            self._write_depth -= 1
-            if self._write_depth:
+            with self._count_lock:
+                if not self._write_depth:
+                    raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {WRITE}")
+                self._write_depth -= 1
+                remaining = self._write_depth
+                if not remaining:
+                    # 写门内取得的读份额是**借用**（没有独立的内核共享锁），随写门一并作废。
+                    # 不做「释放独占后重新取共享」的降级：两步之间没有原子性，等门的写者会插进来，
+                    # 本进程随即阻塞等到超时（13_08 并行实测：降级路径导致 180s 门超时）。需要保持读语义
+                    # 的调用方（`upgrade_to_write`）在写门退出后**显式重新取读门**。
+                    self._read_depth = 0
+            if remaining:
                 return
-            await asyncio.to_thread(self._backend.release)
-            if self._read_depth:
-                # 写门退出但仍有读份额：降级为读门，保持读语义
-                await asyncio.to_thread(self._wait_and_lock, False)
+            self._backend.release()
             return
-        if not self._read_depth:
-            raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {READ}")
-        self._read_depth -= 1
-        if self._read_depth or self._write_depth:
+        with self._count_lock:
+            if not self._read_depth:
+                raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {READ}")
+            self._read_depth -= 1
+            remaining = self._read_depth
+            held_write = self._write_depth > 0
+        if remaining or held_write:
             return
-        await asyncio.to_thread(self._backend.release)
+        self._backend.release()
 
     def close(self) -> None:
         """关闭门（会话或进程退出时调用）。"""
         self._backend.close()
+        with contextlib.suppress(OSError):
+            self._holder_path.unlink()
+
+    def _record_holder(self, write: bool) -> None:
+        """记录当前持有者（诊断：等门告警 / 超时时打印持有者进程与获取位置）。
+
+        写独立文件而不是锁文件本体：字节锁区间与文件内容共用同一 fd 时，写入会移动偏移、影响
+        `UnlockFileEx` 的区间语义。诊断写盘失败不影响加解锁（失败即静默跳过）。
+
+        Args:
+            write: 独占 True，共享 False。
+        """
+        stack = traceback.format_stack()[-8:-2]
+        frames = " <- ".join(line.strip().splitlines()[0] for line in stack if line.strip())
+        payload = f"pid={os.getpid()} mode={WRITE if write else READ} at={time.strftime('%H:%M:%S')} | {frames}"
+        with contextlib.suppress(OSError):
+            self._holder_path.write_text(payload, encoding="utf-8")
+
+    def _describe_holder(self) -> str:
+        """读取持有者诊断信息（读不到时返回「未知」）。
+
+        Returns:
+            str: 持有者描述。
+        """
+        try:
+            return self._holder_path.read_text(encoding="utf-8")[:600]
+        except OSError:
+            return "未知（诊断文件不可读）"
+
+    def _log_wait(self, message: str) -> None:
+        """把等门告警 / 超时追加到诊断文件（pytest 会捕获 stdout，落文件才留得住）。
+
+        Args:
+            message: 告警内容。
+        """
+        line = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n"
+        with (
+            contextlib.suppress(OSError),
+            self._holder_path.with_name("gate-wait.log").open("a", encoding="utf-8") as handle,
+        ):
+            handle.write(line)
 
     def _wait_and_lock(self, write: bool) -> None:
         """阻塞等待直到拿到门（在工作线程中执行，不阻塞事件循环）。
@@ -381,8 +452,12 @@ class DbGate:
             now = time.monotonic()
             if not warned and now - started >= WARN_AFTER:
                 warned = True
-                print(f"[rwlock] 等待门 {self.name} 已 {now - started:.1f}s（另一个进程长期占用该库）")
+                message = f"[rwlock] 等待门 {self.name} 已 {now - started:.1f}s；持有者：{self._describe_holder()}"
+                print(message, flush=True)
+                self._log_wait(message)
             if now >= deadline:
-                raise TimeoutError(f"等待数据库门超时（{DEFAULT_TIMEOUT:.0f}s）：{self.name}")
+                message = f"等待数据库门超时（{DEFAULT_TIMEOUT:.0f}s）：{self.name}；持有者：{self._describe_holder()}"
+                self._log_wait(message)
+                raise TimeoutError(message)
             time.sleep(min(delay, max(deadline - now, 0.0)))
             delay = min(delay * 2, _RETRY_MAX)

@@ -27,6 +27,7 @@ def _isolate_gates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[
     Yields:
         None: 用例运行期。
     """
+
     def _gate_path(name: str) -> Path:
         """替身门路径（固定到本用例的临时目录）。"""
         return tmp_path / f"db-gate-{name}.lock"

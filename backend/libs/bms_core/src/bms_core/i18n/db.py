@@ -131,10 +131,14 @@ class DbTranslator(BaseTranslator):
     async def _session(self) -> AsyncGenerator[DbSession]:
         """租户库会话（统一会话入口）。
 
+        只读取文案，显式 `read_only=True`：13_08 起会话入口按只读标记取读门，未标记会按写门处理，
+        而 `load_messages` 常被错误响应 / 日志路径调用（此时请求可能已持读门），按写门取会报
+        「禁止原地升级」并把原始错误盖成语言包降级。
+
         Yields:
             DbSession: 租户库会话。
         """
-        async with session_scope(self._engines) as session:
+        async with session_scope(self._engines, read_only=True) as session:
             yield session
 
 

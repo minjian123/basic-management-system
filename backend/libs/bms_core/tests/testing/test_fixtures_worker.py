@@ -10,6 +10,8 @@ from collections.abc import Callable, Generator
 from typing import cast
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.id_bits import WORKER_BITS, WORKER_SHIFT
 from bms_core.testing import fixtures
@@ -84,3 +86,10 @@ def test_test_db_dir_isolation_channel_under_cache(monkeypatch: pytest.MonkeyPat
     directory = fixtures.test_db_dir()
     assert directory.parent.name == ".cache"
     assert directory.name == fixtures._ISOLATED_DIRNAME  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2533)
+async def test_shared_platform_engine_yields_engine_without_gate(shared_platform_engine: AsyncEngine) -> None:
+    """共享平台库引擎夹具只给引擎、不取门（13_08）：直连可执行查询，不再整条用例持读门。"""
+    async with shared_platform_engine.connect() as conn:
+        assert (await conn.execute(text("SELECT 1"))).scalar_one() == 1

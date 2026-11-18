@@ -10,16 +10,22 @@
 5. SQLite 事务一律 `BEGIN IMMEDIATE`（`begin_write`）：「先读后写」的延迟事务在升级写锁时若他人
    持写锁会**立即** `database is locked`，`busy_timeout` 对升级死锁不等待；开头就拿写锁，冲突
    退化为 `busy_timeout` 下的短等待（共享引擎 30s）。
+6. **13_08：整段回滚区间在跨进程写门内执行**。回滚会话的写事务跨整条用例持有，与读写门是两套
+   互斥——不取门时其它 worker 的写会话会在 SQLite 层盲等 `busy_timeout`（30s，无诊断）；
+   取门后与经会话入口的写排同一条队，等门有 10s 告警 / 180s 超时。该夹具仍属**待淘汰**
+   （《测试规范》§2.1 第 9 条「回滚式隔离仅限登记用例」），新用例用命名空间隔离。
 """
 
 import contextlib
 from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import Any
 from unittest import mock
 
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 
 from bms_core.db.session import SessionFactory
+from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, write_gate
 
 
 class _ReuseScope:
@@ -96,9 +102,25 @@ def _patch_session_factory(session: AsyncSession) -> Any:
     return mock.patch.object(SessionFactory, "create", _create)
 
 
+def gate_for_engine(engine: AsyncEngine) -> str | None:
+    """按引擎库文件推断写门名（只认共享平台的 `platform` / `tenant` 两个逻辑数据源）。
+
+    Args:
+        engine: 目标库引擎。
+
+    Returns:
+        str | None: 门名；临时库 / 非 SQLite 返回 None（不取门）。
+    """
+    database = engine.url.database or ""
+    if not database or ":memory:" in database:
+        return None
+    stem = Path(database).stem
+    return stem if stem in (PLATFORM_GATE, TENANT_GATE) else None
+
+
 @contextlib.asynccontextmanager
 async def rollback_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
-    """开启回滚会话：用例结束整体回滚。
+    """开启回滚会话：用例结束整体回滚（整段区间在库写门内执行）。
 
     Args:
         engine: 目标库引擎。
@@ -109,16 +131,19 @@ async def rollback_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     Raises:
         Exception: 用例体内的异常原样抛出（回滚在 `finally` 中完成）。
     """
-    connection = await engine.connect()
-    transaction = await connection.begin()
-    # SQLite 延迟到首条 DML 才真正 BEGIN；显式开事务保证 savepoint 不成为最外层事务（`begin_write` 内
-    # 同时做「写锁前置」，口径见模块文档第 5 条）。
-    await begin_write(connection)
-    session = AsyncSession(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
-    try:
-        with _patch_session_factory(session):
-            yield session
-    finally:
-        await session.close()
-        await transaction.rollback()
-        await connection.close()
+    gate_name = gate_for_engine(engine)
+    scope = write_gate(gate_name) if gate_name is not None else contextlib.nullcontext()
+    async with scope:
+        connection = await engine.connect()
+        transaction = await connection.begin()
+        # SQLite 延迟到首条 DML 才真正 BEGIN；显式开事务保证 savepoint 不成为最外层事务（`begin_write` 内
+        # 同时做「写锁前置」，口径见模块文档第 5 条）。
+        await begin_write(connection)
+        session = AsyncSession(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
+        try:
+            with _patch_session_factory(session):
+                yield session
+        finally:
+            await session.close()
+            await transaction.rollback()
+            await connection.close()

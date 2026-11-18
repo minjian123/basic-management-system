@@ -132,6 +132,9 @@ def test_defaults_and_sections(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BMS_SECURITY__ACTIVE_KID", raising=False)
     for key in ("BMS_DATABASE__PLATFORM__URL", "BMS_DATABASE__TENANTS__URL"):
         monkeypatch.delenv(key, raising=False)
+    # 事件消费运行时在测试基座默认关闭（13_08：单测无消息平台对端，装配期不启动真实拉取）；
+    # 本用例断言的是**配置文件分层后的取值**，故先还原该键再构造。
+    monkeypatch.delenv("BMS_EVENT_CONSUMER__ENABLED", raising=False)
     settings = Settings()
     assert settings.app.name == "BMS 基础管理系统"
     assert settings.app.env == "dev"

@@ -192,16 +192,16 @@ async def test_release_write_without_holding_raises(tmp_path: Path) -> None:
         await gate.release(write=True)
 
 
-async def test_release_write_keeps_read_share(tmp_path: Path) -> None:
-    """写门释放时仍有读份额：降级为读门，而不是把底层锁一并放掉。"""
+async def test_release_write_drops_borrowed_read_share(tmp_path: Path) -> None:
+    """写门内借用的读份额随写门一起作废（不降级：降级两步无原子性，会被等门者插入而死等）。"""
     gate = _gate(tmp_path)
     await gate.acquire(write=True)
     await gate.acquire(write=False)
 
     await gate.release(write=True)
-    assert gate.mode == rwlock.READ
-    await gate.release(write=False)
     assert gate.mode is None
+    with pytest.raises(RuntimeError, match="释放模式不匹配"):
+        await gate.release(write=False)
 
 
 async def test_read_gates_run_concurrently(tmp_path: Path) -> None:

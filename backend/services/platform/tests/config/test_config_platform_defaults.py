@@ -30,7 +30,6 @@ from bms_core.testing.schema import ensure_tables
 from bms_platform.domains.platform_config.repositories.config import ConfigRepository
 from bms_platform.domains.platform_config.schemas.config import ConfigUpdateRequest
 from bms_platform.domains.platform_config.services.config import ConfigAdminService
-from tests_support.locks import file_lock
 
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList((cast("Table", SysConfig.__table__),))
 """本文件涉及的表（幂等建表集）。"""
@@ -40,9 +39,6 @@ _KEYS = ("session.max_active", "account.inactive_lock_days", "ai.auto_execute", 
 
 _DEFAULTS = {item.config_key: item.value for item in PLATFORM_CONFIG_DEFAULTS}
 """参数键 → 平台默认值。"""
-
-_LOCK_NAME = "config-platform-defaults"
-"""跨进程锁名（共享租户库上这些固定键是全局状态，必须整体串行）。"""
 
 
 async def _restore(db: AsyncSession) -> None:
@@ -61,24 +57,29 @@ async def _restore(db: AsyncSession) -> None:
 
 
 @pytest_asyncio.fixture
-async def session(tenant_db: str, shared_tenant_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+async def session(
+    tenant_db: str, shared_tenant_engine: AsyncEngine, tenant_db_write: None
+) -> AsyncIterator[AsyncSession]:
     """共享租户库会话（幂等建表 + 用例前后复位平台默认键）。
+
+    平台默认键是共享库上的**全局状态**，整段临界区由用例级租户库写门独占（13_08 起替代原同名
+    文件锁：写门独占语义相同，取放更快且不留残锁）。
 
     Args:
         tenant_db: 共享租户库连接串（套件夹具已注入 `BMS_DATABASE__TENANTS__URL`）。
         shared_tenant_engine: 共享租户库引擎（基座夹具，不在此自建引擎）。
+        tenant_db_write: 租户库写门（用例级读门上升级；本夹具直连引擎写库必须在写门内）。
 
     Yields:
         AsyncSession: 会话。
     """
     del tenant_db
-    with file_lock(_LOCK_NAME):
-        await ensure_tables(shared_tenant_engine, _TABLES)
-        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-        async with factory() as db:
-            await _restore(db)
-            yield db
-            await _restore(db)
+    await ensure_tables(shared_tenant_engine, _TABLES)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    async with factory() as db:
+        await _restore(db)
+        yield db
+        await _restore(db)
 
 
 def _service(session: AsyncSession) -> ConfigAdminService:

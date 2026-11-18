@@ -14,7 +14,7 @@
 
 from typing import Annotated, cast
 
-from fastapi import Depends, Header, Query
+from fastapi import Depends, Header, Query, Request
 
 from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import (
@@ -35,7 +35,8 @@ from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.datasource.keys import DataSourceKey
-from bms_core.db.session import DbSession
+from bms_core.db.registry import EngineRegistry
+from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import TenantContext, current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.dict.invalidate import DictInvalidator, get_dict_invalidator
@@ -103,6 +104,7 @@ router = BaseRouter(
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 PlatformUowDep = Annotated[UnitOfWork, Depends(get_platform_uow)]
 ReadDbDep = Annotated[DbSession, Depends(get_read_db)]
+"""请求级只读会话（纯读端点用；写端点不得注入——yield 依赖的读门会覆盖整请求）。"""
 ConfigDep = Annotated[BaseConfigSource, Depends(get_config_source)]
 CacheDep = Annotated[CacheRegion, Depends(get_cache_region)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
@@ -226,7 +228,7 @@ def _grant_service(
 
 
 async def _require_role_operator(
-    db: ReadDbDep,
+    request: Request,
     audit: AuditDep,
 ) -> None:
     """操作人侧护栏依赖：系统 / 审计管理员不得进入角色域写端点（`30048`）。
@@ -235,14 +237,20 @@ async def _require_role_operator(
     端点服务再 `uow.begin()` 即抛 `InvalidRequestError`（同 `RbacPermissionChecker.aprepare`
     以独立会话取数的既有口径）。
 
+    **会话在依赖内即开即关**（不用 `get_read_db` 依赖）：`Depends` 的 yield 依赖生命周期延伸到
+    响应结束，读门会因此覆盖整个写请求，端点再取写门即报「禁止原地升级」（13_08 实测
+    `test_role_api.py` 10 条失败）。
+
     Args:
-        db: 租户库只读会话（`sys_user_role` / `sys_role`）。
+        request: 当前请求（取引擎注册表）。
         audit: 审计捕获器（拒绝尝试留痕）。
 
     Raises:
         RoleSeparationConflictError: 操作人为系统 / 审计管理员且非安全管理员。
     """
-    await _separation_guard(db, audit=audit).ensure_role_domain_operator()
+    registry = cast("EngineRegistry", request.app.state.engine_registry)
+    async with session_scope(registry, read_only=True) as session:
+        await _separation_guard(session, audit=audit).ensure_role_domain_operator()
 
 
 _ROLE_DOMAIN_GUARD = Depends(_require_role_operator)

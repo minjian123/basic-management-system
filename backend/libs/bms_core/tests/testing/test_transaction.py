@@ -164,3 +164,21 @@ async def test_begin_write_skips_other_dialects() -> None:
             raise AssertionError(f"不应下发 SQL：{statement}")
 
     await begin_write(cast("AsyncConnection", _Connection()))
+
+
+@pytest.mark.kiwi_id(2317)
+async def test_gate_for_engine_maps_shared_db_only() -> None:
+    """写门推断：只认共享 `platform` / `tenant` 库文件；临时库 / 内存库 / 无库名不取门。"""
+    cases = (
+        ("sqlite+aiosqlite:///.cache/test/platform.db", "platform"),
+        ("sqlite+aiosqlite:///.cache/test/tenant.db", "tenant"),
+        ("sqlite+aiosqlite:///tmp/other.db", None),
+        ("sqlite+aiosqlite://", None),
+        ("sqlite+aiosqlite:///:memory:", None),
+    )
+    for url, expected in cases:
+        engine = create_async_engine(url)
+        try:
+            assert transaction_module.gate_for_engine(engine) == expected, url
+        finally:
+            await engine.dispose()

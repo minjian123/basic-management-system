@@ -619,6 +619,15 @@ engine_factories = ["create_async_engine", "create_engine"]
 db_file_suffixes = [".db"]
 id_columns = ["id"]
 cleanup_calls = ["drop_all"]
+# 建表 DDL（13_08 扩围）：单库叠加下自建表集等同「自建库」
+ddl_calls = ["create_all"]
+# 原生 SQL 的 DDL 片段（小写比对）
+ddl_sql_patterns = ["truncate", "drop table"]
+# 假等待（13_08 扩围）：用例内 sleep 取代确定性断言
+wait_calls = ["sleep"]
+# 存量基线（只减不增）：按「文件 + 规则码」计数，治理后跑 --update-baseline 递减
+baseline = "deploy/boundaries/test_db_isolation_baseline.json"
+baseline_version = 1
 exclude_parts = ["__pycache__", ".venv", "node_modules", ".git"]
 # 共享测试基座：职责就是建库（04-6-2 单源准备集），不参与「用例自建库」判定
 base_modules = ["backend/tests_support/shared_db.py"]
