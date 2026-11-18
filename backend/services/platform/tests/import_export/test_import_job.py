@@ -54,9 +54,8 @@ from bms_platform.imports import build_import_definitions
 
 pytestmark = [
     pytest.mark.kiwi_id(2401),
-    pytest.mark.usefixtures("tenant_db_write"),
-    # 共享库 + 作业内部自开事务写 sys_user：同文件用例固定同一 worker 串行（04-6-2 既有口径），
-    # 避免同文件内不同 worker 互相抢 SQLite 写锁（实测表现为 `database is locked` → 作业判 failed）。
+    # 作业会话一进事务就 `BEGIN IMMEDIATE`（见 `session_context`）：跨 worker 的写冲突退化为
+    # `busy_timeout` 下的短等待，不再需要整条用例持写门（13_08）。
     pytest.mark.xdist_group("import-job"),
 ]
 
@@ -134,17 +133,15 @@ def _unused(*_args: object, **_kwargs: object) -> UserAdminService:
 
 
 @pytest_asyncio.fixture
-async def job_env(shared_tenant_engine: AsyncEngine, tenant_db_write: None) -> AsyncIterator[JobEnv]:
+async def job_env(shared_tenant_engine: AsyncEngine) -> AsyncIterator[JobEnv]:
     """作业执行环境（注册表 / 会话 / 源文件）。
 
-    显式依赖 `tenant_db_write`：作业在 fixture 作用域内自己开事务写 `sys_user`，
-    若只靠 `pytestmark` 的 usefixtures，声明在夹具准备阶段还读不到（插件按调用阶段取锁）。
+    作业自身在 `session_context` 里一进事务就 `BEGIN IMMEDIATE`，跨 worker 的写冲突退化为
+    `busy_timeout` 下的短等待，不依赖整条用例持写门（13_08）。
 
     Args:
         shared_tenant_engine: 共享租户库引擎。
-        tenant_db_write: 租户库写锁声明（实际持锁在调用阶段）。
     """
-    del tenant_db_write
     tables: list[Table] = cast(  # bare-collections:allow（SQLAlchemy 表清单）
         "list[Table]",
         [

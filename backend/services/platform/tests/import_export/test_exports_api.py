@@ -48,16 +48,17 @@ from bms_core.print.templates import BuiltinPrintTemplateProvider
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.storage.local import LocalObjectStorage
 from bms_core.testing.fixtures import clear_tenant_cache
+from bms_core.testing.gates import write_window
+from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
 from bms_core.transfer.openpyxl_exporter import OpenpyxlExporter
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
 from tests_support.permission_admin import setup_min_tenant
 
-pytestmark = [pytest.mark.kiwi_id(2402), pytest.mark.usefixtures("tenant_db_write")]
+pytestmark = pytest.mark.kiwi_id(2402)
 
 API = "/api/v1/exports"
-_TENANT_SEED = "t-export"
 
 
 class _Config(BaseConfigSource):
@@ -124,6 +125,7 @@ class _Env:
     config: _Config
     limiter: MemoryRateLimiter
     factory: async_sessionmaker[AsyncSession]
+    seed: str
 
 
 def _body_rows(
@@ -166,6 +168,7 @@ def _masker(allow_plain: bool) -> DefaultMasker:
 @pytest_asyncio.fixture
 async def env(
     shared_tenant_engine: AsyncEngine,
+    ns: Namespace,
     shared_tenant_db_url: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -184,6 +187,7 @@ async def env(
     service_app = ApplicationFactory().create(None)
     clear_tenant_cache(service_app)
     factory = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    seed = ns.code("export")
     config = _Config()
     limiter = MemoryRateLimiter()
     storage = LocalObjectStorage(root=tmp_path / "storage")
@@ -209,24 +213,25 @@ async def env(
             AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client,
         ):
             client.headers.update(auth_headers())
-            async with factory() as session:
+            # 造数是本文件唯一的写：只把这一段放进写门（13_08，替代整条用例持门）
+            async with write_window("tenant_demo"), factory() as session:
                 session.add_all(
                     [
                         SysUser(
-                            form_key=f"{_TENANT_SEED}-{index}",
+                            form_key=f"{seed}-{index}",
                             username=f"user{index}",
                             password_hash="x",
                             name=f"用户{index}",
                             status="enabled",
                             phone=f"1380000000{index}",
-                            email=f"{_TENANT_SEED}-{index}@example.com",
+                            email=f"{seed}-{index}@example.com",
                         )
                         for index in range(1, 4)
                     ]
                 )
                 session.add(
                     SysRole(
-                        form_key=f"{_TENANT_SEED}-role",
+                        form_key=f"{seed}-role",
                         code="r_demo",
                         name="演示角色",
                         status="enabled",
@@ -234,7 +239,7 @@ async def env(
                     )
                 )
                 await session.commit()
-            yield _Env(client=client, app=service_app, config=config, limiter=limiter, factory=factory)
+            yield _Env(client=client, app=service_app, config=config, limiter=limiter, factory=factory, seed=seed)
     finally:
         service_app.dependency_overrides.clear()
         clear_tenant_cache(service_app)
@@ -243,10 +248,11 @@ async def env(
 async def test_export_excel_stream_and_rows(env: _Env) -> None:
     """同步导出 Excel：文件流 + 行数 = 列表总数（含表头）。
 
-    统计范围限定为本夹具的唯一关键字（`_TENANT_SEED` 命中邮箱）：测试基座是多 worker
-    共用一份 SQLite，全库行数会被其他 worker 的并发写入改变，不能作为断言语义。
+    统计范围限定为本夹具的命名空间派生关键字（`ns.code("export")` 命中邮箱）：测试基座是多 worker
+    共用一份 SQLite，全库行数会被其他 worker 的并发写入改变；也不能用固定前缀——同一库跨多轮运行
+    会累积到同一批行，超过导出上限后「导出行数 = 列表总数」不再成立。
     """
-    filters = {"kw": _TENANT_SEED}
+    filters = {"kw": env.seed}
     response = await env.client.get(f"{API}/users", params=filters)
     assert response.status_code == 200, response.text
     assert response.headers["content-type"].startswith(

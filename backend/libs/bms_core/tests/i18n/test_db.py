@@ -16,6 +16,7 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.i18n.db import DbTranslator
 from bms_core.i18n.null import NullLocaleRegistry
 from bms_core.models.platform.i18n import SysI18nMessage
+from bms_core.testing.gates import write_window
 from bms_core.testing.namespace import Namespace
 
 pytestmark = pytest.mark.kiwi_id(2533)
@@ -58,15 +59,12 @@ class _TenantEngines:
         return self._engine
 
 
-async def test_load_messages_reads_tenant_db(
-    shared_tenant_engine: AsyncEngine, tenant_db_write: None, ns: Namespace
-) -> None:
+async def test_load_messages_reads_tenant_db(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
     """缓存未命中时回源租户库：取数走只读会话并回填缓存。"""
-    del tenant_db_write
     locale = f"{ns.prefix}zh"[:16]
     key = ns.code("common-ok")
     factory = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
+    async with write_window("tenant_demo"), factory() as session:
         session.add(SysI18nMessage(msg_key=key, locale=locale, value="有值"))
         await session.commit()
 
@@ -78,15 +76,12 @@ async def test_load_messages_reads_tenant_db(
     assert dict(await translator.load_messages(locale)) == {key: "有值"}
 
 
-async def test_load_messages_reuses_cache(
-    shared_tenant_engine: AsyncEngine, tenant_db_write: None, ns: Namespace
-) -> None:
+async def test_load_messages_reuses_cache(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
     """同语言二次取数命中缓存：不再回源（库内新增文案本轮不可见）。"""
-    del tenant_db_write
     locale = f"{ns.prefix}en"[:16]
     key = ns.code("common-cached")
     factory = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
+    async with write_window("tenant_demo"), factory() as session:
         session.add(SysI18nMessage(msg_key=key, locale=locale, value="首版"))
         await session.commit()
 
@@ -96,7 +91,7 @@ async def test_load_messages_reuses_cache(
     )
     assert dict(await translator.load_messages(locale)) == {key: "首版"}
 
-    async with factory() as session:
+    async with write_window("tenant_demo"), factory() as session:
         session.add(SysI18nMessage(msg_key=ns.code("common-later"), locale=locale, value="后加"))
         await session.commit()
 
