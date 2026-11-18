@@ -258,32 +258,20 @@ async def test_dispatch_failure_to_dead_letter(session: DbSession, registry: Eng
 async def test_dispatch_reports_dead_letter_gauges(session: DbSession, registry: EngineRegistry) -> None:
     """待处置死信：按来源 / 库键发条数与最老时长；已处置不计。"""
     old = _utc_now().replace(microsecond=0) - timedelta(hours=30)
-    session.add_all(
-        [
+    for event_id, status in (("dl1", "pending"), ("dl2", "replayed")):
+        session.add(
             SysEventDeadLetter(
                 source="consumer",
-                event_id="dl1",
+                event_id=event_id,
                 event_type="sys.operation.logged",
                 consumer="audit-chain",
                 payload=ConcurrentStableDict({"tenant_id": "1001"}),
                 error_msg="boom",
                 retry_count=3,
-                status="pending",
+                status=status,
                 occurred_at=old,
-            ),
-            SysEventDeadLetter(
-                source="consumer",
-                event_id="dl2",
-                event_type="sys.operation.logged",
-                consumer="audit-chain",
-                payload=ConcurrentStableDict({"tenant_id": "1001"}),
-                error_msg="boom",
-                retry_count=3,
-                status="replayed",
-                occurred_at=old,
-            ),
-        ]
-    )
+            )
+        )
     await session.commit()
     metrics = RecordingMetrics()
     dispatcher = _build_dispatcher(registry, RecordingPublisher(), metrics=metrics)
