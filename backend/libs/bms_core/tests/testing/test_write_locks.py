@@ -1,127 +1,57 @@
-"""用例级写锁声明与持锁口径用例（Kiwi 2508）：声明去重 / 整条用例锁 / 插件取放锁。
+"""直连写门夹具用例（Kiwi 2508）：`platform_db_write` / `tenant_db_write` 的升级语义。
 
-口径见《测试规范》§2.1.6 第 9 条与 `bms_core.testing.write_locks` 模块文档。
+13_08 起「整条用例持锁」与「声明机制」已删除：写门由会话入口按一次写操作取放；
+本文件只验证保留下来的两个升级夹具（供直连共享引擎的用例使用）。
 """
 
 from __future__ import annotations
 
-from collections.abc import Generator
-from contextlib import contextmanager
-from typing import Any, cast
+from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.testing import plugin, write_locks
+from bms_core.testing import gates, plugin, rwlock
 
 pytestmark = pytest.mark.kiwi_id(2508)
 
 
-class _Node:
-    """用例节点替身（只承载写锁声明属性）。"""
+@pytest.fixture(autouse=True)
+def _isolate_gates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """每个用例用独立门目录，并在前后清空单例。
+
+    Args:
+        tmp_path: 临时目录。
+        monkeypatch: pytest 补丁夹具。
+
+    Yields:
+        None: 用例运行期。
+    """
+    def _gate_path(name: str) -> Path:
+        """替身门路径（固定到本用例的临时目录）。"""
+        return tmp_path / f"db-gate-{name}.lock"
+
+    monkeypatch.setattr(gates, "gate_path", _gate_path)
+    gates.reset_gates()
+    yield
+    gates.reset_gates()
 
 
-class _Item:
-    """用例替身（插件钩子只读声明清单）。"""
-
-    def __init__(self) -> None:
-        """初始化空声明清单。"""
-        self.node = _Node()
+def test_upgrade_fixtures_registered() -> None:
+    """两个升级夹具在插件导出面注册（`-p` 加载后可直接请求）。"""
+    assert "platform_db_write" in plugin.__all__
+    assert "tenant_db_write" in plugin.__all__
 
 
-def test_declare_appends_and_dedupes() -> None:
-    """声明只追加未登记过的锁名（重复声明不产生重复项）。"""
-    item = cast("Any", _Item())
+async def test_platform_db_write_holds_write_gate(platform_db_write: None) -> None:
+    """请求夹具后处于平台库写门内。"""
+    del platform_db_write
 
-    write_locks.declare(item, write_locks.PLATFORM_WRITE_LOCK)
-    write_locks.declare(item, write_locks.PLATFORM_WRITE_LOCK, write_locks.TENANT_WRITE_LOCK)
-
-    assert list(write_locks.declared_locks(item.node)) == [
-        write_locks.PLATFORM_WRITE_LOCK,
-        write_locks.TENANT_WRITE_LOCK,
-    ]
+    assert gates.gate(gates.PLATFORM_GATE).mode == rwlock.WRITE
 
 
-def test_declared_locks_is_stable_per_node() -> None:
-    """同一节点多次读取返回同一清单（就地可变，不重复建）。"""
-    node = cast("Any", _Node())
+async def test_tenant_db_write_holds_write_gate(tenant_db_write: None) -> None:
+    """请求夹具后处于租户库写门内。"""
+    del tenant_db_write
 
-    first = write_locks.declared_locks(node)
-    second = write_locks.declared_locks(node)
-
-    assert first is second
-    assert list(first) == []
-
-
-def test_declaration_fixtures_register_their_lock(request: pytest.FixtureRequest) -> None:
-    """`platform_db_write` / `tenant_db_write` 只做声明（按库登记锁名）。"""
-    request.getfixturevalue("platform_db_write")
-    request.getfixturevalue("tenant_db_write")
-
-    assert list(write_locks.declared_locks(cast("Any", request).node)) == [
-        write_locks.PLATFORM_WRITE_LOCK,
-        write_locks.TENANT_WRITE_LOCK,
-    ]
-
-
-def test_platform_whole_lifecycle_fixture_takes_real_lock(request: pytest.FixtureRequest) -> None:
-    """整条用例口径的平台库夹具真实持锁，取放均不阻塞。"""
-    request.getfixturevalue("platform_db_write_whole")
-
-
-def test_tenant_whole_lifecycle_fixture_takes_real_lock(request: pytest.FixtureRequest) -> None:
-    """整条用例口径的租户库夹具真实持锁，取放均不阻塞。"""
-    request.getfixturevalue("tenant_db_write_whole")
-
-
-def test_serial_db_write_takes_both_locks(request: pytest.FixtureRequest) -> None:
-    """保守出口同时持两把写锁（固定「平台 → 租户」顺序，避免死锁）。"""
-    request.getfixturevalue("serial_db_write")
-
-
-def test_runtest_call_acquires_declared_locks(monkeypatch: pytest.MonkeyPatch) -> None:
-    """插件在用例调用阶段按声明取锁，结束后释放（顺序与声明一致）。"""
-    events: ConcurrentStableList[str] = ConcurrentStableList()
-
-    @contextmanager
-    def _fake_lock(name: str, *, timeout: float | None = None) -> Generator[None]:
-        del timeout
-        events.append(f"acquire:{name}")
-        try:
-            yield
-        finally:
-            events.append(f"release:{name}")
-
-    monkeypatch.setattr(plugin.write_locks, "file_lock", _fake_lock)
-    item = cast("Any", _Item())
-    write_locks.declared_locks(item).append(write_locks.TENANT_WRITE_LOCK)
-
-    generator = plugin.pytest_runtest_call(item)
-    next(generator)
-    assert events == [f"acquire:{write_locks.TENANT_WRITE_LOCK}"]
-    with pytest.raises(StopIteration):
-        next(generator)
-    assert events == [
-        f"acquire:{write_locks.TENANT_WRITE_LOCK}",
-        f"release:{write_locks.TENANT_WRITE_LOCK}",
-    ]
-
-
-def test_runtest_call_skips_without_declaration(monkeypatch: pytest.MonkeyPatch) -> None:
-    """未声明写锁的用例不取锁（钩子直接放行）。"""
-    events: ConcurrentStableList[str] = ConcurrentStableList()
-
-    @contextmanager
-    def _fake_lock(name: str, *, timeout: float | None = None) -> Generator[None]:
-        del timeout
-        events.append(name)
-        yield
-
-    monkeypatch.setattr(plugin.write_locks, "file_lock", _fake_lock)
-    item = cast("Any", _Item())
-
-    generator = plugin.pytest_runtest_call(item)
-    next(generator)
-    with pytest.raises(StopIteration):
-        next(generator)
-    assert events == []
+    assert gates.gate(gates.TENANT_GATE).mode == rwlock.WRITE

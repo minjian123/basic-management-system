@@ -43,18 +43,18 @@ _TENANT = "1001"
 @pytest.fixture
 async def i18n_session(
     shared_platform_engine: AsyncEngine,
-    platform_db_write_whole: None,
+    platform_db_write: None,
 ) -> AsyncIterator[AsyncSession]:
     """共享平台库上的回滚会话（整条用例持写锁）。
 
     Args:
         shared_platform_engine: 共享平台库引擎。
-        platform_db_write_whole: 平台库整条用例写锁（回滚会话准备阶段即开写事务）。
+        platform_db_write: 平台库整条用例写锁（回滚会话准备阶段即开写事务）。
 
     Yields:
         AsyncSession: 数据库会话。
     """
-    del platform_db_write_whole
+    del platform_db_write
     async with rollback_session(shared_platform_engine) as db:
         yield db
 

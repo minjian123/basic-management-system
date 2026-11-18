@@ -1,6 +1,10 @@
-"""统一会话入口测试（Kiwi 1050）：库键解析 / 读写角色透传 / 自定义会话工厂。"""
+"""统一会话入口测试（Kiwi 1050）：库键解析 / 读写角色透传 / 自定义会话工厂 / 方言分流。"""
+
+from typing import Annotated
 
 import pytest
+from fastapi import Depends, FastAPI
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -8,11 +12,13 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.context import reset_tenant_context, set_tenant_context
 from bms_core.db.engine import EngineFactory
-from bms_core.db.registry import EngineRegistry
-from bms_core.db.session import SessionFactory, session_scope
+from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
+from bms_core.db.session import DbSession, SessionFactory, get_db, session_scope
+from bms_core.db.sync import SyncSession
 from bms_core.db.tenant import TenantContext
 
 _MEMORY = "sqlite+aiosqlite:///:memory:"
+_DM_URL = "dm+dmPython://user:pass@127.0.0.1:5236/bms"
 
 
 def _settings() -> Settings:
@@ -91,3 +97,48 @@ async def test_session_scope_demo_fallback_explicit_key_and_read_only() -> None:
     assert RecordingRegistry.last_read_only is True
     assert "tenant_demo" in registry.active_keys()
     await registry.aclose()
+
+
+def _dm_settings() -> Settings:
+    """构造达梦（同步方言）配置：建引擎不建连，故无需真库。
+
+    Returns:
+        Settings: 平台库指向达梦 URL 的配置。
+    """
+    settings = Settings()
+    settings.database.platform.url = _DM_URL
+    settings.database.platform.replicas = ConcurrentStableList([_DM_URL])
+    return settings
+
+
+@pytest.mark.kiwi_id(1050)
+async def test_session_scope_sync_dialect_uses_sync_facade() -> None:
+    """同步方言经同步门面承载（验证方言分流与门的取放在同一入口内完成）。"""
+    registry = EngineRegistry(EngineFactory(_dm_settings()))
+    try:
+        async with session_scope(registry, db_key=PLATFORM_DB_KEY) as session:
+            assert isinstance(session, SyncSession)
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(1050)
+async def test_request_db_dependency_sync_dialect_uses_sync_facade() -> None:
+    """请求级依赖 `get_db` 在同步方言下返回同步门面。"""
+    registry = EngineRegistry(EngineFactory(_dm_settings()))
+    app = FastAPI()
+    app.state.engine_registry = registry
+    app.state.session_factory = SessionFactory()
+
+    @app.get("/db")
+    # bare-collections:allow（FastAPI 端点返回注解）
+    async def db(session: Annotated[DbSession, Depends(get_db)]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
+        return {"sync": isinstance(session, SyncSession)}
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/db")
+            assert response.status_code == 200
+            assert response.json() == {"sync": True}
+    finally:
+        await registry.aclose()

@@ -15,12 +15,13 @@
 """
 
 import os
-from collections.abc import Generator
-from contextlib import ExitStack
+from contextlib import AbstractAsyncContextManager
 
 import pytest
 
-from bms_core.testing import ddl, fixtures, write_locks
+from bms_core.db.gate import set_gate_hook
+from bms_core.db.registry import PLATFORM_DB_KEY
+from bms_core.testing import ddl, fixtures
 from bms_core.testing.fixtures import (
     clear_shared_db_files,
     clear_tenant_cache,
@@ -41,13 +42,8 @@ from bms_core.testing.fixtures import (
     tenant_db,
     test_db_dir,
 )
-from bms_core.testing.write_locks import (
-    platform_db_write,
-    platform_db_write_whole,
-    serial_db_write,
-    tenant_db_write,
-    tenant_db_write_whole,
-)
+from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, close_gates, read_gate, write_gate
+from bms_core.testing.write_locks import platform_db_write, tenant_db_write
 
 __all__ = (
     "clear_shared_db_files",
@@ -58,12 +54,10 @@ __all__ = (
     "ns",
     "platform_db",
     "platform_db_write",
-    "platform_db_write_whole",
     "project_root",
     "reset_plugin_registry",
     "reset_request_context",
     "resolve_prepare",
-    "serial_db_write",
     "shared_db_url",
     "shared_platform_db_url",
     "shared_platform_engine",
@@ -71,9 +65,22 @@ __all__ = (
     "shared_tenant_engine",
     "tenant_db",
     "tenant_db_write",
-    "tenant_db_write_whole",
     "test_db_dir",
 )
+
+
+def _gate_hook(db_key: str, read_only: bool) -> AbstractAsyncContextManager[None]:
+    """把会话入口的数据源键映射到读写门（13_08 注入点）。
+
+    Args:
+        db_key: 数据源键（平台库键或租户库键）。
+        read_only: 是否只读。
+
+    Returns:
+        AbstractAsyncContextManager[None]: 读门或写门上下文。
+    """
+    name = PLATFORM_GATE if db_key == PLATFORM_DB_KEY else TENANT_GATE
+    return read_gate(name) if read_only else write_gate(name)
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -96,6 +103,8 @@ def pytest_configure(config: pytest.Config) -> None:
     from bms_core.testing.coverage_guard import assert_entrypoint
 
     assert_entrypoint(config)
+    # 13_08：把会话入口的数据库访问接到跨进程读写门（生产侧是直通钩子，只在测试会话注入）
+    set_gate_hook(_gate_hook)
     # 共享测试库基址钉在会话起始的工程根：用例 `chdir` 后解析夹具也不会把库落到临时目录
     # （否则表现为随机的「no such table」；见 `fixtures.configure_project_root`）。
     fixtures.configure_project_root(os.getcwd())
@@ -124,23 +133,12 @@ def pytest_configure(config: pytest.Config) -> None:
             print(f"[bms_testing_plugin] 共享测试库清理失败（Windows 句柄占用），本次改用新库：{failed}")
 
 
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_call(item: pytest.Item) -> Generator[None]:
-    """在**用例调用阶段**持有该用例声明的写锁（准备 / 清理阶段不持锁）。
-
-    为什么放在钩子里而不是夹具里：夹具的生命周期横跨「准备 → 调用 → 清理」，把几个秒级的
-    夹具准备（建表 / 造种子 / 装配应用）也算进临界区，等于让整轮并行退化为串行（2026-11-15
-    实测：持锁 97.9s 中约 88.7s 是夹具准备）。声明来自 `platform_db_write` / `tenant_db_write`
-    两个夹具，本钩子只负责按声明取锁与放锁。
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """会话结束：撤销数据库门钩子并关闭门句柄。
 
     Args:
-        item: 用例节点。
+        config: pytest 配置对象（未使用，保留签名）。
     """
-    names = write_locks.declared_locks(item)
-    if not names:
-        yield
-        return
-    with ExitStack() as stack:
-        for name in names:
-            stack.enter_context(write_locks.file_lock(name))
-        yield
+    del config
+    set_gate_hook(None)
+    close_gates()

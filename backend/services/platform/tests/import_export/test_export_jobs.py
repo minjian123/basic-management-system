@@ -36,7 +36,7 @@ from bms_core.transfer.openpyxl_exporter import OpenpyxlExporter
 from bms_platform.domains.import_export.export_jobs import ExportCleanupJob, ExportExecuteJob
 from bms_platform.domains.import_export.services.exports import JOB_TYPE, KIND_EXCEL, ExportPayload
 
-pytestmark = [pytest.mark.kiwi_id(2402), pytest.mark.usefixtures("tenant_db_write_whole")]
+pytestmark = [pytest.mark.kiwi_id(2402), pytest.mark.usefixtures("tenant_db_write")]
 """导出作业含产物清理：清理作业按类型**全局扫描**，夹具准备阶段就会造过期行，
 锁必须覆盖准备 / 清理全程，否则并行下会把别的用例刚造的行当作自己的批次处理。"""
 

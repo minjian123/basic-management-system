@@ -35,6 +35,7 @@ from bms_core.core.context import (
 from bms_core.core.id import MAX_WORKER_ID, id_generator
 from bms_core.permission.cache import reset_permission_cache_store
 from bms_core.testing import namespace as namespace_module
+from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, gate, read_gate
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.paths import configure_project_root, project_root
 
@@ -633,6 +634,9 @@ async def shared_platform_engine(shared_platform_db_url: str) -> AsyncIterator[A
     为什么放在基座：单库叠加口径下，用例**不得**自己 `create_async_engine`（护栏 G1 拦），
     需要直连共享库时一律经本夹具；`NullPool` 保证用例结束后连接不残留未提交事务。
 
+    13_08：夹具生命周期内持**平台库读门**，与其它读者并发；需要写的用例声明 ``platform_db_write``
+    升级为写门（升级由 `bms_core.testing.gates.upgrade_to_write` 完成，禁止原地升级）。
+
     Args:
         shared_platform_db_url: 共享平台库连接串（会话级）。
 
@@ -641,7 +645,12 @@ async def shared_platform_engine(shared_platform_db_url: str) -> AsyncIterator[A
     """
     engine = create_async_engine(shared_platform_db_url, poolclass=NullPool, connect_args={"timeout": 30})
     try:
-        yield engine
+        if gate(PLATFORM_GATE).mode is not None:
+            # 用例已通过 `platform_db_write` 等夹具持门：本夹具不再叠加读门，避免夹具顺序造成冲突
+            yield engine
+        else:
+            async with read_gate(PLATFORM_GATE):
+                yield engine
     finally:
         await engine.dispose()
 
@@ -649,6 +658,8 @@ async def shared_platform_engine(shared_platform_db_url: str) -> AsyncIterator[A
 @pytest.fixture
 async def shared_tenant_engine(shared_tenant_db_url: str) -> AsyncIterator[AsyncEngine]:
     """共享租户库引擎（用例级，`NullPool`）。
+
+    13_08：夹具生命周期内持**租户库读门**；需要写的用例声明 ``tenant_db_write`` 升级为写门。
 
     Args:
         shared_tenant_db_url: 共享租户库连接串（会话级）。
@@ -658,7 +669,12 @@ async def shared_tenant_engine(shared_tenant_db_url: str) -> AsyncIterator[Async
     """
     engine = create_async_engine(shared_tenant_db_url, poolclass=NullPool, connect_args={"timeout": 30})
     try:
-        yield engine
+        if gate(TENANT_GATE).mode is not None:
+            # 用例已通过 `tenant_db_write` 等夹具持门：本夹具不再叠加读门，避免夹具顺序造成冲突
+            yield engine
+        else:
+            async with read_gate(TENANT_GATE):
+                yield engine
     finally:
         await engine.dispose()
 

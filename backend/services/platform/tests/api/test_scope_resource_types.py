@@ -32,19 +32,19 @@ SNAPSHOT = "/api/v1/modules/snapshot"
 async def _shared_rollback(
     service_app: FastAPI,
     shared_platform_engine: AsyncEngine,
-    platform_db_write_whole: None,
+    platform_db_write: None,
 ) -> AsyncIterator[None]:
     """共享平台库回滚会话（整条用例持写锁；应用装配完成后再开事务）。
 
     Args:
         service_app: 平台应用实例（先装配，启动期写入先落库）。
         shared_platform_engine: 共享平台库引擎。
-        platform_db_write_whole: 平台库整条用例写锁。
+        platform_db_write: 平台库整条用例写锁。
 
     Yields:
         None: 回滚会话区间。
     """
-    del service_app, platform_db_write_whole
+    del service_app, platform_db_write
     async with rollback_session(shared_platform_engine):
         yield
 

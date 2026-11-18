@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.core.context import is_read_only
 from bms_core.core.exceptions import DatabaseUnavailableError
 from bms_core.core.factory import BaseDbFactory
+from bms_core.db.gate import db_access_gate
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.keys import ARCHIVE_DB_KEY
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
@@ -141,16 +142,17 @@ async def _open_session(
     """
     registry = cast(EngineRegistry, request.app.state.engine_registry)
     resolved = db_key or _resolve_db_key(request)
-    if registry.is_sync_only(resolved):
-        await _guard_degraded(request, resolved, read_only=read_only)
-        engine = await registry.get_sync(resolved, read_only=read_only)
-        async with sync_session_scope(engine) as sync_session:
-            yield sync_session
-        return
-    engine = await _resolve_engine(request, registry, read_only=read_only, db_key=resolved)
-    factory = cast("SessionFactory | None", getattr(request.app.state, "session_factory", None)) or SessionFactory()
-    async with factory.create(engine)() as session:
-        yield session
+    async with db_access_gate(resolved, read_only=read_only):
+        if registry.is_sync_only(resolved):
+            await _guard_degraded(request, resolved, read_only=read_only)
+            engine = await registry.get_sync(resolved, read_only=read_only)
+            async with sync_session_scope(engine) as sync_session:
+                yield sync_session
+            return
+        engine = await _resolve_engine(request, registry, read_only=read_only, db_key=resolved)
+        factory = cast("SessionFactory | None", getattr(request.app.state, "session_factory", None)) or SessionFactory()
+        async with factory.create(engine)() as session:
+            yield session
 
 
 async def get_db(request: Request) -> AsyncIterator[DbSession]:
@@ -301,12 +303,13 @@ async def session_scope(
         DbSession: 会话（异步会话或同步方言下的同步门面）。
     """
     resolved = db_key if db_key is not None else current_tenant_context().db_key
-    if registry.is_sync_only(resolved):
-        sync_engine = await registry.get_sync(resolved, read_only=read_only)
-        async with sync_session_scope(sync_engine) as sync_session:
-            yield sync_session
-        return
-    engine = await registry.get(resolved, read_only=read_only)
-    session_factory = factory if factory is not None else SessionFactory()
-    async with session_factory.create(engine)() as session:
-        yield session
+    async with db_access_gate(resolved, read_only=read_only):
+        if registry.is_sync_only(resolved):
+            sync_engine = await registry.get_sync(resolved, read_only=read_only)
+            async with sync_session_scope(sync_engine) as sync_session:
+                yield sync_session
+            return
+        engine = await registry.get(resolved, read_only=read_only)
+        session_factory = factory if factory is not None else SessionFactory()
+        async with session_factory.create(engine)() as session:
+            yield session

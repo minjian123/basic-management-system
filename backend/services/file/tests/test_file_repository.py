@@ -35,7 +35,7 @@ _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
 
 
 @pytest.fixture(autouse=True)
-def _platform_db_write_whole(platform_db_write_whole: None) -> None:  # pyright: ignore[reportUnusedFunction]
+def _platform_db_write(platform_db_write: None) -> None:  # pyright: ignore[reportUnusedFunction]
     """整个文件声明写平台库：本文件用例全部「先读后写」（仓储 upsert / 软删 / 批量硬删）。
 
     单库叠加下 SQLite 的读→写升级冲突不等待，靠 `platform_db_write` 在调用阶段跨进程排队。

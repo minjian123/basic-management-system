@@ -47,19 +47,19 @@ API = "/api/v1/tenants"
 async def platform_ctx(
     service_app: FastAPI,
     shared_platform_engine: AsyncEngine,
-    platform_db_write_whole: None,
+    platform_db_write: None,
 ) -> AsyncIterator[tuple[AsyncSession, StubClient]]:
     """共享平台库回滚会话 + 依赖覆盖（整条用例持写锁）。
 
     Args:
         service_app: 租户服务应用实例。
         shared_platform_engine: 共享平台库引擎。
-        platform_db_write_whole: 平台库整条用例写锁。
+        platform_db_write: 平台库整条用例写锁。
 
     Yields:
         tuple[AsyncSession, StubClient]: （回滚会话, 服务间客户端替身）。
     """
-    del platform_db_write_whole
+    del platform_db_write
     async with rollback_session(shared_platform_engine) as session:
         stub = StubClient()
 
