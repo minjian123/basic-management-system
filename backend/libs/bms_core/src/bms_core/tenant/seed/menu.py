@@ -392,6 +392,17 @@ MENU_SEEDS: ConcurrentStableList[tuple[int, str, str, str, str | None, str | Non
                 False,
                 "archive",
             ),
+            (
+                11,
+                "/platform/recycle",
+                "回收站",
+                "Recycle bin",
+                "platform/recycle",
+                "el:delete",
+                5,
+                False,
+                "recycle",
+            ),
         )
     )
 )
@@ -448,6 +459,8 @@ BUTTON_SEEDS: ConcurrentStableList[tuple[str, str, str, str, int]] = ConcurrentS
         ("/platform/archive-logs", "销毁", "destroy", "interface", 3),
         ("/platform/archive-data", "查询", "query", "toolbar", 1),
         ("/platform/archive-data", "销毁", "destroy", "interface", 2),
+        ("/platform/recycle", "查询", "query", "toolbar", 1),
+        ("/platform/recycle", "恢复", "restore", "toolbar", 2),
     )
 )
 

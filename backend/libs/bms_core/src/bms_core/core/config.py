@@ -1476,6 +1476,26 @@ class ArchiveSettings(BaseSettings):
     """冷化对象 key 前缀。"""
 
 
+class RecycleSettings(BaseSettings):
+    """回收站运行参数（`[recycle]`；13_01）。
+
+    与能力选择段无关：本段只放**超期清理执行参数**，不参与插件装配；
+    保留期 / 批次 / 单轮上限 / running 超时统一走配置，不落 sys_config 同名键。
+    """
+
+    retention_days: int = Field(default=30, ge=1)
+    """软删除数据保留天数（清理截止 = 当前时刻 − 保留天数）。"""
+
+    batch_size: int = Field(default=500, ge=1)
+    """单表单批删除条数。"""
+
+    max_batch_rows: int = Field(default=10000, ge=1)
+    """单表单轮最多删除条数（剩余交下一轮）。"""
+
+    running_timeout_minutes: int = Field(default=60, ge=1)
+    """`running` 清理批次超时回收阈值（分钟）。"""
+
+
 class AuditCaptureSettings(BaseSettings):
     """字段级变更审计捕获参数（`[audit_capture]`；06_02）。
 
@@ -1940,6 +1960,8 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     archive_query_router: PluginSelection = Field(default_factory=PluginSelection)
     archive_options: ArchiveSettings = Field(default_factory=ArchiveSettings, validation_alias="archive")
     """归档执行与查询参数（TOML 段 `[archive]`；字段名不叫 `archive` 以免与插件名混淆）。"""
+    recycle_options: RecycleSettings = Field(default_factory=RecycleSettings, validation_alias="recycle")
+    """回收站清理参数（TOML 段 `[recycle]`；字段名不叫 `recycle` 以免与插件名混淆）。"""
     audit: PluginSelection = Field(default_factory=PluginSelection)
     audit_log: AuditLogSettings = Field(default_factory=AuditLogSettings)
     audit_capture: AuditCaptureSettings = Field(default_factory=AuditCaptureSettings)

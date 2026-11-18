@@ -25,6 +25,7 @@ MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.models.platform.log",
         "bms_core.models.platform.menu_form",
         "bms_core.models.platform.permission_meta",
+        "bms_core.models.platform.recycle",
         "bms_core.models.platform.release_manifest",
         "bms_core.models.platform.role",
         "bms_core.models.platform.task",

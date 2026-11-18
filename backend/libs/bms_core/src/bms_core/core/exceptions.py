@@ -2545,6 +2545,65 @@ class ArchiveQueryRangeExceededError(BizError):
         BizError.__init__(self, ErrorCode.ARCHIVE_QUERY_RANGE_EXCEEDED, message, http_status=400, data=data)
 
 
+class RecycleError(BizError):
+    """回收站子段（报表 / 审计段内 `950xx`）异常基类（13_01）。
+
+    只做语义归拢，不改变段位基；具体错误码由子类携带。
+    """
+
+
+class RecycleRecordNotFoundError(RecycleError):
+    """回收站记录不存在 / 未删除 / 已物理清理（`95001` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化记录不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.RECYCLE_RECORD_NOT_FOUND, message, http_status=404, data=data)
+
+
+class RecycleRestoreConflictError(RecycleError):
+    """恢复唯一冲突（`95002` / 409；唯一键被占用）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化恢复冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（冲突表 / 字段 / 冲突行主键清单）。
+        """
+        BizError.__init__(self, ErrorCode.RECYCLE_RESTORE_CONFLICT, message, http_status=409, data=data)
+
+
+class RecycleAlreadyRestoredError(RecycleError):
+    """数据已被其他操作恢复（`95003` / 409；并发保护）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化已恢复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.RECYCLE_ALREADY_RESTORED, message, http_status=409, data=data)
+
+
+class RecycleTableNotSupportedError(RecycleError):
+    """表不在回收站纳管范围 / 审计类数据 / 子表不可单独恢复（`95004` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化表不支持异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, ErrorCode.RECYCLE_TABLE_NOT_SUPPORTED, message, http_status=400, data=data)
+
+
 class FormDesignError(BizError):
     """表单定制子段（系统配置段内 `404xx`）异常基类：布局 / 属性 / 自建字段 / DDL / 校验（10_01）。
 

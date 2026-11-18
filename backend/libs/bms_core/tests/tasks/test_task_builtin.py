@@ -8,7 +8,7 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ServiceUnavailableError
-from bms_core.models.platform.task import TASK_RUN_FAILED, TASK_RUN_SKIPPED, TASK_RUN_SUCCESS
+from bms_core.models.platform.task import TASK_RUN_FAILED, TASK_RUN_SUCCESS
 from bms_core.tasks import builtin
 from bms_core.tasks.builtin import (
     BUILTIN_TASK_SPECS,
@@ -74,12 +74,58 @@ def test_builtin_spec_of_hit_and_miss() -> None:
     assert builtin_spec_of("biz_some_product_task") is None
 
 
-async def test_placeholder_runners_skip_with_owner() -> None:
-    """占位执行体统一返回 skipped，且说明里写明归口任务号。"""
-    result = await run_purge_soft_deleted(_ctx())
-    assert result.status == TASK_RUN_SKIPPED
-    assert "13" in result.message
-    assert "占位实现" in result.message
+async def test_purge_task_submits_tenant_scoped_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    """软删除清理：按任务行租户提交作业；下游不可用转 failed。"""
+    calls: list[tuple[str, str | None, str]] = []  # bare-collections:allow（测试记录容器）
+
+    class _Jobs:
+        async def submit(
+            self,
+            *,
+            service_key: str,
+            job_type: str,
+            payload: ConcurrentStableDict[str, object],
+            idempotency_key: str | None,
+            tenant_id: int | None,
+        ) -> str:
+            del service_key, payload
+            calls.append((job_type, idempotency_key, str(tenant_id)))
+            return "99"
+
+    def _jobs_client(client: object) -> _Jobs:
+        del client
+        return _Jobs()
+
+    monkeypatch.setattr(builtin, "JobInternalClient", _jobs_client)
+    monkeypatch.setattr(builtin, "build_service_client", lambda: object())
+    ctx = TaskContext(
+        run=TaskRunSpec(
+            db_key="tenant_platform_demo",
+            task_id=1,
+            log_id=1,
+            run_id="r",
+            code="purge_soft_deleted",
+            handler="m:f",
+            tenant_id=7,
+        )
+    )
+    result = await run_purge_soft_deleted(ctx)
+    assert result.status == TASK_RUN_SUCCESS
+    assert calls[0][0] == "platform.recycle.purge"
+    assert calls[0][1] is not None
+    assert ":7:" in calls[0][1]
+    assert calls[0][2] == "7"
+
+    class _Down:
+        async def submit(self, **kwargs: object) -> str:
+            raise ServiceUnavailableError("down")
+
+    def _down_client(client: object) -> _Down:
+        del client
+        return _Down()
+
+    monkeypatch.setattr(builtin, "JobInternalClient", _down_client)
+    assert (await run_purge_soft_deleted(ctx)).status == TASK_RUN_FAILED
 
 
 async def test_archive_tasks_submit_jobs(monkeypatch: pytest.MonkeyPatch) -> None:

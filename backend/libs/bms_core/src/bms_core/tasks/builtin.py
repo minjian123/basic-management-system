@@ -1,6 +1,6 @@
-"""内置任务：清单登记 + 执行体（已落地的做真实动作，未落地的仍是占位）。
+"""内置任务：清单登记 + 执行体（全部落地，执行体做真实动作或提交真实作业）。
 
-八条内置任务在 `sys_task` 里有定义（种子入库）、有 cron、有执行记录：
+内置任务在 `sys_task` 里有定义（种子入库）、有 cron、有执行记录：
 
 - **孤儿分片清理**（03_01 已落地）：执行体为**触发型**——经服务间调用驱动 file 服务的内部清理端点
   （扫描 / 清理 / 置 `orphan` 全在 file 域，基座不跨库写文件表），返回执行摘要；
@@ -13,13 +13,8 @@
 - **审计日志归档** / **归档文件清理**（14_01 落地）：提交型——分别向 platform 服务提交
   `platform.archive.run` 与 `platform.archive.cleanup`；扫描 / 迁移 / 冷化 / 清理全在归档域，
   作业按日全局幂等（多租户任务行重复触发只落一条）；
-- 其余一条仍是占位实现：返回 `skipped` 并在 `message` 里写明归口任务号。理由见详细设计 §4.6：
-
-- 「只登记不执行」会让 handler 白名单直接拒掉、触发即失败，`sys_task_log` 只剩失败记录，
-  「还没做」与「做坏了」不可区分；
-- 「先把它做出来」要预先猜未定稿的保留期 / 上传中记录口径，后续必然返工。
-
-归口：软删除残留清理 → 13 回收站。
+- **软删除残留物理清理**（13_01 落地）：提交型——向 platform 服务提交
+  `platform.recycle.purge`；扫描 / 批删 / 清理批次记录全在回收站域，按任务行的租户库执行。
 """
 
 from __future__ import annotations
@@ -210,18 +205,6 @@ def builtin_spec_of(code: str) -> BuiltinTaskSpec | None:
         if spec.code == code:
             return spec
     return None
-
-
-def _skipped(owner: str) -> TaskResult:
-    """构造占位跳过结果（统一口径：说明 + 归口）。
-
-    Args:
-        owner: 归口任务描述。
-
-    Returns:
-        TaskResult: `skipped` 结果。
-    """
-    return TaskResult.skipped(f"占位实现：真实逻辑归口 {owner}；策略定稿后在此实现")
 
 
 async def _submit_cleanup(*, service_key: str, job_type: str, label: str, ctx: TaskContext) -> TaskResult:
@@ -474,16 +457,22 @@ async def run_purge_deleted_tenants(ctx: TaskContext) -> TaskResult:
 
 
 async def run_purge_soft_deleted(ctx: TaskContext) -> TaskResult:
-    """软删除残留物理清理（占位）。
+    """软删除残留物理清理（提交型：向 platform 提交 `platform.recycle.purge` 作业）。
+
+    清理按任务行的租户库执行：作业负载与幂等键带租户位，多租户各自一条任务、互不干扰。
 
     Args:
-        ctx: 执行上下文。
+        ctx: 执行上下文（本执行体只提交作业，扫描 / 批删 / 批次记录在 platform 回收站域）。
 
     Returns:
-        TaskResult: `skipped`（归口 13 回收站 / 14 归档）。
+        TaskResult: 成功带作业标识；下游不可用为失败（由调度器按策略重试提交）。
     """
-    _ = ctx
-    return _skipped("13（回收站）、14（归档）")
+    return await _submit_cleanup(
+        service_key=PLATFORM_SERVICE_KEY,
+        job_type="platform.recycle.purge",
+        label="软删除残留清理",
+        ctx=ctx,
+    )
 
 
 async def run_expire_notices(ctx: TaskContext) -> TaskResult:

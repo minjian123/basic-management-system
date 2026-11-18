@@ -56,6 +56,7 @@ from bms_platform.domains.platform_registry.api import (
     tenant_topologies,
 )
 from bms_platform.domains.platform_registry.api import dict as dict_api
+from bms_platform.domains.recycle.api import recycle as recycle_api
 from bms_platform.domains.role.api import role
 from bms_platform.domains.task.api import task as task_api
 from bms_platform.domains.user.api import (
@@ -161,6 +162,8 @@ api_router = mount_service_routers(
             archive_policies_api.router,
             archive_logs_api.router,
             archive_data_api.router,
+            # 回收站（13_01）：模块 / 列表 / 详情 / 恢复 / 清理记录
+            recycle_api.router,
             # 表单定制（10_01）：布局 / 属性、自建字段与动态 DDL、渲染路径与动态校验
             form_design_layouts_api.router,
             form_design_fields_api.router,

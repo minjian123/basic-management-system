@@ -615,6 +615,18 @@ public_api = [
 ]
 
 [[domains]]
+domain_key = "recycle"
+service_key = "platform"
+status = "placement"
+paths = [
+  "backend/services/platform/src/bms_platform/domains/recycle/**/*.py",
+  "backend/libs/bms_core/src/bms_core/models/platform/recycle.py",
+]
+public_api = [
+  "bms_platform.domains.recycle.public",
+]
+
+[[domains]]
 domain_key = "form_design"
 service_key = "platform"
 status = "placement"
@@ -782,6 +794,19 @@ description = "清理过期归档冷化文件（数据 + 清单）并留痕"
 timeout_seconds = 1800
 max_attempts = 3
 backoff_seconds = 30
+concurrency = 1
+payload_version = "1.0.0"
+status = "enabled"
+
+[[jobs]]
+job_type = "platform.recycle.purge"
+service = "platform"
+domain = "recycle"
+handler = "bms_platform.domains.recycle.jobs:RecyclePurgeJob"
+description = "清理超过保留期的软删除数据（逐表批删，写 sys_recycle_log）"
+timeout_seconds = 1800
+max_attempts = 2
+backoff_seconds = 60
 concurrency = 1
 payload_version = "1.0.0"
 status = "enabled"

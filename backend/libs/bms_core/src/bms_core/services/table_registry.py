@@ -845,6 +845,14 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             status=TableStatus.ENABLED,
             note="归档链尾（审计分片删表后按租户留存；14_01）",
         ),
+        TableRecord(
+            table_name="sys_recycle_log",
+            owner="platform",
+            domain="recycle",
+            datasource=Datasource.TENANT,
+            status=TableStatus.ENABLED,
+            note="回收站超期清理批次（逐表条数 / 状态 / 耗时 / 保留期；13_01）",
+        ),
     )
 )
 """表归属登记（单一来源）。

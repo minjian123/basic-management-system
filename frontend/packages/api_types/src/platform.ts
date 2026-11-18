@@ -4951,6 +4951,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recycle/cleanups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cleanups
+         * @description 清理批次记录分页。
+         *
+         *     Args:
+         *         uow: 租户库工作单元。
+         *         page: 分页参数。
+         *         table_name: 表名筛选。
+         *         status: 状态筛选。
+         *         started_from: 开始时间下界。
+         *         started_to: 开始时间上界。
+         *
+         *     Returns:
+         *         ApiResponse[RecycleCleanupPage]: 分页结果。
+         */
+        get: operations["list_cleanups_api_v1_recycle_cleanups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Items
+         * @description 单表分页查询软删除数据。
+         *
+         *     Args:
+         *         uow: 租户库工作单元。
+         *         page: 分页参数。
+         *         table: 逻辑表名。
+         *         keyword: 关键字。
+         *         deleted_from: 删除时间下界。
+         *         deleted_to: 删除时间上界。
+         *
+         *     Returns:
+         *         ApiResponse[RecycleItemPage]: 分页结果。
+         */
+        get: operations["list_items_api_v1_recycle_items_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle/items/{table}/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Item
+         * @description 取软删除数据详情（展示列快照）。
+         *
+         *     Args:
+         *         uow: 租户库工作单元。
+         *         table: 逻辑表名。
+         *         row_id: 记录主键。
+         *
+         *     Returns:
+         *         ApiResponse[RecycleDetailResponse]: 详情。
+         */
+        get: operations["get_item_api_v1_recycle_items__table___row_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Modules
+         * @description 取可回收模块 / 表清单与删除计数。
+         *
+         *     Args:
+         *         uow: 租户库工作单元。
+         *
+         *     Returns:
+         *         ApiResponse[RecycleModulesResponse]: 模块分组。
+         */
+        get: operations["list_modules_api_v1_recycle_modules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Item
+         * @description 恢复一条软删除数据（支持幂等键）。
+         *
+         *     Args:
+         *         request: 恢复请求（表名 + 主键）。
+         *         uow: 租户库工作单元。
+         *         idempotency: 幂等基座。
+         *         tenant: 解析链租户上下文（幂等键作用域位）。
+         *         audit: 字段级审计捕获器。
+         *         cache: 缓存 Region（恢复后版本失效）。
+         *         idempotency_key: 幂等键请求头（可选）。
+         *
+         *     Returns:
+         *         ApiResponse[RecycleRestoreResult]: 恢复结果。
+         */
+        post: operations["restore_item_api_v1_recycle_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/releases": {
         parameters: {
             query?: never;
@@ -7862,6 +8010,76 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["ProfilePreferenceResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RecycleCleanupPage] */
+        ApiResponse_RecycleCleanupPage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RecycleCleanupPage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RecycleDetailResponse] */
+        ApiResponse_RecycleDetailResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RecycleDetailResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RecycleItemPage] */
+        ApiResponse_RecycleItemPage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RecycleItemPage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RecycleModulesResponse] */
+        ApiResponse_RecycleModulesResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RecycleModulesResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RecycleRestoreResult] */
+        ApiResponse_RecycleRestoreResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RecycleRestoreResult"] | null;
             /**
              * Message
              * @default ok
@@ -15608,6 +15826,287 @@ export interface components {
          * @enum {string}
          */
         QuerySchemeTarget: "items" | "business";
+        /**
+         * RecycleCleanupItem
+         * @description 清理批次记录行。
+         */
+        RecycleCleanupItem: {
+            /**
+             * Batch Key
+             * @description 批次键
+             */
+            batch_key: string;
+            /**
+             * Cost Time
+             * @description 耗时（毫秒）
+             */
+            cost_time?: number | null;
+            /**
+             * Cutoff At
+             * Format: date-time
+             * @description 清理截止时刻（UTC）
+             */
+            cutoff_at: string;
+            /**
+             * Deleted Count
+             * @description 物理删除条数
+             */
+            deleted_count: number;
+            /**
+             * Error Msg
+             * @description 失败摘要
+             */
+            error_msg?: string | null;
+            /**
+             * Finished At
+             * @description 结束时间（UTC）
+             */
+            finished_at?: string | null;
+            /**
+             * Id
+             * @description 批次行主键
+             */
+            id: string;
+            /**
+             * Retention Days
+             * @description 保留天数
+             */
+            retention_days: number;
+            /**
+             * Started At
+             * Format: date-time
+             * @description 开始时间（UTC）
+             */
+            started_at: string;
+            /**
+             * Status
+             * @description 状态（running / success / failed）
+             */
+            status: string;
+            /**
+             * Table Name
+             * @description 被清理的逻辑表名
+             */
+            table_name: string;
+        };
+        /**
+         * RecycleCleanupPage
+         * @description 清理批次记录分页响应。
+         */
+        RecycleCleanupPage: {
+            /** List */
+            list: components["schemas"]["RecycleCleanupItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * RecycleDetailResponse
+         * @description 软删除详情（展示列快照）。
+         */
+        RecycleDetailResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             * @description 创建时间（UTC）
+             */
+            created_at: string;
+            /**
+             * Deleted At
+             * Format: date-time
+             * @description 删除时间（UTC）
+             */
+            deleted_at: string;
+            /**
+             * Deleted By
+             * @description 删除人
+             */
+            deleted_by?: string | null;
+            /**
+             * Fields
+             * @description 展示列（中文标签 → 文本值）
+             */
+            fields: {
+                [key: string]: string;
+            };
+            /**
+             * Id
+             * @description 记录主键
+             */
+            id: string;
+            /**
+             * Table
+             * @description 逻辑表名
+             */
+            table: string;
+            /**
+             * Title
+             * @description 展示标题
+             */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description 更新时间（UTC）
+             */
+            updated_at: string;
+        };
+        /**
+         * RecycleItem
+         * @description 软删除列表行。
+         */
+        RecycleItem: {
+            /**
+             * Deleted At
+             * Format: date-time
+             * @description 删除时间（UTC）
+             */
+            deleted_at: string;
+            /**
+             * Deleted By
+             * @description 删除人
+             */
+            deleted_by?: string | null;
+            /**
+             * Id
+             * @description 记录主键
+             */
+            id: string;
+            /**
+             * Table
+             * @description 逻辑表名
+             */
+            table: string;
+            /**
+             * Title
+             * @description 展示标题
+             */
+            title: string;
+        };
+        /**
+         * RecycleItemPage
+         * @description 软删除列表分页响应。
+         */
+        RecycleItemPage: {
+            /** List */
+            list: components["schemas"]["RecycleItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * RecycleModuleItem
+         * @description 模块分组（含表计数）。
+         */
+        RecycleModuleItem: {
+            /**
+             * Deleted Count
+             * @description 模块内软删除总条数
+             */
+            deleted_count: number;
+            /**
+             * Module Key
+             * @description 模块标识
+             */
+            module_key: string;
+            /**
+             * Module Label
+             * @description 模块中文名
+             */
+            module_label: string;
+            /**
+             * Tables
+             * @description 模块内表清单
+             */
+            tables: components["schemas"]["RecycleTableItem"][];
+        };
+        /**
+         * RecycleModulesResponse
+         * @description 模块 / 表清单响应。
+         */
+        RecycleModulesResponse: {
+            /**
+             * Items
+             * @description 模块分组
+             */
+            items: components["schemas"]["RecycleModuleItem"][];
+        };
+        /**
+         * RecycleRestoreRequest
+         * @description 恢复请求。
+         */
+        RecycleRestoreRequest: {
+            /**
+             * Id
+             * @description 记录主键
+             */
+            id: number;
+            /**
+             * Table
+             * @description 逻辑表名（须在回收站纳管范围）
+             */
+            table: string;
+        };
+        /**
+         * RecycleRestoreResult
+         * @description 恢复结果。
+         */
+        RecycleRestoreResult: {
+            /**
+             * Cascaded
+             * @description 级联恢复计数（子表 → 条数）
+             */
+            cascaded: {
+                [key: string]: number;
+            };
+            /**
+             * Id
+             * @description 记录主键
+             */
+            id: string;
+            /**
+             * Restored
+             * @description 是否恢复成功
+             */
+            restored: boolean;
+            /**
+             * Table
+             * @description 逻辑表名
+             */
+            table: string;
+            /**
+             * Title
+             * @description 展示标题
+             */
+            title: string;
+        };
+        /**
+         * RecycleTableItem
+         * @description 模块内单表删除计数。
+         */
+        RecycleTableItem: {
+            /**
+             * Deleted Count
+             * @description 软删除条数
+             */
+            deleted_count: number;
+            /**
+             * Label
+             * @description 中文表名
+             */
+            label: string;
+            /**
+             * Table
+             * @description 逻辑表名
+             */
+            table: string;
+        };
         /**
          * RoleAssignRequest
          * @description 批量分配用户请求（幂等 upsert）。
@@ -32299,6 +32798,412 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_cleanups_api_v1_recycle_cleanups_get: {
+        parameters: {
+            query?: {
+                /** @description 清理表名筛选 */
+                table_name?: string | null;
+                /** @description 清理状态筛选（running / success / failed） */
+                status?: string | null;
+                /** @description 清理开始时间下界（UTC；含） */
+                started_from?: string | null;
+                /** @description 清理开始时间上界（UTC；含） */
+                started_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecycleCleanupPage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_items_api_v1_recycle_items_get: {
+        parameters: {
+            query: {
+                /** @description 逻辑表名（须在回收站纳管范围） */
+                table: string;
+                /** @description 关键字（按表规格关键字列匹配） */
+                keyword?: string | null;
+                /** @description 删除时间下界（UTC；含） */
+                deleted_from?: string | null;
+                /** @description 删除时间上界（UTC；含） */
+                deleted_to?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecycleItemPage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_item_api_v1_recycle_items__table___row_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 逻辑表名（须在回收站纳管范围） */
+                table: string;
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecycleDetailResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_modules_api_v1_recycle_modules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecycleModulesResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    restore_item_api_v1_recycle_restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 幂等键（恢复去重） */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecycleRestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecycleRestoreResult_"];
                 };
             };
             /** @description 未认证 */

@@ -2995,6 +2995,141 @@
         "title": "ApiResponse[ProfilePreferenceResponse]",
         "type": "object"
       },
+      "ApiResponse_RecycleCleanupPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecycleCleanupPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RecycleCleanupPage]",
+        "type": "object"
+      },
+      "ApiResponse_RecycleDetailResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecycleDetailResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RecycleDetailResponse]",
+        "type": "object"
+      },
+      "ApiResponse_RecycleItemPage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecycleItemPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RecycleItemPage]",
+        "type": "object"
+      },
+      "ApiResponse_RecycleModulesResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecycleModulesResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RecycleModulesResponse]",
+        "type": "object"
+      },
+      "ApiResponse_RecycleRestoreResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecycleRestoreResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RecycleRestoreResult]",
+        "type": "object"
+      },
       "ApiResponse_RoleAssignedUsers_": {
         "additionalProperties": false,
         "properties": {
@@ -15402,6 +15537,440 @@
         ],
         "title": "QuerySchemeTarget",
         "type": "string"
+      },
+      "RecycleCleanupItem": {
+        "additionalProperties": false,
+        "description": "清理批次记录行。",
+        "properties": {
+          "batch_key": {
+            "description": "批次键",
+            "title": "Batch Key",
+            "type": "string"
+          },
+          "cost_time": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "耗时（毫秒）",
+            "title": "Cost Time"
+          },
+          "cutoff_at": {
+            "description": "清理截止时刻（UTC）",
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "deleted_count": {
+            "description": "物理删除条数",
+            "minimum": 0.0,
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "error_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "失败摘要",
+            "title": "Error Msg"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "结束时间（UTC）",
+            "title": "Finished At"
+          },
+          "id": {
+            "description": "批次行主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "retention_days": {
+            "description": "保留天数",
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "started_at": {
+            "description": "开始时间（UTC）",
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（running / success / failed）",
+            "title": "Status",
+            "type": "string"
+          },
+          "table_name": {
+            "description": "被清理的逻辑表名",
+            "title": "Table Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "batch_key",
+          "table_name",
+          "status",
+          "retention_days",
+          "cutoff_at",
+          "deleted_count",
+          "started_at"
+        ],
+        "title": "RecycleCleanupItem",
+        "type": "object"
+      },
+      "RecycleCleanupPage": {
+        "additionalProperties": false,
+        "description": "清理批次记录分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/RecycleCleanupItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "RecycleCleanupPage",
+        "type": "object"
+      },
+      "RecycleDetailResponse": {
+        "additionalProperties": false,
+        "description": "软删除详情（展示列快照）。",
+        "properties": {
+          "created_at": {
+            "description": "创建时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "description": "删除时间（UTC）",
+            "format": "date-time",
+            "title": "Deleted At",
+            "type": "string"
+          },
+          "deleted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "删除人",
+            "title": "Deleted By"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "展示列（中文标签 → 文本值）",
+            "title": "Fields",
+            "type": "object"
+          },
+          "id": {
+            "description": "记录主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "table": {
+            "description": "逻辑表名",
+            "title": "Table",
+            "type": "string"
+          },
+          "title": {
+            "description": "展示标题",
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "更新时间（UTC）",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "id",
+          "title",
+          "deleted_at",
+          "created_at",
+          "updated_at",
+          "fields"
+        ],
+        "title": "RecycleDetailResponse",
+        "type": "object"
+      },
+      "RecycleItem": {
+        "additionalProperties": false,
+        "description": "软删除列表行。",
+        "properties": {
+          "deleted_at": {
+            "description": "删除时间（UTC）",
+            "format": "date-time",
+            "title": "Deleted At",
+            "type": "string"
+          },
+          "deleted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "删除人",
+            "title": "Deleted By"
+          },
+          "id": {
+            "description": "记录主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "table": {
+            "description": "逻辑表名",
+            "title": "Table",
+            "type": "string"
+          },
+          "title": {
+            "description": "展示标题",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "id",
+          "title",
+          "deleted_at"
+        ],
+        "title": "RecycleItem",
+        "type": "object"
+      },
+      "RecycleItemPage": {
+        "additionalProperties": false,
+        "description": "软删除列表分页响应。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/RecycleItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "RecycleItemPage",
+        "type": "object"
+      },
+      "RecycleModuleItem": {
+        "additionalProperties": false,
+        "description": "模块分组（含表计数）。",
+        "properties": {
+          "deleted_count": {
+            "description": "模块内软删除总条数",
+            "minimum": 0.0,
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "module_key": {
+            "description": "模块标识",
+            "title": "Module Key",
+            "type": "string"
+          },
+          "module_label": {
+            "description": "模块中文名",
+            "title": "Module Label",
+            "type": "string"
+          },
+          "tables": {
+            "description": "模块内表清单",
+            "items": {
+              "$ref": "#/components/schemas/RecycleTableItem"
+            },
+            "title": "Tables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "module_key",
+          "module_label",
+          "deleted_count",
+          "tables"
+        ],
+        "title": "RecycleModuleItem",
+        "type": "object"
+      },
+      "RecycleModulesResponse": {
+        "additionalProperties": false,
+        "description": "模块 / 表清单响应。",
+        "properties": {
+          "items": {
+            "description": "模块分组",
+            "items": {
+              "$ref": "#/components/schemas/RecycleModuleItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RecycleModulesResponse",
+        "type": "object"
+      },
+      "RecycleRestoreRequest": {
+        "additionalProperties": false,
+        "description": "恢复请求。",
+        "properties": {
+          "id": {
+            "description": "记录主键",
+            "title": "Id",
+            "type": "integer"
+          },
+          "table": {
+            "description": "逻辑表名（须在回收站纳管范围）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "id"
+        ],
+        "title": "RecycleRestoreRequest",
+        "type": "object"
+      },
+      "RecycleRestoreResult": {
+        "additionalProperties": false,
+        "description": "恢复结果。",
+        "properties": {
+          "cascaded": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "级联恢复计数（子表 → 条数）",
+            "title": "Cascaded",
+            "type": "object"
+          },
+          "id": {
+            "description": "记录主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "restored": {
+            "description": "是否恢复成功",
+            "title": "Restored",
+            "type": "boolean"
+          },
+          "table": {
+            "description": "逻辑表名",
+            "title": "Table",
+            "type": "string"
+          },
+          "title": {
+            "description": "展示标题",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "id",
+          "title",
+          "restored",
+          "cascaded"
+        ],
+        "title": "RecycleRestoreResult",
+        "type": "object"
+      },
+      "RecycleTableItem": {
+        "additionalProperties": false,
+        "description": "模块内单表删除计数。",
+        "properties": {
+          "deleted_count": {
+            "description": "软删除条数",
+            "minimum": 0.0,
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "label": {
+            "description": "中文表名",
+            "title": "Label",
+            "type": "string"
+          },
+          "table": {
+            "description": "逻辑表名",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "label",
+          "deleted_count"
+        ],
+        "title": "RecycleTableItem",
+        "type": "object"
       },
       "RoleAssignRequest": {
         "additionalProperties": false,
@@ -39462,6 +40031,741 @@
         "summary": "Update Query Scheme",
         "tags": [
           "query_scheme"
+        ]
+      }
+    },
+    "/api/v1/recycle/cleanups": {
+      "get": {
+        "description": "清理批次记录分页。\n\nArgs:\n    uow: 租户库工作单元。\n    page: 分页参数。\n    table_name: 表名筛选。\n    status: 状态筛选。\n    started_from: 开始时间下界。\n    started_to: 开始时间上界。\n\nReturns:\n    ApiResponse[RecycleCleanupPage]: 分页结果。",
+        "operationId": "list_cleanups_api_v1_recycle_cleanups_get",
+        "parameters": [
+          {
+            "description": "清理表名筛选",
+            "in": "query",
+            "name": "table_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "清理表名筛选",
+              "title": "Table Name"
+            }
+          },
+          {
+            "description": "清理状态筛选（running / success / failed）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "清理状态筛选（running / success / failed）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "清理开始时间下界（UTC；含）",
+            "in": "query",
+            "name": "started_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "清理开始时间下界（UTC；含）",
+              "title": "Started From"
+            }
+          },
+          {
+            "description": "清理开始时间上界（UTC；含）",
+            "in": "query",
+            "name": "started_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "清理开始时间上界（UTC；含）",
+              "title": "Started To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecycleCleanupPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Cleanups",
+        "tags": [
+          "recycle"
+        ]
+      }
+    },
+    "/api/v1/recycle/items": {
+      "get": {
+        "description": "单表分页查询软删除数据。\n\nArgs:\n    uow: 租户库工作单元。\n    page: 分页参数。\n    table: 逻辑表名。\n    keyword: 关键字。\n    deleted_from: 删除时间下界。\n    deleted_to: 删除时间上界。\n\nReturns:\n    ApiResponse[RecycleItemPage]: 分页结果。",
+        "operationId": "list_items_api_v1_recycle_items_get",
+        "parameters": [
+          {
+            "description": "逻辑表名（须在回收站纳管范围）",
+            "in": "query",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "description": "逻辑表名（须在回收站纳管范围）",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Table",
+              "type": "string"
+            }
+          },
+          {
+            "description": "关键字（按表规格关键字列匹配）",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（按表规格关键字列匹配）",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "删除时间下界（UTC；含）",
+            "in": "query",
+            "name": "deleted_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "删除时间下界（UTC；含）",
+              "title": "Deleted From"
+            }
+          },
+          {
+            "description": "删除时间上界（UTC；含）",
+            "in": "query",
+            "name": "deleted_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "删除时间上界（UTC；含）",
+              "title": "Deleted To"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecycleItemPage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Items",
+        "tags": [
+          "recycle"
+        ]
+      }
+    },
+    "/api/v1/recycle/items/{table}/{row_id}": {
+      "get": {
+        "description": "取软删除数据详情（展示列快照）。\n\nArgs:\n    uow: 租户库工作单元。\n    table: 逻辑表名。\n    row_id: 记录主键。\n\nReturns:\n    ApiResponse[RecycleDetailResponse]: 详情。",
+        "operationId": "get_item_api_v1_recycle_items__table___row_id__get",
+        "parameters": [
+          {
+            "description": "逻辑表名（须在回收站纳管范围）",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "description": "逻辑表名（须在回收站纳管范围）",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Table",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecycleDetailResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Item",
+        "tags": [
+          "recycle"
+        ]
+      }
+    },
+    "/api/v1/recycle/modules": {
+      "get": {
+        "description": "取可回收模块 / 表清单与删除计数。\n\nArgs:\n    uow: 租户库工作单元。\n\nReturns:\n    ApiResponse[RecycleModulesResponse]: 模块分组。",
+        "operationId": "list_modules_api_v1_recycle_modules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecycleModulesResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Modules",
+        "tags": [
+          "recycle"
+        ]
+      }
+    },
+    "/api/v1/recycle/restore": {
+      "post": {
+        "description": "恢复一条软删除数据（支持幂等键）。\n\nArgs:\n    request: 恢复请求（表名 + 主键）。\n    uow: 租户库工作单元。\n    idempotency: 幂等基座。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    audit: 字段级审计捕获器。\n    cache: 缓存 Region（恢复后版本失效）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse[RecycleRestoreResult]: 恢复结果。",
+        "operationId": "restore_item_api_v1_recycle_restore_post",
+        "parameters": [
+          {
+            "description": "幂等键（恢复去重）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（恢复去重）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecycleRestoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecycleRestoreResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Restore Item",
+        "tags": [
+          "recycle"
         ]
       }
     },

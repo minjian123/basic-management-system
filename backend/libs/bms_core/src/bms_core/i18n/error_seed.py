@@ -263,6 +263,10 @@ ERROR_MESSAGES: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableLis
         (93006, "合规销毁须二次确认", "Destruction requires explicit confirmation"),
         (93007, "归档策略已停用", "Archive policy is disabled"),
         (93008, "归档查询时间范围过大，请缩小范围", "Archive query time range too large"),
+        (95001, "回收站记录不存在或已物理清理", "Recycle record not found or already purged"),
+        (95002, "恢复失败：唯一键已被占用", "Restore failed: unique key already in use"),
+        (95003, "数据已被其他操作恢复，请刷新列表", "Record already restored by another operation"),
+        (95004, "该表不在回收站纳管范围，不能恢复或查询", "Table is not supported by the recycle bin"),
     )
 )
 """错误码文案种子：`(错误码, 中文, 英文)`，与 `ErrorCode` 业务码一一对应。"""

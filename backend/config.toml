@@ -311,6 +311,13 @@ running_timeout_seconds = 7200      # running 执行记录超时回收阈值（�
 cold_chunk_rows = 1000              # 冷化单文件最多行数（按租户分文件）
 file_prefix = "archive"             # 冷化对象 key 前缀
 
+[recycle]
+# 回收站运行参数（13_01）：超期软删除数据物理清理；软删除数据本体复用各业务表 deleted_at
+retention_days = 30                 # 软删除数据保留天数（清理截止 = 当前时刻 − 保留天数）
+batch_size = 500                    # 单表单批删除条数
+max_batch_rows = 10000              # 单表单轮最多删除条数（剩余交下一轮）
+running_timeout_minutes = 60        # running 清理批次超时回收阈值（分钟）
+
 [cache]
 # 缓存实现选择（插件化配置；redis = Redis Region（缺省，03_04 起 Redis 为基础能力）、memory = 进程内、空串 = null）
 provider = "redis"

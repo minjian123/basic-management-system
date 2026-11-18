@@ -28,6 +28,7 @@ from bms_core.workerid.lease import worker_id_lease_sync
 from bms_platform.domains.archive.jobs import ArchiveCleanupJob, ArchiveRunJob
 from bms_platform.domains.import_export.export_jobs import ExportCleanupJob, ExportExecuteJob
 from bms_platform.domains.import_export.jobs import ImportExecuteJob
+from bms_platform.domains.recycle.jobs import RecyclePurgeJob
 from bms_platform.domains.task.jobs import TaskJobHandler
 
 __all__ = ["build_runner", "build_worker", "job_handlers", "job_specs", "main"]
@@ -50,6 +51,7 @@ def job_handlers() -> ConcurrentStableDict[str, BaseJobHandler]:
             ExportCleanupJob.job_type: ExportCleanupJob(),
             ArchiveRunJob.job_type: ArchiveRunJob(),
             ArchiveCleanupJob.job_type: ArchiveCleanupJob(),
+            RecyclePurgeJob.job_type: RecyclePurgeJob(),
         }
     )
 
@@ -126,6 +128,17 @@ def job_specs() -> ConcurrentStableDict[str, JobTypeSpec]:
                 timeout_seconds=1800,
                 max_attempts=3,
                 backoff_seconds=30,
+                concurrency=1,
+            ),
+            "platform.recycle.purge": JobTypeSpec(
+                job_type="platform.recycle.purge",
+                service_key=SERVICE_KEY,
+                domain_key="recycle",
+                handler="bms_platform.domains.recycle.jobs:RecyclePurgeJob",
+                description="清理超过保留期的软删除数据（逐表批删，写 sys_recycle_log）",
+                timeout_seconds=1800,
+                max_attempts=2,
+                backoff_seconds=60,
                 concurrency=1,
             ),
         }
