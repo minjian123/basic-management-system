@@ -158,7 +158,11 @@ def test_defaults_and_sections(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.cache.provider == "memory"  # dev 覆盖启用进程内缓存（03_04：缓存三域 dev 保留进程内实现）
     assert settings.audit.provider == ""
     assert settings.task.provider == ""
-    assert settings.event.provider == ""
+    # 01_04：dev 打开真实 msg 发布与消费（生产仍关闭消费，由部署评审开启）
+    assert settings.event.provider == "msg"
+    assert settings.event_consumer.provider == "msg"
+    assert settings.event_consumer.enabled is True
+    assert settings.event_consumer.host == "in_service"
 
 
 @pytest.mark.kiwi_id(32)

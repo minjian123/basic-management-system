@@ -24,7 +24,7 @@ import httpx
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.events.base import EventEnvelope, EventPublisher, EventPublishError
-from bms_core.events.topic import current_traceparent, encode_event, event_attributes, topic_for
+from bms_core.events.topic import current_traceparent, encode_event, event_attributes, namespace_for, topic_for
 from bms_core.msgclient.constants import RPC_TENANT_HEADER
 from bms_core.tracing.base import current_trace_id
 
@@ -68,7 +68,7 @@ class MsgEventPublisher(EventPublisher, BaseAsyncResource):
 
         Args:
             base_url: 消息平台实例基址（不含尾斜线）。
-            namespace: 命名空间（msg 侧按已启用 `module_key` 校验）。
+            namespace: 命名空间**显式覆盖**（空串 = 按事件类型首段取事件域）。
             tenant: 缺省租户编码（逐事件 `event.tenant_id` 优先）。
             transport: httpx 传输（缺省真实网络；用例注入 `MockTransport`）。
             timeout: 单次发布超时（秒）。
@@ -147,7 +147,7 @@ class MsgEventPublisher(EventPublisher, BaseAsyncResource):
             ConcurrentStableDict[str, object]: 请求体（调用点转内建 `dict` 后交给 `httpx.json=`）。
         """
         body: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-        body.set("namespace", self._namespace)
+        body.set("namespace", self._namespace or namespace_for(event.event_type))
         body.set("topic", topic)
         if event.aggregate_key is not None:
             body.set("key", event.aggregate_key)

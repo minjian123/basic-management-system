@@ -14,6 +14,7 @@ from bms_core.core.exceptions import (
 )
 from bms_core.db.tenant_registry import snapshot_cache_key
 from bms_core.db.tenant_remote import (
+    ACTIVE_TENANTS_PATH,
     SINGLE_ACTIVE_PATH,
     TENANT_REGISTRY_PATH,
     RemoteTenantSource,
@@ -257,6 +258,109 @@ async def test_remote_suspended_without_release_and_cache_paths() -> None:
     # 200 但响应体缺必填字段 → 契约不可达。
     with pytest.raises(ServiceUnavailableError):
         await RemoteTenantSource(client=_client(_ok(ConcurrentStableDict()))).by_code("demo")
+
+
+def _active_payload(*codes: str) -> ConcurrentStableDict[str, object]:
+    """构造启用租户清单载荷（`items` 为普通字典，便于 JSON 序列化）。"""
+    return ConcurrentStableDict({"items": [dict(_payload(code)) for code in codes]})
+
+
+@pytest.mark.kiwi_id(2532)
+async def test_remote_active_tenants_fetch_maps_contexts() -> None:
+    """启用租户清单：走 `/active` 契约、保持服务端顺序（主键升序）、逐项映射上下文。"""
+    client = _client(_ok(_active_payload("acme", "demo")))
+    source = RemoteTenantSource(client=client)
+
+    contexts = await source.active_tenants()
+
+    assert [context.code for context in contexts] == ["acme", "demo"]
+    assert contexts[0].db_key == "tenant_acme"
+    assert contexts[1].tenant_id == 7
+    assert client.calls[0].path == ACTIVE_TENANTS_PATH
+    assert client.calls[0].service == "tenant"
+
+
+@pytest.mark.kiwi_id(2532)
+async def test_remote_active_tenants_failure_branches() -> None:
+    """失败分支：非 2xx / 缺 data / 缺 items / items 非数组 / 元素非对象 / 元素缺字段均按契约不可达。"""
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(ServiceResponse(status_code=500))).active_tenants()
+
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(ServiceResponse(status_code=200, content=b"{}"))).active_tenants()
+
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(_ok(ConcurrentStableDict()))).active_tenants()
+
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(_ok(ConcurrentStableDict({"items": "bad"})))).active_tenants()
+
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(_ok(ConcurrentStableDict({"items": ["bad"]})))).active_tenants()
+
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(
+            client=_client(_ok(ConcurrentStableDict({"items": [{"name": "缺 code"}]})))
+        ).active_tenants()
+
+    # `code` 非法（空串）同样按契约非法。
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(_ok(ConcurrentStableDict({"items": [{"code": ""}]})))).active_tenants()
+
+    # 契约不可达（客户端直接抛）同样按不可达冒泡。
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(ServiceUnavailableError("kill"))).active_tenants()
+
+
+@pytest.mark.kiwi_id(2532)
+async def test_remote_active_tenants_cache_hit_and_version_invalidation() -> None:
+    """清单缓存：命中不重复回源；版本递增后陈旧重载；无缓存源每次回源。"""
+    cache = MemoryCacheRegion(domain="tenant")
+    client = _client(_ok(_active_payload("acme")), _ok(_active_payload("acme", "demo")))
+    source = RemoteTenantSource(client=client, cache=cache, cache_ttl=60)
+
+    assert [context.code for context in await source.active_tenants()] == ["acme"]
+    assert [context.code for context in await source.active_tenants()] == ["acme"]
+    assert len(client.calls) == 1
+    assert cache.get(snapshot_cache_key("default", "active-list")) is not None
+
+    cache.bump_version()
+    assert [context.code for context in await source.active_tenants()] == ["acme", "demo"]
+    assert len(client.calls) == 2
+
+    uncached = _client(_ok(_active_payload("acme")), _ok(_active_payload("acme")))
+    uncached_source = RemoteTenantSource(client=uncached)
+    await uncached_source.active_tenants()
+    await uncached_source.active_tenants()
+    assert len(uncached.calls) == 2
+
+
+@pytest.mark.kiwi_id(2532)
+async def test_remote_active_tenants_corrupt_cache_falls_back() -> None:
+    """缓存结构非法（非映射 / 版本非整数 / items 非数组 / 元素非对象 / 元素缺字段）一律未命中回源。"""
+    key = snapshot_cache_key("default", "active-list")
+    invalid_values: ConcurrentStableList[object] = ConcurrentStableList(
+        [
+            "bad",
+            {"version": "bad", "items": []},
+            {"version": 0, "items": "bad"},
+            {"version": 0, "items": ["bad"]},
+            {"version": 0, "items": [{"name": "缺 code"}]},
+        ]
+    )
+
+    for invalid in invalid_values:
+        cache = MemoryCacheRegion(domain="tenant")
+        cache.set(key, invalid, 60)
+        source = RemoteTenantSource(client=_client(_ok(_active_payload("demo"))), cache=cache, cache_ttl=60)
+        assert [context.code for context in await source.active_tenants()] == ["demo"]
+
+    # 版本陈旧（版本键已递增）→ 未命中回源。
+    stale = MemoryCacheRegion(domain="tenant")
+    stale.set(key, {"version": 0, "items": [dict(_payload("old"))]}, 60)
+    stale.bump_version()
+    source = RemoteTenantSource(client=_client(_ok(_active_payload("demo"))), cache=stale, cache_ttl=60)
+    assert [context.code for context in await source.active_tenants()] == ["demo"]
 
 
 @pytest.mark.kiwi_id(2176)

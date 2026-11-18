@@ -54,6 +54,7 @@ METRIC_DOCS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
         "bms_outbox_delivery_total": "发件箱投递次数（按服务 / 结果）。",
         "bms_outbox_backlog": "发件箱积压（按服务 / 库键）。",
         "bms_event_consume_total": "事件消费次数（按消费组 / 结果）。",
+        "bms_event_consume_duration_seconds": "事件处理器单次调用耗时（秒；按消费组 / 结果）。",
         "bms_event_dead_letter_total": "事件转死信次数（按消费组）。",
         "bms_event_dead_letter_pending": "待处置死信条数（按来源 / 库键）。",
         "bms_event_dead_letter_age_seconds": "最老待处置死信距今秒数（按来源 / 库键；无待处置为 0）。",

@@ -10,10 +10,10 @@
 """
 
 from collections.abc import Awaitable, Callable, Mapping
-from typing import cast
+from typing import Any, cast
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import (
@@ -38,13 +38,16 @@ from bms_core.db.tenant_registry import (
 from bms_core.db.tenant_source import register_tenant_lookup
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
-__all__ = ["TENANT_REGISTRY_PATH", "RemoteTenantSource"]
+__all__ = ["ACTIVE_TENANTS_PATH", "TENANT_REGISTRY_PATH", "RemoteTenantSource"]
 
 TENANT_REGISTRY_PATH = "/api/v1/tenant-registry"
 """租户注册只读契约路径（租户服务提供）。"""
 
 SINGLE_ACTIVE_PATH = "/api/v1/tenant-registry/active-single"
 """唯一启用租户只读契约路径（租户服务提供；免登录链路兜底）。"""
+
+ACTIVE_TENANTS_PATH = "/api/v1/tenant-registry/active"
+"""启用租户清单只读契约路径（租户服务提供；含平台租户、主键升序、不分页）。"""
 
 _TENANT_SERVICE = "tenant"
 """契约提供方服务标识。"""
@@ -162,6 +165,26 @@ class RemoteTenantSource(BaseFrameworkObject):
             raise TenantSuspendedError(f"租户已停用：{snapshot.code}")
         return to_tenant_context(snapshot)
 
+    async def active_tenants(self) -> ConcurrentStableList[TenantContext]:
+        """枚举启用租户（含平台租户；`status == active` 且未软删，主键升序）。
+
+        消费组按租户装载、作业中心枚举租户等场景使用；缓存口径与单条解析一致
+        （域 `tenant` + 全局版本戳，TTL 取 `[tenant].resolve_cache_ttl`）。
+
+        Returns:
+            ConcurrentStableList[TenantContext]: 启用租户上下文。
+
+        Raises:
+            ServiceUnavailableError: 契约不可达或响应非法；调用方决定是否保留旧集合。
+        """
+        key = snapshot_cache_key("default", "active-list")
+        cached = self._cache_get_list(key)
+        if cached is not None:
+            return cached
+        snapshots = await self._fetch_active_snapshots()
+        self._cache_set_list(key, snapshots)
+        return ConcurrentStableList(to_tenant_context(snapshot) for snapshot in snapshots)
+
     async def invalidate(
         self, code: str | None = None, *, domain: str | None = None, tenant_id: str | None = None
     ) -> None:
@@ -277,6 +300,33 @@ class RemoteTenantSource(BaseFrameworkObject):
             raise MultipleActiveTenantsError("多个启用租户，无法唯一解析")
         raise ServiceUnavailableError(f"租户注册契约调用失败（{response.status_code}）")
 
+    async def _fetch_active_snapshots(self) -> ConcurrentStableList[TenantSnapshot]:
+        """经契约取全部启用租户快照（`items` 数组；逐项宽松解析）。
+
+        Returns:
+            ConcurrentStableList[TenantSnapshot]: 启用租户快照（主键升序，由服务端保证）。
+
+        Raises:
+            ServiceUnavailableError: 非 2xx、响应体缺 `items` 或元素非法。
+        """
+        request = ServiceRequest(service=self._service, method="GET", path=ACTIVE_TENANTS_PATH)
+        response = await self._client.call(request)
+        if not 200 <= response.status_code < 300:
+            raise ServiceUnavailableError(f"租户清单契约调用失败（{response.status_code}）")
+        payload = _payload_data(response)
+        raw_items = payload.get("items")
+        if not isinstance(raw_items, list):
+            raise ServiceUnavailableError("租户清单契约响应缺少 items 数组")
+        snapshots: ConcurrentStableList[TenantSnapshot] = ConcurrentStableList()
+        for item in cast("list[object]", raw_items):
+            if not isinstance(item, Mapping):
+                raise ServiceUnavailableError("租户清单契约响应元素不是对象")
+            try:
+                snapshots.add(TenantSnapshot.from_payload(ConcurrentStableDict(cast("Mapping[str, object]", item))))
+            except KeyError as exc:
+                raise ServiceUnavailableError(f"租户清单契约响应非法：{exc}") from exc
+        return snapshots
+
     def _cache_get(self, key: str) -> TenantSnapshot | None:
         """读缓存（版本不符视为未命中）。
 
@@ -313,6 +363,59 @@ class RemoteTenantSource(BaseFrameworkObject):
             return
         version = cache.get_global_version()
         cache.set(key, dict(snapshot.to_payload(version=version)), self._cache_ttl)
+
+    def _cache_get_list(self, key: str) -> ConcurrentStableList[TenantContext] | None:
+        """读租户清单缓存（版本不符 / 结构非法视为未命中）。
+
+        Args:
+            key: 缓存 key。
+
+        Returns:
+            ConcurrentStableList[TenantContext] | None: 租户上下文；未命中返回 None。
+        """
+        cache = self._cache
+        if cache is None:
+            return None
+        raw = cache.get(key)
+        if not isinstance(raw, Mapping):
+            return None
+        payload = cast("Mapping[str, object]", raw)
+        version = payload.get("version")
+        if not isinstance(version, int) or cache.is_stale(TENANT_VERSION_KEY, version):
+            return None
+        items = payload.get("items")
+        if not isinstance(items, list):
+            return None
+        contexts: ConcurrentStableList[TenantContext] = ConcurrentStableList()
+        for item in cast("list[object]", items):
+            if not isinstance(item, Mapping):
+                return None
+            try:
+                snapshot = TenantSnapshot.from_payload(ConcurrentStableDict(cast("Mapping[str, object]", item)))
+            except KeyError:
+                return None
+            contexts.add(to_tenant_context(snapshot))
+        return contexts
+
+    def _cache_set_list(self, key: str, snapshots: ConcurrentStableList[TenantSnapshot]) -> None:
+        """写租户清单缓存（附当前全局版本戳）。
+
+        Args:
+            key: 缓存 key。
+            snapshots: 启用租户快照。
+        """
+        cache = self._cache
+        if cache is None:
+            return
+        version = cache.get_global_version()
+        items: ConcurrentStableList[ConcurrentStableDict[str, Any]] = ConcurrentStableList(
+            snapshot.to_payload() for snapshot in snapshots
+        )
+        cache.set(
+            key,
+            {"version": version, "items": [dict(item) for item in items]},
+            self._cache_ttl,
+        )
 
     def _cache_delete(self, key: str) -> None:
         """删缓存（幂等）。

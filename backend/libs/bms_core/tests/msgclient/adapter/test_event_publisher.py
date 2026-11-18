@@ -86,6 +86,14 @@ async def test_publish_maps_envelope_to_data_plane_request() -> None:
     assert body["trace_id"] == "trace-1"
 
 
+async def test_publish_uses_event_domain_namespace_when_override_empty() -> None:
+    """未显式覆盖命名空间时按事件类型首段（事件域）派生。"""
+    transport, seen = _recording()
+    publisher = _publisher(transport, namespace="")
+    await publisher.publish(_event())
+    assert json.loads(seen[0].content)["namespace"] == "wf"
+
+
 async def test_publish_carries_tenant_header() -> None:
     """租户随 `X-Tenant-ID` 头（事件信封的租户优先于装配缺省）。"""
     transport, seen = _recording()

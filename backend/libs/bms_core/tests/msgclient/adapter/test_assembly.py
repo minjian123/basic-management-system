@@ -112,17 +112,16 @@ def test_namespace_prefers_option() -> None:
     assert assembly.msg_namespace(_settings(namespace="bms")) == "bms"
 
 
-def test_namespace_falls_back_to_service() -> None:
-    """未配选项时回落调用方服务标识（msg 侧要求是已启用 `module_key`）。"""
-    assert assembly.msg_namespace(_settings(service="biz")) == "biz"
+def test_namespace_defaults_to_empty() -> None:
+    """未配选项时返回空串：发布器按事件类型首段（事件域）取命名空间。"""
+    assert assembly.msg_namespace(_settings(service="biz")) == ""
 
 
-def test_namespace_requires_config() -> None:
-    """两处都空 → 装配期拒启（空串会被 msg 判 `350010`）。"""
+def test_namespace_allows_empty_override() -> None:
+    """显式覆盖为空同样合法（按事件域；不再装配期拒启）。"""
     settings = _settings(service="")
     settings.event.options.set("namespace", "")
-    with pytest.raises(ConfigError, match="namespace"):
-        assembly.msg_namespace(settings)
+    assert assembly.msg_namespace(settings) == ""
 
 
 def test_service_client_factory_creates_msg_client(assembled: Settings) -> None:
@@ -152,12 +151,12 @@ def test_event_publisher_factory_creates_msg_publisher() -> None:
     assert publisher.plugin_name == "msg"
 
 
-def test_event_publisher_factory_rejects_missing_namespace() -> None:
-    """命名空间缺失时工厂直接拒启（不产出「发不出去」的发布器）。"""
+def test_event_publisher_factory_allows_event_domain_namespace() -> None:
+    """命名空间未显式配置时工厂照常构造（按事件域派生，不在装配期误拒）。"""
     settings = _settings(service="")
     settings.event.options.set("namespace", "")
-    with pytest.raises(ConfigError):
-        assembly.MsgEventPublisherFactory(settings).create()
+    publisher = assembly.MsgEventPublisherFactory(settings).create()
+    assert isinstance(publisher, MsgEventPublisher)
 
 
 def test_register_platform_plugins_exposes_msg_provider(assembled: Settings) -> None:

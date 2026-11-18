@@ -396,6 +396,8 @@ options = {}
 provider = ""
 # 签发契约校验模式：off 不校验 / warn 记录告警放行 / enforce 未登记即拒发（10010 / EventContractError）
 contract_mode = "enforce"
+# 事件命名空间显式覆盖：缺省空 = 按事件类型首段取事件域（sys / notification / wf …）；
+# 只有需要把事件强行收进某个命名空间时才设置（值须为已启用 module_key）
 options = {}
 
 [consistency_barrier]
@@ -485,22 +487,26 @@ captcha_template_id = ""
 password_reset_template_id = ""
 
 [event_consumer]
-# 事件消费组运行时（插件化配置；当前只有空串 = null 只装载声明不启动；msg 消费组待实现）
+# 事件消费组运行时（插件化配置；msg = 真实消费；空串 = null 只装载声明不启动）
 # 声明归各服务自持（`event_consumer_records()` 钩子），基座统一装载——本段只管运行时参数
 provider = ""
 # 消费总开关（False = 只装载声明、不拉取；缺省关，避免未部署消费后端的环境启动即报错）
 enabled = false
-# 宿主形态：in_service = 随服务进程启动、worker = 仅由独立 worker 进程启动（两者互斥）
+# 宿主形态：in_service = 随服务进程启动、worker = 只装载，由 `ops/event_consumer.py --worker` 消费（两者互斥）
 host = "in_service"
-# 消费组名前缀（组名 `{前缀}.{域}`，如 bms.audit.chain）
+# 消费组名前缀（组名 `{前缀}-{域}`，如 bms-audit-chain；msg 组名只接受 [a-zA-Z0-9._-]）
 group_prefix = "bms"
 # 每消费组默认并发（键级串行的道数；ordered 组固定为 1）
 concurrency = 4
 # 单组单轮拉取上限
 batch_size = 32
-# 无消息时的轮询间隔（秒）
+# 无消息 / 出错时的轮询间隔（秒）
 poll_interval_seconds = 1.0
-# 消息可见性超时（秒）：未 ack 的消息在该时长后由 broker 重投
+# 长轮询挂起上限（毫秒）；请求超时自动取本值 + 5 秒
+long_poll_ms = 20000
+# 业务租户清单刷新间隔（秒）；平台租户固定包含
+tenant_refresh_seconds = 60
+# 消息可见性超时（秒）：保留项，msg 的可见性由服务端在途 / 租约管理，本参数对 msg 实现不生效
 visibility_timeout_seconds = 30
 # 转死信前的应用内重试次数（0 = 首次失败即死信）
 max_retries = 3

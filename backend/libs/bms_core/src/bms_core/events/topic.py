@@ -38,6 +38,7 @@ __all__ = [
     "decode_event",
     "encode_event",
     "event_attributes",
+    "namespace_for",
     "topic_for",
 ]
 
@@ -76,6 +77,26 @@ ATTR_TRACEPARENT = "traceparent"
 
 _BODY_EVENT_ID = "event_id"
 _BODY_PAYLOAD = "payload"
+
+
+def namespace_for(event_type: str) -> str:
+    """按事件类型取消息命名空间（**事件类型首段**，即事件域）。
+
+    msg 的主题身份是 `(租户, 命名空间, 主题名)`，命名空间必须是已启用 `module_key`；
+    事件域与服务目录的 `event_domain` / `module_key` 同源，故发布与消费都取首段。
+
+    Args:
+        event_type: 事件类型（`{域}.{对象}.{动作}`，至少两段）。
+
+    Returns:
+        str: 命名空间（如 `sys.operation.logged` → `sys`）。
+
+    Raises:
+        EventConsumeError: 事件类型不合规。
+    """
+    if not EVENT_TYPE_RE.match(event_type):
+        raise EventConsumeError(f"事件类型非法，无法派生命名空间：{event_type!r}")
+    return event_type.split(".", 1)[0]
 
 
 def topic_for(event_type: str) -> str:

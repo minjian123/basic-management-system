@@ -41,6 +41,7 @@ __all__ = [
     "DEMO_TENANT",
     "TENANT_DB_KEY_PREFIX",
     "TenantContext",
+    "TenantDirectory",
     "TenantLookup",
     "build_tenant_db_key",
     "current_tenant_context",
@@ -182,6 +183,25 @@ class TenantLookup(Protocol):
 
         Raises:
             MultipleActiveTenantsError: ≥ 2 个启用租户（`80004` / 409；不携带租户清单）。
+        """
+        ...
+
+
+class TenantDirectory(Protocol):
+    """租户目录契约：枚举启用租户（消费组按租户装载、作业中心枚举租户等复用）。
+
+    与 `TenantLookup` 分开：解析链只需要「按来源取一个」，目录用于「取全部启用」；
+    两者可同一实现（`RemoteTenantSource` / 本地租户源），但调用面语义不同，不合并协议。
+    """
+
+    async def active_tenants(self) -> ConcurrentStableList[TenantContext]:
+        """枚举启用租户（`status == active` 且未软删，含平台租户；主键升序）。
+
+        Returns:
+            ConcurrentStableList[TenantContext]: 启用租户上下文。
+
+        Raises:
+            ServiceUnavailableError: 租户清单契约不可达或响应非法（调用方决定是否保留旧集合）。
         """
         ...
 

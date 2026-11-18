@@ -219,11 +219,28 @@ async def test_registry_repository_reads_writes_and_status(tmp_path: Path) -> No
             assert (await repository.by_id(tenant_id)) is not None
             assert await repository.db_basis(tenant_id) == "acme_db"
             assert [item.code for item in await repository.active_rows()] == ["acme"]
+            assert [item.code for item in await repository.active_all()] == ["acme"]
 
             await repository.update_status(row, "suspended")
             await session.commit()
             reloaded = await repository.by_id(tenant_id)
             assert reloaded is not None and reloaded.status == "suspended"
             assert list(await repository.active_rows()) == []
+            assert list(await repository.active_all()) == []
     finally:
         await engine.dispose()
+
+
+async def test_active_list_returns_all_enabled(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+    """启用租户清单：全部启用租户按主键升序返回（含字段齐全）。"""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'active-list.db'}"
+    await _seed(url, ConcurrentStableList([("aaa", "甲"), ("bbb", "乙")]))
+    _override_read_db(service_app, url)
+
+    resp = await client.get("/api/v1/tenant-registry/active")
+    assert resp.status_code == 200
+    items = resp.json()["data"]["items"]
+    assert [item["code"] for item in items] == ["aaa", "bbb"]
+    assert items[0]["name"] == "甲"
+    assert items[0]["tenant_id"] is not None
+    assert items[0]["db_basis"] == "aaa"

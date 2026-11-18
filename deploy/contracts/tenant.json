@@ -1429,6 +1429,78 @@
         ]
       }
     },
+    "/api/v1/tenant-registry/active": {
+      "get": {
+        "description": "取全部启用租户注册快照（消费组 / 作业中心等枚举租户用；含平台租户）。\n\n只读内部契约：`status == active` 且未软删，主键升序、不分页；平台租户与业务租户一并返回，\n调用方按需取用（消费组固定包含平台租户，业务租户按清单增删）。\n\nArgs:\n    session: 平台服务库只读会话。\n\nReturns:\n    ApiResponse: 统一响应（data 为 `{items: [...]}`）。",
+        "operationId": "get_active_tenants_api_v1_tenant_registry_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Active Tenants",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/v1/tenant-registry/active-single": {
       "get": {
         "description": "取唯一启用租户注册快照（免登录链路兜底；不返回租户清单）。\n\n恰 1 个启用租户（`status == active` 且未软删）→ 注册快照；0 个 → `80001` / 404；\n≥ 2 个 → `80004` / 409（`MultipleActiveTenantsError`）。\n\nArgs:\n    session: 平台服务库只读会话。\n\nReturns:\n    ApiResponse: 统一响应（data 为注册快照）。\n\nRaises:\n    TenantNotFoundError: 无启用租户（404 / 80001）。\n    MultipleActiveTenantsError: 多启用租户（409 / 80004）。",

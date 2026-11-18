@@ -23,6 +23,7 @@ from bms_core.events.topic import (
     decode_event,
     encode_event,
     event_attributes,
+    namespace_for,
     topic_for,
 )
 
@@ -46,6 +47,15 @@ def test_topic_for_rejects_invalid_event_type() -> None:
     for invalid in ("sys", "Sys.User.Created", "1sys.user.created", ""):
         with pytest.raises(EventConsumeError):
             topic_for(invalid)
+
+
+def test_namespace_for_takes_event_domain() -> None:
+    """命名空间取事件类型首段（事件域）；非法事件类型拒绝派生。"""
+    assert namespace_for("sys.operation.logged") == "sys"
+    assert namespace_for("notification.sent") == "notification"
+    assert namespace_for("wf.instance.started") == "wf"
+    with pytest.raises(EventConsumeError):
+        namespace_for("Sys.User.Created")
 
 
 def test_encode_decode_round_trip() -> None:

@@ -63,6 +63,7 @@ from bms_core.dashboard.base import BaseDashboardCardRegistry
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
+from bms_core.db.tenant import TenantDirectory
 from bms_core.dict.base import BaseDataSource, BaseDictTranslator, DictCacheRegion
 from bms_core.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
 from bms_core.dict.http import HttpDataSource, HttpDictTranslator
@@ -73,6 +74,7 @@ from bms_core.edge.headers import GATEWAY_IDENTITY_VALUE
 from bms_core.edge.marker import MarkerEdgeTrust
 from bms_core.edge.service_jwt import ServiceJwtEdgeTrustFactory
 from bms_core.events.base import BaseEventConsumerGroup, EventPublisher
+from bms_core.events.msg_consumer import MsgEventConsumerGroup, PlatformOnlyTenantDirectory
 from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.fallback.base import BaseFallbackPolicy
 from bms_core.fieldtype.base import BaseFieldTypeRegistry
@@ -508,6 +510,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("tenant_guard", "source", SourceTenantGuardFactory(app))
     register_plugin("scope_resolver", "source", SourceScopeResolverFactory(app))
     register_plugin("event", MSG_PROVIDER_NAME, MsgEventPublisherFactory(settings))
+    register_plugin("event_consumer", MSG_PROVIDER_NAME, MsgEventConsumerGroupFactory(settings, app))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
     register_plugin("outbox_dispatcher", MSG_PROVIDER_NAME, MsgOutboxDispatcherFactory(settings, app))
@@ -1572,7 +1575,7 @@ class HttpServiceClientFactory(BasePluginFactory[HttpServiceClient]):
 # 装配 / 发件箱 / CLI 三处共用单一事实源；本模块自顶部导入，不再本地定义。
 
 MSG_NAMESPACE_OPTION = "namespace"
-"""事件命名空间配置键（`[event].options.namespace`；msg 侧按已启用 `module_key` 校验，空串会被判 `350010`）。"""
+"""事件命名空间显式覆盖键（`[event].options.namespace`；空串 = 按事件类型首段取事件域）。"""
 
 MSG_INSTANCE_STRATEGY_OPTION = "instance_strategy"
 """实例选择策略配置键（`[service_client].options.instance_strategy`；`round_robin` / `least_inflight`）。"""
@@ -1597,27 +1600,18 @@ def msg_base_url(settings: Settings) -> str:
 
 
 def msg_namespace(settings: Settings) -> str:
-    """解析事件命名空间（`[event].options.namespace` → `[app].service`），空即拒启。
+    """解析事件命名空间的**显式覆盖**（`[event].options.namespace`）。
 
-    命名空间在 msg 侧必须是一个**已启用的 `module_key`**，空串会被判 `350010`；因此缺省回落
-    调用方服务标识（本服务在服务目录里的键），两者都空视为配置缺失。
+    缺省空串表示不覆盖：发布器按事件类型首段（事件域 = 已启用 `module_key`）取命名空间，
+    这样不同服务发布同一事件会落同一主题，跨服务消费才能对上。
 
     Args:
         settings: 应用配置。
 
     Returns:
-        str: 命名空间。
-
-    Raises:
-        ConfigError: 两处均为空（provider = "msg" 时属配置缺失）。
+        str: 显式覆盖值；空串表示按事件域。
     """
-    namespace = str(settings.event.options.get(MSG_NAMESPACE_OPTION) or settings.app.service or "").strip()
-    if not namespace:
-        raise ConfigError(
-            f'[event].provider = "{MSG_PROVIDER_NAME}" 但消息平台命名空间未配置：'
-            f"[event].options.{MSG_NAMESPACE_OPTION} 为空且 [app].service 为空（命名空间须为已启用 module_key）"
-        )
-    return namespace
+    return str(settings.event.options.get(MSG_NAMESPACE_OPTION) or "").strip()
 
 
 def msg_instance_policy(settings: Settings) -> InstancePolicy:
@@ -1789,6 +1783,54 @@ class TableOwnershipGuardFactory(BasePluginFactory[TableOwnershipGuard]):
         )
 
 
+class MsgEventConsumerGroupFactory(BasePluginFactory[MsgEventConsumerGroup]):
+    """消息平台消费组实现工厂（`event_consumer` 端口，插件名 `msg`）。
+
+    依赖从应用装配产物取：引擎注册表 / 会话工厂 / 指标器 / 租户源；
+    实例地址与发布器同源（`[service_client].instances.msg` → 端点覆盖 → 基址模板）。
+    租户源不支持清单时退化为「仅平台租户」并告警（不静默假装业务租户存在）。
+    """
+
+    plugin_key: str = "event_consumer"
+    plugin_name: str = MSG_PROVIDER_NAME
+
+    def __init__(self, settings: Settings, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[event_consumer]` / `[platform_tenant]`）。
+            app: 应用实例（取引擎注册表 / 会话工厂 / 指标器 / 租户源）。
+        """
+        self._settings = settings
+        self._app = app
+
+    def create(self, options: None = None) -> MsgEventConsumerGroup:
+        """构造消费组运行时。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            MsgEventConsumerGroup: 消费组运行时。
+        """
+        source = getattr(self._app.state, "tenant_source", None)
+        directory: TenantDirectory = (
+            cast("TenantDirectory", source)
+            if callable(getattr(source, "active_tenants", None))
+            else PlatformOnlyTenantDirectory(self._settings.platform_tenant.code)
+        )
+        return MsgEventConsumerGroup(
+            settings=self._settings,
+            engine_registry=cast("EngineRegistry", self._app.state.engine_registry),
+            session_factory=cast("SessionFactory | None", getattr(self._app.state, "session_factory", None)),
+            endpoints=ConcurrentStableList(msg_instance_addresses(self._settings)),
+            tenant_directory=directory,
+            platform_tenant=self._settings.platform_tenant.code,
+            service=self._settings.app.service,
+            metrics=cast("BaseMetrics | None", getattr(self._app.state, "metrics", None)),
+        )
+
+
 class MsgEventPublisherFactory(BasePluginFactory[MsgEventPublisher]):
     """消息平台事件发布实现工厂（数据面 `/api/v1/msg/publish`）。
 
@@ -1817,12 +1859,12 @@ class MsgEventPublisherFactory(BasePluginFactory[MsgEventPublisher]):
             MsgEventPublisher: 发布实例。
 
         Raises:
-            ConfigError: 实例地址或命名空间不可用（装配期即拒启）。
+            ConfigError: 实例地址不可用（装配期即拒启）。
         """
         return MsgEventPublisher(
             base_url=msg_base_url(self._settings),
             namespace=msg_namespace(self._settings),
-            tenant=None,
+            tenant=self._settings.platform_tenant.code or None,
         )
 
 

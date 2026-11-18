@@ -15,9 +15,9 @@
   不引入第二套声明。
 - **不启 lifespan**：CLI 不建表、不跑启动校验，只装配「消费运行器 + 引擎注册表」所需的最小上下文；
   首次使用前服务应已正常启动过一次（库表就绪）。
-- **前置**：`[event_consumer].provider` 须指向已登记的消费实现，且 `[event_consumer].host` 与宿主形态一致
-  （worker 时服务进程不应再消费同一组）。当前基座只保留 `null` 实现（只装载声明、不拉取）；
-  RocketMQ 消费实现已下线，msg 消费组待实现。命令行本身保留，待消费实现落地后直接可用。
+- **前置**：`[event_consumer].provider` 须指向已登记的消费实现（`msg`），且 `[event_consumer].host` 与宿主形态一致
+  （worker 时服务进程不应再消费同一组）。CLI 经 `ApplicationFactory.create(None)` 复用应用装配产物，
+  不手搓第二套租户目录 / 插件解析。
 """
 
 from __future__ import annotations
@@ -27,109 +27,67 @@ import asyncio
 import contextlib
 import signal
 import sys
-from collections.abc import Iterable
-from importlib import import_module
 from typing import cast
 
+from fastapi import FastAPI
+
+from bms_core.core.assembly import MsgEventConsumerGroupFactory
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.core.plugin import build_plugin_registry, resolve_plugin
-from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
-from bms_core.events.base import BaseEventConsumerGroup, ConsumedTally
-from bms_core.events.consumer_records import (
-    EventConsumerRecord,
-    merge_event_consumer_records,
-    validate_event_consumer_records,
-)
-from bms_core.events.platform_events import register_platform_event_contracts
+from bms_core.events.base import ConsumedTally
+from bms_core.events.consumer_records import EventConsumerRecord
+from bms_core.events.msg_consumer import MsgEventConsumerGroup
+from ops._event_records import load_records, service_factory
 from ops._worker import run_with_worker_id
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入具体服务实现，按 `--service` 动态取工厂）。"""
 
 
-def _service_factory(service: str) -> object:
-    """按服务键取应用工厂实例（零参构造）。
+def _build_group(
+    records: ConcurrentStableList[EventConsumerRecord], app: object
+) -> tuple[MsgEventConsumerGroup, EngineRegistry]:
+    """构造消费组运行时与引擎注册表（CLI 用服务应用工厂的最小上下文）。
 
-    Args:
-        service: 服务键（如 `platform`）。
-
-    Returns:
-        object: `ApplicationFactory` 实例。
-
-    Raises:
-        SystemExit: 服务包不存在（退出码 2）。
-    """
-    module_name = f"bms_{service}.main"
-    try:
-        module = import_module(module_name)
-    except ImportError as exc:
-        print(f"服务包不存在：{module_name}（{exc}）", file=sys.stderr)
-        raise SystemExit(2) from exc
-    factory_type = getattr(module, "ApplicationFactory", None)
-    if factory_type is None:
-        print(f"服务包未声明 ApplicationFactory：{module_name}", file=sys.stderr)
-        raise SystemExit(2)
-    return cast("object", factory_type())
-
-
-def _records(factory: object, *, group_prefix: str) -> ConcurrentStableList[EventConsumerRecord]:
-    """取并校验服务自持的消费组声明。
-
-    Args:
-        factory: 应用工厂实例。
-        group_prefix: 组名前缀。
-
-    Returns:
-        ConcurrentStableList[EventConsumerRecord]: 合并后的声明。
-
-    Raises:
-        SystemExit: 声明校验不通过（退出码 1）。
-    """
-    getter = getattr(factory, "event_consumer_records", None)
-    declared: ConcurrentStableList[EventConsumerRecord] = (
-        ConcurrentStableList(cast("Iterable[EventConsumerRecord]", getter()))
-        if callable(getter)
-        else ConcurrentStableList()
-    )
-    records = merge_event_consumer_records(declared, group_prefix=group_prefix)
-    # 诊断 / 单轮 / worker 均不经应用启动：平台事件契约在此幂等登记，保证声明校验同启动口径
-    register_platform_event_contracts()
-    errors = validate_event_consumer_records(records)
-    if errors:
-        for error in errors:
-            print(f"[声明校验] {error}", file=sys.stderr)
-        raise SystemExit(1)
-    return records
-
-
-def _build_group(records: ConcurrentStableList[EventConsumerRecord]) -> tuple[BaseEventConsumerGroup, EngineRegistry]:
-    """构造消费组运行时与引擎注册表（CLI 无应用上下文）。
+    **复用应用装配**：`ApplicationFactory.create(None)` 已登记平台插件并建注册表，
+    这里只取 `tenant_source` / `engine_registry` / `session_factory` / `metrics`，
+    不再手搓第二套装配（否则租户目录、插件解析与进程内宿主会分叉）。
 
     Args:
         records: 组声明。
+        app: 服务应用实例（`factory.create(None)` 的产物）。
 
     Returns:
-        tuple[BaseEventConsumerGroup, EngineRegistry]: 运行时与注册表（调用方负责释放）。
+        tuple[MsgEventConsumerGroup, EngineRegistry]: 运行时与注册表（调用方负责释放）。
 
     Raises:
-        SystemExit: provider 未配置（退出码 1）。
+        SystemExit: 服务工厂未实现 `create`（退出码 1）。
     """
     settings = get_settings()
-    import_module("bms_core.events.null")
-    build_plugin_registry()
-    registry = EngineRegistry(EngineFactory(settings))
-    group = cast(
-        "BaseEventConsumerGroup",
-        resolve_plugin(
-            "event_consumer",
-            settings.event_consumer.provider,
-            expected_version=BaseEventConsumerGroup.contract_version,
-        ),
-    )
+    group = MsgEventConsumerGroupFactory(settings, cast("FastAPI", app)).create()
     group.load(records)
+    registry = cast("EngineRegistry", cast("FastAPI", app).state.engine_registry)
     return group, registry
+
+
+def _create_app(factory: object) -> object:
+    """按服务应用工厂创建应用（不跑 lifespan：不建表、不跑启动校验）。
+
+    Args:
+        factory: 服务应用工厂实例。
+
+    Returns:
+        object: FastAPI 应用。
+
+    Raises:
+        SystemExit: 工厂未实现 `create`（退出码 1）。
+    """
+    creator = getattr(factory, "create", None)
+    if not callable(creator):
+        print("服务工厂未实现 create()，无法构造消费组上下文", file=sys.stderr)
+        raise SystemExit(1)
+    return creator(None)
 
 
 async def _groups(args: argparse.Namespace) -> int:
@@ -142,7 +100,7 @@ async def _groups(args: argparse.Namespace) -> int:
         int: 退出码。
     """
     settings = get_settings()
-    records = _records(_service_factory(args.service), group_prefix=settings.event_consumer.group_prefix)
+    records = load_records(service_factory(args.service), group_prefix=settings.event_consumer.group_prefix)
     print(f"服务 {args.service}：声明 {len(records)} 条")
     for record in records:
         flag = "有序" if record.ordered else f"并发 {record.concurrency or settings.event_consumer.concurrency}"
@@ -161,11 +119,17 @@ async def _once(args: argparse.Namespace) -> int:
         int: 退出码。
     """
     settings = get_settings()
-    records = _records(_service_factory(args.service), group_prefix=settings.event_consumer.group_prefix)
+    factory = service_factory(args.service)
+    records = load_records(factory, group_prefix=settings.event_consumer.group_prefix)
     if not records:
         print("无可消费的组声明（服务未声明 event_consumer_records）")
         return 0
-    group, registry = _build_group(records)
+    group, registry = _build_group(records, _create_app(factory))
+    if not group.enabled:
+        print("消费未启用（[event_consumer].enabled=false）")
+        await group.aclose()
+        await registry.aclose()
+        return 0
     try:
         tally: ConsumedTally = await group.consume_once(max_messages=args.max_messages)
     finally:
@@ -188,11 +152,17 @@ async def _worker(args: argparse.Namespace) -> int:
         int: 退出码。
     """
     settings = get_settings()
-    records = _records(_service_factory(args.service), group_prefix=settings.event_consumer.group_prefix)
+    factory = service_factory(args.service)
+    records = load_records(factory, group_prefix=settings.event_consumer.group_prefix)
     if not records:
         print("无可消费的组声明（服务未声明 event_consumer_records）")
         return 0
-    group, registry = _build_group(records)
+    group, registry = _build_group(records, _create_app(factory))
+    if not group.enabled:
+        print("消费未启用（[event_consumer].enabled=false）")
+        await group.aclose()
+        await registry.aclose()
+        return 0
     stop = asyncio.Event()
 
     def _request_stop(*_: object) -> None:

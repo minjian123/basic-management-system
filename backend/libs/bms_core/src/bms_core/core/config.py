@@ -1584,7 +1584,13 @@ class EventConsumerSettings(PluginSelection):
     """单组单轮拉取上限。"""
 
     poll_interval_seconds: float = Field(default=1.0, gt=0)
-    """无消息时的轮询间隔（秒）。"""
+    """无消息 / 出错时的轮询间隔（秒）。"""
+
+    long_poll_ms: int = Field(default=20000, ge=1000)
+    """长轮询挂起上限（毫秒）：单次 `poll` 最多等待；请求超时自动取本值 + 5 秒。"""
+
+    tenant_refresh_seconds: int = Field(default=60, ge=10)
+    """业务租户清单刷新间隔（秒）：平台租户固定包含，业务租户按其增删。"""
 
     visibility_timeout_seconds: int = Field(default=30, ge=1)
     """消息可见性超时（秒）：未 ack 的消息在该时长后由 broker 重投。"""

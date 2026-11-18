@@ -29,11 +29,17 @@ sampler_ratio = 0.1
 [dict_cache_region]
 provider = "redis"
 
-# 事件发布切到自研消息平台 msg（数据面 `/api/v1/msg/publish`）；namespace 取已启用 module_key（平台为 sys）
-# 消费侧暂无 msg 实现，[event_consumer].provider 保持空串（null，只装载声明不拉取）
+# 事件发布切到自研消息平台 msg（数据面 `/api/v1/msg/publish`）；
+# 命名空间缺省按事件域（sys / notification / wf …），不再固定 sys。
+# 消费侧：provider 指向 msg（装配期可完成解析），但 enabled 保持 false，由部署评审开启。
 [event]
 provider = "msg"
-options = { namespace = "sys" }
+options = {}
+
+[event_consumer]
+provider = "msg"
+enabled = false
+host = "worker"
 
 # msg 实例地址（Compose 服务名即 DNS；多实例时改 instances 地址列表）
 [service_client]

@@ -74,5 +74,15 @@ provider = "local"
 # dev 联调：允许内网 / 回环 IdP（本地 Keycloak 等；生产保持 false 防 SSRF）
 allow_private_hosts = true
 
-# 事件总线：RocketMQ 已下线。dev 保持 [event].provider / [event_consumer].provider 为空
-# （null 实现，不连接）；需要联调时把 [event].provider 切到 msg 并在 [service_client] 配实例地址。
+# 事件总线（01_04 补口）：dev 打开真实 msg 发布与消费，便于本机 / 开发服务器端到端验证。
+# 命名空间缺省按事件域（sys / notification / wf …），不再固定为 sys；实例地址见 [service_client]。
+[event]
+provider = "msg"
+options = {}
+
+# 消费组：本机裸跑随服务进程消费（一个进程同时跑 API 与消费）；部署到服务器时由编排覆盖
+# platform 为 worker、notification 为 in_service（见 deploy/compose/services.yml）。
+[event_consumer]
+provider = "msg"
+enabled = true
+host = "in_service"

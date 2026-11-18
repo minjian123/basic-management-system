@@ -13,7 +13,7 @@ from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter
 from bms_core.api.deps import get_platform_read_db
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
     MultipleActiveTenantsError,
     ParamError,
@@ -81,6 +81,31 @@ async def get_tenant_registry(
     if not db_basis:
         _LOGGER.warning("tenant_db_basis_missing", tenant_id=int(row.id), code=row.code)
     return ApiResponse.ok(dict(_snapshot(row, db_basis)))
+
+
+@router.get("/active")
+async def get_active_tenants(session: SessionDep) -> ApiResponse:
+    """取全部启用租户注册快照（消费组 / 作业中心等枚举租户用；含平台租户）。
+
+    只读内部契约：`status == active` 且未软删，主键升序、不分页；平台租户与业务租户一并返回，
+    调用方按需取用（消费组固定包含平台租户，业务租户按清单增删）。
+
+    Args:
+        session: 平台服务库只读会话。
+
+    Returns:
+        ApiResponse: 统一响应（data 为 `{items: [...]}`）。
+    """
+    repository = TenantRegistryRepository(session)
+    items: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+    for row in await repository.active_all():
+        db_basis = await repository.db_basis(int(row.id))
+        if not db_basis:
+            _LOGGER.warning("tenant_db_basis_missing", tenant_id=int(row.id), code=row.code)
+        items.add(_snapshot(row, db_basis))
+    # 逐项转为普通字典再交给响应模型：集合体系类型不是 pydantic 已知类型，直接嵌套会序列化失败。
+    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict({"items": [dict(item) for item in items]})
+    return ApiResponse.ok(dict(payload))
 
 
 @router.get("/active-single")

@@ -78,7 +78,11 @@ def _build_dispatcher() -> tuple[BaseOutboxDispatcher, EngineRegistry]:
         return NullOutboxDispatcher(), registry
     dispatcher_type = outbox_dispatcher_class(provider)
     if provider == MSG_PROVIDER_NAME:
-        publisher = MsgEventPublisher(base_url=msg_base_url(settings), namespace=msg_namespace(settings))
+        publisher = MsgEventPublisher(
+            base_url=msg_base_url(settings),
+            namespace=msg_namespace(settings),
+            tenant=settings.platform_tenant.code or None,
+        )
     else:
         publisher = _resolve("event", settings.event.provider, EventPublisher.contract_version, NullEventPublisher())
     metrics = _resolve("metrics", settings.metrics.provider, BaseMetrics.contract_version, NullMetrics())

@@ -66,6 +66,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenant-registry/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Active Tenants
+         * @description 取全部启用租户注册快照（消费组 / 作业中心等枚举租户用；含平台租户）。
+         *
+         *     只读内部契约：`status == active` 且未软删，主键升序、不分页；平台租户与业务租户一并返回，
+         *     调用方按需取用（消费组固定包含平台租户，业务租户按清单增删）。
+         *
+         *     Args:
+         *         session: 平台服务库只读会话。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为 `{items: [...]}`）。
+         */
+        get: operations["get_active_tenants_api_v1_tenant_registry_active_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenant-registry/active-single": {
         parameters: {
             query?: never;
@@ -1593,6 +1622,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_active_tenants_api_v1_tenant_registry_active_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description 限流 */

@@ -102,6 +102,22 @@ class TenantRegistryRepository(BaseFrameworkObject):
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
+    async def active_all(self) -> ConcurrentStableList[SysTenant]:
+        """取全部启用租户注册行（含平台租户；`status == active` 且未软删；主键升序）。
+
+        与 `active_rows` 的分工：`active_rows` 只判「唯一启用业务租户」（上限 2、排除平台），
+        本方法供租户目录契约枚举全部启用租户（含平台），不设上限。
+
+        Returns:
+            ConcurrentStableList[SysTenant]: 启用租户注册行（主键升序）。
+        """
+        statement = (
+            select(SysTenant)
+            .where(SysTenant.status == _ACTIVE_STATUS, SysTenant.deleted_at.is_(None))
+            .order_by(SysTenant.id)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def page_business(
         self,
         *,

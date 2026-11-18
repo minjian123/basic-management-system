@@ -77,6 +77,8 @@ services:
     environment:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_PLATFORM:-11}
+      # 消费组：platform 的审计链 / 作业投影由 event-worker 消费，本进程只装载声明
+      BMS_EVENT_CONSUMER__HOST: worker
 
   platform-jobs:
     <<: *service-base
@@ -89,6 +91,20 @@ services:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_PLATFORM_JOBS:-101}
       BMS_APP__SERVICE: platform
+
+  event-worker:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-platform:${BMS_TAG_PLATFORM:?BMS_TAG_PLATFORM required}
+    container_name: bms-event-worker
+    command: ["python", "-m", "ops.event_consumer", "--service", "platform", "--worker"]
+    expose: []
+    environment:
+      <<: *service-env
+      BMS_APP__WORKER_ID: ${BMS_WORKER_ID_EVENT:-106}
+      BMS_APP__SERVICE: platform
+      # worker 宿主：服务进程不再消费同一组；本进程显式启动消费
+      BMS_EVENT_CONSUMER__HOST: worker
+      BMS_EVENT_CONSUMER__ENABLED: "true"
 
   identity:
     <<: *service-base
@@ -147,6 +163,8 @@ services:
     environment:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_NOTIFICATION:-15}
+      # 通知组轻量，随服务进程消费（平台重负载走 event-worker）
+      BMS_EVENT_CONSUMER__HOST: in_service
 
   notification-jobs:
     <<: *service-base

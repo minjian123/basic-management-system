@@ -15,8 +15,8 @@ describe('formQueryFields', () => {
     const result = formQueryFields({
       layout: { query: { fields: ['status', 'name'] } },
       fields: [
-        { key: 'name', label: '姓名', type: 'text', sort: 1 },
-        { key: 'status', label: '状态', type: 'switch', sort: 2 },
+        { key: 'name', label: '姓名', type: 'text' },
+        { key: 'status', label: '状态', type: 'switch' },
       ],
     })
     expect(result.map((item) => item.key)).toEqual(['status', 'name'])

@@ -35,3 +35,13 @@ type_ttl_seconds = 5
 empty_ttl_seconds = 1
 lock_ttl_seconds = 2
 lock_wait_seconds = 0.01
+
+# 事件总线：单测不连 msg（发布 / 消费均为 null）
+[event]
+provider = ""
+options = {}
+
+[event_consumer]
+provider = ""
+enabled = false
+host = "in_service"
