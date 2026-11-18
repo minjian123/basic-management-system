@@ -19,6 +19,9 @@ __all__ = [
     "ARTICLE_STATUS_DRAFT",
     "ARTICLE_STATUS_OFFLINE",
     "ARTICLE_STATUS_PUBLISHED",
+    "FEEDBACK_HELPFUL",
+    "FEEDBACK_UNHELPFUL",
+    "FEEDBACK_VALUES",
     "GENERATED_BY_AI",
     "GENERATED_BY_MANUAL",
     "GENERATED_BY_VALUES",
@@ -121,6 +124,15 @@ GENERATED_BY_VALUES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenLis
     (GENERATED_BY_MANUAL, GENERATED_BY_AI)
 )
 """内容生成方式全集（插入序）。"""
+
+FEEDBACK_HELPFUL = "helpful"
+"""阅读反馈：有帮助。"""
+
+FEEDBACK_UNHELPFUL = "unhelpful"
+"""阅读反馈：无帮助。"""
+
+FEEDBACK_VALUES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList((FEEDBACK_HELPFUL, FEEDBACK_UNHELPFUL))
+"""阅读反馈类型全集（业务闭集，插入序）。"""
 
 
 def source_for_product(product_key: str) -> str:

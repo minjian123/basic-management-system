@@ -3,7 +3,8 @@
 - `bms_core/help/anchors.py`：`help_key` 的**唯一校验实现**（格式 / 形状 / 归一）；
 - `bms_core/help/content.py`：内容侧端口（文章 / 分类 / 未命中结果）与依赖注入提供者；
 - `bms_core/help/context.py`：五级候选链与解析编排；
-- `bms_core/help/index.py`：锚点索引值对象与缓存读写。
+- `bms_core/help/index.py`：锚点索引值对象与缓存读写；
+- `bms_core/help/cache.py`：内容侧解析结果缓存（版本键 / 编解码 / 降级）。
 """
 
 from bms_core.help.anchors import (

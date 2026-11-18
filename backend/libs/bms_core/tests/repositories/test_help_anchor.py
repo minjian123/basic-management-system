@@ -12,9 +12,17 @@ import pytest
 from sqlalchemy import Connection, Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.help.anchors import HelpAnchorKind
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
-from bms_core.repositories.help_anchor import find_help_key_conflict, list_help_anchors, load_help_anchor_index
+from bms_core.repositories.help_anchor import (
+    HelpAnchorEntry,
+    find_help_key_conflict,
+    list_help_anchors,
+    load_help_anchor_index,
+    load_help_anchor_kinds,
+)
 from bms_core.testing.transaction import rollback_session
 
 _MODELS = (SysMenu, SysForm, SysField, SysButton, SysAction, SysBusiness, SysPermission)
@@ -183,3 +191,34 @@ async def test_load_help_anchor_index_collects_enabled_rows(session: AsyncSessio
     assert dict(index.fields) == {("probe_biz", "probe_field"): "platform:probe_mod:probe_biz:probe_field:"}
     assert dict(index.buttons) == {("probe_biz", "probe_create"): "platform:probe_mod:probe_biz::probe_create"}
     assert dict(index.actions) == {"probe_create": "platform::::probe_create"}
+
+
+async def test_load_anchor_kinds_keeps_first_on_duplicate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """锚点 → 类型映射：重复值按先出现者为准（跨表唯一由写接口保证，此处只做容错）。"""
+    entries = ConcurrentStableList(
+        (
+            HelpAnchorEntry(
+                kind=HelpAnchorKind.MENU,
+                table="sys_menu",
+                model_id=1,
+                help_key="platform:dup:::",
+            ),
+            HelpAnchorEntry(
+                kind=HelpAnchorKind.FORM,
+                table="sys_form",
+                model_id=2,
+                help_key="platform:dup:::",
+            ),
+        )
+    )
+
+    async def _fake_list(session: AsyncSession) -> ConcurrentStableList[HelpAnchorEntry]:
+        """返回重复锚点清单。"""
+        del session
+        return entries
+
+    monkeypatch.setattr("bms_core.repositories.help_anchor.list_help_anchors", _fake_list)
+    kinds = await load_help_anchor_kinds(cast("AsyncSession", object()))
+    assert dict(kinds) == {"platform:dup:::": HelpAnchorKind.MENU}

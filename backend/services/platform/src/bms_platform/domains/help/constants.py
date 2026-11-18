@@ -40,15 +40,20 @@ __all__ = [
     "ARTICLE_STATUS_DRAFT",
     "ARTICLE_STATUS_OFFLINE",
     "ARTICLE_STATUS_PUBLISHED",
+    "DEFAULT_PACKAGE_ROOT",
     "GENERATED_BY_AI",
     "GENERATED_BY_MANUAL",
     "HELP_PACKAGE_MANIFEST",
     "MAX_ARTICLE_CONTENT_BYTES",
     "MAX_ARTICLE_COUNT",
     "MAX_CATEGORY_COUNT",
+    "MAX_CATEGORY_DEPTH",
+    "MAX_FEEDBACK_COMMENT_LENGTH",
     "MAX_LOCALE_COUNT",
     "MAX_PACKAGE_FILE_BYTES",
+    "MAX_READER_SUMMARY_CHARS",
     "MAX_SOURCE_KEY_LENGTH",
+    "MAX_STAT_PAGE_SIZE",
     "MAX_TITLE_LENGTH",
     "PACKAGE_SCHEMA_VERSION",
     "PACKAGE_STATUSES",
@@ -62,6 +67,7 @@ __all__ = [
     "TARGET_TYPE_FORM",
     "TARGET_TYPE_GLOBAL",
     "TARGET_TYPE_MODULE",
+    "VIEW_COUNT_DEDUP_TTL",
     "source_for_product",
 ]
 
@@ -88,6 +94,24 @@ MAX_ARTICLE_CONTENT_BYTES: Final[int] = 60000
 
 MAX_SOURCE_KEY_LENGTH: Final[int] = 128
 """`source_key` 最大长度（与列宽一致）。"""
+
+MAX_CATEGORY_DEPTH: Final[int] = 5
+"""分类树最大深度（含根级；防病态树与无限增长）。"""
+
+MAX_FEEDBACK_COMMENT_LENGTH: Final[int] = 500
+"""反馈评论最大字符数（与列宽一致）。"""
+
+MAX_READER_SUMMARY_CHARS: Final[int] = 120
+"""读者面列表摘要最大字符数（正文去标签截断）。"""
+
+MAX_STAT_PAGE_SIZE: Final[int] = 200
+"""统计明细分页上限（与统一分页参数一致，单列便于阅读）。"""
+
+VIEW_COUNT_DEDUP_TTL: Final[int] = 60
+"""阅读计数去重窗口（秒）：同用户同文章窗口内只计一次。"""
+
+DEFAULT_PACKAGE_ROOT: Final[str] = "../deploy/help/packages"
+"""帮助包 HTTP 装载根目录（与 `[help_package].root` 缺省一致）。"""
 
 DEFAULT_DRY_RUN: Final[bool] = True
 """装载 / 卸载的缺省模式：只预演，不写库。"""

@@ -10,16 +10,26 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from typing import cast
 
 from fastapi import Request
 from sqlalchemy.exc import SQLAlchemyError
 
+from bms_core.cache.base import CacheRegion
 from bms_core.core.config import get_settings
+from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import BizError
 from bms_core.core.logging import get_logger
+from bms_core.core.plugin import resolve_plugin
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
+from bms_core.help.cache import (
+    content_version,
+    load_cached_result,
+    resolve_cache_key,
+    store_cached_result,
+)
 from bms_core.help.content import (
     BaseHelpContentResolver,
     HelpContentQuery,
@@ -48,15 +58,18 @@ class DatabaseHelpContentResolver(BaseHelpContentResolver):
         *,
         engines: EngineRegistry | None = None,
         session_opener: SessionOpener | None = None,
+        cache: CacheRegion | None = None,
     ) -> None:
         """初始化。
 
         Args:
             engines: 引擎注册表（None 首次使用时按配置懒建）。
             session_opener: 会话开合口（None 按当前租户上下文开只读会话）。
+            cache: 缓存 Region（None 首次使用时按配置懒解析；内容缓存与失效归本层）。
         """
         self._engines = engines
         self._session_opener = session_opener
+        self._cache = cache
 
     async def resolve(self, query: HelpContentQuery, *, request: Request | None = None) -> HelpContentResult:
         """按候选顺序解析帮助内容。
@@ -69,8 +82,27 @@ class DatabaseHelpContentResolver(BaseHelpContentResolver):
             HelpContentResult: 解析结果；库不可用 / 无租户上下文时为空结果。
         """
         try:
+            cache = self._cache_region()
+            if cache is None:
+                async with self._opener() as session:
+                    return await HelpContentRepository(session).resolve(query)
+            tenant = get_current_tenant()
+            version = await content_version(cache, tenant=tenant)
+            cache_key = resolve_cache_key(
+                tenant=tenant,
+                version=version,
+                locale=query.locale,
+                candidates=query.candidates,
+            )
+            cached = await load_cached_result(cache, cache_key)
+            if cached is not None:
+                return cached
             async with self._opener() as session:
-                return await HelpContentRepository(session).resolve(query)
+                result = await HelpContentRepository(session).resolve(query)
+            if result.matched:
+                # 只缓存命中结果：未命中不缓存——内容写入（含运维直写 / 种子）后不返回旧的「暂无帮助」
+                await store_cached_result(cache, cache_key, result)
+            return result
         except (SQLAlchemyError, BizError) as exc:
             _LOGGER.warning("help_content_resolve_unavailable", error=str(exc))
             return HelpContentResult()
@@ -96,3 +128,25 @@ class DatabaseHelpContentResolver(BaseHelpContentResolver):
         if self._session_opener is not None:
             return self._session_opener()
         return self._open()
+
+    def _cache_region(self) -> CacheRegion | None:
+        """取缓存 Region（按配置懒解析；不可解析时返回 None 并降级直读）。
+
+        Returns:
+            CacheRegion | None: 缓存 Region；未装配 / 解析失败为 None。
+        """
+        if self._cache is not None:
+            return self._cache
+        try:
+            self._cache = cast(
+                "CacheRegion",
+                resolve_plugin(
+                    "cache",
+                    get_settings().cache.provider,
+                    expected_version=CacheRegion.contract_version,
+                ),
+            )
+        except BizError as exc:
+            _LOGGER.warning("help_content_cache_unavailable", error=str(exc))
+            return None
+        return self._cache

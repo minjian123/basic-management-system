@@ -12,6 +12,8 @@
 
 2026-11-17：08_03 帮助内容五表进入 platform 服务租户链（`bms_core.models.platform.help`），
 再次 bump 版本戳，确保共享测试库补建 `sys_help_*` 表。
+
+2026-11-18：12_01 新增 `sys_help_feedback` 模型（同模块），再次 bump 版本戳，确保共享测试库补建反馈表。
 """
 
 from __future__ import annotations

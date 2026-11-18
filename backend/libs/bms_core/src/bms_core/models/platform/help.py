@@ -1,10 +1,10 @@
-"""帮助中心内容面模型：分类 / 文章 / 多语言 / 锚点 / 包登记（08_03）。
+"""帮助中心内容面模型：分类 / 文章 / 多语言 / 锚点 / 包登记（08_03）/ 阅读反馈（12_01）。
 
 - 归属：业务域 `help`（承载服务 `platform`，库类别 `tenant`）；表级归属见
   `bms_core/services/table_registry.py::TABLE_OWNERSHIP`；
 - 表结构以《数据库设计》数据表文件为唯一事实源（`17_数据库设计_帮助中心.md` 与五张表文件）；
 - 来源与优先级 / 包状态 / 目标类型的静态值域见 `bms_core.help.values`；
-- `sys_help_feedback` 归 12_01 帮助内容维护，本模块不声明。
+- `sys_help_feedback`（12_01）承载阅读反馈：同用户同文章唯一、可改投；文章表两侧计数为派生值。
 
 挂接链：分类 1:N 文章；文章 1:N 多语言附表与锚点关联；包 1:N 来源文章。
 """
@@ -28,6 +28,7 @@ __all__ = [
     "SysHelpArticleI18n",
     "SysHelpArticleTarget",
     "SysHelpCategory",
+    "SysHelpFeedback",
     "SysHelpPackage",
 ]
 
@@ -161,3 +162,23 @@ class SysHelpPackage(BaseModel):
     status: Mapped[str] = mapped_column(
         String(16), default=PACKAGE_STATUS_LOADED, comment="状态（loaded/outdated/unloaded）"
     )
+
+
+class SysHelpFeedback(BaseModel):
+    """帮助阅读反馈（`sys_help_feedback`）：同用户同文章唯一，可改投。"""
+
+    __tablename__ = "sys_help_feedback"
+    __table_args__ = (
+        UniqueConstraint(
+            "article_id",
+            "user_id",
+            "deleted_at",
+            name="uq_sys_help_feedback_article_user_deleted_at",
+        ),
+        Index("idx_sys_help_feedback_article_type", "article_id", "feedback"),
+    )
+
+    article_id: Mapped[int] = mapped_column(SnowflakeId, comment="文章 ID（逻辑外键 → sys_help_article.id）")
+    user_id: Mapped[int] = mapped_column(SnowflakeId, comment="反馈人 ID（逻辑外键 → sys_user.id）")
+    feedback: Mapped[str] = mapped_column(String(16), comment="反馈类型（helpful/unhelpful）")
+    comment: Mapped[str | None] = mapped_column(String(500), nullable=True, comment="反馈评论（可空）")

@@ -33,7 +33,13 @@ from bms_core.help.index import HelpAnchorIndex, HelpMenuAnchor
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
 
-__all__ = ["HelpAnchorEntry", "find_help_key_conflict", "list_help_anchors", "load_help_anchor_index"]
+__all__ = [
+    "HelpAnchorEntry",
+    "find_help_key_conflict",
+    "list_help_anchors",
+    "load_help_anchor_index",
+    "load_help_anchor_kinds",
+]
 
 _LOGGER = get_logger("bms.help")
 """帮助域日志（非法存量锚点跳过时只告警，不阻断解析）。"""
@@ -123,6 +129,24 @@ async def list_help_anchors(session: DbSession) -> ConcurrentStableList[HelpAnch
                 )
             )
     return entries
+
+
+async def load_help_anchor_kinds(session: DbSession) -> ConcurrentStableFrozenDict[str, HelpAnchorKind]:
+    """取「锚点值 → 节点类型」映射（维护入口校验文章目标用）。
+
+    与 `list_help_anchors` 同源；重复值按先出现者为准（跨表唯一由写接口保证，此处只做容错）。
+
+    Args:
+        session: 平台库会话。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, HelpAnchorKind]: 锚点 → 节点类型。
+    """
+    kinds: ConcurrentStableDict[str, HelpAnchorKind] = ConcurrentStableDict()
+    for entry in await list_help_anchors(session):
+        if entry.help_key not in kinds:
+            kinds.set(entry.help_key, entry.kind)
+    return ConcurrentStableFrozenDict(kinds)
 
 
 async def _fetch(session: DbSession, model: Any, help_key: str) -> ConcurrentStableList[Any]:

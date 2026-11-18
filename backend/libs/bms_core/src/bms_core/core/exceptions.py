@@ -1207,6 +1207,143 @@ class HelpCategoryPathUnresolvedError(MenuError):
         MenuError.__init__(self, ErrorCode.HELP_CATEGORY_PATH_UNRESOLVED, message, http_status=400, data=data)
 
 
+class HelpContentError(MenuError):
+    """帮助内容维护子段（系统配置段内 `40014`+）异常基类（12_01）。
+
+    与 08_03 的包级异常（`40008`~`40013`）同属 `MenuError`；本层只做语义归拢，不改变段位基。
+    """
+
+
+class HelpCategoryNotFoundError(HelpContentError):
+    """帮助分类不存在或已软删（`40014` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化分类不存在异常。
+
+        Args:
+            message: 提示信息（含分类主键 / 父级）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_CATEGORY_NOT_FOUND, message, http_status=404, data=data)
+
+
+class HelpCategoryNotEmptyError(HelpContentError):
+    """分类下存在子分类或文章，不能直接删除（`40015` / 200）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化分类非空异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（`child_count` / `article_count`）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_CATEGORY_NOT_EMPTY, message, http_status=200, data=data)
+
+
+class HelpArticleNotFoundError(HelpContentError):
+    """帮助文章不存在、已软删或读者面不可见（`40016` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化文章不存在异常。
+
+        Args:
+            message: 提示信息（含文章主键）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_ARTICLE_NOT_FOUND, message, http_status=404, data=data)
+
+
+class HelpArticleStateInvalidError(HelpContentError):
+    """文章状态迁移不允许（`40017` / 200）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化状态非法异常。
+
+        Args:
+            message: 提示信息（含当前状态与目标动作）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_ARTICLE_STATE_INVALID, message, http_status=200, data=data)
+
+
+class HelpArticleContentInvalidError(HelpContentError):
+    """文章内容校验失败（`40018` / 200）：标题 / 正文超限、清洗后为空、AI 未审核。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化内容非法异常。
+
+        Args:
+            message: 提示信息（含违规字段）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_ARTICLE_CONTENT_INVALID, message, http_status=200, data=data)
+
+
+class HelpArticleTargetConflictError(HelpContentError):
+    """文章目标冲突（`40019` / 200）：同文章重复目标，或同来源已发布文章占用同目标。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化目标冲突异常。
+
+        Args:
+            message: 提示信息（含目标类型与键）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_ARTICLE_TARGET_CONFLICT, message, http_status=200, data=data)
+
+
+class HelpFeedbackInvalidError(HelpContentError):
+    """反馈请求非法（`40020` / 200）：反馈类型不在值域、评论超长。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化反馈非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_FEEDBACK_INVALID, message, http_status=200, data=data)
+
+
+class HelpPackagePathInvalidError(HelpContentError):
+    """帮助包装载路径非法（`40021` / 200）：绝对路径、越出配置根目录、不存在。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化包路径非法异常。
+
+        Args:
+            message: 提示信息（含入参路径）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_PACKAGE_PATH_INVALID, message, http_status=200, data=data)
+
+
+class HelpLocaleUnsupportedError(HelpContentError):
+    """文章语言不在租户启用语言清单内（`40022` / 200）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化语言不支持异常。
+
+        Args:
+            message: 提示信息（含语言标识）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_LOCALE_UNSUPPORTED, message, http_status=200, data=data)
+
+
+class HelpCategoryInvalidError(HelpContentError):
+    """分类结构非法（`40023` / 200）：同级同名、成环、深度超限。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化分类结构非法异常。
+
+        Args:
+            message: 提示信息（含分类名 / 父级）。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.HELP_CATEGORY_INVALID, message, http_status=200, data=data)
+
+
 class ConfigParamError(BizError):
     """系统参数管理子段（系统配置段内 `405xx`）异常基类。
 

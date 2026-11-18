@@ -802,6 +802,19 @@ class PluginSelection(BaseSettings):
     """非敏感选项（键位由各实现解读；密钥不入配置 / 不入日志）。"""
 
 
+class HelpPackageSettings(BaseSettings):
+    """帮助包装载配置（`[help_package]`；12_01）。
+
+    HTTP 装载端点只接受**根目录内的相对路径**，越界 / 绝对路径一律拒绝（`40021`）；
+    命令行装载不受该配置约束（运维显式传 `--package`）。
+    """
+
+    root: str = Field(
+        default="../deploy/help/packages",
+        description="帮助包装载根目录（相对路径按进程工作目录解析；包内容不入库）",
+    )
+
+
 class HelpCoverageSettings(BaseSettings):
     """帮助覆盖率台账配置（`[help_coverage]`；08_04）。
 
@@ -1969,6 +1982,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     hash_chain: PluginSelection = Field(default_factory=PluginSelection)
     health_check_registry: PluginSelection = Field(default_factory=PluginSelection)
     help_content: PluginSelection = Field(default_factory=PluginSelection)
+    help_package: HelpPackageSettings = Field(default_factory=HelpPackageSettings)
     help_coverage: HelpCoverageSettings = Field(default_factory=HelpCoverageSettings)
     http_client: PluginSelection = Field(default_factory=PluginSelection)
     i18n_cache_region: PluginSelection = Field(default_factory=PluginSelection)

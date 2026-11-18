@@ -36,10 +36,9 @@ from bms_core.core.exceptions import (
     HelpCategoryPathUnresolvedError,
     HelpPackageChecksumMismatchError,
     HelpPackageInvalidError,
-    MenuHelpKeyInvalidError,
 )
 from bms_core.core.objects import BaseValueObject
-from bms_core.help.anchors import HelpAnchorKind, validate_help_key
+from bms_core.help.anchors import HelpAnchorKind
 from bms_core.help.values import (
     ARTICLE_SOURCE_BUILTIN,
     ARTICLE_SOURCE_PRODUCT,
@@ -47,11 +46,7 @@ from bms_core.help.values import (
     ARTICLE_STATUS_PUBLISHED,
     GENERATED_BY_AI,
     GENERATED_BY_MANUAL,
-    TARGET_TYPE_ACTION,
-    TARGET_TYPE_FIELD,
-    TARGET_TYPE_FORM,
     TARGET_TYPE_GLOBAL,
-    TARGET_TYPE_MODULE,
     source_for_product,
 )
 from bms_core.i18n.rules import is_locale_code_valid, normalize_locale
@@ -67,6 +62,7 @@ from bms_platform.domains.help.constants import (
     MAX_TITLE_LENGTH,
     SUPPORTED_SCHEMA_VERSIONS,
 )
+from bms_platform.domains.help.targets import allowed_anchor_kinds, target_key_matches, target_problem
 
 __all__ = [
     "HelpArticleSpec",
@@ -132,18 +128,6 @@ _CHECKSUM_LINE_RE = re.compile(r"(?m)^(checksum\s*:\s*).*$")
 
 _PACKAGE_DOMAIN = b"bms-help-package-v1\0"
 """校验和域分隔前缀（防跨协议哈希碰撞）。"""
-
-_ARTICLE_TARGET_KINDS: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[HelpAnchorKind]] = (
-    ConcurrentStableFrozenDict(
-        {
-            TARGET_TYPE_MODULE: ConcurrentStableFrozenList((HelpAnchorKind.MENU,)),
-            TARGET_TYPE_FORM: ConcurrentStableFrozenList((HelpAnchorKind.FORM,)),
-            TARGET_TYPE_FIELD: ConcurrentStableFrozenList((HelpAnchorKind.FIELD,)),
-            TARGET_TYPE_ACTION: ConcurrentStableFrozenList((HelpAnchorKind.BUTTON, HelpAnchorKind.ACTION)),
-        }
-    )
-)
-"""目标类型 → 允许的锚点节点类型（`global` 不引用锚点，不在表内）。"""
 
 
 @dataclass(frozen=True)
@@ -1041,17 +1025,10 @@ def _validate_target_key(key: str, target_type: str, where: str) -> None:
     Raises:
         HelpPackageInvalidError: 类型未知或锚点形态非法（40009）。
     """
-    kinds = _ARTICLE_TARGET_KINDS.get(target_type)
-    if kinds is None:
+    if allowed_anchor_kinds(target_type) is None:
         raise HelpPackageInvalidError(f"{where}.type 非法：{target_type!r}")
-    last_error: MenuHelpKeyInvalidError | None = None
-    for kind in kinds:
-        try:
-            validate_help_key(key, kind=kind)
-            return
-        except MenuHelpKeyInvalidError as exc:
-            last_error = exc
-    raise HelpPackageInvalidError(f"{where}.key 与目标类型不匹配：{key!r}") from last_error
+    if not target_key_matches(target_type, key):
+        raise HelpPackageInvalidError(f"{where}.key 与目标类型不匹配：{key!r}")
 
 
 def _parse_locales(value: object, where: str) -> ConcurrentStableFrozenDict[str, HelpLocaleText]:
@@ -1149,13 +1126,9 @@ def _article_target_problem(article: HelpArticleSpec, anchors: ConcurrentStableD
     Returns:
         str | None: 问题描述；全部可解析返回 None。
     """
+    frozen: ConcurrentStableFrozenDict[str, HelpAnchorKind] = ConcurrentStableFrozenDict(anchors)
     for target in article.targets:
-        if target.target_type == TARGET_TYPE_GLOBAL:
-            continue
-        entry_kind = anchors.get(target.target_key)
-        if entry_kind is None:
-            return f"锚点不存在 {target.target_type}:{target.target_key}"
-        allowed = _ARTICLE_TARGET_KINDS[target.target_type]
-        if entry_kind not in allowed:
-            return f"锚点类型不匹配 {target.target_type}:{target.target_key}（实际 {entry_kind.value}）"
+        problem = target_problem(target.target_type, target.target_key, frozen)
+        if problem is not None:
+            return problem
     return None

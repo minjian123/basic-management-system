@@ -13,6 +13,7 @@
 
 from bms_core.tenant.seed.contract import ExpectedRow
 from bms_core.tenant.seed.dashboard import DashboardSeedOutcome, seed_dashboard
+from bms_core.tenant.seed.help import HelpSeedOutcome, seed_help_content
 from bms_core.tenant.seed.platform import (
     PLATFORM_ADMIN_ROLE_CODE,
     PLATFORM_OPS_ROLE_CODE,
@@ -43,10 +44,12 @@ __all__ = [
     "ROLE_SYSTEM_ADMIN",
     "DashboardSeedOutcome",
     "ExpectedRow",
+    "HelpSeedOutcome",
     "PlatformSeedOutcome",
     "RbacSeedOutcome",
     "UserSeedOutcome",
     "seed_dashboard",
+    "seed_help_content",
     "seed_identity_provider",
     "seed_platform_rbac",
     "seed_rbac",

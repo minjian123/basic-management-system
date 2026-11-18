@@ -2218,6 +2218,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/help/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Articles
+         * @description 读者面文章列表（仅已发布；置顶优先）。
+         *
+         *     Args:
+         *         service: 读者面服务。
+         *         page: 统一分页参数。
+         *         category_id: 分类 ID（含子孙）。
+         *
+         *     Returns:
+         *         ApiResponse[HelpReaderArticlePage]: 统一响应，data 为分页文章。
+         */
+        get: operations["list_articles_api_v1_help_articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Article
+         * @description 读者面文章详情（阅读计数 +1 + 我的反馈）。
+         *
+         *     文章不存在 / 草稿 / 下架返回 `40016`（不暴露存在性）。
+         *
+         *     Args:
+         *         article_id: 文章 ID。
+         *         service: 读者面服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpReaderArticleDetail]: 统一响应，data 为文章详情。
+         */
+        get: operations["get_article_api_v1_help_articles__article_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/articles/{article_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Feedback
+         * @description 提交 / 改投反馈（同用户同文章唯一）。
+         *
+         *     反馈类型非法 / 评论超长返回 `40020`；文章不可见返回 `40016`。
+         *
+         *     Args:
+         *         article_id: 文章 ID。
+         *         payload: 反馈请求。
+         *         service: 读者面服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpFeedbackResult]: 统一响应，data 为反馈结果。
+         */
+        post: operations["submit_feedback_api_v1_help_articles__article_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Categories
+         * @description 读者面分类树（启用分类 + 已发布文章数含子孙）。
+         *
+         *     Args:
+         *         service: 读者面服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpReaderCategoryTree]: 统一响应，data 为分类树。
+         */
+        get: operations["list_categories_api_v1_help_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/help/context": {
         parameters: {
             query?: never;
@@ -2279,6 +2392,365 @@ export interface paths {
         get: operations["help_coverage_api_v1_help_coverage_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/manage/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Articles
+         * @description 管理面文章列表（全状态）。
+         *
+         *     Args:
+         *         service: 维护服务。
+         *         page: 统一分页参数。
+         *         category_id: 分类 ID。
+         *         status: 文章状态。
+         *         source: 文章来源。
+         *         keyword: 标题关键字。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageArticlePage]: 统一响应，data 为分页文章。
+         */
+        get: operations["list_articles_api_v1_help_manage_articles_get"];
+        put?: never;
+        /**
+         * Create Article
+         * @description 新建文章（默认草稿）。
+         *
+         *     内容非法 / AI 未审核 `40018`；语言不受支持 `40022`；锚点不可解析 `40008`；目标冲突 `40019`。
+         *
+         *     Args:
+         *         request: 请求对象（取请求语言）。
+         *         payload: 新建请求。
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。
+         */
+        post: operations["create_article_api_v1_help_manage_articles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/manage/articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Article
+         * @description 管理面文章详情（全语言 + 目标 + 计数 + 来源留痕）。
+         *
+         *     Args:
+         *         article_id: 文章 ID。
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。
+         */
+        get: operations["get_article_api_v1_help_manage_articles__article_id__get"];
+        /**
+         * Update Article
+         * @description 编辑文章（显式状态，缺省沿用；包来源自动本地覆盖）。
+         *
+         *     状态迁移不允许 `40017`；内容非法 / AI 未审核 `40018`；锚点不可解析 `40008`；目标冲突 `40019`。
+         *
+         *     Args:
+         *         request: 请求对象（取请求语言）。
+         *         article_id: 文章 ID。
+         *         payload: 编辑请求。
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。
+         */
+        put: operations["update_article_api_v1_help_manage_articles__article_id__put"];
+        post?: never;
+        /**
+         * Delete Article
+         * @description 软删除文章（产品包来源文章拒绝，引导下架）。
+         *
+         *     文章不存在 `40016`；包来源文章 `40017`。
+         *
+         *     Args:
+         *         article_id: 文章 ID。
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageArticleDeleteResult]: 统一响应，data 为删除结果。
+         */
+        delete: operations["delete_article_api_v1_help_manage_articles__article_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/manage/articles/{article_id}/offline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Offline Article
+         * @description 下架文章（已发布 → 已下架）。
+         *
+         *     状态迁移不允许 `40017`。
+         *
+         *     Args:
+         *         article_id: 文章 ID。
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。
+         */
+        post: operations["offline_article_api_v1_help_manage_articles__article_id__offline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/manage/articles/{article_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Article
+         * @description 发布文章（草稿 / 下架 → 已发布）。
+         *
+         *     状态迁移不允许 `40017`；AI 未审核 `40018`。
+         *
+         *     Args:
+         *         article_id: 文章 ID。
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。
+         */
+        post: operations["publish_article_api_v1_help_manage_articles__article_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/manage/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Categories
+         * @description 管理面分类树（含停用与各状态计数）。
+         *
+         *     Args:
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageCategoryTree]: 统一响应，data 为分类树。
+         */
+        get: operations["list_categories_api_v1_help_manage_categories_get"];
+        put?: never;
+        /**
+         * Create Category
+         * @description 新建分类。
+         *
+         *     父级不存在 `40014`；同级同名 / 深度超限 `40023`；状态非法 `10001`。
+         *
+         *     Args:
+         *         payload: 新建请求。
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageCategoryNode]: 统一响应，data 为新建节点。
+         */
+        post: operations["create_category_api_v1_help_manage_categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/manage/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Category
+         * @description 编辑分类（名称 / 父级 / 排序 / 状态）。
+         *
+         *     分类或父级不存在 `40014`；同级同名 / 成环 / 深度超限 `40023`。
+         *
+         *     Args:
+         *         category_id: 分类 ID。
+         *         payload: 编辑请求。
+         *         service: 维护服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageCategoryNode]: 统一响应，data 为更新后的节点。
+         */
+        put: operations["update_category_api_v1_help_manage_categories__category_id__put"];
+        post?: never;
+        /**
+         * Delete Category
+         * @description 删除分类（默认拒删；级联下架子树文章）。
+         *
+         *     存在子分类或文章且未级联 `40015`；分类不存在 `40014`。
+         *
+         *     Args:
+         *         category_id: 分类 ID。
+         *         service: 维护服务。
+         *         cascade: 是否级联。
+         *
+         *     Returns:
+         *         ApiResponse[HelpManageCategoryDeleteResult]: 统一响应，data 为删除计数。
+         */
+        delete: operations["delete_category_api_v1_help_manage_categories__category_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/manage/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Statistics
+         * @description 阅读与反馈统计视图（按文章 / 分类分组）。
+         *
+         *     Args:
+         *         service: 统计服务。
+         *         page: 统一分页参数。
+         *         group_by: 分组维度（article / category）。
+         *         category_id: 分类过滤（仅文章维度）。
+         *         keyword: 标题关键字（仅文章维度）。
+         *
+         *     Returns:
+         *         ApiResponse[HelpStatistics]: 统一响应，data 为统计视图。
+         */
+        get: operations["statistics_api_v1_help_manage_statistics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Packages
+         * @description 已装载帮助包列表（装载时间倒序）。
+         *
+         *     Args:
+         *         service: 包管理服务。
+         *         page: 统一分页参数。
+         *         product_key: 产品键过滤。
+         *         status: 包状态过滤。
+         *
+         *     Returns:
+         *         ApiResponse[HelpPackagePage]: 统一响应，data 为分页包登记。
+         */
+        get: operations["list_packages_api_v1_help_packages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/packages/load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load Package
+         * @description 装载或升级帮助包（`dry_run` 缺省 true）。
+         *
+         *     路径越界 / 绝对路径 / 不存在 `40021`；版本冲突 `40011`；校验和不符 `40010`；锚点不可解析 `40008`。
+         *
+         *     Args:
+         *         payload: 装载请求。
+         *         service: 包管理服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpPackageLoadResult]: 统一响应，data 为装载结果。
+         */
+        post: operations["load_package_api_v1_help_packages_load_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help/packages/{product_key}/unload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unload Package
+         * @description 卸载某产品的帮助包（`dry_run` 缺省 true）。
+         *
+         *     该产品未装载 `40012`。
+         *
+         *     Args:
+         *         product_key: 产品键。
+         *         payload: 卸载请求。
+         *         service: 包管理服务。
+         *
+         *     Returns:
+         *         ApiResponse[HelpPackageUnloadResult]: 统一响应，data 为卸载结果。
+         */
+        post: operations["unload_package_api_v1_help_packages__product_key__unload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6731,6 +7203,202 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["HelpCoverageResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpFeedbackResult] */
+        ApiResponse_HelpFeedbackResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpFeedbackResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpManageArticleDeleteResult] */
+        ApiResponse_HelpManageArticleDeleteResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpManageArticleDeleteResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpManageArticleDetail] */
+        ApiResponse_HelpManageArticleDetail_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpManageArticleDetail"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpManageArticlePage] */
+        ApiResponse_HelpManageArticlePage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpManageArticlePage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpManageCategoryDeleteResult] */
+        ApiResponse_HelpManageCategoryDeleteResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpManageCategoryDeleteResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpManageCategoryNode] */
+        ApiResponse_HelpManageCategoryNode_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpManageCategoryNode"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpManageCategoryTree] */
+        ApiResponse_HelpManageCategoryTree_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpManageCategoryTree"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpPackageLoadResult] */
+        ApiResponse_HelpPackageLoadResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpPackageLoadResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpPackagePage] */
+        ApiResponse_HelpPackagePage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpPackagePage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpPackageUnloadResult] */
+        ApiResponse_HelpPackageUnloadResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpPackageUnloadResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpReaderArticleDetail] */
+        ApiResponse_HelpReaderArticleDetail_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpReaderArticleDetail"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpReaderArticlePage] */
+        ApiResponse_HelpReaderArticlePage_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpReaderArticlePage"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpReaderCategoryTree] */
+        ApiResponse_HelpReaderCategoryTree_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpReaderCategoryTree"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[HelpStatistics] */
+        ApiResponse_HelpStatistics_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["HelpStatistics"] | null;
             /**
              * Message
              * @default ok
@@ -11333,6 +12001,1261 @@ export interface components {
              * @description 菜单豁免后缺口
              */
             menu_gap: number;
+        };
+        /**
+         * HelpFeedbackRequest
+         * @description 提交 / 改投反馈请求。
+         */
+        HelpFeedbackRequest: {
+            /**
+             * Comment
+             * @description 评论（可空）
+             */
+            comment?: string | null;
+            /**
+             * Feedback
+             * @description 反馈类型（helpful / unhelpful）
+             */
+            feedback: string;
+        };
+        /**
+         * HelpFeedbackResult
+         * @description 反馈结果（含文章最新计数）。
+         */
+        HelpFeedbackResult: {
+            /**
+             * Changed
+             * @description 本次是否改变了既有反馈（同值重投为 False）
+             */
+            changed: boolean;
+            /**
+             * Comment
+             * @description 当前评论
+             */
+            comment?: string | null;
+            /**
+             * Feedback
+             * @description 当前反馈类型
+             */
+            feedback: string;
+            /**
+             * Helpful Count
+             * @description 有帮助数
+             */
+            helpful_count: number;
+            /**
+             * Unhelpful Count
+             * @description 无帮助数
+             */
+            unhelpful_count: number;
+        };
+        /**
+         * HelpManageArticleCreate
+         * @description 新建文章请求（默认草稿）。
+         */
+        HelpManageArticleCreate: {
+            /**
+             * Ai Model
+             * @description AI 模型（generated_by=ai 时填写）
+             */
+            ai_model?: string | null;
+            /**
+             * Category Id
+             * @description 分类主键
+             */
+            category_id: number;
+            /**
+             * Content
+             * @description 默认语言正文 HTML
+             * @default
+             */
+            content: string;
+            /**
+             * Generated By
+             * @description 生成方式（manual / ai）
+             * @default manual
+             */
+            generated_by: string;
+            /**
+             * I18N
+             * @description 语言 → 标题与正文（缺默认语言时用 title / content 补齐）
+             */
+            i18n?: {
+                [key: string]: components["schemas"]["HelpManageLocaleText"];
+            };
+            /**
+             * Is Top
+             * @description 是否置顶
+             * @default false
+             */
+            is_top: boolean;
+            /**
+             * Reviewed By
+             * @description 审核人（AI 草稿发布前置）
+             */
+            reviewed_by?: string | null;
+            /**
+             * Status
+             * @description 状态（draft / published / offline；缺省草稿）
+             * @default draft
+             */
+            status: string;
+            /**
+             * Targets
+             * @description 目标（锚点）清单
+             */
+            targets?: components["schemas"]["HelpManageTargetItem"][];
+            /**
+             * Title
+             * @description 默认语言标题
+             */
+            title: string;
+        };
+        /**
+         * HelpManageArticleDeleteResult
+         * @description 删除文章结果。
+         */
+        HelpManageArticleDeleteResult: {
+            /**
+             * Applied
+             * @description 是否删除到既有文章
+             */
+            applied: boolean;
+        };
+        /**
+         * HelpManageArticleDetail
+         * @description 管理面文章详情（含正文、全部语言与目标）。
+         */
+        HelpManageArticleDetail: {
+            /**
+             * Ai Model
+             * @description AI 生成模型（generated_by=ai 时填写）
+             */
+            ai_model?: string | null;
+            /**
+             * Author Id
+             * @description 人工作者主键（包装载为空）
+             */
+            author_id?: string | null;
+            /**
+             * Category Id
+             * @description 分类主键
+             */
+            category_id: string;
+            /**
+             * Category Path
+             * @description 分类路径（根 → 叶）
+             * @default
+             */
+            category_path: string;
+            /**
+             * Content
+             * @description 正文 HTML（默认语言快照）
+             * @default
+             */
+            content: string;
+            /**
+             * Created At
+             * @description 创建时间（UTC）
+             */
+            created_at?: string | null;
+            /**
+             * Generated By
+             * @description 生成方式（manual / ai）
+             */
+            generated_by: string;
+            /**
+             * Helpful Count
+             * @description 有帮助数
+             */
+            helpful_count: number;
+            /**
+             * I18N
+             * @description 语言 → 标题与正文
+             */
+            i18n?: {
+                [key: string]: components["schemas"]["HelpManageLocaleText"];
+            };
+            /**
+             * Id
+             * @description 文章主键
+             */
+            id: string;
+            /**
+             * Is Top
+             * @description 是否置顶
+             */
+            is_top: boolean;
+            /**
+             * Local Override
+             * @description 是否被租户本地编辑（升级不覆盖内容）
+             */
+            local_override: boolean;
+            /**
+             * Package Id
+             * @description 来源包版本主键（租户自建为空）
+             */
+            package_id?: string | null;
+            /**
+             * Publish At
+             * @description 发布时间（UTC）
+             */
+            publish_at?: string | null;
+            /**
+             * Reviewed By
+             * @description 审核人（AI 草稿发布前置）
+             */
+            reviewed_by?: string | null;
+            /**
+             * Source
+             * @description 来源（builtin / product / tenant）
+             */
+            source: string;
+            /**
+             * Source Key
+             * @description 包内稳定键（租户自建为空）
+             */
+            source_key?: string | null;
+            /**
+             * Status
+             * @description 状态（draft / published / offline）
+             */
+            status: string;
+            /**
+             * Targets
+             * @description 目标（锚点）清单
+             */
+            targets?: components["schemas"]["HelpManageTargetItem"][];
+            /**
+             * Title
+             * @description 标题（默认语言快照）
+             */
+            title: string;
+            /**
+             * Unhelpful Count
+             * @description 无帮助数
+             */
+            unhelpful_count: number;
+            /**
+             * Updated At
+             * @description 最后修改时间（UTC）
+             */
+            updated_at?: string | null;
+            /**
+             * Version
+             * @description 乐观锁版本
+             */
+            version: number;
+            /**
+             * View Count
+             * @description 阅读数
+             */
+            view_count: number;
+        };
+        /**
+         * HelpManageArticleItem
+         * @description 管理面文章列表行。
+         */
+        HelpManageArticleItem: {
+            /**
+             * Category Id
+             * @description 分类主键
+             */
+            category_id: string;
+            /**
+             * Category Path
+             * @description 分类路径（根 → 叶）
+             * @default
+             */
+            category_path: string;
+            /**
+             * Generated By
+             * @description 生成方式（manual / ai）
+             */
+            generated_by: string;
+            /**
+             * Helpful Count
+             * @description 有帮助数
+             */
+            helpful_count: number;
+            /**
+             * Id
+             * @description 文章主键
+             */
+            id: string;
+            /**
+             * Is Top
+             * @description 是否置顶
+             */
+            is_top: boolean;
+            /**
+             * Local Override
+             * @description 是否被租户本地编辑（升级不覆盖内容）
+             */
+            local_override: boolean;
+            /**
+             * Publish At
+             * @description 发布时间（UTC）
+             */
+            publish_at?: string | null;
+            /**
+             * Reviewed By
+             * @description 审核人（AI 草稿发布前置）
+             */
+            reviewed_by?: string | null;
+            /**
+             * Source
+             * @description 来源（builtin / product / tenant）
+             */
+            source: string;
+            /**
+             * Status
+             * @description 状态（draft / published / offline）
+             */
+            status: string;
+            /**
+             * Title
+             * @description 标题（默认语言快照）
+             */
+            title: string;
+            /**
+             * Unhelpful Count
+             * @description 无帮助数
+             */
+            unhelpful_count: number;
+            /**
+             * Updated At
+             * @description 最后修改时间（UTC）
+             */
+            updated_at?: string | null;
+            /**
+             * View Count
+             * @description 阅读数
+             */
+            view_count: number;
+        };
+        /**
+         * HelpManageArticlePage
+         * @description 管理面文章分页响应。
+         */
+        HelpManageArticlePage: {
+            /**
+             * List
+             * @description 文章行
+             */
+            list?: components["schemas"]["HelpManageArticleItem"][];
+            /**
+             * Page
+             * @description 页码
+             */
+            page: number;
+            /**
+             * Size
+             * @description 每页条数
+             */
+            size: number;
+            /**
+             * Total
+             * @description 总数
+             */
+            total: number;
+        };
+        /**
+         * HelpManageArticleUpdate
+         * @description 编辑文章请求（字段可选；`status` 缺省沿用当前状态）。
+         */
+        HelpManageArticleUpdate: {
+            /**
+             * Ai Model
+             * @description AI 模型
+             */
+            ai_model?: string | null;
+            /**
+             * Category Id
+             * @description 分类主键
+             */
+            category_id?: number | null;
+            /**
+             * Content
+             * @description 默认语言正文 HTML
+             */
+            content?: string | null;
+            /**
+             * Generated By
+             * @description 生成方式
+             */
+            generated_by?: string | null;
+            /**
+             * I18N
+             * @description 语言 → 标题与正文（None 不修改；整份覆盖）
+             */
+            i18n?: {
+                [key: string]: components["schemas"]["HelpManageLocaleText"];
+            } | null;
+            /**
+             * Is Top
+             * @description 是否置顶
+             */
+            is_top?: boolean | null;
+            /**
+             * Reviewed By
+             * @description 审核人
+             */
+            reviewed_by?: string | null;
+            /**
+             * Status
+             * @description 状态（缺省沿用；发布 / 下架仍校验迁移）
+             */
+            status?: string | null;
+            /**
+             * Targets
+             * @description 目标清单（None 不修改；空数组清空）
+             */
+            targets?: components["schemas"]["HelpManageTargetItem"][] | null;
+            /**
+             * Title
+             * @description 默认语言标题
+             */
+            title?: string | null;
+        };
+        /**
+         * HelpManageCategoryCreate
+         * @description 新建分类请求。
+         */
+        HelpManageCategoryCreate: {
+            /**
+             * Name
+             * @description 分类名（同父级唯一）
+             */
+            name: string;
+            /**
+             * Parent Id
+             * @description 上级分类 ID（0 = 根）
+             * @default 0
+             */
+            parent_id: number;
+            /**
+             * Sort
+             * @description 同级排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             * @default enabled
+             */
+            status: string;
+        };
+        /**
+         * HelpManageCategoryDeleteResult
+         * @description 删除分类结果（默认拒删时由错误响应给出计数）。
+         */
+        HelpManageCategoryDeleteResult: {
+            /**
+             * Deleted Categories
+             * @description 软删除的分类数（含子树）
+             */
+            deleted_categories: number;
+            /**
+             * Offlined Articles
+             * @description 级联下架的文章数
+             */
+            offlined_articles: number;
+        };
+        /**
+         * HelpManageCategoryNode
+         * @description 管理面分类节点（含停用与各状态计数）。
+         */
+        HelpManageCategoryNode: {
+            /**
+             * Article Count
+             * @description 直接归属的未删文章数
+             */
+            article_count: number;
+            /**
+             * Children
+             * @description 子分类（同级按 sort 升序）
+             */
+            children?: components["schemas"]["HelpManageCategoryNode"][];
+            /**
+             * Draft Count
+             * @description 直接归属的草稿数
+             */
+            draft_count: number;
+            /**
+             * Id
+             * @description 分类主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 分类名
+             */
+            name: string;
+            /**
+             * Offline Count
+             * @description 直接归属的已下架数
+             */
+            offline_count: number;
+            /**
+             * Parent Id
+             * @description 上级分类 ID（0 = 根）
+             */
+            parent_id: string;
+            /**
+             * Published Count
+             * @description 直接归属的已发布文章数
+             */
+            published_count: number;
+            /**
+             * Sort
+             * @description 同级排序（升序）
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status: string;
+            /**
+             * Subtree Article Count
+             * @description 含子孙的未删文章数
+             */
+            subtree_article_count: number;
+        };
+        /**
+         * HelpManageCategoryTree
+         * @description 管理面分类树响应。
+         */
+        HelpManageCategoryTree: {
+            /**
+             * Items
+             * @description 根级分类
+             */
+            items?: components["schemas"]["HelpManageCategoryNode"][];
+            /**
+             * Total
+             * @description 分类总数（含子孙）
+             */
+            total: number;
+        };
+        /**
+         * HelpManageCategoryUpdate
+         * @description 编辑分类请求（字段可选；`parent_id` 变更须保证不成环且不超深度）。
+         */
+        HelpManageCategoryUpdate: {
+            /**
+             * Name
+             * @description 分类名
+             */
+            name?: string | null;
+            /**
+             * Parent Id
+             * @description 上级分类 ID（0 = 根）
+             */
+            parent_id?: number | null;
+            /**
+             * Sort
+             * @description 同级排序（升序）
+             */
+            sort?: number | null;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             */
+            status?: string | null;
+        };
+        /**
+         * HelpManageLocaleText
+         * @description 单语言标题与正文。
+         */
+        HelpManageLocaleText: {
+            /**
+             * Content
+             * @description 正文 HTML（服务端白名单清洗）
+             * @default
+             */
+            content: string;
+            /**
+             * Title
+             * @description 标题
+             */
+            title: string;
+        };
+        /**
+         * HelpManageTargetItem
+         * @description 文章目标（锚点）项。
+         */
+        HelpManageTargetItem: {
+            /**
+             * Key
+             * @description 锚点键（global 为空串；其余为五段式 help_key）
+             * @default
+             */
+            key: string;
+            /**
+             * Type
+             * @description 目标类型（global / module / form / field / action）
+             */
+            type: string;
+        };
+        /**
+         * HelpPackageItem
+         * @description 已装载帮助包登记行。
+         */
+        HelpPackageItem: {
+            /**
+             * Article Count
+             * @description 该版本清单文章总数
+             */
+            article_count: number;
+            /**
+             * Checksum
+             * @description 装载时校验通过的校验和
+             */
+            checksum: string;
+            /**
+             * Generated At
+             * @description 清单生成时间（UTC）
+             */
+            generated_at?: string | null;
+            /**
+             * Id
+             * @description 包登记主键
+             */
+            id: string;
+            /**
+             * Loaded At
+             * Format: date-time
+             * @description 本次装载时间（UTC）
+             */
+            loaded_at: string;
+            /**
+             * Package Version
+             * @description 包版本（X.Y.Z）
+             */
+            package_version: string;
+            /**
+             * Product Key
+             * @description 产品键
+             */
+            product_key: string;
+            /**
+             * Schema Version
+             * @description 包格式版本
+             */
+            schema_version: number;
+            /**
+             * Status
+             * @description 状态（loaded / outdated / unloaded）
+             */
+            status: string;
+        };
+        /**
+         * HelpPackageLoadCounts
+         * @description 装载计数（与命令行输出一致）。
+         */
+        HelpPackageLoadCounts: {
+            /**
+             * Articles New
+             * @description 新增文章数
+             * @default 0
+             */
+            articles_new: number;
+            /**
+             * Articles Offline
+             * @description 下线文章数
+             * @default 0
+             */
+            articles_offline: number;
+            /**
+             * Articles Skipped
+             * @description 跳过总数（本地覆盖 + 目标冲突）
+             * @default 0
+             */
+            articles_skipped: number;
+            /**
+             * Articles Skipped Conflict
+             * @description 因目标冲突跳过
+             * @default 0
+             */
+            articles_skipped_conflict: number;
+            /**
+             * Articles Skipped Override
+             * @description 因本地覆盖跳过
+             * @default 0
+             */
+            articles_skipped_override: number;
+            /**
+             * Articles Unchanged
+             * @description 不变文章数
+             * @default 0
+             */
+            articles_unchanged: number;
+            /**
+             * Articles Updated
+             * @description 更新文章数
+             * @default 0
+             */
+            articles_updated: number;
+            /**
+             * Categories Created
+             * @description 新增分类数
+             * @default 0
+             */
+            categories_created: number;
+            /**
+             * Categories Unchanged
+             * @description 不变分类数
+             * @default 0
+             */
+            categories_unchanged: number;
+            /**
+             * Categories Updated
+             * @description 更新分类数
+             * @default 0
+             */
+            categories_updated: number;
+        };
+        /**
+         * HelpPackageLoadRequest
+         * @description 装载 / 升级请求。
+         */
+        HelpPackageLoadRequest: {
+            /**
+             * Dry Run
+             * @description 是否只预演（缺省 true；实跑传 false）
+             * @default true
+             */
+            dry_run: boolean;
+            /**
+             * Lenient
+             * @description 是否跳过无效文章并告警（缺省严格）
+             * @default false
+             */
+            lenient: boolean;
+            /**
+             * Package Path
+             * @description 包目录或 package.yaml 的相对路径（限制在配置根目录内）
+             */
+            package_path: string;
+        };
+        /**
+         * HelpPackageLoadResult
+         * @description 装载结果。
+         */
+        HelpPackageLoadResult: {
+            /**
+             * Applied
+             * @description 是否已写库（False = 预演）
+             */
+            applied: boolean;
+            /** @description 计数快照 */
+            counts: components["schemas"]["HelpPackageLoadCounts"];
+            /**
+             * Package Action
+             * @description 包状态迁移（created / upgraded / restored / unchanged）
+             */
+            package_action: string;
+            /**
+             * Package Version
+             * @description 包版本
+             */
+            package_version: string;
+            /**
+             * Product Key
+             * @description 产品键
+             */
+            product_key: string;
+            /**
+             * Warnings
+             * @description 告警（宽松模式跳过项等）
+             */
+            warnings?: string[];
+        };
+        /**
+         * HelpPackagePage
+         * @description 帮助包分页响应。
+         */
+        HelpPackagePage: {
+            /**
+             * List
+             * @description 包登记行（装载时间倒序）
+             */
+            list?: components["schemas"]["HelpPackageItem"][];
+            /**
+             * Page
+             * @description 页码
+             */
+            page: number;
+            /**
+             * Size
+             * @description 每页条数
+             */
+            size: number;
+            /**
+             * Total
+             * @description 总数
+             */
+            total: number;
+        };
+        /**
+         * HelpPackageUnloadCounts
+         * @description 卸载计数。
+         */
+        HelpPackageUnloadCounts: {
+            /**
+             * Articles Offline
+             * @description 本次下线文章数
+             * @default 0
+             */
+            articles_offline: number;
+            /**
+             * Articles Unchanged
+             * @description 已下线文章数
+             * @default 0
+             */
+            articles_unchanged: number;
+            /**
+             * Packages Unloaded
+             * @description 置为已卸载的包行数
+             * @default 0
+             */
+            packages_unloaded: number;
+        };
+        /**
+         * HelpPackageUnloadRequest
+         * @description 卸载请求。
+         */
+        HelpPackageUnloadRequest: {
+            /**
+             * Dry Run
+             * @description 是否只预演（缺省 true；实跑传 false）
+             * @default true
+             */
+            dry_run: boolean;
+        };
+        /**
+         * HelpPackageUnloadResult
+         * @description 卸载结果。
+         */
+        HelpPackageUnloadResult: {
+            /**
+             * Applied
+             * @description 是否已写库（False = 预演）
+             */
+            applied: boolean;
+            /** @description 计数快照 */
+            counts: components["schemas"]["HelpPackageUnloadCounts"];
+        };
+        /**
+         * HelpReaderArticleDetail
+         * @description 读者面文章详情（当前语言 + 我的反馈）。
+         */
+        HelpReaderArticleDetail: {
+            /**
+             * Category Id
+             * @description 分类主键
+             */
+            category_id: string;
+            /**
+             * Category Path
+             * @description 分类路径（根 → 叶）
+             */
+            category_path: string;
+            /**
+             * Content
+             * @description 正文 HTML（已清洗）
+             */
+            content: string;
+            /**
+             * Helpful Count
+             * @description 有帮助数
+             */
+            helpful_count: number;
+            /**
+             * Id
+             * @description 文章主键
+             */
+            id: string;
+            /**
+             * My Feedback
+             * @description 当前用户的反馈（helpful / unhelpful；未投为空）
+             */
+            my_feedback?: string | null;
+            /**
+             * Publish At
+             * @description 发布时间（UTC）
+             */
+            publish_at?: string | null;
+            /**
+             * Title
+             * @description 标题（当前语言）
+             */
+            title: string;
+            /**
+             * Unhelpful Count
+             * @description 无帮助数
+             */
+            unhelpful_count: number;
+            /**
+             * View Count
+             * @description 阅读数
+             */
+            view_count: number;
+        };
+        /**
+         * HelpReaderArticleItem
+         * @description 读者面文章列表行（不含正文）。
+         */
+        HelpReaderArticleItem: {
+            /**
+             * Category Id
+             * @description 分类主键
+             */
+            category_id: string;
+            /**
+             * Category Path
+             * @description 分类路径（根 → 叶）
+             */
+            category_path: string;
+            /**
+             * Helpful Count
+             * @description 有帮助数
+             */
+            helpful_count: number;
+            /**
+             * Id
+             * @description 文章主键
+             */
+            id: string;
+            /**
+             * Is Top
+             * @description 是否置顶
+             */
+            is_top: boolean;
+            /**
+             * Publish At
+             * @description 发布时间（UTC）
+             */
+            publish_at?: string | null;
+            /**
+             * Summary
+             * @description 正文摘要（去标签截断）
+             */
+            summary: string;
+            /**
+             * Title
+             * @description 标题（当前语言）
+             */
+            title: string;
+            /**
+             * Unhelpful Count
+             * @description 无帮助数
+             */
+            unhelpful_count: number;
+            /**
+             * View Count
+             * @description 阅读数
+             */
+            view_count: number;
+        };
+        /**
+         * HelpReaderArticlePage
+         * @description 读者面文章分页响应。
+         */
+        HelpReaderArticlePage: {
+            /**
+             * List
+             * @description 文章行（置顶优先）
+             */
+            list?: components["schemas"]["HelpReaderArticleItem"][];
+            /**
+             * Page
+             * @description 页码
+             */
+            page: number;
+            /**
+             * Size
+             * @description 每页条数
+             */
+            size: number;
+            /**
+             * Total
+             * @description 总数
+             */
+            total: number;
+        };
+        /**
+         * HelpReaderCategoryNode
+         * @description 读者面分类节点（启用分类 + 已发布文章数）。
+         */
+        HelpReaderCategoryNode: {
+            /**
+             * Children
+             * @description 子分类
+             */
+            children?: components["schemas"]["HelpReaderCategoryNode"][];
+            /**
+             * Id
+             * @description 分类主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 分类名（当前语言）
+             */
+            name: string;
+            /**
+             * Published Count
+             * @description 直接归属的已发布文章数
+             */
+            published_count: number;
+            /**
+             * Sort
+             * @description 同级排序（升序）
+             */
+            sort: number;
+            /**
+             * Subtree Published Count
+             * @description 含子孙的已发布文章数
+             */
+            subtree_published_count: number;
+        };
+        /**
+         * HelpReaderCategoryTree
+         * @description 读者面分类树响应。
+         */
+        HelpReaderCategoryTree: {
+            /**
+             * Items
+             * @description 根级分类（空分类保留）
+             */
+            items?: components["schemas"]["HelpReaderCategoryNode"][];
+            /**
+             * Total
+             * @description 分类总数（含子孙）
+             */
+            total: number;
+        };
+        /**
+         * HelpStatisticArticleItem
+         * @description 按文章分组的明细行。
+         */
+        HelpStatisticArticleItem: {
+            /**
+             * Article Id
+             * @description 文章主键
+             */
+            article_id: string;
+            /**
+             * Category Id
+             * @description 分类主键
+             */
+            category_id: string;
+            /**
+             * Category Path
+             * @description 分类路径（根 → 叶）
+             * @default
+             */
+            category_path: string;
+            /**
+             * Feedback Count
+             * @description 反馈数
+             */
+            feedback_count: number;
+            /**
+             * Feedback Rate
+             * @description 反馈率（无阅读为 null）
+             */
+            feedback_rate?: number | null;
+            /**
+             * Helpful Count
+             * @description 有帮助数
+             */
+            helpful_count: number;
+            /**
+             * Helpful Rate
+             * @description 帮助率（无反馈为 null）
+             */
+            helpful_rate?: number | null;
+            /**
+             * Status
+             * @description 状态
+             */
+            status: string;
+            /**
+             * Title
+             * @description 标题
+             */
+            title: string;
+            /**
+             * Unhelpful Count
+             * @description 无帮助数
+             */
+            unhelpful_count: number;
+            /**
+             * View Count
+             * @description 阅读数
+             */
+            view_count: number;
+        };
+        /**
+         * HelpStatisticCategoryItem
+         * @description 按分类分组的明细行（直接归属）。
+         */
+        HelpStatisticCategoryItem: {
+            /**
+             * Article Count
+             * @description 文章总数
+             */
+            article_count: number;
+            /**
+             * Category Id
+             * @description 分类主键
+             */
+            category_id: string;
+            /**
+             * Feedback Count
+             * @description 反馈数合计
+             */
+            feedback_count: number;
+            /**
+             * Feedback Rate
+             * @description 反馈率（无阅读为 null）
+             */
+            feedback_rate?: number | null;
+            /**
+             * Helpful Count
+             * @description 有帮助数合计
+             */
+            helpful_count: number;
+            /**
+             * Helpful Rate
+             * @description 帮助率（无反馈为 null）
+             */
+            helpful_rate?: number | null;
+            /**
+             * Name
+             * @description 分类名
+             */
+            name: string;
+            /**
+             * Path
+             * @description 分类路径（根 → 叶）
+             * @default
+             */
+            path: string;
+            /**
+             * Published Count
+             * @description 已发布数
+             */
+            published_count: number;
+            /**
+             * Unhelpful Count
+             * @description 无帮助数合计
+             */
+            unhelpful_count: number;
+            /**
+             * View Count
+             * @description 阅读数合计
+             */
+            view_count: number;
+        };
+        /**
+         * HelpStatisticSummary
+         * @description 统计汇总头（全量口径，不受分页与明细筛选影响）。
+         */
+        HelpStatisticSummary: {
+            /**
+             * Article Count
+             * @description 文章总数（未软删）
+             */
+            article_count: number;
+            /**
+             * Draft Count
+             * @description 草稿数
+             */
+            draft_count: number;
+            /**
+             * Feedback Count
+             * @description 反馈数合计（有帮助 + 无帮助）
+             */
+            feedback_count: number;
+            /**
+             * Feedback Rate
+             * @description 反馈率（无阅读为 null）
+             */
+            feedback_rate?: number | null;
+            /**
+             * Helpful Count
+             * @description 有帮助数合计
+             */
+            helpful_count: number;
+            /**
+             * Helpful Rate
+             * @description 帮助率（无反馈为 null）
+             */
+            helpful_rate?: number | null;
+            /**
+             * Offline Count
+             * @description 已下架数
+             */
+            offline_count: number;
+            /**
+             * Published Count
+             * @description 已发布数
+             */
+            published_count: number;
+            /**
+             * Total Views
+             * @description 阅读数合计
+             */
+            total_views: number;
+            /**
+             * Unhelpful Count
+             * @description 无帮助数合计
+             */
+            unhelpful_count: number;
+        };
+        /**
+         * HelpStatistics
+         * @description 统计视图响应（`group_by` 决定哪个明细清单非空）。
+         */
+        HelpStatistics: {
+            /**
+             * Articles
+             * @description 按文章分组的明细（group_by=category 时为空）
+             */
+            articles?: components["schemas"]["HelpStatisticArticleItem"][];
+            /**
+             * Categories
+             * @description 按分类分组的明细（group_by=article 时为空）
+             */
+            categories?: components["schemas"]["HelpStatisticCategoryItem"][];
+            /**
+             * Group By
+             * @description 分组维度（article / category）
+             */
+            group_by: string;
+            /**
+             * Page
+             * @description 页码
+             */
+            page: number;
+            /**
+             * Size
+             * @description 每页条数
+             */
+            size: number;
+            /** @description 汇总头（全量口径） */
+            summary: components["schemas"]["HelpStatisticSummary"];
+            /**
+             * Total
+             * @description 明细总数
+             */
+            total: number;
         };
         /**
          * IconCreateRequest
@@ -22116,6 +24039,312 @@ export interface operations {
             };
         };
     };
+    list_articles_api_v1_help_articles_get: {
+        parameters: {
+            query?: {
+                /** @description 分类 ID（含子孙；不传为全部） */
+                category_id?: number | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpReaderArticlePage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_article_api_v1_help_articles__article_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpReaderArticleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    submit_feedback_api_v1_help_articles__article_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpFeedbackResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_categories_api_v1_help_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpReaderCategoryTree_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
     help_context_api_v1_help_context_get: {
         parameters: {
             query?: {
@@ -22228,6 +24457,1195 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_HelpCoverageResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_articles_api_v1_help_manage_articles_get: {
+        parameters: {
+            query?: {
+                /** @description 分类 ID（精确匹配） */
+                category_id?: number | null;
+                /** @description 文章状态 */
+                status?: string | null;
+                /** @description 文章来源 */
+                source?: string | null;
+                /** @description 标题关键字 */
+                keyword?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageArticlePage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_article_api_v1_help_manage_articles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpManageArticleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageArticleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_article_api_v1_help_manage_articles__article_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageArticleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_article_api_v1_help_manage_articles__article_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpManageArticleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageArticleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_article_api_v1_help_manage_articles__article_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageArticleDeleteResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    offline_article_api_v1_help_manage_articles__article_id__offline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageArticleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    publish_article_api_v1_help_manage_articles__article_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageArticleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_categories_api_v1_help_manage_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageCategoryTree_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_category_api_v1_help_manage_categories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpManageCategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageCategoryNode_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_category_api_v1_help_manage_categories__category_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpManageCategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageCategoryNode_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_category_api_v1_help_manage_categories__category_id__delete: {
+        parameters: {
+            query?: {
+                /** @description 是否级联下架子树文章后删除 */
+                cascade?: boolean;
+            };
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpManageCategoryDeleteResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    statistics_api_v1_help_manage_statistics_get: {
+        parameters: {
+            query?: {
+                /** @description 分组维度 */
+                group_by?: string;
+                /** @description 分类过滤（仅文章维度） */
+                category_id?: number | null;
+                /** @description 标题关键字（仅文章维度） */
+                keyword?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpStatistics_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_packages_api_v1_help_packages_get: {
+        parameters: {
+            query?: {
+                /** @description 产品键过滤 */
+                product_key?: string | null;
+                /** @description 包状态过滤 */
+                status?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpPackagePage_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    load_package_api_v1_help_packages_load_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpPackageLoadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpPackageLoadResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    unload_package_api_v1_help_packages__product_key__unload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpPackageUnloadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HelpPackageUnloadResult_"];
                 };
             };
             /** @description 未认证 */

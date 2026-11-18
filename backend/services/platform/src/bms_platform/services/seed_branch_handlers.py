@@ -1,4 +1,4 @@
-"""平台服务 **种子分支处理器**（07B `02_03`）：把 9 个种子入口挂进 XA 分支注册表。
+"""平台服务 **种子分支处理器**（07B `02_03`）：把 11 个种子入口挂进 XA 分支注册表。
 
 与 `branch_handlers.py`（用户 / 角色保存编排）同构：`op` → 本服务已有实现，
 由基座分支执行器在**已开启的两阶段分支事务**的连接上调用。
@@ -33,13 +33,14 @@ SEED_OPS: ConcurrentStableList[str] = ConcurrentStableList(
         "seed-rbac-role",
         "seed-rbac-grant",
         "seed-dashboard",
+        "seed-help",
     )
 )
 """平台侧登记的种子分支操作名（与 `deploy/registry/platform.toml` 的 `name` 一一对应）。"""
 
 
 def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegistry:
-    """把 9 个平台种子入口登记进分支处理器注册表（幂等：已登记即跳过）。
+    """把 11 个平台种子入口登记进分支处理器注册表（幂等：已登记即跳过）。
 
     Args:
         registry: 分支处理器注册表（由 `build_branch_handlers` 传入并复用）。
@@ -50,6 +51,7 @@ def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegi
     from bms_core.i18n.seed import seed_i18n_entry
     from bms_core.tenant.seed.config import seed_configs_entry
     from bms_core.tenant.seed.dashboard import seed_dashboard_entry
+    from bms_core.tenant.seed.help import seed_help_entry
     from bms_core.tenant.seed.menu import seed_menu_entry
     from bms_core.tenant.seed.module import seed_modules_entry
     from bms_core.tenant.seed.tables import seed_tables_entry
@@ -68,6 +70,7 @@ def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegi
     handlers.set("seed-rbac-role", cast("BranchHandler", seed_rbac_roles_entry))
     handlers.set("seed-rbac-grant", cast("BranchHandler", seed_rbac_grants_entry))
     handlers.set("seed-dashboard", cast("BranchHandler", seed_dashboard_entry))
+    handlers.set("seed-help", cast("BranchHandler", seed_help_entry))
     for op, handler in handlers.items():
         if registry.resolve(op) is not None:
             continue

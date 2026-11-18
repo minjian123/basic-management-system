@@ -58,6 +58,10 @@ from bms_platform.domains.form_design.repositories.layout import (
 from bms_platform.domains.form_design.repositories.metadata import MetadataRepository
 from bms_platform.domains.form_design.services.layout import FormDesignService
 from bms_platform.domains.form_design.services.validator import LocalFormValidator
+from bms_platform.domains.help.services.maintenance import HelpMaintenanceService
+from bms_platform.domains.help.services.package_admin import HelpPackageAdminService
+from bms_platform.domains.help.services.reader import HelpReaderService
+from bms_platform.domains.help.services.statistics import HelpStatisticsService
 from bms_platform.domains.menu_form.repositories.menu import (
     ButtonRepository,
     FieldRepository,
@@ -215,6 +219,99 @@ def build_help_coverage_service(*, uow: UnitOfWork, exemption_paths: ConcurrentS
         HelpCoverageService: 覆盖率台账服务。
     """
     return HelpCoverageService(session=cast("DbSession", uow.session), exemption_paths=exemption_paths)
+
+
+def build_help_reader_service(
+    *,
+    tenant_uow: UnitOfWork,
+    cache: CacheRegion,
+    locale: str,
+    default_locale: str,
+) -> HelpReaderService:
+    """构造帮助读者面服务。
+
+    Args:
+        tenant_uow: 请求级工作单元（租户库：内容表）。
+        cache: 缓存 Region（阅读计数去重窗口）。
+        locale: 请求语言。
+        default_locale: 系统默认语言（请求语言缺行时回退）。
+
+    Returns:
+        HelpReaderService: 读者面服务实例。
+    """
+    return HelpReaderService(
+        session=cast("DbSession", tenant_uow.session),
+        uow=tenant_uow,
+        cache=cache,
+        locale=locale,
+        default_locale=default_locale,
+    )
+
+
+def build_help_maintenance_service(
+    *,
+    tenant_uow: UnitOfWork,
+    platform_uow: UnitOfWork,
+    outbox: BaseOutboxStore,
+    cache: CacheRegion,
+) -> HelpMaintenanceService:
+    """构造帮助内容维护服务。
+
+    Args:
+        tenant_uow: 请求级工作单元（租户库：内容表）。
+        platform_uow: 请求级工作单元（平台库：锚点清单）。
+        outbox: 发件箱存储（事件发布）。
+        cache: 缓存 Region（内容版本键）。
+
+    Returns:
+        HelpMaintenanceService: 维护服务实例。
+    """
+    return HelpMaintenanceService(
+        session=cast("DbSession", tenant_uow.session),
+        platform_session=cast("DbSession", platform_uow.session),
+        uow=tenant_uow,
+        outbox=outbox,
+        cache=cache,
+    )
+
+
+def build_help_statistics_service(*, tenant_uow: UnitOfWork) -> HelpStatisticsService:
+    """构造帮助统计视图服务。
+
+    Args:
+        tenant_uow: 请求级工作单元（租户库：内容表）。
+
+    Returns:
+        HelpStatisticsService: 统计服务实例。
+    """
+    return HelpStatisticsService(session=cast("DbSession", tenant_uow.session))
+
+
+def build_help_package_admin_service(
+    *,
+    tenant_uow: UnitOfWork,
+    platform_uow: UnitOfWork,
+    cache: CacheRegion,
+    root: str,
+) -> HelpPackageAdminService:
+    """构造帮助包管理服务。
+
+    Args:
+        tenant_uow: 请求级工作单元（租户库：内容表）。
+        platform_uow: 请求级工作单元（平台库：锚点清单）。
+        cache: 缓存 Region（内容版本键）。
+        root: 允许装载的根目录（`[help_package].root`）。
+
+    Returns:
+        HelpPackageAdminService: 包管理服务实例。
+    """
+    return HelpPackageAdminService(
+        session=cast("DbSession", tenant_uow.session),
+        platform_session=cast("DbSession", platform_uow.session),
+        uow=tenant_uow,
+        cache=cache,
+        root=root,
+    )
 
 
 def role_query(session: DbSession) -> RoleQueryPort:

@@ -232,6 +232,19 @@ sys_dashboard_card = "code"
 sys_dashboard_card_i18n = "card_id,locale"
 sys_dashboard_template = "scope,role_id"
 
+[[seeds]]
+name = "seed-help"
+service = "platform"
+db_key = "tenant_platform_{tenant}"
+module = "ops.seed_help"
+entry = "seed_help_entry"
+after = ["seed-menu"]
+description = "帮助分类与基础文章（sys_help_category / sys_help_article / sys_help_article_i18n / sys_help_article_target；12_01）"
+
+[seeds.tables]
+sys_help_category = "parent_id,name"
+sys_help_article = "category_id,title,source"
+
 # ---- 能力（第五类记录，07B `03_01`）----
 # 平台自身作为**提供方**的三条跨产品能力：入站判定改由能力分配派生（`require_capability`）。
 # - 能力名第二段是**业务域**（须在 deploy/boundaries/domain_layout.json 登记）；

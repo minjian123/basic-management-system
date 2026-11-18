@@ -17,15 +17,25 @@ from bms_core.core.serialization import normalize_collections
 from bms_core.db.session import DbSession
 from bms_core.help.anchors import HelpAnchorKind
 from bms_platform.domains.help.package_spec import write_checksum
+from tests_support.help import ensure_help_tables, tenant_url
+from tests_support.permission_admin import setup_min_tenant
 
 __all__ = [
     "anchor_map",
     "article_payload",
+    "prepare",
     "session_opener",
     "write_package",
 ]
 
 _DEFAULT_CONTENT = "<h2>适用场景</h2><p>这是帮助正文。</p>"
+
+
+async def prepare() -> None:
+    """真实权限校验所需租户库 + 内置系统管理员主体 + 帮助内容表存在性。"""
+    url = tenant_url()
+    await setup_min_tenant(url)
+    await ensure_help_tables(url)
 
 
 def anchor_map(prefix: str) -> ConcurrentStableDict[str, HelpAnchorKind]:

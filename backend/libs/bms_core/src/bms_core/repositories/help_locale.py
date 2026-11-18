@@ -10,12 +10,13 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.db.session import DbSession
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.i18n.rules import normalize_locale
 from bms_core.models.platform.i18n import SysI18nLocale
 
-__all__ = ["load_help_default_locale"]
+__all__ = ["load_help_default_locale", "load_help_locales"]
 
 
 async def load_help_default_locale(session: DbSession) -> str:
@@ -36,3 +37,31 @@ async def load_help_default_locale(session: DbSession) -> str:
     )
     code = (await session.execute(statement)).scalars().first()
     return normalize_locale(str(code)) if code else DEFAULT_LOCALE
+
+
+async def load_help_locales(session: DbSession) -> ConcurrentStableFrozenList[str]:
+    """取租户启用语言清单（标准形态、插入序去重）。
+
+    帮助维护入口写入多语言前校验语言是否受支持；清单为空时回退出厂默认语言，
+    避免「语言清单还没播种」把帮助维护整体卡死。
+
+    Args:
+        session: 租户库会话。
+
+    Returns:
+        ConcurrentStableFrozenList[str]: 启用语言标识（默认语言在首位）。
+    """
+    statement = (
+        select(SysI18nLocale.code)
+        .where(SysI18nLocale.status == "enabled", SysI18nLocale.deleted_at.is_(None))
+        .order_by(SysI18nLocale.is_default.desc(), SysI18nLocale.sort, SysI18nLocale.id)
+    )
+    rows = (await session.execute(statement)).scalars().all()
+    locales: ConcurrentStableList[str] = ConcurrentStableList()
+    for code in rows:
+        normalized = normalize_locale(str(code))
+        if normalized not in locales:
+            locales.add(normalized)
+    if not locales:
+        locales.add(DEFAULT_LOCALE)
+    return ConcurrentStableFrozenList(locales)

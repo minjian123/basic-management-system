@@ -24,6 +24,9 @@ from bms_platform.domains.dashboard.api import templates as dashboard_templates_
 from bms_platform.domains.form_design.api import effective as form_design_effective_api
 from bms_platform.domains.form_design.api import fields as form_design_fields_api
 from bms_platform.domains.form_design.api import layouts as form_design_layouts_api
+from bms_platform.domains.help.api import manage as help_manage_api
+from bms_platform.domains.help.api import packages as help_packages_api
+from bms_platform.domains.help.api import reader as help_reader_api
 from bms_platform.domains.i18n.api import locales as i18n_locales
 from bms_platform.domains.i18n.api import messages as i18n_messages
 from bms_platform.domains.import_export.api.exports import build_export_router
@@ -168,6 +171,10 @@ api_router = mount_service_routers(
             dashboard_cards_api.router,
             dashboard_templates_api.router,
             dashboard_badges_api.router,
+            # 帮助内容（12_01）：读者面 / 管理面（分类 / 文章 / 统计）/ 帮助包管理
+            help_reader_api.router,
+            help_manage_api.router,
+            help_packages_api.router,
         ]
     )
 )

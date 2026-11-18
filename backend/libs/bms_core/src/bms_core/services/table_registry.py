@@ -754,8 +754,8 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             owner="platform",
             domain="help",
             datasource=Datasource.TENANT,
-            status=TableStatus.PLANNED,
-            note="帮助阅读反馈（12_01 内容面，未建模；不进链）",
+            status=TableStatus.ENABLED,
+            note="帮助阅读反馈（12_01 落库，已入 platform 租户链；联合唯一、可改投）",
         ),
         TableRecord(
             table_name="ai_chat_log",

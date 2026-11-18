@@ -1732,6 +1732,384 @@
         "title": "ApiResponse[HelpCoverageResponse]",
         "type": "object"
       },
+      "ApiResponse_HelpFeedbackResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpFeedbackResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpFeedbackResult]",
+        "type": "object"
+      },
+      "ApiResponse_HelpManageArticleDeleteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpManageArticleDeleteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpManageArticleDeleteResult]",
+        "type": "object"
+      },
+      "ApiResponse_HelpManageArticleDetail_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpManageArticleDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpManageArticleDetail]",
+        "type": "object"
+      },
+      "ApiResponse_HelpManageArticlePage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpManageArticlePage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpManageArticlePage]",
+        "type": "object"
+      },
+      "ApiResponse_HelpManageCategoryDeleteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpManageCategoryDeleteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpManageCategoryDeleteResult]",
+        "type": "object"
+      },
+      "ApiResponse_HelpManageCategoryNode_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpManageCategoryNode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpManageCategoryNode]",
+        "type": "object"
+      },
+      "ApiResponse_HelpManageCategoryTree_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpManageCategoryTree"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpManageCategoryTree]",
+        "type": "object"
+      },
+      "ApiResponse_HelpPackageLoadResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpPackageLoadResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpPackageLoadResult]",
+        "type": "object"
+      },
+      "ApiResponse_HelpPackagePage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpPackagePage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpPackagePage]",
+        "type": "object"
+      },
+      "ApiResponse_HelpPackageUnloadResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpPackageUnloadResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpPackageUnloadResult]",
+        "type": "object"
+      },
+      "ApiResponse_HelpReaderArticleDetail_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpReaderArticleDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpReaderArticleDetail]",
+        "type": "object"
+      },
+      "ApiResponse_HelpReaderArticlePage_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpReaderArticlePage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpReaderArticlePage]",
+        "type": "object"
+      },
+      "ApiResponse_HelpReaderCategoryTree_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpReaderCategoryTree"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpReaderCategoryTree]",
+        "type": "object"
+      },
+      "ApiResponse_HelpStatistics_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HelpStatistics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[HelpStatistics]",
+        "type": "object"
+      },
       "ApiResponse_ImportExecuteResult_": {
         "additionalProperties": false,
         "properties": {
@@ -9304,6 +9682,1949 @@
           "consistent"
         ],
         "title": "HelpCoverageVerdictItem",
+        "type": "object"
+      },
+      "HelpFeedbackRequest": {
+        "additionalProperties": false,
+        "description": "提交 / 改投反馈请求。",
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "评论（可空）",
+            "title": "Comment"
+          },
+          "feedback": {
+            "description": "反馈类型（helpful / unhelpful）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Feedback",
+            "type": "string"
+          }
+        },
+        "required": [
+          "feedback"
+        ],
+        "title": "HelpFeedbackRequest",
+        "type": "object"
+      },
+      "HelpFeedbackResult": {
+        "additionalProperties": false,
+        "description": "反馈结果（含文章最新计数）。",
+        "properties": {
+          "changed": {
+            "description": "本次是否改变了既有反馈（同值重投为 False）",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前评论",
+            "title": "Comment"
+          },
+          "feedback": {
+            "description": "当前反馈类型",
+            "title": "Feedback",
+            "type": "string"
+          },
+          "helpful_count": {
+            "description": "有帮助数",
+            "minimum": 0.0,
+            "title": "Helpful Count",
+            "type": "integer"
+          },
+          "unhelpful_count": {
+            "description": "无帮助数",
+            "minimum": 0.0,
+            "title": "Unhelpful Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feedback",
+          "helpful_count",
+          "unhelpful_count",
+          "changed"
+        ],
+        "title": "HelpFeedbackResult",
+        "type": "object"
+      },
+      "HelpManageArticleCreate": {
+        "additionalProperties": false,
+        "description": "新建文章请求（默认草稿）。",
+        "properties": {
+          "ai_model": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 模型（generated_by=ai 时填写）",
+            "title": "Ai Model"
+          },
+          "category_id": {
+            "description": "分类主键",
+            "title": "Category Id",
+            "type": "integer"
+          },
+          "content": {
+            "default": "",
+            "description": "默认语言正文 HTML",
+            "maxLength": 120000,
+            "title": "Content",
+            "type": "string"
+          },
+          "generated_by": {
+            "default": "manual",
+            "description": "生成方式（manual / ai）",
+            "maxLength": 16,
+            "title": "Generated By",
+            "type": "string"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HelpManageLocaleText"
+            },
+            "description": "语言 → 标题与正文（缺默认语言时用 title / content 补齐）",
+            "title": "I18N",
+            "type": "object"
+          },
+          "is_top": {
+            "default": false,
+            "description": "是否置顶",
+            "title": "Is Top",
+            "type": "boolean"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "审核人（AI 草稿发布前置）",
+            "title": "Reviewed By"
+          },
+          "status": {
+            "default": "draft",
+            "description": "状态（draft / published / offline；缺省草稿）",
+            "maxLength": 16,
+            "title": "Status",
+            "type": "string"
+          },
+          "targets": {
+            "description": "目标（锚点）清单",
+            "items": {
+              "$ref": "#/components/schemas/HelpManageTargetItem"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "title": {
+            "description": "默认语言标题",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category_id",
+          "title"
+        ],
+        "title": "HelpManageArticleCreate",
+        "type": "object"
+      },
+      "HelpManageArticleDeleteResult": {
+        "additionalProperties": false,
+        "description": "删除文章结果。",
+        "properties": {
+          "applied": {
+            "description": "是否删除到既有文章",
+            "title": "Applied",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "applied"
+        ],
+        "title": "HelpManageArticleDeleteResult",
+        "type": "object"
+      },
+      "HelpManageArticleDetail": {
+        "additionalProperties": false,
+        "description": "管理面文章详情（含正文、全部语言与目标）。",
+        "properties": {
+          "ai_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 生成模型（generated_by=ai 时填写）",
+            "title": "Ai Model"
+          },
+          "author_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "人工作者主键（包装载为空）",
+            "title": "Author Id"
+          },
+          "category_id": {
+            "description": "分类主键",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "category_path": {
+            "default": "",
+            "description": "分类路径（根 → 叶）",
+            "title": "Category Path",
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "description": "正文 HTML（默认语言快照）",
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "创建时间（UTC）",
+            "title": "Created At"
+          },
+          "generated_by": {
+            "description": "生成方式（manual / ai）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Generated By",
+            "type": "string"
+          },
+          "helpful_count": {
+            "description": "有帮助数",
+            "minimum": 0.0,
+            "title": "Helpful Count",
+            "type": "integer"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HelpManageLocaleText"
+            },
+            "description": "语言 → 标题与正文",
+            "title": "I18N",
+            "type": "object"
+          },
+          "id": {
+            "description": "文章主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_top": {
+            "description": "是否置顶",
+            "title": "Is Top",
+            "type": "boolean"
+          },
+          "local_override": {
+            "description": "是否被租户本地编辑（升级不覆盖内容）",
+            "title": "Local Override",
+            "type": "boolean"
+          },
+          "package_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "来源包版本主键（租户自建为空）",
+            "title": "Package Id"
+          },
+          "publish_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布时间（UTC）",
+            "title": "Publish At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "审核人（AI 草稿发布前置）",
+            "title": "Reviewed By"
+          },
+          "source": {
+            "description": "来源（builtin / product / tenant）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "包内稳定键（租户自建为空）",
+            "title": "Source Key"
+          },
+          "status": {
+            "description": "状态（draft / published / offline）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          },
+          "targets": {
+            "description": "目标（锚点）清单",
+            "items": {
+              "$ref": "#/components/schemas/HelpManageTargetItem"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "title": {
+            "description": "标题（默认语言快照）",
+            "title": "Title",
+            "type": "string"
+          },
+          "unhelpful_count": {
+            "description": "无帮助数",
+            "minimum": 0.0,
+            "title": "Unhelpful Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最后修改时间（UTC）",
+            "title": "Updated At"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          },
+          "view_count": {
+            "description": "阅读数",
+            "minimum": 0.0,
+            "title": "View Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category_id",
+          "status",
+          "is_top",
+          "source",
+          "local_override",
+          "generated_by",
+          "view_count",
+          "helpful_count",
+          "unhelpful_count",
+          "version"
+        ],
+        "title": "HelpManageArticleDetail",
+        "type": "object"
+      },
+      "HelpManageArticleItem": {
+        "additionalProperties": false,
+        "description": "管理面文章列表行。",
+        "properties": {
+          "category_id": {
+            "description": "分类主键",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "category_path": {
+            "default": "",
+            "description": "分类路径（根 → 叶）",
+            "title": "Category Path",
+            "type": "string"
+          },
+          "generated_by": {
+            "description": "生成方式（manual / ai）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Generated By",
+            "type": "string"
+          },
+          "helpful_count": {
+            "description": "有帮助数",
+            "minimum": 0.0,
+            "title": "Helpful Count",
+            "type": "integer"
+          },
+          "id": {
+            "description": "文章主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_top": {
+            "description": "是否置顶",
+            "title": "Is Top",
+            "type": "boolean"
+          },
+          "local_override": {
+            "description": "是否被租户本地编辑（升级不覆盖内容）",
+            "title": "Local Override",
+            "type": "boolean"
+          },
+          "publish_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布时间（UTC）",
+            "title": "Publish At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "审核人（AI 草稿发布前置）",
+            "title": "Reviewed By"
+          },
+          "source": {
+            "description": "来源（builtin / product / tenant）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（draft / published / offline）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "description": "标题（默认语言快照）",
+            "title": "Title",
+            "type": "string"
+          },
+          "unhelpful_count": {
+            "description": "无帮助数",
+            "minimum": 0.0,
+            "title": "Unhelpful Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最后修改时间（UTC）",
+            "title": "Updated At"
+          },
+          "view_count": {
+            "description": "阅读数",
+            "minimum": 0.0,
+            "title": "View Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category_id",
+          "status",
+          "is_top",
+          "source",
+          "local_override",
+          "generated_by",
+          "view_count",
+          "helpful_count",
+          "unhelpful_count"
+        ],
+        "title": "HelpManageArticleItem",
+        "type": "object"
+      },
+      "HelpManageArticlePage": {
+        "additionalProperties": false,
+        "description": "管理面文章分页响应。",
+        "properties": {
+          "list": {
+            "description": "文章行",
+            "items": {
+              "$ref": "#/components/schemas/HelpManageArticleItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "description": "页码",
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "description": "每页条数",
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "description": "总数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "HelpManageArticlePage",
+        "type": "object"
+      },
+      "HelpManageArticleUpdate": {
+        "additionalProperties": false,
+        "description": "编辑文章请求（字段可选；`status` 缺省沿用当前状态）。",
+        "properties": {
+          "ai_model": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 模型",
+            "title": "Ai Model"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "分类主键",
+            "title": "Category Id"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 120000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "默认语言正文 HTML",
+            "title": "Content"
+          },
+          "generated_by": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "生成方式",
+            "title": "Generated By"
+          },
+          "i18n": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/HelpManageLocaleText"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言 → 标题与正文（None 不修改；整份覆盖）",
+            "title": "I18N"
+          },
+          "is_top": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "是否置顶",
+            "title": "Is Top"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "审核人",
+            "title": "Reviewed By"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（缺省沿用；发布 / 下架仍校验迁移）",
+            "title": "Status"
+          },
+          "targets": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HelpManageTargetItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "目标清单（None 不修改；空数组清空）",
+            "title": "Targets"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "默认语言标题",
+            "title": "Title"
+          }
+        },
+        "title": "HelpManageArticleUpdate",
+        "type": "object"
+      },
+      "HelpManageCategoryCreate": {
+        "additionalProperties": false,
+        "description": "新建分类请求。",
+        "properties": {
+          "name": {
+            "description": "分类名（同父级唯一）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "default": 0,
+            "description": "上级分类 ID（0 = 根）",
+            "title": "Parent Id",
+            "type": "integer"
+          },
+          "sort": {
+            "default": 0,
+            "description": "同级排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled / disabled）",
+            "maxLength": 16,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "HelpManageCategoryCreate",
+        "type": "object"
+      },
+      "HelpManageCategoryDeleteResult": {
+        "additionalProperties": false,
+        "description": "删除分类结果（默认拒删时由错误响应给出计数）。",
+        "properties": {
+          "deleted_categories": {
+            "description": "软删除的分类数（含子树）",
+            "minimum": 0.0,
+            "title": "Deleted Categories",
+            "type": "integer"
+          },
+          "offlined_articles": {
+            "description": "级联下架的文章数",
+            "minimum": 0.0,
+            "title": "Offlined Articles",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted_categories",
+          "offlined_articles"
+        ],
+        "title": "HelpManageCategoryDeleteResult",
+        "type": "object"
+      },
+      "HelpManageCategoryNode": {
+        "additionalProperties": false,
+        "description": "管理面分类节点（含停用与各状态计数）。",
+        "properties": {
+          "article_count": {
+            "description": "直接归属的未删文章数",
+            "minimum": 0.0,
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "children": {
+            "description": "子分类（同级按 sort 升序）",
+            "items": {
+              "$ref": "#/components/schemas/HelpManageCategoryNode"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "draft_count": {
+            "description": "直接归属的草稿数",
+            "minimum": 0.0,
+            "title": "Draft Count",
+            "type": "integer"
+          },
+          "id": {
+            "description": "分类主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "分类名",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "offline_count": {
+            "description": "直接归属的已下架数",
+            "minimum": 0.0,
+            "title": "Offline Count",
+            "type": "integer"
+          },
+          "parent_id": {
+            "description": "上级分类 ID（0 = 根）",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "published_count": {
+            "description": "直接归属的已发布文章数",
+            "minimum": 0.0,
+            "title": "Published Count",
+            "type": "integer"
+          },
+          "sort": {
+            "description": "同级排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "description": "状态（enabled / disabled）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          },
+          "subtree_article_count": {
+            "description": "含子孙的未删文章数",
+            "minimum": 0.0,
+            "title": "Subtree Article Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "parent_id",
+          "name",
+          "sort",
+          "status",
+          "article_count",
+          "subtree_article_count",
+          "published_count",
+          "draft_count",
+          "offline_count"
+        ],
+        "title": "HelpManageCategoryNode",
+        "type": "object"
+      },
+      "HelpManageCategoryTree": {
+        "additionalProperties": false,
+        "description": "管理面分类树响应。",
+        "properties": {
+          "items": {
+            "description": "根级分类",
+            "items": {
+              "$ref": "#/components/schemas/HelpManageCategoryNode"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "分类总数（含子孙）",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total"
+        ],
+        "title": "HelpManageCategoryTree",
+        "type": "object"
+      },
+      "HelpManageCategoryUpdate": {
+        "additionalProperties": false,
+        "description": "编辑分类请求（字段可选；`parent_id` 变更须保证不成环且不超深度）。",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "分类名",
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "上级分类 ID（0 = 根）",
+            "title": "Parent Id"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "同级排序（升序）",
+            "title": "Sort"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "状态（enabled / disabled）",
+            "title": "Status"
+          }
+        },
+        "title": "HelpManageCategoryUpdate",
+        "type": "object"
+      },
+      "HelpManageLocaleText": {
+        "additionalProperties": false,
+        "description": "单语言标题与正文。",
+        "properties": {
+          "content": {
+            "default": "",
+            "description": "正文 HTML（服务端白名单清洗）",
+            "maxLength": 120000,
+            "title": "Content",
+            "type": "string"
+          },
+          "title": {
+            "description": "标题",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "HelpManageLocaleText",
+        "type": "object"
+      },
+      "HelpManageTargetItem": {
+        "additionalProperties": false,
+        "description": "文章目标（锚点）项。",
+        "properties": {
+          "key": {
+            "default": "",
+            "description": "锚点键（global 为空串；其余为五段式 help_key）",
+            "maxLength": 255,
+            "title": "Key",
+            "type": "string"
+          },
+          "type": {
+            "description": "目标类型（global / module / form / field / action）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "HelpManageTargetItem",
+        "type": "object"
+      },
+      "HelpPackageItem": {
+        "additionalProperties": false,
+        "description": "已装载帮助包登记行。",
+        "properties": {
+          "article_count": {
+            "description": "该版本清单文章总数",
+            "minimum": 0.0,
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "checksum": {
+            "description": "装载时校验通过的校验和",
+            "title": "Checksum",
+            "type": "string"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "清单生成时间（UTC）",
+            "title": "Generated At"
+          },
+          "id": {
+            "description": "包登记主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "loaded_at": {
+            "description": "本次装载时间（UTC）",
+            "format": "date-time",
+            "title": "Loaded At",
+            "type": "string"
+          },
+          "package_version": {
+            "description": "包版本（X.Y.Z）",
+            "title": "Package Version",
+            "type": "string"
+          },
+          "product_key": {
+            "description": "产品键",
+            "title": "Product Key",
+            "type": "string"
+          },
+          "schema_version": {
+            "description": "包格式版本",
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "status": {
+            "description": "状态（loaded / outdated / unloaded）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "product_key",
+          "package_version",
+          "schema_version",
+          "checksum",
+          "article_count",
+          "loaded_at",
+          "status"
+        ],
+        "title": "HelpPackageItem",
+        "type": "object"
+      },
+      "HelpPackageLoadCounts": {
+        "additionalProperties": false,
+        "description": "装载计数（与命令行输出一致）。",
+        "properties": {
+          "articles_new": {
+            "default": 0,
+            "description": "新增文章数",
+            "minimum": 0.0,
+            "title": "Articles New",
+            "type": "integer"
+          },
+          "articles_offline": {
+            "default": 0,
+            "description": "下线文章数",
+            "minimum": 0.0,
+            "title": "Articles Offline",
+            "type": "integer"
+          },
+          "articles_skipped": {
+            "default": 0,
+            "description": "跳过总数（本地覆盖 + 目标冲突）",
+            "minimum": 0.0,
+            "title": "Articles Skipped",
+            "type": "integer"
+          },
+          "articles_skipped_conflict": {
+            "default": 0,
+            "description": "因目标冲突跳过",
+            "minimum": 0.0,
+            "title": "Articles Skipped Conflict",
+            "type": "integer"
+          },
+          "articles_skipped_override": {
+            "default": 0,
+            "description": "因本地覆盖跳过",
+            "minimum": 0.0,
+            "title": "Articles Skipped Override",
+            "type": "integer"
+          },
+          "articles_unchanged": {
+            "default": 0,
+            "description": "不变文章数",
+            "minimum": 0.0,
+            "title": "Articles Unchanged",
+            "type": "integer"
+          },
+          "articles_updated": {
+            "default": 0,
+            "description": "更新文章数",
+            "minimum": 0.0,
+            "title": "Articles Updated",
+            "type": "integer"
+          },
+          "categories_created": {
+            "default": 0,
+            "description": "新增分类数",
+            "minimum": 0.0,
+            "title": "Categories Created",
+            "type": "integer"
+          },
+          "categories_unchanged": {
+            "default": 0,
+            "description": "不变分类数",
+            "minimum": 0.0,
+            "title": "Categories Unchanged",
+            "type": "integer"
+          },
+          "categories_updated": {
+            "default": 0,
+            "description": "更新分类数",
+            "minimum": 0.0,
+            "title": "Categories Updated",
+            "type": "integer"
+          }
+        },
+        "title": "HelpPackageLoadCounts",
+        "type": "object"
+      },
+      "HelpPackageLoadRequest": {
+        "additionalProperties": false,
+        "description": "装载 / 升级请求。",
+        "properties": {
+          "dry_run": {
+            "default": true,
+            "description": "是否只预演（缺省 true；实跑传 false）",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "lenient": {
+            "default": false,
+            "description": "是否跳过无效文章并告警（缺省严格）",
+            "title": "Lenient",
+            "type": "boolean"
+          },
+          "package_path": {
+            "description": "包目录或 package.yaml 的相对路径（限制在配置根目录内）",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Package Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "package_path"
+        ],
+        "title": "HelpPackageLoadRequest",
+        "type": "object"
+      },
+      "HelpPackageLoadResult": {
+        "additionalProperties": false,
+        "description": "装载结果。",
+        "properties": {
+          "applied": {
+            "description": "是否已写库（False = 预演）",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/HelpPackageLoadCounts",
+            "description": "计数快照"
+          },
+          "package_action": {
+            "description": "包状态迁移（created / upgraded / restored / unchanged）",
+            "title": "Package Action",
+            "type": "string"
+          },
+          "package_version": {
+            "description": "包版本",
+            "title": "Package Version",
+            "type": "string"
+          },
+          "product_key": {
+            "description": "产品键",
+            "title": "Product Key",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "告警（宽松模式跳过项等）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "applied",
+          "package_action",
+          "product_key",
+          "package_version",
+          "counts"
+        ],
+        "title": "HelpPackageLoadResult",
+        "type": "object"
+      },
+      "HelpPackagePage": {
+        "additionalProperties": false,
+        "description": "帮助包分页响应。",
+        "properties": {
+          "list": {
+            "description": "包登记行（装载时间倒序）",
+            "items": {
+              "$ref": "#/components/schemas/HelpPackageItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "description": "页码",
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "description": "每页条数",
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "description": "总数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "HelpPackagePage",
+        "type": "object"
+      },
+      "HelpPackageUnloadCounts": {
+        "additionalProperties": false,
+        "description": "卸载计数。",
+        "properties": {
+          "articles_offline": {
+            "default": 0,
+            "description": "本次下线文章数",
+            "minimum": 0.0,
+            "title": "Articles Offline",
+            "type": "integer"
+          },
+          "articles_unchanged": {
+            "default": 0,
+            "description": "已下线文章数",
+            "minimum": 0.0,
+            "title": "Articles Unchanged",
+            "type": "integer"
+          },
+          "packages_unloaded": {
+            "default": 0,
+            "description": "置为已卸载的包行数",
+            "minimum": 0.0,
+            "title": "Packages Unloaded",
+            "type": "integer"
+          }
+        },
+        "title": "HelpPackageUnloadCounts",
+        "type": "object"
+      },
+      "HelpPackageUnloadRequest": {
+        "additionalProperties": false,
+        "description": "卸载请求。",
+        "properties": {
+          "dry_run": {
+            "default": true,
+            "description": "是否只预演（缺省 true；实跑传 false）",
+            "title": "Dry Run",
+            "type": "boolean"
+          }
+        },
+        "title": "HelpPackageUnloadRequest",
+        "type": "object"
+      },
+      "HelpPackageUnloadResult": {
+        "additionalProperties": false,
+        "description": "卸载结果。",
+        "properties": {
+          "applied": {
+            "description": "是否已写库（False = 预演）",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/HelpPackageUnloadCounts",
+            "description": "计数快照"
+          }
+        },
+        "required": [
+          "applied",
+          "counts"
+        ],
+        "title": "HelpPackageUnloadResult",
+        "type": "object"
+      },
+      "HelpReaderArticleDetail": {
+        "additionalProperties": false,
+        "description": "读者面文章详情（当前语言 + 我的反馈）。",
+        "properties": {
+          "category_id": {
+            "description": "分类主键",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "category_path": {
+            "description": "分类路径（根 → 叶）",
+            "title": "Category Path",
+            "type": "string"
+          },
+          "content": {
+            "description": "正文 HTML（已清洗）",
+            "title": "Content",
+            "type": "string"
+          },
+          "helpful_count": {
+            "description": "有帮助数",
+            "minimum": 0.0,
+            "title": "Helpful Count",
+            "type": "integer"
+          },
+          "id": {
+            "description": "文章主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "my_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前用户的反馈（helpful / unhelpful；未投为空）",
+            "title": "My Feedback"
+          },
+          "publish_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布时间（UTC）",
+            "title": "Publish At"
+          },
+          "title": {
+            "description": "标题（当前语言）",
+            "title": "Title",
+            "type": "string"
+          },
+          "unhelpful_count": {
+            "description": "无帮助数",
+            "minimum": 0.0,
+            "title": "Unhelpful Count",
+            "type": "integer"
+          },
+          "view_count": {
+            "description": "阅读数",
+            "minimum": 0.0,
+            "title": "View Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "content",
+          "category_id",
+          "category_path",
+          "view_count",
+          "helpful_count",
+          "unhelpful_count"
+        ],
+        "title": "HelpReaderArticleDetail",
+        "type": "object"
+      },
+      "HelpReaderArticleItem": {
+        "additionalProperties": false,
+        "description": "读者面文章列表行（不含正文）。",
+        "properties": {
+          "category_id": {
+            "description": "分类主键",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "category_path": {
+            "description": "分类路径（根 → 叶）",
+            "title": "Category Path",
+            "type": "string"
+          },
+          "helpful_count": {
+            "description": "有帮助数",
+            "minimum": 0.0,
+            "title": "Helpful Count",
+            "type": "integer"
+          },
+          "id": {
+            "description": "文章主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_top": {
+            "description": "是否置顶",
+            "title": "Is Top",
+            "type": "boolean"
+          },
+          "publish_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布时间（UTC）",
+            "title": "Publish At"
+          },
+          "summary": {
+            "description": "正文摘要（去标签截断）",
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "description": "标题（当前语言）",
+            "title": "Title",
+            "type": "string"
+          },
+          "unhelpful_count": {
+            "description": "无帮助数",
+            "minimum": 0.0,
+            "title": "Unhelpful Count",
+            "type": "integer"
+          },
+          "view_count": {
+            "description": "阅读数",
+            "minimum": 0.0,
+            "title": "View Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "category_id",
+          "category_path",
+          "is_top",
+          "view_count",
+          "helpful_count",
+          "unhelpful_count"
+        ],
+        "title": "HelpReaderArticleItem",
+        "type": "object"
+      },
+      "HelpReaderArticlePage": {
+        "additionalProperties": false,
+        "description": "读者面文章分页响应。",
+        "properties": {
+          "list": {
+            "description": "文章行（置顶优先）",
+            "items": {
+              "$ref": "#/components/schemas/HelpReaderArticleItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "description": "页码",
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "description": "每页条数",
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "description": "总数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "HelpReaderArticlePage",
+        "type": "object"
+      },
+      "HelpReaderCategoryNode": {
+        "additionalProperties": false,
+        "description": "读者面分类节点（启用分类 + 已发布文章数）。",
+        "properties": {
+          "children": {
+            "description": "子分类",
+            "items": {
+              "$ref": "#/components/schemas/HelpReaderCategoryNode"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "id": {
+            "description": "分类主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "分类名（当前语言）",
+            "title": "Name",
+            "type": "string"
+          },
+          "published_count": {
+            "description": "直接归属的已发布文章数",
+            "minimum": 0.0,
+            "title": "Published Count",
+            "type": "integer"
+          },
+          "sort": {
+            "description": "同级排序（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "subtree_published_count": {
+            "description": "含子孙的已发布文章数",
+            "minimum": 0.0,
+            "title": "Subtree Published Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sort",
+          "published_count",
+          "subtree_published_count"
+        ],
+        "title": "HelpReaderCategoryNode",
+        "type": "object"
+      },
+      "HelpReaderCategoryTree": {
+        "additionalProperties": false,
+        "description": "读者面分类树响应。",
+        "properties": {
+          "items": {
+            "description": "根级分类（空分类保留）",
+            "items": {
+              "$ref": "#/components/schemas/HelpReaderCategoryNode"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "分类总数（含子孙）",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total"
+        ],
+        "title": "HelpReaderCategoryTree",
+        "type": "object"
+      },
+      "HelpStatisticArticleItem": {
+        "additionalProperties": false,
+        "description": "按文章分组的明细行。",
+        "properties": {
+          "article_id": {
+            "description": "文章主键",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "category_id": {
+            "description": "分类主键",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "category_path": {
+            "default": "",
+            "description": "分类路径（根 → 叶）",
+            "title": "Category Path",
+            "type": "string"
+          },
+          "feedback_count": {
+            "description": "反馈数",
+            "minimum": 0.0,
+            "title": "Feedback Count",
+            "type": "integer"
+          },
+          "feedback_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "反馈率（无阅读为 null）",
+            "title": "Feedback Rate"
+          },
+          "helpful_count": {
+            "description": "有帮助数",
+            "minimum": 0.0,
+            "title": "Helpful Count",
+            "type": "integer"
+          },
+          "helpful_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助率（无反馈为 null）",
+            "title": "Helpful Rate"
+          },
+          "status": {
+            "description": "状态",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "description": "标题",
+            "title": "Title",
+            "type": "string"
+          },
+          "unhelpful_count": {
+            "description": "无帮助数",
+            "minimum": 0.0,
+            "title": "Unhelpful Count",
+            "type": "integer"
+          },
+          "view_count": {
+            "description": "阅读数",
+            "minimum": 0.0,
+            "title": "View Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "article_id",
+          "title",
+          "category_id",
+          "status",
+          "view_count",
+          "feedback_count",
+          "helpful_count",
+          "unhelpful_count"
+        ],
+        "title": "HelpStatisticArticleItem",
+        "type": "object"
+      },
+      "HelpStatisticCategoryItem": {
+        "additionalProperties": false,
+        "description": "按分类分组的明细行（直接归属）。",
+        "properties": {
+          "article_count": {
+            "description": "文章总数",
+            "minimum": 0.0,
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "category_id": {
+            "description": "分类主键",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "feedback_count": {
+            "description": "反馈数合计",
+            "minimum": 0.0,
+            "title": "Feedback Count",
+            "type": "integer"
+          },
+          "feedback_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "反馈率（无阅读为 null）",
+            "title": "Feedback Rate"
+          },
+          "helpful_count": {
+            "description": "有帮助数合计",
+            "minimum": 0.0,
+            "title": "Helpful Count",
+            "type": "integer"
+          },
+          "helpful_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助率（无反馈为 null）",
+            "title": "Helpful Rate"
+          },
+          "name": {
+            "description": "分类名",
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "default": "",
+            "description": "分类路径（根 → 叶）",
+            "title": "Path",
+            "type": "string"
+          },
+          "published_count": {
+            "description": "已发布数",
+            "minimum": 0.0,
+            "title": "Published Count",
+            "type": "integer"
+          },
+          "unhelpful_count": {
+            "description": "无帮助数合计",
+            "minimum": 0.0,
+            "title": "Unhelpful Count",
+            "type": "integer"
+          },
+          "view_count": {
+            "description": "阅读数合计",
+            "minimum": 0.0,
+            "title": "View Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category_id",
+          "name",
+          "article_count",
+          "published_count",
+          "view_count",
+          "feedback_count",
+          "helpful_count",
+          "unhelpful_count"
+        ],
+        "title": "HelpStatisticCategoryItem",
+        "type": "object"
+      },
+      "HelpStatisticSummary": {
+        "additionalProperties": false,
+        "description": "统计汇总头（全量口径，不受分页与明细筛选影响）。",
+        "properties": {
+          "article_count": {
+            "description": "文章总数（未软删）",
+            "minimum": 0.0,
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "draft_count": {
+            "description": "草稿数",
+            "minimum": 0.0,
+            "title": "Draft Count",
+            "type": "integer"
+          },
+          "feedback_count": {
+            "description": "反馈数合计（有帮助 + 无帮助）",
+            "minimum": 0.0,
+            "title": "Feedback Count",
+            "type": "integer"
+          },
+          "feedback_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "反馈率（无阅读为 null）",
+            "title": "Feedback Rate"
+          },
+          "helpful_count": {
+            "description": "有帮助数合计",
+            "minimum": 0.0,
+            "title": "Helpful Count",
+            "type": "integer"
+          },
+          "helpful_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "帮助率（无反馈为 null）",
+            "title": "Helpful Rate"
+          },
+          "offline_count": {
+            "description": "已下架数",
+            "minimum": 0.0,
+            "title": "Offline Count",
+            "type": "integer"
+          },
+          "published_count": {
+            "description": "已发布数",
+            "minimum": 0.0,
+            "title": "Published Count",
+            "type": "integer"
+          },
+          "total_views": {
+            "description": "阅读数合计",
+            "minimum": 0.0,
+            "title": "Total Views",
+            "type": "integer"
+          },
+          "unhelpful_count": {
+            "description": "无帮助数合计",
+            "minimum": 0.0,
+            "title": "Unhelpful Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "article_count",
+          "published_count",
+          "draft_count",
+          "offline_count",
+          "total_views",
+          "feedback_count",
+          "helpful_count",
+          "unhelpful_count"
+        ],
+        "title": "HelpStatisticSummary",
+        "type": "object"
+      },
+      "HelpStatistics": {
+        "additionalProperties": false,
+        "description": "统计视图响应（`group_by` 决定哪个明细清单非空）。",
+        "properties": {
+          "articles": {
+            "description": "按文章分组的明细（group_by=category 时为空）",
+            "items": {
+              "$ref": "#/components/schemas/HelpStatisticArticleItem"
+            },
+            "title": "Articles",
+            "type": "array"
+          },
+          "categories": {
+            "description": "按分类分组的明细（group_by=article 时为空）",
+            "items": {
+              "$ref": "#/components/schemas/HelpStatisticCategoryItem"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "group_by": {
+            "description": "分组维度（article / category）",
+            "title": "Group By",
+            "type": "string"
+          },
+          "page": {
+            "description": "页码",
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "description": "每页条数",
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/HelpStatisticSummary",
+            "description": "汇总头（全量口径）"
+          },
+          "total": {
+            "description": "明细总数",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group_by",
+          "summary",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "HelpStatistics",
         "type": "object"
       },
       "IconCreateRequest": {
@@ -25224,6 +27545,442 @@
         ]
       }
     },
+    "/api/v1/help/articles": {
+      "get": {
+        "description": "读者面文章列表（仅已发布；置顶优先）。\n\nArgs:\n    service: 读者面服务。\n    page: 统一分页参数。\n    category_id: 分类 ID（含子孙）。\n\nReturns:\n    ApiResponse[HelpReaderArticlePage]: 统一响应，data 为分页文章。",
+        "operationId": "list_articles_api_v1_help_articles_get",
+        "parameters": [
+          {
+            "description": "分类 ID（含子孙；不传为全部）",
+            "in": "query",
+            "name": "category_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分类 ID（含子孙；不传为全部）",
+              "title": "Category Id"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpReaderArticlePage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Articles",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/articles/{article_id}": {
+      "get": {
+        "description": "读者面文章详情（阅读计数 +1 + 我的反馈）。\n\n文章不存在 / 草稿 / 下架返回 `40016`（不暴露存在性）。\n\nArgs:\n    article_id: 文章 ID。\n    service: 读者面服务。\n\nReturns:\n    ApiResponse[HelpReaderArticleDetail]: 统一响应，data 为文章详情。",
+        "operationId": "get_article_api_v1_help_articles__article_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "title": "Article Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpReaderArticleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Article",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/articles/{article_id}/feedback": {
+      "post": {
+        "description": "提交 / 改投反馈（同用户同文章唯一）。\n\n反馈类型非法 / 评论超长返回 `40020`；文章不可见返回 `40016`。\n\nArgs:\n    article_id: 文章 ID。\n    payload: 反馈请求。\n    service: 读者面服务。\n\nReturns:\n    ApiResponse[HelpFeedbackResult]: 统一响应，data 为反馈结果。",
+        "operationId": "submit_feedback_api_v1_help_articles__article_id__feedback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "title": "Article Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpFeedbackResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Submit Feedback",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/categories": {
+      "get": {
+        "description": "读者面分类树（启用分类 + 已发布文章数含子孙）。\n\nArgs:\n    service: 读者面服务。\n\nReturns:\n    ApiResponse[HelpReaderCategoryTree]: 统一响应，data 为分类树。",
+        "operationId": "list_categories_api_v1_help_categories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpReaderCategoryTree_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Categories",
+        "tags": [
+          "help"
+        ]
+      }
+    },
     "/api/v1/help/context": {
       "get": {
         "description": "按字段 → 动作 → 表单 → 模块 → 全局逐级解析页面内帮助。\n\nArgs:\n    request: 请求对象（解析语言 / 透传内容侧实现）。\n    uow: 请求级工作单元（平台库）。\n    cache: 缓存 Region（锚点索引）。\n    config: 系统参数读取基座（缓存 TTL）。\n    resolver: 内容侧解析实现。\n    module_key: 模块键。\n    form_key: 表单键（业务码）。\n    field_key: 字段键。\n    action_code: 动作码或完整权限码。\n    product_key: 产品段（模块级消歧）。\n\nReturns:\n    ApiResponse: 统一响应，data 为解析结果（未命中时 `matched=false` + 分类列表）。",
@@ -25570,6 +28327,1743 @@
           }
         },
         "summary": "Help Coverage",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/manage/articles": {
+      "get": {
+        "description": "管理面文章列表（全状态）。\n\nArgs:\n    service: 维护服务。\n    page: 统一分页参数。\n    category_id: 分类 ID。\n    status: 文章状态。\n    source: 文章来源。\n    keyword: 标题关键字。\n\nReturns:\n    ApiResponse[HelpManageArticlePage]: 统一响应，data 为分页文章。",
+        "operationId": "list_articles_api_v1_help_manage_articles_get",
+        "parameters": [
+          {
+            "description": "分类 ID（精确匹配）",
+            "in": "query",
+            "name": "category_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分类 ID（精确匹配）",
+              "title": "Category Id"
+            }
+          },
+          {
+            "description": "文章状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(draft|published|offline)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "文章状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "文章来源",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(builtin|product|tenant)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "文章来源",
+              "title": "Source"
+            }
+          },
+          {
+            "description": "标题关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标题关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageArticlePage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Articles",
+        "tags": [
+          "help"
+        ]
+      },
+      "post": {
+        "description": "新建文章（默认草稿）。\n\n内容非法 / AI 未审核 `40018`；语言不受支持 `40022`；锚点不可解析 `40008`；目标冲突 `40019`。\n\nArgs:\n    request: 请求对象（取请求语言）。\n    payload: 新建请求。\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。",
+        "operationId": "create_article_api_v1_help_manage_articles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpManageArticleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageArticleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Article",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/manage/articles/{article_id}": {
+      "delete": {
+        "description": "软删除文章（产品包来源文章拒绝，引导下架）。\n\n文章不存在 `40016`；包来源文章 `40017`。\n\nArgs:\n    article_id: 文章 ID。\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageArticleDeleteResult]: 统一响应，data 为删除结果。",
+        "operationId": "delete_article_api_v1_help_manage_articles__article_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "title": "Article Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageArticleDeleteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Article",
+        "tags": [
+          "help"
+        ]
+      },
+      "get": {
+        "description": "管理面文章详情（全语言 + 目标 + 计数 + 来源留痕）。\n\nArgs:\n    article_id: 文章 ID。\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。",
+        "operationId": "get_article_api_v1_help_manage_articles__article_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "title": "Article Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageArticleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Article",
+        "tags": [
+          "help"
+        ]
+      },
+      "put": {
+        "description": "编辑文章（显式状态，缺省沿用；包来源自动本地覆盖）。\n\n状态迁移不允许 `40017`；内容非法 / AI 未审核 `40018`；锚点不可解析 `40008`；目标冲突 `40019`。\n\nArgs:\n    request: 请求对象（取请求语言）。\n    article_id: 文章 ID。\n    payload: 编辑请求。\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。",
+        "operationId": "update_article_api_v1_help_manage_articles__article_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "title": "Article Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpManageArticleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageArticleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Article",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/manage/articles/{article_id}/offline": {
+      "post": {
+        "description": "下架文章（已发布 → 已下架）。\n\n状态迁移不允许 `40017`。\n\nArgs:\n    article_id: 文章 ID。\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。",
+        "operationId": "offline_article_api_v1_help_manage_articles__article_id__offline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "title": "Article Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageArticleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Offline Article",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/manage/articles/{article_id}/publish": {
+      "post": {
+        "description": "发布文章（草稿 / 下架 → 已发布）。\n\n状态迁移不允许 `40017`；AI 未审核 `40018`。\n\nArgs:\n    article_id: 文章 ID。\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageArticleDetail]: 统一响应，data 为文章详情。",
+        "operationId": "publish_article_api_v1_help_manage_articles__article_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "title": "Article Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageArticleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Publish Article",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/manage/categories": {
+      "get": {
+        "description": "管理面分类树（含停用与各状态计数）。\n\nArgs:\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageCategoryTree]: 统一响应，data 为分类树。",
+        "operationId": "list_categories_api_v1_help_manage_categories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageCategoryTree_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Categories",
+        "tags": [
+          "help"
+        ]
+      },
+      "post": {
+        "description": "新建分类。\n\n父级不存在 `40014`；同级同名 / 深度超限 `40023`；状态非法 `10001`。\n\nArgs:\n    payload: 新建请求。\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageCategoryNode]: 统一响应，data 为新建节点。",
+        "operationId": "create_category_api_v1_help_manage_categories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpManageCategoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageCategoryNode_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Category",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/manage/categories/{category_id}": {
+      "delete": {
+        "description": "删除分类（默认拒删；级联下架子树文章）。\n\n存在子分类或文章且未级联 `40015`；分类不存在 `40014`。\n\nArgs:\n    category_id: 分类 ID。\n    service: 维护服务。\n    cascade: 是否级联。\n\nReturns:\n    ApiResponse[HelpManageCategoryDeleteResult]: 统一响应，data 为删除计数。",
+        "operationId": "delete_category_api_v1_help_manage_categories__category_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category_id",
+            "required": true,
+            "schema": {
+              "title": "Category Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "是否级联下架子树文章后删除",
+            "in": "query",
+            "name": "cascade",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "是否级联下架子树文章后删除",
+              "title": "Cascade",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageCategoryDeleteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Category",
+        "tags": [
+          "help"
+        ]
+      },
+      "put": {
+        "description": "编辑分类（名称 / 父级 / 排序 / 状态）。\n\n分类或父级不存在 `40014`；同级同名 / 成环 / 深度超限 `40023`。\n\nArgs:\n    category_id: 分类 ID。\n    payload: 编辑请求。\n    service: 维护服务。\n\nReturns:\n    ApiResponse[HelpManageCategoryNode]: 统一响应，data 为更新后的节点。",
+        "operationId": "update_category_api_v1_help_manage_categories__category_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category_id",
+            "required": true,
+            "schema": {
+              "title": "Category Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpManageCategoryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpManageCategoryNode_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Category",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/manage/statistics": {
+      "get": {
+        "description": "阅读与反馈统计视图（按文章 / 分类分组）。\n\nArgs:\n    service: 统计服务。\n    page: 统一分页参数。\n    group_by: 分组维度（article / category）。\n    category_id: 分类过滤（仅文章维度）。\n    keyword: 标题关键字（仅文章维度）。\n\nReturns:\n    ApiResponse[HelpStatistics]: 统一响应，data 为统计视图。",
+        "operationId": "statistics_api_v1_help_manage_statistics_get",
+        "parameters": [
+          {
+            "description": "分组维度",
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "article",
+              "description": "分组维度",
+              "pattern": "^(article|category)$",
+              "title": "Group By",
+              "type": "string"
+            }
+          },
+          {
+            "description": "分类过滤（仅文章维度）",
+            "in": "query",
+            "name": "category_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分类过滤（仅文章维度）",
+              "title": "Category Id"
+            }
+          },
+          {
+            "description": "标题关键字（仅文章维度）",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标题关键字（仅文章维度）",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpStatistics_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Statistics",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/packages": {
+      "get": {
+        "description": "已装载帮助包列表（装载时间倒序）。\n\nArgs:\n    service: 包管理服务。\n    page: 统一分页参数。\n    product_key: 产品键过滤。\n    status: 包状态过滤。\n\nReturns:\n    ApiResponse[HelpPackagePage]: 统一响应，data 为分页包登记。",
+        "operationId": "list_packages_api_v1_help_packages_get",
+        "parameters": [
+          {
+            "description": "产品键过滤",
+            "in": "query",
+            "name": "product_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "产品键过滤",
+              "title": "Product Key"
+            }
+          },
+          {
+            "description": "包状态过滤",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(loaded|outdated|unloaded)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "包状态过滤",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpPackagePage_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Packages",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/packages/load": {
+      "post": {
+        "description": "装载或升级帮助包（`dry_run` 缺省 true）。\n\n路径越界 / 绝对路径 / 不存在 `40021`；版本冲突 `40011`；校验和不符 `40010`；锚点不可解析 `40008`。\n\nArgs:\n    payload: 装载请求。\n    service: 包管理服务。\n\nReturns:\n    ApiResponse[HelpPackageLoadResult]: 统一响应，data 为装载结果。",
+        "operationId": "load_package_api_v1_help_packages_load_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpPackageLoadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpPackageLoadResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Load Package",
+        "tags": [
+          "help"
+        ]
+      }
+    },
+    "/api/v1/help/packages/{product_key}/unload": {
+      "post": {
+        "description": "卸载某产品的帮助包（`dry_run` 缺省 true）。\n\n该产品未装载 `40012`。\n\nArgs:\n    product_key: 产品键。\n    payload: 卸载请求。\n    service: 包管理服务。\n\nReturns:\n    ApiResponse[HelpPackageUnloadResult]: 统一响应，data 为卸载结果。",
+        "operationId": "unload_package_api_v1_help_packages__product_key__unload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_key",
+            "required": true,
+            "schema": {
+              "title": "Product Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpPackageUnloadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HelpPackageUnloadResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Unload Package",
         "tags": [
           "help"
         ]

@@ -432,7 +432,7 @@ def test_result_dataclass_defaults() -> None:
 
 
 def test_seed_ops_cover_platform_declaration() -> None:
-    """9 个平台种子 op 与 `platform.toml` 的 `name` 一一对应。"""
+    """11 个平台种子 op 与 `platform.toml` 的 `name` 一一对应。"""
     assert SEED_OPS == (
         "seed-module",
         "seed-tables",
@@ -444,6 +444,7 @@ def test_seed_ops_cover_platform_declaration() -> None:
         "seed-rbac-role",
         "seed-rbac-grant",
         "seed-dashboard",
+        "seed-help",
     )
 
 
