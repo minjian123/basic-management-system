@@ -20896,7 +20896,7 @@
     },
     "/api/v1/audit/chain/verify": {
       "get": {
-        "description": "校验字段级变更审计的哈希链完整性。\n\nArgs:\n    session: 平台库只读会话。\n    chain: 哈希链实现。\n    months: 指定月份（逗号分隔；空 = 台账全部月份）。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果（含断裂定位）。",
+        "description": "校验字段级变更审计的哈希链完整性。\n\nArgs:\n    session: 平台库只读会话。\n    chain: 哈希链实现。\n    metrics: 指标器（记录链完整度与断裂计数）。\n    months: 指定月份（逗号分隔；空 = 台账全部月份）。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果（含断裂定位）。",
         "operationId": "verify_data_audit_chain_api_v1_audit_chain_verify_get",
         "parameters": [
           {
@@ -36476,7 +36476,7 @@
     },
     "/api/v1/platform/internal/audit/shards/ensure": {
       "post": {
-        "description": "确保审计分片存在（当月 + 未来 N 月，两类日志）。\n\nArgs:\n    session: 平台库会话。\n    req: 预创建请求（提前月数）。\n\nReturns:\n    ApiResponse: 统一响应，data 为已确保月份。",
+        "description": "确保审计分片存在（当月 + 未来 N 月，三类日志）。\n\nArgs:\n    session: 平台库会话。\n    metrics: 指标器（记录次月就绪信号）。\n    req: 预创建请求（提前月数）。\n\nReturns:\n    ApiResponse: 统一响应，data 为已确保月份。",
         "operationId": "ensure_shards_api_v1_platform_internal_audit_shards_ensure_post",
         "parameters": [
           {
@@ -36586,7 +36586,7 @@
     },
     "/api/v1/platform/internal/audit/verify": {
       "post": {
-        "description": "校验某类日志的哈希链（缺省校验台账全部月份）。\n\nArgs:\n    session: 平台库会话。\n    chain: 哈希链实现。\n    req: 校验请求（日志类型 + 可选月份）。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果。\n\nRaises:\n    ParamError: 日志类型未登记（10001）。",
+        "description": "校验某类日志的哈希链（缺省校验台账全部月份）。\n\nArgs:\n    session: 平台库会话。\n    chain: 哈希链实现。\n    metrics: 指标器（记录链完整度与断裂计数）。\n    req: 校验请求（日志类型 + 可选月份）。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果。\n\nRaises:\n    ParamError: 日志类型未登记（10001）。",
         "operationId": "verify_chain_api_v1_platform_internal_audit_verify_post",
         "parameters": [
           {

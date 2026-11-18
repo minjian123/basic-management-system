@@ -523,6 +523,7 @@ export interface paths {
          *     Args:
          *         session: 平台库只读会话。
          *         chain: 哈希链实现。
+         *         metrics: 指标器（记录链完整度与断裂计数）。
          *         months: 指定月份（逗号分隔；空 = 台账全部月份）。
          *
          *     Returns:
@@ -4050,10 +4051,11 @@ export interface paths {
         put?: never;
         /**
          * Ensure Shards
-         * @description 确保审计分片存在（当月 + 未来 N 月，两类日志）。
+         * @description 确保审计分片存在（当月 + 未来 N 月，三类日志）。
          *
          *     Args:
          *         session: 平台库会话。
+         *         metrics: 指标器（记录次月就绪信号）。
          *         req: 预创建请求（提前月数）。
          *
          *     Returns:
@@ -4082,6 +4084,7 @@ export interface paths {
          *     Args:
          *         session: 平台库会话。
          *         chain: 哈希链实现。
+         *         metrics: 指标器（记录链完整度与断裂计数）。
          *         req: 校验请求（日志类型 + 可选月份）。
          *
          *     Returns:

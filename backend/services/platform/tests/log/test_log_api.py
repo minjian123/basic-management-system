@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.audit.sha256 import Sha256HashChain
 from bms_core.core.exceptions import ParamError
+from bms_core.metrics.null import NullMetrics
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.domains.log.api import internal_audit
 from bms_platform.domains.log.api import logs as logs_api
@@ -77,23 +78,27 @@ async def test_internal_verify_route(log_session: AsyncSession) -> None:
     await _seed(log_session)
     chain = Sha256HashChain()
     operation = await internal_audit.verify_chain(
-        session=log_session, chain=chain, req=VerifyRequest(log_type=LOG_TYPE_OPERATION)
+        session=log_session, chain=chain, metrics=NullMetrics(), req=VerifyRequest(log_type=LOG_TYPE_OPERATION)
     )
     assert operation.data is not None
     assert operation.data.valid is True
     assert operation.data.checked_records == 1
     login = await internal_audit.verify_chain(
-        session=log_session, chain=chain, req=VerifyRequest(log_type=LOG_TYPE_LOGIN)
+        session=log_session, chain=chain, metrics=NullMetrics(), req=VerifyRequest(log_type=LOG_TYPE_LOGIN)
     )
     assert login.data is not None
     assert login.data.valid is True
     with pytest.raises(ParamError):
-        await internal_audit.verify_chain(session=log_session, chain=chain, req=VerifyRequest(log_type="unknown"))
+        await internal_audit.verify_chain(
+            session=log_session, chain=chain, metrics=NullMetrics(), req=VerifyRequest(log_type="unknown")
+        )
 
 
 async def test_internal_ensure_shards(log_session: AsyncSession) -> None:
-    """分片预创建端点：当月 + 未来 N 月两类日志分片齐备。"""
-    result = await internal_audit.ensure_shards(session=log_session, req=EnsureShardsRequest(months_ahead=1))
+    """分片预创建端点：当月 + 未来 N 月三类日志分片齐备。"""
+    result = await internal_audit.ensure_shards(
+        session=log_session, metrics=NullMetrics(), req=EnsureShardsRequest(months_ahead=1)
+    )
     assert result.data is not None
     assert len(result.data.months) == 2
     repo = LogShardRepository(log_session)

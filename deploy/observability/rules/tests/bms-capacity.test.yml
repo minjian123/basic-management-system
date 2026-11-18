@@ -1,0 +1,135 @@
+# 异步链路容量告警规则单测（15_01）：阈值触发 / 边界不触发 / 日期门控。
+# 执行：promtool（≥ 3.9，日期门控需要 `start_timestamp`）test rules bms-capacity.test.yml
+# 说明：本文件只做规则可用性验证，不改动开发服务器 /etc/prometheus 下的共享规则。
+rule_files:
+  - ../bms-slo.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ---- 发件箱积压：1 万 / 租户，10 分钟后触发；平台库同阈值 ----
+  - name: 租户库积压超 1 万触发
+    interval: 1m
+    input_series:
+      - series: 'bms_outbox_backlog{service="platform",db_key="tenant_platform_demo"}'
+        values: "0+0x20 12000+0x20"
+      - series: 'bms_outbox_backlog{service="platform",db_key="platform"}'
+        values: "0+0x40"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: BmsOutboxBacklogPerTenant
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: BmsOutboxBacklogPerTenant
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: outbox
+              service: platform
+              db_key: tenant_platform_demo
+            exp_annotations:
+              summary: "租户库发件箱积压超 1 万（platform / tenant_platform_demo）"
+              description: "单租户待投递条数超阈值（需求 11-1：默认 1 万 / 租户），投递器落后或下游不可达。"
+      - eval_time: 40m
+        alertname: BmsOutboxBacklogPlatform
+        exp_alerts: []
+
+  # ---- 审计链消费 P95：operation 约 9.5 秒触发；login 恒 1 秒不触发 ----
+  - name: 审计链消费 P95 超 5 秒触发
+    interval: 1m
+    input_series:
+      - series: 'bms_audit_consume_lag_seconds_bucket{service="platform",log_type="operation",le="1"}'
+        values: "0+100x40"
+      - series: 'bms_audit_consume_lag_seconds_bucket{service="platform",log_type="operation",le="5"}'
+        values: "0+100x40"
+      - series: 'bms_audit_consume_lag_seconds_bucket{service="platform",log_type="operation",le="10"}'
+        values: "0+200x40"
+      - series: 'bms_audit_consume_lag_seconds_bucket{service="platform",log_type="operation",le="+Inf"}'
+        values: "0+200x40"
+      - series: 'bms_audit_consume_lag_seconds_bucket{service="platform",log_type="login",le="1"}'
+        values: "0+100x40"
+      - series: 'bms_audit_consume_lag_seconds_bucket{service="platform",log_type="login",le="5"}'
+        values: "0+100x40"
+      - series: 'bms_audit_consume_lag_seconds_bucket{service="platform",log_type="login",le="10"}'
+        values: "0+100x40"
+      - series: 'bms_audit_consume_lag_seconds_bucket{service="platform",log_type="login",le="+Inf"}'
+        values: "0+100x40"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: BmsAuditConsumeLagHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: audit
+              log_type: operation
+            exp_annotations:
+              summary: "审计链消费 P95 超 5 秒（operation）"
+              description: "事件发生到审计分片落库的 P95 超过需求 11-1 阈值；检查消费组是否在跑、投递积压与库写入。"
+
+  # ---- 审计链断裂：完整度落 0 后 1 分钟触发 ----
+  - name: 审计链断裂触发
+    interval: 1m
+    input_series:
+      - series: 'bms_audit_chain_valid{service="platform",log_type="operation"}'
+        values: "1x10 0x20"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: BmsAuditChainBroken
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: BmsAuditChainBroken
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              component: audit
+              service: platform
+              log_type: operation
+            exp_annotations:
+              summary: "审计链断裂（operation）"
+              description: "链校验检出断裂（合规风险）；按断裂月份 / 序号 / 记录 ID 核查，禁止继续归档。"
+
+  # ---- 死信处置时限：86399 秒不触发 / 86401 秒触发 ----
+  - name: 死信超 24 小时触发
+    interval: 1m
+    input_series:
+      - series: 'bms_event_dead_letter_age_seconds{service="platform",source="consumer",db_key="platform"}'
+        values: "86399x10 86401x20"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: BmsDeadLetterPendingTimeout
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: BmsDeadLetterPendingTimeout
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: outbox
+              service: platform
+              source: consumer
+              db_key: platform
+            exp_annotations:
+              summary: "死信超过 24 小时未处置（consumer / platform）"
+              description: "需求 11-1：死信进库后 24 小时内必须处置；核对死信看板并重投或忽略。"
+
+  # ---- 次月分片：24 日不就绪不报警；25 日（加 1 小时持续）就报警 ----
+  - name: 次月分片日期门控（25 日前不报警 / 25 日后报警）
+    start_timestamp: "2026-12-24T00:00:00Z"
+    interval: 1m
+    input_series:
+      - series: 'bms_audit_shard_next_month_ready{service="platform",log_type="operation"}'
+        values: "0x2880"
+    alert_rule_test:
+      - eval_time: 18h
+        alertname: BmsAuditShardNextMonthMissing
+        exp_alerts: []
+      - eval_time: 25h
+        alertname: BmsAuditShardNextMonthMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              component: audit
+              service: platform
+              log_type: operation
+            exp_annotations:
+              summary: "次月审计分片未就绪（operation）"
+              description: "当月 25 日后仍缺次月分片，跨月写入将失败（需求 11-1：25 日前创建）；检查预创建任务与台账。"

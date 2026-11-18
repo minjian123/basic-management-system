@@ -12,11 +12,13 @@ from typing import Annotated
 from fastapi import Depends
 
 from bms_core.api.base import BaseRouter, require_service
-from bms_core.api.deps import get_hash_chain, get_platform_write_db
+from bms_core.api.deps import get_hash_chain, get_metrics, get_platform_write_db
 from bms_core.audit.hashchain import BaseHashChain
+from bms_core.audit.observability import record_chain_verify
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.db.session import DbSession
+from bms_core.metrics.base import BaseMetrics
 from bms_core.schemas.common import ApiResponse
 from bms_platform.domains.log.schemas.log import (
     EnsureShardsRequest,
@@ -36,15 +38,19 @@ router = BaseRouter(
 
 DbDep = Annotated[DbSession, Depends(get_platform_write_db)]
 ChainDep = Annotated[BaseHashChain, Depends(get_hash_chain)]
+MetricsDep = Annotated[BaseMetrics, Depends(get_metrics)]
 
 
 @router.post("/verify")
-async def verify_chain(session: DbDep, chain: ChainDep, req: VerifyRequest) -> ApiResponse[VerifyResult]:
+async def verify_chain(
+    session: DbDep, chain: ChainDep, metrics: MetricsDep, req: VerifyRequest
+) -> ApiResponse[VerifyResult]:
     """校验某类日志的哈希链（缺省校验台账全部月份）。
 
     Args:
         session: 平台库会话。
         chain: 哈希链实现。
+        metrics: 指标器（记录链完整度与断裂计数）。
         req: 校验请求（日志类型 + 可选月份）。
 
     Returns:
@@ -56,6 +62,7 @@ async def verify_chain(session: DbDep, chain: ChainDep, req: VerifyRequest) -> A
     if req.log_type not in LOG_TYPES:
         raise ParamError(f"日志类型非法：{req.log_type}（应为 {'/'.join(LOG_TYPES)}）")
     outcome = await AuditChainVerifier(session, chain).verify(req.log_type, req.months)
+    await record_chain_verify(metrics, log_type=req.log_type, valid=outcome.valid)
     result = VerifyResult(
         log_type=req.log_type,
         valid=outcome.valid,
@@ -69,16 +76,19 @@ async def verify_chain(session: DbDep, chain: ChainDep, req: VerifyRequest) -> A
 
 
 @router.post("/shards/ensure")
-async def ensure_shards(session: DbDep, req: EnsureShardsRequest) -> ApiResponse[EnsureShardsResult]:
-    """确保审计分片存在（当月 + 未来 N 月，两类日志）。
+async def ensure_shards(
+    session: DbDep, metrics: MetricsDep, req: EnsureShardsRequest
+) -> ApiResponse[EnsureShardsResult]:
+    """确保审计分片存在（当月 + 未来 N 月，三类日志）。
 
     Args:
         session: 平台库会话。
+        metrics: 指标器（记录次月就绪信号）。
         req: 预创建请求（提前月数）。
 
     Returns:
         ApiResponse: 统一响应，data 为已确保月份。
     """
     async with session.begin():
-        months = await ensure_audit_shards(session, months_ahead=req.months_ahead)
+        months = await ensure_audit_shards(session, months_ahead=req.months_ahead, metrics=metrics)
     return ApiResponse.ok(EnsureShardsResult(months=ConcurrentStableList(months)))

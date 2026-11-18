@@ -4,7 +4,7 @@
 """
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -28,6 +28,7 @@ from bms_core.outbox.base import (
     BaseOutboxDispatcher,
     BaseOutboxStore,
     DeadLetterRecord,
+    DeadLetterStat,
     DispatchResult,
     OutboxRecord,
 )
@@ -75,16 +76,15 @@ class RecordingMetrics(BaseMetrics):
     def __init__(self) -> None:
         """初始化。"""
         self.counters: ConcurrentStableList[tuple[str, float, MetricLabels | None]] = ConcurrentStableList()
-        self.gauges: ConcurrentStableList[tuple[str, float]] = ConcurrentStableList()
+        self.gauges: ConcurrentStableList[tuple[str, float, MetricLabels | None]] = ConcurrentStableList()
 
     async def counter(self, name: str, *, value: float = 1.0, labels: MetricLabels | None = None) -> None:
         """记录计数器。"""
         self.counters.add((name, value, labels))
 
     async def gauge(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
-        """记录瞬时值。"""
-        del labels
-        self.gauges.add((name, value))
+        """记录瞬时值（含标签）。"""
+        self.gauges.add((name, value, labels))
 
     async def histogram(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
         """记录直方图（未使用）。"""
@@ -141,6 +141,10 @@ class BrokenStore(BaseOutboxStore):
     async def get_dead_letter(self, session: DbSession, dead_letter_id: int) -> DeadLetterRecord | None:
         """不实现（测试用）。"""
         return None
+
+    async def dead_letter_stats(self, session: DbSession) -> ConcurrentStableList[DeadLetterStat]:
+        """不实现（测试用）。"""
+        return ConcurrentStableList()
 
     async def set_dead_letter_status(self, session: DbSession, dead_letter_id: int, status: str) -> bool:
         """不实现（测试用）。"""
@@ -213,7 +217,7 @@ async def test_dispatch_marks_delivered_and_metrics(session: DbSession, registry
         statuses = (await session.execute(select(SysOutbox.status))).scalars().all()
     assert set(statuses) == {OUTBOX_STATUS_DELIVERED}
     assert ("bms_outbox_delivery_total", 2.0, {"status": "delivered"}) in metrics.counters
-    assert metrics.gauges == [("bms_outbox_backlog", 0.0)]
+    assert metrics.gauges == [("bms_outbox_backlog", 0.0, {"db_key": PLATFORM_DB_KEY})]
 
 
 @pytest.mark.kiwi_id(2172)
@@ -248,6 +252,49 @@ async def test_dispatch_failure_to_dead_letter(session: DbSession, registry: Eng
         assert row.status == OUTBOX_STATUS_DEAD
         letters = (await session.execute(select(func.count()).select_from(SysEventDeadLetter))).scalar_one()
     assert letters == 1
+
+
+@pytest.mark.kiwi_id(2531)
+async def test_dispatch_reports_dead_letter_gauges(session: DbSession, registry: EngineRegistry) -> None:
+    """待处置死信：按来源 / 库键发条数与最老时长；已处置不计。"""
+    old = _utc_now().replace(microsecond=0) - timedelta(hours=30)
+    session.add_all(
+        [
+            SysEventDeadLetter(
+                source="consumer",
+                event_id="dl1",
+                event_type="sys.operation.logged",
+                consumer="audit-chain",
+                payload=ConcurrentStableDict({"tenant_id": "1001"}),
+                error_msg="boom",
+                retry_count=3,
+                status="pending",
+                occurred_at=old,
+            ),
+            SysEventDeadLetter(
+                source="consumer",
+                event_id="dl2",
+                event_type="sys.operation.logged",
+                consumer="audit-chain",
+                payload=ConcurrentStableDict({"tenant_id": "1001"}),
+                error_msg="boom",
+                retry_count=3,
+                status="replayed",
+                occurred_at=old,
+            ),
+        ]
+    )
+    await session.commit()
+    metrics = RecordingMetrics()
+    dispatcher = _build_dispatcher(registry, RecordingPublisher(), metrics=metrics)
+
+    await dispatcher.dispatch_once(db_key=PLATFORM_DB_KEY)
+
+    pending = [item for item in metrics.gauges if item[0] == "bms_event_dead_letter_pending"]
+    ages = [item for item in metrics.gauges if item[0] == "bms_event_dead_letter_age_seconds"]
+    assert pending == [("bms_event_dead_letter_pending", 1.0, {"source": "consumer", "db_key": PLATFORM_DB_KEY})]
+    assert len(ages) == 1 and ages[0][2] == {"source": "consumer", "db_key": PLATFORM_DB_KEY}
+    assert ages[0][1] >= 30 * 3600
 
 
 @pytest.mark.kiwi_id(2172)
@@ -306,6 +353,7 @@ async def test_dispatch_lifecycle_and_null(registry: EngineRegistry, session: Db
     assert await null_store.get_dead_letter(session, 1) is None
     assert await null_store.set_dead_letter_status(session, 1, "ignored") is False
     assert await null_store.backlog(session) == 0
+    assert list(await null_store.dead_letter_stats(session)) == []
 
     null_dispatcher = NullOutboxDispatcher()
     assert null_dispatcher.enabled is False

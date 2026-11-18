@@ -13,11 +13,13 @@ from typing import Annotated
 from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import get_hash_chain, get_platform_read_db
+from bms_core.api.deps import get_hash_chain, get_metrics, get_platform_read_db
 from bms_core.audit.hashchain import BaseHashChain
+from bms_core.audit.observability import record_chain_verify
 from bms_core.audit.shards import LOG_TYPE_DATA_AUDIT
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.session import DbSession
+from bms_core.metrics.base import BaseMetrics
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_platform.domains.audit.schemas.data_change import ChainVerifyView
@@ -33,6 +35,7 @@ router = BaseRouter(
 _MANAGE = Depends(require_permission("log:manage"))
 DbDep = Annotated[DbSession, Depends(get_platform_read_db)]
 ChainDep = Annotated[BaseHashChain, Depends(get_hash_chain)]
+MetricsDep = Annotated[BaseMetrics, Depends(get_metrics)]
 MonthsQuery = Annotated[str | None, Query(description="校验月份（yyyyMM，逗号分隔；空 = 台账全部）")]
 
 
@@ -53,19 +56,21 @@ def parse_months(raw: str | None) -> ConcurrentStableList[str] | None:
 
 @router.get("/verify", dependencies=[_MANAGE])
 async def verify_data_audit_chain(
-    session: DbDep, chain: ChainDep, months: MonthsQuery = None
+    session: DbDep, chain: ChainDep, metrics: MetricsDep, months: MonthsQuery = None
 ) -> ApiResponse[ChainVerifyView]:
     """校验字段级变更审计的哈希链完整性。
 
     Args:
         session: 平台库只读会话。
         chain: 哈希链实现。
+        metrics: 指标器（记录链完整度与断裂计数）。
         months: 指定月份（逗号分隔；空 = 台账全部月份）。
 
     Returns:
         ApiResponse: 统一响应，data 为校验结果（含断裂定位）。
     """
     outcome = await DataChangeChainService(session, chain).verify(parse_months(months))
+    await record_chain_verify(metrics, log_type=LOG_TYPE_DATA_AUDIT, valid=outcome.valid)
     return ApiResponse.ok(
         ChainVerifyView(
             log_type=LOG_TYPE_DATA_AUDIT,

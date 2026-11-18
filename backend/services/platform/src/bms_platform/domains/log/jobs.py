@@ -23,6 +23,7 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, session_scope
 from bms_core.events.base import EventConsumer, EventEnvelope
 from bms_core.events.consumer_records import EventConsumerRecord
+from bms_core.metrics.base import BaseMetrics
 from bms_platform.domains.log.services.writer import AuditLogWriter
 
 __all__ = [
@@ -43,6 +44,12 @@ _registry_cache: EngineRegistry | None = None
 
 _chain_cache: BaseHashChain | None = None
 """哈希链实例缓存（进程内单例）。"""
+
+_metrics_cache: BaseMetrics | None = None
+"""指标器缓存（进程内单例；provider 为空时保持 None）。"""
+
+_metrics_resolved = False
+"""指标器是否已解析（区分「未解析」与「解析为空」）。"""
 
 
 def _audit_registry() -> EngineRegistry:
@@ -78,10 +85,33 @@ def _hash_chain() -> BaseHashChain:
 
 
 def reset_audit_registry() -> None:
-    """清空懒建注册表与链缓存（测试隔离用）。"""
-    global _registry_cache, _chain_cache
+    """清空懒建注册表、链与指标器缓存（测试隔离用）。"""
+    global _registry_cache, _chain_cache, _metrics_cache, _metrics_resolved
     _registry_cache = None
     _chain_cache = None
+    _metrics_cache = None
+    _metrics_resolved = False
+
+
+def _metrics() -> BaseMetrics | None:
+    """解析查询用指标器（`[metrics].provider`；空串 = 不记指标）。
+
+    Returns:
+        BaseMetrics | None: 指标器实例；未配置返回 None。
+    """
+    global _metrics_cache, _metrics_resolved
+    if not _metrics_resolved:
+        provider = get_settings().metrics.provider
+        _metrics_cache = (
+            cast(
+                "BaseMetrics",
+                resolve_plugin("metrics", provider, expected_version=BaseMetrics.contract_version),
+            )
+            if provider
+            else None
+        )
+        _metrics_resolved = True
+    return _metrics_cache
 
 
 class AuditLogConsumer(EventConsumer):
@@ -114,7 +144,7 @@ class AuditLogConsumer(EventConsumer):
             session_scope(_audit_registry(), db_key=PLATFORM_DB_KEY, factory=SessionFactory()) as session,
             session.begin(),
         ):
-            await AuditLogWriter(session, _hash_chain()).write(event)
+            await AuditLogWriter(session, _hash_chain(), metrics=_metrics()).write(event)
 
 
 def event_consumer_records() -> ConcurrentStableList[EventConsumerRecord]:

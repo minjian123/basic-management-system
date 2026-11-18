@@ -50,6 +50,13 @@ METRIC_NAMES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_outbox_backlog",
         "bms_event_consume_total",
         "bms_event_dead_letter_total",
+        "bms_event_dead_letter_pending",
+        "bms_event_dead_letter_age_seconds",
+        "bms_audit_consume_lag_seconds",
+        "bms_audit_write_total",
+        "bms_audit_chain_valid",
+        "bms_audit_chain_broken_total",
+        "bms_audit_shard_next_month_ready",
         "bms_task_dispatch_total",
         "bms_task_run_total",
         "bms_task_retry_total",
@@ -74,7 +81,10 @@ METRIC_NAMES: ConcurrentStableList[str] = ConcurrentStableList(
 )
 """候选指标名清单（架构「指标采集」节六类 + 服务边界跨库访问计数 + 发件箱投递 + 库数量 + 阶段度量）：
 请求量 / 延迟 / 依赖状态 / 服务目录降级 / 实时连接数 / 消息积压 / AI 成本 / 跨库访问数 /
-发件箱投递与积压 / 库数量（`kind` ∈ platform / tenant / archive，标签含 `service`；06_02）/
+发件箱投递与积压（积压按库键 `db_key` 出明细） /
+库数量（`kind` ∈ platform / tenant / archive，标签含 `service`；06_02）/
+审计链路容量（15_01）：消费时延直方图与按租户写入计数、链完整性（valid / broken）、次月分片就绪、
+死信待处置数与最老未处置时长（按来源 + 库键）/
 阶段度量（`bms_release_total` / `bms_contract_breaking_total` 由 CI 推送 Pushgateway、应用侧不记录；08_02）/
 跨服务事务（05_07）：全局事务状态迁移、分支驱动结果、恢复驱动与悬挂、恢复器 leader 取得 /
 跨产品能力寻址（07B `02_02`）：读侧降级（`{capability, consumer, mode}`）与能力取用失败（`{capability, consumer}`）/

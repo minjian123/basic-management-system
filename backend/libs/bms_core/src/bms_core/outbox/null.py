@@ -10,6 +10,7 @@ from bms_core.outbox.base import (
     BaseOutboxDispatcher,
     BaseOutboxStore,
     DeadLetterRecord,
+    DeadLetterStat,
     DispatchResult,
     OutboxRecord,
 )
@@ -155,6 +156,17 @@ class NullOutboxStore(BaseOutboxStore, BaseNullObject):
             int: 0。
         """
         return 0
+
+    async def dead_letter_stats(self, session: DbSession) -> ConcurrentStableList[DeadLetterStat]:
+        """占位死信统计（恒定空集）。
+
+        Args:
+            session: 会话（占位忽略）。
+
+        Returns:
+            ConcurrentStableList[DeadLetterStat]: 空集。
+        """
+        return ConcurrentStableList()
 
 
 class NullOutboxDispatcher(BaseOutboxDispatcher, BaseNullObject):

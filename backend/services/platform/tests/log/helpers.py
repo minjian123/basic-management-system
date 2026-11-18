@@ -3,8 +3,9 @@
 from datetime import datetime
 
 from bms_core.audit.events import LOGIN_LOG_EVENT, OPERATION_LOG_EVENT
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.events.base import EventEnvelope
+from bms_core.metrics.base import BaseMetrics, MetricLabels
 
 NOVEMBER = datetime(2026, 11, 15, 10, 0, 0)
 DECEMBER = datetime(2026, 12, 20, 8, 0, 0)
@@ -79,3 +80,25 @@ def login_event(
         event_id=event_id,
         aggregate_key=f"tenant:{tenant_id}",
     )
+
+
+class RecordingMetrics(BaseMetrics):
+    """指标器替身：记录三入口的调用参数（容量指标断言用）。"""
+
+    def __init__(self) -> None:
+        """初始化空记录。"""
+        self.counters: ConcurrentStableList[tuple[str, float, MetricLabels | None]] = ConcurrentStableList()
+        self.gauges: ConcurrentStableList[tuple[str, float, MetricLabels | None]] = ConcurrentStableList()
+        self.histograms: ConcurrentStableList[tuple[str, float, MetricLabels | None]] = ConcurrentStableList()
+
+    async def counter(self, name: str, *, value: float = 1.0, labels: MetricLabels | None = None) -> None:
+        """记录计数器。"""
+        self.counters.add((name, value, labels))
+
+    async def gauge(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
+        """记录瞬时值。"""
+        self.gauges.add((name, value, labels))
+
+    async def histogram(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
+        """记录直方图。"""
+        self.histograms.add((name, value, labels))

@@ -11,6 +11,7 @@ from bms_core.audit.sha256 import Sha256HashChain
 from bms_core.audit.shard_repository import LogShardRepository
 from bms_core.audit.shards import LOG_TYPE_DATA_AUDIT, month_key
 from bms_core.core.exceptions import DataAuditLogNotFoundError, LogTimeRangeExceededError
+from bms_core.metrics.null import NullMetrics
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.domains.audit.api import chain as chain_api
 from bms_platform.domains.audit.api import data_changes as data_api
@@ -108,7 +109,9 @@ async def test_time_range_guard(log_session: AsyncSession) -> None:
 async def test_chain_verify_endpoint(log_session: AsyncSession) -> None:
     """链校验端点：正常返回 valid；篡改后同形返回断裂定位。"""
     await _seed(log_session)
-    ok = await chain_api.verify_data_audit_chain(session=log_session, chain=Sha256HashChain(), months=None)
+    ok = await chain_api.verify_data_audit_chain(
+        session=log_session, chain=Sha256HashChain(), metrics=NullMetrics(), months=None
+    )
     assert ok.data is not None
     assert ok.data.valid is True
     assert ok.data.checked_records == 2
@@ -119,7 +122,9 @@ async def test_chain_verify_endpoint(log_session: AsyncSession) -> None:
     table = LogShardRepository(log_session).table_for(LOG_TYPE_DATA_AUDIT, current_month)
     await log_session.execute(update(table).values(record_hash="f" * 64))
     await log_session.commit()
-    broken = await chain_api.verify_data_audit_chain(session=log_session, chain=Sha256HashChain(), months=current_month)
+    broken = await chain_api.verify_data_audit_chain(
+        session=log_session, chain=Sha256HashChain(), metrics=NullMetrics(), months=current_month
+    )
     assert broken.data is not None
     assert broken.data.valid is False
     assert broken.data.broken_month == current_month

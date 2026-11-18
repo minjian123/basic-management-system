@@ -82,15 +82,63 @@ groups:
 
   - name: bms-outbox
     rules:
-      - alert: BmsOutboxBacklog
-        expr: bms_outbox_backlog > 100
+      - alert: BmsOutboxBacklogPerTenant
+        expr: bms_outbox_backlog{db_key=~"tenant_.*"} > 10000
         for: 10m
         labels:
           severity: warning
           component: outbox
         annotations:
-          summary: "发件箱积压超 100（{{ $labels.service }}）"
-          description: "投递器落后或下游不可达；M10 真实投递接入前为锚点口径，随量复核。"
+          summary: "租户库发件箱积压超 1 万（{{ $labels.service }} / {{ $labels.db_key }}）"
+          description: "单租户待投递条数超阈值（需求 11-1：默认 1 万 / 租户），投递器落后或下游不可达。"
+      - alert: BmsOutboxBacklogPlatform
+        expr: bms_outbox_backlog{db_key="platform"} > 10000
+        for: 10m
+        labels:
+          severity: warning
+          component: outbox
+        annotations:
+          summary: "平台库发件箱积压超 1 万（{{ $labels.service }}）"
+          description: "平台库待投递条数超阈值；旧 100 条锚点口径随真实投递接入退休（15_01）。"
+
+  - name: bms-capacity
+    rules:
+      - alert: BmsAuditConsumeLagHigh
+        expr: histogram_quantile(0.95, sum by (le, log_type) (rate(bms_audit_consume_lag_seconds_bucket[5m]))) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: audit
+        annotations:
+          summary: "审计链消费 P95 超 5 秒（{{ $labels.log_type }}）"
+          description: "事件发生到审计分片落库的 P95 超过需求 11-1 阈值；检查消费组是否在跑、投递积压与库写入。"
+      - alert: BmsAuditChainBroken
+        expr: bms_audit_chain_valid == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: audit
+        annotations:
+          summary: "审计链断裂（{{ $labels.log_type }}）"
+          description: "链校验检出断裂（合规风险）；按断裂月份 / 序号 / 记录 ID 核查，禁止继续归档。"
+      - alert: BmsAuditShardNextMonthMissing
+        expr: (bms_audit_shard_next_month_ready == 0) and on() (day_of_month() >= 25)
+        for: 1h
+        labels:
+          severity: critical
+          component: audit
+        annotations:
+          summary: "次月审计分片未就绪（{{ $labels.log_type }}）"
+          description: "当月 25 日后仍缺次月分片，跨月写入将失败（需求 11-1：25 日前创建）；检查预创建任务与台账。"
+      - alert: BmsDeadLetterPendingTimeout
+        expr: bms_event_dead_letter_age_seconds > 86400
+        for: 5m
+        labels:
+          severity: warning
+          component: outbox
+        annotations:
+          summary: "死信超过 24 小时未处置（{{ $labels.source }} / {{ $labels.db_key }}）"
+          description: "需求 11-1：死信进库后 24 小时内必须处置；核对死信看板并重投或忽略。"
 
 # 业务链路 SLO 锚点（留位登记，规则实体待业务端点实现后落地；架构 31「可用性目标与 SLO」）：
 # - 登录成功率 ≥ 99.9%（阶段六 认证与会话）

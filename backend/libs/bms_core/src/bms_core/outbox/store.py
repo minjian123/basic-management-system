@@ -36,6 +36,7 @@ from bms_core.events.contracts import (
 from bms_core.models.outbox import SysEventDeadLetter, SysOutbox
 from bms_core.outbox.base import (
     DEAD_LETTER_SOURCE_OUTBOX,
+    DEAD_LETTER_STATUS_PENDING,
     ERROR_MSG_MAX_LENGTH,
     ORDER_SCAN_FACTOR,
     OUTBOX_STATUS_DEAD,
@@ -43,6 +44,7 @@ from bms_core.outbox.base import (
     OUTBOX_STATUS_PENDING,
     BaseOutboxStore,
     DeadLetterRecord,
+    DeadLetterStat,
     OutboxRecord,
 )
 from bms_core.tracing.base import resolve_trace_id
@@ -459,6 +461,31 @@ class SqlOutboxStore(BaseOutboxStore):
         """
         statement = select(func.count()).select_from(SysOutbox).where(SysOutbox.status == OUTBOX_STATUS_PENDING)
         return int((await session.execute(statement)).scalar_one())
+
+    async def dead_letter_stats(self, session: DbSession) -> ConcurrentStableList[DeadLetterStat]:
+        """按来源统计待处置死信（只计 `status=pending`）。
+
+        Args:
+            session: 会话。
+
+        Returns:
+            ConcurrentStableList[DeadLetterStat]: 各来源待处置条数与最老发生时间（按来源升序）。
+        """
+        statement = (
+            select(
+                SysEventDeadLetter.source,
+                func.count().label("pending"),
+                func.min(SysEventDeadLetter.occurred_at).label("oldest"),
+            )
+            .where(SysEventDeadLetter.status == DEAD_LETTER_STATUS_PENDING)
+            .group_by(SysEventDeadLetter.source)
+            .order_by(SysEventDeadLetter.source)
+        )
+        rows = (await session.execute(statement)).all()
+        return ConcurrentStableList(
+            DeadLetterStat(source=str(row.source), pending=int(row.pending), oldest_occurred_at=row.oldest)
+            for row in rows
+        )
 
     async def _by_event_id(self, session: DbSession, event_id: str) -> SysOutbox | None:
         """按事件 ID 取发件箱行。

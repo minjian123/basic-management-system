@@ -28,12 +28,15 @@ from bms_core.outbox.base import (
     DEFAULT_RETRY_BACKOFF_SECONDS,
     BaseOutboxDispatcher,
     BaseOutboxStore,
+    DeadLetterStat,
     DispatchResult,
 )
 
 _LOGGER = get_logger("bms")
 _METRIC_DELIVERY = "bms_outbox_delivery_total"
 _METRIC_BACKLOG = "bms_outbox_backlog"
+_METRIC_DEAD_PENDING = "bms_event_dead_letter_pending"
+_METRIC_DEAD_AGE = "bms_event_dead_letter_age_seconds"
 
 
 def _utc_now() -> datetime:
@@ -142,11 +145,14 @@ class PollOutboxDispatcher(BaseOutboxDispatcher):
                         await self._store.mark_delivered(session, record.event_id)
                         published += 1
                 backlog = await self._store.backlog(session)
+                dead_letters = await self._store.dead_letter_stats(session)
         except OutboxDeliveryError:
             raise
         except Exception as exc:  # 开会话 / 取待投递 / 提交失败
             raise OutboxDeliveryError(f"发件箱投递失败（{db_key}）：{exc!r}") from exc
-        await self._report(published=published, failed=failed, dead=dead, backlog=backlog)
+        await self._report(
+            published=published, failed=failed, dead=dead, backlog=backlog, db_key=db_key, dead_letters=dead_letters
+        )
         return DispatchResult(published=published, failed=failed, dead=dead, backlog=backlog)
 
     async def dispatch_due(self) -> DispatchResult:
@@ -191,21 +197,38 @@ class PollOutboxDispatcher(BaseOutboxDispatcher):
                 _LOGGER.warning("outbox_poll_error", error=repr(exc))
                 await asyncio.sleep(self._interval)
 
-    async def _report(self, *, published: int, failed: int, dead: int, backlog: int) -> None:
-        """上报投递计数与积压（metrics 缺省时空操作）。
+    async def _report(
+        self,
+        *,
+        published: int,
+        failed: int,
+        dead: int,
+        backlog: int,
+        db_key: str,
+        dead_letters: ConcurrentStableList[DeadLetterStat],
+    ) -> None:
+        """上报投递计数、积压（按库键）与死信待处置情况（metrics 缺省时空操作）。
 
         Args:
             published: 成功条数。
             failed: 失败条数。
             dead: 转死信条数。
             backlog: 待投递积压。
+            db_key: 数据源键（库键≈租户库；指标维度，便于定位积压租户）。
+            dead_letters: 各来源待处置死信统计（只含 `pending`）。
         """
         if self._metrics is None:
             return
         for status, value in (("delivered", published), ("failed", failed), ("dead", dead)):
             if value:
                 await self._metrics.counter(_METRIC_DELIVERY, value=float(value), labels={"status": status})
-        await self._metrics.gauge(_METRIC_BACKLOG, value=float(backlog))
+        await self._metrics.gauge(_METRIC_BACKLOG, value=float(backlog), labels={"db_key": db_key})
+        now = _utc_now()
+        for stat in dead_letters:
+            labels = {"source": stat.source, "db_key": db_key}
+            await self._metrics.gauge(_METRIC_DEAD_PENDING, value=float(stat.pending), labels=labels)
+            age = 0.0 if stat.oldest_occurred_at is None else max(0.0, (now - stat.oldest_occurred_at).total_seconds())
+            await self._metrics.gauge(_METRIC_DEAD_AGE, value=age, labels=labels)
 
     @classmethod
     def from_settings(

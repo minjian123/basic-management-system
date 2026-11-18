@@ -171,6 +171,18 @@ class DeadLetterRecord(BaseEventRecordContract):
 
 
 @dataclass(frozen=True)
+class DeadLetterStat(BaseEventRecordContract):
+    """死信待处置统计（按来源聚合；看板与容量指标共用）。"""
+
+    source: str
+    """来源（`outbox` / `consumer`）。"""
+    pending: int
+    """待处置条数（`status=pending`）。"""
+    oldest_occurred_at: datetime | None = None
+    """最老待处置事件的发生时间（无待处置为 None）。"""
+
+
+@dataclass(frozen=True)
 class DispatchResult(BaseTallyContract):
     """单次投递汇总。"""
 
@@ -353,6 +365,17 @@ class BaseOutboxStore(BasePluggable, ABC):
 
         Returns:
             int: 待投递条数。
+        """
+
+    @abstractmethod
+    async def dead_letter_stats(self, session: DbSession) -> ConcurrentStableList[DeadLetterStat]:
+        """按来源统计待处置死信（容量指标与处置时限告警用）。
+
+        Args:
+            session: 会话。
+
+        Returns:
+            ConcurrentStableList[DeadLetterStat]: 各来源的待处置条数与最老发生时间（无待处置为空）。
         """
 
 
