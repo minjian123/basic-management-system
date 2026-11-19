@@ -13,7 +13,7 @@ from dataclasses import replace
 
 import pytest
 from sqlalchemy import select, text, update
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.collaboration.usage import CapabilityUsage
 from bms_core.core.concurrent import ConcurrentStableFrozenList
@@ -31,7 +31,7 @@ from bms_core.services.module_registry import (
     CollaborationRecord,
     ModuleRecord,
 )
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.services.declaration_bootstrap import with_platform_services
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
@@ -128,9 +128,7 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
     Yields:
         AsyncSession: 绑定外层事务的会话。
     """
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as db:
-        await begin_write(await db.connection())
+    async with write_session(shared_platform_engine) as db:
         yield db
 
 

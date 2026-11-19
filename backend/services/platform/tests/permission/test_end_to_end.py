@@ -19,7 +19,7 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -57,7 +57,7 @@ from bms_core.permission.sources import (
 from bms_core.permission.subject import PermissionSubjectService
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.role.permission.field_provider import StaticFieldPermissionProvider
 from bms_platform.domains.role.repositories.role import (
     DataScopeRepository,
@@ -216,9 +216,7 @@ async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncI
         _Scenario: 回滚会话与本用例专属用户 / 角色主键。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_platform_engine) as session:
         user = await UserRepository(session).create(username=ns.code("reviewer"), password_hash="x", name="复核员")
         role = await _seed(session, ns, user.id)
         yield _Scenario(session=session, user_id=user.id, role_id=role.id)

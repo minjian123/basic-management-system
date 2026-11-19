@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.db.session import DbSession
@@ -22,7 +22,7 @@ from bms_core.help.values import (
 )
 from bms_core.models.platform.help import SysHelpArticle, SysHelpArticleTarget, SysHelpCategory
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.help.package_spec import load_package
 from bms_platform.domains.help.services.package import HelpPackageService
 from bms_platform.domains.help.services.resolver import DatabaseHelpContentResolver
@@ -60,9 +60,7 @@ async def test_loaded_article_is_resolved_and_locale_fallback(
     """装载后五级解析可命中；语言按请求 → 默认 → 主表快照回退。"""
     package = write_package(tmp_path / "pkg", product_key=ns.prefix, prefix=ns.prefix)
     spec = load_package(package)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         await HelpPackageService(session).load(spec, anchors=anchor_map(ns.prefix), apply=True, lenient=False)
         resolver = DatabaseHelpContentResolver(session_opener=lambda: session_opener(session))
         zh = await resolver.resolve(_query(HelpLevel.MODULE, module_key(ns.prefix)))
@@ -87,9 +85,7 @@ async def test_source_priority_and_related(shared_tenant_engine: AsyncEngine, tm
     package = write_package(tmp_path / "pkg", product_key=ns.prefix, prefix=ns.prefix)
     spec = load_package(package)
     target = module_key(f"{ns.prefix}_p")
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         await HelpPackageService(session).load(spec, anchors=anchor_map(ns.prefix), apply=True, lenient=False)
         category = (
             (await session.execute(select(SysHelpCategory).where(SysHelpCategory.name == f"{ns.prefix}_cat")))

@@ -21,7 +21,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.platform.menu_form import SysForm, SysMenuForm
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
-from bms_core.testing.gates import PLATFORM_GATE, write_gate
+from bms_core.testing.gates import PLATFORM_GATE, gate_scope
 
 
 def platform_url() -> str:
@@ -93,7 +93,7 @@ async def seed_permission(business_id: int, action_code: str = "query", name: st
         # 动作码是全局动词（`create` / `query` …），共享库上多个 worker 会同时走到「查无 → 插入」：
         # `(code, deleted_at)` 唯一约束在 NULL 上不生效，不串行就会各写一行同码动作。
         # 13_08 起用平台库写门（跨进程独占，取放 0.003ms、不留残锁）代替同名文件锁。
-        async with write_gate(PLATFORM_GATE), factory() as session:
+        async with gate_scope(PLATFORM_GATE, read_only=False), factory() as session:
             action = (
                 (
                     await session.execute(

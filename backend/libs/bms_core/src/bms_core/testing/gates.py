@@ -1,9 +1,10 @@
-"""数据库门上下文（13_08）：按库名取门、读门 / 写门 / 升级写门。
+"""数据库门上下文（13_08）：**取门只有一条路径** `gate_scope`。
 
 口径（《测试规范》「并行与隔离」节）：
 
-- 读门与写门的作用域都是**一次数据库操作**（一次会话），不是整条用例；
-- 写门与所有读门互斥；写者等待期间新读者排在写者之后（写者优先，不被饿死）；
+- **一律先加读锁**：读操作持读锁执行；写操作先持读锁进来，再让出读份额升到写锁；
+- 读门之间共享、写门与所有读门互斥；写门持有期间新读锁加不上，不会读到写了一半的数据；
+- 作用域是**一次数据库操作**（一次会话），不是整条用例；
 - 升级顺序固定为「让出读份额 → 取写门 → 放写门 → 取回读份额」，异常路径同序执行；
 - 跨库同时需要写门时，固定「平台库在前、租户库在后」的嵌套顺序。
 """
@@ -14,8 +15,8 @@ from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 from bms_core.core.concurrent import ConcurrentStableDict
-from bms_core.db.registry import PLATFORM_DB_KEY
-from bms_core.testing.rwlock import READ, DbGate, gate_path
+from bms_core.db.gate import db_access_gate
+from bms_core.testing.rwlock import DbGate, gate_path
 
 PLATFORM_GATE = "platform"
 """平台库门名（对应 `.cache/test/platform.db`）。"""
@@ -45,70 +46,43 @@ def gate(name: str) -> DbGate:
 
 
 @asynccontextmanager
-async def read_gate(name: str) -> AsyncGenerator[None]:
-    """读门上下文（共享，可与其它读者并发）。
+async def gate_scope(name: str, *, read_only: bool) -> AsyncGenerator[None]:
+    """**取门的唯一入口**：一律先加读锁，写操作再让出读份额升到写锁。
+
+    顺序固定为「读锁打底 → （写）让读 → 取写 → 放写 → 取回读 → 放读」，异常路径同序。
+    这样全仓只有一种锁序：读操作持读锁执行；写操作先持读锁进来，再独占写门完成写入，
+    写期间新读锁加不上，因此不存在「读到写了一半的数据」。
 
     Args:
         name: 门名。
+        read_only: 只读 True（持读锁执行），写 False（升到写锁执行）。
 
     Yields:
-        None: 持读门区间。
+        None: 门内区间。
     """
     target = gate(name)
-    await target.acquire(write=False)
+    token = await target.acquire_read()
     try:
-        yield
+        if read_only:
+            yield
+            return
+        # 让出**自己这份**读份额（不影响同进程其它会话的份额），再排队取写门。
+        try:
+            restored = await target.acquire_write()
+        except BaseException:
+            # 取写门可能已让出本任务的读份额（等锁超时）：此时补回一份，保证退出路径一致；
+            # 若因「其它任务持读」而报错，自己的份额还在，不能重复取。
+            if not target.owns(token):
+                token = await target.acquire_read()
+            raise
+        try:
+            yield
+        finally:
+            await target.release_write(restored)
+        # 让出的份额已由 `release_write` 恢复，`token` 仍然有效；这里**不得**再取一次读锁
+        # （那会在写门刚释放时去抢共享锁，被等待中的写者挡住，最长 180s）。
     finally:
-        await target.release(write=False)
-
-
-@asynccontextmanager
-async def write_gate(name: str) -> AsyncGenerator[None]:
-    """写门上下文（独占，持有期间新读者被挡住）。
-
-    Args:
-        name: 门名。
-
-    Yields:
-        None: 持写门区间。
-    """
-    target = gate(name)
-    await target.acquire(write=True)
-    try:
-        yield
-    finally:
-        await target.release(write=True)
-
-
-@asynccontextmanager
-async def upgrade_to_write(name: str) -> AsyncGenerator[None]:
-    """在已持读门的上下文内升级为写门。
-
-    流程：释放全部读份额 → 取写门 → 用例块 → 放写门 → 重新取回读份额。
-    **禁止持读门原地升级**：多个写者同时原地升级会互相等对方让出读份额而死锁。
-
-    Args:
-        name: 门名。
-
-    Yields:
-        None: 持写门区间（退出后恢复原读门深度）。
-    """
-    target = gate(name)
-    depth = target.depth if target.mode == READ else 0
-    for _ in range(depth):
-        await target.release(write=False)
-    try:
-        await target.acquire(write=True)
-    except BaseException:
-        for _ in range(depth):
-            await target.acquire(write=False)
-        raise
-    try:
-        yield
-    finally:
-        await target.release(write=True)
-        for _ in range(depth):
-            await target.acquire(write=False)
+        await target.release_read(token)
 
 
 def write_window(db_key: str) -> AbstractAsyncContextManager[None]:
@@ -124,7 +98,7 @@ def write_window(db_key: str) -> AbstractAsyncContextManager[None]:
     Returns:
         AbstractAsyncContextManager[None]: 写门上下文。
     """
-    return write_gate(PLATFORM_GATE if db_key == PLATFORM_DB_KEY else TENANT_GATE)
+    return db_access_gate(db_key, read_only=False)
 
 
 def close_gates() -> None:

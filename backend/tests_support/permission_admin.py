@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from bms_core.core.config import get_settings
 from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.models.platform.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
-from bms_core.testing.gates import TENANT_GATE, write_gate
+from bms_core.testing.gates import TENANT_GATE, gate_scope
 from bms_core.testing.schema import ensure_tables
 from tests_support.auth import TEST_SUBJECT
 
@@ -88,7 +88,7 @@ async def _grant_builtin(user_id: int, *, code: str, name: str, role_type: str) 
         # 共享库上「查无 → 插入」必须串行：`(code, deleted_at)` 唯一约束在 NULL 上不生效，
         # 两个 worker 同时插入会各写一行同码角色，后续 `scalar_one_or_none` 直接炸。
         # 13_08 起用租户库写门（跨进程独占，取放 0.003ms、不留残锁）代替同名文件锁。
-        async with write_gate(TENANT_GATE), factory() as session:
+        async with gate_scope(TENANT_GATE, read_only=False), factory() as session:
             role = await _role_row(session, code=code, name=name, role_type=role_type)
             assigned = (
                 (

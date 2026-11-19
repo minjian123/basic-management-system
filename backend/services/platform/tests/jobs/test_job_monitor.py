@@ -9,7 +9,7 @@ from typing import cast
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.events.base import EventEnvelope
@@ -22,7 +22,7 @@ from bms_core.jobs.events import (
 from bms_core.models.platform.job import SysJobMonitor
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.job.repositories.job import JobMonitorRepository
 from bms_platform.domains.job.services.monitor import JobMonitorService
 
@@ -68,9 +68,7 @@ async def test_projection_follows_lifecycle(shared_platform_engine: AsyncEngine,
     """提交 → 开始 → 进度 → 完成：同一行持续更新，终态与错误摘要可见。"""
     job_id = _job_id(ns)
     await ensure_tables(shared_platform_engine, [cast("Table", SysJobMonitor.__table__)])
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_platform_engine) as session:
         service = JobMonitorService(JobMonitorRepository(session))
         assert await service.apply(_event(JOB_SUBMITTED_EVENT, BASE, job_id, status="queued")) is True
         assert await service.apply(_event(JOB_STARTED_EVENT, BASE + timedelta(seconds=1), job_id, attempt=1)) is True
@@ -107,9 +105,7 @@ async def test_stale_event_is_dropped(shared_platform_engine: AsyncEngine, ns: N
     """旧事件（last_event_at 更早）：丢弃，不覆盖终态。"""
     job_id = _job_id(ns)
     await ensure_tables(shared_platform_engine, [cast("Table", SysJobMonitor.__table__)])
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_platform_engine) as session:
         service = JobMonitorService(JobMonitorRepository(session))
         await service.apply(
             _event(JOB_COMPLETED_EVENT, BASE + timedelta(seconds=10), job_id, status="succeeded", attempts=1)
@@ -123,9 +119,7 @@ async def test_stale_event_is_dropped(shared_platform_engine: AsyncEngine, ns: N
 async def test_event_without_job_id_is_ignored(shared_platform_engine: AsyncEngine) -> None:
     """缺作业号的事件：不落投影。"""
     await ensure_tables(shared_platform_engine, [cast("Table", SysJobMonitor.__table__)])
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_platform_engine) as session:
         envelope = EventEnvelope(event_type=JOB_STARTED_EVENT, payload=ConcurrentStableDict(), occurred_at=BASE)
         applied = await JobMonitorService(JobMonitorRepository(session)).apply(envelope)
         assert applied is False

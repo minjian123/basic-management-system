@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
@@ -23,7 +23,7 @@ from bms_core.help.values import (
 )
 from bms_core.models.platform.help import SysHelpArticle, SysHelpCategory, SysHelpPackage
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.help.package_spec import load_package
 from bms_platform.domains.help.repositories.content import HelpContentRepository
 from bms_platform.domains.help.services.package import HelpLoadCounts, HelpPackageService
@@ -37,9 +37,7 @@ async def test_same_version_reload_is_noop(shared_tenant_engine: AsyncEngine, tm
     """同版本同校验和重复装载零变更。"""
     package = write_package(tmp_path / "pkg", product_key=ns.prefix, prefix=ns.prefix)
     spec = load_package(package)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         service = HelpPackageService(session)
         first = await service.load(spec, anchors=anchor_map(ns.prefix), apply=True, lenient=False)
         assert first.counts == HelpLoadCounts(
@@ -89,9 +87,7 @@ async def test_upgrade_counts_match_dry_run(shared_tenant_engine: AsyncEngine, t
         prefix=ns.prefix,
         articles=ConcurrentStableList([updated, added]),
     )
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         service = HelpPackageService(session)
         await service.load(load_package(v1), anchors=anchor_map(ns.prefix), apply=True, lenient=False)
         dry = await service.load(load_package(v2), anchors=anchor_map(ns.prefix), apply=False, lenient=False)
@@ -122,9 +118,7 @@ async def test_local_override_is_kept(shared_tenant_engine: AsyncEngine, tmp_pat
         prefix=ns.prefix,
         articles=ConcurrentStableList([updated]),
     )
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         service = HelpPackageService(session)
         await service.load(spec, anchors=anchor_map(ns.prefix), apply=True, lenient=False)
         record = (await HelpContentRepository(session).load_package_articles(ns.prefix))[0]
@@ -139,9 +133,7 @@ async def test_unload_keeps_tenant_articles(shared_tenant_engine: AsyncEngine, t
     """卸载按产品下线来源文章，租户自建保留。"""
     package = write_package(tmp_path / "pkg", product_key=ns.prefix, prefix=ns.prefix)
     spec = load_package(package)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         service = HelpPackageService(session)
         await service.load(spec, anchors=anchor_map(ns.prefix), apply=True, lenient=False)
         category = (
@@ -180,9 +172,7 @@ async def test_target_conflicts(shared_tenant_engine: AsyncEngine, tmp_path: Pat
     builtin = write_package(tmp_path / "builtin", product_key="platform", prefix=ns.prefix)
     product_a = write_package(tmp_path / "a", product_key=ns.prefix, prefix=ns.prefix)
     anchors = anchor_map(ns.prefix)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         service = HelpPackageService(session)
         await service.load(load_package(builtin), anchors=anchors, apply=True, lenient=False)
         skipped = await service.load(load_package(product_a), anchors=anchors, apply=True, lenient=False)
@@ -256,9 +246,7 @@ async def test_version_and_category_errors(shared_tenant_engine: AsyncEngine, tm
         prefix=ns.prefix,
         articles=ConcurrentStableList([missing_category, valid]),
     )
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         service = HelpPackageService(session)
         await service.load(load_package(v1), anchors=anchor_map(ns.prefix), apply=True, lenient=False)
         with pytest.raises(HelpPackageVersionConflictError, match="同版本校验和不同"):
@@ -291,9 +279,7 @@ async def test_categories_upsert_by_path(shared_tenant_engine: AsyncEngine, tmp_
             ]
         ),
     )
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         service = HelpPackageService(session)
         await service.load(load_package(v1), anchors=anchor_map(ns.prefix), apply=True, lenient=False)
         outcome = await service.load(load_package(v2), anchors=anchor_map(ns.prefix), apply=True, lenient=False)
@@ -322,9 +308,7 @@ async def test_lenient_all_invalid_is_rejected(
         prefix=ns.prefix,
         articles=ConcurrentStableList([article]),
     )
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_tenant_engine) as session:
         with pytest.raises(HelpPackageInvalidError, match="无有效文章"):
             await HelpPackageService(session).load(
                 load_package(package), anchors=anchor_map(ns.prefix), apply=False, lenient=True

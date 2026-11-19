@@ -1,6 +1,6 @@
 """用例级写门夹具（13_08）：**整段独占**语义，只服务跨多步的全局状态临界区。
 
-两个夹具都是普通 pytest 夹具，`async with write_gate(...)` 包住 `yield`——**持门区间就是夹具作用域**
+两个夹具都是普通 pytest 夹具，`async with db_access_gate(..., read_only=False)` 包住 `yield`——**持门区间就是夹具作用域**
 （含同用例其它夹具的 setup / teardown），即「整条用例持门」。它**不等于**设计决策 2 的「门作用域 =
 一次写操作」，属显式豁免，判据与登记见《测试规范》「并行与隔离」节：
 
@@ -20,7 +20,8 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, write_gate
+from bms_core.db.gate import db_access_gate
+from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE
 
 
 @pytest.fixture
@@ -30,7 +31,7 @@ async def platform_db_write() -> AsyncIterator[None]:
     Yields:
         None: 写门区间。
     """
-    async with write_gate(PLATFORM_GATE):
+    async with db_access_gate(PLATFORM_GATE, read_only=False):
         yield
 
 
@@ -41,5 +42,5 @@ async def tenant_db_write() -> AsyncIterator[None]:
     Yields:
         None: 写门区间。
     """
-    async with write_gate(TENANT_GATE):
+    async with db_access_gate(TENANT_GATE, read_only=False):
         yield

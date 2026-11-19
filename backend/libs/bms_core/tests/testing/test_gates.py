@@ -49,7 +49,7 @@ def test_gate_is_singleton() -> None:
 
 async def test_read_gate_context_releases() -> None:
     """读门上下文进出后回到未持有。"""
-    async with gates.read_gate(gates.PLATFORM_GATE):
+    async with gates.gate_scope(gates.PLATFORM_GATE, read_only=True):
         assert gates.gate(gates.PLATFORM_GATE).mode == rwlock.READ
 
     assert gates.gate(gates.PLATFORM_GATE).mode is None
@@ -57,7 +57,7 @@ async def test_read_gate_context_releases() -> None:
 
 async def test_write_gate_context_releases() -> None:
     """写门上下文进出后回到未持有。"""
-    async with gates.write_gate(gates.TENANT_GATE):
+    async with gates.gate_scope(gates.TENANT_GATE, read_only=False):
         assert gates.gate(gates.TENANT_GATE).mode == rwlock.WRITE
 
     assert gates.gate(gates.TENANT_GATE).mode is None
@@ -80,9 +80,9 @@ async def test_write_window_takes_tenant_gate_for_other_keys() -> None:
 
 
 async def test_upgrade_restores_read_mode() -> None:
-    """升级写门期间为写模式，退出后恢复原读门深度。"""
-    async with gates.read_gate(gates.PLATFORM_GATE):
-        async with gates.upgrade_to_write(gates.PLATFORM_GATE):
+    """升级写门期间为写模式，退出后恢复原读状态。"""
+    async with gates.gate_scope(gates.PLATFORM_GATE, read_only=True):
+        async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
             assert gates.gate(gates.PLATFORM_GATE).mode == rwlock.WRITE
         assert gates.gate(gates.PLATFORM_GATE).mode == rwlock.READ
         assert gates.gate(gates.PLATFORM_GATE).depth == 1
@@ -91,25 +91,41 @@ async def test_upgrade_restores_read_mode() -> None:
 
 
 async def test_upgrade_failure_restores_read_mode(monkeypatch: pytest.MonkeyPatch) -> None:
-    """取写门失败时恢复读门并原样抛出异常。"""
+    """取写门失败时恢复读份额并原样抛出异常（退出后不残留）。"""
     target = gates.gate(gates.PLATFORM_GATE)
-    await target.acquire(write=False)
-    original = target.acquire
 
-    async def _maybe_fail(*, write: bool) -> None:
-        """写门请求直接失败，其余走真实实现。"""
-        if write:
-            raise TimeoutError("boom")
-        await original(write=write)
+    async def _fail() -> None:
+        """写门请求直接失败。"""
+        raise TimeoutError("boom")
 
-    monkeypatch.setattr(target, "acquire", _maybe_fail)
+    monkeypatch.setattr(target, "acquire_write", _fail)
     with pytest.raises(TimeoutError, match="boom"):
-        async with gates.upgrade_to_write(gates.PLATFORM_GATE):
+        async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
             pass
 
-    assert target.mode == rwlock.READ
-    assert target.depth == 1
-    await target.release(write=False)
+    assert target.mode is None
+    assert target.depth == 0
+
+
+async def test_upgrade_timeout_restores_read_share(monkeypatch: pytest.MonkeyPatch) -> None:
+    """升级等写门超时（份额已让出）：补回读份额并原样抛出，退出后不残留。"""
+    target = gates.gate(gates.PLATFORM_GATE)
+
+    real = target._wait_and_lock  # pyright: ignore[reportPrivateUsage]
+
+    async def _fail(wait_write: bool) -> None:
+        """只在等写门时失败；读门走真实实现（保证真持有内核共享锁）。"""
+        if wait_write:
+            raise TimeoutError("boom")
+        await real(wait_write)
+
+    monkeypatch.setattr(target, "_wait_and_lock", _fail)
+    with pytest.raises(TimeoutError, match="boom"):
+        async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
+            pass
+
+    assert target.mode is None
+    assert target.depth == 0
 
 
 def test_close_gates_drops_singletons() -> None:
@@ -137,8 +153,9 @@ async def _noop_hook(db_key: str, read_only: bool) -> AsyncGenerator[None]:
     yield
 
 
-def test_pytest_unconfigure_clears_hook() -> None:
+def test_pytest_unconfigure_clears_hook(monkeypatch: pytest.MonkeyPatch) -> None:
     """会话结束钩子撤销门钩子并关闭门（覆盖率口径要求该路径被执行）。"""
+    monkeypatch.setattr(gate_module, "_hook", gate_module.current_gate_hook())
     gate_module.set_gate_hook(_noop_hook)
     gates.gate(gates.PLATFORM_GATE)
 

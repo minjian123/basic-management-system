@@ -14,7 +14,7 @@ from dataclasses import replace
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
@@ -32,7 +32,7 @@ from bms_core.resource_scope import (
 )
 from bms_core.services.module_registry import ModuleRecord
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.services.scope_resource import ScopeResourceTypeService
 
@@ -105,9 +105,7 @@ async def session(
         AsyncSession: 数据库会话。
     """
     reset_scope_resource_types()
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as db:
-        await begin_write(await db.connection())
+    async with write_session(shared_platform_engine) as db:
         yield db
     reset_scope_resource_types()
 

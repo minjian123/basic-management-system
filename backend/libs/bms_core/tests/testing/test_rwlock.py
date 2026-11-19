@@ -146,42 +146,73 @@ def test_posix_backend_imports_real_module(tmp_path: Path, monkeypatch: pytest.M
 
 
 async def test_gate_reentrant_same_mode(tmp_path: Path) -> None:
-    """同模式重入只加计数；归零后回到未持有。"""
+    """同模式重入：每份一个 token，全部释放后回到未持有。"""
     gate = _gate(tmp_path)
 
-    await gate.acquire(write=False)
-    await gate.acquire(write=False)
+    first = await gate.acquire_read()
+    second = await gate.acquire_read()
     assert gate.mode == rwlock.READ
     assert gate.depth == 2
-    await gate.release(write=False)
+    await gate.release_read(second)
     assert gate.depth == 1
-    await gate.release(write=False)
+    await gate.release_read(first)
     assert gate.mode is None
     assert gate.depth == 0
 
 
 async def test_gate_rejects_cross_mode(tmp_path: Path) -> None:
-    """持读门时请求写门直接报错（禁止原地升级）。"""
+    """**其它任务**仍持读份额时取写门报错：并发读事务不能被升级挤掉。"""
     gate = _gate(tmp_path)
-    await gate.acquire(write=False)
+    reading = asyncio.Event()
+    done = asyncio.Event()
+
+    async def _hold() -> None:
+        """另一个任务持读份额直到被放行。"""
+        token = await gate.acquire_read()
+        reading.set()
+        await done.wait()
+        await gate.release_read(token)
+
+    holder = asyncio.create_task(_hold())
+    await reading.wait()
     try:
         with pytest.raises(RuntimeError, match="禁止原地升级"):
-            await gate.acquire(write=True)
+            await gate.acquire_write()
     finally:
-        await gate.release(write=False)
+        done.set()
+        await holder
+    assert gate.mode is None
+
+
+async def test_gate_upgrade_releases_only_own_share(tmp_path: Path) -> None:
+    """同任务升级只让出自己的份额，取出写门后按返回的 token 恢复。"""
+    gate = _gate(tmp_path)
+    token = await gate.acquire_read()
+
+    restored = await gate.acquire_write()
+    try:
+        assert restored == (token,)
+        assert gate.mode == rwlock.WRITE
+    finally:
+        await gate.release_write(restored)
+
+    assert gate.mode == rwlock.READ
+    assert gate.depth == 1
+    await gate.release_read(token)
+    assert gate.mode is None
 
 
 async def test_gate_release_mode_mismatch(tmp_path: Path) -> None:
-    """释放模式与持有模式不一致即报错。"""
+    """释放不持有的读份额、未持写门时释放写门，都要报错。"""
     gate = _gate(tmp_path)
-    await gate.acquire(write=True)
+    await gate.acquire_write()
     try:
-        with pytest.raises(RuntimeError, match="释放模式不匹配"):
-            await gate.release(write=False)
+        with pytest.raises(RuntimeError, match="未被持有"):
+            await gate.release_read(999)
     finally:
-        await gate.release(write=True)
+        await gate.release_write()
     with pytest.raises(RuntimeError, match="释放模式不匹配"):
-        await gate.release(write=False)
+        await gate.release_write()
 
 
 async def test_release_write_without_holding_raises(tmp_path: Path) -> None:
@@ -189,25 +220,25 @@ async def test_release_write_without_holding_raises(tmp_path: Path) -> None:
     gate = _gate(tmp_path)
 
     with pytest.raises(RuntimeError, match="释放模式不匹配"):
-        await gate.release(write=True)
+        await gate.release_write()
 
 
 async def test_borrowed_read_share_retires_with_write_gate(tmp_path: Path) -> None:
-    """写门内借用的读份额随写门作废：写门先释放、读门后释放**不报错**，只销账。
+    """写门内借用的读份额随写门退役：写门先释放、读门后释放**不报错**，只销账。
 
     真实场景：FastAPI 的 yield 依赖把只读会话的生命周期拉到响应结束，读门可能晚于写门释放；
-    若此时判「未持有」会把正常请求打成 500（13_08 实测 `RuntimeError: 门 platform 释放模式不匹配`）。
+    若此时判「未持有」会把正常请求打成 500。
     """
     gate = _gate(tmp_path)
-    await gate.acquire(write=True)
-    await gate.acquire(write=False)
+    await gate.acquire_write()
+    token = await gate.acquire_read()
     assert gate.mode == rwlock.WRITE
     assert gate.depth == 2
 
-    await gate.release(write=True)
-    assert gate.mode == rwlock.READ
+    await gate.release_write()
+    assert gate.mode is None
 
-    await gate.release(write=False)
+    await gate.release_read(token)
     assert gate.mode is None
 
 
@@ -219,11 +250,11 @@ async def test_read_gates_run_concurrently(tmp_path: Path) -> None:
 
     async def _hold(gate: rwlock.DbGate) -> None:
         """持读门 50ms。"""
-        await gate.acquire(write=False)
+        token = await gate.acquire_read()
         try:
             await asyncio.sleep(0.05)
         finally:
-            await gate.release(write=False)
+            await gate.release_read(token)
 
     started = time.monotonic()
     await asyncio.gather(_hold(first), _hold(second))
@@ -231,20 +262,57 @@ async def test_read_gates_run_concurrently(tmp_path: Path) -> None:
     assert time.monotonic() - started < 0.095
 
 
+async def test_write_gate_reentrant(tmp_path: Path) -> None:
+    """写门同任务重入只加深度，不重复取内核锁。"""
+    gate = _gate(tmp_path)
+    await gate.acquire_write()
+    restored = await gate.acquire_write()
+    assert list(restored) == []
+    assert gate.mode == rwlock.WRITE
+    assert gate.depth == 2
+
+    await gate.release_write(restored)
+    assert gate.depth == 1
+    await gate.release_write()
+    assert gate.mode is None
+
+
 async def test_write_gate_is_exclusive(tmp_path: Path) -> None:
     """写门持有期间另一写门阻塞，释放后立即获得。"""
     path = tmp_path / "shared.lock"
     holder = rwlock.DbGate("holder", path)
     contender = rwlock.DbGate("contender", path)
-    await holder.acquire(write=True)
-    waiter = asyncio.create_task(contender.acquire(write=True))
+    await holder.acquire_write()
+    waiter = asyncio.create_task(contender.acquire_write())
     try:
         await asyncio.sleep(0.05)
         assert not waiter.done()
     finally:
-        await holder.release(write=True)
+        await holder.release_write()
     await asyncio.wait_for(waiter, timeout=2.0)
-    await contender.release(write=True)
+    await contender.release_write()
+
+
+async def test_read_acquire_timeout_resets_kernel_flag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """读门等锁超时后，内核占位必须复位，下一次取读门仍可成功。"""
+    monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 0.2)
+    monkeypatch.setattr(rwlock, "WARN_AFTER", 0.05)
+    path = tmp_path / "shared.lock"
+    holder = rwlock.DbGate("holder", path)
+    contender = rwlock.DbGate("contender", path)
+    await holder.acquire_write()
+    try:
+        with pytest.raises(TimeoutError):
+            await contender.acquire_read()
+    finally:
+        await holder.release_write()
+    assert contender._kernel_read is False
+    token = await contender.acquire_read()
+    await contender.release_read(token)
+    assert contender.mode is None
 
 
 async def test_gate_timeout_reports_name(
@@ -258,12 +326,12 @@ async def test_gate_timeout_reports_name(
     path = tmp_path / "shared.lock"
     holder = rwlock.DbGate("holder", path)
     contender = rwlock.DbGate("contender", path)
-    await holder.acquire(write=True)
+    await holder.acquire_write()
     try:
         with pytest.raises(TimeoutError, match="contender"):
-            await contender.acquire(write=True)
+            await contender.acquire_write()
     finally:
-        await holder.release(write=True)
+        await holder.release_write()
 
     assert "等待门" in capsys.readouterr().out
 

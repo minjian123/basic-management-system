@@ -35,16 +35,21 @@ async def _recording_hook(db_key: str, read_only: bool) -> AsyncGenerator[None]:
 
 
 @pytest.fixture(autouse=True)
-def _reset_hook() -> Iterator[None]:
-    """每个用例前后清空钩子与记录。
+def _reset_hook(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """每个用例期间清空钩子与记录，用例结束后**恢复会话钩子**。
+
+    直接 `set_gate_hook(None)` 会在本文件跑完后把全局钩子留成空，后续文件的
+    `db_access_gate` 变成直通（门不生效）——用 monkeypatch 记录并在退出时还原。
+
+    Args:
+        monkeypatch: pytest 补丁夹具（负责还原）。
 
     Yields:
         None: 用例运行期。
     """
-    gate_module.set_gate_hook(None)
+    monkeypatch.setattr(gate_module, "_hook", None)
     _CALLS.clear()
     yield
-    gate_module.set_gate_hook(None)
 
 
 async def test_default_hook_is_passthrough() -> None:

@@ -16,7 +16,7 @@ from typing import Any, cast
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import JobNotFoundError
@@ -25,7 +25,7 @@ from bms_core.models.platform.job import JOB_TYPE_STATUS_RETIRED, SysJobMonitor,
 from bms_core.schemas.pagination import BasePageQuery
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.job.api import job as job_api
 from bms_platform.domains.job.repositories.job import JobMonitorRepository, JobTypeRepository
 from bms_platform.domains.job.services.catalog import JobCatalogService
@@ -63,9 +63,7 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncGenerator[AsyncSe
     再 CREATE 的两方会有一方撞 `table ... already exists`（服务子流水线实测 ERROR）。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as opened:
-        await begin_write(await opened.connection())
+    async with write_session(shared_platform_engine) as opened:
         yield opened
 
 

@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import ctypes
+import itertools
 import os
 import sys
 import threading
@@ -35,6 +36,8 @@ import traceback
 from pathlib import Path
 from typing import Any, Final, Literal, Protocol, cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.testing import diagnostics
 from bms_core.testing.paths import project_root
 
 DEFAULT_TIMEOUT: Final = 180.0
@@ -264,6 +267,16 @@ def gate_path(name: str) -> Path:
     return directory / f"db-gate-{name}.lock"
 
 
+def _task_key() -> int:
+    """当前 asyncio 任务的身份（无任务时为 0）。
+
+    Returns:
+        int: 任务对象 id。
+    """
+    task = asyncio.current_task()
+    return id(task) if task is not None else 0
+
+
 class DbGate:
     """跨进程读写门（一个库文件一把）。
 
@@ -282,10 +295,19 @@ class DbGate:
         self._path = path
         self._holder_path = path.with_suffix(".holder")
         self._backend = _make_backend(path)
-        self._read_depth = 0
+        # 读份额按**持有者**记账：每个取读者拿一个 token，释放时只放自己那份。
+        # 不能用「进程级读深度」——同一进程里多个并发会话共用一个计数器时，一个会话的升级
+        # 会把别的会话的份额一起放掉；对方的 SQLite 读事务还开着，写者提交时被它挡住、
+        # 它又在等门，互等到 `busy_timeout` 超时（13_08 实测的整轮卡死）。
+        self._own_reads: ConcurrentStableDict[int, int] = ConcurrentStableDict()
+        # 写门内取的读门是借用（没有独立的内核共享锁）；写门释放后转「已退役」，
+        # 调用方稍后再释放时只销账、不报错（FastAPI 的 yield 依赖会晚于写门释放）。
+        self._borrowed_reads: ConcurrentStableDict[int, None] = ConcurrentStableDict()
+        self._retired_reads: ConcurrentStableDict[int, None] = ConcurrentStableDict()
         self._write_depth = 0
-        self._borrowed_reads = 0
-        # 深度计数是跨协程 / 跨事件循环共享的进程级状态：`acquire` / `release` 在改计数前后有 await 点
+        self._kernel_read = False
+        self._next_token = itertools.count(1)
+        # 计数是跨协程 / 跨事件循环共享的进程级状态：`acquire` / `release` 在改计数前后有 await 点
         # （取放系统调用），不加锁会让并发读者互相覆盖计数（表现为提前放掉内核锁或永久泄漏）。
         # 用 `threading.Lock` 而非 `asyncio.Lock`：门是进程级单例，而 pytest-asyncio 每个用例一个新
         # 事件循环，`asyncio.Lock` 会绑死在首个循环上。
@@ -300,113 +322,171 @@ class DbGate:
         """
         if self._write_depth:
             return WRITE
-        if self._read_depth or self._borrowed_reads:
+        if self._own_reads or self._borrowed_reads:
             return READ
         return None
 
     @property
     def depth(self) -> int:
-        """当前重入深度（读 + 写）。
+        """当前重入深度（有效读份额 + 写深度；已退役份额不计）。
 
         Returns:
             int: 深度（0 表示未持有）。
         """
-        return self._read_depth + self._write_depth + self._borrowed_reads
+        return len(self._own_reads) + len(self._borrowed_reads) + self._write_depth
 
-    async def acquire(self, *, write: bool) -> None:
-        """取门（同模式可重入；写门内取读门视为已满足）。
+    async def acquire_read(self) -> int:
+        """取读门，返回本次份额的 token（释放时凭它销账）。
 
-        写门已包含读能力：用例持写门时应用内部的只读会话请求读门不报错、不重取系统锁，
-        只增加读计数；反过来「持读门再请求写门」仍然报错——多写者原地升级会互相等死。
+        写门持有期间取的读门是**借用**（不取内核共享锁，随写门作废），token 同样返回。
 
-        Args:
-            write: 独占 True，共享 False。
+        Returns:
+            int: 读份额 token。
 
         Raises:
-            RuntimeError: 已在读模式下请求写门（禁止原地升级）。
             TimeoutError: 等待超时。
         """
-        if write:
-            with self._count_lock:
-                if self._write_depth:
-                    self._write_depth += 1
-                    return
-                if self._read_depth:
-                    raise RuntimeError(
-                        f"门 {self.name} 已以 {READ} 模式持有：禁止原地升级；"
-                        "请在 bms_core.testing.gates 的写门上下文内完成写操作"
-                    )
-            await asyncio.to_thread(self._wait_and_lock, True)
-            with self._count_lock:
-                self._write_depth = 1
-            self._record_holder(True)
-            return
         with self._count_lock:
             if self._write_depth:
-                # 写门已包含读能力：只记「借用份额」，不重复取内核共享锁，也不计入读深度——
-                # 写门释放时这些份额随写门作废（见 `release`）。
-                self._borrowed_reads += 1
-                return
-            if self._read_depth:
-                self._read_depth += 1
-                return
-        await asyncio.to_thread(self._wait_and_lock, False)
+                token = next(self._next_token)
+                self._borrowed_reads[token] = None
+                return token
+            need_kernel = not self._kernel_read
+            if need_kernel:
+                # 先占位再出锁：否则并发读者会各取一次内核锁（同一句柄重复加锁会失败）。
+                self._kernel_read = True
+        if need_kernel:
+            try:
+                await self._wait_and_lock(False)
+            except BaseException:
+                with self._count_lock:
+                    self._kernel_read = False
+                raise
         with self._count_lock:
-            self._read_depth = 1
+            token = next(self._next_token)
+            self._own_reads[token] = _task_key()
         self._record_holder(False)
+        return token
 
-    async def release(self, *, write: bool) -> None:
-        """放门（先写后读由调用方保证顺序）。
-
-        **解锁一律同步执行**（不走 `asyncio.to_thread`）：解锁是微秒级系统调用，而释放常发生在
-        `finally` / 事件循环收尾阶段——此时线程池已关闭，`to_thread` 会抛
-        `RuntimeError: cannot schedule new futures after shutdown`，内核锁因此**永久泄漏**，
-        本进程计数已归零（以为没持有），其它 worker 却等满 180s 超时（13_08 并行实测：
-        一组 platform 用例出现 58 次「等待数据库门超时」）。
+    async def release_read(self, token: int) -> None:
+        """释放指定读份额（只放自己那份；已退役的借用份额只销账）。
 
         Args:
-            write: 独占 True，共享 False。
+            token: `acquire_read` 返回的 token。
 
         Raises:
-            RuntimeError: 释放模式与持有模式不一致。
+            RuntimeError: token 未被本门持有（重复释放 / 释放错对象）。
         """
-        if write:
-            with self._count_lock:
-                if not self._write_depth:
-                    raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {WRITE}")
-                self._write_depth -= 1
-                remaining = self._write_depth
-                if not remaining:
-                    # 写门内取得的读份额是**借用**（没有独立的内核共享锁），随写门一并作废。
-                    # 不做「释放独占后重新取共享」的降级：两步之间没有原子性，等门的写者会插进来，
-                    # 本进程随即阻塞等到超时（13_08 并行实测：降级路径导致 180s 门超时）。需要保持读语义
-                    # 的调用方（`upgrade_to_write`）在写门退出后**显式重新取读门**。
-                    self._read_depth = 0
-            if remaining:
-                return
-            self._backend.release()
-            return
         with self._count_lock:
-            if self._borrowed_reads:
-                # 写门内借用的读份额：随写门一并作废，这里只销账、不碰内核锁。
-                self._borrowed_reads -= 1
+            if token in self._borrowed_reads:
+                del self._borrowed_reads[token]
                 return
-            if not self._read_depth:
-                raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {READ}")
-            self._read_depth -= 1
-            remaining = self._read_depth
-            held_write = self._write_depth > 0
-        if remaining or held_write:
+            if token in self._retired_reads:
+                del self._retired_reads[token]
+                return
+            if token not in self._own_reads:
+                raise RuntimeError(f"门 {self.name} 释放读份额失败：token {token} 未被持有")
+            del self._own_reads[token]
+            drop_kernel = not self._own_reads and not self._write_depth
+            if drop_kernel:
+                self._kernel_read = False
+        if drop_kernel:
+            self._backend.release()
+
+    def owns(self, token: int) -> bool:
+        """该读份额 token 是否仍被本门持有（含借用 / 已退役）。
+
+        Args:
+            token: `acquire_read` 返回的 token。
+
+        Returns:
+            bool: 仍持有返回 True。
+        """
+        with self._count_lock:
+            return token in self._own_reads or token in self._borrowed_reads or token in self._retired_reads
+
+    async def acquire_write(self) -> ConcurrentStableList[int]:
+        """取写门（独占；同一进程内可重入）。
+
+        若本任务仍持读份额（嵌套升级），先**只释放本任务的**份额再取写门，返回被释放的
+        token 供 `release_write` 恢复；其它任务的读份额一律不动（动了对方的 SQLite 读事务
+        还开着，写者提交时会被它挡住并互等超时）。
+
+        Returns:
+            ConcurrentStableList[int]: 本次升级临时让出的读份额 token（无则空）。
+
+        Raises:
+            RuntimeError: 本进程的**其它任务**仍持读份额（并发读不能原地升级成写）。
+            TimeoutError: 等待超时。
+        """
+        with self._count_lock:
+            if self._write_depth:
+                self._write_depth += 1
+                return ConcurrentStableList()
+            mine = _task_key()
+            others = [token for token, owner in self._own_reads.items() if owner != mine]
+            if others:
+                raise RuntimeError(
+                    f"门 {self.name} 还有其它任务的读份额：禁止原地升级；写操作必须在没有并发读事务时进行"
+                )
+            released: ConcurrentStableList[int] = ConcurrentStableList(self._own_reads)
+            for token in released:
+                del self._own_reads[token]
+            drop_kernel = bool(released) and not self._write_depth
+            if drop_kernel:
+                self._kernel_read = False
+        if drop_kernel:
+            # 先让出共享锁，再排队取独占锁（顺序不能反）。
+            self._backend.release()
+        await self._wait_and_lock(True)
+        with self._count_lock:
+            self._write_depth = 1
+        self._record_holder(True)
+        return released
+
+    async def release_write(self, restore: ConcurrentStableList[int] | None = None) -> None:
+        """释放写门，并恢复升级时让出的读份额。
+
+        **解锁一律同步执行**（不走 `asyncio.to_thread`）：释放常发生在事件循环收尾阶段，
+        此时线程池已关闭，`to_thread` 会抛 `RuntimeError: cannot schedule new futures after
+        shutdown`，内核锁因此永久泄漏。
+
+        Args:
+            restore: `acquire_write` 返回的 token 清单（升级路径传入；None 表示无）。
+
+        Raises:
+            RuntimeError: 当前未持写门。
+        """
+        with self._count_lock:
+            if not self._write_depth:
+                raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {WRITE}")
+            self._write_depth -= 1
+            remaining = self._write_depth
+            if not remaining:
+                for token in list(self._borrowed_reads):
+                    del self._borrowed_reads[token]
+                    self._retired_reads[token] = None
+        if remaining:
             return
         self._backend.release()
+        if not restore:
+            return
+        await self._wait_and_lock(False)
+        with self._count_lock:
+            self._kernel_read = True
+            for token in restore:
+                self._own_reads[token] = _task_key()
+        self._record_holder(False)
 
     def close(self) -> None:
         """关闭门（会话或进程退出时调用）。"""
         self._backend.close()
         with self._count_lock:
-            self._read_depth = 0
+            self._own_reads.clear()
+            self._borrowed_reads.clear()
+            self._retired_reads.clear()
             self._write_depth = 0
-            self._borrowed_reads = 0
+            self._kernel_read = False
         with contextlib.suppress(OSError):
             self._holder_path.unlink()
 
@@ -449,7 +529,22 @@ class DbGate:
         ):
             handle.write(line)
 
-    def _wait_and_lock(self, write: bool) -> None:
+    def _note_gate_wait(self, waited: float, reason: str) -> None:
+        """等门告警 / 超时时抓一份全进程栈（开关与节流由诊断工具决定）。
+
+        Args:
+            waited: 已等待秒数。
+            reason: 触发原因（`warn` / `timeout`）。
+        """
+        diagnostics.note_gate_wait(
+            self._holder_path.with_name(f"gate-stacks-{os.getpid()}.log"),
+            gate_name=self.name,
+            waited=waited,
+            reason=reason,
+            holder=self._describe_holder(),
+        )
+
+    async def _wait_and_lock(self, write: bool) -> None:
         """阻塞等待直到拿到门（在工作线程中执行，不阻塞事件循环）。
 
         Args:
@@ -469,9 +564,11 @@ class DbGate:
                 message = f"[rwlock] 等待门 {self.name} 已 {now - started:.1f}s；持有者：{self._describe_holder()}"
                 print(message, flush=True)
                 self._log_wait(message)
+                self._note_gate_wait(now - started, "warn")
             if now >= deadline:
                 message = f"等待数据库门超时（{DEFAULT_TIMEOUT:.0f}s）：{self.name}；持有者：{self._describe_holder()}"
                 self._log_wait(message)
+                self._note_gate_wait(now - started, "timeout")
                 raise TimeoutError(message)
-            time.sleep(min(delay, max(deadline - now, 0.0)))
+            await asyncio.sleep(min(delay, max(deadline - now, 0.0)))
             delay = min(delay * 2, _RETRY_MAX)

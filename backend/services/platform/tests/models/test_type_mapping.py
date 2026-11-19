@@ -31,7 +31,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.engine import Dialect
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.schema import CreateTable
 
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -39,7 +39,7 @@ from bms_core.models.base import SnowflakeId
 from bms_core.models.platform.catalog import SysModule
 from bms_core.models.platform.task import SysTask
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 
 _SYS_MODULE_TABLE = cast("Table", SysModule.__table__)
 
@@ -199,9 +199,7 @@ async def test_sqlite_soft_delete_unique_semantics(shared_platform_engine: Async
         )
     assert indexes == {"idx_sys_module_deleted_at"}
     key = ns.code("sys")
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_platform_engine) as session:
         session.add(_module(key, "01"))
         session.add(_module(ns.code("wf"), "02"))
         await session.flush()
@@ -223,9 +221,7 @@ async def test_boolean_storage_roundtrip(shared_platform_engine: AsyncEngine, ns
     code = ns.code("task")
     async with shared_platform_engine.begin() as connection:
         await connection.run_sync(lambda conn: cast("Table", SysTask.__table__).create(conn, checkfirst=True))
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_platform_engine) as session:
         session.add(SysTask(code=code, name="demo", handler="bms_core.tasks.demo"))
         await session.flush()
         enabled = (

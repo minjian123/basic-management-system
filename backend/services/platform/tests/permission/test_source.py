@@ -20,7 +20,7 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI, Request
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -48,7 +48,7 @@ from bms_core.permission.snapshot import set_current_permission_snapshot
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import begin_write
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.permission_meta.permission.checker import (
     PLATFORM_DATA_SOURCE_KEY,
     build_platform_source,
@@ -245,9 +245,7 @@ async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncI
         _Scenario: 引擎与两个本用例专属用户主键。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
-    async with factory() as session:
-        await begin_write(await session.connection())
+    async with write_session(shared_platform_engine) as session:
         users = UserRepository(session)
         user = await users.create(username=ns.code("reviewer"), password_hash="x", name="复核员")
         bare = await users.create(username=ns.code("bare"), password_hash="x", name="无角色")

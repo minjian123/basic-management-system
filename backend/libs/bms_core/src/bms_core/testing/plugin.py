@@ -42,7 +42,7 @@ from bms_core.testing.fixtures import (
     tenant_db,
     test_db_dir,
 )
-from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, close_gates, read_gate, write_gate
+from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, close_gates, gate_scope
 from bms_core.testing.write_locks import platform_db_write, tenant_db_write
 
 __all__ = (
@@ -80,7 +80,7 @@ def _gate_hook(db_key: str, read_only: bool) -> AbstractAsyncContextManager[None
         AbstractAsyncContextManager[None]: 读门或写门上下文。
     """
     name = PLATFORM_GATE if db_key == PLATFORM_DB_KEY else TENANT_GATE
-    return read_gate(name) if read_only else write_gate(name)
+    return gate_scope(name, read_only=read_only)
 
 
 def pytest_configure(config: pytest.Config) -> None:
