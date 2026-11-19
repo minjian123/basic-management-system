@@ -14,6 +14,9 @@
    互斥——不取门时其它 worker 的写会话会在 SQLite 层盲等 `busy_timeout`（30s，无诊断）；
    取门后与经会话入口的写排同一条队，等门有 10s 告警 / 180s 超时。该夹具仍属**待淘汰**
    （《测试规范》§2.1 第 9 条「回滚式隔离仅限登记用例」），新用例用命名空间隔离。
+7. **淘汰路径**：用例与被测代码共用同一会话时改 `write_session`（不取门、不改写会话工厂、
+   退出不提交），单次写用 `write_window`；只有「被测代码必须自建会话并复用外层事务」的形态
+   （作业内部 `session.begin()`、声明装载等）才保留 `rollback_session`。
 """
 
 import contextlib
@@ -22,7 +25,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.db.session import SessionFactory
 from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, write_gate
@@ -116,6 +119,35 @@ def gate_for_engine(engine: AsyncEngine) -> str | None:
         return None
     stem = Path(database).stem
     return stem if stem in (PLATFORM_GATE, TENANT_GATE) else None
+
+
+@contextlib.asynccontextmanager
+async def write_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
+    """开启「不提交」写会话：事务开头取 SQLite 写锁，退出时不提交（等价整体回滚）。
+
+    与 `rollback_session` 的区别只有两点，都是 13_08 的收口方向：
+
+    1. **不取跨进程写门**：写冲突交给 SQLite 的 `busy_timeout` 短等待，而不是应用层文件锁；
+    2. **不改写 `SessionFactory.create`**：被测代码自建的会话照常开自己的连接，因此只适用于
+       「用例与被测代码共用同一个会话」的形态（服务层直调、或经依赖覆盖注入会话的接口用例）。
+
+    用例内的 `commit()` 会真提交（本函数不拦），需要「数据不落库」时用 `flush()`。
+
+    Args:
+        engine: 目标库引擎（通常是共享平台 / 租户库夹具）。
+
+    Yields:
+        AsyncSession: 已 `BEGIN IMMEDIATE`、退出即回滚的会话。
+
+    Raises:
+        Exception: 用例体内的异常原样抛出（回滚在 `finally` 由会话关闭完成）。
+    """
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        # SQLite 延迟到首条 DML 才真正 BEGIN；显式前置写锁，避免「先读后写」升级时立即
+        # `database is locked`（`busy_timeout` 对升级死锁不生效，见 `begin_write`）。
+        await begin_write(await session.connection())
+        yield session
 
 
 @contextlib.asynccontextmanager

@@ -18,7 +18,7 @@ from bms_core.core.concurrent import (
 from bms_core.core.config import AliyunSmsSettings, MailSettings, SmsSettings, TencentSmsSettings
 from bms_core.core.exceptions import ParamError
 from bms_core.notification.preference import BaseNotificationPreferenceStore, NotificationPreference
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.models.mail import SysMailLog
 from bms_notification.domains.notification.models.sms import SysSmsLog
 from bms_notification.domains.notification.services.outbound import (
@@ -101,7 +101,7 @@ def _request(**overrides: object) -> DispatchRequest:
 
 async def test_email_dispatch_creates_log_and_job(shared_tenant_engine: AsyncEngine) -> None:
     """邮件受理：pending 日志 + 作业负载含渲染正文。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
         outcome = await _service(session, jobs=jobs).dispatch(_request())
         assert outcome.status == "pending"
@@ -115,7 +115,7 @@ async def test_email_dispatch_creates_log_and_job(shared_tenant_engine: AsyncEng
 async def test_dnd_and_transactional(shared_tenant_engine: AsyncEngine) -> None:
     """免打扰落 skipped；事务性绕过。"""
     pref = NotificationPreference(dnd_enabled=True, dnd_start="00:00", dnd_end="23:59", timezone="UTC")
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
         outcome = await _service(session, pref=pref, jobs=jobs).dispatch(_request())
         assert outcome.status == "skipped"
@@ -123,7 +123,7 @@ async def test_dnd_and_transactional(shared_tenant_engine: AsyncEngine) -> None:
         assert log.error_msg == "dnd"
         assert jobs.calls == []
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
         outcome = await _service(session, pref=pref, jobs=jobs).dispatch(_request(transactional=True))
         assert outcome.status == "pending"
@@ -133,12 +133,12 @@ async def test_dnd_and_transactional(shared_tenant_engine: AsyncEngine) -> None:
 async def test_channel_disabled(shared_tenant_engine: AsyncEngine) -> None:
     """渠道关闭：API 落 skipped；通知组不落日志。"""
     pref = NotificationPreference(channels=ConcurrentStableFrozenDict({"inbox": True, "email": False, "sms": True}))
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         outcome = await _service(session, pref=pref).dispatch(_request())
         assert outcome.status == "skipped"
         assert (await session.execute(select(SysMailLog))).scalars().one()
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         outcome = await _service(session, pref=pref).dispatch(_request(record_skipped_when_disabled=False))
         assert outcome.status == "filtered"
         assert (await session.execute(select(SysMailLog))).scalars().all() == []
@@ -146,7 +146,7 @@ async def test_channel_disabled(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_missing_recipient_and_idempotency(shared_tenant_engine: AsyncEngine) -> None:
     """地址缺失：API 抛错 / 通知组落 failed；幂等键返回同记录。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         with pytest.raises(ParamError):
             await _service(session).dispatch(_request(recipient=None, user_id=None))
         outcome = await _service(session).dispatch(
@@ -160,7 +160,7 @@ async def test_missing_recipient_and_idempotency(shared_tenant_engine: AsyncEngi
         log = (await session.execute(select(SysMailLog))).scalars().one()
         assert log.status == "failed"
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
         service = _service(session, jobs=jobs)
         first = await service.dispatch(_request(idempotency_key="k-1"))
@@ -171,11 +171,11 @@ async def test_missing_recipient_and_idempotency(shared_tenant_engine: AsyncEngi
 
 async def test_sms_template_required_and_mask(shared_tenant_engine: AsyncEngine) -> None:
     """短信无模板抛错；内置验证码模板落脱敏正文。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         with pytest.raises(ParamError):
             await _service(session).dispatch(_request(channel=CHANNEL_SMS, template_code=None, recipient="13800000000"))
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
         settings = SmsSettings(
             channel="aliyun",

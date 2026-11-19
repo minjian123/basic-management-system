@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.repositories.notification import NotificationRepository
 from notification._support import DEMO_TENANT, add_notification, earlier, reset_user, use_user
 
@@ -15,7 +15,7 @@ pytestmark = pytest.mark.kiwi_id(2517)
 
 async def test_page_filters_and_count(shared_tenant_engine: AsyncEngine) -> None:
     """按用户 / 类型 / 已读 / 关键字分页，未读数正确。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         add_notification(session, user_id=1, title="审批待办", notification_type="approval")
         add_notification(session, user_id=1, title="系统提示", is_read=True, created_at=earlier(2))
         add_notification(session, user_id=2, title="他人通知")
@@ -43,7 +43,7 @@ async def test_page_filters_and_count(shared_tenant_engine: AsyncEngine) -> None
 
 async def test_mark_read_and_all(shared_tenant_engine: AsyncEngine) -> None:
     """批量已读只作用于本人，全部已读归零。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         first = add_notification(session, user_id=1, title="A")
         second = add_notification(session, user_id=1, title="B")
         other = add_notification(session, user_id=2, title="C")
@@ -66,7 +66,7 @@ async def test_mark_read_and_all(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_get_any_and_tenant_context(shared_tenant_engine: AsyncEngine) -> None:
     """按主键取记录不限定用户；演示租户上下文可用。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         row = add_notification(session, user_id=9, title="X")
         await session.flush()
         repository = NotificationRepository(session)

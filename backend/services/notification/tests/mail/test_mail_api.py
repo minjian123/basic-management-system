@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 
 pytestmark = pytest.mark.kiwi_id(2519)
 
@@ -45,7 +45,7 @@ async def test_mail_api(service_app: FastAPI, client: AsyncClient, shared_tenant
     """邮件模板 CRUD / 预览 / 发送 / 记录。"""
     from mail._support import install
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         jobs = install(service_app, session)
         created = await client.post(f"{MAIL}/templates", json=_mail_template())
         assert created.status_code == 200, created.text
@@ -92,7 +92,7 @@ async def test_mail_syntax(service_app: FastAPI, client: AsyncClient, shared_ten
     """语法错误保存即拒（70302）。"""
     from mail._support import install
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         install(service_app, session)
         bad = await client.post(
             f"{MAIL}/templates",
@@ -106,7 +106,7 @@ async def test_sms_api(service_app: FastAPI, client: AsyncClient, shared_tenant_
     """短信模板 CRUD / 列表 / 发送。"""
     from mail._support import install
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         jobs = install(service_app, session)
         created = await client.post(f"{SMS}/templates", json=_sms_template())
         assert created.status_code == 200, created.text

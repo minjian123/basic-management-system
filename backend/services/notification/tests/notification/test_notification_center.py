@@ -22,7 +22,7 @@ from bms_core.core.exceptions import (
 from bms_core.db.session import DbSession
 from bms_core.schemas.filters import BaseFilterQuery, FilterSpec
 from bms_core.schemas.pagination import BasePageQuery
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.center import DatabaseNotificationCenter
 from notification._support import add_notification, reset_user, session_opener, use_user
 
@@ -31,7 +31,7 @@ pytestmark = pytest.mark.kiwi_id(2517)
 
 async def test_detail_and_unread(shared_tenant_engine: AsyncEngine) -> None:
     """详情查看即已读；mark_read=False 不改状态；未读数下降。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         row = add_notification(session, user_id=1, title="A")
         await session.flush()
         tokens = use_user(1)
@@ -49,7 +49,7 @@ async def test_detail_and_unread(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_list_with_filters(shared_tenant_engine: AsyncEngine) -> None:
     """列表按类型 / 已读筛选。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         add_notification(session, user_id=1, title="A", notification_type="approval")
         add_notification(session, user_id=1, title="B", is_read=True)
         await session.flush()
@@ -72,7 +72,7 @@ async def test_list_with_filters(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_mark_read_and_all(shared_tenant_engine: AsyncEngine) -> None:
     """批量 / 全部已读与参数校验。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         first = add_notification(session, user_id=1, title="A")
         add_notification(session, user_id=1, title="B")
         await session.flush()
@@ -91,7 +91,7 @@ async def test_mark_read_and_all(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_delete_and_forbidden(shared_tenant_engine: AsyncEngine) -> None:
     """删除本人通知；他人通知拒绝；不存在拒绝。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         own = add_notification(session, user_id=1, title="A")
         other = add_notification(session, user_id=2, title="B")
         await session.flush()
@@ -115,7 +115,7 @@ async def test_delete_and_forbidden(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_missing_user_context(shared_tenant_engine: AsyncEngine) -> None:
     """无用户上下文时读面拒绝。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
         with pytest.raises(ParamError):
             await center.list(BaseFilterQuery(), BasePageQuery())
@@ -153,7 +153,7 @@ async def test_transactional_and_default_scope(
 
 async def test_invalid_filter(shared_tenant_engine: AsyncEngine) -> None:
     """不支持的筛选字段 / 操作符 / 类型值拒绝。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)

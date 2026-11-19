@@ -8,7 +8,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.api.notification import internal_router, internal_unread_count
 from notification._support import add_notification
 
@@ -17,7 +17,7 @@ pytestmark = pytest.mark.kiwi_id(2528)
 
 async def test_internal_unread_count_for_explicit_user(shared_tenant_engine: AsyncEngine) -> None:
     """按显式用户计数（不依赖登录态上下文），不受其他用户未读影响。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         add_notification(session, user_id=7001, title="A")
         add_notification(session, user_id=7001, title="B")
         add_notification(session, user_id=7002, title="C")

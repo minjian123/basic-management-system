@@ -9,7 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.api.deps import get_notification_center
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.center import DatabaseNotificationCenter
 from notification._support import add_notification, session_opener
 
@@ -23,7 +23,7 @@ async def test_list_and_detail_with_db_center(
     service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine
 ) -> None:
     """列表筛选 / 查看即已读 / 未读数。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         first = add_notification(session, user_id=_USER_ID, title="审批待办", notification_type="approval")
         add_notification(session, user_id=_USER_ID, title="系统提示", is_read=True)
         await session.flush()
@@ -42,7 +42,7 @@ async def test_list_and_detail_with_db_center(
 
 async def test_api_errors(service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine) -> None:
     """非法筛选 / 不存在 / 批量参数 / 越权删除错误码。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         other = add_notification(session, user_id=2002, title="他人")
         await session.flush()
         service_app.dependency_overrides[get_notification_center] = lambda: DatabaseNotificationCenter(

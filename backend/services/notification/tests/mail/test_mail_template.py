@@ -12,7 +12,7 @@ from bms_core.core.exceptions import (
     MailTemplateNotFoundError,
     TemplateSyntaxInvalidError,
 )
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.mail_constants import MAIL_TEMPLATE_STATUS_DISABLED
 from bms_notification.domains.notification.schemas.mail import (
     MailTemplateCreateRequest,
@@ -46,7 +46,7 @@ def _create_request(code: str = "welcome") -> MailTemplateCreateRequest:
 
 async def test_create_list_detail_and_locale(shared_tenant_engine: AsyncEngine) -> None:
     """新建 / 列表合并内置 / 详情 / 多语言回退。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = MailTemplateService(session, render_timeout_seconds=3)
         detail = await service.create(_create_request(), request_locale="zh-CN")
         assert detail.code == "welcome"
@@ -68,7 +68,7 @@ async def test_create_list_detail_and_locale(shared_tenant_engine: AsyncEngine) 
 
 async def test_preview_builtin_and_override(shared_tenant_engine: AsyncEngine) -> None:
     """内置默认可预览；同 code 覆盖后走租户行，删除后回落。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = MailTemplateService(session, render_timeout_seconds=3)
         subject, content = await service.preview(
             "approval_todo",
@@ -93,7 +93,7 @@ async def test_preview_builtin_and_override(shared_tenant_engine: AsyncEngine) -
 
 async def test_update_disable_and_conflict(shared_tenant_engine: AsyncEngine) -> None:
     """编辑 / 停用 / 重复 code / 语法错误保存即拒。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = MailTemplateService(session, render_timeout_seconds=3)
         detail = await service.create(_create_request(), request_locale="zh-CN")
         with pytest.raises(ConflictError):
@@ -121,7 +121,7 @@ async def test_update_disable_and_conflict(shared_tenant_engine: AsyncEngine) ->
 
 async def test_test_endpoint_and_missing(shared_tenant_engine: AsyncEngine) -> None:
     """按 id 渲染测试；不存在返回 70301。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = MailTemplateService(session, render_timeout_seconds=3)
         detail = await service.create(_create_request(), request_locale="zh-CN")
         subject, content = await service.test(_id(detail), params=ConcurrentStableDict({"name": "B"}), locale="en-US")

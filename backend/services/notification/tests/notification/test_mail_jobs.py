@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.jobs.base import JobContext
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.channels.base import BaseMailChannel, BaseSmsChannel, ChannelResult
 from bms_notification.domains.notification.models.mail import SysMailLog
 from bms_notification.domains.notification.models.sms import SysSmsLog
@@ -101,7 +101,7 @@ def _sms_payload(log_id: int) -> ConcurrentStableDict[str, object]:
 
 async def test_mail_job_success_and_idempotent(shared_tenant_engine: AsyncEngine) -> None:
     """成功回写 success；再次执行不重复发送。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         log = SysMailLog(recipient="a@b.c", subject="主题", status="pending")
         session.add(log)
         await session.flush()
@@ -121,7 +121,7 @@ async def test_mail_job_success_and_idempotent(shared_tenant_engine: AsyncEngine
 
 async def test_mail_job_failure_retryable(shared_tenant_engine: AsyncEngine) -> None:
     """失败回写 failed；可重试由作业中心重试。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         log = SysMailLog(recipient="a@b.c", subject="主题", status="pending")
         session.add(log)
         await session.flush()
@@ -138,7 +138,7 @@ async def test_mail_job_failure_retryable(shared_tenant_engine: AsyncEngine) -> 
 
 async def test_mail_job_bad_payload(shared_tenant_engine: AsyncEngine) -> None:
     """负载非法 / 记录不存在按不可重试失败。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         result = await MailSendJob(channel=cast("BaseMailChannel", _MailChannel(ChannelResult(delivered=True)))).run(
             _context(session, payload=ConcurrentStableDict({"log_id": "x"}))
         )
@@ -148,7 +148,7 @@ async def test_mail_job_bad_payload(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_sms_job_success_and_failure(shared_tenant_engine: AsyncEngine) -> None:
     """短信成功 / 失败 / 记录不存在。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         log = SysSmsLog(recipient="13800000000", channel="aliyun", status="pending", content="****")
         session.add(log)
         await session.flush()
@@ -161,7 +161,7 @@ async def test_sms_job_success_and_failure(shared_tenant_engine: AsyncEngine) ->
         assert log.status == "success"
         assert channel.sent == ["13800000000"]
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         log = SysSmsLog(recipient="13800000000", channel="aliyun", status="pending", content="****")
         session.add(log)
         await session.flush()
@@ -174,7 +174,7 @@ async def test_sms_job_success_and_failure(shared_tenant_engine: AsyncEngine) ->
         await session.refresh(log)
         assert log.status == "failed"
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         result = await SmsSendJob(channel=cast("BaseSmsChannel", _SmsChannel(ChannelResult(delivered=True)))).run(
             _context(session, payload=_sms_payload(999999))
         )

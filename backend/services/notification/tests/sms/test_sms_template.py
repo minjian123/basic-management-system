@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import AliyunSmsSettings, SmsSettings, TencentSmsSettings
 from bms_core.core.exceptions import ConflictError, ParamError, SmsTemplateUnavailableError
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.schemas.sms import SmsTemplateCreateRequest
 from bms_notification.domains.notification.services.sms import SmsTemplateService
 
@@ -78,7 +78,7 @@ def _request(code: str = "order_notice") -> SmsTemplateCreateRequest:
 
 async def test_create_list_and_resolve(shared_tenant_engine: AsyncEngine) -> None:
     """新建 / 列表合并内置 / 发送解析。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = _service(session)
         detail = await service.create(_request())
         assert detail.code == "order_notice"
@@ -98,7 +98,7 @@ async def test_create_list_and_resolve(shared_tenant_engine: AsyncEngine) -> Non
 
 async def test_builtin_transactional(shared_tenant_engine: AsyncEngine) -> None:
     """内置验证码 / 密码重置按配置的厂商模板 ID 解析。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = _service(session)
         resolved = await service.resolve_for_send(
             "sms_captcha", params=ConcurrentStableDict({"code": "123456", "minutes": "5"})
@@ -115,7 +115,7 @@ async def test_builtin_transactional(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_duplicate_scene_and_missing(shared_tenant_engine: AsyncEngine) -> None:
     """同 code+渠道重复 / 场景非法 / 不存在。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = _service(session)
         await service.create(_request())
         with pytest.raises(ConflictError):
@@ -130,7 +130,7 @@ async def test_duplicate_scene_and_missing(shared_tenant_engine: AsyncEngine) ->
 
 async def test_update_and_test(shared_tenant_engine: AsyncEngine) -> None:
     """编辑停用 / 渲染测试。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = _service(session)
         detail = await service.create(_request())
         assert detail.id is not None
@@ -141,7 +141,7 @@ async def test_update_and_test(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_list_filter_source(shared_tenant_engine: AsyncEngine) -> None:
     """来源 / 场景筛选。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = _service(session)
         await service.create(_request())
         builtin = await service.list(page=1, size=50, source="builtin")

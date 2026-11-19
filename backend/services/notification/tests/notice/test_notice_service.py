@@ -20,7 +20,7 @@ from bms_core.core.exceptions import (
     NoticeTimeInvalidError,
     ParamError,
 )
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.models.notice import SysNotice, SysNoticeI18n, SysNoticeRead
 from bms_notification.domains.notification.notice_constants import (
     NOTICE_ACTION_OFFLINE,
@@ -115,7 +115,7 @@ async def _i18n_rows(session: AsyncSession, notice_id: int) -> ConcurrentStableD
 
 async def test_create_published_with_i18n_and_event(shared_tenant_engine: AsyncEngine) -> None:
     """直接发布：主表派生中文、附表两种语言、发 published 事件。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             outbox = Outbox()
@@ -145,7 +145,7 @@ async def test_create_published_with_i18n_and_event(shared_tenant_engine: AsyncE
 
 async def test_create_draft_then_publish(shared_tenant_engine: AsyncEngine) -> None:
     """草稿不发布事件；PUT publish=true 发布并写 published 事件。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             outbox = Outbox()
@@ -174,7 +174,7 @@ async def test_create_draft_then_publish(shared_tenant_engine: AsyncEngine) -> N
 
 async def test_update_published_emits_updated(shared_tenant_engine: AsyncEngine) -> None:
     """编辑已发布公告：标题 / 置顶更新并写 updated 事件。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             row = add_notice(session, title="旧标题")
@@ -197,7 +197,7 @@ async def test_update_published_emits_updated(shared_tenant_engine: AsyncEngine)
 
 async def test_update_conflicts_and_offshelf(shared_tenant_engine: AsyncEngine) -> None:
     """已下线不可编辑；不支持撤回草稿；不存在 70201。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             offline = add_notice(session, title="下线", status=NOTICE_STATUS_OFFLINE)
@@ -238,7 +238,7 @@ async def test_update_conflicts_and_offshelf(shared_tenant_engine: AsyncEngine) 
 
 async def test_delete_soft_deletes_i18n(shared_tenant_engine: AsyncEngine) -> None:
     """软删除公告并连带软删附表。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             service = _service(session)
@@ -261,7 +261,7 @@ async def test_delete_soft_deletes_i18n(shared_tenant_engine: AsyncEngine) -> No
 async def test_content_time_and_option_errors(shared_tenant_engine: AsyncEngine) -> None:
     """内容 / 时间 / 选项集 / 语言映射的失败分支。"""
     now = utc_now()
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             service = _service(session)
@@ -335,7 +335,7 @@ async def test_content_time_and_option_errors(shared_tenant_engine: AsyncEngine)
 
 async def test_content_byte_limit(shared_tenant_engine: AsyncEngine) -> None:
     """正文 UTF-8 字节超限 70205。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             service = _service(session)
@@ -353,7 +353,7 @@ async def test_content_byte_limit(shared_tenant_engine: AsyncEngine) -> None:
 async def test_list_detail_visibility_and_locale(shared_tenant_engine: AsyncEngine) -> None:
     """普通用户只看发布中；管理侧看全部；显式 locale 命中附表。"""
     now = utc_now()
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(2)
         try:
             published = add_notice(session, title="中文标题")
@@ -425,7 +425,7 @@ async def test_list_detail_visibility_and_locale(shared_tenant_engine: AsyncEngi
 async def test_mark_read_idempotent_and_errors(shared_tenant_engine: AsyncEngine) -> None:
     """回执幂等；不可见 70202；不存在 70201。"""
     now = utc_now()
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(3)
         try:
             row = add_notice(session, title="阅读")
@@ -451,7 +451,7 @@ async def test_mark_read_idempotent_and_errors(shared_tenant_engine: AsyncEngine
 
 async def test_read_stats_and_unavailable(shared_tenant_engine: AsyncEngine) -> None:
     """统计：应读 / 已读 / 未读与读>应读边界；应读不可用 70206。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             row = add_notice(session, title="统计")
@@ -478,7 +478,7 @@ async def test_read_stats_and_unavailable(shared_tenant_engine: AsyncEngine) -> 
 async def test_expire_batches_and_events(shared_tenant_engine: AsyncEngine) -> None:
     """过期扫描：批量下线、发 offline 事件、已下线不重复。"""
     now = utc_now()
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             first = add_notice(session, title="到期1", expire_at=now - timedelta(minutes=2))
@@ -497,7 +497,7 @@ async def test_expire_batches_and_events(shared_tenant_engine: AsyncEngine) -> N
 
 async def test_no_user_context(shared_tenant_engine: AsyncEngine) -> None:
     """无登录用户上下文：列表 / 详情取当前用户失败 10001。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         service = _service(session)
         with pytest.raises(ParamError):
             await service.list_published(page=1, size=10, now=utc_now(), locale="zh-CN")
@@ -507,7 +507,7 @@ async def test_locale_limit_aware_time_and_update_fields(shared_tenant_engine: A
     """语言数上限 / 带时区时间 / 编辑类型优先级与时间字段 / limit=0。"""
     from datetime import UTC, datetime
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             service = _service(session)
@@ -557,7 +557,7 @@ async def test_mark_read_integrity_race(shared_tenant_engine: AsyncEngine, monke
 
     from bms_notification.domains.notification.repositories.notice import NoticeRepository
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             row = add_notice(session, title="并发阅读")
@@ -588,7 +588,7 @@ async def test_expire_no_progress_breaks(shared_tenant_engine: AsyncEngine, monk
     """到期行全部并发冲突时不死循环，直接返回 0。"""
     from bms_notification.domains.notification.repositories.notice import NoticeRepository
 
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             row = add_notice(session, title="冲突", expire_at=utc_now() - timedelta(minutes=1))

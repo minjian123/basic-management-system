@@ -18,7 +18,7 @@ from bms_core.core.exceptions import NoticeAudienceUnavailableError
 from bms_core.db.session import get_uow
 from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.permission.base import BasePermissionChecker, get_permission_checker
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.api.notice import (
     _resolve_locale,
     expire_notices,
@@ -115,7 +115,7 @@ def _payload(
 
 async def test_crud_and_stats(service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine) -> None:
     """新建 / 列表 / 详情 / 回执 / 统计 / 编辑 / 删除。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         _overrides(service_app, session)
         created = await client.post(API, json=_payload(is_top=True))
         assert created.status_code == 200
@@ -155,7 +155,7 @@ async def test_visibility_for_non_manager(
     service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine
 ) -> None:
     """普通用户（无 notice:update）：草稿不可见、列表只剩发布中。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         published = add_notice(session, title="发布中")
         draft = add_notice(session, title="草稿", status=NOTICE_STATUS_DRAFT)
         await session.flush()
@@ -172,7 +172,7 @@ async def test_visibility_for_non_manager(
 async def test_errors(service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine) -> None:
     """非法类型 / 不存在 / 时间冲突 / 已下线状态冲突 / 统计不可用。"""
     now = utc_now()
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         offline = add_notice(session, title="下线", status=NOTICE_STATUS_OFFLINE)
         await session.flush()
         _overrides(service_app, session)
@@ -231,7 +231,7 @@ def test_audience_reader_dependency() -> None:
 
 async def test_internal_expire_handler(shared_tenant_engine: AsyncEngine) -> None:
     """内部过期端点处理函数：置下线并返回条数。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             add_notice(session, title="到期", expire_at=utc_now() - timedelta(minutes=1))

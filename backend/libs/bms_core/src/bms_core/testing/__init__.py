@@ -26,7 +26,7 @@ from bms_core.testing.output import (
     stdout_text,
 )
 from bms_core.testing.service import ServiceTestCase
-from bms_core.testing.transaction import begin_write, rollback_session
+from bms_core.testing.transaction import begin_write, rollback_session, write_session
 
 __all__ = (
     "ApiTestCase",
@@ -45,4 +45,5 @@ __all__ = (
     "run_cli",
     "stderr_text",
     "stdout_text",
+    "write_session",
 )

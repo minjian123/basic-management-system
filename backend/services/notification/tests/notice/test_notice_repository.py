@@ -10,7 +10,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.models.notice import SysNotice, SysNoticeRead
 from bms_notification.domains.notification.notice_constants import (
     NOTICE_STATUS_DRAFT,
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.kiwi_id(2518)
 async def test_page_published_visibility_and_sort(shared_tenant_engine: AsyncEngine) -> None:
     """公开列表只含发布中且未过期；置顶按更新时间、非置顶按发布时间。"""
     now = utc_now()
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         pinned_old = add_notice(session, title="置顶旧", is_top=True)
         pinned_new = add_notice(session, title="置顶新", is_top=True)
         normal_old = add_notice(session, title="普通旧", publish_at=now - timedelta(days=2))
@@ -45,7 +45,7 @@ async def test_page_published_visibility_and_sort(shared_tenant_engine: AsyncEng
 async def test_page_manage_filters(shared_tenant_engine: AsyncEngine) -> None:
     """管理列表：状态 / 类型 / 关键字 / 普通用户可见性。"""
     now = utc_now()
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         add_notice(session, title="Alpha 公告", notice_type="policy")
         add_notice(session, title="Beta 公告", status=NOTICE_STATUS_DRAFT)
         add_notice(session, title="Gamma 公告", expire_at=now - timedelta(minutes=1))
@@ -67,7 +67,7 @@ async def test_page_manage_filters(shared_tenant_engine: AsyncEngine) -> None:
 
 async def test_receipts_and_read_count(shared_tenant_engine: AsyncEngine) -> None:
     """回执按公告 + 用户取；已读人数去重。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         notice = add_notice(session, title="回执")
         await session.flush()
         repo = NoticeRepository(session)
@@ -85,7 +85,7 @@ async def test_receipts_and_read_count(shared_tenant_engine: AsyncEngine) -> Non
 async def test_expired_and_mark_offline(shared_tenant_engine: AsyncEngine) -> None:
     """过期扫描只取发布中到期行；乐观锁冲突返回 False。"""
     now = utc_now()
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         expired = add_notice(session, title="到期", expire_at=now - timedelta(seconds=1))
         add_notice(session, title="未到期", expire_at=now + timedelta(hours=1))
         add_notice(session, title="无过期")
@@ -111,7 +111,7 @@ async def test_expired_and_mark_offline(shared_tenant_engine: AsyncEngine) -> No
 
 async def test_get_any_and_receipt_ordering(shared_tenant_engine: AsyncEngine) -> None:
     """按主键取（含草稿）；多回执取最新活行；总数口径。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         draft = add_notice(session, title="草稿", status=NOTICE_STATUS_DRAFT)
         await session.flush()
         repo = NoticeRepository(session)
