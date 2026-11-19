@@ -164,13 +164,28 @@ _watch_lock = threading.Lock()
 """启动互斥。"""
 
 
-def note_hold(name: str, seconds: float, *, read_only: bool) -> None:
+def note_hold(
+    name: str,
+    seconds: float,
+    *,
+    read_only: bool,
+    wait_read: float,
+    wait_write: float,
+    held: float,
+) -> None:
     """记录一次门区间的持有时长（`BMS_TEST_GATE_HOLD=1` 时启用）。
+
+    **三段分开记**：`seconds` 含排队，单看它分不清「在门口等」与「真持有」——压测时
+    后者才是串行成本，前者只是争用。故另记等读锁、等写门与区间内实占时长：日志列依次为
+    「总时长 / 模式 / 门名 / 用例 / 等读 / 等写 / 实占」。
 
     Args:
         name: 门名。
-        seconds: 持有时长（秒）。
+        seconds: 门区间总时长（含排队，秒）。
         read_only: 只读区间 True。
+        wait_read: 等读锁时长（秒）。
+        wait_write: 等写门时长（秒；只读区间为 0）。
+        held: 区间内实占时长（秒）。
     """
     if os.environ.get(HOLD_ENV, "").strip() not in {"1", "true", "yes", "on"}:
         return
@@ -179,7 +194,7 @@ def note_hold(name: str, seconds: float, *, read_only: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with contextlib.suppress(OSError), path.open("a", encoding="utf-8") as handle:
         mode = "read" if read_only else "write"
-        handle.write(f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\n")
+        handle.write(f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{wait_read:.3f}\t{wait_write:.3f}\t{held:.3f}\n")
 
 
 def hold_enabled() -> bool:
@@ -191,14 +206,29 @@ def hold_enabled() -> bool:
     return os.environ.get(HOLD_ENV, "").strip() in {"1", "true", "yes", "on"}
 
 
-def note_slow_hold(name: str, seconds: float, *, read_only: bool, frames: str) -> None:
-    """记录一次「超过 1s」的持有，附取门时的调用栈（用来定位长会话从哪来）。
+def note_slow_hold(
+    name: str,
+    seconds: float,
+    *,
+    read_only: bool,
+    wait_read: float,
+    wait_write: float,
+    held: float,
+    frames: str,
+) -> None:
+    """记录一次「门区间超过 1s」的慢区间，附取门时的调用栈（用来定位长会话从哪来）。
+
+    阈值按**门区间总时长**（含排队）判定：排队本身也是被堵的成本，不能因为「没真持有」
+    就漏掉；三段时长同时落盘，读的人可直接分辨这一条是排队还是真持有。
 
     Args:
         name: 门名。
-        seconds: 持有时长（秒）。
+        seconds: 门区间总时长（含排队，秒）。
         read_only: 只读区间 True。
-        frames: 取门时的调用栈（`note_hold` 同批采集）。
+        wait_read: 等读锁时长（秒）。
+        wait_write: 等写门时长（秒；只读区间为 0）。
+        held: 区间内实占时长（秒）。
+        frames: 取门时的调用栈。
     """
     if not hold_enabled() or seconds < 1.0:
         return
@@ -206,8 +236,9 @@ def note_slow_hold(name: str, seconds: float, *, read_only: bool, frames: str) -
     path = Path(".cache/test/gate-hold-slow.log")
     path.parent.mkdir(parents=True, exist_ok=True)
     mode = "read" if read_only else "write"
+    prefix = f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{wait_read:.3f}\t{wait_write:.3f}\t{held:.3f}"
     with contextlib.suppress(OSError), path.open("a", encoding="utf-8") as handle:
-        handle.write(f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{frames}" + chr(10))
+        handle.write(f"{prefix}\t{frames}" + chr(10))
 
 
 def dump_process_stacks(path: Path, *, reason: str, detail: str = "") -> Path:

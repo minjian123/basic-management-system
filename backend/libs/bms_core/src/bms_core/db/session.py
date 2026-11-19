@@ -293,6 +293,7 @@ async def session_scope(
     *,
     db_key: str | None = None,
     read_only: bool = False,
+    gate_wait: float | None = None,
     factory: SessionFactory | None = None,
 ) -> AsyncGenerator[DbSession]:
     """统一会话入口：按库键 / 当前租户上下文取引擎并开会话（按方言分流）。
@@ -305,14 +306,16 @@ async def session_scope(
     Args:
         registry: 引擎注册表。
         db_key: 数据源键；None 取当前租户库键。
-        read_only: 是否只读。
+        read_only: 是否取只读引擎（副本，无副本回落主库）。
+        gate_wait: 等门上限（秒）；None 用门的默认（单次写 5s、读 180s），整段临界区传
+            `GATE_CRITICAL_WAIT`。
         factory: 会话工厂（仅异步方言路径）；None 新建缺省工厂。
 
     Yields:
         DbSession: 会话（异步会话或同步方言下的同步门面）。
     """
     resolved = db_key if db_key is not None else current_tenant_context().db_key
-    async with db_access_gate(resolved, read_only=read_only):
+    async with db_access_gate(resolved, read_only=read_only, wait=gate_wait):
         if registry.is_sync_only(resolved):  # pragma: no cover - 同步方言仅达梦等外部库使用，SQLite 用例走异步分支
             sync_engine = await registry.get_sync(resolved, read_only=read_only)
             async with sync_session_scope(sync_engine) as sync_session:

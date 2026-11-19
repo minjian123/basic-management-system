@@ -11,10 +11,17 @@ import contextlib
 import inspect
 from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import Any
+from typing import Any, Final
 
 GateHook = Callable[[str, bool, "float | None"], AbstractAsyncContextManager[None]]
 """门钩子签名：（数据源键, 是否只读, 等待上限）→ 异步上下文管理器。"""
+
+GATE_CRITICAL_WAIT: Final = 180.0
+"""整段临界区的等门上限（秒）：建表、用例级独占、显式写区间等「整段」场景用它。
+
+与单次写的短上限（测试基座默认 5s）分工：单次写是毫秒级，等超几秒就是有长占用，报错更有用；
+而整段临界区本身合法地要跑若干秒（首次建表、跨多步全局状态），用短上限会把正常作业打死。
+"""
 
 _hook: GateHook | None = None
 """已注入的门钩子；None 表示直通（生产默认）。"""

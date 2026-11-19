@@ -22,6 +22,7 @@ from bms_core.db.session import DbSession
 from bms_core.registry.declarations import (
     DECLARATION_KINDS,
     DeclarationPayload,
+    DeclarationPlan,
     DeclarationReport,
     RegistrySnapshot,
     plan_declarations,
@@ -52,14 +53,20 @@ class DeclarationRegistryService(BaseFrameworkObject):
         self._session = session
         self._repo = DeclarationRepository(session)
 
-    async def register(self, payload: DeclarationPayload) -> DeclarationReport:
-        """执行一次全量注册（校验 → 对账 → 落库 → 投影）。
+    async def plan(
+        self, payload: DeclarationPayload
+    ) -> tuple[DeclarationPlan, ConcurrentStableList[str], RegistrySnapshot]:
+        """校验并算出对账计划（**只读，不写库**）。
+
+        `register` 与启动期预检共用这一段：启动时先用读门算一次计划，计划为空就完全不进
+        写门（写门是整库独占，几十路并发启动时每次写都要排队，实测这是启动最贵的一步）。
 
         Args:
             payload: 注册载荷（八类声明全集）。
 
         Returns:
-            DeclarationReport: 逐类计数 + 警示（`snapshot_version` 为服务行数派生值）。
+            tuple: 对账计划、告警、比对所依据的现状快照（调用方可直接拿去做进程内投影，
+            省掉二次查库）。
 
         Raises:
             CatalogError: 校验不过或跨产品撞键（拒绝注册，不写库）。
@@ -78,6 +85,21 @@ class DeclarationRegistryService(BaseFrameworkObject):
         plan, conflicts = plan_declarations(payload, current)
         if conflicts:
             raise CatalogError(f"产品声明注册冲突（{payload.product_key}）：" + "；".join(conflicts))
+        return plan, warnings, current
+
+    async def register(self, payload: DeclarationPayload) -> DeclarationReport:
+        """执行一次全量注册（校验 → 对账 → 落库 → 投影）。
+
+        Args:
+            payload: 注册载荷（八类声明全集）。
+
+        Returns:
+            DeclarationReport: 逐类计数 + 警示（`snapshot_version` 为服务行数派生值）。
+
+        Raises:
+            CatalogError: 校验不过或跨产品撞键（拒绝注册，不写库）。
+        """
+        plan, warnings, _ = await self.plan(payload)
         await self._repo.apply(plan, product_key=payload.product_key)
         # 投影按「注册表快照整体重建」：声明演进（同键换内容）与退役都能如实反映到视图，
         # 不走逐条增量（视图层的「同键异值即拒」不应为投影放宽）

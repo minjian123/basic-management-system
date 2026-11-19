@@ -123,6 +123,22 @@ def _patch_session_scope(monkeypatch: pytest.MonkeyPatch, session: AsyncSession)
     monkeypatch.setattr(module, "session_scope", _scope)
 
 
+class _DeclaredService:
+    """注册服务替身基类：预检固定返回「有差异」，让流程继续走到注册路径。"""
+
+    async def plan(self, *_args: object, **_kwargs: object) -> Any:
+        """预检对账计划（替身：非空，迫使走注册路径）。
+
+        Args:
+            *_args: 位置参数（未使用）。
+            **_kwargs: 关键字参数（未使用）。
+
+        Returns:
+            Any: （非空计划, 空告警, 空快照）。
+        """
+        return SimpleNamespace(is_empty=lambda: False), ConcurrentStableFrozenList(), None
+
+
 def test_manifest_path_requires_platform_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """清单定位：命中返回路径；缺失抛 `CatalogError`。"""
     other = tmp_path / "demo.toml"
@@ -174,7 +190,7 @@ async def test_bootstrap_logs_report_warnings(
     monkeypatch.setattr(module, "local_manifest_paths", lambda: ConcurrentStableList([_manifest_file(tmp_path)]))
     _patch_session_scope(monkeypatch, session)
 
-    class _Warned:
+    class _Warned(_DeclaredService):
         """注册服务替身：回执含一条警示。"""
 
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -293,7 +309,7 @@ async def test_bootstrap_propagates_catalog_error(
     monkeypatch.setattr(module, "local_manifest_paths", lambda: ConcurrentStableList([_manifest_file(tmp_path)]))
     _patch_session_scope(monkeypatch, session)
 
-    class _Rejected:
+    class _Rejected(_DeclaredService):
         """注册服务替身：固定抛 `CatalogError`。"""
 
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -329,7 +345,7 @@ async def test_bootstrap_wraps_unexpected_error(
     monkeypatch.setattr(module, "local_manifest_paths", lambda: ConcurrentStableList([_manifest_file(tmp_path)]))
     _patch_session_scope(monkeypatch, session)
 
-    class _Broken:
+    class _Broken(_DeclaredService):
         """注册服务替身：固定抛 RuntimeError。"""
 
         def __init__(self, *_args: object, **_kwargs: object) -> None:

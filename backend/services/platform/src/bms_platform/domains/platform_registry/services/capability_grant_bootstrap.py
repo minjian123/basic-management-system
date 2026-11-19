@@ -27,6 +27,7 @@ from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.plugin import resolve_plugin
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
@@ -90,6 +91,8 @@ async def bootstrap_capability_grants(app: FastAPI) -> None:
         async with session_scope(
             app.state.engine_registry,
             db_key=PLATFORM_DB_KEY,
+            # 启动期整段作业：首次要按声明重算全部授权基线，用单次写的短上限会被排队误杀
+            gate_wait=GATE_CRITICAL_WAIT,
             factory=app.state.session_factory,
         ) as session:
             service = CapabilityGrantService(

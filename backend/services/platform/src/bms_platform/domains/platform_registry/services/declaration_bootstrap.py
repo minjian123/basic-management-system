@@ -18,10 +18,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.registry.declarations import DeclarationPayload, from_manifest
 from bms_core.registry.products import load_product_manifest, local_manifest_paths
+from bms_core.registry.projection import project_registry
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
 
@@ -69,13 +71,28 @@ async def bootstrap_platform_declarations(app: FastAPI) -> None:
     if payload.product_key != service_key:
         raise CatalogError(f"平台清单归属与服务标识不一致：清单 {payload.product_key}，服务 {service_key}")
     payload = with_platform_services(payload)
+    engine_registry = app.state.engine_registry
+    session_factory = app.state.session_factory
     try:
+        # 一次写门内完成「比对 → 有差异才写」：写门整库独占，分两段会让预检读在门外与别人的
+        # 写事务互等（SQLite rollback journal 读写互斥），比原来更慢；合在一段既保留
+        # 「无差异不写库」，又只付一次排队。
         async with session_scope(
-            app.state.engine_registry,
+            engine_registry,
             db_key=PLATFORM_DB_KEY,
-            factory=app.state.session_factory,
+            # 首次全量注册是「整段临界区」：库刚建好时要写八类声明全量，合法地要跑若干秒，
+            # 用单次写的短上限会把正常首启打死（实测首次 5s+ 直接超时拒启）。
+            gate_wait=GATE_CRITICAL_WAIT,
+            factory=session_factory,
         ) as session:
-            report = await DeclarationRegistryService(session).register(payload)
+            service = DeclarationRegistryService(session)
+            plan, _, current_snapshot = await service.plan(payload)
+            if plan.is_empty():
+                # 无差异：不写库，但进程内视图仍须按现状重建（新进程启动时视图是空的）
+                project_registry(current_snapshot)
+                _LOGGER.info("declaration_register_skipped", reason="no_change")
+                return
+            report = await service.register(payload)
             # 事务边界归调用方（`session_scope` 只建会话）：不 commit 则本次注册随会话释放回滚，
             # 表现为「日志显示注册成功、库里查不到行」，并让后续产品进程经 HTTP 拉取时对账全红。
             await session.commit()

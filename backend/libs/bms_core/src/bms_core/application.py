@@ -69,7 +69,7 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.keys import PLATFORM_DB_KEY, PLATFORM_SERVICE_KEY
 from bms_core.db.registry import EngineRegistry, pool_budget_warnings, tenant_pool_budget_warnings
-from bms_core.db.session import SessionFactory, session_scope
+from bms_core.db.session import DbSession, SessionFactory, session_scope
 from bms_core.db.tenant_remote import register_remote_tenant_source
 from bms_core.db.tenant_source import build_tenant_lookup
 from bms_core.events.base import BaseEventConsumerGroup
@@ -292,13 +292,13 @@ async def _seed_dev_table_ownership(settings: Settings, app: FastAPI) -> None:
     if identity.name != PLATFORM_SERVICE_KEY:
         # 表归属登记归平台服务库（与 `_validate_table_ownership` 同口径），产品服务不读不写
         return
-    async with session_scope(
-        cast("EngineRegistry", app.state.engine_registry),
-        db_key=PLATFORM_DB_KEY,
-        factory=cast("SessionFactory", app.state.session_factory),
-    ) as session:
-        existing = (await session.execute(select(SysTableOwnership.table_name))).scalars().first()
-        if existing is not None:
+    registry = cast("EngineRegistry", app.state.engine_registry)
+    factory = cast("SessionFactory", app.state.session_factory)
+    async with session_scope(registry, db_key=PLATFORM_DB_KEY, factory=factory) as session:
+        # 探测与写入放在**同一道写门内**：SQLite（rollback journal）读写互斥，门外另起一次
+        # 「只读探测」会在别处持写门时阻塞，反过来又把它自己的读份额压在写门前面，
+        # 形成「读者等写、写者等读者」的互等（13_08 实测会把启动拖到短上限超时）。
+        if await _table_ownership_seeded(session):
             return
         for record in table_ownership_view():
             session.add(
@@ -313,6 +313,19 @@ async def _seed_dev_table_ownership(settings: Settings, app: FastAPI) -> None:
             )
         await session.commit()
     get_logger("bms").info("table_ownership_seeded_dev")
+
+
+async def _table_ownership_seeded(session: DbSession) -> bool:
+    """表归属登记是否已有行（播种前的只读探测）。
+
+    Args:
+        session: 平台库会话。
+
+    Returns:
+        bool: 已有任意一行返回 True。
+    """
+    existing = (await session.execute(select(SysTableOwnership.table_name))).scalars().first()
+    return existing is not None
 
 
 async def _validate_table_ownership(app: FastAPI) -> None:

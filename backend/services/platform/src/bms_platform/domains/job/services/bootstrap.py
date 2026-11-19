@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.registry.products import load_product_manifest, local_manifest_paths
@@ -67,6 +68,8 @@ async def bootstrap_job_types(app: FastAPI) -> None:
             session_scope(
                 app.state.engine_registry,
                 db_key=PLATFORM_DB_KEY,
+                # 首启要逐条比对并写入全部作业类型（整段临界区），用单次写的短上限会误杀
+                gate_wait=GATE_CRITICAL_WAIT,
                 factory=app.state.session_factory,
             ) as session,
             session.begin(),

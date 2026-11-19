@@ -144,12 +144,14 @@ def test_note_hold_writes_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
     monkeypatch.chdir(tmp_path)
 
-    diagnostics.note_hold("tenant", 0.25, read_only=False)
+    diagnostics.note_hold("tenant", 0.25, read_only=False, wait_read=0.01, wait_write=0.2, held=0.04)
 
     text = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8")
     assert "0.250" in text
     assert "write" in text
     assert "tenant" in text
+    # 三段分开落盘：总时长 / 等读 / 等写 / 实占，缺一段就无法区分排队与真持有
+    assert "\t0.010\t0.200\t0.040" in text
 
 
 def test_note_hold_respects_switch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -157,7 +159,7 @@ def test_note_hold_respects_switch(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv(diagnostics.HOLD_ENV, raising=False)
     monkeypatch.chdir(tmp_path)
 
-    diagnostics.note_hold("tenant", 0.25, read_only=True)
+    diagnostics.note_hold("tenant", 0.25, read_only=True, wait_read=0.0, wait_write=0.0, held=0.25)
 
     assert not (tmp_path / ".cache/test/gate-hold.log").exists()
 
@@ -167,10 +169,10 @@ def test_note_slow_hold_only_when_over_one_second(tmp_path: Path, monkeypatch: p
     monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
     monkeypatch.chdir(tmp_path)
 
-    diagnostics.note_slow_hold("tenant", 0.5, read_only=True, frames="a <- b")
+    diagnostics.note_slow_hold("tenant", 0.5, read_only=True, wait_read=0.0, wait_write=0.0, held=0.5, frames="a <- b")
     assert not (tmp_path / ".cache/test/gate-hold-slow.log").exists()
 
-    diagnostics.note_slow_hold("tenant", 1.5, read_only=True, frames="a <- b")
+    diagnostics.note_slow_hold("tenant", 1.5, read_only=True, wait_read=0.1, wait_write=1.0, held=0.4, frames="a <- b")
     text = (tmp_path / ".cache/test/gate-hold-slow.log").read_text(encoding="utf-8")
     assert "1.500" in text
     assert "a <- b" in text
