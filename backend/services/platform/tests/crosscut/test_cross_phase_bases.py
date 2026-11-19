@@ -7,7 +7,7 @@ from typing import cast
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.cache.base import CacheRegion, build_cache_key
@@ -22,7 +22,7 @@ from bms_core.sharding.null import NullShardingRouter
 from bms_core.tasks.base import BaseTask
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import begin_write
 from bms_platform.repositories.demo_repository import DemoRepository
 
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
@@ -235,15 +235,17 @@ async def test_task_base_and_models(shared_platform_engine: AsyncEngine, ns: Nam
     assert task.run(1, key="v") == ((1,), {"key": "v"})
     assert {"sys_task", "sys_task_log"} <= set(Base.metadata.tables)
     await ensure_tables(shared_platform_engine, _TABLES)
-    async with rollback_session(shared_platform_engine) as session:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as session:
+        await begin_write(await session.connection())
         sys_task = SysTask(
             code=ns.code("task"), name="demo_task", handler="bms_core.tasks.demo:DemoTask", cron=None, enabled=True
         )
         session.add(sys_task)
-        await session.commit()
+        await session.flush()
         log = SysTaskLog(task_id=sys_task.id, status="success", result="ok")
         session.add(log)
-        await session.commit()
+        await session.flush()
         assert isinstance(sys_task, BaseModel)
         assert log.id > 0
 

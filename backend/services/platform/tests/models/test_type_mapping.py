@@ -31,7 +31,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.engine import Dialect
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.schema import CreateTable
 
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -39,7 +39,7 @@ from bms_core.models.base import SnowflakeId
 from bms_core.models.platform.catalog import SysModule
 from bms_core.models.platform.task import SysTask
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import begin_write
 
 _SYS_MODULE_TABLE = cast("Table", SysModule.__table__)
 
@@ -189,7 +189,7 @@ def test_index_naming_convention() -> None:
 async def test_sqlite_soft_delete_unique_semantics(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
     """SQLite 真库：未删行（NULL deleted_at）共存、删除后同键复用、DDL 索引名对齐。
 
-    单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚）；
+    单库叠加口径（04-6-2）：库用共享平台库、写入不提交（会话结束回滚）且事务开头取 SQLite 写锁；
     模块键带命名空间前缀，行数断言只看本用例的键。
     """
     async with shared_platform_engine.begin() as connection:
@@ -199,17 +199,19 @@ async def test_sqlite_soft_delete_unique_semantics(shared_platform_engine: Async
         )
     assert indexes == {"idx_sys_module_deleted_at"}
     key = ns.code("sys")
-    async with rollback_session(shared_platform_engine) as session:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as session:
+        await begin_write(await session.connection())
         session.add(_module(key, "01"))
         session.add(_module(ns.code("wf"), "02"))
-        await session.commit()
+        await session.flush()
 
         first = (await session.execute(select(SysModule).where(SysModule.module_key == key))).scalar_one()
         first.soft_delete()
-        await session.commit()
+        await session.flush()
 
         session.add(_module(key, "11"))
-        await session.commit()
+        await session.flush()
         rows = (await session.execute(select(SysModule).where(SysModule.module_key == key))).scalars().all()
         assert len(rows) == 2
         assert sorted(row.deleted_at is None for row in rows) == [False, True]
@@ -221,9 +223,11 @@ async def test_boolean_storage_roundtrip(shared_platform_engine: AsyncEngine, ns
     code = ns.code("task")
     async with shared_platform_engine.begin() as connection:
         await connection.run_sync(lambda conn: cast("Table", SysTask.__table__).create(conn, checkfirst=True))
-    async with rollback_session(shared_platform_engine) as session:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as session:
+        await begin_write(await session.connection())
         session.add(SysTask(code=code, name="demo", handler="bms_core.tasks.demo"))
-        await session.commit()
+        await session.flush()
         enabled = (
             await session.execute(text("SELECT enabled FROM sys_task WHERE code = :code"), {"code": code})
         ).scalar_one()

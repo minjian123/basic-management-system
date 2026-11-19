@@ -13,7 +13,7 @@ from dataclasses import replace
 
 import pytest
 from sqlalchemy import select, text, update
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.collaboration.usage import CapabilityUsage
 from bms_core.core.concurrent import ConcurrentStableFrozenList
@@ -31,7 +31,7 @@ from bms_core.services.module_registry import (
     CollaborationRecord,
     ModuleRecord,
 )
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import begin_write
 from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.services.declaration_bootstrap import with_platform_services
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
@@ -128,7 +128,9 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
     Yields:
         AsyncSession: 绑定外层事务的会话。
     """
-    async with rollback_session(shared_platform_engine) as db:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as db:
+        await begin_write(await db.connection())
         yield db
 
 
@@ -243,7 +245,7 @@ async def test_corrupt_json_raises(session: AsyncSession) -> None:
     repository = DeclarationRepository(session)
     await _apply(repository, _payload())
     await session.execute(update(SysCollaboration).values(default_consumers="not-json"))
-    await session.commit()
+    await session.flush()
 
     with pytest.raises(CatalogError, match="JSON 字段损坏"):
         await repository.load_snapshot()
@@ -266,7 +268,7 @@ async def test_corrupt_maps_from_json_raises(session: AsyncSession) -> None:
     repository = DeclarationRepository(session)
     await _apply(repository, _payload())
     await session.execute(update(SysErrcode).values(maps_from="not-json"))
-    await session.commit()
+    await session.flush()
 
     with pytest.raises(CatalogError, match="整数数组"):
         await repository.load_snapshot()
@@ -430,7 +432,7 @@ async def test_reapply_after_row_deleted_inserts_again(session: AsyncSession) ->
         (await session.execute(select(SysCollaboration).where(SysCollaboration.product_key == "demo"))).scalars().all()
     ):
         await session.delete(row)
-    await session.commit()
+    await session.flush()
 
     await _apply(repository, _payload("/api/v1/demo/roles-v2"))
 
@@ -452,7 +454,7 @@ async def test_apply_inserts_when_updated_row_missing(session: AsyncSession) -> 
         (await session.execute(select(SysCollaboration).where(SysCollaboration.product_key == "demo"))).scalars().all()
     ):
         await session.delete(row)
-    await session.commit()
+    await session.flush()
 
     await repository.apply(plan, product_key="demo")
 
@@ -472,7 +474,7 @@ async def test_apply_skips_retire_when_row_missing(session: AsyncSession) -> Non
         (await session.execute(select(SysCollaboration).where(SysCollaboration.product_key == "demo"))).scalars().all()
     ):
         await session.delete(row)
-    await session.commit()
+    await session.flush()
 
     await repository.apply(plan, product_key="demo")
 
@@ -485,7 +487,7 @@ async def test_corrupt_mapping_json_raises(session: AsyncSession) -> None:
     repository = DeclarationRepository(session)
     await _apply(repository, _payload())
     await session.execute(text("UPDATE sys_seed SET tables = 'not-json'"))
-    await session.commit()
+    await session.flush()
 
     with pytest.raises(CatalogError, match="JSON 字段损坏"):
         await repository.load_snapshot()
@@ -517,7 +519,7 @@ async def test_empty_json_fields_read_as_empty_collections(session: AsyncSession
     await _apply(repository, _payload())
     await session.execute(update(SysCollaboration).values(default_consumers=""))
     await session.execute(text("UPDATE sys_seed SET tables = ''"))
-    await session.commit()
+    await session.flush()
 
     snapshot = await repository.load_snapshot()
 

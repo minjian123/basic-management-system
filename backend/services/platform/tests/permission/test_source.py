@@ -8,7 +8,7 @@
 - `build_platform_source`：按请求装配来源（含 `[permission].options` 读取）；
 - `register_platform_permission`：真实校验器 + 数据来源工厂 + 字段权限工厂登记（幂等）。
 
-单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）；
+单库叠加口径（04-6-2）：库用共享平台库、写入不提交（会话结束回滚）且事务开头取 SQLite 写锁；
 主体换成**每次新建的命名空间用户**（`ns` 前缀），使 `len(role_ids) == 1` 一类断言在用例叠加下仍成立。
 """
 
@@ -20,7 +20,7 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI, Request
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -48,7 +48,7 @@ from bms_core.permission.snapshot import set_current_permission_snapshot
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import begin_write
 from bms_platform.domains.permission_meta.permission.checker import (
     PLATFORM_DATA_SOURCE_KEY,
     build_platform_source,
@@ -245,7 +245,9 @@ async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncI
         _Scenario: 引擎与两个本用例专属用户主键。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    async with rollback_session(shared_platform_engine) as session:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as session:
+        await begin_write(await session.connection())
         users = UserRepository(session)
         user = await users.create(username=ns.code("reviewer"), password_hash="x", name="复核员")
         bare = await users.create(username=ns.code("bare"), password_hash="x", name="无角色")

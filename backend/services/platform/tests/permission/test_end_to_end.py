@@ -8,7 +8,7 @@
 数据来源以**本文件内的会话来源**实现（接缝可替换的直接演示）：取数与映射走真实仓储，算法走基座引擎
 `bms_core.permission.engine`——与生产装配（`bms_platform.domains.permission_meta.permission.source`）同一套口径。
 
-单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）；
+单库叠加口径（04-6-2）：库用共享平台库、写入不提交（会话结束回滚）且事务开头取 SQLite 写锁；
 主体换成**每次新建的命名空间用户**、角色码带命名空间前缀，断言只看本用例自造的行。
 """
 
@@ -19,7 +19,7 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -57,7 +57,7 @@ from bms_core.permission.sources import (
 from bms_core.permission.subject import PermissionSubjectService
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import begin_write
 from bms_platform.domains.role.permission.field_provider import StaticFieldPermissionProvider
 from bms_platform.domains.role.repositories.role import (
     DataScopeRepository,
@@ -216,7 +216,9 @@ async def scenario(shared_platform_engine: AsyncEngine, ns: Namespace) -> AsyncI
         _Scenario: 回滚会话与本用例专属用户 / 角色主键。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    async with rollback_session(shared_platform_engine) as session:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as session:
+        await begin_write(await session.connection())
         user = await UserRepository(session).create(username=ns.code("reviewer"), password_hash="x", name="复核员")
         role = await _seed(session, ns, user.id)
         yield _Scenario(session=session, user_id=user.id, role_id=role.id)
@@ -265,7 +267,7 @@ async def _seed(session: AsyncSession, ns: Namespace, user_id: int) -> SysRole:
     session.add(
         SysDataScope(role_id=role.id, data_source_key="role", policy_type=POLICY_TYPE_SELECT, config=list(config))
     )
-    await session.commit()
+    await session.flush()
     return role
 
 

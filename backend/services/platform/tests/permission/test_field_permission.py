@@ -4,7 +4,7 @@
 （任一角色不可见即不可见 / 任一不可编辑即不可编辑）、表单过滤与空角色短路、默认全开
 （未收窄字段不进结果）、快照 `field_state` 与豁免层级。
 
-单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）；
+单库叠加口径（04-6-2）：库用共享平台库、写入不提交（会话结束回滚）且事务开头取 SQLite 写锁；
 角色主键按命名空间派生（`_role_id`），使「本角色只有一条收窄行」一类断言在用例叠加下仍成立。
 """
 
@@ -15,7 +15,7 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.platform.menu_form import SysField
@@ -30,7 +30,7 @@ from bms_core.permission.field import (
 from bms_core.permission.snapshot import TIER_STANDARD, TIER_SYSTEM_ADMIN, PermissionSnapshot
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import begin_write
 from bms_platform.domains.role.permission.field_provider import (
     StaticFieldPermissionProvider,
     build_static_field_provider,
@@ -104,7 +104,9 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
         AsyncSession: 回滚会话（用例内直插种子数据，结束整体回滚）。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    async with rollback_session(shared_platform_engine) as opened:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as opened:
+        await begin_write(await opened.connection())
         yield opened
 
 
@@ -130,7 +132,7 @@ async def _seed(session: AsyncSession, ns: Namespace) -> _Seeded:
             SysRoleField(role_id=loose_role, form_id=_FORM_ID, field_id=salary.id, visible=True, editable=False),
         ]
     )
-    await session.commit()
+    await session.flush()
     keys: ConcurrentStableDict[str, int] = ConcurrentStableDict()
     keys.set("salary", salary.id)
     keys.set("name", name.id)
@@ -181,7 +183,7 @@ async def test_static_provider_skips_unresolvable_field_key(session: AsyncSessio
     session.add(
         SysRoleField(role_id=seeded.ghost_role, form_id=_FORM_ID, field_id=999999, visible=False, editable=False)
     )
-    await session.commit()
+    await session.flush()
 
     provider = StaticFieldPermissionProvider(session, session)
     roles: ConcurrentStableSet[int] = ConcurrentStableSet()
