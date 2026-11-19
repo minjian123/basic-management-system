@@ -172,12 +172,16 @@ def note_hold(
     wait_read: float,
     wait_write: float,
     held: float,
+    reentered: bool = False,
 ) -> None:
     """记录一次门区间的持有时长（`BMS_TEST_GATE_HOLD=1` 时启用）。
 
     **三段分开记**：`seconds` 含排队，单看它分不清「在门口等」与「真持有」——压测时
     后者才是串行成本，前者只是争用。故另记等读锁、等写门与区间内实占时长：日志列依次为
-    「总时长 / 模式 / 门名 / 用例 / 等读 / 等写 / 实占」。
+    「总时长 / 模式 / 门名 / 用例 / 等读 / 等写 / 实占 / 重入」。
+
+    末列「重入」是**进程内写门重入**标记：进入写门前若已有本进程任务持有写门，取门不会排队
+    （`wait_write≈0`），区间内的等待改由 SQLite 锁承担——这正是「实占 5s 但等写 0」的成因。
 
     Args:
         name: 门名。
@@ -186,6 +190,7 @@ def note_hold(
         wait_read: 等读锁时长（秒）。
         wait_write: 等写门时长（秒；只读区间为 0）。
         held: 区间内实占时长（秒）。
+        reentered: 进入写门时本进程已有其它任务持有写门。
     """
     if os.environ.get(HOLD_ENV, "").strip() not in {"1", "true", "yes", "on"}:
         return
@@ -194,7 +199,10 @@ def note_hold(
     path.parent.mkdir(parents=True, exist_ok=True)
     with contextlib.suppress(OSError), path.open("a", encoding="utf-8") as handle:
         mode = "read" if read_only else "write"
-        handle.write(f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{wait_read:.3f}\t{wait_write:.3f}\t{held:.3f}\n")
+        flag = 1 if reentered else 0
+        handle.write(
+            f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{wait_read:.3f}\t{wait_write:.3f}\t{held:.3f}\t{flag}\n"
+        )
 
 
 def hold_enabled() -> bool:
@@ -215,11 +223,17 @@ def note_slow_hold(
     wait_write: float,
     held: float,
     frames: str,
+    reentered: bool = False,
+    holders: str = "",
 ) -> None:
     """记录一次「门区间超过 1s」的慢区间，附取门时的调用栈（用来定位长会话从哪来）。
 
     阈值按**门区间总时长**（含排队）判定：排队本身也是被堵的成本，不能因为「没真持有」
     就漏掉；三段时长同时落盘，读的人可直接分辨这一条是排队还是真持有。
+
+    列依次为「总时长 / 模式 / 门名 / 用例 / 等读 / 等写 / 实占 / 调用栈 / 重入 / 进入前持有者」：
+    后两列是任务维度采样的落点——「重入=1」说明取写门没排队，慢在门内（或 SQLite 锁上），
+    「进入前持有者」直接点名是哪个任务把写门占着。
 
     Args:
         name: 门名。
@@ -229,6 +243,8 @@ def note_slow_hold(
         wait_write: 等写门时长（秒；只读区间为 0）。
         held: 区间内实占时长（秒）。
         frames: 取门时的调用栈。
+        reentered: 进入写门时本进程已有其它任务持有写门。
+        holders: 进入前写门的持有任务描述（为空表示无人持有）。
     """
     if not hold_enabled() or seconds < 1.0:
         return
@@ -237,8 +253,9 @@ def note_slow_hold(
     path.parent.mkdir(parents=True, exist_ok=True)
     mode = "read" if read_only else "write"
     prefix = f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{wait_read:.3f}\t{wait_write:.3f}\t{held:.3f}"
+    tail = f"{1 if reentered else 0}\t{holders or '-'}"
     with contextlib.suppress(OSError), path.open("a", encoding="utf-8") as handle:
-        handle.write(f"{prefix}\t{frames}" + chr(10))
+        handle.write(f"{prefix}\t{frames}\t{tail}" + chr(10))
 
 
 def dump_process_stacks(path: Path, *, reason: str, detail: str = "") -> Path:

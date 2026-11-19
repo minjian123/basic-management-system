@@ -79,6 +79,8 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
     wait_read = time.monotonic() - started
     wait_write = 0.0
     write_wait_start = 0.0
+    holders_before = ""
+    reentered = False
     try:
         if read_only:
             yield
@@ -87,6 +89,11 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
         try:
             # 解锁读锁：让出自己这份份额（同进程其它会话的份额不受影响）。
             await target.release_read(token)
+            # 进入前先抓一份持有者：进程级写门可重入，`wait_write≈0` 既可能是「没人占」，
+            # 也可能是「同进程另一协程占着」；读持有者同理——SQLite rollback journal 下
+            # 别人开着的读事务会把写者挡住，而等写门那一列看不出来（13_08 调优）。
+            reentered = len(target.write_holders()) > 0
+            holders_before = " | ".join(target.holder_tasks())
             # 并发的写在这里排队；拿到写门后独占，期间新读锁加不上。
             write_wait_start = time.monotonic()
             restored = await target.acquire_write(wait=wait)
@@ -103,7 +110,15 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
         # 实占 = 总时长 − 等读 − 等写门；三段落盘才能区分「在门口排队」与「区间内真持有」，
         # 压测调优只认后者是串行成本（前者是争用产物，随排队消失自然下降）。
         held = max(elapsed - wait_read - wait_write, 0.0)
-        diagnostics.note_hold(name, elapsed, read_only=read_only, wait_read=wait_read, wait_write=wait_write, held=held)
+        diagnostics.note_hold(
+            name,
+            elapsed,
+            read_only=read_only,
+            wait_read=wait_read,
+            wait_write=wait_write,
+            held=held,
+            reentered=reentered,
+        )
         diagnostics.note_slow_hold(
             name,
             elapsed,
@@ -112,6 +127,8 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             wait_write=wait_write,
             held=held,
             frames=frames,
+            reentered=reentered,
+            holders=holders_before,
         )
 
 

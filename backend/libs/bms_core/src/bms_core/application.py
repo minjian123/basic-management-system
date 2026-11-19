@@ -66,6 +66,7 @@ from bms_core.core.service_endpoints import register_service_endpoints, reset_se
 from bms_core.datasource.registry import DATA_SOURCE_CATALOG, DataSourceOrigin, DataSourceRegistry
 from bms_core.db.bootstrap import ensure_unit_schema
 from bms_core.db.engine import EngineFactory
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.keys import PLATFORM_DB_KEY, PLATFORM_SERVICE_KEY
 from bms_core.db.registry import EngineRegistry, pool_budget_warnings, tenant_pool_budget_warnings
@@ -294,7 +295,13 @@ async def _seed_dev_table_ownership(settings: Settings, app: FastAPI) -> None:
         return
     registry = cast("EngineRegistry", app.state.engine_registry)
     factory = cast("SessionFactory", app.state.session_factory)
-    async with session_scope(registry, db_key=PLATFORM_DB_KEY, factory=factory) as session:
+    async with session_scope(
+        registry,
+        db_key=PLATFORM_DB_KEY,
+        # 启动期整段作业：全并行起 worker 时写门是排队热点，单次写的短上限（5s）会把正常排队误杀
+        gate_wait=GATE_CRITICAL_WAIT,
+        factory=factory,
+    ) as session:
         # 探测与写入放在**同一道写门内**：SQLite（rollback journal）读写互斥，门外另起一次
         # 「只读探测」会在别处持写门时阻塞，反过来又把它自己的读份额压在写门前面，
         # 形成「读者等写、写者等读者」的互等（13_08 实测会把启动拖到短上限超时）。
@@ -355,6 +362,8 @@ async def _validate_table_ownership(app: FastAPI) -> None:
         async with session_scope(
             cast("EngineRegistry", app.state.engine_registry),
             db_key=PLATFORM_DB_KEY,
+            # 启动期整段作业（同 `_seed_dev_table_ownership`）：短上限在全并行起 worker 时误杀正常排队
+            gate_wait=GATE_CRITICAL_WAIT,
             factory=cast("SessionFactory", app.state.session_factory),
         ) as session:
             statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))

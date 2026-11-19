@@ -140,18 +140,29 @@ async def test_ensure_watchdog_updates_path_once_started(tmp_path: Path, monkeyp
 
 
 def test_note_hold_writes_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """持有时长采样：开启后写一行（时长 / 模式 / 门名 / 用例）。"""
+    """持有时长采样：开启后写一行（时长 / 模式 / 门名 / 用例 / 三段 / 重入标记）。"""
     monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
     monkeypatch.chdir(tmp_path)
 
-    diagnostics.note_hold("tenant", 0.25, read_only=False, wait_read=0.01, wait_write=0.2, held=0.04)
+    diagnostics.note_hold("tenant", 0.25, read_only=False, wait_read=0.01, wait_write=0.2, held=0.04, reentered=True)
 
     text = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8")
     assert "0.250" in text
     assert "write" in text
     assert "tenant" in text
     # 三段分开落盘：总时长 / 等读 / 等写 / 实占，缺一段就无法区分排队与真持有
-    assert "\t0.010\t0.200\t0.040" in text
+    assert "\t0.010\t0.200\t0.040\t1\n" in text
+
+
+def test_note_hold_without_reentry_writes_zero_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """未重入时末列写 0（缺省值，兼容旧调用口径）。"""
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+
+    diagnostics.note_hold("tenant", 0.25, read_only=True, wait_read=0.0, wait_write=0.0, held=0.25)
+
+    text = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8")
+    assert "\t0.000\t0.000\t0.250\t0\n" in text
 
 
 def test_note_hold_respects_switch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -165,17 +176,40 @@ def test_note_hold_respects_switch(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 
 def test_note_slow_hold_only_when_over_one_second(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """慢持有：不足 1s 不记，超过 1s 记（带调用栈）。"""
+    """慢持有：不足 1s 不记，超过 1s 记（带调用栈、重入标记与进入前持有者）。"""
     monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
     monkeypatch.chdir(tmp_path)
 
     diagnostics.note_slow_hold("tenant", 0.5, read_only=True, wait_read=0.0, wait_write=0.0, held=0.5, frames="a <- b")
     assert not (tmp_path / ".cache/test/gate-hold-slow.log").exists()
 
-    diagnostics.note_slow_hold("tenant", 1.5, read_only=True, wait_read=0.1, wait_write=1.0, held=0.4, frames="a <- b")
+    diagnostics.note_slow_hold(
+        "tenant",
+        1.5,
+        read_only=False,
+        wait_read=0.1,
+        wait_write=1.0,
+        held=0.4,
+        frames="a <- b",
+        reentered=True,
+        holders="pid=1 task=2 mode=write depth=1 test=x at=00:00:01",
+    )
     text = (tmp_path / ".cache/test/gate-hold-slow.log").read_text(encoding="utf-8")
     assert "1.500" in text
     assert "a <- b" in text
+    # 任务维度采样：栈之后是「重入」与「进入前持有者」，缺了就无法判断慢在门口还是门内
+    assert "\ta <- b\t1\tpid=1 task=2 mode=write" in text
+
+
+def test_note_slow_hold_without_holders_writes_placeholder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """无进入前持有者时末列写 `-`（保持列数稳定，便于 awk 取列）。"""
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+
+    diagnostics.note_slow_hold("tenant", 1.5, read_only=True, wait_read=0.0, wait_write=0.0, held=1.5, frames="a")
+
+    text = (tmp_path / ".cache/test/gate-hold-slow.log").read_text(encoding="utf-8")
+    assert "\ta\t0\t-\n" in text
 
 
 def test_watch_tick_without_loop_returns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import time
 from functools import partial
@@ -338,7 +339,7 @@ async def test_gate_timeout_reports_name(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """等门超过告警阈值先打印一行，超过上限抛 `TimeoutError`。"""
+    """等门超过告警阈值先打印一行，超过上限抛 `TimeoutError`（按任务点名持有者）。"""
     monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 0.3)
     monkeypatch.setattr(rwlock, "WRITE_WAIT_CAP", 0.3)
     monkeypatch.setattr(rwlock, "WARN_AFTER", 0.05)
@@ -347,12 +348,14 @@ async def test_gate_timeout_reports_name(
     contender = rwlock.DbGate("contender", path)
     await holder.acquire_write()
     try:
-        with pytest.raises(TimeoutError, match="contender"):
+        with pytest.raises(TimeoutError, match="contender") as excinfo:
             await contender.acquire_write()
     finally:
         await holder.release_write()
 
     assert "等待门" in capsys.readouterr().out
+    # 点名到任务：光有进程分不清「同进程另一协程也进了写门」
+    assert "task=" in str(excinfo.value)
 
 
 async def test_write_wait_fails_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -388,18 +391,191 @@ def test_write_wait_cap_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_holder_description_lists_holder_and_clears_on_release(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """持有者诊断：未释放时列出 pid/mode/用例名，释放后不再列为持有。"""
+    """持有者诊断：未释放时按任务列出 pid/mode/用例名，释放后不再列为持有。"""
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/sample.py::test_holder (call)")
     gate = _gate(tmp_path)
     await gate.acquire_write()
 
     text = gate._describe_holder()
-    assert "hold=1" in text
     assert "mode=write" in text
+    assert "task=" in text
     assert "tests/sample.py::test_holder" in text
 
     await gate.release_write()
-    assert "hold=1" not in gate._describe_holder()
+    assert "无（可能刚释放" in gate._describe_holder()
+
+
+def test_pid_from_name_reads_trailing_number() -> None:
+    """持有者文件名末段是 pid：非数字末段判不出，返回 None。"""
+    assert rwlock._pid_from_name("db-gate-platform.holder-123") == 123
+    assert rwlock._pid_from_name("db-gate-platform.taskholds-456") == 456
+    assert rwlock._pid_from_name("db-gate-platform.holder-abc") is None
+
+
+def test_pid_alive_rejects_non_positive() -> None:
+    """非正数不是有效 pid（读不到文件末段时的兜底）。"""
+    assert rwlock._pid_alive(0) is False
+
+
+def test_pid_alive_reports_missing_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    """进程已退出：`ProcessLookupError` 判为不存在。"""
+
+    def _gone(pid: int, signal: int) -> None:
+        """模拟目标进程已退出。"""
+        del pid, signal
+        raise ProcessLookupError
+
+    monkeypatch.setattr(rwlock, "_IS_WINDOWS", False)
+    monkeypatch.setattr(rwlock, "_pid_probe", _gone)
+
+    assert rwlock._pid_alive(4242) is False
+
+
+def test_pid_alive_treats_permission_error_as_alive(monkeypatch: pytest.MonkeyPatch) -> None:
+    """无权探测（别人的进程）说明进程存在，判为存活。"""
+
+    def _denied(pid: int, signal: int) -> None:
+        """模拟无权限探测。"""
+        del pid, signal
+        raise PermissionError
+
+    monkeypatch.setattr(rwlock, "_IS_WINDOWS", False)
+    monkeypatch.setattr(rwlock, "_pid_probe", _denied)
+
+    assert rwlock._pid_alive(1) is True
+
+
+def test_pid_alive_accepts_live_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    """探测成功即判存活（不真发信号：注入探针）。
+
+    Windows 上绝不能真调 `os.kill(pid, 0)`——那会直接杀掉目标进程，故探针一律注入。
+    """
+    probes: ConcurrentStableList[tuple[int, int]] = ConcurrentStableList()
+
+    def _probe(pid: int, signal: int) -> None:
+        """记录探测参数，不发信号。"""
+        probes.append((pid, signal))
+
+    monkeypatch.setattr(rwlock, "_IS_WINDOWS", False)
+    monkeypatch.setattr(rwlock, "_pid_probe", _probe)
+
+    assert rwlock._pid_alive(4242) is True
+    assert list(probes) == [(4242, 0)]
+
+
+def test_pid_alive_windows_branch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows 走 `OpenProcess` 实现（注入替身，不真调系统接口）。"""
+
+    def _only_42_alive(pid: int) -> bool:
+        """替身：只把 42 判为存活。"""
+        return pid == 42
+
+    monkeypatch.setattr(rwlock, "_IS_WINDOWS", True)
+    monkeypatch.setattr(rwlock, "_windows_pid_alive", _only_42_alive)
+
+    assert rwlock._pid_alive(42) is True
+    assert rwlock._pid_alive(43) is False
+
+
+def test_test_id_falls_back_to_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """取不到用例名时给「未知」，不抛错。"""
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    assert rwlock.DbGate._test_id() == "未知"
+
+
+def test_holder_lines_skips_unreadable_and_released(tmp_path: Path) -> None:
+    """记录行读取：读不到返回空清单；空行与「已释放」标记不算持有。"""
+    assert len(rwlock._holder_lines(tmp_path / "missing")) == 0
+    directory = tmp_path / "as-dir"
+    directory.mkdir()
+    assert len(rwlock._holder_lines(directory)) == 0
+
+    record = tmp_path / "record"
+    record.write_text("\npid=1 hold=0 test=x\npid=2 mode=read hold=1 test=y\n", encoding="utf-8")
+    assert list(rwlock._holder_lines(record)) == ["pid=2 mode=read hold=1 test=y"]
+
+
+def test_untrack_read_ignores_unknown_task(tmp_path: Path) -> None:
+    """未知任务的读份额注销直接返回（收尾跨任务释放的兜底）。"""
+    gate = _gate(tmp_path)
+
+    gate._untrack_read(12345)
+
+    assert len(gate._read_tasks) == 0
+
+
+async def test_holder_tasks_lists_read_share(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """读持有者也参与点名：同任务多个份额合并成一条并按份额数计深度。"""
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/sample.py::test_read (call)")
+    gate = _gate(tmp_path)
+    first = await gate.acquire_read()
+    second = await gate.acquire_read()
+
+    holders = list(gate.holder_tasks())
+    assert len(holders) == 1
+    assert "mode=read" in holders[0]
+    assert "depth=2" in holders[0]
+    assert "tests/sample.py::test_read" in holders[0]
+
+    await gate.release_read(first)
+    assert "depth=1" in next(iter(gate.holder_tasks()))
+    await gate.release_read(second)
+    assert len(gate.holder_tasks()) == 0
+
+
+async def test_describe_holder_ignores_legacy_line_when_tasks_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """有任务级记录时不再采信进程级那一行（避免同一次持有被点名两次）。"""
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/sample.py::test_dup (call)")
+    gate = _gate(tmp_path)
+    await gate.acquire_write()
+    me = os.getpid()
+    legacy = gate._holder_path.with_name(f"{gate._holder_path.name}-{me}")
+    legacy.write_text(f"pid={me} mode=read hold=1 test=legacy at=00:00:00", encoding="utf-8")
+
+    text = gate._describe_holder()
+    assert "test=legacy" not in text
+    assert "tests/sample.py::test_dup" in text
+
+    await gate.release_write()
+
+
+async def test_write_holders_name_tasks_of_same_process(tmp_path: Path) -> None:
+    """写门持有者按**任务**记：同进程两个协程重入时两条都在，先退出的那条即消失。"""
+    gate = _gate(tmp_path)
+    await gate.acquire_write()
+    assert len(gate.write_holders()) == 1
+
+    async def _reenter() -> None:
+        """另一任务重入写门并立即退出。"""
+        await gate.acquire_write()
+        assert len(gate.write_holders()) == 2
+        await gate.release_write()
+
+    await asyncio.create_task(_reenter())
+
+    holders = list(gate.write_holders())
+    assert len(holders) == 1
+    assert "mode=write" in holders[0]
+    assert len(gate._describe_holder().split(" | ")) == 1
+
+    await gate.release_write()
+    # 全部释放：任务记录被清空（写空文件而不删，避免抹掉共用同一把锁的其它实例的记录）
+    assert gate._task_hold_path().read_text(encoding="utf-8") == ""
+
+
+def test_gate_close_removes_holder_files(tmp_path: Path) -> None:
+    """关闭门顺手清掉本进程的两份持有者记录。"""
+    gate = _gate(tmp_path, "closing")
+    gate._task_hold_path().write_text("pid=1 mode=write\n", encoding="utf-8")
+    gate._holder_file().write_text("pid=1 mode=read hold=1 test=x at=00:00:00", encoding="utf-8")
+
+    gate.close()
+
+    assert not gate._task_hold_path().exists()
+    assert not gate._holder_file().exists()
 
 
 def test_gate_close(tmp_path: Path) -> None:
@@ -429,13 +605,29 @@ async def test_describe_holder_skips_unreadable_entry(tmp_path: Path) -> None:
 
 
 async def test_describe_holder_lists_live_entry(tmp_path: Path) -> None:
-    """持有者诊断列出仍持有（hold=1）的记录。"""
+    """持有者诊断列出仍持有（hold=1）且 pid 存活的记录。"""
     gate = _gate(tmp_path)
-    live = gate._holder_path.with_name(f"{gate._holder_path.name}-998")
+    me = os.getpid()
+    live = gate._holder_path.with_name(f"{gate._holder_path.name}-{me}")
     live.parent.mkdir(parents=True, exist_ok=True)
-    live.write_text("pid=998 mode=read hold=1 test=x at=00:00:00", encoding="utf-8")
+    live.write_text(f"pid={me} mode=read hold=1 test=x at=00:00:00", encoding="utf-8")
 
-    assert "pid=998" in gate._describe_holder()
+    assert f"pid={me}" in gate._describe_holder()
+
+
+async def test_describe_holder_filters_dead_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """死进程留下的记录不参与点名（本轮实测 holder 目录残留 117 份死进程记录）。"""
+
+    def _dead_only(stale_pid: int) -> bool:
+        """替身：只把 999999 判为已退出（其余照常）。"""
+        return stale_pid != 999999
+
+    gate = _gate(tmp_path)
+    stale = gate._holder_path.with_name(f"{gate._holder_path.name}-999999")
+    stale.write_text("pid=999999 mode=write hold=1 test=gone at=00:00:00", encoding="utf-8")
+    monkeypatch.setattr(rwlock, "_pid_alive", _dead_only)
+
+    assert "无（可能刚释放" in gate._describe_holder()
 
 
 async def test_release_write_without_hold_restores_outer_shares(tmp_path: Path) -> None:

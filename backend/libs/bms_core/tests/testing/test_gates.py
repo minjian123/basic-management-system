@@ -177,3 +177,22 @@ async def test_gate_scope_records_hold_when_enabled(tmp_path: Path, monkeypatch:
     text = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8")
     assert gates.PLATFORM_GATE in text
     assert "read" in text
+
+
+async def test_gate_scope_marks_write_reentry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """嵌套写区间标记为重入：取写门不排队（等写≈0），慢只可能出在门内或 SQLite 锁上。"""
+    from bms_core.testing import diagnostics
+
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+    target = gates.gate(gates.PLATFORM_GATE)
+
+    async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
+        assert len(target.write_holders()) == 1
+        async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
+            pass
+
+    lines = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8").splitlines()
+    # 末列为重入标记：内层 1、外层 0
+    assert sorted(line.rsplit(chr(9), 1)[-1] for line in lines) == ["0", "1"]
+    assert len(target.write_holders()) == 0

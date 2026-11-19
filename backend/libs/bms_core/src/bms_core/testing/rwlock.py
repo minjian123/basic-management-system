@@ -33,10 +33,11 @@ import os
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Literal, Protocol, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.testing import diagnostics
 from bms_core.testing.paths import project_root
 
@@ -300,6 +301,126 @@ def _task_key() -> int:
     return id(task) if task is not None else 0
 
 
+_pid_probe: Final = os.kill
+"""进程存活探测（模块级别名：用例可注入 `PermissionError` 分支；Windows 不走它）。"""
+
+
+def _pid_from_name(name: str) -> int | None:
+    """从持有者文件名末段取 pid。
+
+    Args:
+        name: 文件名（形如 `db-gate-platform.holder-12345`）。
+
+    Returns:
+        int | None: pid；末段不是数字时为 None。
+    """
+    suffix = name.rsplit("-", 1)[-1]
+    return int(suffix) if suffix.isdigit() else None
+
+
+def _windows_pid_alive(pid: int) -> bool:  # pragma: no cover - 仅 Windows 可达（CI 与覆盖率门禁在 Linux）
+    """Windows 进程存活判定（`OpenProcess` + `GetExitCodeProcess`）。
+
+    不能用 `os.kill(pid, 0)`：Windows 上非控制信号的 `os.kill` 会直接 `TerminateProcess`。
+
+    Args:
+        pid: 进程号。
+
+    Returns:
+        bool: 仍存活返回 True。
+    """
+    kernel32 = cast("Any", ctypes).WinDLL("kernel32", use_last_error=True)
+    process_query_limited_information = 0x1000
+    still_active = 259
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        return code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _pid_alive(pid: int) -> bool:
+    """进程是否仍存在（死进程留下的持有者记录不得参与点名）。
+
+    Args:
+        pid: 进程号。
+
+    Returns:
+        bool: 存活返回 True。
+    """
+    if pid <= 0:
+        return False
+    if _IS_WINDOWS:
+        return _windows_pid_alive(pid)
+    try:
+        _pid_probe(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # 进程存在但属别的用户：存活。
+        return True
+    return True
+
+
+def _holder_lines(path: Path) -> ConcurrentStableList[str]:
+    """读一个持有者记录文件里的有效行（跳过空行与「已释放」标记）。
+
+    Args:
+        path: 记录文件。
+
+    Returns:
+        ConcurrentStableList[str]: 有效行；读不到时返回空清单。
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return ConcurrentStableList()
+    lines: ConcurrentStableList[str] = ConcurrentStableList()
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or "hold=0" in line:
+            continue
+        lines.add(line)
+    return lines
+
+
+@dataclass(frozen=True, slots=True)
+class _TaskHold:
+    """门持有者的**任务级**记录（诊断用，不参与互斥判定）。
+
+    Attributes:
+        mode: `read` / `write`。
+        pid: 进程号。
+        task: asyncio 任务身份（`id(task)`）。
+        test_id: 取门时的用例名（`PYTEST_CURRENT_TEST`）。
+        at: 首次取门时刻（`HH:MM:SS`）。
+        depth: 该任务在同一模式上的重入深度（读为份额数）。
+    """
+
+    mode: Mode
+    pid: int
+    task: int
+    test_id: str
+    at: str
+    depth: int
+
+    def render(self) -> str:
+        """渲染为一行诊断文本。
+
+        Returns:
+            str: 形如 `pid=1 task=2 mode=write depth=1 test=x at=12:00:01`。
+        """
+        return (
+            f"pid={self.pid} task={self.task} mode={self.mode} depth={self.depth} "
+            f"test={self.test_id} at={self.at}"
+        )
+
+
 class DbGate:
     """跨进程读写门（一个库文件一把）。
 
@@ -317,6 +438,8 @@ class DbGate:
         self.name = name
         self._path = path
         self._holder_path = path.with_suffix(".holder")
+        self._hold_base = path.with_suffix(".taskholds")
+        """门持有任务记录的基准名（每进程一份：`db-gate-<name>.taskholds-<pid>`，与锁文件同源）。"""
         self._backend = _make_backend(path)
         # 读份额按**持有者**记账：每个取读者拿一个 token，释放时只放自己那份。
         # 不能用「进程级读深度」——同一进程里多个并发会话共用一个计数器时，一个会话的升级
@@ -329,6 +452,13 @@ class DbGate:
         self._retired_reads: ConcurrentStableDict[int, None] = ConcurrentStableDict()
         self._write_depth = 0
         self._write_owner = 0
+        # 写门的**任务级**持有记录（任务 id → 记录）：只用于诊断点名，与 `_write_depth` 同步维护，
+        # 不参与任何判定。进程级深度分不清「谁在写」，而并发问题恰恰出在「同进程另一协程也进了写门」，
+        # 故按任务记账，超时时才能点到具体用例。
+        self._write_tasks: ConcurrentStableDict[int, _TaskHold] = ConcurrentStableDict()
+        # 读门的任务级持有记录（同上）：读事务在 SQLite rollback journal 下会挡住写者的提交，
+        # 「写者拿到门却实占 5s」只有看到**读持有者**才能解释。
+        self._read_tasks: ConcurrentStableDict[int, _TaskHold] = ConcurrentStableDict()
         self._kernel_read = False
         self._next_token = itertools.count(1)
         # 计数是跨协程 / 跨事件循环共享的进程级状态：`acquire` / `release` 在改计数前后有 await 点
@@ -336,6 +466,8 @@ class DbGate:
         # 用 `threading.Lock` 而非 `asyncio.Lock`：门是进程级单例，而 pytest-asyncio 每个用例一个新
         # 事件循环，`asyncio.Lock` 会绑死在首个循环上。
         self._count_lock = threading.Lock()
+        self._holder_lock = threading.Lock()
+        """持有者文件的读改写互斥（诊断落盘，不与 `_count_lock` 混用，避免把文件 I/O 塞进取门热路径）。"""
 
     @property
     def mode(self) -> Mode | None:
@@ -390,6 +522,7 @@ class DbGate:
         with self._count_lock:
             token = next(self._next_token)
             self._own_reads[token] = _task_key()
+            self._track_read()
         self._record_holder(False)
         return token
 
@@ -411,6 +544,7 @@ class DbGate:
                 return
             if token not in self._own_reads:
                 raise RuntimeError(f"门 {self.name} 释放读份额失败：token {token} 未被持有")
+            self._untrack_read(self._own_reads[token])
             del self._own_reads[token]
             drop_kernel = not self._own_reads and not self._write_depth and self._kernel_read
             if drop_kernel:
@@ -444,21 +578,31 @@ class DbGate:
         Raises:
             TimeoutError: 等待超时。
         """
+        reentered = False
+        drop_kernel = False
+        released: ConcurrentStableList[int] = ConcurrentStableList()
         with self._count_lock:
             if self._write_depth:
                 self._write_depth += 1
-                return ConcurrentStableList()
-            mine = _task_key()
-            released: ConcurrentStableList[int] = ConcurrentStableList(
-                token for token, owner in self._own_reads.items() if owner == mine
-            )
-            for token in released:
-                del self._own_reads[token]
-            # 只有本进程的读份额让空了才放内核共享锁；还有别的任务在读就保留，靠下面的
-            # 独占排队等它们收尾（放掉会把别人的读事务一起卖掉）。
-            drop_kernel = not self._own_reads and not self._write_depth and self._kernel_read
-            if drop_kernel:
-                self._kernel_read = False
+                self._track_write()
+                reentered = True
+            else:
+                mine = _task_key()
+                released = ConcurrentStableList(
+                    token for token, owner in self._own_reads.items() if owner == mine
+                )
+                for token in released:
+                    del self._own_reads[token]
+                    self._untrack_read(mine)
+                # 只有本进程的读份额让空了才放内核共享锁；还有别的任务在读就保留，靠下面的
+                # 独占排队等它们收尾（放掉会把别人的读事务一起卖掉）。
+                drop_kernel = not self._own_reads and not self._write_depth and self._kernel_read
+                if drop_kernel:
+                    self._kernel_read = False
+        if reentered:
+            # 写门已由本进程持有：不重复取内核锁，只补一条任务级记录（诊断点名用）。
+            self._flush_task_holders()
+            return released
         if drop_kernel:
             # 先让出共享锁，再排队取独占锁（顺序不能反）。
             self._backend.release()
@@ -466,6 +610,7 @@ class DbGate:
         with self._count_lock:
             self._write_depth = 1
             self._write_owner = _task_key()
+            self._track_write()
         self._record_holder(True)
         return released
 
@@ -492,6 +637,9 @@ class DbGate:
                 remaining = self._write_depth
                 if not remaining:
                     self._write_owner = 0
+                    self._write_tasks.clear()
+                else:
+                    self._untrack_write()
                 if not remaining:
                     for token in list(self._borrowed_reads):
                         del self._borrowed_reads[token]
@@ -502,10 +650,12 @@ class DbGate:
                 "gate_release_without_write",
                 extra={"gate": self.name, "restore": len(restore or ())},
             )
+            self._flush_task_holders()
             if restore:
                 await self._restore_reads(restore)
             return
         if remaining:
+            self._flush_task_holders()
             return
         self._backend.release()
         self._release_holder()
@@ -523,6 +673,7 @@ class DbGate:
             self._kernel_read = True
             for token in restore:
                 self._own_reads[token] = _task_key()
+                self._track_read()
         self._record_holder(False)
 
     def close(self) -> None:
@@ -532,10 +683,13 @@ class DbGate:
             self._own_reads.clear()
             self._borrowed_reads.clear()
             self._retired_reads.clear()
+            self._write_tasks.clear()
+            self._read_tasks.clear()
             self._write_depth = 0
             self._kernel_read = False
         with contextlib.suppress(OSError):
             self._holder_file().unlink()
+            self._task_hold_path().unlink()
 
     def _holder_file(self) -> Path:
         """本进程的持有者记录文件（每进程一份，互不覆盖）。
@@ -544,6 +698,110 @@ class DbGate:
             Path: `.cache/test/db-gate-<name>.holder-<pid>`。
         """
         return self._holder_path.with_name(f"{self._holder_path.name}-{os.getpid()}")
+
+    def _task_hold_path(self) -> Path:
+        """本进程的**写门任务记录**文件（一行一个持有任务，释放即删）。
+
+        Returns:
+            Path: `.cache/test/db-gate-<name>.taskholds-<pid>`。
+        """
+        return self._hold_base.with_name(f"{self._hold_base.name}-{os.getpid()}")
+
+    def write_holders(self) -> ConcurrentStableList[str]:
+        """当前持有**写门**的任务清单（诊断：区分「独占到门」与「同进程另一协程重入」）。
+
+        Returns:
+            ConcurrentStableList[str]: 每条形如 `pid=1 task=2 mode=write depth=1 test=x at=12:00:01`。
+        """
+        return ConcurrentStableList(hold.render() for hold in self._write_tasks.values())
+
+    def holder_tasks(self) -> ConcurrentStableList[str]:
+        """当前持有本门（读或写）的任务清单（诊断：写者进门前采样，看谁在挡）。
+
+        Returns:
+            ConcurrentStableList[str]: 写持有者在前、读持有者在后。
+        """
+        holders = self.write_holders()
+        for hold in self._read_tasks.values():
+            holders.add(hold.render())
+        return holders
+
+    @staticmethod
+    def _test_id() -> str:
+        """取当前用例名（`PYTEST_CURRENT_TEST` 去掉阶段后缀）。
+
+        Returns:
+            str: 用例名；取不到给「未知」。
+        """
+        return os.environ.get("PYTEST_CURRENT_TEST", "").split(" (")[0] or "未知"
+
+    def _track_write(self) -> None:
+        """登记本任务持有写门（**必须在 `_count_lock` 内调用**）。
+
+        首次取门记下用例名与时刻，重入只加深度——点名时关心的是「谁最早拿到、拿了多久」。
+        """
+        task = _task_key()
+        existing = self._write_tasks.get(task)
+        self._write_tasks[task] = _TaskHold(
+            mode=WRITE,
+            pid=os.getpid(),
+            task=task,
+            test_id=existing.test_id if existing is not None else self._test_id(),
+            at=existing.at if existing is not None else time.strftime("%H:%M:%S"),
+            depth=(existing.depth if existing is not None else 0) + 1,
+        )
+
+    def _untrack_write(self) -> None:
+        """注销本任务的一次写持有（在 `_count_lock` 内调用；深度归零即删记录）。"""
+        task = _task_key()
+        existing = self._write_tasks.get(task)
+        if existing is None:
+            return
+        if existing.depth <= 1:
+            del self._write_tasks[task]
+            return
+        self._write_tasks[task] = _TaskHold(
+            mode=WRITE,
+            pid=existing.pid,
+            task=task,
+            test_id=existing.test_id,
+            at=existing.at,
+            depth=existing.depth - 1,
+        )
+
+    def _track_read(self) -> None:
+        """登记本任务持有一个读份额（**必须在 `_count_lock` 内调用**）。"""
+        task = _task_key()
+        existing = self._read_tasks.get(task)
+        self._read_tasks[task] = _TaskHold(
+            mode=READ,
+            pid=os.getpid(),
+            task=task,
+            test_id=existing.test_id if existing is not None else self._test_id(),
+            at=existing.at if existing is not None else time.strftime("%H:%M:%S"),
+            depth=(existing.depth if existing is not None else 0) + 1,
+        )
+
+    def _untrack_read(self, task: int) -> None:
+        """注销某个任务的一个读份额（在 `_count_lock` 内调用；份额归零即删记录）。
+
+        Args:
+            task: 份额的持有任务身份（不一定等于当前任务：收尾可能跨任务释放）。
+        """
+        existing = self._read_tasks.get(task)
+        if existing is None:
+            return
+        if existing.depth <= 1:
+            del self._read_tasks[task]
+            return
+        self._read_tasks[task] = _TaskHold(
+            mode=READ,
+            pid=existing.pid,
+            task=task,
+            test_id=existing.test_id,
+            at=existing.at,
+            depth=existing.depth - 1,
+        )
 
     def _record_holder(self, write: bool) -> None:
         """记录本进程持有门（诊断：等门 / 超时时列出真实持有者与用例名）。
@@ -555,10 +813,12 @@ class DbGate:
             write: 独占 True，共享 False。
         """
         self._write_holder(write, held=True)
+        self._flush_task_holders()
 
     def _release_holder(self) -> None:
         """标记本进程已不持有任何门（保留最后用例名，便于事后追）。"""
         self._write_holder(False, held=False)
+        self._flush_task_holders()
 
     def _write_holder(self, write: bool, *, held: bool) -> None:
         """写持有者记录。
@@ -572,25 +832,50 @@ class DbGate:
             f"pid={os.getpid()} mode={WRITE if write else READ} hold={1 if held else 0} "
             f"test={test_id or '未知'} at={time.strftime('%H:%M:%S')}"
         )
-        with contextlib.suppress(OSError):
+        with self._holder_lock, contextlib.suppress(OSError):
             self._holder_file().write_text(payload, encoding="utf-8")
 
+    def _flush_task_holders(self) -> None:
+        """把任务级持有记录整体落盘（快照：读 / 写持有任务一行一条；无持有任务即写空）。
+
+        用「整体重写」而不是追加：点名要的是**当前**持有者，追加版会把已释放的任务一直算进去。
+        无持有者时写空文件而不是删文件——同一把锁可能被多个门实例共写（用例刻意造两个实例验互斥），
+        删除会把别人刚写下的持有记录一起抹掉。
+        """
+        lines = self.holder_tasks()
+        path = self._task_hold_path()
+        with self._holder_lock, contextlib.suppress(OSError):
+            path.write_text((chr(10).join(lines) + chr(10)) if lines else "", encoding="utf-8")
+
     def _describe_holder(self) -> str:
-        """列出**当前仍持有**本门的进程（跨进程扫描各 pid 的记录文件）。
+        """列出**当前仍持有**本门的任务（跨进程扫描各 pid 的记录文件）。
+
+        两类记录合并：进程级（`hold=1` 一行，旧版遗留）与任务级（读 / 写各一行）。**写门只认任务级**
+        ——进程级那行只说得清「某个进程在写」，而并发问题恰恰出在「同进程哪个协程也在写」。
+
+        **死进程的记录一律过滤**——进程被强杀时记录留在盘上，本轮实测残留 117 份，
+        不判存活就会把早已退出的进程当持有者点名，误导排查。
 
         Returns:
-            str: 形如 `pid=123 mode=write test=a.py::t at=12:00:01`；读不到时给「未知」。
+            str: 形如 `pid=123 task=456 mode=write depth=1 test=a.py::t at=12:00:01`；没有时给「未知」。
         """
         directory = self._holder_path.parent
-        prefix = self._holder_path.name
         entries: ConcurrentStableList[str] = ConcurrentStableList()
-        for path in directory.glob(f"{prefix}-*"):
-            try:
-                text = path.read_text(encoding="utf-8").strip()
-            except OSError:
+        covered: ConcurrentStableSet[int] = ConcurrentStableSet()
+        for path in directory.glob(f"{self._hold_base.name}-*"):
+            pid = _pid_from_name(path.name)
+            if pid is None or not _pid_alive(pid):
                 continue
-            if "hold=1" in text:
-                entries.append(text)
+            # 任务级记录是权威口径：该进程只要有持有任务，就不再采信进程级那行（避免重复点名）
+            covered.add(pid)
+            for line in _holder_lines(path):
+                entries.append(line)
+        for path in directory.glob(f"{self._holder_path.name}-*"):
+            pid = _pid_from_name(path.name)
+            if pid is None or pid in covered or not _pid_alive(pid):
+                continue
+            for line in _holder_lines(path):
+                entries.append(line)
         return " | ".join(entries) if entries else "无（可能刚释放或记录未落盘）"
 
     def _log_wait(self, message: str) -> None:
@@ -620,6 +905,8 @@ class DbGate:
             reason=reason,
             holder=self._describe_holder(),
         )
+
+
 
     async def _wait_and_lock(self, write: bool, *, cap: float | None = None) -> None:
         """排队等待直到拿到门（事件循环内异步轮询，不占线程池）。
