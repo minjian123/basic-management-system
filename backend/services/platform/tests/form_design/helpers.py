@@ -16,7 +16,6 @@ import os
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.outbox import SysOutbox
@@ -36,6 +35,7 @@ from tests_support.form_design import (
     list_columns,
     run_statement,
 )
+from tests_support.shared_access import shared_session
 
 __all__ = [
     "FORM_DESIGN_MODELS",
@@ -97,18 +97,13 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
         int: 业务码主键。
     """
     url = platform_url()
-    engine = create_async_engine(url)  # own_db: 共享基座之外仅此处直插平台元数据，见模块说明
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            row = SysBusiness(code=code, name=name, status="enabled")
-            session.add(row)
-            await session.flush()
-            business_id = row.id
-            await session.commit()
-        return business_id
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=False) as session:
+        row = SysBusiness(code=code, name=name, status="enabled")
+        session.add(row)
+        await session.flush()
+        business_id = row.id
+        await session.commit()
+    return business_id
 
 
 async def seed_form_with_fields(
@@ -125,29 +120,24 @@ async def seed_form_with_fields(
         int: 表单主键。
     """
     url = platform_url()
-    engine = create_async_engine(url)  # own_db: 同上（共享基座内的平台元数据直插，见模块说明）
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            form = SysForm(business_id=business_id, component=None, status="enabled")
-            session.add(form)
-            await session.flush()
-            form_id = form.id
-            for field_key, name, field_type, sort in fields:
-                session.add(
-                    SysField(
-                        form_id=form_id,
-                        field_key=field_key,
-                        name=name,
-                        type=field_type,
-                        sort=sort,
-                        status="enabled",
-                    )
+    async with shared_session(url, read_only=False) as session:
+        form = SysForm(business_id=business_id, component=None, status="enabled")
+        session.add(form)
+        await session.flush()
+        form_id = form.id
+        for field_key, name, field_type, sort in fields:
+            session.add(
+                SysField(
+                    form_id=form_id,
+                    field_key=field_key,
+                    name=name,
+                    type=field_type,
+                    sort=sort,
+                    status="enabled",
                 )
-            await session.commit()
-        return form_id
-    finally:
-        await engine.dispose()
+            )
+        await session.commit()
+    return form_id
 
 
 async def outbox_types_in_tenant(aggregate_key: str) -> ConcurrentStableList[str]:
@@ -160,18 +150,13 @@ async def outbox_types_in_tenant(aggregate_key: str) -> ConcurrentStableList[str
         ConcurrentStableList[str]: 事件类型清单（插入序）。
     """
     url = tenant_url()
-    engine = create_async_engine(url)  # own_db: 同上（共享基座内的发件箱读取，见模块说明）
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            rows = (
-                (await session.execute(select(SysOutbox.event_type).where(SysOutbox.aggregate_key == aggregate_key)))
-                .scalars()
-                .all()
-            )
-        return ConcurrentStableList(str(item) for item in rows)
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=True) as session:
+        rows = (
+            (await session.execute(select(SysOutbox.event_type).where(SysOutbox.aggregate_key == aggregate_key)))
+            .scalars()
+            .all()
+        )
+    return ConcurrentStableList(str(item) for item in rows)
 
 
 def register_form_key(app: object, form_code: str, table: str) -> None:

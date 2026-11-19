@@ -13,15 +13,17 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any, cast
 
 from sqlalchemy import Table, inspect, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.base import Base
+from tests_support.shared_access import shared_engine, shared_session, shared_window
 
 __all__ = [
     "create_probe_table",
@@ -33,20 +35,39 @@ __all__ = [
 ]
 
 
+_ENSURED_URLS: ConcurrentStableSet[str] = ConcurrentStableSet()
+"""已建过表的连接串（进程级）：13_08 T7 起每进程只建一次。"""
+
+_ENSURE_LOCK = threading.Lock()
+"""占位互斥：并发首次调用时只让一个协程去建表（锁内不含 await）。"""
+
+
 async def ensure_models(url: str, models: ConcurrentStableList[Any]) -> None:
     """确保给定模型对应表存在（缺则建；**不清空**——单库叠加下清表会删他人数据）。
+
+    13_08 T7：**每个进程只做一次**。原实现每个用例都跑 `create_all`，4 路并行时每次都要
+    争 SQLite schema 锁，实测卡满 `busy_timeout`（30 秒），并把写门占成长临界区。建表幂等，
+    共享库在会话开始建好后不再变化，故按连接串记录；失败时撤销占位，下次调用重试。
 
     Args:
         url: 数据库连接串。
         models: ORM 模型清单（插入序）。
     """
-    engine = create_async_engine(url)
+    with _ENSURE_LOCK:
+        if url in _ENSURED_URLS:
+            return
+        _ENSURED_URLS.add(url)
     try:
-        tables = [cast("Table", model.__table__) for model in models]
-        async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables, checkfirst=True))
-    finally:
-        await engine.dispose()
+        engine = shared_engine(url)
+        try:
+            tables = [cast("Table", model.__table__) for model in models]
+            async with shared_window(engine), engine.begin() as connection:
+                await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables, checkfirst=True))
+        finally:
+            await engine.dispose()
+    except BaseException:
+        _ENSURED_URLS.discard(url)
+        raise
 
 
 async def create_probe_table(url: str, name: str, *, columns: str = "id INTEGER PRIMARY KEY, code VARCHAR(64)") -> None:
@@ -59,9 +80,9 @@ async def create_probe_table(url: str, name: str, *, columns: str = "id INTEGER 
         name: 表名（调用方保证为白名单形态）。
         columns: 列定义文本。
     """
-    engine = create_async_engine(url)
+    engine = shared_engine(url)
     try:
-        async with engine.begin() as connection:
+        async with shared_window(engine), engine.begin() as connection:
             await connection.execute(text(f"DROP TABLE IF EXISTS {name}"))
             await connection.execute(text(f"CREATE TABLE {name} ({columns})"))
     finally:
@@ -75,9 +96,9 @@ async def drop_probe_table(url: str, name: str) -> None:
         url: 数据库连接串。
         name: 表名。
     """
-    engine = create_async_engine(url)
+    engine = shared_engine(url)
     try:
-        async with engine.begin() as connection:
+        async with shared_window(engine), engine.begin() as connection:
             await connection.execute(text(f"DROP TABLE IF EXISTS {name}"))
     finally:
         await engine.dispose()
@@ -93,9 +114,9 @@ async def list_columns(url: str, table: str) -> ConcurrentStableList[str]:
     Returns:
         ConcurrentStableList[str]: 列名（插入序）。
     """
-    engine = create_async_engine(url)
+    engine = shared_engine(url)
     try:
-        async with engine.begin() as connection:
+        async with shared_window(engine), engine.begin() as connection:
             rows = await connection.run_sync(lambda conn: inspect(conn).get_columns(table))
         return ConcurrentStableList(str(item["name"]).lower() for item in rows)
     finally:
@@ -109,9 +130,9 @@ async def run_statement(url: str, statement: str) -> None:
         url: 数据库连接串。
         statement: SQL 文本（调用方保证已参数化 / 来自白名单）。
     """
-    engine = create_async_engine(url)
+    engine = shared_engine(url)
     try:
-        async with engine.begin() as connection:
+        async with shared_window(engine), engine.begin() as connection:
             await connection.execute(text(statement))
     finally:
         await engine.dispose()
@@ -129,11 +150,5 @@ async def tenant_session(url: str) -> AsyncGenerator[AsyncSession]:
     Yields:
         AsyncSession: 会话（调用方负责 commit）。
     """
-    engine = create_async_engine(url)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    session = factory()
-    try:
+    async with shared_session(url, read_only=False) as session:
         yield session
-    finally:
-        await session.close()
-        await engine.dispose()

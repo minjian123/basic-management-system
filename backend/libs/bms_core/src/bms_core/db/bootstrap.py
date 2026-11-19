@@ -31,6 +31,7 @@ from bms_core.core.exceptions import ConfigError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
+from bms_core.db.gate import GATE_CRITICAL_WAIT, db_access_gate
 from bms_core.db.keys import ARCHIVE_DB_KEY, build_tenant_db_key
 from bms_core.db.migration import (
     DATASOURCE_ARCHIVE,
@@ -332,7 +333,11 @@ async def ensure_unit_schema(settings: Settings, *, factory: EngineFactory | Non
             if url in seen_urls:
                 continue
             seen_urls.add(url)
-            outcome = await apply_unit_schema(unit, datasource, url, target=db_key)
+            # 13_08 T7：建表是**写共享库**的整段作业，必须与经会话入口的写排同一条队。
+            # 24 路并行起 worker 时这段原先不取门，与「走门的启动引导」在 SQLite 层互等，
+            # 表现为「有人持写门几分钟」+ 其它 worker 引导等门超时（整批 setup 失败）。
+            async with db_access_gate(db_key, read_only=False, wait=GATE_CRITICAL_WAIT):
+                outcome = await apply_unit_schema(unit, datasource, url, target=db_key)
             if outcome.total:
                 handled.add(db_key)
     return handled

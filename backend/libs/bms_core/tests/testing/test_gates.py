@@ -12,6 +12,7 @@ from typing import cast
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db import gate as gate_module
 from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.testing import gates, plugin, rwlock
@@ -193,6 +194,100 @@ async def test_gate_scope_marks_write_reentry(tmp_path: Path, monkeypatch: pytes
             pass
 
     lines = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8").splitlines()
-    # 末列为重入标记：内层 1、外层 0
-    assert sorted(line.rsplit(chr(9), 1)[-1] for line in lines) == ["0", "1"]
+    rows = [line.split("\t") for line in lines]
+    # 第 8 列是重入标记：内层 1、外层 0；末列是结果（正常退出为 ok）。
+    assert sorted(row[7] for row in rows) == ["0", "1"]
+    assert [row[8] for row in rows] == ["ok", "ok"]
     assert len(target.write_holders()) == 0
+
+
+async def test_read_wait_timeout_is_recorded_as_wait(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """读门等待超时也落一行：等待进「等读」列、实占归零、末列标 `read-timeout`。
+
+    这是 T7 定位口径的一部分：改前 `wait_read` 在 `await` 之后赋值，超时抛异常就跳过，
+    180s 等门被算成 180s 实占。
+    """
+    from bms_core.testing import diagnostics
+
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+    target = gates.gate(gates.PLATFORM_GATE)
+
+    async def _timeout() -> int:
+        """模拟等读门超时。"""
+        raise TimeoutError("等待读门超时")
+
+    monkeypatch.setattr(target, "acquire_read", _timeout)
+    with pytest.raises(TimeoutError, match="等待读门超时"):
+        async with gates.gate_scope(gates.PLATFORM_GATE, read_only=True):
+            pass
+
+    cols = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8").strip().split("\t")
+    assert cols[1] == "read"
+    # 等待没有进「实占」列（改前的口径会把整段等待算成实占）；高负载下仍有毫秒级记账开销
+    assert float(cols[6]) < 0.5
+    assert cols[8] == "read-timeout"
+
+
+async def test_read_error_is_recorded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """取读门时的非超时异常同样落盘，末列标 `read-error`。"""
+    from bms_core.testing import diagnostics
+
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+    target = gates.gate(gates.PLATFORM_GATE)
+
+    async def _boom() -> int:
+        """模拟取读门失败。"""
+        raise RuntimeError("读门坏了")
+
+    monkeypatch.setattr(target, "acquire_read", _boom)
+    with pytest.raises(RuntimeError, match="读门坏了"):
+        async with gates.gate_scope(gates.PLATFORM_GATE, read_only=True):
+            pass
+
+    cols = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8").strip().split("\t")
+    assert cols[8] == "read-error"
+
+
+async def test_write_wait_timeout_is_recorded_as_wait(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """等写门超时：等待进「等写」列、实占归零、末列标 `write-timeout`。"""
+    from bms_core.testing import diagnostics
+
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+    target = gates.gate(gates.PLATFORM_GATE)
+
+    async def _timeout(*, wait: float | None = None) -> ConcurrentStableList[int]:
+        """模拟等写门超时。"""
+        del wait
+        raise TimeoutError("等待写门超时")
+
+    monkeypatch.setattr(target, "acquire_write", _timeout)
+    with pytest.raises(TimeoutError, match="等待写门超时"):
+        async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
+            pass
+
+    cols = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8").strip().split("\t")
+    assert cols[1] == "write"
+    # 实占只剩「释放写门 + 补回读份额」的毫秒级开销，不再包含等门时间。
+    assert float(cols[6]) < 0.5
+    assert cols[8] == "write-timeout"
+    assert target.mode is None
+    assert target.depth == 0
+
+
+async def test_hold_error_is_distinguished(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """门内业务异常记为 `hold-error`，不会被误当成等门超时。"""
+    from bms_core.testing import diagnostics
+
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValueError, match="业务失败"):
+        async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
+            raise ValueError("业务失败")
+
+    cols = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8").strip().split("\t")
+    assert cols[1] == "write"
+    assert cols[8] == "hold-error"

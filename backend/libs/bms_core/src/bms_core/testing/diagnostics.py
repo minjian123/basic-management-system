@@ -173,15 +173,22 @@ def note_hold(
     wait_write: float,
     held: float,
     reentered: bool = False,
+    outcome: str = "ok",
 ) -> None:
     """记录一次门区间的持有时长（`BMS_TEST_GATE_HOLD=1` 时启用）。
 
     **三段分开记**：`seconds` 含排队，单看它分不清「在门口等」与「真持有」——压测时
     后者才是串行成本，前者只是争用。故另记等读锁、等写门与区间内实占时长：日志列依次为
-    「总时长 / 模式 / 门名 / 用例 / 等读 / 等写 / 实占 / 重入」。
+    「总时长 / 模式 / 门名 / 用例 / 等读 / 等写 / 实占 / 重入 / 结果」。
 
-    末列「重入」是**进程内写门重入**标记：进入写门前若已有本进程任务持有写门，取门不会排队
+    「重入」是**进程内写门重入**标记：进入写门前若已有本进程任务持有写门，取门不会排队
     （`wait_write≈0`），区间内的等待改由 SQLite 锁承担——这正是「实占 5s 但等写 0」的成因。
+
+    「结果」区分正常退出与异常路径（13_08 T7）：取门超时时 `acquire_*` 会抛异常，
+    原先 `wait_read` / `wait_write` 的赋值语句在 `await` 之后、异常时被跳过，于是整段等待
+    被算成「实占」——实测把 180s 等门超时误报成「持门 180s」，把定位引向「某个用例持门不放」。
+    现在异常路径也会把等待时长落盘，并在此列写 `read-wait-timeout` / `write-wait-timeout` /
+    `hold-error` / `ok`，选表时先看这一列。
 
     Args:
         name: 门名。
@@ -191,6 +198,7 @@ def note_hold(
         wait_write: 等写门时长（秒；只读区间为 0）。
         held: 区间内实占时长（秒）。
         reentered: 进入写门时本进程已有其它任务持有写门。
+        outcome: 区间结果（`ok` 或异常阶段的标签）。
     """
     if os.environ.get(HOLD_ENV, "").strip() not in {"1", "true", "yes", "on"}:
         return
@@ -201,7 +209,7 @@ def note_hold(
         mode = "read" if read_only else "write"
         flag = 1 if reentered else 0
         handle.write(
-            f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{wait_read:.3f}\t{wait_write:.3f}\t{held:.3f}\t{flag}\n"
+            f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{wait_read:.3f}\t{wait_write:.3f}\t{held:.3f}\t{flag}\t{outcome}\n"
         )
 
 
@@ -225,14 +233,16 @@ def note_slow_hold(
     frames: str,
     reentered: bool = False,
     holders: str = "",
+    outcome: str = "ok",
 ) -> None:
     """记录一次「门区间超过 1s」的慢区间，附取门时的调用栈（用来定位长会话从哪来）。
 
     阈值按**门区间总时长**（含排队）判定：排队本身也是被堵的成本，不能因为「没真持有」
     就漏掉；三段时长同时落盘，读的人可直接分辨这一条是排队还是真持有。
 
-    列依次为「总时长 / 模式 / 门名 / 用例 / 等读 / 等写 / 实占 / 调用栈 / 重入 / 进入前持有者」：
-    后两列是任务维度采样的落点——「重入=1」说明取写门没排队，慢在门内（或 SQLite 锁上），
+    列依次为「总时长 / 模式 / 门名 / 用例 / 等读 / 等写 / 实占 / 调用栈 / 重入 / 结果 / 进入前持有者」：
+    后三列是诊断落点——「重入=1」说明取写门没排队，慢在门内（或 SQLite 锁上），
+    「结果」区分正常退出与取门超时（超时行的「实占」含未记入等待列的时长），
     「进入前持有者」直接点名是哪个任务把写门占着。
 
     Args:
@@ -245,6 +255,7 @@ def note_slow_hold(
         frames: 取门时的调用栈。
         reentered: 进入写门时本进程已有其它任务持有写门。
         holders: 进入前写门的持有任务描述（为空表示无人持有）。
+        outcome: 区间结果（`ok` 或异常阶段的标签）。
     """
     if not hold_enabled() or seconds < 1.0:
         return
@@ -253,7 +264,7 @@ def note_slow_hold(
     path.parent.mkdir(parents=True, exist_ok=True)
     mode = "read" if read_only else "write"
     prefix = f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{wait_read:.3f}\t{wait_write:.3f}\t{held:.3f}"
-    tail = f"{1 if reentered else 0}\t{holders or '-'}"
+    tail = f"{1 if reentered else 0}\t{outcome}\t{holders or '-'}"
     with contextlib.suppress(OSError), path.open("a", encoding="utf-8") as handle:
         handle.write(f"{prefix}\t{frames}\t{tail}" + chr(10))
 

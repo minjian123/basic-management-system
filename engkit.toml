@@ -637,7 +637,11 @@ baseline = "deploy/boundaries/test_db_isolation_baseline.json"
 baseline_version = 1
 exclude_parts = ["__pycache__", ".venv", "node_modules", ".git"]
 # 共享测试基座：职责就是建库（04-6-2 单源准备集），不参与「用例自建库」判定
-base_modules = ["backend/tests_support/shared_db.py"]
+base_modules = ["backend/tests_support/shared_db.py", "backend/tests_support/shared_access.py"]
+# 直连共享库（G5，13_08 T7）：这些根下的**全部** .py 不得自己 create_async_engine 开共享库——
+# 直连不取读写门，长读事务会在 SQLite 层挡住走门的写者（表现为「有人持写门很久」）。
+# 统一走 `gated_session` / `write_window`，或收进 base_modules 声明的共享访问入口。
+gate_bypass_targets = ["backend/tests_support"]
 
 [rules.system_fields]
 table_dir = "bms文档/设计/数据库设计/数据表设计"

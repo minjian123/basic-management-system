@@ -41,8 +41,12 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.testing import diagnostics
 from bms_core.testing.paths import project_root
 
-DEFAULT_TIMEOUT: Final = 180.0
-"""等门上限（秒）：超时即报错，不静默降级。"""
+DEFAULT_TIMEOUT: Final = 30.0
+"""等门上限（秒）：超时即报错，不静默降级。
+
+13_08 T7 从 180s 收到 30s：等满 180s 的区间会把「等门超时」记成超长实占，
+且一轮全量只暴露一个现场；30s 让卡点快速失败。
+"""
 
 WRITE_WAIT_CAP: Final = 5.0
 """写门等待上限（秒）：正常写操作是毫秒级，等超过它就是有人长期占着写门，直接报错。"""
@@ -415,10 +419,7 @@ class _TaskHold:
         Returns:
             str: 形如 `pid=1 task=2 mode=write depth=1 test=x at=12:00:01`。
         """
-        return (
-            f"pid={self.pid} task={self.task} mode={self.mode} depth={self.depth} "
-            f"test={self.test_id} at={self.at}"
-        )
+        return f"pid={self.pid} task={self.task} mode={self.mode} depth={self.depth} test={self.test_id} at={self.at}"
 
 
 class DbGate:
@@ -588,9 +589,7 @@ class DbGate:
                 reentered = True
             else:
                 mine = _task_key()
-                released = ConcurrentStableList(
-                    token for token, owner in self._own_reads.items() if owner == mine
-                )
+                released = ConcurrentStableList(token for token, owner in self._own_reads.items() if owner == mine)
                 for token in released:
                     del self._own_reads[token]
                     self._untrack_read(mine)
@@ -905,8 +904,6 @@ class DbGate:
             reason=reason,
             holder=self._describe_holder(),
         )
-
-
 
     async def _wait_and_lock(self, write: bool, *, cap: float | None = None) -> None:
         """排队等待直到拿到门（事件循环内异步轮询，不占线程池）。

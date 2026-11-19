@@ -14,7 +14,7 @@ from __future__ import annotations
 import time
 import traceback
 from collections.abc import AsyncGenerator
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppress
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.gate import db_access_gate
@@ -58,6 +58,11 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
     - 它的 `finally` 先放写门、再补回读锁；写门没拿到时 `release_write` 只记日志不抛错；
     - 最外层 `finally` 释放读锁。
 
+    **等待时长在异常路径也要记**（13_08 T7）：等读门 / 等写门超时时 `await` 直接抛异常，
+    原先的 `wait_read = …` / `wait_write = …` 会被跳过，`held = elapsed - 0 - 0` 就把整段
+    等待算成「门内实占」——实测把 180s 等门超时误报成「持门 180s」。现在两段等待都在
+    `finally` 里按「进入前时刻」结算，异常行的「结果」列写明阶段，选表时先看这一列。
+
     Args:
         name: 门名。
         read_only: 只读 True（持读锁执行），写 False（升到写锁执行）。
@@ -75,19 +80,28 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             for line in traceback.format_stack()[-8:-2]
             if line.strip() and "contextlib.py" not in line and "gates.py" not in line
         )
-    token = await target.acquire_read()
-    wait_read = time.monotonic() - started
+    wait_read = 0.0
     wait_write = 0.0
-    write_wait_start = 0.0
-    holders_before = ""
     reentered = False
+    holders_before = ""
+    token: int | None = None
+    restored: ConcurrentStableList[int] = ConcurrentStableList()
+    stage = "read"
+    outcome = "ok"
     try:
+        read_started = time.monotonic()
+        try:
+            token = await target.acquire_read()
+        finally:
+            wait_read = time.monotonic() - read_started
         if read_only:
+            stage = "hold"
             yield
             return
-        restored: ConcurrentStableList[int] = ConcurrentStableList()
+        stage = "write"
         try:
             # 解锁读锁：让出自己这份份额（同进程其它会话的份额不受影响）。
+            assert token is not None
             await target.release_read(token)
             # 进入前先抓一份持有者：进程级写门可重入，`wait_write≈0` 既可能是「没人占」，
             # 也可能是「同进程另一协程占着」；读持有者同理——SQLite rollback journal 下
@@ -96,16 +110,30 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             holders_before = " | ".join(target.holder_tasks())
             # 并发的写在这里排队；拿到写门后独占，期间新读锁加不上。
             write_wait_start = time.monotonic()
-            restored = await target.acquire_write(wait=wait)
-            wait_write = time.monotonic() - write_wait_start
+            try:
+                restored = await target.acquire_write(wait=wait)
+            finally:
+                wait_write = time.monotonic() - write_wait_start
+            stage = "hold"
             yield
         finally:
             # 无论是否报错都释放写门；没拿到（取写门就失败）时只记日志。
             await target.release_write(restored)
             # 再把读锁加上，恢复进入时的读状态。
             token = await target.acquire_read()
+    except BaseException as exc:
+        if stage == "hold":
+            # 门内业务异常：与门等待区分开，避免把用例自身超时算成「等门超时」。
+            outcome = "hold-error"
+        else:
+            outcome = f"{stage}-{'timeout' if isinstance(exc, TimeoutError) else 'error'}"
+        raise
     finally:
-        await target.release_read(token)
+        # 读门等待超时时 `token` 从未赋值：此时只落一行记录，不做释放。
+        if token is not None:
+            # 写路径补回读份额失败时 token 已失效，释放只销账不掩盖原始异常。
+            with suppress(RuntimeError):
+                await target.release_read(token)
         elapsed = time.monotonic() - started
         # 实占 = 总时长 − 等读 − 等写门；三段落盘才能区分「在门口排队」与「区间内真持有」，
         # 压测调优只认后者是串行成本（前者是争用产物，随排队消失自然下降）。
@@ -118,6 +146,7 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             wait_write=wait_write,
             held=held,
             reentered=reentered,
+            outcome=outcome,
         )
         diagnostics.note_slow_hold(
             name,
@@ -129,6 +158,7 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             frames=frames,
             reentered=reentered,
             holders=holders_before,
+            outcome=outcome,
         )
 
 

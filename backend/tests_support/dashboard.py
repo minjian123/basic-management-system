@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from collections.abc import AsyncGenerator, Callable, Iterable
 from contextlib import asynccontextmanager
 from typing import Any, cast
@@ -20,7 +21,7 @@ from sqlalchemy import Table, delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.base import Base
 from bms_core.models.platform.dashboard import (
     SCOPE_PLATFORM,
@@ -29,6 +30,7 @@ from bms_core.models.platform.dashboard import (
     SysDashboardTemplate,
 )
 from bms_core.models.platform.role import SysRole, SysUserRole
+from tests_support.shared_access import shared_engine, shared_session, shared_window
 
 __all__ = [
     "DASHBOARD_MODELS",
@@ -112,19 +114,36 @@ async def memory_dashboard_session() -> AsyncGenerator[AsyncSession]:
         await engine.dispose()
 
 
+_ENSURED_URLS: ConcurrentStableSet[str] = ConcurrentStableSet()
+"""已建过工作台表的连接串（进程级）：13_08 T7 起每进程只建一次。"""
+
+_ENSURE_LOCK = threading.Lock()
+"""占位互斥：并发首次调用时只让一个协程去建表（锁内不含 await）。"""
+
+
 async def ensure_dashboard_tables(url: str) -> None:
     """确保工作台三表存在（缺则建；不清空）。
+
+    13_08 T7：**每个进程只做一次**（原实现每用例 `create_all`，4 路并行争 SQLite schema 锁）。
 
     Args:
         url: 数据库连接串。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
+    with _ENSURE_LOCK:
+        if url in _ENSURED_URLS:
+            return
+        _ENSURED_URLS.add(url)
     try:
-        tables = [cast("Table", model.__table__) for model in DASHBOARD_MODELS]
-        async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables, checkfirst=True))
-    finally:
-        await engine.dispose()
+        engine = shared_engine(url)
+        try:
+            tables = [cast("Table", model.__table__) for model in DASHBOARD_MODELS]
+            async with shared_window(engine), engine.begin() as connection:
+                await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables, checkfirst=True))
+        finally:
+            await engine.dispose()
+    except BaseException:
+        _ENSURED_URLS.discard(url)
+        raise
 
 
 async def seed_card(url: str, code: str, **overrides: object) -> int:
@@ -158,18 +177,13 @@ async def seed_card(url: str, code: str, **overrides: object) -> int:
         values["chart_type"] = overrides["chart_type"]
     if "chart_config" in overrides:
         values["chart_config"] = overrides["chart_config"]
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-    try:
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
-            row = SysDashboardCard(**values)
-            session.add(row)
-            await session.flush()
-            card_id = int(row.id)
-            await session.commit()
-        return card_id
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=False) as session:
+        row = SysDashboardCard(**values)
+        session.add(row)
+        await session.flush()
+        card_id = int(row.id)
+        await session.commit()
+    return card_id
 
 
 async def ensure_card(url: str, code: str, **overrides: object) -> int:
@@ -183,20 +197,14 @@ async def ensure_card(url: str, code: str, **overrides: object) -> int:
     Returns:
         int: 卡片主键。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-    try:
-        async with engine.connect() as connection:
-            row = (
-                await connection.execute(
-                    select(SysDashboardCard.id).where(
-                        SysDashboardCard.code == code, SysDashboardCard.deleted_at.is_(None)
-                    )
-                )
-            ).first()
-        if row is not None:
-            return int(row[0])
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=True) as session:
+        row = (
+            await session.execute(
+                select(SysDashboardCard.id).where(SysDashboardCard.code == code, SysDashboardCard.deleted_at.is_(None))
+            )
+        ).first()
+    if row is not None:
+        return int(row[0])
     return await seed_card(url, code, **overrides)
 
 
@@ -209,20 +217,16 @@ async def find_platform_template(url: str) -> int | None:
     Returns:
         int | None: 模板主键。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-    try:
-        async with engine.connect() as connection:
-            row = (
-                await connection.execute(
-                    select(SysDashboardTemplate.id).where(
-                        SysDashboardTemplate.scope == SCOPE_PLATFORM,
-                        SysDashboardTemplate.deleted_at.is_(None),
-                    )
+    async with shared_session(url, read_only=True) as session:
+        row = (
+            await session.execute(
+                select(SysDashboardTemplate.id).where(
+                    SysDashboardTemplate.scope == SCOPE_PLATFORM,
+                    SysDashboardTemplate.deleted_at.is_(None),
                 )
-            ).first()
-        return None if row is None else int(row[0])
-    finally:
-        await engine.dispose()
+            )
+        ).first()
+    return None if row is None else int(row[0])
 
 
 async def seed_template(
@@ -248,24 +252,19 @@ async def seed_template(
         int: 模板主键。
     """
     payload: object = {"cards": []} if layout is None else layout
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-    try:
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
-            row = SysDashboardTemplate(
-                scope=scope,
-                role_id=role_id,
-                name=name,
-                layout_config=json.dumps(_plain(payload), ensure_ascii=False),
-                status=status,
-            )
-            session.add(row)
-            await session.flush()
-            template_id = int(row.id)
-            await session.commit()
-        return template_id
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=False) as session:
+        row = SysDashboardTemplate(
+            scope=scope,
+            role_id=role_id,
+            name=name,
+            layout_config=json.dumps(_plain(payload), ensure_ascii=False),
+            status=status,
+        )
+        session.add(row)
+        await session.flush()
+        template_id = int(row.id)
+        await session.commit()
+    return template_id
 
 
 async def set_card_status(url: str, code: str, status: str) -> None:
@@ -276,9 +275,9 @@ async def set_card_status(url: str, code: str, status: str) -> None:
         code: 卡片标识。
         status: 目标状态。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
+    engine = shared_engine(url)
     try:
-        async with engine.begin() as connection:
+        async with shared_window(engine), engine.begin() as connection:
             await connection.execute(
                 update(SysDashboardCard).where(SysDashboardCard.code == code).values(status=status)
             )
@@ -293,9 +292,9 @@ async def clear_dashboard_pref(url: str, user_id: int = 1001) -> None:
         url: 数据库连接串。
         user_id: 用户主键。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
+    engine = shared_engine(url)
     try:
-        async with engine.begin() as connection:
+        async with shared_window(engine), engine.begin() as connection:
             await connection.execute(
                 text("DELETE FROM sys_user_preference WHERE CAST(user_id AS INTEGER) = :user_id AND pref_key = :key"),
                 {"user_id": user_id, "key": PREF_KEY},
@@ -314,21 +313,17 @@ async def read_pref(url: str, user_id: int = 1001) -> str | None:
     Returns:
         str | None: `pref_value` 原文。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-    try:
-        async with engine.connect() as connection:
-            row = (
-                await connection.execute(
-                    text(
-                        "SELECT pref_value FROM sys_user_preference "
-                        "WHERE CAST(user_id AS INTEGER) = :user_id AND pref_key = :key AND deleted_at IS NULL"
-                    ),
-                    {"user_id": user_id, "key": PREF_KEY},
-                )
-            ).first()
-        return None if row is None else str(row[0])
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=True) as session:
+        row = (
+            await session.execute(
+                text(
+                    "SELECT pref_value FROM sys_user_preference "
+                    "WHERE CAST(user_id AS INTEGER) = :user_id AND pref_key = :key AND deleted_at IS NULL"
+                ),
+                {"user_id": user_id, "key": PREF_KEY},
+            )
+        ).first()
+    return None if row is None else str(row[0])
 
 
 async def seed_role(url: str, code: str, *, role_type: str = "custom", status: str = "enabled") -> int:
@@ -343,18 +338,13 @@ async def seed_role(url: str, code: str, *, role_type: str = "custom", status: s
     Returns:
         int: 角色主键。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-    try:
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
-            row = SysRole(form_key=code, code=code, name=code, role_type=role_type, status=status)
-            session.add(row)
-            await session.flush()
-            role_id = int(row.id)
-            await session.commit()
-        return role_id
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=False) as session:
+        row = SysRole(form_key=code, code=code, name=code, role_type=role_type, status=status)
+        session.add(row)
+        await session.flush()
+        role_id = int(row.id)
+        await session.commit()
+    return role_id
 
 
 async def assign_role(url: str, role_id: int, user_id: int) -> None:
@@ -365,24 +355,19 @@ async def assign_role(url: str, role_id: int, user_id: int) -> None:
         role_id: 角色主键。
         user_id: 用户主键。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-    try:
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
-            existing = (
-                (
-                    await session.execute(
-                        select(SysUserRole).where(SysUserRole.role_id == role_id, SysUserRole.user_id == user_id)
-                    )
+    async with shared_session(url, read_only=False) as session:
+        existing = (
+            (
+                await session.execute(
+                    select(SysUserRole).where(SysUserRole.role_id == role_id, SysUserRole.user_id == user_id)
                 )
-                .scalars()
-                .first()
             )
-            if existing is None:
-                session.add(SysUserRole(role_id=role_id, user_id=user_id))
-                await session.commit()
-    finally:
-        await engine.dispose()
+            .scalars()
+            .first()
+        )
+        if existing is None:
+            session.add(SysUserRole(role_id=role_id, user_id=user_id))
+            await session.commit()
 
 
 async def role_id_by_code(url: str, code: str) -> int:
@@ -398,17 +383,13 @@ async def role_id_by_code(url: str, code: str) -> int:
     Raises:
         LookupError: 角色码不存在。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-    try:
-        async with engine.connect() as connection:
-            row = (
-                await connection.execute(select(SysRole.id).where(SysRole.code == code, SysRole.deleted_at.is_(None)))
-            ).first()
-        if row is None:
-            raise LookupError(f"角色码不存在：{code}")
-        return int(row[0])
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=True) as session:
+        row = (
+            await session.execute(select(SysRole.id).where(SysRole.code == code, SysRole.deleted_at.is_(None)))
+        ).first()
+    if row is None:
+        raise LookupError(f"角色码不存在：{code}")
+    return int(row[0])
 
 
 async def delete_role(url: str, code: str) -> None:
@@ -418,9 +399,9 @@ async def delete_role(url: str, code: str) -> None:
         url: 数据库连接串。
         code: 角色码。
     """
-    engine = create_async_engine(url)  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
+    engine = shared_engine(url)
     try:
-        async with engine.begin() as connection:
+        async with shared_window(engine), engine.begin() as connection:
             row = (await connection.execute(select(SysRole.id).where(SysRole.code == code))).first()
             if row is None:
                 return

@@ -147,6 +147,10 @@ async def test_ensure_unit_schema_switch(tmp_path: Path, monkeypatch: pytest.Mon
     assert "platform" in handled
     assert "sys_menu" in _tables(platform)
     assert "sys_outbox" in _tables(platform)
+    # 第二次启动表已存在：幂等、不改结构（建表只有初始化时的一次机会）
+    before = _tables(platform)
+    await ensure_unit_schema(settings, factory=factory)
+    assert _tables(platform) == before
 
 
 @pytest.mark.kiwi_id(2359)
