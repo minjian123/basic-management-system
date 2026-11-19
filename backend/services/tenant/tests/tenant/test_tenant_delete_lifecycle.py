@@ -28,7 +28,7 @@ from bms_core.models.tenant.tenant import (
 )
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_tenant.domains.tenant.services.tenant_admin import (
     DEFAULT_RETENTION_DAYS,
     DELETION_RETENTION_KEY,
@@ -57,7 +57,7 @@ async def platform_ctx(
     Yields:
         tuple[AsyncSession, StubClient]: （回滚会话, 服务间客户端替身）。
     """
-    async with rollback_session(shared_platform_engine) as session:
+    async with write_session(shared_platform_engine) as session:
         stub = StubClient()
 
         async def _session() -> AsyncIterator[AsyncSession]:
@@ -78,7 +78,7 @@ async def _tenant_row(session: AsyncSession, tenant_id: int) -> SysTenant:
     """直读注册行（绕过接口，校验落库口径）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         tenant_id: 租户主键。
 
     Returns:
@@ -91,7 +91,7 @@ async def _events(session: AsyncSession, event_type: str, tenant_id: int) -> Con
     """按类型 + 本租户取发件箱事件（升序）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         event_type: 事件类型。
         tenant_id: 租户主键。
 
@@ -117,7 +117,7 @@ async def _seed_tenant(
     """写一条本用例独占的注册行（含库名对照）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         ns: 本用例命名空间。
         suffix: 编码后缀（同用例内区分多个租户）。
         kind: 租户类型。
@@ -139,7 +139,7 @@ async def _seed_deleted(session: AsyncSession, ns: Namespace, *, purge_at: str |
     """写一条已注销注册行（保留期时点可指定）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         ns: 本用例命名空间。
         purge_at: 保留期截止（`YYYY-MM-DD HH:MM:SS`；None 表示留空待回填）。
         suffix: 编码后缀。

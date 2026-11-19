@@ -23,7 +23,7 @@ from bms_core.models.tenant.tenant import SysTenant
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceResponse
 from bms_core.tenant.provisioning import ProvisionOutcome
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_tenant.domains.tenant.repositories.tenant_module import TenantModuleRepository
 from bms_tenant.domains.tenant.services import platform_tenant as platform_tenant_module
 from bms_tenant.domains.tenant.services.platform_tenant import ensure_platform_tenant, ensure_platform_tenant_row
@@ -137,7 +137,7 @@ class _Cache:
 async def session(
     shared_platform_engine: AsyncEngine,
 ) -> AsyncIterator[AsyncSession]:
-    """共享平台库上的回滚会话（整条用例持写锁）。
+    """共享平台库上的写会话（不提交，退出即回滚）。
 
     Args:
         shared_platform_engine: 共享平台库引擎。
@@ -145,7 +145,7 @@ async def session(
     Yields:
         AsyncSession: 数据库会话。
     """
-    async with rollback_session(shared_platform_engine) as db:
+    async with write_session(shared_platform_engine) as db:
         yield db
 
 

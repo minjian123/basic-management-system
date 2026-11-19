@@ -41,7 +41,7 @@ from bms_core.services.module_registry import (
     validate_products,
 )
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 
 _BASE_RECORD = ModuleRecord(
     module_key="pur",
@@ -227,7 +227,7 @@ async def test_models_declared_and_persistable(shared_platform_engine: AsyncEngi
         (cast("Table", SysModule.__table__), cast("Table", SysModuleI18n.__table__)),
     )
 
-    async with rollback_session(shared_platform_engine) as session:
+    async with write_session(shared_platform_engine) as session:
         key = f"{ns.prefix}mod"
         module = SysModule(
             module_key=key,
@@ -239,10 +239,10 @@ async def test_models_declared_and_persistable(shared_platform_engine: AsyncEngi
             build_batch=0,
         )
         session.add(module)
-        await session.commit()
+        await session.flush()
         i18n = SysModuleI18n(module_id=module.id, locale="zh-CN", name="认证与身份服务")
         session.add(i18n)
-        await session.commit()
+        await session.flush()
         assert module.id > 0
         assert module.errcode_segment is None
         assert i18n.id > 0
@@ -496,15 +496,15 @@ async def test_sys_product_model_declared_and_persistable(shared_platform_engine
     await _ensure_tables(shared_platform_engine, (cast("Table", SysProduct.__table__),))
 
     key = f"{ns.prefix}p"
-    async with rollback_session(shared_platform_engine) as session:
+    async with write_session(shared_platform_engine) as session:
         first = SysProduct(product_key=key, name="主数据管理", status=ProductStatus.PLANNED)
         session.add(first)
-        await session.commit()
+        await session.flush()
         assert first.id > 0
         first.soft_delete()
-        await session.commit()
+        await session.flush()
         session.add(SysProduct(product_key=key, name="主数据管理", status=ProductStatus.ENABLED))
-        await session.commit()
+        await session.flush()
         rows = (await session.execute(select(SysProduct).where(SysProduct.product_key == key))).scalars().all()
         assert len(rows) == 2
         assert sorted(row.deleted_at is None for row in rows) == [False, True]

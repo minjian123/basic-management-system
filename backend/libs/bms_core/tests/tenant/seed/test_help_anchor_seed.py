@@ -18,7 +18,7 @@ from bms_core.help.anchors import HelpAnchorKind
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
 from bms_core.tenant.seed.help_anchor import HelpAnchorDeclaration, apply_help_anchor_declarations
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 
 _MODELS = (SysMenu, SysForm, SysField, SysButton, SysAction, SysBusiness, SysPermission)
 
@@ -57,9 +57,9 @@ async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         engine: 共享库引擎。
 
     Yields:
-        AsyncSession: 会话（用例结束整体回滚）。
+        AsyncSession: 写会话（不提交，退出即回滚）。
     """
-    async with rollback_session(engine) as db_session:
+    async with write_session(engine) as db_session:
         yield db_session
 
 

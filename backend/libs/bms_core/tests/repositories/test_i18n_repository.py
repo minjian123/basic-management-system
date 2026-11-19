@@ -24,7 +24,7 @@ from bms_core.repositories.i18n import (
     replace_i18n_texts,
     soft_delete_i18n,
 )
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 
 
 class I18nProbe(BaseModel):
@@ -80,7 +80,7 @@ async def engine(shared_platform_engine: AsyncEngine) -> AsyncEngine:
 
 @pytest.fixture
 async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """回滚会话（用例结束整体回滚）。
+    """回滚写会话（不提交，退出即回滚）。
 
     Args:
         engine: 共享库引擎。
@@ -88,7 +88,7 @@ async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     Yields:
         AsyncSession: 会话。
     """
-    async with rollback_session(engine) as session:
+    async with write_session(engine) as session:
         yield session
 
 

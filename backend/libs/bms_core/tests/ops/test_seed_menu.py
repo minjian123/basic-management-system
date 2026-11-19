@@ -11,7 +11,7 @@ from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness
 from bms_core.tenant.seed import menu as seed_menu
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 
 # 07B `03_03` 改造前的清单规模（凭据：设计 §2.1 实测 44 / 110 / 31）。
 # 2026-10-31 起基线记「含平台后续新增条目」：08-02_02 补 `config:manage`（110 → 111）、
@@ -79,12 +79,12 @@ async def seed_session(shared_platform_engine: AsyncEngine) -> AsyncIterator[Asy
         shared_platform_engine: 共享平台库引擎。
 
     Yields:
-        AsyncSession: 会话（用例结束整体回滚）。
+        AsyncSession: 写会话（不提交，退出即回滚）。
     """
     async with shared_platform_engine.begin() as connection:
         for table in seed_menu._MENU_TABLES:  # pyright: ignore[reportPrivateUsage]
             await connection.run_sync(partial(_create_table, table))
-    async with rollback_session(shared_platform_engine) as session:
+    async with write_session(shared_platform_engine) as session:
         yield session
 
 

@@ -2,7 +2,7 @@
 keyset 游标见 Kiwi 1078。
 
 单库叠加口径（04-6-2）：库用会话级共享平台库（`shared_platform_engine`），本文件的三张测试表
-幂等建在共享库上；数据一律走 `rollback_session`，用例结束整体回滚——只撤本用例写入，
+幂等建在共享库上；数据一律走 `write_session`（不提交，退出即回滚）——只撤本用例写入，
 故「精确总数」断言语义不变。唯一例外是乐观锁并发用例（需真实提交），它独占 `test_db_lock_item`，
 不往被精确计数的 `test_db_item` 落盘行。
 """
@@ -36,7 +36,7 @@ from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import SortDirection, SortSpec
 from bms_core.scope.base import DataScope, ScopeCondition
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 
 
 class DbItem(BaseModel):
@@ -182,8 +182,8 @@ async def session_factory(engine: AsyncEngine) -> AsyncIterator[async_sessionmak
 
 @pytest.fixture
 async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """回滚会话：用例结束整体回滚（只撤本用例写入，精确总数断言因此成立）。"""
-    async with rollback_session(engine) as session:
+    """写会话：不提交，退出即回滚（只撤本用例写入，精确总数断言因此成立）。"""
+    async with write_session(engine) as session:
         yield session
 
 

@@ -33,7 +33,7 @@ from bms_core.i18n.seed import build_parser, main, seed_i18n_entry
 from bms_core.models.base import Base
 from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 
 pytestmark = pytest.mark.kiwi_id(2404)
 
@@ -52,7 +52,7 @@ async def i18n_session(
     Yields:
         AsyncSession: 数据库会话。
     """
-    async with rollback_session(shared_platform_engine) as db:
+    async with write_session(shared_platform_engine) as db:
         yield db
 
 

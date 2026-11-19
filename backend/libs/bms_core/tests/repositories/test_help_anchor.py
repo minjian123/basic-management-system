@@ -23,7 +23,7 @@ from bms_core.repositories.help_anchor import (
     load_help_anchor_index,
     load_help_anchor_kinds,
 )
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 
 _MODELS = (SysMenu, SysForm, SysField, SysButton, SysAction, SysBusiness, SysPermission)
 
@@ -62,9 +62,9 @@ async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         engine: 共享库引擎。
 
     Yields:
-        AsyncSession: 会话（用例结束整体回滚）。
+        AsyncSession: 写会话（不提交，退出即回滚）。
     """
-    async with rollback_session(engine) as db_session:
+    async with write_session(engine) as db_session:
         yield db_session
 
 

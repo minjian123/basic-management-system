@@ -34,7 +34,7 @@ from bms_core.models.tenant.tenant import (
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.outbox.store import SqlOutboxStore
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_tenant.domains.tenant.jobs import (
     TENANT_PURGE_JOB_TYPE,
     TENANT_PURGE_SCAN_JOB_TYPE,
@@ -60,7 +60,7 @@ NOW = datetime(2026, 11, 8, 12, 0, 0)
 async def session(
     shared_platform_engine: AsyncEngine,
 ) -> AsyncIterator[AsyncSession]:
-    """共享平台库上的回滚会话（整条用例持写锁）。
+    """共享平台库上的写会话（不提交，退出即回滚）。
 
     Args:
         shared_platform_engine: 共享平台库引擎。
@@ -68,7 +68,7 @@ async def session(
     Yields:
         AsyncSession: 数据库会话。
     """
-    async with rollback_session(shared_platform_engine) as db:
+    async with write_session(shared_platform_engine) as db:
         yield db
 
 
@@ -83,7 +83,7 @@ async def _seed(
     """写一条租户（含库名对照），返回注册行。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         ns: 本用例命名空间。
         suffix: 编码后缀（同用例内区分多个租户）。
         status: 状态。
@@ -107,7 +107,7 @@ async def _seed_config(session: AsyncSession, *, key: str, value: str) -> None:
     """写一条系统参数。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         key: 参数键。
         value: 参数值。
     """
@@ -121,7 +121,7 @@ async def _events(
     """按类型（+ 本租户）取发件箱事件（升序）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         event_type: 事件类型。
         tenant_id: 租户主键；None 不按租户过滤（仅用于无租户事件）。
 
@@ -139,7 +139,7 @@ async def _tenant_row(session: AsyncSession, tenant_id: int) -> SysTenant | None
     """直读注册行（校验是否被物理删除）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         tenant_id: 租户主键。
 
     Returns:
@@ -152,7 +152,7 @@ async def _database_rows(session: AsyncSession, tenant_id: int) -> int:
     """取库名对照行数（清理后应为 0）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         tenant_id: 租户主键。
 
     Returns:
@@ -166,7 +166,7 @@ async def _job_rows(session: AsyncSession, *tenant_ids: int) -> ConcurrentStable
     """取本用例提交的作业行（按幂等键中的租户 ID 收敛）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         *tenant_ids: 本用例租户主键。
 
     Returns:
@@ -219,7 +219,7 @@ async def _purge(
     """执行一次单租户清理（复用回滚会话）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         tenant_id: 租户主键。
         drop: 删库替身（None 走运维通道默认实现）。
         services: 服务清单（None 取 platform + file）。
@@ -253,7 +253,7 @@ async def _scan(
     """执行一轮扫描（复用回滚会话）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         settings: 应用配置（判归档是否就绪）。
         batch_size: 批大小。
         only_codes: 只扫这些租户编码。
@@ -291,7 +291,7 @@ def _ctx(
     """构造作业执行上下文（会话开合口接回滚会话）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         job_type: 作业类型。
         payload: 作业负载。
         progress: 进度记录器。

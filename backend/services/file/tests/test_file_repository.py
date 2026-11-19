@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import write_session
 from bms_file.domains.file.models.file import SysFile, SysFilePart
 from bms_file.domains.file.repositories.file import FilePartRepository, FileRepository
 
@@ -71,10 +71,10 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
         shared_platform_engine: 共享平台库引擎。
 
     Yields:
-        AsyncSession: 回滚会话。
+        AsyncSession: 写会话。
     """
     await ensure_tables(shared_platform_engine, list(_TABLES))
-    async with rollback_session(shared_platform_engine) as current:
+    async with write_session(shared_platform_engine) as current:
         yield current
 
 
