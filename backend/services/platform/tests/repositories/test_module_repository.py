@@ -1,6 +1,6 @@
 """服务目录仓储测试（Kiwi 2162 / 2163 / 2164）：只读查询、分页、软删过滤与只读护栏。
 
-单库叠加口径（04-6-2）：库用共享平台库、会话走 `rollback_session`（写入整体回滚），
+单库叠加口径（04-6-2）：库用共享平台库、会话走共享库普通会话（写入真提交、按命名空间隔离），
 模块键 / 服务键 / 表前缀 / 事件域一律带命名空间前缀，断言只覆盖本用例自造的行。
 """
 
@@ -11,13 +11,14 @@ from typing import cast
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.models.platform.catalog import SysModule
 from bms_core.schemas.pagination import BasePageQuery
+from bms_core.testing.gates import write_window
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.repositories import module_repository
 from bms_platform.domains.platform_registry.repositories.module_repository import ModuleRepository
 
@@ -33,7 +34,8 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
     """共享平台库上的回滚会话（`sys_module` 表幂等补齐）。"""
     async with shared_platform_engine.begin() as connection:
         await connection.run_sync(lambda conn: cast("Table", SysModule.__table__).create(conn, checkfirst=True))
-    async with rollback_session(shared_platform_engine) as session:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as session:
         yield session
 
 
@@ -41,7 +43,7 @@ async def _seed(session: AsyncSession, ns: Namespace) -> ConcurrentStableList[st
     """写入三行本用例专属目录记录（平台服务行 / 服务行 / 产品模块）。
 
     Args:
-        session: 回滚会话。
+        session: 共享库会话。
         ns: 用例命名空间。
 
     Returns:
@@ -49,42 +51,43 @@ async def _seed(session: AsyncSession, ns: Namespace) -> ConcurrentStableList[st
     """
     base = ns.prefix
     keys: ConcurrentStableList[str] = ConcurrentStableList([f"{base}sys", f"{base}identity", f"{base}pur"])
-    session.add_all(
-        [
-            SysModule(
-                module_key=keys[0],
-                service_key=f"{base}platform",
-                name="平台地基与配置服务",
-                table_prefix=f"{base}sys_",
-                errcode_segment="01",
-                event_domain=keys[0],
-                service_group="foundation",
-                status="enabled",
-            ),
-            SysModule(
-                module_key=keys[1],
-                service_key=f"{base}identity",
-                name="认证与身份服务",
-                table_prefix=f"{base}identity_",
-                event_domain=keys[1],
-                service_group="foundation",
-                status="enabled",
-            ),
-            SysModule(
-                module_key=keys[2],
-                name="采购",
-                table_prefix=f"{base}pur_",
-                business_code=f"{base}pur",
-                errcode_segment="10",
-                event_domain=keys[2],
-                service_group="product",
-                build_batch=3,
-                product_key="biz",
-                status="planned",
-            ),
-        ]
-    )
-    await session.commit()
+    async with write_window(PLATFORM_DB_KEY):
+        session.add_all(
+            [
+                SysModule(
+                    module_key=keys[0],
+                    service_key=f"{base}platform",
+                    name="平台地基与配置服务",
+                    table_prefix=f"{base}sys_",
+                    errcode_segment="01",
+                    event_domain=keys[0],
+                    service_group="foundation",
+                    status="enabled",
+                ),
+                SysModule(
+                    module_key=keys[1],
+                    service_key=f"{base}identity",
+                    name="认证与身份服务",
+                    table_prefix=f"{base}identity_",
+                    event_domain=keys[1],
+                    service_group="foundation",
+                    status="enabled",
+                ),
+                SysModule(
+                    module_key=keys[2],
+                    name="采购",
+                    table_prefix=f"{base}pur_",
+                    business_code=f"{base}pur",
+                    errcode_segment="10",
+                    event_domain=keys[2],
+                    service_group="product",
+                    build_batch=3,
+                    product_key="biz",
+                    status="planned",
+                ),
+            ]
+        )
+        await session.commit()
     return keys
 
 
@@ -117,8 +120,9 @@ async def test_get_by_key_and_soft_delete(session: AsyncSession, ns: Namespace) 
     assert sys_module.service_key == f"{ns.prefix}platform"
     assert await repository.get_by_key(ns.code("missing")) is None
 
-    sys_module.soft_delete()
-    await session.commit()
+    async with write_window(PLATFORM_DB_KEY):
+        sys_module.soft_delete()
+        await session.commit()
     assert await repository.get_by_key(keys[0]) is None
     remaining = {module.module_key for module in await repository.list_catalog()}
     assert keys[0] not in remaining and {keys[1], keys[2]} <= remaining
@@ -166,8 +170,9 @@ async def test_get_by_service_key(session: AsyncSession, ns: Namespace) -> None:
     assert await repository.get_by_service_key(ns.code("missing")) is None
     assert await repository.get_by_service_key(keys[2]) is None
 
-    row.soft_delete()
-    await session.commit()
+    async with write_window(PLATFORM_DB_KEY):
+        row.soft_delete()
+        await session.commit()
     assert await repository.get_by_service_key(f"{ns.prefix}platform") is None
 
 

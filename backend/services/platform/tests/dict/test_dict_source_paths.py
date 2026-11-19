@@ -2,7 +2,7 @@
 
 覆盖：角色数据源加载启用行（软删除 / 停用过滤）、未支持标识返回空元组。
 
-单库叠加口径（04-6-2）：库用**共享租户库**、写入走 `rollback_session`（整体回滚不残留）；
+单库叠加口径（04-6-2）：库用**共享租户库**、写入真提交、角色码按命名空间隔离；
 角色码带命名空间前缀，断言只看本用例自造的行（叠加库中他人角色不能进断言集合）。
 """
 
@@ -15,16 +15,16 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.models.platform.role import SysRole
+from bms_core.testing.gates import write_window
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.sources.dict_source import PlatformDictDataSource
 from bms_platform.wiring import role_reference
 
@@ -70,17 +70,19 @@ async def scenario(
 
     enabled = ns.code("ops")
     label = "运维角色"
-    async with rollback_session(shared_tenant_engine) as session:
-        session.add_all(
-            [
-                SysRole(code=enabled, name=label, status="enabled"),
-                SysRole(code=ns.code("off"), name="停用角色", status="disabled"),
-            ]
-        )
-        removed = SysRole(code=ns.code("gone"), name="已删角色", status="enabled")
-        removed.soft_delete()
-        session.add(removed)
-        await session.commit()
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    async with factory() as session:
+        async with write_window("tenant_demo"):
+            session.add_all(
+                [
+                    SysRole(code=enabled, name=label, status="enabled"),
+                    SysRole(code=ns.code("off"), name="停用角色", status="disabled"),
+                ]
+            )
+            removed = SysRole(code=ns.code("gone"), name="已删角色", status="enabled")
+            removed.soft_delete()
+            session.add(removed)
+            await session.commit()
 
         registry = EngineRegistry(EngineFactory(get_settings()))
         try:

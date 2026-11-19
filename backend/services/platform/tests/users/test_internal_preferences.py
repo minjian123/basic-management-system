@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import reset_tenant_context, set_tenant_context
@@ -14,7 +14,7 @@ from bms_core.db.session import DbSession
 from bms_core.db.tenant import TenantContext
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.preference.repository import PreferenceRepository
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.gates import write_window
 from bms_platform.domains.user.api import internal_preferences
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.schemas.preferences import InternalPreferenceResolveRequest
@@ -31,11 +31,13 @@ class _User:
 
 async def test_resolve_values_and_timezone(shared_tenant_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
     """按用户返回偏好值与时区。"""
-    async with rollback_session(shared_tenant_engine) as session:
-        repository = PreferenceRepository(session)
-        await repository.upsert(1001, "notify.channels", '{"inbox":false}')
-        await repository.upsert(1001, "notify.dnd", '{"enabled":true,"start":"22:00","end":"08:00"}')
-        await session.flush()
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    async with factory() as session:
+        async with write_window("tenant_demo"):
+            repository = PreferenceRepository(session)
+            await repository.upsert(1001, "notify.channels", '{"inbox":false}')
+            await repository.upsert(1001, "notify.dnd", '{"enabled":true,"start":"22:00","end":"08:00"}')
+            await session.flush()
 
         async def _get(self: UserRepository, user_id: int) -> _User:
             del self, user_id
@@ -63,7 +65,8 @@ async def test_resolve_missing_user_and_bad_id(
     shared_tenant_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """用户不存在返回空值与空时区；非法主键拒绝。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    async with factory() as session:
 
         async def _none(self: UserRepository, user_id: int) -> None:
             del self, user_id

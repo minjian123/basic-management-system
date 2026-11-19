@@ -3,11 +3,11 @@
 from typing import cast
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 import bms_platform.domains.dashboard.public as dashboard_public
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import reset_current_user_id, set_current_user_id
-from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.dashboard.api.deps import current_user_id
 from bms_platform.domains.dashboard.repositories.card import DashboardCardI18nRepository
 from bms_platform.domains.dashboard.repositories.template import DashboardTemplateRepository
@@ -53,12 +53,13 @@ async def test_current_roles_without_user_returns_empty() -> None:
     assert list(roles) == []
 
 
-async def test_list_role_templates_includes_disabled(shared_tenant_engine: object) -> None:
+async def test_list_role_templates_includes_disabled(shared_tenant_engine: AsyncEngine) -> None:
     """角色模板可含停用行（管理面回显需要）。
 
     Args:
         shared_tenant_engine: 共享租户库引擎。
     """
-    async with rollback_session(shared_tenant_engine) as session:  # pyright: ignore[reportArgumentType]
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    async with factory() as session:
         items = await DashboardTemplateRepository(session).list_role_templates(enabled_only=False)
         assert isinstance(items, ConcurrentStableList)
