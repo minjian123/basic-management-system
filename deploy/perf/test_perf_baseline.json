@@ -1,0 +1,361 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-19T22:14:25+0800",
+  "environment": {
+    "cpu": "13th Gen Intel(R) Core(TM) i7-13700K",
+    "logical_cores": 24,
+    "memory_gb": 63.7,
+    "os": "Windows-11-10.0.26300-SP0",
+    "python": "3.14.4",
+    "interpreter": "D:/Develop/bizs/bms/backend/.venv/Scripts/python.exe",
+    "commit": "e82ab37e2",
+    "dirty": true
+  },
+  "params": {
+    "jobs": "auto",
+    "coverage": false,
+    "batch_budget": 2500,
+    "timeout": 420.0,
+    "slowest": 20,
+    "micro_count": 200
+  },
+  "batch": {
+    "total_seconds": 995.622,
+    "files": 838,
+    "batches": 13,
+    "interrupted": true,
+    "coverage": false,
+    "cases": {
+      "passed": 5648,
+      "failed": 60,
+      "error": 17,
+      "skipped": 68
+    },
+    "items": [
+      {
+        "index": 1,
+        "files": 48,
+        "seconds": 16.703,
+        "passed": 417,
+        "failed": 4,
+        "skipped": 0,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-01.log"
+      },
+      {
+        "index": 2,
+        "files": 49,
+        "seconds": 21.222,
+        "passed": 791,
+        "failed": 1,
+        "skipped": 0,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-02.log"
+      },
+      {
+        "index": 3,
+        "files": 52,
+        "seconds": 16.689,
+        "passed": 354,
+        "failed": 3,
+        "skipped": 0,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-03.log"
+      },
+      {
+        "index": 4,
+        "files": 52,
+        "seconds": 15.077,
+        "passed": 509,
+        "failed": 0,
+        "skipped": 0,
+        "exit_code": 0,
+        "timed_out": false,
+        "log": "batch-04.log"
+      },
+      {
+        "index": 5,
+        "files": 51,
+        "seconds": 16.305,
+        "passed": 289,
+        "failed": 0,
+        "skipped": 60,
+        "exit_code": 0,
+        "timed_out": false,
+        "log": "batch-05.log"
+      },
+      {
+        "index": 6,
+        "files": 43,
+        "seconds": 13.421,
+        "passed": 596,
+        "failed": 1,
+        "skipped": 0,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-06.log"
+      },
+      {
+        "index": 7,
+        "files": 52,
+        "seconds": 52.842,
+        "passed": 428,
+        "failed": 15,
+        "skipped": 0,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-07.log"
+      },
+      {
+        "index": 8,
+        "files": 47,
+        "seconds": 14.584,
+        "passed": 573,
+        "failed": 1,
+        "skipped": 0,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-08.log"
+      },
+      {
+        "index": 9,
+        "files": 49,
+        "seconds": 20.071,
+        "passed": 499,
+        "failed": 1,
+        "skipped": 3,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-09.log"
+      },
+      {
+        "index": 10,
+        "files": 49,
+        "seconds": 17.655,
+        "passed": 526,
+        "failed": 1,
+        "skipped": 0,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-10.log"
+      },
+      {
+        "index": 11,
+        "files": 49,
+        "seconds": 98.129,
+        "passed": 273,
+        "failed": 30,
+        "skipped": 5,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-11.log"
+      },
+      {
+        "index": 12,
+        "files": 46,
+        "seconds": 272.536,
+        "passed": 393,
+        "failed": 20,
+        "skipped": 0,
+        "exit_code": 1,
+        "timed_out": false,
+        "log": "batch-12.log"
+      },
+      {
+        "index": 13,
+        "files": 45,
+        "seconds": 420.248,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "exit_code": -1,
+        "timed_out": true,
+        "log": "batch-13.log"
+      }
+    ]
+  },
+  "slowest": [
+    {
+      "test": "services/platform/tests/dashboard/test_templates_api.py::test_create_update_delete_role_template",
+      "phase": "setup",
+      "seconds": 196.791,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_runtime_paths.py::test_attrs_without_layout_still_apply",
+      "phase": "setup",
+      "seconds": 196.397,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/dashboard/test_templates_api.py::test_create_role_template_validation",
+      "phase": "setup",
+      "seconds": 195.414,
+      "outcome": "passed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_field_ext_api.py::test_create_field_rejects_duplicate_key",
+      "phase": "setup",
+      "seconds": 195.378,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/dashboard/test_layout_api.py::test_save_rejects_unknown_card",
+      "phase": "setup",
+      "seconds": 195.299,
+      "outcome": "passed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_layout_api.py::test_layout_save_publishes_event",
+      "phase": "setup",
+      "seconds": 194.762,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/dashboard/test_layout_resolve.py::test_role_template_overrides_platform",
+      "phase": "setup",
+      "seconds": 194.576,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/dashboard/test_cards_api.py::test_update_rejects_invalid_changes",
+      "phase": "setup",
+      "seconds": 194.574,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_layout_api.py::test_save_and_list_layout",
+      "phase": "setup",
+      "seconds": 194.571,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_effective_api.py::test_tenant_layout_overrides_default",
+      "phase": "setup",
+      "seconds": 194.568,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_field_ext_api.py::test_disable_field_keeps_column",
+      "phase": "setup",
+      "seconds": 194.56,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_layout_api.py::test_layout_scope_validation",
+      "phase": "setup",
+      "seconds": 194.56,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_layout_api.py::test_delete_attrs_clears_level",
+      "phase": "setup",
+      "seconds": 194.559,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_field_ext_api.py::test_create_field_builds_column",
+      "phase": "setup",
+      "seconds": 194.532,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/api/test_role_api.py::test_metadata_delete_blocked_by_role_grants",
+      "phase": "call",
+      "seconds": 193.399,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_effective_api.py::test_empty_layout_falls_back_to_default_grid",
+      "phase": "setup",
+      "seconds": 192.399,
+      "outcome": "passed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_runtime_paths.py::test_field_unknown_form_and_unresolved_table",
+      "phase": "setup",
+      "seconds": 192.321,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/api/test_role_api.py::test_role_business_grant_rejected_for_custom_role",
+      "phase": "setup",
+      "seconds": 190.994,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_runtime_paths.py::test_validate_type_and_rule_fallbacks",
+      "phase": "setup",
+      "seconds": 190.896,
+      "outcome": "failed"
+    },
+    {
+      "test": "services/platform/tests/form_design/test_runtime_paths.py::test_field_update_branches",
+      "phase": "setup",
+      "seconds": 189.774,
+      "outcome": "failed"
+    }
+  ],
+  "phase_totals": {
+    "setup": 12982.754,
+    "call": 5084.9,
+    "teardown": 14.429
+  },
+  "slowest_stats": {
+    "over_one_second": 951,
+    "cases": 5952
+  },
+  "micro": [
+    {
+      "key": "file_lock",
+      "label": "只取放文件写锁（无争用）",
+      "count": 200,
+      "avg_ms": 0.321,
+      "p50_ms": 0.311,
+      "p95_ms": 0.417
+    },
+    {
+      "key": "write_no_gate",
+      "label": "建表 + 写一行 + 提交（不持锁）",
+      "count": 200,
+      "avg_ms": 7.935,
+      "p50_ms": 7.713,
+      "p95_ms": 8.456
+    },
+    {
+      "key": "write_gate",
+      "label": "建表 + 写一行 + 提交（持写门）",
+      "count": 200,
+      "avg_ms": 10.752,
+      "p50_ms": 8.984,
+      "p95_ms": 20.604
+    },
+    {
+      "key": "begin_immediate",
+      "label": "已有表上 BEGIN IMMEDIATE + 写一行",
+      "count": 200,
+      "avg_ms": 6.235,
+      "p50_ms": 5.459,
+      "p95_ms": 10.52
+    },
+    {
+      "key": "gate_cycle",
+      "label": "写门取放（gate_scope，含记账）",
+      "count": 200,
+      "avg_ms": 4.036,
+      "p50_ms": 4.042,
+      "p95_ms": 5.191
+    },
+    {
+      "key": "os_lock",
+      "label": "只取放操作系统原生锁",
+      "count": 200,
+      "avg_ms": 0.007,
+      "p50_ms": 0.006,
+      "p95_ms": 0.007
+    }
+  ]
+}

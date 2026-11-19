@@ -392,6 +392,13 @@ deps = [
   "bms文档/设计/原型设计/",
 ]
 
+[[preflight.self_tests]]
+label = "性能：test_perf_baseline --self-test（分批切分 / 基线对比 / 统计纯函数）"
+# 13_08 T1：测量资产的自测只覆盖纯函数（不启动 pytest、不碰锁与数据库），毫秒级；
+# deps 指向脚本目录，只在脚本改动时触发。
+cmd = ["{python}", "scripts/tools/perf/test_perf_baseline.py", "--self-test"]
+deps = ["scripts/tools/perf/"]
+
 [guard]
 scripts = ["check_preflight.py", "check_base.py", "check_links.py", "check_docs_scope.py"]
 repo_dirs = ["libs", "services", "scripts", "deploy", "frontend"]
