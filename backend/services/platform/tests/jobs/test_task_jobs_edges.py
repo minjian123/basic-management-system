@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.jobs.base import JobContext
-from bms_core.models.base import Base
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.platform.task import TASK_RUN_RUNNING, SysTaskLog
 from bms_core.tasks.spec import TaskResult
@@ -32,9 +31,7 @@ _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
 
 @pytest.fixture
 async def session(shared_platform_engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
-    """共享平台库上的回滚会话（任务日志 / 发件箱两表幂等补齐）。"""
-    async with shared_platform_engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
+    """共享平台库上的回滚会话（任务日志 / 发件箱两表由共享准备集建好）。"""
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
     async with factory() as opened:
         yield opened

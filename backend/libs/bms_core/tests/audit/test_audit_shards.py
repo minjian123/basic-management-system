@@ -38,7 +38,10 @@ from bms_core.models.base import Base
 from bms_core.models.platform.archive import SysArchiveChainTail
 from bms_core.models.platform.log import SHARD_STATUS_ARCHIVED, SysAuditShard
 
-pytestmark = pytest.mark.kiwi_id(2515)
+pytestmark = [
+    pytest.mark.kiwi_id(2515),
+    pytest.mark.own_db("内存库自建两张分片表：分片路由与归档链台账本身即被测，不触共享库"),
+]
 
 _NOW = datetime(2026, 11, 16, 10, 0, 0)
 

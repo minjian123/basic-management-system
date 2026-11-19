@@ -40,6 +40,8 @@ from bms_core.testing import locks as locks_module
 from bms_core.testing.locks import file_lock
 from bms_core.testing.paths import project_root
 
+pytestmark = pytest.mark.own_db("被测对象即 DDL 互斥与锁获取超时（超时断言需真实等待；共享库上幂等建表、不写数据）")
+
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList((cast("Table", SysConfig.__table__),))
 """真实建表用例用的表（系统参数：单表、无外键依赖）。"""
 

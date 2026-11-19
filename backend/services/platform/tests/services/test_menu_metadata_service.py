@@ -83,6 +83,8 @@ from bms_platform.domains.permission_meta.schemas.permission_meta import (
 )
 from bms_platform.domains.permission_meta.services.permission_meta import PermissionMetadataService
 
+pytestmark = pytest.mark.own_db("内存库自建菜单十二表：目录装载需空库基线，不触共享库")
+
 _MENU_TABLES = (
     SysBusiness.__table__,
     SysBusinessI18n.__table__,

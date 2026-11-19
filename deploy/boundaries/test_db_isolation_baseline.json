@@ -2,11 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "file": "backend/libs/bms_core/tests/audit/test_audit_shards.py",
-      "code": "G3",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/tests/boundary/test_boundary.py",
       "code": "G4",
       "count": 1
@@ -107,16 +102,6 @@
       "count": 2
     },
     {
-      "file": "backend/libs/bms_core/tests/testing/test_locks_ddl.py",
-      "code": "G3",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/testing/test_locks_ddl.py",
-      "code": "G4",
-      "count": 4
-    },
-    {
       "file": "backend/libs/bms_core/tests/testing/test_rwlock.py",
       "code": "G4",
       "count": 2
@@ -139,31 +124,6 @@
     {
       "file": "backend/services/platform/tests/health/test_health_registry.py",
       "code": "G4",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/jobs/test_task_jobs_edges.py",
-      "code": "G3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/jobs/test_task_migration.py",
-      "code": "G3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/log/test_log_write.py",
-      "code": "G3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/services/test_i18n_fallback_cleanup.py",
-      "code": "G3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/services/test_menu_metadata_service.py",
-      "code": "G3",
       "count": 1
     },
     {

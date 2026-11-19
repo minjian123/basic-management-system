@@ -18,7 +18,10 @@ from bms_platform.domains.log.repositories.shard import LogShardRepository
 from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION, canonical_record
 from bms_platform.domains.log.services.writer import AuditLogWriter
 
-pytestmark = pytest.mark.kiwi_id(2407)
+pytestmark = [
+    pytest.mark.kiwi_id(2407),
+    pytest.mark.own_db("内存库自建分片表：同步门面（SyncSession）路径即被测，不触共享库"),
+]
 
 _NOV = datetime(2026, 11, 15, 10, 0, 0)
 _DEC = datetime(2026, 12, 1, 9, 30, 0)

@@ -54,7 +54,10 @@ from bms_platform.domains.permission_meta.repositories.business import (
 )
 from bms_platform.domains.permission_meta.services.permission_meta import PermissionMetadataService
 
-pytestmark = pytest.mark.kiwi_id(2405)
+pytestmark = [
+    pytest.mark.kiwi_id(2405),
+    pytest.mark.own_db("内存库自建十二张目录表：全量目录统计需空库基线，不触共享库"),
+]
 
 _TABLES = (
     SysBusiness.__table__,
