@@ -15,6 +15,7 @@
 | `tools/dev/` | **本机裸跑全套**（`本地全套`：三服务起停 / seed / status / logs / unlock）、宿主端口清理（`清理宿主端口`）与 5002 模块产物服务守护（`确保模块产物服务`）——Python 单一实现，Linux `.sh` / Windows `.bat` 薄包装 |
 | `tools/deps/` | 依赖外置维护（`外置依赖` / `还原依赖` / `重装依赖`：Python 单一实现，Linux `.sh` / Windows `.bat` 瘦包装） |
 | `tools/preflight/` | 推送入口与开发环入口（`推送.py`：预检是推送的内部步骤，档位按待推提交自动选，通过才推送；`测试改动内容.py`：开发环；工作树脏即拒；可选依赖 pyyaml 见同目录 `requirements.txt`） |
+| `tools/perf/` | 全量耗时测量（`test_perf_baseline.py`：分批全量跑 / 最慢项 / 锁与写微基准三张表 + 基线 `deploy/perf/test_perf_baseline.json`；显式 `.py` 文件分批、批间串行，不需要守卫逃生开关，覆盖率只走 engkit 采集插件） |
 | `tools/base_check/` | 基座与边界护栏：`check_base.py`、`check_backend_base.py`、`check_service_boundaries.py`、`check_bare_collections.py`、`check_docs_scope.py`、`check_prototype_review.py`、`check_env_example.py`、`check_links.py`（链接自洽，**本地手工跑**，不挂 CI） |
 | `tools/check_docs/` | 项目文档状态一致性核对（`check_status.py`：需求 / 任务 / 计划三处，同挂 `base-integrity`） |
 | `tools/governance/` | 治理脚本（`collect_metrics.py` 阶段度量 + 用例统计、`review_stage.py` 阶段末复盘清单、`boundary_metrics.py` 越界 / 跨库 / 例外计数） |
@@ -39,6 +40,7 @@
 python3 scripts/tools/dev/本地全套.py up                        # 本机三服务起栈（首次后跑 seed；org 随组织主数据归 mdm，已不在平台服务清单）
 python3 scripts/tools/preflight/测试改动内容.py                 # 开发环：只跑改动相关（改完即测用这个）
 python3 scripts/tools/preflight/推送.py     # 推送入口（须先提交：工作树脏即拒；预检通过才推送）
+python3 scripts/tools/perf/test_perf_baseline.py all   # 全量耗时测量（分批 + 最慢项 + 微基准）
 python3 scripts/tools/base_check/check_links.py               # 链接自洽（本地手工）
 python3 scripts/tools/deps/外置依赖.py                         # 依赖外置态复位（Windows：scripts\tools\deps\外置依赖.bat）
 ```
