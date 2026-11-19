@@ -20,13 +20,15 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.config.models import SysConfig
 from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.testing.gates import write_window
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import gated_session, gated_sessionmaker
 from tests_support.permission_admin import assign_system_admin
 
 pytestmark = [pytest.mark.kiwi_id(2373)]
@@ -104,29 +106,42 @@ async def _soft_delete(db: AsyncSession, config_key: str) -> None:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def config_global_state(
-    tenant_db: str, shared_tenant_engine: AsyncEngine, tenant_db_write: None
-) -> AsyncIterator[None]:
-    """持用例级租户库**写门**，并在用例前后复位平台默认键。
+async def config_admin_bootstrap(tenant_db: str, shared_tenant_engine: AsyncEngine) -> AsyncIterator[None]:
+    """建表 + 指向系统管理员：**只有这一小段**在写门内。
 
-    平台默认键在共享库里是**全局状态**（全 worker 共用一份 `tenant.db`），必须整体串行：
-    键复位 → 用例读写 → 键再复位。13_08 起整段临界区改由跨进程写门承担（原为同名文件锁，
-    同一需求）：写门独占且由内核在进程退出时回收，比文件锁轮询快、不会留残锁。
+    必须在应用装配**之前**完成（权限缓存按启动时的角色建），所以不能挂在整条用例的写门
+    夹具上——那样会把几秒的装配也算进临界区，其它 worker 全排队。
 
     Args:
-        tenant_db: 共享租户库连接串（套件夹具已注入 `BMS_DATABASE__TENANTS__URL`）。
-        shared_tenant_engine: 共享租户库引擎（基座夹具，不在此自建引擎）。
-        tenant_db_write: 租户库写门（用例级读门上升级；本夹具直连引擎写库必须在写门内）。
+        tenant_db: 共享租户库连接串（套件夹具已注入）。
+        shared_tenant_engine: 共享租户库引擎。
 
     Yields:
         None: 用例运行期。
     """
     del tenant_db
     await ensure_tables(shared_tenant_engine, _TABLES)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as db:
-        await _reset(db)
+    factory = gated_sessionmaker(shared_tenant_engine)
+    async with write_window("tenant_demo"), factory():
         await assign_system_admin()
+    yield
+
+
+@pytest_asyncio.fixture
+async def config_global_state(shared_tenant_engine: AsyncEngine) -> AsyncIterator[None]:
+    """整条用例持租户库写门，并在前后复位平台默认键（**只给读写全局默认键的用例声明**）。
+
+    读写的若是本用例命名空间派生的私有键，不需要这个夹具——那样才能并行。
+
+    Args:
+        shared_tenant_engine: 共享租户库引擎。
+
+    Yields:
+        None: 用例运行期。
+    """
+    factory = gated_sessionmaker(shared_tenant_engine)
+    async with write_window("tenant_demo"), factory() as db:
+        await _reset(db)
         yield
         await _reset(db)
 
@@ -141,8 +156,7 @@ async def db(shared_tenant_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     Yields:
         AsyncSession: 会话。
     """
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as session:
+    async with gated_session(shared_tenant_engine, read_only=False) as session:
         yield session
 
 
@@ -254,6 +268,7 @@ async def test_create_rejects_duplicate_invalid_key_and_value(client: AsyncClien
     assert bad_status.json()["code"] == 40504
 
 
+@pytest.mark.usefixtures("config_global_state")
 async def test_dependency_both_directions(client: AsyncClient, db: AsyncSession) -> None:
     """依赖：开启 `ai.auto_approve` 需先开 `ai.auto_execute`；关闭被依赖项前须先关依赖项。
 
@@ -297,6 +312,7 @@ async def test_detail_and_not_found(client: AsyncClient) -> None:
     assert missing.json()["code"] == 40501
 
 
+@pytest.mark.usefixtures("config_global_state")
 async def test_update_conflicts_on_stale_version(client: AsyncClient) -> None:
     """修改：乐观锁冲突返回 `10004`，成功则版本递增。"""
     created = await _detail(client, "session.max_active")
@@ -308,6 +324,7 @@ async def test_update_conflicts_on_stale_version(client: AsyncClient) -> None:
     assert stale.json()["code"] == 10004
 
 
+@pytest.mark.usefixtures("config_global_state")
 async def test_reset_restores_platform_default(client: AsyncClient, ns: Namespace) -> None:
     """重置：覆盖项回填平台默认值并置回平台来源；无默认的租户自建键返回 `40507`。"""
     item = await _detail(client, "password.max_length")
@@ -327,6 +344,7 @@ async def test_reset_restores_platform_default(client: AsyncClient, ns: Namespac
     assert no_default.json()["code"] == 40507
 
 
+@pytest.mark.usefixtures("config_global_state")
 async def test_delete_protects_default_and_supports_recycle_bin(client: AsyncClient) -> None:
     """删除：平台默认项拒绝 `40506`；覆盖项软删进回收站并可恢复。"""
     default = await _detail(client, "menu.tree_cache_ttl")
@@ -359,6 +377,7 @@ async def test_delete_protects_default_and_supports_recycle_bin(client: AsyncCli
     assert again.json()["code"] == 0
 
 
+@pytest.mark.usefixtures("config_global_state")
 async def test_restore_conflicts_with_live_row(client: AsyncClient) -> None:
     """恢复：同键已有未删除行时返回 `40502`。"""
     item = await _detail(client, "audit.archive.operation_log_days")

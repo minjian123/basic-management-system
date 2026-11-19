@@ -12,6 +12,7 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db import gate as gate_module
+from bms_core.db.gate import LazyGatedSession
 
 pytestmark = pytest.mark.kiwi_id(2533)
 
@@ -20,7 +21,7 @@ _CALLS: ConcurrentStableList[tuple[str, bool]] = ConcurrentStableList()
 
 
 @asynccontextmanager
-async def _recording_hook(db_key: str, read_only: bool) -> AsyncGenerator[None]:
+async def _recording_hook(db_key: str, read_only: bool, wait: float | None = None) -> AsyncGenerator[None]:
     """记录调用参数后放行的钩子。
 
     Args:
@@ -69,3 +70,114 @@ async def test_injected_hook_wraps_access() -> None:
         assert list(_CALLS) == [("tenant_demo", False)]
 
     assert gate_module.current_gate_hook() is _recording_hook
+
+
+class _FakeSession:
+    """最小会话替身：协程方法、同步方法、关闭各一个。"""
+
+    def __init__(self) -> None:
+        """初始化状态。"""
+        self.calls = 0
+        self.closed = False
+
+    async def execute(self) -> str:
+        """协程方法（应触发取门）。
+
+        Returns:
+            str: 固定结果。
+        """
+        self.calls += 1
+        return "ok"
+
+    def add(self, item: object) -> str:
+        """同步方法（应原样透传，不触发取门）。
+
+        Args:
+            item: 任意对象。
+
+        Returns:
+            str: 固定结果。
+        """
+        return f"added:{type(item).__name__}"
+
+    async def aclose(self) -> None:
+        """关闭会话。"""
+        self.closed = True
+
+
+def _recording_scope(entered: ConcurrentStableList[str]) -> object:
+    """构造记录进出的门上下文。
+
+    Args:
+        entered: 记录缓冲。
+
+    Returns:
+        object: 异步上下文管理器。
+    """
+
+    @asynccontextmanager
+    async def _scope() -> AsyncGenerator[None]:
+        entered.add("in")
+        try:
+            yield
+        finally:
+            entered.add("out")
+
+    return _scope()
+
+
+async def test_lazy_session_defers_gate_until_first_db_call() -> None:
+    """第一次协程调用才进门；同步方法不触发。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    session = _FakeSession()
+    lazy = LazyGatedSession(_recording_scope(entered), session)  # pyright: ignore[reportArgumentType]
+
+    assert lazy.add(object()) == "added:object"
+    assert list(entered) == [], "同步方法不应取门"
+
+    assert await lazy.execute() == "ok"  # type: ignore[misc]
+    assert list(entered) == ["in"]
+
+
+async def test_lazy_session_close_releases_gate() -> None:
+    """`aclose` 关闭底层会话并放门。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    session = _FakeSession()
+    lazy = LazyGatedSession(_recording_scope(entered), session)  # pyright: ignore[reportArgumentType]
+
+    await lazy.execute()  # type: ignore[misc]
+    await lazy.aclose()
+
+    assert session.closed is True
+    assert list(entered) == ["in", "out"]
+
+
+async def test_lazy_session_close_without_use_skips_gate() -> None:
+    """没碰库就关闭：不进门、不放门，只关会话。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    session = _FakeSession()
+    lazy = LazyGatedSession(_recording_scope(entered), session)  # pyright: ignore[reportArgumentType]
+
+    await lazy.aclose()
+
+    assert session.closed is True
+    assert list(entered) == []
+
+
+async def test_lazy_session_repr_contains_session() -> None:
+    """`repr` 带底层会话，便于诊断。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    lazy = LazyGatedSession(_recording_scope(entered), _FakeSession())  # pyright: ignore[reportArgumentType]
+
+    assert "LazyGatedSession" in repr(lazy)
+
+
+async def test_lazy_session_enter_is_idempotent() -> None:
+    """多次协程调用只取一次门。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    lazy = LazyGatedSession(_recording_scope(entered), _FakeSession())  # pyright: ignore[reportArgumentType]
+
+    await lazy.execute()  # type: ignore[misc]
+    await lazy.execute()  # type: ignore[misc]
+
+    assert list(entered) == ["in"]

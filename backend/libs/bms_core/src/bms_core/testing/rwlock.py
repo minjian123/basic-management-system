@@ -28,11 +28,11 @@ import asyncio
 import contextlib
 import ctypes
 import itertools
+import logging
 import os
 import sys
 import threading
 import time
-import traceback
 from pathlib import Path
 from typing import Any, Final, Literal, Protocol, cast
 
@@ -43,11 +43,20 @@ from bms_core.testing.paths import project_root
 DEFAULT_TIMEOUT: Final = 180.0
 """等门上限（秒）：超时即报错，不静默降级。"""
 
+WRITE_WAIT_CAP: Final = 5.0
+"""写门等待上限（秒）：正常写操作是毫秒级，等超过它就是有人长期占着写门，直接报错。"""
+
+WRITE_WAIT_CAP_ENV: Final = "BMS_TEST_GATE_WRITE_WAIT"
+"""写门等待上限的环境变量覆盖（秒；缺省用 `WRITE_WAIT_CAP`）。"""
+
 WARN_AFTER: Final = 10.0
 """等门告警阈值（秒）：超过即打印一行，便于定位长期占用。"""
 
 DEFAULT_GATE_DIRNAME: Final = "test"
 """门文件所在目录名（`<工程根>/.cache/test/`，与共享测试库同区）。"""
+
+_LOGGER = logging.getLogger(__name__)
+"""门自身诊断日志（未持写门却释放等）。"""
 
 Mode = Literal["read", "write"]
 """门模式（读共享 / 写独占）。"""
@@ -253,6 +262,20 @@ def _make_backend(path: Path) -> _Backend:
     return _PosixLock(path)
 
 
+def write_wait_cap() -> float:
+    """写门等待上限（秒）：环境变量优先，缺省 `WRITE_WAIT_CAP`。
+
+    Returns:
+        float: 上限秒数。
+    """
+    raw = os.environ.get(WRITE_WAIT_CAP_ENV, "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return WRITE_WAIT_CAP
+    return value if value > 0 else WRITE_WAIT_CAP
+
+
 def gate_path(name: str) -> Path:
     """门文件路径（`<工程根>/.cache/test/db-gate-<name>.lock`）。
 
@@ -305,6 +328,7 @@ class DbGate:
         self._borrowed_reads: ConcurrentStableDict[int, None] = ConcurrentStableDict()
         self._retired_reads: ConcurrentStableDict[int, None] = ConcurrentStableDict()
         self._write_depth = 0
+        self._write_owner = 0
         self._kernel_read = False
         self._next_token = itertools.count(1)
         # 计数是跨协程 / 跨事件循环共享的进程级状态：`acquire` / `release` 在改计数前后有 await 点
@@ -338,7 +362,8 @@ class DbGate:
     async def acquire_read(self) -> int:
         """取读门，返回本次份额的 token（释放时凭它销账）。
 
-        写门持有期间取的读门是**借用**（不取内核共享锁，随写门作废），token 同样返回。
+        **只有持写门的那个任务**取读门才走「借用」（不取内核共享锁、随写门作废）；
+        同一进程里的**其它任务**必须排队等写门释放——否则会读到写了一半的数据。
 
         Returns:
             int: 读份额 token。
@@ -347,7 +372,7 @@ class DbGate:
             TimeoutError: 等待超时。
         """
         with self._count_lock:
-            if self._write_depth:
+            if self._write_depth and self._write_owner == _task_key():
                 token = next(self._next_token)
                 self._borrowed_reads[token] = None
                 return token
@@ -387,11 +412,12 @@ class DbGate:
             if token not in self._own_reads:
                 raise RuntimeError(f"门 {self.name} 释放读份额失败：token {token} 未被持有")
             del self._own_reads[token]
-            drop_kernel = not self._own_reads and not self._write_depth
+            drop_kernel = not self._own_reads and not self._write_depth and self._kernel_read
             if drop_kernel:
                 self._kernel_read = False
         if drop_kernel:
             self._backend.release()
+            self._release_holder()
 
     def owns(self, token: int) -> bool:
         """该读份额 token 是否仍被本门持有（含借用 / 已退役）。
@@ -405,18 +431,17 @@ class DbGate:
         with self._count_lock:
             return token in self._own_reads or token in self._borrowed_reads or token in self._retired_reads
 
-    async def acquire_write(self) -> ConcurrentStableList[int]:
+    async def acquire_write(self, *, wait: float | None = None) -> ConcurrentStableList[int]:
         """取写门（独占；同一进程内可重入）。
 
-        若本任务仍持读份额（嵌套升级），先**只释放本任务的**份额再取写门，返回被释放的
-        token 供 `release_write` 恢复；其它任务的读份额一律不动（动了对方的 SQLite 读事务
-        还开着，写者提交时会被它挡住并互等超时）。
+        本任务持有的读份额先让出（不还内核共享锁，除非本进程已无其它读者），再去排队取
+        独占锁；**别的任务**的读份额一律不动——它们收尾后本任务自然拿到写门，这就是
+        「并发写排队」，不报错。
 
         Returns:
-            ConcurrentStableList[int]: 本次升级临时让出的读份额 token（无则空）。
+            ConcurrentStableList[int]: 让出的读份额 token（写完后由 `release_write` 原样补回）。
 
         Raises:
-            RuntimeError: 本进程的**其它任务**仍持读份额（并发读不能原地升级成写）。
             TimeoutError: 等待超时。
         """
         with self._count_lock:
@@ -424,28 +449,31 @@ class DbGate:
                 self._write_depth += 1
                 return ConcurrentStableList()
             mine = _task_key()
-            others = [token for token, owner in self._own_reads.items() if owner != mine]
-            if others:
-                raise RuntimeError(
-                    f"门 {self.name} 还有其它任务的读份额：禁止原地升级；写操作必须在没有并发读事务时进行"
-                )
-            released: ConcurrentStableList[int] = ConcurrentStableList(self._own_reads)
+            released: ConcurrentStableList[int] = ConcurrentStableList(
+                token for token, owner in self._own_reads.items() if owner == mine
+            )
             for token in released:
                 del self._own_reads[token]
-            drop_kernel = bool(released) and not self._write_depth
+            # 只有本进程的读份额让空了才放内核共享锁；还有别的任务在读就保留，靠下面的
+            # 独占排队等它们收尾（放掉会把别人的读事务一起卖掉）。
+            drop_kernel = not self._own_reads and not self._write_depth and self._kernel_read
             if drop_kernel:
                 self._kernel_read = False
         if drop_kernel:
             # 先让出共享锁，再排队取独占锁（顺序不能反）。
             self._backend.release()
-        await self._wait_and_lock(True)
+        await self._wait_and_lock(True, cap=wait)
         with self._count_lock:
             self._write_depth = 1
+            self._write_owner = _task_key()
         self._record_holder(True)
         return released
 
     async def release_write(self, restore: ConcurrentStableList[int] | None = None) -> None:
         """释放写门，并恢复升级时让出的读份额。
+
+        **未持写门时不抛错**：`gate_scope` 的 `finally` 无论取写门是否成功都会走到这里，
+        抛错会把真正的失败（如等锁超时）盖掉。未持有时只记一条告警，并尽力补回让出的份额。
 
         **解锁一律同步执行**（不走 `asyncio.to_thread`）：释放常发生在事件循环收尾阶段，
         此时线程池已关闭，`to_thread` 会抛 `RuntimeError: cannot schedule new futures after
@@ -453,24 +481,43 @@ class DbGate:
 
         Args:
             restore: `acquire_write` 返回的 token 清单（升级路径传入；None 表示无）。
-
-        Raises:
-            RuntimeError: 当前未持写门。
         """
         with self._count_lock:
             if not self._write_depth:
-                raise RuntimeError(f"门 {self.name} 释放模式不匹配：当前 {self.mode}，请求释放 {WRITE}")
-            self._write_depth -= 1
-            remaining = self._write_depth
-            if not remaining:
-                for token in list(self._borrowed_reads):
-                    del self._borrowed_reads[token]
-                    self._retired_reads[token] = None
+                held = False
+                remaining = 0
+            else:
+                held = True
+                self._write_depth -= 1
+                remaining = self._write_depth
+                if not remaining:
+                    self._write_owner = 0
+                if not remaining:
+                    for token in list(self._borrowed_reads):
+                        del self._borrowed_reads[token]
+                        self._retired_reads[token] = None
+        if not held:
+            # 结构要求：取写门失败也走这里。留痕后把让出的份额补回，保证读状态不失衡。
+            _LOGGER.warning(
+                "gate_release_without_write",
+                extra={"gate": self.name, "restore": len(restore or ())},
+            )
+            if restore:
+                await self._restore_reads(restore)
+            return
         if remaining:
             return
         self._backend.release()
-        if not restore:
-            return
+        self._release_holder()
+        if restore:
+            await self._restore_reads(restore)
+
+    async def _restore_reads(self, restore: ConcurrentStableList[int]) -> None:
+        """把让出的读份额补回（重新取内核共享锁并登记 token）。
+
+        Args:
+            restore: 要补回的 token 清单。
+        """
         await self._wait_and_lock(False)
         with self._count_lock:
             self._kernel_read = True
@@ -488,33 +535,63 @@ class DbGate:
             self._write_depth = 0
             self._kernel_read = False
         with contextlib.suppress(OSError):
-            self._holder_path.unlink()
+            self._holder_file().unlink()
+
+    def _holder_file(self) -> Path:
+        """本进程的持有者记录文件（每进程一份，互不覆盖）。
+
+        Returns:
+            Path: `.cache/test/db-gate-<name>.holder-<pid>`。
+        """
+        return self._holder_path.with_name(f"{self._holder_path.name}-{os.getpid()}")
 
     def _record_holder(self, write: bool) -> None:
-        """记录当前持有者（诊断：等门告警 / 超时时打印持有者进程与获取位置）。
+        """记录本进程持有门（诊断：等门 / 超时时列出真实持有者与用例名）。
 
-        写独立文件而不是锁文件本体：字节锁区间与文件内容共用同一 fd 时，写入会移动偏移、影响
-        `UnlockFileEx` 的区间语义。诊断写盘失败不影响加解锁（失败即静默跳过）。
+        每进程一份独立文件、释放时把 `hold` 置 0：卡住时可以读出**所有仍持有**的进程，
+        不会被后来者覆盖（单文件版本只能看到最后一次取锁，实测误导过排查）。
 
         Args:
             write: 独占 True，共享 False。
         """
-        stack = traceback.format_stack()[-8:-2]
-        frames = " <- ".join(line.strip().splitlines()[0] for line in stack if line.strip())
-        payload = f"pid={os.getpid()} mode={WRITE if write else READ} at={time.strftime('%H:%M:%S')} | {frames}"
+        self._write_holder(write, held=True)
+
+    def _release_holder(self) -> None:
+        """标记本进程已不持有任何门（保留最后用例名，便于事后追）。"""
+        self._write_holder(False, held=False)
+
+    def _write_holder(self, write: bool, *, held: bool) -> None:
+        """写持有者记录。
+
+        Args:
+            write: 独占 True，共享 False。
+            held: 仍持有 True；已释放 False。
+        """
+        test_id = os.environ.get("PYTEST_CURRENT_TEST", "").split(" (")[0]
+        payload = (
+            f"pid={os.getpid()} mode={WRITE if write else READ} hold={1 if held else 0} "
+            f"test={test_id or '未知'} at={time.strftime('%H:%M:%S')}"
+        )
         with contextlib.suppress(OSError):
-            self._holder_path.write_text(payload, encoding="utf-8")
+            self._holder_file().write_text(payload, encoding="utf-8")
 
     def _describe_holder(self) -> str:
-        """读取持有者诊断信息（读不到时返回「未知」）。
+        """列出**当前仍持有**本门的进程（跨进程扫描各 pid 的记录文件）。
 
         Returns:
-            str: 持有者描述。
+            str: 形如 `pid=123 mode=write test=a.py::t at=12:00:01`；读不到时给「未知」。
         """
-        try:
-            return self._holder_path.read_text(encoding="utf-8")[:600]
-        except OSError:
-            return "未知（诊断文件不可读）"
+        directory = self._holder_path.parent
+        prefix = self._holder_path.name
+        entries: ConcurrentStableList[str] = ConcurrentStableList()
+        for path in directory.glob(f"{prefix}-*"):
+            try:
+                text = path.read_text(encoding="utf-8").strip()
+            except OSError:
+                continue
+            if "hold=1" in text:
+                entries.append(text)
+        return " | ".join(entries) if entries else "无（可能刚释放或记录未落盘）"
 
     def _log_wait(self, message: str) -> None:
         """把等门告警 / 超时追加到诊断文件（pytest 会捕获 stdout，落文件才留得住）。
@@ -544,17 +621,22 @@ class DbGate:
             holder=self._describe_holder(),
         )
 
-    async def _wait_and_lock(self, write: bool) -> None:
-        """阻塞等待直到拿到门（在工作线程中执行，不阻塞事件循环）。
+    async def _wait_and_lock(self, write: bool, *, cap: float | None = None) -> None:
+        """排队等待直到拿到门（事件循环内异步轮询，不占线程池）。
+
+        写门有**更短的上限**（`write_wait_cap`，默认 5s）：正常写是毫秒级，等超过几秒
+        只可能是有人长期占着写门（整条用例持门 / 读会话没退 / 进程卡住），直接报错比
+        默默等 180s 有用。
 
         Args:
             write: 独占 True，共享 False。
 
         Raises:
-            TimeoutError: 等待超过 `DEFAULT_TIMEOUT`。
+            TimeoutError: 读门超过 `DEFAULT_TIMEOUT`，或写门超过 `write_wait_cap()`。
         """
         started = time.monotonic()
-        deadline = started + DEFAULT_TIMEOUT
+        limit = cap if cap is not None else (write_wait_cap() if write else DEFAULT_TIMEOUT)
+        deadline = started + min(DEFAULT_TIMEOUT, limit)
         warned = False
         delay = _RETRY_MIN
         while not self._backend.try_acquire(write=write):
@@ -566,7 +648,10 @@ class DbGate:
                 self._log_wait(message)
                 self._note_gate_wait(now - started, "warn")
             if now >= deadline:
-                message = f"等待数据库门超时（{DEFAULT_TIMEOUT:.0f}s）：{self.name}；持有者：{self._describe_holder()}"
+                message = (
+                    f"等待数据库门超时（{limit:.1f}s）：{self.name}；持有者：{self._describe_holder()}；"
+                    "写门等超过几秒通常说明有人长期占用（整条用例持门 / 读会话未释放）"
+                )
                 self._log_wait(message)
                 self._note_gate_wait(now - started, "timeout")
                 raise TimeoutError(message)

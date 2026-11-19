@@ -160,27 +160,30 @@ async def test_gate_reentrant_same_mode(tmp_path: Path) -> None:
     assert gate.depth == 0
 
 
-async def test_gate_rejects_cross_mode(tmp_path: Path) -> None:
-    """**其它任务**仍持读份额时取写门报错：并发读事务不能被升级挤掉。"""
+async def test_write_waits_for_other_task_reads(tmp_path: Path) -> None:
+    """其它任务持读时，写门**排队**等它们收尾（不报错）。"""
     gate = _gate(tmp_path)
     reading = asyncio.Event()
-    done = asyncio.Event()
+    finish = asyncio.Event()
 
     async def _hold() -> None:
-        """另一个任务持读份额直到被放行。"""
+        """另一个任务持读份额直到放行。"""
         token = await gate.acquire_read()
         reading.set()
-        await done.wait()
+        await finish.wait()
         await gate.release_read(token)
 
     holder = asyncio.create_task(_hold())
     await reading.wait()
-    try:
-        with pytest.raises(RuntimeError, match="禁止原地升级"):
-            await gate.acquire_write()
-    finally:
-        done.set()
-        await holder
+    writer = asyncio.create_task(gate.acquire_write())
+    await asyncio.to_thread(lambda: None)
+    assert not writer.done(), "有读者时写门必须排队"
+
+    finish.set()
+    await holder
+    await asyncio.wait_for(writer, timeout=2.0)
+    assert gate.mode == rwlock.WRITE
+    await gate.release_write()
     assert gate.mode is None
 
 
@@ -202,8 +205,8 @@ async def test_gate_upgrade_releases_only_own_share(tmp_path: Path) -> None:
     assert gate.mode is None
 
 
-async def test_gate_release_mode_mismatch(tmp_path: Path) -> None:
-    """释放不持有的读份额、未持写门时释放写门，都要报错。"""
+async def test_release_read_token_mismatch_raises(tmp_path: Path) -> None:
+    """释放不属于本门的读份额 token 报错（写门未持有时则只告警，见后一条）。"""
     gate = _gate(tmp_path)
     await gate.acquire_write()
     try:
@@ -211,16 +214,16 @@ async def test_gate_release_mode_mismatch(tmp_path: Path) -> None:
             await gate.release_read(999)
     finally:
         await gate.release_write()
-    with pytest.raises(RuntimeError, match="释放模式不匹配"):
-        await gate.release_write()
+    assert gate.mode is None
 
 
-async def test_release_write_without_holding_raises(tmp_path: Path) -> None:
-    """未持写门时释放写门报错。"""
+async def test_release_write_without_holding_is_tolerated(tmp_path: Path) -> None:
+    """未持写门时释放写门只告警、不抛错（`gate_scope` 的 finally 必经此处）。"""
     gate = _gate(tmp_path)
 
-    with pytest.raises(RuntimeError, match="释放模式不匹配"):
-        await gate.release_write()
+    await gate.release_write()
+
+    assert gate.mode is None
 
 
 async def test_borrowed_read_share_retires_with_write_gate(tmp_path: Path) -> None:
@@ -260,6 +263,21 @@ async def test_read_gates_run_concurrently(tmp_path: Path) -> None:
     await asyncio.gather(_hold(first), _hold(second))
 
     assert time.monotonic() - started < 0.095
+
+
+async def test_write_gate_blocks_other_task_reads(tmp_path: Path) -> None:
+    """写门持有期间，**同一进程的其它任务**取读门必须等它释放（不能读到写一半的数据）。"""
+    gate = _gate(tmp_path)
+    await gate.acquire_write()
+    reader = asyncio.create_task(gate.acquire_read())
+    await asyncio.to_thread(lambda: None)
+    assert not reader.done(), "写门持有期间其它任务不得拿到读门"
+
+    await gate.release_write()
+    token = await asyncio.wait_for(reader, timeout=2.0)
+    assert gate.mode == rwlock.READ
+    await gate.release_read(token)
+    assert gate.mode is None
 
 
 async def test_write_gate_reentrant(tmp_path: Path) -> None:
@@ -322,6 +340,7 @@ async def test_gate_timeout_reports_name(
 ) -> None:
     """等门超过告警阈值先打印一行，超过上限抛 `TimeoutError`。"""
     monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 0.3)
+    monkeypatch.setattr(rwlock, "WRITE_WAIT_CAP", 0.3)
     monkeypatch.setattr(rwlock, "WARN_AFTER", 0.05)
     path = tmp_path / "shared.lock"
     holder = rwlock.DbGate("holder", path)
@@ -334,6 +353,53 @@ async def test_gate_timeout_reports_name(
         await holder.release_write()
 
     assert "等待门" in capsys.readouterr().out
+
+
+async def test_write_wait_fails_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """写门等超过上限立即报错（不再默默等 180s）。"""
+    monkeypatch.setattr(rwlock, "WRITE_WAIT_CAP", 0.2)
+    monkeypatch.delenv(rwlock.WRITE_WAIT_CAP_ENV, raising=False)
+    path = tmp_path / "shared.lock"
+    holder = rwlock.DbGate("holder", path)
+    contender = rwlock.DbGate("contender", path)
+    await holder.acquire_write()
+    started = time.monotonic()
+    try:
+        with pytest.raises(TimeoutError, match="contender"):
+            await contender.acquire_write()
+    finally:
+        await holder.release_write()
+
+    assert time.monotonic() - started < 2.0
+
+
+def test_write_wait_cap_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """上限读取：环境变量优先，非法 / 非正回落默认。"""
+    monkeypatch.delenv(rwlock.WRITE_WAIT_CAP_ENV, raising=False)
+    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
+    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "abc")
+    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
+    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "0")
+    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
+    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "1.5")
+    assert rwlock.write_wait_cap() == 1.5
+
+
+async def test_holder_description_lists_holder_and_clears_on_release(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """持有者诊断：未释放时列出 pid/mode/用例名，释放后不再列为持有。"""
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/sample.py::test_holder (call)")
+    gate = _gate(tmp_path)
+    await gate.acquire_write()
+
+    text = gate._describe_holder()
+    assert "hold=1" in text
+    assert "mode=write" in text
+    assert "tests/sample.py::test_holder" in text
+
+    await gate.release_write()
+    assert "hold=1" not in gate._describe_holder()
 
 
 def test_gate_close(tmp_path: Path) -> None:
@@ -351,3 +417,35 @@ def test_windows_release_after_close_raises(tmp_path: Path) -> None:
 
     with pytest.raises(OSError):
         backend.release()
+
+
+async def test_describe_holder_skips_unreadable_entry(tmp_path: Path) -> None:
+    """持有者诊断遇到读不了的文件只跳过，不抛错。"""
+    gate = _gate(tmp_path)
+    broken = gate._holder_path.with_name(f"{gate._holder_path.name}-999")
+    broken.mkdir(parents=True)
+
+    assert "无（可能刚释放" in gate._describe_holder()
+
+
+async def test_describe_holder_lists_live_entry(tmp_path: Path) -> None:
+    """持有者诊断列出仍持有（hold=1）的记录。"""
+    gate = _gate(tmp_path)
+    live = gate._holder_path.with_name(f"{gate._holder_path.name}-998")
+    live.parent.mkdir(parents=True, exist_ok=True)
+    live.write_text("pid=998 mode=read hold=1 test=x at=00:00:00", encoding="utf-8")
+
+    assert "pid=998" in gate._describe_holder()
+
+
+async def test_release_write_without_hold_restores_outer_shares(tmp_path: Path) -> None:
+    """未持写门却带了外层份额：只告警，并把份额补回来（取写门失败的收尾）。"""
+    gate = _gate(tmp_path)
+    token = await gate.acquire_read()
+    await gate.release_read(token)
+
+    await gate.release_write(ConcurrentStableList((token,)))
+
+    assert gate.owns(token)
+    await gate.release_read(token)
+    assert gate.mode is None

@@ -22,6 +22,7 @@ import pytest
 
 from bms_core.db.gate import db_access_gate
 from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE
+from bms_core.testing.rwlock import DEFAULT_TIMEOUT
 
 
 @pytest.fixture
@@ -31,7 +32,7 @@ async def platform_db_write() -> AsyncIterator[None]:
     Yields:
         None: 写门区间。
     """
-    async with db_access_gate(PLATFORM_GATE, read_only=False):
+    async with db_access_gate(PLATFORM_GATE, read_only=False, wait=DEFAULT_TIMEOUT):
         yield
 
 
@@ -42,5 +43,5 @@ async def tenant_db_write() -> AsyncIterator[None]:
     Yields:
         None: 写门区间。
     """
-    async with db_access_gate(TENANT_GATE, read_only=False):
+    async with db_access_gate(TENANT_GATE, read_only=False, wait=DEFAULT_TIMEOUT):
         yield

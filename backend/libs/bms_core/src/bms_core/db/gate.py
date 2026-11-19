@@ -7,11 +7,14 @@
 
 from __future__ import annotations
 
+import contextlib
+import inspect
 from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from typing import Any
 
-GateHook = Callable[[str, bool], AbstractAsyncContextManager[None]]
-"""门钩子签名：（数据源键, 是否只读）→ 异步上下文管理器。"""
+GateHook = Callable[[str, bool, "float | None"], AbstractAsyncContextManager[None]]
+"""门钩子签名：（数据源键, 是否只读, 等待上限）→ 异步上下文管理器。"""
 
 _hook: GateHook | None = None
 """已注入的门钩子；None 表示直通（生产默认）。"""
@@ -37,7 +40,7 @@ def current_gate_hook() -> GateHook | None:
 
 
 @asynccontextmanager
-async def db_access_gate(db_key: str, *, read_only: bool) -> AsyncGenerator[None]:
+async def db_access_gate(db_key: str, *, read_only: bool, wait: float | None = None) -> AsyncGenerator[None]:
     """数据库访问门（未注入钩子时直通）。
 
     Args:
@@ -51,5 +54,72 @@ async def db_access_gate(db_key: str, *, read_only: bool) -> AsyncGenerator[None
     if hook is None:
         yield
         return
-    async with hook(db_key, read_only):
+    async with hook(db_key, read_only, wait):
         yield
+
+
+class LazyGatedSession:
+    """把门推迟到「第一次真正用库」再取（懒请求）。
+
+    为什么要它：请求进来就取门，会把鉴权、能力调用、装配这些**不碰库**的时间也算进
+    临界区（实测单次可达数秒）。本类包一层会话：第一次 `await` 数据库方法时才进入门，
+    `aclose()` 时释放。生产（未注钩子）不会创建本类，零开销。
+
+    Attributes:
+        info: 底层会话的 `info`（SQLAlchemy 内部也读它）。
+    """
+
+    def __init__(self, scope: AbstractAsyncContextManager[None], session: object) -> None:
+        """初始化。
+
+        Args:
+            scope: 门上下文（每次会话一个）。
+            session: 底层会话对象。
+        """
+        object.__setattr__(self, "_scope", scope)
+        object.__setattr__(self, "_session", session)
+        object.__setattr__(self, "_entered", False)
+
+    def __getattr__(self, name: str) -> Any:
+        """代理属性：协程方法包一层「先取门」，其余原样返回。
+
+        Args:
+            name: 属性名。
+
+        Returns:
+            Any: 属性值或包装后的方法。
+        """
+        attr = getattr(object.__getattribute__(self, "_session"), name)
+        # 只包协程方法：`begin()` / `add()` 这类同步方法必须原样返回，包成协程会直接崩。
+        if not inspect.iscoroutinefunction(attr):
+            return attr
+
+        async def _call(*args: object, **kwargs: object) -> object:
+            await self._ensure()
+            return await attr(*args, **kwargs)
+
+        return _call
+
+    async def _ensure(self) -> None:
+        """首次使用时进入门。"""
+        if not object.__getattribute__(self, "_entered"):
+            await object.__getattribute__(self, "_scope").__aenter__()
+            object.__setattr__(self, "_entered", True)
+
+    async def aclose(self) -> None:
+        """关闭底层会话并放门（未取过门则只关会话）。"""
+        session = object.__getattribute__(self, "_session")
+        with contextlib.suppress(Exception):
+            await session.aclose()
+        if object.__getattribute__(self, "_entered"):
+            with contextlib.suppress(Exception):
+                await object.__getattribute__(self, "_scope").__aexit__(None, None, None)
+            object.__setattr__(self, "_entered", False)
+
+    def __repr__(self) -> str:
+        """诊断用表示。
+
+        Returns:
+            str: 表示串。
+        """
+        return f"LazyGatedSession({object.__getattribute__(self, '_session')!r})"

@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.core.context import is_read_only
 from bms_core.core.exceptions import DatabaseUnavailableError
 from bms_core.core.factory import BaseDbFactory
-from bms_core.db.gate import db_access_gate
+from bms_core.db.gate import LazyGatedSession, current_gate_hook, db_access_gate
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.keys import ARCHIVE_DB_KEY
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
@@ -142,17 +142,26 @@ async def _open_session(
     """
     registry = cast(EngineRegistry, request.app.state.engine_registry)
     resolved = db_key or _resolve_db_key(request)
-    async with db_access_gate(resolved, read_only=read_only):
-        if registry.is_sync_only(resolved):
+    if registry.is_sync_only(resolved):  # pragma: no cover - 同步方言仅达梦等外部库使用，SQLite 用例走异步分支
+        async with db_access_gate(resolved, read_only=read_only):
             await _guard_degraded(request, resolved, read_only=read_only)
             engine = await registry.get_sync(resolved, read_only=read_only)
             async with sync_session_scope(engine) as sync_session:
                 yield sync_session
+        return
+    engine = await _resolve_engine(request, registry, read_only=read_only, db_key=resolved)
+    factory = cast("SessionFactory | None", getattr(request.app.state, "session_factory", None)) or SessionFactory()
+    async with factory.create(engine)() as session:
+        if current_gate_hook() is None:  # pragma: no cover - 生产路径（测试会话必注门钩子）
+            async with db_access_gate(resolved, read_only=read_only):
+                yield session
             return
-        engine = await _resolve_engine(request, registry, read_only=read_only, db_key=resolved)
-        factory = cast("SessionFactory | None", getattr(request.app.state, "session_factory", None)) or SessionFactory()
-        async with factory.create(engine)() as session:
-            yield session
+        # 测试环境：门推迟到第一次真正用库时再取（鉴权 / 能力调用 / 装配不进临界区）。
+        lazy = LazyGatedSession(db_access_gate(resolved, read_only=read_only), session)
+        try:
+            yield cast("DbSession", lazy)
+        finally:
+            await lazy.aclose()
 
 
 async def get_db(request: Request) -> AsyncIterator[DbSession]:
@@ -304,7 +313,7 @@ async def session_scope(
     """
     resolved = db_key if db_key is not None else current_tenant_context().db_key
     async with db_access_gate(resolved, read_only=read_only):
-        if registry.is_sync_only(resolved):
+        if registry.is_sync_only(resolved):  # pragma: no cover - 同步方言仅达梦等外部库使用，SQLite 用例走异步分支
             sync_engine = await registry.get_sync(resolved, read_only=read_only)
             async with sync_session_scope(sync_engine) as sync_session:
                 yield sync_session

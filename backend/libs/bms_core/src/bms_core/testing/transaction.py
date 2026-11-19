@@ -20,6 +20,7 @@
 
 import contextlib
 from collections.abc import AsyncGenerator
+from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -92,6 +93,67 @@ def gate_for_engine(engine: AsyncEngine) -> str | None:
         return None
     stem = Path(database).stem
     return stem if stem in (PLATFORM_GATE, TENANT_GATE) else None
+
+
+class GatedSessionMaker:
+    """自带门的会话工厂：`async with maker() as session` 进入即取门、退出即放。
+
+    用途：把测试里 `async_sessionmaker(shared_*_engine, ...)` 原样换成本类，调用点不用动，
+    所有直连引擎的读写就都走 `db_access_gate` 这一个入口。
+    """
+
+    def __init__(self, engine: AsyncEngine, *, read_only: bool = False) -> None:
+        """初始化。
+
+        Args:
+            engine: 目标库引擎。
+            read_only: 只读 True；写（含需要写的事务）用 False。
+        """
+        self._engine = engine
+        self._read_only = read_only
+
+    def __call__(self) -> AbstractAsyncContextManager[AsyncSession]:
+        """返回门内会话的上下文。
+
+        Returns:
+            AbstractAsyncContextManager[AsyncSession]: 会话上下文。
+        """
+        return gated_session(self._engine, read_only=self._read_only)
+
+
+def gated_sessionmaker(engine: AsyncEngine, *, read_only: bool = False) -> GatedSessionMaker:
+    """构造自带门的会话工厂（替换 `async_sessionmaker(engine)` 用）。
+
+    Args:
+        engine: 目标库引擎。
+        read_only: 只读 True；写 False。
+
+    Returns:
+        GatedSessionMaker: 可直接调用的会话工厂。
+    """
+    return GatedSessionMaker(engine, read_only=read_only)
+
+
+@contextlib.asynccontextmanager
+async def gated_session(engine: AsyncEngine, *, read_only: bool = True) -> AsyncGenerator[AsyncSession]:
+    """直连共享引擎的会话：**按引擎所在库取门**，临界区＝会话生命周期。
+
+    直连引擎（`shared_*_engine`）拿不到请求入口，原先不取门；它的读事务会和别人的写门
+    叠在一起（SQLite 上表现为写请求卡到 `busy_timeout` 30s、门被长期占住）。这里统一补上：
+    读会话持读门，写会话（`read_only=False`）走 `gate_scope` 的升级路径。
+
+    Args:
+        engine: 目标库引擎（共享平台库 / 租户库；临时库不取门）。
+        read_only: 只读 True；写 False。
+
+    Yields:
+        AsyncSession: 门内会话（退出即关闭、未提交的改动回滚）。
+    """
+    gate_name = gate_for_engine(engine)
+    scope = db_access_gate(gate_name, read_only=read_only) if gate_name is not None else contextlib.nullcontext()
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    async with scope, factory() as session:
+        yield session
 
 
 @contextlib.asynccontextmanager

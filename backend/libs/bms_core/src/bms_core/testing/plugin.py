@@ -69,7 +69,7 @@ __all__ = (
 )
 
 
-def _gate_hook(db_key: str, read_only: bool) -> AbstractAsyncContextManager[None]:
+def _gate_hook(db_key: str, read_only: bool, wait: float | None = None) -> AbstractAsyncContextManager[None]:
     """把会话入口的数据源键映射到读写门（13_08 注入点）。
 
     Args:
@@ -80,7 +80,7 @@ def _gate_hook(db_key: str, read_only: bool) -> AbstractAsyncContextManager[None
         AbstractAsyncContextManager[None]: 读门或写门上下文。
     """
     name = PLATFORM_GATE if db_key == PLATFORM_DB_KEY else TENANT_GATE
-    return gate_scope(name, read_only=read_only)
+    return gate_scope(name, read_only=read_only, wait=wait)
 
 
 def pytest_configure(config: pytest.Config) -> None:

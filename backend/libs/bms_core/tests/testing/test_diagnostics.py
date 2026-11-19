@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 """卡住现场诊断工具用例（Kiwi 2533）：开关、节流、任务栈与线程栈落盘。"""
 
 from __future__ import annotations
@@ -83,3 +85,102 @@ def test_note_gate_wait_respects_switch_and_throttle(tmp_path: Path, monkeypatch
     assert first == path
     assert diagnostics.note_gate_wait(path, gate_name="platform", waited=11.0, reason="timeout") is None
     assert "持有者=pid=1 mode=read" in path.read_text(encoding="utf-8")
+
+
+def test_hang_every_seconds_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """定时抓栈间隔：未设置 / 非法 / 非正数一律视为关闭。"""
+    monkeypatch.delenv(diagnostics.HANG_ENV, raising=False)
+    assert diagnostics.hang_every_seconds() == 0.0
+    monkeypatch.setenv(diagnostics.HANG_ENV, "abc")
+    assert diagnostics.hang_every_seconds() == 0.0
+    monkeypatch.setenv(diagnostics.HANG_ENV, "-1")
+    assert diagnostics.hang_every_seconds() == 0.0
+    monkeypatch.setenv(diagnostics.HANG_ENV, "2.5")
+    assert diagnostics.hang_every_seconds() == 2.5
+
+
+async def test_watch_tick_writes_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """看守的一次抓取：在活动循环上调度并落盘。"""
+    path = tmp_path / "hang.log"
+    diagnostics.reset_watchdogs()
+    monkeypatch.setenv(diagnostics.HANG_ENV, "0.01")
+    diagnostics._current_loop = asyncio.get_running_loop()
+    diagnostics._watch_path = path
+
+    diagnostics._watch_tick(0.01)
+    await asyncio.to_thread(lambda: None)
+    await asyncio.to_thread(lambda: None)
+
+    assert path.exists() and "watchdog" in path.read_text(encoding="utf-8")
+    diagnostics.reset_watchdogs()
+
+
+async def test_ensure_watchdog_skips_when_disabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """未配置间隔时不起看守。"""
+    monkeypatch.delenv(diagnostics.HANG_ENV, raising=False)
+    diagnostics.reset_watchdogs()
+
+    diagnostics.ensure_watchdog(tmp_path / "off.log")
+
+    assert diagnostics._watch_path is None
+    assert diagnostics._watch_started is False
+
+
+async def test_ensure_watchdog_updates_path_once_started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """启用后重复调用只更新落点，不重复起线程。"""
+    monkeypatch.setenv(diagnostics.HANG_ENV, "5")
+    diagnostics.reset_watchdogs()
+
+    diagnostics.ensure_watchdog(tmp_path / "a.log")
+    diagnostics.ensure_watchdog(tmp_path / "b.log")
+
+    assert diagnostics._watch_path == tmp_path / "b.log"
+    assert diagnostics._watch_started is True
+    diagnostics.reset_watchdogs()
+
+
+def test_note_hold_writes_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """持有时长采样：开启后写一行（时长 / 模式 / 门名 / 用例）。"""
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+
+    diagnostics.note_hold("tenant", 0.25, read_only=False)
+
+    text = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8")
+    assert "0.250" in text
+    assert "write" in text
+    assert "tenant" in text
+
+
+def test_note_hold_respects_switch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """未开启时不写文件。"""
+    monkeypatch.delenv(diagnostics.HOLD_ENV, raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    diagnostics.note_hold("tenant", 0.25, read_only=True)
+
+    assert not (tmp_path / ".cache/test/gate-hold.log").exists()
+
+
+def test_note_slow_hold_only_when_over_one_second(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """慢持有：不足 1s 不记，超过 1s 记（带调用栈）。"""
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+
+    diagnostics.note_slow_hold("tenant", 0.5, read_only=True, frames="a <- b")
+    assert not (tmp_path / ".cache/test/gate-hold-slow.log").exists()
+
+    diagnostics.note_slow_hold("tenant", 1.5, read_only=True, frames="a <- b")
+    text = (tmp_path / ".cache/test/gate-hold-slow.log").read_text(encoding="utf-8")
+    assert "1.500" in text
+    assert "a <- b" in text
+
+
+def test_watch_tick_without_loop_returns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """看守在没有活动循环指针时直接返回（不写文件、不抛错）。"""
+    monkeypatch.setenv(diagnostics.HANG_ENV, "0.01")
+    diagnostics.reset_watchdogs()
+
+    diagnostics._watch_tick(0.01)
+
+    assert diagnostics._watch_path is None

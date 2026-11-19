@@ -94,7 +94,7 @@ async def test_upgrade_failure_restores_read_mode(monkeypatch: pytest.MonkeyPatc
     """取写门失败时恢复读份额并原样抛出异常（退出后不残留）。"""
     target = gates.gate(gates.PLATFORM_GATE)
 
-    async def _fail() -> None:
+    async def _fail(*, wait: float | None = None) -> None:
         """写门请求直接失败。"""
         raise TimeoutError("boom")
 
@@ -113,7 +113,7 @@ async def test_upgrade_timeout_restores_read_share(monkeypatch: pytest.MonkeyPat
 
     real = target._wait_and_lock  # pyright: ignore[reportPrivateUsage]
 
-    async def _fail(wait_write: bool) -> None:
+    async def _fail(wait_write: bool, *, cap: float | None = None) -> None:
         """只在等写门时失败；读门走真实实现（保证真持有内核共享锁）。"""
         if wait_write:
             raise TimeoutError("boom")
@@ -139,7 +139,7 @@ def test_close_gates_drops_singletons() -> None:
 
 
 @asynccontextmanager
-async def _noop_hook(db_key: str, read_only: bool) -> AsyncGenerator[None]:
+async def _noop_hook(db_key: str, read_only: bool, wait: float | None = None) -> AsyncGenerator[None]:
     """空门钩子（仅用于验证撤销逻辑）。
 
     Args:
@@ -162,3 +162,18 @@ def test_pytest_unconfigure_clears_hook(monkeypatch: pytest.MonkeyPatch) -> None
     plugin.pytest_unconfigure(cast("pytest.Config", None))
 
     assert gate_module.current_gate_hook() is None
+
+
+async def test_gate_scope_records_hold_when_enabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """开启持有时长采样后，一次门区间会落一行（含门名与模式）。"""
+    from bms_core.testing import diagnostics
+
+    monkeypatch.setenv(diagnostics.HOLD_ENV, "1")
+    monkeypatch.chdir(tmp_path)
+
+    async with gates.gate_scope(gates.PLATFORM_GATE, read_only=True):
+        pass
+
+    text = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8")
+    assert gates.PLATFORM_GATE in text
+    assert "read" in text

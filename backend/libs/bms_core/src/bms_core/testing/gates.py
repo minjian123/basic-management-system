@@ -11,12 +11,15 @@
 
 from __future__ import annotations
 
+import time
+import traceback
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.gate import db_access_gate
-from bms_core.testing.rwlock import DbGate, gate_path
+from bms_core.testing import diagnostics
+from bms_core.testing.rwlock import DEFAULT_TIMEOUT, DbGate, gate_path
 
 PLATFORM_GATE = "platform"
 """平台库门名（对应 `.cache/test/platform.db`）。"""
@@ -46,43 +49,54 @@ def gate(name: str) -> DbGate:
 
 
 @asynccontextmanager
-async def gate_scope(name: str, *, read_only: bool) -> AsyncGenerator[None]:
+async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -> AsyncGenerator[None]:
     """**取门的唯一入口**：一律先加读锁，写操作再让出读份额升到写锁。
 
-    顺序固定为「读锁打底 → （写）让读 → 取写 → 放写 → 取回读 → 放读」，异常路径同序。
-    这样全仓只有一种锁序：读操作持读锁执行；写操作先持读锁进来，再独占写门完成写入，
-    写期间新读锁加不上，因此不存在「读到写了一半的数据」。
+    结构固定为「读锁打底 → （写）让读 → 取写 → 写 → 放写 → 补回读 → 放读」，异常路径同序：
+
+    - 写路径的 `try` 包住「让出读份额 → 取写门 → 执行写」三件事；
+    - 它的 `finally` 先放写门、再补回读锁；写门没拿到时 `release_write` 只记日志不抛错；
+    - 最外层 `finally` 释放读锁。
 
     Args:
         name: 门名。
         read_only: 只读 True（持读锁执行），写 False（升到写锁执行）。
+        wait: 等待上限（秒）；None 走默认（写门 5s，可用环境变量覆盖）。
 
     Yields:
         None: 门内区间。
     """
     target = gate(name)
+    started = time.monotonic()
+    frames = ""
+    if diagnostics.hold_enabled():
+        frames = " <- ".join(
+            line.strip().splitlines()[0]
+            for line in traceback.format_stack()[-8:-2]
+            if line.strip() and "contextlib.py" not in line and "gates.py" not in line
+        )
     token = await target.acquire_read()
     try:
         if read_only:
             yield
             return
-        # 让出**自己这份**读份额（不影响同进程其它会话的份额），再排队取写门。
+        restored: ConcurrentStableList[int] = ConcurrentStableList()
         try:
-            restored = await target.acquire_write()
-        except BaseException:
-            # 取写门可能已让出本任务的读份额（等锁超时）：此时补回一份，保证退出路径一致；
-            # 若因「其它任务持读」而报错，自己的份额还在，不能重复取。
-            if not target.owns(token):
-                token = await target.acquire_read()
-            raise
-        try:
+            # 解锁读锁：让出自己这份份额（同进程其它会话的份额不受影响）。
+            await target.release_read(token)
+            # 并发的写在这里排队；拿到写门后独占，期间新读锁加不上。
+            restored = await target.acquire_write(wait=wait)
             yield
         finally:
+            # 无论是否报错都释放写门；没拿到（取写门就失败）时只记日志。
             await target.release_write(restored)
-        # 让出的份额已由 `release_write` 恢复，`token` 仍然有效；这里**不得**再取一次读锁
-        # （那会在写门刚释放时去抢共享锁，被等待中的写者挡住，最长 180s）。
+            # 再把读锁加上，恢复进入时的读状态。
+            token = await target.acquire_read()
     finally:
         await target.release_read(token)
+        elapsed = time.monotonic() - started
+        diagnostics.note_hold(name, elapsed, read_only=read_only)
+        diagnostics.note_slow_hold(name, elapsed, read_only=read_only, frames=frames)
 
 
 def write_window(db_key: str) -> AbstractAsyncContextManager[None]:
@@ -98,7 +112,7 @@ def write_window(db_key: str) -> AbstractAsyncContextManager[None]:
     Returns:
         AbstractAsyncContextManager[None]: 写门上下文。
     """
-    return db_access_gate(db_key, read_only=False)
+    return db_access_gate(db_key, read_only=False, wait=DEFAULT_TIMEOUT)
 
 
 def close_gates() -> None:

@@ -28,12 +28,19 @@ import sys
 import threading
 import time
 import traceback
+from functools import partial
 from pathlib import Path
 
 from bms_core.core.concurrent import ConcurrentStableList
 
 DUMP_ENV = "BMS_TEST_STACK_DUMP"
 """开关环境变量（`1` / `true` / `yes` 视为开启）。"""
+
+HOLD_ENV = "BMS_TEST_GATE_HOLD"
+"""持有时长采样开关：设为 1 时每次门区间结束时记一行（用于排最耗时的用例）。"""
+
+HANG_ENV = "BMS_TEST_HANG_SECONDS"
+"""定时抓栈间隔（秒）：设置后即使没有等门也会周期抓一份（查「某个 await 永不返回」）。"""
 
 DUMP_EVERY_ENV = "BMS_TEST_STACK_DUMP_EVERY"
 """同一进程两次抓取的间隔（秒，默认 10）。"""
@@ -69,6 +76,138 @@ def dump_every_seconds() -> float:
     except ValueError:
         return DEFAULT_EVERY_SECONDS
     return value if value > 0 else DEFAULT_EVERY_SECONDS
+
+
+def hang_every_seconds() -> float:
+    """定时抓栈间隔（未设置或非法返回 0，表示不启用）。
+
+    Returns:
+        float: 间隔秒数；0 表示关闭。
+    """
+    raw = os.environ.get(HANG_ENV, "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return 0.0
+    return value if value > 0 else 0.0
+
+
+def ensure_watchdog(path: Path) -> None:
+    """按需启动「定时抓栈」看守（进程内一个常驻线程）。
+
+    为什么用线程而不是 `loop.create_task`：pytest-asyncio 每个用例一个新事件循环，任务版看守
+    随循环销毁，根本活不到下一次抓取；线程版只持有「当前活动循环」的指针，跨用例继续有效。
+
+    与 `note_gate_wait` 的分工：那个只在等门时抓，管不到「没等门却永远回不来」的 await。
+
+    Args:
+        path: 抓取落点（每进程一份）。
+    """
+    every = hang_every_seconds()
+    if every <= 0:
+        return
+    global _current_loop, _watch_path, _watch_started
+    _current_loop = asyncio.get_running_loop()
+    _watch_path = path
+    with _watch_lock:
+        if _watch_started:
+            return
+        _watch_started = True
+    threading.Thread(target=_watch_loop, args=(every,), name="diag-watchdog", daemon=True).start()
+
+
+def _watch_loop(every: float) -> None:
+    """看守线程主体：每 `every` 秒抓一份。
+
+    Args:
+        every: 间隔秒数。
+    """
+    while True:
+        _watch_tick(every)
+
+
+def _watch_tick(every: float) -> None:
+    """睡一个间隔后在活动循环上抓一份（异常静默，不影响用例）。
+
+    Args:
+        every: 间隔秒数。
+    """
+    time.sleep(every)
+    loop = _current_loop
+    path = _watch_path
+    if loop is None or path is None or loop.is_closed():
+        return
+    with contextlib.suppress(RuntimeError):
+        loop.call_soon_threadsafe(partial(dump_process_stacks, path, reason="watchdog", detail=f"每 {every:g}s"))
+        # call_soon_threadsafe 是线程安全的；dump 在循环线程执行，能枚举 asyncio 任务。
+
+
+def reset_watchdogs() -> None:
+    """重置看守状态（用例隔离与自测用；不终止已启动线程）。"""
+    global _current_loop, _watch_path, _watch_started
+    with _watch_lock:
+        _current_loop = None
+        _watch_path = None
+        _watch_started = False
+
+
+_current_loop: asyncio.AbstractEventLoop | None = None
+"""最近一次取门时所在的循环（看守线程按它调度抓取）。"""
+
+_watch_path: Path | None = None
+"""抓取落点。"""
+
+_watch_started = False
+"""看守线程是否已启动。"""
+
+_watch_lock = threading.Lock()
+"""启动互斥。"""
+
+
+def note_hold(name: str, seconds: float, *, read_only: bool) -> None:
+    """记录一次门区间的持有时长（`BMS_TEST_GATE_HOLD=1` 时启用）。
+
+    Args:
+        name: 门名。
+        seconds: 持有时长（秒）。
+        read_only: 只读区间 True。
+    """
+    if os.environ.get(HOLD_ENV, "").strip() not in {"1", "true", "yes", "on"}:
+        return
+    test_id = os.environ.get("PYTEST_CURRENT_TEST", "").split(" (")[0]
+    path = Path(".cache/test/gate-hold.log")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with contextlib.suppress(OSError), path.open("a", encoding="utf-8") as handle:
+        mode = "read" if read_only else "write"
+        handle.write(f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\n")
+
+
+def hold_enabled() -> bool:
+    """持有时长采样是否开启（`BMS_TEST_GATE_HOLD=1`）。
+
+    Returns:
+        bool: 开启返回 True。
+    """
+    return os.environ.get(HOLD_ENV, "").strip() in {"1", "true", "yes", "on"}
+
+
+def note_slow_hold(name: str, seconds: float, *, read_only: bool, frames: str) -> None:
+    """记录一次「超过 1s」的持有，附取门时的调用栈（用来定位长会话从哪来）。
+
+    Args:
+        name: 门名。
+        seconds: 持有时长（秒）。
+        read_only: 只读区间 True。
+        frames: 取门时的调用栈（`note_hold` 同批采集）。
+    """
+    if not hold_enabled() or seconds < 1.0:
+        return
+    test_id = os.environ.get("PYTEST_CURRENT_TEST", "").split(" (")[0]
+    path = Path(".cache/test/gate-hold-slow.log")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    mode = "read" if read_only else "write"
+    with contextlib.suppress(OSError), path.open("a", encoding="utf-8") as handle:
+        handle.write(f"{seconds:.3f}\t{mode}\t{name}\t{test_id}\t{frames}" + chr(10))
 
 
 def dump_process_stacks(path: Path, *, reason: str, detail: str = "") -> Path:
