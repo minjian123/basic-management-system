@@ -220,6 +220,15 @@ def _app() -> Any:
     )
 
 
+def _prod_settings() -> Any:
+    """构造「不自动播种」的应用配置替身（表归属引导只做离线校验 + 接库对账）。
+
+    Returns:
+        Any: 配置替身（`env=prod`）。
+    """
+    return SimpleNamespace(app=SimpleNamespace(env="prod"))
+
+
 async def test_service_lifespan_warns_on_pool_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     """启动期连接池预算超限：平台 / 租户两类各记一条告警，不阻断启动。"""
     monkeypatch.setattr(app_module, "pool_budget_warnings", _platform_warnings)
@@ -253,31 +262,26 @@ def _skip_db_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _noop(app: object) -> None:
         del app
 
-    async def _noop_seed(settings: object, app: object) -> None:
+    async def _noop_bootstrap(settings: object, app: object) -> None:
         del settings, app
 
     _skip_remote_bootstrap(monkeypatch)
     monkeypatch.setattr(app_module, "_validate_service_catalog", _noop)
-    monkeypatch.setattr(app_module, "_validate_table_ownership", _noop)
-    monkeypatch.setattr(app_module, "_seed_dev_table_ownership", _noop_seed)
+    monkeypatch.setattr(app_module, "_bootstrap_table_ownership", _noop_bootstrap)
 
 
 def _skip_ownership_validation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """只跳过表归属接库校验（用例需要保留目录校验的替身时用）。
+    """只跳过表归属引导（用例需要保留目录校验的替身时用）。
 
     Args:
         monkeypatch: pytest 替换器。
     """
 
-    async def _noop(app: object) -> None:
-        del app
-
-    async def _noop_seed(settings: object, app: object) -> None:
+    async def _noop_bootstrap(settings: object, app: object) -> None:
         del settings, app
 
     _skip_remote_bootstrap(monkeypatch)
-    monkeypatch.setattr(app_module, "_validate_table_ownership", _noop)
-    monkeypatch.setattr(app_module, "_seed_dev_table_ownership", _noop_seed)
+    monkeypatch.setattr(app_module, "_bootstrap_table_ownership", _noop_bootstrap)
 
 
 async def test_record_db_inventory_skips_without_metrics() -> None:
@@ -293,7 +297,7 @@ async def test_validate_table_ownership_offline_conflict() -> None:
     register_table_records(ConcurrentStableList([replace(record, note="冲突登记")]))
     try:
         with pytest.raises(CatalogError):
-            await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
+            await app_module._bootstrap_table_ownership(_prod_settings(), _app())  # pyright: ignore[reportPrivateUsage]
     finally:
         reset_table_records()
 
@@ -302,7 +306,7 @@ async def test_validate_table_ownership_rejects_when_db_unreadable(monkeypatch: 
     """接库不可读（未迁移）→ 拒启（部署错误，不带病启动）。"""
     monkeypatch.setattr(app_module, "session_scope", _broken_scope)
     with pytest.raises(CatalogError, match="表归属登记库不可读"):
-        await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
+        await app_module._bootstrap_table_ownership(_prod_settings(), _app())  # pyright: ignore[reportPrivateUsage]
 
 
 async def test_validate_table_ownership_rejects_db_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -311,7 +315,7 @@ async def test_validate_table_ownership_rejects_db_mismatch(monkeypatch: pytest.
     monkeypatch.setattr(app_module, "TableRecord", SimpleNamespace(from_row=_from_row))
     monkeypatch.setattr(app_module, "validate_table_ownership", _ownership_errors)
     with pytest.raises(CatalogError):
-        await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
+        await app_module._bootstrap_table_ownership(_prod_settings(), _app())  # pyright: ignore[reportPrivateUsage]
 
 
 async def test_validate_table_ownership_passes_when_consistent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -319,7 +323,7 @@ async def test_validate_table_ownership_passes_when_consistent(monkeypatch: pyte
     monkeypatch.setattr(app_module, "session_scope", _session_scope)
     monkeypatch.setattr(app_module, "TableRecord", SimpleNamespace(from_row=_from_row))
     monkeypatch.setattr(app_module, "validate_table_ownership", _ownership_ok)
-    await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
+    await app_module._bootstrap_table_ownership(_prod_settings(), _app())  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2511)
@@ -352,7 +356,7 @@ async def test_validate_table_ownership_rejects_when_registry_empty(monkeypatch:
 
     monkeypatch.setattr(app_module, "session_scope", _empty_scope)
     with pytest.raises(CatalogError, match="表归属登记为空"):
-        await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
+        await app_module._bootstrap_table_ownership(_prod_settings(), _app())  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2511)
@@ -393,10 +397,10 @@ async def test_dev_seeds_table_ownership(monkeypatch: pytest.MonkeyPatch) -> Non
         ),
     )
 
-    await app_module._seed_dev_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
+    await app_module._bootstrap_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
     async with factory() as session:
         first = (await session.execute(select(func.count()).select_from(SysTableOwnership))).scalar_one()
-    await app_module._seed_dev_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
+    await app_module._bootstrap_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
     async with factory() as session:
         second = (await session.execute(select(func.count()).select_from(SysTableOwnership))).scalar_one()
     await engine.dispose()
@@ -405,19 +409,93 @@ async def test_dev_seeds_table_ownership(monkeypatch: pytest.MonkeyPatch) -> Non
 
 @pytest.mark.kiwi_id(2511)
 async def test_prod_skips_table_ownership_seed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """prod 不自动播种（空表仍按部署错误拒启，不建连）。"""
-    called: ConcurrentStableList[str] = ConcurrentStableList()
+    """prod 不播种：空表按部署错误拒启，播种分支一次都不执行（只读对账照旧取门）。"""
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
 
-    def _scope(*args: object, **kwargs: object) -> object:
+    class _EmptyScalars:
+        def all(self) -> ConcurrentStableList[object]:
+            return ConcurrentStableList()
+
+        def first(self) -> None:
+            return None
+
+    class _EmptyResult:
+        def scalars(self) -> _EmptyScalars:
+            return _EmptyScalars()
+
+    class _EmptySession:
+        async def execute(self, statement: object) -> _EmptyResult:
+            del statement
+            return _EmptyResult()
+
+        def add(self, row: object) -> None:
+            del row
+            calls.add("add")
+
+        async def commit(self) -> None:
+            calls.add("commit")
+
+    class _EmptyScope:
+        async def __aenter__(self) -> _EmptySession:
+            return _EmptySession()
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+
+    def _empty_scope(*args: object, **kwargs: object) -> _EmptyScope:
         del args, kwargs
-        called.add("scope")
-        raise AssertionError("prod 不应建连")
+        calls.add("scope")
+        return _EmptyScope()
+
+    monkeypatch.setattr(app_module, "session_scope", _empty_scope)
+    with pytest.raises(CatalogError, match="表归属登记为空"):
+        await app_module._bootstrap_table_ownership(_prod_settings(), _app())  # pyright: ignore[reportPrivateUsage]
+    assert list(calls) == ["scope"]
+
+
+@pytest.mark.kiwi_id(2534)
+async def test_dev_seed_and_validate_share_single_scope(monkeypatch: pytest.MonkeyPatch) -> None:
+    """播种与对账共用一个会话（合并后只取一次门）：一次调用只进一次 session_scope。"""
+    from sqlalchemy import Table
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from bms_core.models.ownership import SysTableOwnership
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", poolclass=StaticPool)
+    async with engine.begin() as connection:
+        await connection.run_sync(cast("Table", SysTableOwnership.__table__).create)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+
+    class _Scope:
+        async def __aenter__(self) -> object:
+            entered.add("enter")
+            return factory()
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+
+    def _scope(*args: object, **kwargs: object) -> _Scope:
+        del args, kwargs
+        return _Scope()
 
     monkeypatch.setattr(app_module, "session_scope", _scope)
-    settings = cast("Any", SimpleNamespace(app=SimpleNamespace(env="prod")))
-    app = cast("Any", SimpleNamespace(state=SimpleNamespace(engine_registry=object(), session_factory=object())))
-    await app_module._seed_dev_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
-    assert list(called) == []
+    settings = cast("Any", SimpleNamespace(app=SimpleNamespace(env="dev")))
+    app = cast(
+        "Any",
+        SimpleNamespace(
+            state=SimpleNamespace(
+                service_identity=SimpleNamespace(name="platform"),
+                engine_registry=object(),
+                session_factory=object(),
+            )
+        ),
+    )
+
+    await app_module._bootstrap_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
+    await engine.dispose()
+    assert list(entered) == ["enter"]
 
 
 @pytest.mark.kiwi_id(2299)

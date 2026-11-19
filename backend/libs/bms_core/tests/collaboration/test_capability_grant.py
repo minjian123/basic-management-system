@@ -33,8 +33,14 @@ from bms_core.collaboration import (
     resolve_capability,
     scope_action_of,
 )
-from bms_core.collaboration.grant import RemoteCapabilityGrantSource
+from bms_core.collaboration.grant import (
+    RemoteCapabilityGrantSource,
+    grant_view_key,
+    prime_grant_views,
+    warm_grant_views,
+)
 from bms_core.core.concurrent import (
+    ConcurrentStableDict,
     ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
@@ -70,6 +76,8 @@ class _FakeSource:
         """
         self._grants = grants
         self.loads = 0
+        self.load_alls = 0
+        self.last_providers: ConcurrentStableList[str] = ConcurrentStableList()
         self.fail = False
 
     async def load(
@@ -92,6 +100,32 @@ class _FakeSource:
         if self.fail:
             raise CatalogError("来源不可用")
         return self._grants
+
+    async def load_all(
+        self, *, providers: ConcurrentStableList[str], consumer: str | None = None
+    ) -> ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]:
+        """按维度分组返回预置记录（`load_alls` 计数用于断言「一次装载」）。
+
+        Args:
+            providers: 提供方业务域清单。
+            consumer: 消费方服务键。
+
+        Returns:
+            ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]: 视图键 → 预置记录。
+
+        Raises:
+            CatalogError: `fail` 为真时模拟来源不可用。
+        """
+        self.load_alls += 1
+        if self.fail:
+            raise CatalogError("来源不可用")
+        self.last_providers = ConcurrentStableList(providers)
+        views: ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]] = ConcurrentStableDict()
+        for provider in providers:
+            views.set(grant_view_key(provider=provider), self._grants)
+        if consumer is not None:
+            views.set(grant_view_key(consumer=consumer), self._grants)
+        return views
 
 
 def _record(
@@ -380,6 +414,99 @@ async def test_ensure_view_requires_registered_source() -> None:
     """来源未登记：首访即抛 `CatalogError`（fail-closed，不静默放行）。"""
     with pytest.raises(CatalogError):
         await ensure_grant_view(provider="mdm")
+
+
+@pytest.mark.kiwi_id(2534)
+async def test_warm_grant_views_loads_all_dimensions_in_one_call() -> None:
+    """预热：承载域与消费方维一次装载完成（不再逐维取门 / 逐维往返）。"""
+    source = _FakeSource(ConcurrentStableList([_grant()]))
+    register_capability_grant_source(source)
+
+    await warm_grant_views(providers=ConcurrentStableList(["mdm", "tenant"]), consumer="platform", now=_NOW)
+
+    assert source.load_alls == 1
+    assert source.loads == 0
+    assert [item.consumer_key for item in capability_grant_pairs(provider="tenant")] == ["platform"]
+    assert [item.capability_name for item in capability_grant_pairs(consumer="platform")] == ["demo.mdm.user-roles"]
+
+
+@pytest.mark.kiwi_id(2534)
+async def test_warm_grant_views_skips_fresh_dimensions() -> None:
+    """预热：TTL 内已新鲜的维度不重拉（同一维度被前后两步要求时只往返一次）。"""
+    source = _FakeSource(ConcurrentStableList([_grant()]))
+    register_capability_grant_source(source)
+
+    await warm_grant_views(providers=ConcurrentStableList(["mdm"]), now=_NOW)
+    await warm_grant_views(
+        providers=ConcurrentStableList(["mdm", "tenant"]),
+        consumer="platform",
+        now=_NOW + timedelta(seconds=10),
+    )
+
+    assert source.load_alls == 2
+    assert list(source.last_providers) == ["tenant"]
+
+
+@pytest.mark.kiwi_id(2534)
+async def test_warm_grant_views_returns_without_load_when_all_fresh() -> None:
+    """预热：全部维度都已新鲜时直接返回，不再向来源取数。"""
+    source = _FakeSource(ConcurrentStableList([_grant()]))
+    register_capability_grant_source(source)
+
+    await warm_grant_views(providers=ConcurrentStableList(["mdm"]), consumer="platform", now=_NOW)
+    await warm_grant_views(
+        providers=ConcurrentStableList(["mdm"]), consumer="platform", now=_NOW + timedelta(seconds=10)
+    )
+
+    assert source.load_alls == 1
+
+
+@pytest.mark.kiwi_id(2534)
+async def test_warm_grant_views_requires_registered_source() -> None:
+    """预热：来源未登记即抛 `CatalogError`（装配缺失按拒启处理，不静默返回空视图）。"""
+    with pytest.raises(CatalogError):
+        await warm_grant_views(providers=ConcurrentStableList(["mdm"]))
+
+
+@pytest.mark.kiwi_id(2534)
+def test_prime_grant_views_projects_grouped_records() -> None:
+    """批量投影：按传入的视图键逐个建立快照（含空视图），加载时刻统一取判定基准。"""
+    views: ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]] = ConcurrentStableDict()
+    views.set(grant_view_key(provider="mdm"), ConcurrentStableList([_grant()]))
+    views.set(grant_view_key(provider="tenant"), ConcurrentStableList())
+
+    prime_grant_views(views, now=_NOW)
+
+    assert [item.capability_name for item in capability_grant_pairs(provider="mdm")] == ["demo.mdm.user-roles"]
+    assert list(capability_grant_pairs(provider="tenant")) == []
+    snapshot = capability_grant_pairs(consumer="platform")
+    assert list(snapshot) == []
+
+
+@pytest.mark.kiwi_id(2534)
+async def test_remote_source_load_all_groups_by_dimension() -> None:
+    """远端来源批量装载：逐维拉取后按视图键分组（请求数 = 承载域数 + 消费方维）。"""
+    requested: ConcurrentStableList[str] = ConcurrentStableList()
+
+    class _Client:
+        async def call(self, request: object) -> ServiceResponse:
+            path = getattr(request, "path", "")
+            requested.add(str(path))
+            body = (
+                b'{"code":0,"data":{"grants":[{"capability_name":"demo.mdm.user-roles",'
+                b'"consumer_key":"platform","expire_at":null}]}}'
+            )
+            return ServiceResponse(status_code=200, content=body)
+
+    source = RemoteCapabilityGrantSource(_Client())  # pyright: ignore[reportArgumentType]  # 结构替身
+    views = await source.load_all(providers=ConcurrentStableList(["mdm", "tenant"]), consumer="platform")
+
+    assert list(views) == [
+        grant_view_key(provider="mdm"),
+        grant_view_key(provider="tenant"),
+        grant_view_key(consumer="platform"),
+    ]
+    assert len(requested) == 3
 
 
 async def test_view_requires_exactly_one_dimension() -> None:

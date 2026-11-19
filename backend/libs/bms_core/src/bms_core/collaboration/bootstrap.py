@@ -20,8 +20,8 @@ from fastapi import FastAPI
 
 from bms_core.collaboration.grant import (
     RemoteCapabilityGrantSource,
-    ensure_grant_view,
     register_capability_grant_source,
+    warm_grant_views,
 )
 from bms_core.collaboration.topology import (
     TenantTopologyResolver,
@@ -56,6 +56,9 @@ _LOGGER = get_logger("bms_core.collaboration.bootstrap")
 async def warm_capability_grant_views(service_key: str, *, consumer: bool = True) -> None:
     """预热本服务承载域与服务自身的授权视图（首访不依赖惰性加载）。
 
+    **一次装载**：承载域清单与自身消费方维合并成一次 `load_all`，再在进程内按维度切分填快照
+    （`warm_grant_views`）。逐域预热会让平台进程启动时连取十几次写门，队列成本远高于一次全量读。
+
     Args:
         service_key: 本服务标识（`[app].service`；空表示只按承载域预热）。
         consumer: 是否并预热「本服务作为消费方」的视图（产品进程只用 `provider` 维，传 False）。
@@ -63,11 +66,14 @@ async def warm_capability_grant_views(service_key: str, *, consumer: bool = True
     Raises:
         CatalogError: 来源未登记或加载失败（由调用方决定拒启或降级）。
     """
+    providers: ConcurrentStableList[str] = ConcurrentStableList()
     for domain, carrier in domain_service_view().items():
         if carrier == service_key:
-            await ensure_grant_view(provider=domain)
-    if consumer and service_key:
-        await ensure_grant_view(consumer=service_key)
+            providers.add(domain)
+    consumer_key = service_key if consumer and service_key else None
+    if not providers and consumer_key is None:
+        return
+    await warm_grant_views(providers=providers, consumer=consumer_key)
 
 
 async def bootstrap_remote_capability_grants(app: FastAPI) -> None:

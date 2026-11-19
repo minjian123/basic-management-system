@@ -277,49 +277,69 @@ async def _validate_capability_usages(app: FastAPI) -> None:
         raise
 
 
-async def _seed_dev_table_ownership(settings: Settings, app: FastAPI) -> None:
-    """开发环境自举：表归属登记为空时按合并清单幂等播种（生产不执行）。
+async def _bootstrap_table_ownership(settings: Settings, app: FastAPI) -> None:
+    """表归属引导：离线清单校验 → （dev 平台）播种 → 接库对账，全程一次会话一次取门。
 
-    与「dev 自动建表」同口径：开发 / 冒烟环境开箱即用；`prod` 不自动播种，空表仍按部署错误拒启。
-    仅平台服务执行（表归属登记归平台服务库，与 `_validate_table_ownership` 同口径）。
+    合并的理由：播种与对账读同一张表、背靠背执行；分两次会话（13_08 实测）不仅每次启动多付一次
+    写门排队，还在两段之间给别的 worker 留了插队窗口（刚播种完被清库 → 对账报空）。合进一个临界区
+    后「探测 → 播种 → 提交 → 读回 → 对账」是同一视图，顺序与失败语义逐项保持原样。
 
     Args:
         settings: 应用配置（取 `app.env`）。
         app: 应用实例（取服务身份 / 引擎注册表 / 会话工厂）。
+
+    Raises:
+        CatalogError: 离线清单非法、库不可读（未迁移）、登记为空或接库对账不一致。
     """
-    if settings.app.env != "dev":
-        return
+    logger = get_logger("bms")
+    errors = TableOwnershipRegistry().validate()
+    if errors:
+        logger.critical("table_ownership_invalid", scope="offline", errors=errors)
+        raise CatalogError("表归属登记校验失败（清单）：" + "；".join(errors))
     identity = cast("ServiceIdentity", app.state.service_identity)
     if identity.name != PLATFORM_SERVICE_KEY:
-        # 表归属登记归平台服务库（与 `_validate_table_ownership` 同口径），产品服务不读不写
+        # 表归属登记归平台服务库（产品服务不读不写），产品进程到此为止
         return
-    registry = cast("EngineRegistry", app.state.engine_registry)
-    factory = cast("SessionFactory", app.state.session_factory)
-    async with session_scope(
-        registry,
-        db_key=PLATFORM_DB_KEY,
-        # 启动期整段作业：全并行起 worker 时写门是排队热点，单次写的短上限（5s）会把正常排队误杀
-        gate_wait=GATE_CRITICAL_WAIT,
-        factory=factory,
-    ) as session:
-        # 探测与写入放在**同一道写门内**：SQLite（rollback journal）读写互斥，门外另起一次
-        # 「只读探测」会在别处持写门时阻塞，反过来又把它自己的读份额压在写门前面，
-        # 形成「读者等写、写者等读者」的互等（13_08 实测会把启动拖到短上限超时）。
-        if await _table_ownership_seeded(session):
-            return
-        for record in table_ownership_view():
-            session.add(
-                SysTableOwnership(
-                    table_name=record.table_name,
-                    owner=record.owner,
-                    domain=record.domain,
-                    datasource=record.datasource,
-                    status=record.status,
-                    note=record.note,
-                )
-            )
-        await session.commit()
-    get_logger("bms").info("table_ownership_seeded_dev")
+    seeded = False
+    try:
+        async with session_scope(
+            cast("EngineRegistry", app.state.engine_registry),
+            db_key=PLATFORM_DB_KEY,
+            # 启动期整段作业（播种 + 对账同一次临界区）：全并行起 worker 时短上限会误杀正常排队
+            gate_wait=GATE_CRITICAL_WAIT,
+            factory=cast("SessionFactory", app.state.session_factory),
+        ) as session:
+            # 探测与写入放在同一道写门内：SQLite（rollback journal）读写互斥，门外另起一次
+            # 「只读探测」会在别处持写门时阻塞，反过来又把它自己的读份额压在写门前面，
+            # 形成「读者等写、写者等读者」的互等（13_08 实测会把启动拖到短上限超时）。
+            if settings.app.env == "dev" and not await _table_ownership_seeded(session):
+                for record in table_ownership_view():
+                    session.add(
+                        SysTableOwnership(
+                            table_name=record.table_name,
+                            owner=record.owner,
+                            domain=record.domain,
+                            datasource=record.datasource,
+                            status=record.status,
+                            note=record.note,
+                        )
+                    )
+                await session.commit()
+                seeded = True
+            statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))
+            records = [TableRecord.from_row(row) for row in (await session.execute(statement)).scalars().all()]
+    except Exception as exc:  # 库不可读（未迁移）：数据库未就绪，拒启
+        logger.critical("table_ownership_unavailable", detail=f"{type(exc).__name__}: {exc}")
+        raise CatalogError(f"表归属登记库不可读（{type(exc).__name__}: {exc}）") from exc
+    if seeded:
+        logger.info("table_ownership_seeded_dev")
+    if not records:
+        logger.critical("table_ownership_empty", hint="表归属登记无登记行（先执行 ops.seed_tables）")
+        raise CatalogError("表归属登记为空：本服务平台服务库未播种登记行（先执行 ops.seed_tables）")
+    errors = validate_table_ownership(table_ownership_view(), ConcurrentStableList(records))
+    if errors:
+        logger.critical("table_ownership_invalid", scope="database", errors=errors)
+        raise CatalogError("表归属登记校验失败（接库）：" + "；".join(errors))
 
 
 async def _table_ownership_seeded(session: DbSession) -> bool:
@@ -333,51 +353,6 @@ async def _table_ownership_seeded(session: DbSession) -> bool:
     """
     existing = (await session.execute(select(SysTableOwnership.table_name))).scalars().first()
     return existing is not None
-
-
-async def _validate_table_ownership(app: FastAPI) -> None:
-    """表归属登记校验（离线清单 + `platform` 服务接库对账；06_02 承接 06_03 遗留 1）。
-
-    - **离线清单自校验**（零依赖，所有服务执行）：`TABLE_OWNERSHIP` 唯一性 / 格式 / 归属合法，
-    违规即拒启（配置级错误，不应放行）；
-    - **接库对账**（仅 `platform` 服务——`sys_table_ownership` 归其平台服务库，非其归属库不跨服务直读）：
-    读本服务平台服务库与清单双向对账，不一致即拒启（`CatalogError`，登记类冲突复用既有错误码）；
-    库不可读（未迁移）/ 无登记行同样拒启——库没准备好属部署错误，不带病启动。
-
-    Args:
-        app: 应用实例（取服务身份 / 引擎注册表 / 会话工厂）。
-
-    Raises:
-        CatalogError: 离线清单非法或接库对账不一致。
-    """
-    logger = get_logger("bms")
-    errors = TableOwnershipRegistry().validate()
-    if errors:
-        logger.critical("table_ownership_invalid", scope="offline", errors=errors)
-        raise CatalogError("表归属登记校验失败（清单）：" + "；".join(errors))
-    identity = cast("ServiceIdentity", app.state.service_identity)
-    if identity.name != PLATFORM_SERVICE_KEY:
-        return
-    try:
-        async with session_scope(
-            cast("EngineRegistry", app.state.engine_registry),
-            db_key=PLATFORM_DB_KEY,
-            # 启动期整段作业（同 `_seed_dev_table_ownership`）：短上限在全并行起 worker 时误杀正常排队
-            gate_wait=GATE_CRITICAL_WAIT,
-            factory=cast("SessionFactory", app.state.session_factory),
-        ) as session:
-            statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))
-            records = [TableRecord.from_row(row) for row in (await session.execute(statement)).scalars().all()]
-    except Exception as exc:  # 库不可读（未迁移）：数据库未就绪，拒启
-        logger.critical("table_ownership_unavailable", detail=f"{type(exc).__name__}: {exc}")
-        raise CatalogError(f"表归属登记库不可读（{type(exc).__name__}: {exc}）") from exc
-    if not records:
-        logger.critical("table_ownership_empty", hint="表归属登记无登记行（先执行 ops.seed_tables）")
-        raise CatalogError("表归属登记为空：本服务平台服务库未播种登记行（先执行 ops.seed_tables）")
-    errors = validate_table_ownership(table_ownership_view(), ConcurrentStableList(records))
-    if errors:
-        logger.critical("table_ownership_invalid", scope="database", errors=errors)
-        raise CatalogError("表归属登记校验失败（接库）：" + "；".join(errors))
 
 
 async def _record_db_inventory(app: FastAPI, settings: Settings) -> None:
@@ -477,7 +452,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     启动顺序：离线清单校验 → **基础能力先行装配**（Redis 统一客户端先登记——开库引导与接库校验
     都要取数据库引擎，而引擎注册表的跨实例创建锁经分布式锁基座取共享客户端）→ 开发库自动建表 →
-    接库服务目录校验 → 表归属对账 → 其余能力装配 → 库数量上报 → 就绪标记。
+    接库服务目录校验 → 表归属引导（播种 + 对账同一临界区）→ 其余能力装配 → 库数量上报 → 就绪标记。
 
     离线阶段另执行**产品维度校验**（应用工厂声明 `product_key` 时）：注入的服务目录记录须非空、
     均为产品分组、产品归属与声明一致、且含运行服务登记行（不通过即拒启；12_03）。
@@ -550,8 +525,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
             await hook(app)
         if settings.app.validate_catalog_on_startup:
             await _validate_service_catalog(app)
-        await _seed_dev_table_ownership(settings, app)
-        await _validate_table_ownership(app)
+        await _bootstrap_table_ownership(settings, app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))
         await _record_db_inventory(app, settings)
         for hook in cast("tuple[StartupHook, ...]", getattr(app.state, "startup_hooks", ())):

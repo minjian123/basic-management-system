@@ -23,6 +23,7 @@ from bms_core.collaboration.grant import (
     METRIC_CAPABILITY_GRANT_ACTIVE,
     CapabilityGrant,
     declare_capability_grants,
+    grant_view_key,
     invalidate_capability_grants,
     is_grant_effective,
     plan_grant_sync,
@@ -347,6 +348,40 @@ class CapabilityGrantService(BaseFrameworkObject):
                     capabilities.add(record.name)
             rows = await self._repo.list_enabled_by_capabilities(capabilities)
         return ConcurrentStableList(_to_grant(row) for row in rows)
+
+    async def views_all(
+        self, *, providers: ConcurrentStableList[str], consumer: str | None = None
+    ) -> ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]:
+        """一次查询取全部启用授权并按维度分组（启动期批量预热：一次取门覆盖所有承载域）。
+
+        分组口径与 `view()` 逐维查询**逐条一致**：入站维取「该业务域在能力目录中登记的全部能力」
+        的启用记录，出站维取「该服务作为消费方」的启用记录。
+
+        Args:
+            providers: 需预热的提供方业务域清单。
+            consumer: 需预热的消费方服务键（None 表示不预热该维）。
+
+        Returns:
+            ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]: 视图键 → 该维度记录。
+        """
+        rows = await self._repo.list_enabled_all()
+        grants: ConcurrentStableList[CapabilityGrant] = ConcurrentStableList(_to_grant(row) for row in rows)
+        views: ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]] = ConcurrentStableDict()
+        for provider in providers:
+            capabilities: ConcurrentStableSet[str] = ConcurrentStableSet()
+            for record in collaboration_catalog_view():
+                if record.domain == provider:
+                    capabilities.add(record.name)
+            views.set(
+                grant_view_key(provider=provider),
+                ConcurrentStableList(grant for grant in grants if grant.capability_name in capabilities),
+            )
+        if consumer is not None:
+            views.set(
+                grant_view_key(consumer=consumer),
+                ConcurrentStableList(grant for grant in grants if grant.consumer_key == consumer),
+            )
+        return views
 
     async def _current_grants(self) -> ConcurrentStableList[CapabilityGrant]:
         """取库中现状（声明同步的差异基线）。

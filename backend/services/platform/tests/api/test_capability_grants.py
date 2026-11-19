@@ -10,6 +10,7 @@
 
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
@@ -525,6 +526,27 @@ async def test_bootstrap_registers_source_and_warms_views(service_app: FastAPI) 
     assert list(capability_grant_pairs(provider="platform_registry")) == []
     rows = capability_grant_pairs(consumer=CONSUMER)
     assert [(row.capability_name, row.source) for row in rows] == [(CAPABILITY, GRANT_SOURCE_DECLARED)]
+
+
+@pytest.mark.anyio
+@pytest.mark.kiwi_id(2534)
+async def test_bootstrap_grants_opens_two_scopes(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """启动装配的取门次数：声明同步 1 次 + 预热 1 次（预热不再逐承载域各开一次会话）。"""
+    from bms_core.collaboration import reset_capability_grants
+    from bms_platform.domains.platform_registry.services import capability_grant_bootstrap as bootstrap
+
+    reset_capability_grants()
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    original = cast("Any", bootstrap.session_scope)
+
+    def _counting(*args: object, **kwargs: object) -> Any:
+        entered.add("enter")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(bootstrap, "session_scope", _counting)
+    await bootstrap.bootstrap_capability_grants(service_app)
+
+    assert len(entered) == 2
 
 
 @pytest.mark.anyio

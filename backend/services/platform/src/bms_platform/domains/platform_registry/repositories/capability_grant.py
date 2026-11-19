@@ -111,6 +111,20 @@ class CapabilityGrantRepository(BaseDbRepository[SysCapabilityGrant]):
         statement = self._select().order_by(self._column("id").asc())
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
+    async def list_enabled_all(self) -> ConcurrentStableList[SysCapabilityGrant]:
+        """取全部启用记录（启动期批量预热授权视图：一次查询覆盖所有维度）。
+
+        与 `list_enabled_by_consumer` / `list_enabled_by_capabilities` 同口径（`status=enabled`、
+        `id` 升序），差别只是不带维度过滤——预热一次读回，再在进程内按维度切分，避免逐域取门。
+
+        Returns:
+            ConcurrentStableList[SysCapabilityGrant]: 记录列表。
+        """
+        statement = (
+            self._select().where(self._column("status") == GRANT_STATUS_ENABLED).order_by(self._column("id").asc())
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def list_enabled_by_consumer(self, consumer: str) -> ConcurrentStableList[SysCapabilityGrant]:
         """取某消费方的启用记录（出站视图 / 出站 scope 派生）。
 

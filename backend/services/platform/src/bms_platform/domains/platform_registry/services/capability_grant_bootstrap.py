@@ -21,7 +21,7 @@ from bms_core.collaboration.grant import (
     CapabilityGrant,
     register_capability_grant_source,
 )
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
@@ -72,6 +72,29 @@ class PlatformCapabilityGrantSource(BaseFrameworkObject):
             factory=self._app.state.session_factory,
         ) as session:
             return await CapabilityGrantService(session).view(provider=provider, consumer=consumer)
+
+    async def load_all(
+        self, *, providers: ConcurrentStableList[str], consumer: str | None = None
+    ) -> ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]:
+        """一次取全部启用授权并按维度分组（启动期批量预热：一次取门覆盖所有承载域）。
+
+        分组在服务层完成（`CapabilityGrantService.views_all`），与逐维 `load` 的口径逐条一致。
+
+        Args:
+            providers: 需预热的承载域清单。
+            consumer: 需预热的消费方服务键（None 表示不预热该维）。
+
+        Returns:
+            ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]: 视图键 → 该维度记录。
+        """
+        async with session_scope(
+            self._app.state.engine_registry,
+            db_key=PLATFORM_DB_KEY,
+            # 启动期整段作业（预热是启动链路的一步）：全并行起 worker 时短上限会误杀正常排队
+            gate_wait=GATE_CRITICAL_WAIT,
+            factory=self._app.state.session_factory,
+        ) as session:
+            return await CapabilityGrantService(session).views_all(providers=providers, consumer=consumer)
 
 
 async def bootstrap_capability_grants(app: FastAPI) -> None:

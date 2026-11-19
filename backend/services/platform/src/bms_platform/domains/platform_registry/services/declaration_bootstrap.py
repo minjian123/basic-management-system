@@ -74,9 +74,23 @@ async def bootstrap_platform_declarations(app: FastAPI) -> None:
     engine_registry = app.state.engine_registry
     session_factory = app.state.session_factory
     try:
-        # 一次写门内完成「比对 → 有差异才写」：写门整库独占，分两段会让预检读在门外与别人的
-        # 写事务互等（SQLite rollback journal 读写互斥），比原来更慢；合在一段既保留
-        # 「无差异不写库」，又只付一次排队。
+        # **读门预检**：只读会话里算一次对账计划（读门共享、可并发），计划为空直接返回，
+        # 完全不进写门。写门是整库独占，几十路并发启动时每个 worker 都要在这段排 5~7s
+        # （13_08 实测：减掉十几段其它写门后，等写仍由这一段锁死）——把比对挪到读门后，
+        # 「无差异」的多数启动不再付这笔排队，只有真差异（首启 / 清单变更）才进写门。
+        # 与「读门内等写门」的互等场景不同：这里读门内不做任何升级或等待，算完即释放。
+        async with session_scope(
+            engine_registry,
+            db_key=PLATFORM_DB_KEY,
+            read_only=True,
+            factory=session_factory,
+        ) as session:
+            plan, _, current_snapshot = await DeclarationRegistryService(session).plan(payload)
+        if plan.is_empty():
+            # 无差异：不写库，但进程内视图仍须按现状重建（新进程启动时视图是空的）
+            project_registry(current_snapshot)
+            _LOGGER.info("declaration_register_skipped", reason="no_change")
+            return
         async with session_scope(
             engine_registry,
             db_key=PLATFORM_DB_KEY,
@@ -86,11 +100,12 @@ async def bootstrap_platform_declarations(app: FastAPI) -> None:
             factory=session_factory,
         ) as session:
             service = DeclarationRegistryService(session)
+            # 读门判断与落库之间，别的 worker 可能已经把同样的声明写完：门内以现状为准重算，
+            # 计划转空就不再重复写（并发启动收敛，不会「读到有差异、进门发现已被写」而重写一遍）。
             plan, _, current_snapshot = await service.plan(payload)
             if plan.is_empty():
-                # 无差异：不写库，但进程内视图仍须按现状重建（新进程启动时视图是空的）
                 project_registry(current_snapshot)
-                _LOGGER.info("declaration_register_skipped", reason="no_change")
+                _LOGGER.info("declaration_register_skipped", reason="no_change_after_contention")
                 return
             report = await service.register(payload)
             # 事务边界归调用方（`session_scope` 只建会话）：不 commit 则本次注册随会话释放回滚，

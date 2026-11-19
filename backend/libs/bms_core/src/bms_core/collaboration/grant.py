@@ -65,15 +65,18 @@ __all__ = [
     "check_capability_access",
     "declare_capability_grants",
     "ensure_grant_view",
+    "grant_view_key",
     "granted_consumers",
     "granted_scopes",
     "invalidate_capability_grants",
     "is_grant_effective",
     "plan_grant_sync",
+    "prime_grant_views",
     "record_capability_call",
     "register_capability_grant_source",
     "reset_capability_grants",
     "scope_action_of",
+    "warm_grant_views",
 ]
 
 SCOPE_PREFIX = "svc"
@@ -321,6 +324,27 @@ class CapabilityGrantSource(Protocol):
         """
         ...
 
+    async def load_all(
+        self, *, providers: ConcurrentStableList[str], consumer: str | None = None
+    ) -> ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]:
+        """一次加载多个维度的授权记录（启动预热专用，避免逐维取门 / 逐维往返）。
+
+        **返回按维度分组**：键是 `grant_view_key(provider=…)` / `grant_view_key(consumer=…)`，值与该维度
+        `load()` 的返回**逐条一致**（同一口径：入站维只含该业务域能力的启用记录，出站维只含该消费方的）。
+        分组由实现方完成——本库直读实现一次查询后在进程内按能力目录切分，远端实现逐维拉取天然分组。
+
+        Args:
+            providers: 需预热的提供方业务域清单。
+            consumer: 需预热的消费方服务键（None 表示不预热该维）。
+
+        Returns:
+            ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]: 视图键 → 该维度授权记录。
+
+        Raises:
+            CatalogError: 来源不可用（启动期拒启级）。
+        """
+        ...
+
 
 class RemoteCapabilityGrantSource(BaseFrameworkObject):
     """跨进程实现：经 platform 内部出口拉取授权视图（`GET /api/v1/internal/capability-grants`）。
@@ -385,6 +409,32 @@ class RemoteCapabilityGrantSource(BaseFrameworkObject):
             )
         return grants
 
+    async def load_all(
+        self, *, providers: ConcurrentStableList[str], consumer: str | None = None
+    ) -> ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]:
+        """按维度逐项拉取后分组返回（启动预热专用）。
+
+        **为什么逐项而不是一次拉全量**：产品进程走 HTTP，不涉及本地 SQLite 写门——多几次往返
+        只是毫秒级网络成本；反之一旦给内部出口加「不传维度即全量」的口径，出口权限面会从
+        「按维度读」放大成「可拉全库授权」，收益与代价不成比例。
+
+        Args:
+            providers: 需预热的提供方业务域清单。
+            consumer: 需预热的消费方服务键（None 表示不预热该维）。
+
+        Returns:
+            ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]: 视图键 → 该维度授权记录。
+
+        Raises:
+            CatalogError: 任一维度拉取失败（出口不可达 / 响应非法）。
+        """
+        views: ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]] = ConcurrentStableDict()
+        for provider in providers:
+            views.set(grant_view_key(provider=provider), await self.load(provider=provider))
+        if consumer is not None:
+            views.set(grant_view_key(consumer=consumer), await self.load(consumer=consumer))
+        return views
+
 
 def _parse_expire_at(raw: object) -> datetime | None:
     """解析授权有效期（ISO 8601；缺失 / 非法视为长期有效并告警）。
@@ -439,9 +489,9 @@ def invalidate_capability_grants(*, provider: str | None = None, consumer: str |
     """
     keys: ConcurrentStableList[str] = ConcurrentStableList()
     if provider is not None:
-        keys.add(_view_key(provider=provider))
+        keys.add(grant_view_key(provider=provider))
     if consumer is not None:
-        keys.add(_view_key(consumer=consumer))
+        keys.add(grant_view_key(consumer=consumer))
     if not keys:
         _SNAPSHOTS.clear()
         return
@@ -471,7 +521,7 @@ async def ensure_grant_view(
     Raises:
         CatalogError: 来源未登记，或首次加载失败且无旧快照（启动 / 首访即断链，fail-closed）。
     """
-    key = _view_key(provider=provider, consumer=consumer)
+    key = grant_view_key(provider=provider, consumer=consumer)
     moment = now or datetime.now(UTC)
     cached = _SNAPSHOTS.get(key)
     if cached is not None and moment - cached.loaded_at < timedelta(seconds=ttl):
@@ -500,6 +550,90 @@ async def ensure_grant_view(
     return snapshot
 
 
+def prime_grant_views(
+    views: ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]],
+    *,
+    now: datetime | None = None,
+) -> None:
+    """用一次批量加载的结果填充多个维度的快照（启动预热；与逐维 `ensure_grant_view` 同构）。
+
+    分组口径由来源实现负责（`load_all` 的返回值就是「视图键 → 该维度记录」），本函数只做投影，
+    因此平台直读与远端拉取两条来源填出来的快照逐条一致。
+
+    Args:
+        views: 视图键 → 该维度授权记录（键须由 `grant_view_key` 构造）。
+        now: 快照加载时刻（缺省取当前 UTC）。
+    """
+    moment = now or datetime.now(UTC)
+    for key in views:
+        grants = views.get(key)
+        _SNAPSHOTS.set(
+            key,
+            GrantViewSnapshot(
+                key=key,
+                loaded_at=moment,
+                grants=ConcurrentStableFrozenList() if grants is None else ConcurrentStableFrozenList(grants),
+            ),
+        )
+
+
+async def warm_grant_views(
+    *,
+    providers: ConcurrentStableList[str],
+    consumer: str | None = None,
+    ttl: float = GRANT_VIEW_TTL_SECONDS,
+    now: datetime | None = None,
+) -> None:
+    """一次装载并填充多个维度的授权视图（启动预热入口）。
+
+    与 `ensure_grant_view` 的关系：那个是运行期「按需单维度惰性刷新」，本函数是启动期「一次装载
+    全部承载维度」——同一份快照结构、同一套维度口径，只是把 N 次取门压成 1 次。
+
+    **已新鲜的维度不重拉**：启动链路上同一个维度可能被前后两步都要求预热，跳过 TTL 内的旧快照
+    既省一次往返，也让「先只预热承载域、再连消费方一起预热」的组合不产生重复请求。
+
+    Args:
+        providers: 需预热的提供方业务域清单。
+        consumer: 需预热的消费方服务键（None 表示不预热该维）。
+        ttl: 快照有效期（秒）。
+        now: 判定基准时刻（缺省取当前 UTC）。
+
+    Raises:
+        CatalogError: 来源未登记或加载失败（由调用方决定拒启或降级）。
+    """
+    moment = now or datetime.now(UTC)
+    pending_providers: ConcurrentStableList[str] = ConcurrentStableList()
+    for provider in providers:
+        if _view_stale(provider=provider, moment=moment, ttl=ttl):
+            pending_providers.add(provider)
+    pending_consumer = consumer
+    if pending_consumer is not None and not _view_stale(consumer=pending_consumer, moment=moment, ttl=ttl):
+        pending_consumer = None
+    if not pending_providers and pending_consumer is None:
+        return
+    source = _SOURCE_HOLDER.get(_SOURCE_KEY)
+    if source is None:
+        raise CatalogError("授权视图来源未登记（请检查应用装配是否调用 register_capability_grant_source）")
+    views = await source.load_all(providers=pending_providers, consumer=pending_consumer)
+    prime_grant_views(views, now=moment)
+
+
+def _view_stale(*, provider: str | None = None, consumer: str | None = None, moment: datetime, ttl: float) -> bool:
+    """维度快照是否需要重拉（缺失或已超 TTL）。
+
+    Args:
+        provider: 提供方业务域。
+        consumer: 消费方服务键。
+        moment: 判定基准时刻。
+        ttl: 快照有效期（秒）。
+
+    Returns:
+        bool: 需要重拉返回 True。
+    """
+    cached = _SNAPSHOTS.get(grant_view_key(provider=provider, consumer=consumer))
+    return cached is None or moment - cached.loaded_at >= timedelta(seconds=ttl)
+
+
 def capability_grant_pairs(
     *, provider: str | None = None, consumer: str | None = None
 ) -> ConcurrentStableFrozenList[CapabilityGrant]:
@@ -512,7 +646,7 @@ def capability_grant_pairs(
     Returns:
         ConcurrentStableFrozenList[CapabilityGrant]: 该维度的授权记录（未加载为空）。
     """
-    snapshot = _SNAPSHOTS.get(_view_key(provider=provider, consumer=consumer))
+    snapshot = _SNAPSHOTS.get(grant_view_key(provider=provider, consumer=consumer))
     return ConcurrentStableFrozenList() if snapshot is None else snapshot.grants
 
 
@@ -670,7 +804,7 @@ async def check_capability_access(
     raise PermissionError(f"未授权访问能力：{capability}（消费方 {consumer}；{reason}）")
 
 
-def _view_key(*, provider: str | None = None, consumer: str | None = None) -> str:
+def grant_view_key(*, provider: str | None = None, consumer: str | None = None) -> str:
     """视图键（`provider` / `consumer` 二选一，都缺或都给即拒）。
 
     Args:

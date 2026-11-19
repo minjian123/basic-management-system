@@ -3,7 +3,7 @@
 护栏口径：`except` 处理器体只有 `pass`、直接返回空集合、或出现 `x or <空集合>` 兜底，即视为
 「无声明降级」——降级必须经 `call_capability()` 按 `CapabilityUsage` 声明执行（有日志、有指标、理由留痕）。
 
-基线：平台现存 3 处命中（与能力寻址无关的存量写法）登记为基线，`03_01` 收编后逐项递减；
+基线：平台现存 6 处命中（与能力寻址无关的存量写法）登记为基线，`03_01` 收编后逐项递减；
 新增文件 / 新增写法即失败（防「到处 try/except 吞掉」回潮）。
 """
 
@@ -19,11 +19,19 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[4]
 _BASELINE: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
     {
         "libs/bms_core/src/bms_core/core/base.py:except-pass",
+        "libs/bms_core/src/bms_core/dashboard/layout.py:except-empty-return",
+        "libs/bms_core/src/bms_core/testing/rwlock.py:except-empty-return",
+        "services/platform/src/bms_platform/domains/archive/services/query.py:except-empty-return",
         "services/platform/src/bms_platform/domains/menu_form/services/menu.py:except-pass",
         "services/platform/src/bms_platform/domains/user/services/credentials.py:except-empty-return",
     }
 )
-"""存量基线（相对后端工程根；随消费方收编递减，不得新增）。"""
+"""存量基线（相对后端工程根；随消费方收编递减，不得新增）。
+
+2026-11-19 追加 3 条（`dashboard/layout.py` / `testing/rwlock.py` / `archive/services/query.py`）：
+三者均为存量写法（HEAD 版本即命中，非当轮引入），因本用例是**全仓扫描**、平时按改动文件选测选不到，
+一直未暴露；13_08 调整 `collaboration` 包时被选测命中，按用户拍板登记进基线，不再随本用例失败。
+"""
 
 
 def _relative(findings: Iterable[str]) -> ConcurrentStableFrozenSet[str]:
