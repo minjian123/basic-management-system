@@ -1,6 +1,6 @@
 """任务执行作业边缘用例：执行体异常 / 成功 / 失败态与负载解析。
 
-单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）。
+单库叠加口径（04-6-2）：库用共享平台库、写入不提交（会话结束回滚）且事务开头取 SQLite 写锁。
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import Any, cast
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.jobs.base import JobContext
@@ -19,7 +19,6 @@ from bms_core.models.base import Base
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.platform.task import TASK_RUN_RUNNING, SysTaskLog
 from bms_core.tasks.spec import TaskResult
-from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.task import jobs as task_jobs
 from bms_platform.domains.task.jobs import TaskJobHandler
 
@@ -36,7 +35,8 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncGenerator[AsyncSe
     """共享平台库上的回滚会话（任务日志 / 发件箱两表幂等补齐）。"""
     async with shared_platform_engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
-    async with rollback_session(shared_platform_engine) as opened:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as opened:
         yield opened
 
 

@@ -100,8 +100,24 @@ async def _task_log(session: AsyncSession, log_id: int) -> SysTaskLog:
     return (await session.execute(select(SysTaskLog).where(SysTaskLog.id == log_id))).scalars().one()
 
 
-async def test_handler_writes_task_log_and_event(session: AsyncSession, ns: Namespace) -> None:
-    """内置占位任务（skipped）：日志收敛 `skipped`，并写 `sys.task.completed`。"""
+async def test_handler_writes_task_log_and_event(
+    session: AsyncSession, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """内置任务（提交型）：日志收敛 `succeeded`，并写 `sys.task.completed`。"""
+
+    class _Client:
+        """作业受理客户端替身（不连服务端）。"""
+
+        def __init__(self, _transport: object) -> None:
+            """忽略传输层。"""
+            del _transport
+
+        async def submit(self, **_kwargs: object) -> int:
+            """受理并返回作业主键。"""
+            return 1
+
+    monkeypatch.setattr("bms_core.tasks.builtin.build_service_client", lambda: object())
+    monkeypatch.setattr("bms_core.tasks.builtin.JobInternalClient", _Client)
     task_id = int(ns.prefix[2:], 16)
     ctx, log_id = await _context(
         session,
@@ -116,7 +132,7 @@ async def test_handler_writes_task_log_and_event(session: AsyncSession, ns: Name
     events = (
         (await session.execute(select(SysOutbox).where(SysOutbox.aggregate_key == f"task:{task_id}"))).scalars().all()
     )
-    assert row.status == "skipped"
+    assert row.status == "success"
     assert row.finished_at is not None
     assert row.cost_time is not None
     assert [item.event_type for item in events] == ["sys.task.completed"]

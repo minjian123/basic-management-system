@@ -60,6 +60,9 @@ def test_job_handlers_and_specs_are_declared() -> None:
         "platform.import.execute",
         "platform.export.execute",
         "platform.export.cleanup",
+        "platform.archive.run",
+        "platform.archive.cleanup",
+        "platform.recycle.purge",
     ]
     specs = jobs.job_specs()
     assert list(specs) == [
@@ -67,6 +70,9 @@ def test_job_handlers_and_specs_are_declared() -> None:
         "platform.import.execute",
         "platform.export.execute",
         "platform.export.cleanup",
+        "platform.archive.run",
+        "platform.archive.cleanup",
+        "platform.recycle.purge",
     ]
     assert specs["sys.task.run"].service_key == "platform"
     assert specs["platform.import.execute"].max_attempts == 1

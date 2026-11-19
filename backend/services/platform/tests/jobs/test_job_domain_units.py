@@ -1,6 +1,6 @@
 """作业中心平台侧单元用例：目录仓储 / 监控仓储 / 目录同步 / 用户面路由。
 
-单库叠加口径（04-6-2）：库用共享平台库、写入走 `rollback_session`（整体回滚不残留）。
+单库叠加口径（04-6-2）：库用共享平台库、写入不提交（会话结束回滚）且事务开头取 SQLite 写锁。
 作业类型 / 服务键带命名空间前缀、作业主键与租户主键按命名空间派生——目录同步的「缺失退役」
 与监控的「按时间清理」是**全表**动作，断言因此改为「本用例行的状态」+ 相对增量，
 不再数全表行数（叠加库中他人行会一并命中）。
@@ -16,7 +16,7 @@ from typing import Any, cast
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import JobNotFoundError
@@ -25,7 +25,7 @@ from bms_core.models.platform.job import JOB_TYPE_STATUS_RETIRED, SysJobMonitor,
 from bms_core.schemas.pagination import BasePageQuery
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.transaction import begin_write
 from bms_platform.domains.job.api import job as job_api
 from bms_platform.domains.job.repositories.job import JobMonitorRepository, JobTypeRepository
 from bms_platform.domains.job.services.catalog import JobCatalogService
@@ -63,7 +63,9 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncGenerator[AsyncSe
     再 CREATE 的两方会有一方撞 `table ... already exists`（服务子流水线实测 ERROR）。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    async with rollback_session(shared_platform_engine) as opened:
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_platform_engine, expire_on_commit=False)
+    async with factory() as opened:
+        await begin_write(await opened.connection())
         yield opened
 
 
@@ -171,7 +173,7 @@ async def test_monitor_repository_filters_and_purge(session: AsyncSession, ns: N
             ),
         ]
     )
-    await session.commit()
+    await session.flush()
     repository = JobMonitorRepository(session)
     rows, total = await repository.page_filtered(page=1, size=10, job_type=running_type)
     assert total == 1 and int(rows[0].job_id) == running_id
@@ -199,7 +201,7 @@ async def test_monitor_service_drops_stale_and_missing(session: AsyncSession, ns
             last_event_at=BASE + timedelta(minutes=5),
         )
     )
-    await session.commit()
+    await session.flush()
 
     stale = await service.apply(
         EventEnvelope(
@@ -259,7 +261,7 @@ async def test_api_list_types_and_monitor(
         ConcurrentStableList([_declaration(job_type, service=service_key)]), source="platform"
     )
     session.add(_monitor_row(_number(ns, 1), job_type=job_type, service_key=service_key, tenant_id=tenant_id))
-    await session.commit()
+    await session.flush()
 
     types = await _endpoint("/types", "GET")(cast("Any", _Uow(session)), _page(), service_key, None)
     assert types.data.total == 1
@@ -274,7 +276,7 @@ async def test_api_monitor_detail_and_missing(
     monkeypatch.setattr(job_api, "current_tenant_context", lambda: SimpleNamespace(tenant_id=_number(ns, 3)))
     job_id = _number(ns, 1)
     session.add(_monitor_row(job_id, job_type=ns.code("job"), service_key=ns.code("svc"), tenant_id=_number(ns, 3)))
-    await session.commit()
+    await session.flush()
     detail = _endpoint("/jobs/{job_id}", "GET")
     response = await detail(cast("Any", _Uow(session)), job_id)
     assert response.data.job_id == job_id
@@ -289,7 +291,7 @@ async def test_api_cancel_and_retry_forward(
     monkeypatch.setattr(job_api, "current_tenant_context", lambda: SimpleNamespace(tenant_id=_number(ns, 3)))
     job_id = _number(ns, 1)
     session.add(_monitor_row(job_id, job_type=ns.code("job"), service_key=ns.code("svc"), tenant_id=_number(ns, 3)))
-    await session.commit()
+    await session.flush()
     calls: ConcurrentStableList[tuple[str, int]] = ConcurrentStableList()
 
     class _Client:
