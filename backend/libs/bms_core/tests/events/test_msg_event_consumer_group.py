@@ -977,6 +977,33 @@ async def test_poll_once_without_assignment_skips_poll() -> None:
     assert consumer.poll_calls == 0
 
 
+async def test_poll_once_batch_continues_after_unacked_message() -> None:
+    """单轮消费：同批「不 ack」消息不中断后续消息（死信落库失败 → nack，下一条照常 ack）。"""
+    directory = _Directory(ConcurrentStableList(["t1"]))
+    consumer = _FakeConsumer(
+        batches=ConcurrentStableList(
+            [
+                ConcurrentStableList(
+                    [
+                        _message(payload=b"not-json"),
+                        _message(_event(event_id="e-2")),
+                    ]
+                )
+            ]
+        )
+    )
+    group = _group(
+        directory=directory,
+        consumers=ConcurrentStableDict({("t1", "bms-sys-operation"): consumer}),
+        recorder=_Recorder(fail=True),
+    )
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    tally = await group.consume_once()
+    assert tally.received == 2
+    assert list(consumer.nacked) == ["schema_invalid"]
+    assert [message.message_id for message in consumer.acked] == ["m-e-2"]
+
+
 def test_default_consumer_and_config_factory_paths() -> None:
     """缺省客户端构造走真实 `MsgConsumer`；注入配置工厂时直接取工厂产物。"""
     expected = MessagingConfig(endpoints=ConcurrentStableFrozenList(["http://msg:8000"]), tenant="t9")
@@ -1051,3 +1078,31 @@ async def test_run_unit_handles_empty_batch() -> None:
     await _wait(lambda: consumer.poll_calls >= 1)
     await group.stop()
     assert list(consumer.acked) == []
+
+
+async def test_batch_continues_after_unacked_message() -> None:
+    """同批「不 ack」消息不中断本批：前一条死信落库失败（nack 兜底），后一条照常处理并 ack。"""
+    directory = _Directory(ConcurrentStableList(["t1"]))
+    consumer = _FakeConsumer(
+        batches=ConcurrentStableList(
+            [
+                ConcurrentStableList(
+                    [
+                        _message(payload=b"not-json"),
+                        _message(_event(event_id="e-2")),
+                    ]
+                )
+            ]
+        )
+    )
+    group = _group(
+        directory=directory,
+        consumers=ConcurrentStableDict({("t1", "bms-sys-operation"): consumer}),
+        recorder=_Recorder(fail=True),
+    )
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    await group.start()
+    await _wait(lambda: bool(consumer.acked))
+    await group.stop()
+    assert list(consumer.nacked) == ["schema_invalid"]
+    assert [message.message_id for message in consumer.acked] == ["m-e-2"]

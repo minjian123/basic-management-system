@@ -301,7 +301,12 @@ def test_cli_null_placeholder(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_cli_poll_uses_original(monkeypatch: pytest.MonkeyPatch) -> None:
-    """T8：`poll` 解析为原实现（缺省口径不变）。"""
+    """T8：`poll` 解析为原实现（缺省口径不变）。
+
+    poll 版投递器不关心事件发布实现，故把 `[event].provider` 固定为 null：
+    进程未跑应用装配（`register_core_plugins`）时 msg 发布插件未注册，避免用例依赖同进程其它用例的执行顺序。
+    """
+    monkeypatch.setenv("BMS_EVENT__PROVIDER", "")
     dispatcher = _cli_dispatcher(monkeypatch, "poll")
     assert isinstance(dispatcher, PollOutboxDispatcher)
     assert not isinstance(dispatcher, MsgOutboxDispatcher)
