@@ -77,8 +77,9 @@ async def _status(url: str) -> ConcurrentStableList[str]:
 
 
 def _point_to(url: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    """把平台库指向临时库并重置配置缓存。"""
+    """把平台库指向临时库并重置配置缓存；事件发布固定为 null（用例不连 broker）。"""
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", url)
+    monkeypatch.setenv("BMS_EVENT__PROVIDER", "")
     get_settings.cache_clear()
 
 

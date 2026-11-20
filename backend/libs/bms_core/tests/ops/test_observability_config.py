@@ -109,7 +109,12 @@ def test_slo_rules_anchored() -> None:
         "BmsHighErrorRate",
         "BmsCriticalErrorRate",
         "BmsSlowRequestsP99",
-        "BmsOutboxBacklog",
+        "BmsOutboxBacklogPerTenant",
+        "BmsOutboxBacklogPlatform",
+        "BmsAuditConsumeLagHigh",
+        "BmsAuditChainBroken",
+        "BmsAuditShardNextMonthMissing",
+        "BmsDeadLetterPendingTimeout",
     }
     assert rules["BmsProbeFailing"]["labels"]["severity"] == "critical"
     assert "probe_success" in rules["BmsProbeFailing"]["expr"]
@@ -118,7 +123,7 @@ def test_slo_rules_anchored() -> None:
     assert "> 0.001" in rules["BmsHighErrorRate"]["expr"]
     assert "> 0.05" in rules["BmsCriticalErrorRate"]["expr"]
     assert "> 0.8" in rules["BmsSlowRequestsP99"]["expr"]
-    assert "> 100" in rules["BmsOutboxBacklog"]["expr"]
+    assert "> 10000" in rules["BmsOutboxBacklogPerTenant"]["expr"]
     # 业务链路 SLO 锚点留位登记（注释形式）
     text = (_OBS / "rules" / "bms-slo.yml").read_text(encoding="utf-8")
     for anchor in ("登录成功率", "审批提交成功率", "Socket.IO", "备份任务"):
