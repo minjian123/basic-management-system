@@ -15,13 +15,12 @@
 import os
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.platform.menu_form import SysForm, SysMenuForm
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
-from bms_core.testing.gates import PLATFORM_GATE, gate_scope
+from tests_support.shared_access import shared_session
 
 
 def platform_url() -> str:
@@ -43,18 +42,13 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
     Returns:
         int: 业务码主键。
     """
-    engine = create_async_engine(platform_url())
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            row = SysBusiness(code=code, name=name, status="enabled")
-            session.add(row)
-            await session.flush()
-            business_id = row.id
-            await session.commit()
-        return business_id
-    finally:
-        await engine.dispose()
+    async with shared_session(platform_url(), read_only=False) as session:
+        row = SysBusiness(code=code, name=name, status="enabled")
+        session.add(row)
+        await session.flush()
+        business_id = row.id
+        await session.commit()
+    return business_id
 
 
 async def set_business_status(business_id: int, status: str) -> None:
@@ -64,16 +58,11 @@ async def set_business_status(business_id: int, status: str) -> None:
         business_id: 业务码主键。
         status: 目标状态。
     """
-    engine = create_async_engine(platform_url())
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            row = (await session.execute(select(SysBusiness).where(SysBusiness.id == business_id))).scalars().first()
-            if row is not None:
-                row.status = status
-            await session.commit()
-    finally:
-        await engine.dispose()
+    async with shared_session(platform_url(), read_only=False) as session:
+        row = (await session.execute(select(SysBusiness).where(SysBusiness.id == business_id))).scalars().first()
+        if row is not None:
+            row.status = status
+        await session.commit()
 
 
 async def seed_permission(business_id: int, action_code: str = "query", name: str = "查询") -> int:
@@ -87,34 +76,29 @@ async def seed_permission(business_id: int, action_code: str = "query", name: st
     Returns:
         int: 权限码主键。
     """
-    engine = create_async_engine(platform_url())
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        # 动作码是全局动词（`create` / `query` …），共享库上多个 worker 会同时走到「查无 → 插入」：
-        # `(code, deleted_at)` 唯一约束在 NULL 上不生效，不串行就会各写一行同码动作。
-        # 13_08 起用平台库写门（跨进程独占，取放 0.003ms、不留残锁）代替同名文件锁。
-        async with gate_scope(PLATFORM_GATE, read_only=False), factory() as session:
-            action = (
-                (
-                    await session.execute(
-                        select(SysAction).where(SysAction.code == action_code, SysAction.deleted_at.is_(None))
-                    )
+    # 动作码是全局动词（`create` / `query` …），共享库上多个 worker 会同时走到「查无 → 插入」：
+    # `(code, deleted_at)` 唯一约束在 NULL 上不生效，不串行就会各写一行同码动作。
+    # 写门由 `shared_session(read_only=False)` 统一取（跨进程独占、取放 0.003ms、不留残锁）。
+    async with shared_session(platform_url(), read_only=False) as session:
+        action = (
+            (
+                await session.execute(
+                    select(SysAction).where(SysAction.code == action_code, SysAction.deleted_at.is_(None))
                 )
-                .scalars()
-                .first()
             )
-            if action is None:
-                action = SysAction(code=action_code, name=name, status="enabled")
-                session.add(action)
-                await session.flush()
-            permission = SysPermission(business_id=business_id, action_id=action.id, status="enabled")
-            session.add(permission)
+            .scalars()
+            .first()
+        )
+        if action is None:
+            action = SysAction(code=action_code, name=name, status="enabled")
+            session.add(action)
             await session.flush()
-            permission_id = permission.id
-            await session.commit()
-        return permission_id
-    finally:
-        await engine.dispose()
+        permission = SysPermission(business_id=business_id, action_id=action.id, status="enabled")
+        session.add(permission)
+        await session.flush()
+        permission_id = permission.id
+        await session.commit()
+    return permission_id
 
 
 async def insert_form(menu_id: int, business_id: int, status: str = "enabled") -> int:
@@ -128,20 +112,15 @@ async def insert_form(menu_id: int, business_id: int, status: str = "enabled") -
     Returns:
         int: 表单主键。
     """
-    engine = create_async_engine(platform_url())
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            row = SysForm(business_id=business_id, component=None, status=status)
-            session.add(row)
-            await session.flush()
-            form_id = row.id
-            session.add(SysMenuForm(menu_id=menu_id, form_id=form_id))
-            await session.flush()
-            await session.commit()
-        return form_id
-    finally:
-        await engine.dispose()
+    async with shared_session(platform_url(), read_only=False) as session:
+        row = SysForm(business_id=business_id, component=None, status=status)
+        session.add(row)
+        await session.flush()
+        form_id = row.id
+        session.add(SysMenuForm(menu_id=menu_id, form_id=form_id))
+        await session.flush()
+        await session.commit()
+    return form_id
 
 
 async def outbox_types(aggregate_key: str) -> list[str]:
@@ -153,15 +132,10 @@ async def outbox_types(aggregate_key: str) -> list[str]:
     Returns:
         list[str]: 事件类型清单。
     """
-    engine = create_async_engine(platform_url())
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            statement = select(SysOutbox.event_type).where(SysOutbox.aggregate_key == aggregate_key)
-            rows = (await session.execute(statement)).scalars().all()
-        return [str(item) for item in rows]
-    finally:
-        await engine.dispose()
+    async with shared_session(platform_url(), read_only=True) as session:
+        statement = select(SysOutbox.event_type).where(SysOutbox.aggregate_key == aggregate_key)
+        rows = (await session.execute(statement)).scalars().all()
+    return [str(item) for item in rows]
 
 
 async def outbox_payloads(event_type: str) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
@@ -173,14 +147,9 @@ async def outbox_payloads(event_type: str) -> ConcurrentStableList[ConcurrentSta
     Returns:
         ConcurrentStableList[ConcurrentStableDict[str, object]]: 事件负载（插入序）。
     """
-    engine = create_async_engine(platform_url())
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            statement = select(SysOutbox.payload).where(SysOutbox.event_type == event_type)
-            payloads = (await session.execute(statement)).scalars().all()
-    finally:
-        await engine.dispose()
+    async with shared_session(platform_url(), read_only=True) as session:
+        statement = select(SysOutbox.payload).where(SysOutbox.event_type == event_type)
+        payloads = (await session.execute(statement)).scalars().all()
     result: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     for payload in payloads:
         result.add(ConcurrentStableDict(payload))

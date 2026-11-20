@@ -132,39 +132,14 @@
       "count": 2
     },
     {
-      "file": "backend/tests_support/form_design.py",
-      "code": "G5",
-      "count": 6
-    },
-    {
-      "file": "backend/tests_support/help.py",
-      "code": "G5",
-      "count": 4
-    },
-    {
-      "file": "backend/tests_support/menu_metadata.py",
-      "code": "G5",
-      "count": 6
-    },
-    {
       "file": "backend/tests_support/permission_admin.py",
       "code": "G5",
-      "count": 2
-    },
-    {
-      "file": "backend/tests_support/tenant_admin_helpers.py",
-      "code": "G5",
-      "count": 3
+      "count": 1
     },
     {
       "file": "backend/tests_support/tenant_base.py",
       "code": "G5",
       "count": 1
-    },
-    {
-      "file": "backend/tests_support/tenant_sql.py",
-      "code": "G5",
-      "count": 2
     }
   ]
 }

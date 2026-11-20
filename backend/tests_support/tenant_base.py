@@ -22,9 +22,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.models.tenant.tenant_module import SysTenantModule
+from bms_core.testing.gates import write_window
 
 __all__ = ("BASE_TENANTS", "TenantBase", "tenant_base")
 
@@ -196,12 +198,15 @@ async def tenant_base(shared_platform_db_url: str) -> AsyncIterator[TenantBase]:
     Yields:
         TenantBase: 基础数据集句柄。
     """
-    engine = create_async_engine(shared_platform_db_url)
+    # 会话级夹具：会话要跨整轮存活，**不能常驻持写门**（会把整轮串行化）。故只在
+    # `ensure_base()` 这一次初始化写入上取写门，其余用例自造行的写入沿用本会话。
+    engine = create_async_engine(shared_platform_db_url)  # own_db: 会话级夹具，仅初始化那一次取门
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
             base = TenantBase(shared_platform_db_url, session)
-            await base.ensure_base()
+            async with write_window(PLATFORM_DB_KEY):
+                await base.ensure_base()
             yield base
     finally:
         await engine.dispose()

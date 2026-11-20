@@ -152,4 +152,35 @@ def test_init_lock_acquires_and_releases(tmp_path: Path, monkeypatch: pytest.Mon
     lock = fixtures.test_db_dir() / "platform.init.lock"
     with fixtures._init_lock("platform"):  # pyright: ignore[reportPrivateUsage]
         assert lock.exists()
+        # 持锁者信息落盘：等锁超时时能点名是哪个进程
+        assert "pid=" in lock.read_text(encoding="utf-8")
+    assert not lock.exists()
+
+
+def test_init_lock_treats_permission_error_as_contended(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows 竞争：`O_CREAT|O_EXCL` 抛 `PermissionError` 按「有人持锁」处理，继续排队。
+
+    实测（13_08 T7）：两个等待方同刻判陈旧、同刻重建时，Windows 会抛 `EACCES` 而不是
+    `FileExistsError`；只捕获后者会把整批 worker 打成 setup 错误。
+    """
+    monkeypatch.chdir(tmp_path)
+    lock = fixtures.test_db_dir() / "platform.init.lock"
+    lock.write_text("pid=999 at=00:00:00", encoding="utf-8")
+    real_open = fixtures.os.open
+    attempts: ConcurrentStableList[int] = ConcurrentStableList()
+
+    def _open(path: object, flags: int, mode: int = 0o777) -> int:
+        if Path(cast("Any", path)) == lock:
+            if len(attempts) < 2:
+                attempts.add(1)
+                raise PermissionError("正在被创建")
+            # 模拟持锁方释放：文件消失后本次创建才能成功
+            lock.unlink(missing_ok=True)
+        return real_open(cast("Any", path), flags, mode)
+
+    monkeypatch.setattr(fixtures.os, "open", _open)
+    # 锁文件是新鲜的（mtime 未过陈旧阈值）→ 只能不断重试；第二次放开即成功
+    with fixtures._init_lock("platform"):  # pyright: ignore[reportPrivateUsage]
+        assert lock.exists()
+    assert len(attempts) == 2
     assert not lock.exists()

@@ -11,7 +11,6 @@ from bms_core.testing.namespace import Namespace
 from tests_support.permission_admin import setup_min_tenant
 
 from .helpers import (
-    ensure_form_design_tables,
     outbox_types_in_tenant,
     seed_business,
     seed_form_with_fields,
@@ -33,7 +32,6 @@ async def prepared(tenant_db: str) -> None:
         tenant_db: 共享测试租户库连接串。
     """
     await setup_min_tenant(tenant_db)
-    await ensure_form_design_tables()
 
 
 async def _form(ns: Namespace, suffix: str) -> str:

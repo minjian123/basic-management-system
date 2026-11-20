@@ -9,10 +9,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from bms_core.core.id import id_generator
 from bms_core.testing.sql_ids import sqlite_id
+from tests_support.shared_access import shared_session
 
 
 async def grant_membership(
@@ -35,9 +35,8 @@ async def grant_membership(
         status: 关系状态（`active` / `disabled`）。
     """
     now = datetime.now(UTC).replace(tzinfo=None)
-    engine = create_async_engine(platform_url)
-    async with engine.begin() as connection:
-        await connection.execute(
+    async with shared_session(platform_url, read_only=False) as session:
+        await session.execute(
             text(
                 "INSERT INTO sys_user_tenant "
                 "(id, created_at, created_by, updated_at, updated_by, deleted_at, version, "
@@ -54,7 +53,7 @@ async def grant_membership(
                 "status": status,
             },
         )
-    await engine.dispose()
+        await session.commit()
 
 
 async def membership_source(platform_url: str, *, tenant_id: int, user_id: int) -> str:
@@ -85,10 +84,9 @@ async def membership_status_source(platform_url: str, *, tenant_id: int, user_id
     Returns:
         str: `{status}|{source}`；未命中为空串。
     """
-    engine = create_async_engine(platform_url)
-    async with engine.connect() as connection:
+    async with shared_session(platform_url, read_only=True) as session:
         row = (
-            await connection.execute(
+            await session.execute(
                 text(
                     "SELECT status, source FROM sys_user_tenant WHERE tenant_id = :tenant_id "
                     "AND user_id = :user_id AND target_tenant_id = :target AND deleted_at IS NULL"
@@ -100,5 +98,4 @@ async def membership_status_source(platform_url: str, *, tenant_id: int, user_id
                 },
             )
         ).first()
-    await engine.dispose()
     return f"{row[0]}|{row[1]}" if row is not None else ""

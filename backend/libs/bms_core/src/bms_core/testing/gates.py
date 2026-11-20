@@ -6,7 +6,13 @@
 - 读门之间共享、写门与所有读门互斥；写门持有期间新读锁加不上，不会读到写了一半的数据；
 - 作用域是**一次数据库操作**（一次会话），不是整条用例；
 - 升级顺序固定为「让出读份额 → 取写门 → 放写门 → 取回读份额」，异常路径同序执行；
-- 跨库同时需要写门时，固定「平台库在前、租户库在后」的嵌套顺序。
+- **全库一把门**（13_08 T7，2026-11-20 拍板）：平台库与租户库**共用同一把读写门**。
+
+为什么不再按数据源分把：一个请求常常同时碰两个库（平台库存表单元数据、租户库存布局与
+自建字段），而门的粒度是「请求级会话」。两个进程各持一把、互等对方那把，就构成跨库 ABBA
+死锁——实测 24 路并行时每轮稳定在同样几个用例卡满 30 秒，把整批拖到 3~5 分钟。合成一把后，
+同一时刻最多一个写者，「持 A 库门等 B 库门」在结构上不可能出现，也不必再靠「谁在前谁在后」
+的约定维持正确性；代价只是跨库写不再并行（SQLite 单文件写本来就是串行，读仍并行）。
 """
 
 from __future__ import annotations
@@ -19,32 +25,38 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppres
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.gate import db_access_gate
 from bms_core.testing import diagnostics
-from bms_core.testing.rwlock import DEFAULT_TIMEOUT, DbGate, gate_path
+from bms_core.testing.rwlock import DEFAULT_TIMEOUT, GATE_LABEL, DbGate, gate_path
 
 PLATFORM_GATE = "platform"
-"""平台库门名（对应 `.cache/test/platform.db`）。"""
+"""平台库门名（诊断标签；与租户库共用同一把内核门，见模块说明）。"""
 
 TENANT_GATE = "tenant"
-"""租户库门名（对应 `.cache/test/tenant.db`）。"""
+"""租户库门名（诊断标签；与平台库共用同一把内核门，见模块说明）。"""
+
+GLOBAL_GATE = "all"
+"""全局门的锁文件名（`db-gate-all.lock`）：全库读写共用一把。"""
 
 _GATES: ConcurrentStableDict[str, DbGate] = ConcurrentStableDict()
 """门单例（进程内复用同一句柄；`-n auto` 下由操作系统保证跨进程互斥）。"""
 
 
 def gate(name: str) -> DbGate:
-    """取（或创建）门单例。
+    """取（或创建）**全局门**单例。
+
+    13_08 T7 起门不再按数据源区分：`name` 只用于诊断标签（日志 / 持有者记录里写
+    `platform` / `tenant`），底层锁文件恒为 `db-gate-all.lock`，跨库写因此不可能互相等待。
 
     Args:
-        name: 门名（`platform` / `tenant`）。
+        name: 诊断标签（`platform` / `tenant`），不决定锁文件。
 
     Returns:
-        DbGate: 门实例。
+        DbGate: 全局门实例。
     """
-    existing = _GATES.get(name)
+    existing = _GATES.get(GLOBAL_GATE)
     if existing is not None:
         return existing
-    created = DbGate(name, gate_path(name))
-    _GATES[name] = created
+    created = DbGate(GLOBAL_GATE, gate_path(GLOBAL_GATE))
+    _GATES[GLOBAL_GATE] = created
     return created
 
 
@@ -72,6 +84,7 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
         None: 门内区间。
     """
     target = gate(name)
+    label_token = GATE_LABEL.set(name)
     started = time.monotonic()
     frames = ""
     if diagnostics.hold_enabled():
@@ -118,9 +131,10 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             yield
         finally:
             # 无论是否报错都释放写门；没拿到（取写门就失败）时只记日志。
+            # `release_write` 会把升级时让出的读份额**原样补回**，故这里不再另取新份额：
+            # 多取一份就永远没人释放（实测每升级一次漏一份读份额，最终读者的内核共享锁
+            # 长期不放，写者只能等满硬上限）。
             await target.release_write(restored)
-            # 再把读锁加上，恢复进入时的读状态。
-            token = await target.acquire_read()
     except BaseException as exc:
         if stage == "hold":
             # 门内业务异常：与门等待区分开，避免把用例自身超时算成「等门超时」。
@@ -160,6 +174,7 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             holders=holders_before,
             outcome=outcome,
         )
+        GATE_LABEL.reset(label_token)
 
 
 def write_window(db_key: str) -> AbstractAsyncContextManager[None]:

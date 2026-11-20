@@ -13,7 +13,7 @@ from typing import cast
 
 from fastapi import FastAPI
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.api.deps import get_platform_read_db, get_platform_write_db, get_service_client
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -23,6 +23,8 @@ from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.models.tenant.tenant_quota import SysTenantQuota
+from bms_core.testing.transaction import GatedSessionMaker, gated_sessionmaker
+from tests_support.shared_access import shared_engine, shared_session, shared_window
 
 __all__ = ("TENANT_CATALOG", "TENANT_TABLES", "Resp", "StubClient", "override_platform", "seed_tenant")
 
@@ -144,11 +146,13 @@ async def override_platform(app: FastAPI, url: str) -> StubClient:
     Returns:
         StubClient: 服务间客户端替身。
     """
-    engine = create_async_engine(url)
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all, tables=list(TENANT_TABLES))
-    await engine.dispose()
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(create_async_engine(url), expire_on_commit=False)
+    engine = shared_engine(url)
+    try:
+        async with shared_window(engine), engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all, tables=list(TENANT_TABLES), checkfirst=True)
+    finally:
+        await engine.dispose()
+    factory: GatedSessionMaker = gated_sessionmaker(shared_engine(url), read_only=False)
 
     async def _session() -> AsyncIterator[AsyncSession]:
         async with factory() as session:
@@ -185,20 +189,13 @@ async def seed_tenant(
     Returns:
         int: 租户主键。
     """
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all, tables=list(TENANT_TABLES))
-        async with factory() as session:
-            row = SysTenant(code=code, name=name, domain=domain, kind=kind, status=status)
-            session.add(row)
-            await session.flush()
-            tenant_id = int(row.id)
-            session.add(SysTenantDatabase(tenant_id=tenant_id, db_basis=code))
-            for module_key, module_status in modules or ConcurrentStableList[tuple[str, str]]():
-                session.add(SysTenantModule(tenant_id=tenant_id, module_key=module_key, status=module_status))
-            await session.commit()
-            return tenant_id
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=False) as session:
+        row = SysTenant(code=code, name=name, domain=domain, kind=kind, status=status)
+        session.add(row)
+        await session.flush()
+        tenant_id = int(row.id)
+        session.add(SysTenantDatabase(tenant_id=tenant_id, db_basis=code))
+        for module_key, module_status in modules or ConcurrentStableList[tuple[str, str]]():
+            session.add(SysTenantModule(tenant_id=tenant_id, module_key=module_key, status=module_status))
+        await session.commit()
+    return tenant_id

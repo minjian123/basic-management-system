@@ -14,7 +14,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing.namespace import Namespace
 from tests_support.permission_admin import setup_min_tenant
 
-from .helpers import ensure_form_design_tables, register_form_key, seed_business, seed_form_with_fields
+from .helpers import register_form_key, seed_business, seed_form_with_fields
 
 pytestmark = pytest.mark.kiwi_id(2526)
 
@@ -31,7 +31,6 @@ async def prepared(tenant_db: str, service_app: Any) -> None:
         tenant_db: 共享测试租户库连接串。
     """
     await setup_min_tenant(tenant_db)
-    await ensure_form_design_tables()
 
 
 async def _form(ns: Namespace, suffix: str, *, app: object) -> str:

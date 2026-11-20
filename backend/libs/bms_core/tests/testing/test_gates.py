@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -43,9 +44,10 @@ def _isolate_gates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[
 
 
 def test_gate_is_singleton() -> None:
-    """同名复用同一门实例，不同名各自独立。"""
+    """全库共用一把门：不同数据源取到同一实例（13_08 T7 消除跨库互等）。"""
     assert gates.gate(gates.PLATFORM_GATE) is gates.gate(gates.PLATFORM_GATE)
-    assert gates.gate(gates.PLATFORM_GATE) is not gates.gate(gates.TENANT_GATE)
+    assert gates.gate(gates.PLATFORM_GATE) is gates.gate(gates.TENANT_GATE)
+    assert gates.gate(gates.PLATFORM_GATE).name == gates.GLOBAL_GATE
 
 
 async def test_read_gate_context_releases() -> None:
@@ -78,6 +80,48 @@ async def test_write_window_takes_tenant_gate_for_other_keys() -> None:
         assert gates.gate(gates.TENANT_GATE).mode == rwlock.WRITE
 
     assert gates.gate(gates.TENANT_GATE).mode is None
+
+
+async def test_cross_db_write_does_not_deadlock() -> None:
+    """跨库反向嵌套取写门不再互等：全库一把门，只能串行完成，不会出现 ABBA 死锁。
+
+    13_08 T7 实测（24 路并行）：进程 A 持平台写门又等租户门、进程 B 持租户写门又等平台门，
+    两边各卡 30 秒把整批拖垮。合成一把门后同样的调用顺序只能排队。
+    """
+    done: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _nested(tag: str, first: str, second: str) -> None:
+        async with (
+            gates.gate_scope(first, read_only=False, wait=10.0),
+            gates.gate_scope(second, read_only=False, wait=10.0),
+        ):
+            done.add(tag)
+
+    await asyncio.wait_for(
+        asyncio.gather(
+            _nested("a", gates.PLATFORM_GATE, gates.TENANT_GATE),
+            _nested("b", gates.TENANT_GATE, gates.PLATFORM_GATE),
+        ),
+        timeout=30.0,
+    )
+    assert sorted(done) == ["a", "b"]
+    assert gates.gate(gates.PLATFORM_GATE).mode is None
+
+
+async def test_write_upgrade_leaves_no_read_share() -> None:
+    """写路径升级后不留残余读份额（否则内核共享锁永不释放，写者只能等满硬上限）。
+
+    13_08 T7 实测故障形态：升级时把本任务读份额让出、写完又「补回 + 另取一份新份额」，
+    旧份额没人释放 → 读者的共享锁长期不放 → 写请求排队 30 秒后失败。
+    """
+    async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
+        assert gates.gate(gates.PLATFORM_GATE).mode == rwlock.WRITE
+    target = gates.gate(gates.PLATFORM_GATE)
+    assert target.mode is None
+    assert target.depth == 0
+    # 有残余读份额时这里会自锁超时，故用短上限验证「门是干净的」
+    async with gates.gate_scope(gates.TENANT_GATE, read_only=False, wait=1.0):
+        assert target.mode == rwlock.WRITE
 
 
 async def test_upgrade_restores_read_mode() -> None:

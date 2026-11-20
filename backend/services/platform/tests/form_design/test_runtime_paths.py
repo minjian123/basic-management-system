@@ -41,7 +41,6 @@ from tests_support.permission_admin import TEST_SUBJECT, grant_system_admin, set
 from .helpers import (
     create_probe_table,
     drop_probe_table,
-    ensure_form_design_tables,
     register_form_key,
     seed_business,
     seed_form_with_fields,
@@ -118,7 +117,6 @@ async def prepared(tenant_db: str) -> None:
         tenant_db: 共享测试租户库连接串。
     """
     await setup_min_tenant(tenant_db)
-    await ensure_form_design_tables()
 
 
 def _data(response: Any, label: str) -> Any:

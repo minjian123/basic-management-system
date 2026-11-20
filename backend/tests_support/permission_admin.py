@@ -12,16 +12,15 @@
 from __future__ import annotations
 
 import os
-from typing import cast
+import threading
 
-from sqlalchemy import Table, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import get_settings
-from bms_core.models.platform.icon import SysIcon, SysIconI18n
 from bms_core.models.platform.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_core.testing.gates import TENANT_GATE, gate_scope
-from bms_core.testing.schema import ensure_tables
 from tests_support.auth import TEST_SUBJECT
 
 SYSTEM_ADMIN_CODE = "bms_system_admin"
@@ -141,6 +140,39 @@ async def assign_security_admin() -> None:
     await grant_security_admin(int(TEST_SUBJECT))
 
 
+_GRANTED: ConcurrentStableSet[tuple[str, int, str]] = ConcurrentStableSet()
+"""已授权标记（连接串 + 主体 + 角色码）：进程级，`setup_min_tenant` 每进程只写一次。"""
+
+_GRANT_LOCK = threading.Lock()
+"""占位互斥：并发首次调用只让一个协程去写（锁内不含 await）。"""
+
+
+async def _grant_once(url: str, user_id: int, *, code: str) -> None:
+    """按「连接串 + 主体 + 角色码」每进程只授权一次（幂等，重复执行无副作用）。
+
+    为什么要缓存：`setup_min_tenant` 在多个用例文件的 `autouse` 夹具里调用，原先每个用例
+    都取一次租户写门并提交——24 路并行下变成「每个用例都要抢一次跨进程写门」。授权结果是
+    全局的（角色行 + 绑定行），进程内只需成功一次。
+
+    Args:
+        url: 租户库连接串。
+        user_id: 用户主键。
+        code: 内置角色码。
+    """
+    key = (url, user_id, code)
+    with _GRANT_LOCK:
+        if key in _GRANTED:
+            return
+        _GRANTED.add(key)
+    try:
+        name = SYSTEM_ADMIN_NAME if code == SYSTEM_ADMIN_CODE else SECURITY_ADMIN_NAME
+        role_type = ROLE_TYPE_SYSTEM if code == SYSTEM_ADMIN_CODE else ROLE_TYPE_SECURITY
+        await _grant_builtin(user_id, code=code, name=name, role_type=role_type)
+    except BaseException:
+        _GRANTED.discard(key)
+        raise
+
+
 async def assign_role_domain_operator() -> None:
     """把测试登录态主体同时置为「豁免层级 + 角色域操作人」（角色域用例专用装配）。
 
@@ -155,13 +187,16 @@ async def assign_role_domain_operator() -> None:
 
 
 async def setup_min_tenant(tenant_url: str | None = None) -> None:
-    """在**共享租户库**上补齐权限引擎读表并把测试主体置内置系统管理员。
+    """把测试主体置为**内置系统管理员**（表结构由共享库初始化一次建好，本函数不碰结构）。
 
     单库化（`04-6-2`）：不再为每个用例建临时租户库——权限引擎与图标 / 菜单元数据都落
-    `.cache/test/tenant.db`，全 worker 共用；建表走幂等 `ensure_tables`，角色绑定按
-    `(role_id, user_id)` 判存，重复执行无副作用。
+    `.cache/test/tenant.db`，全 worker 共用。
 
-    供**只测平台库**、原本不建租户库的用例文件调用（真实权限校验会读租户库角色表）。
+    **13_08 T7 修订（2026-11-20）**：原先每次调用都跑 `ensure_tables`（4 张表的存在性检查 +
+    可能建表）。按「结构只能由数据初始化一次建好，测试与生产不得在运行时改结构」的口径，
+    这里**不再建表**——四表已随共享租户库的准备集建好；缺失即用例失败（暴露准备集缺项，
+    而不是静默补结构）。授权本身幂等，按「连接串 + 主体」每进程只做一次，避免每个用例
+    都跨进程取写门。
 
     Args:
         tenant_url: 租户库连接串（None 取夹具已注入的 `BMS_DATABASE__TENANTS__URL`）。
@@ -169,11 +204,5 @@ async def setup_min_tenant(tenant_url: str | None = None) -> None:
     url = tenant_url or os.environ["BMS_DATABASE__TENANTS__URL"]
     os.environ["BMS_DATABASE__TENANTS__URL"] = url
     get_settings.cache_clear()
-    engine = create_async_engine(url)
-    try:
-        tables = [SysRole.__table__, SysUserRole.__table__, SysIcon.__table__, SysIconI18n.__table__]
-        await ensure_tables(engine, [cast("Table", table) for table in tables])
-    finally:
-        await engine.dispose()
-    await assign_system_admin()
+    await _grant_once(url, int(TEST_SUBJECT), code=SYSTEM_ADMIN_CODE)
     get_settings.cache_clear()

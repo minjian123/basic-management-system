@@ -21,6 +21,8 @@
   `FORM_CATALOG`，行为不变。
 """
 
+from __future__ import annotations
+
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import cast
@@ -501,12 +503,22 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         # WorkerId 就绪（03_06）：租约已取号并生效；生产未取到号（仍为 0）即拒启——须在建表与任何
         # 引导写入之前判定，否则「先用 0 生成 ID、再换号」会留下撞号隐患。
         ensure_worker_id_ready(cast("BaseWorkerIdRegistry", app.state.worker_id_registry))
-        created = await ensure_unit_schema(
-            settings,
-            factory=cast("EngineFactory", app.state.engine_factory),
-        )
-        if created:
-            get_logger(_LOGGER).info("schema_auto_create_done", targets=",".join(created))
+        created: ConcurrentStableList[str] = ConcurrentStableList()
+        if settings.app.skip_db_init:
+            # 接库初始化只做一次（13_08 T7）：测试的共享库由准备集建好结构、播好归属登记，
+            # 每个用例再重做一遍只会把跨进程写门排队时间翻倍。生产缺省不跳过。
+            get_logger(_LOGGER).info("db_init_skipped", reason="app.skip_db_init")
+        else:
+            created = await ensure_unit_schema(
+                settings,
+                factory=cast("EngineFactory", app.state.engine_factory),
+            )
+            if created:
+                get_logger(_LOGGER).info("schema_auto_create_done", targets=",".join(created))
+        # 注册表启动装配（07B `02_06`）：产品进程上报自身声明并拉取权威快照投影；
+        # 平台进程跳过（本库即权威，由平台自身启动钩子注册）。
+        # **顺序**：必须先于接库服务目录校验——平台自注册写入 `sys_module` 是目录校验的基准，
+        # 放到 `startup_hooks`（更晚）会让重启后的校验对着空库跑，误报「库中缺登记行」全表。
         # 注册表启动装配（07B `02_06`）：产品进程上报自身声明并拉取权威快照投影；
         # 平台进程跳过（本库即权威，由平台自身启动钩子注册）。
         # **顺序**：必须先于接库服务目录校验——平台自注册写入 `sys_module` 是目录校验的基准，
@@ -525,9 +537,11 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
             await hook(app)
         if settings.app.validate_catalog_on_startup:
             await _validate_service_catalog(app)
-        await _bootstrap_table_ownership(settings, app)
+        if not settings.app.skip_db_init:
+            await _bootstrap_table_ownership(settings, app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))
-        await _record_db_inventory(app, settings)
+        if not settings.app.skip_db_init:
+            await _record_db_inventory(app, settings)
         for hook in cast("tuple[StartupHook, ...]", getattr(app.state, "startup_hooks", ())):
             await hook(app)
     except Exception:

@@ -358,9 +358,18 @@ async def test_gate_timeout_reports_name(
     assert "task=" in str(excinfo.value)
 
 
-async def test_write_wait_fails_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """写门等超过上限立即报错（不再默默等 180s）。"""
-    monkeypatch.setattr(rwlock, "WRITE_WAIT_CAP", 0.2)
+async def test_write_wait_soft_cap_warns_then_hard_cap_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """写门 5 秒是**告警线**：超过继续等，等满硬上限（`DEFAULT_TIMEOUT`）才失败。
+
+    13_08 T7 拍板：全库一把门后 24 路并行的写是排队，排队时长由总写量决定，判失败会让并发度
+    越高越红；真正长期持门仍由硬上限拦下并点名持有者。
+    """
+    monkeypatch.setattr(rwlock, "WRITE_WAIT_CAP", 0.05)
+    monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 0.5)
     monkeypatch.delenv(rwlock.WRITE_WAIT_CAP_ENV, raising=False)
     path = tmp_path / "shared.lock"
     holder = rwlock.DbGate("holder", path)
@@ -373,7 +382,10 @@ async def test_write_wait_fails_fast(tmp_path: Path, monkeypatch: pytest.MonkeyP
     finally:
         await holder.release_write()
 
-    assert time.monotonic() - started < 2.0
+    elapsed = time.monotonic() - started
+    # 软上限（0.05s）之后仍继续等，直到硬上限（0.5s）才抛
+    assert 0.4 < elapsed < 3.0
+    assert "等待门" in capsys.readouterr().out
 
 
 def test_write_wait_cap_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -386,6 +398,37 @@ def test_write_wait_cap_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
     assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
     monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "1.5")
     assert rwlock.write_wait_cap() == 1.5
+
+
+async def test_write_reacquires_shared_lock_for_other_task_reads(tmp_path: Path) -> None:
+    """本任务升级写后，别的任务仍持有的读份额要重新拿到内核共享锁。
+
+    否则它们收尾时会去释放一把并不存在的共享锁（Windows 报 `ERROR_NOT_LOCKED`），
+    门的账目与内核状态从此脱节，后续写请求只能等满硬上限。
+    """
+    gate = _gate(tmp_path)
+    ready = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _reader() -> None:
+        token = await gate.acquire_read()
+        ready.set()
+        await release.wait()
+        await gate.release_read(token)
+
+    task = asyncio.create_task(_reader())
+    await ready.wait()
+    try:
+        await gate.acquire_write()
+        await gate.release_write()
+        # 别的任务的读份额还在：写门释放后应重新持共享锁，且模式回到读
+        assert gate.mode == rwlock.READ
+        assert gate._kernel_read is True
+    finally:
+        release.set()
+        await task
+    assert gate.mode is None
+    assert gate._kernel_read is False
 
 
 async def test_holder_description_lists_holder_and_clears_on_release(

@@ -111,6 +111,16 @@ class AppSettings(BaseSettings):
     `false`——这是「无对端」的环境配置，不是容错降级；校验本身仍由基座目录用例显式开启覆盖。
     """
 
+    skip_db_init: bool = False
+    """启动期是否跳过「接库初始化」（建表 / 表归属播种与对账 / 库数量上报）。
+
+    缺省关（生产必须执行）：库结构由数据初始化建好，服务启动只做校验与引导；开发态
+    `auto_create` 打开时顺带补建缺失表。单进程测试的共享库已由准备集建好结构、播好归属登记，
+    每个用例再重做一遍只是把跨进程写门排队时间翻倍（13_08 T7 实测 1.4 秒/用例），由测试基座
+    置 `true` 跳过——这是「初始化只做一次」的环境配置，不是容错降级；上述步骤本身仍由专项用例
+    直接调用覆盖。
+    """
+
     package_prefix: str = "bms"
     """服务包名前缀（env `BMS_APP__PACKAGE_PREFIX`）——链的服务模型模块按
     `{package_prefix}_{service}.models` 解析（见 `db/migration.py::service_model_modules`）。

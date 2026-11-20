@@ -139,6 +139,10 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # 单进程测试没有平台对端：启动期目录校验显式关闭（不是容错，是「无对端」的环境配置）；
     # 校验本身由 `tests/core/test_service_catalog_startup.py` 显式开启覆盖。
     monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "false")
+    # 接库初始化只做一次（13_08 T7）：共享库结构 / 表归属登记由准备集建好，每个用例再重做一遍
+    # 只会把跨进程写门排队时间翻倍（实测 1.4 秒/用例，24 路并行完全不提速）。需要验证这些启动
+    # 步骤的用例显式把本开关置回 false（直接调用对应函数亦可）。
+    monkeypatch.setenv("BMS_APP__SKIP_DB_INIT", "true")
     # 操作审计中间件（06_01）默认关闭：单测不因每个写请求额外写发件箱（审计专项用例显式开启）
     monkeypatch.setenv("BMS_AUDIT_LOG__ENABLED", "false")
     # 权限 / 数据范围强制占位：`get_settings()` 是进程级单例，服务套件（platform / identity）会在
@@ -331,8 +335,13 @@ def isolation_notice() -> str:
 _INIT_TIMEOUT = 120.0
 """共享库初始化等待上限（秒）；超时即红，不做无限等待。"""
 
-_LOCK_STALE = 120.0
-"""残留锁判定阈值（秒）：锁文件 mtime 超过该值视为上次进程崩溃。"""
+_LOCK_STALE = 60.0
+"""残留锁判定阈值（秒）：锁文件 mtime 超过该值视为上次进程崩溃。
+
+**必须小于 `_INIT_TIMEOUT`**：两者相等时，等待方会在超时前一刻同时判陈旧、同时 `unlink`、
+同时重建，Windows 上「删除挂起 + 新建同名」会抛 `PermissionError`（13_08 实测：24 路并行
+一次打出 29 个 setup 错误）。留一半余量，让回收发生在放弃等待之前。
+"""
 
 _READY_POLL = 0.2
 """非选主 worker 轮询 `.ready` 的间隔（秒）。"""
@@ -420,7 +429,10 @@ def _init_lock(name: str) -> Generator[None]:
     while True:
         try:
             handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
+        except FileExistsError, PermissionError:
+            # Windows：目标文件「删除挂起」或正被他人创建时，`O_CREAT|O_EXCL` 抛的是
+            # `PermissionError`（EACCES）而不是 `FileExistsError`。按同一语义处理（视为有人
+            # 持锁、继续轮询），否则一次竞争就会把整批 worker 打成 setup 错误。
             try:
                 stale = time.time() - lock.stat().st_mtime > _LOCK_STALE
             except OSError:
@@ -431,10 +443,17 @@ def _init_lock(name: str) -> Generator[None]:
                 continue
             if time.monotonic() > deadline:
                 listing = sorted(p.name for p in test_db_dir().glob("*"))
-                raise TimeoutError(f"共享库初始化锁超时（{_INIT_TIMEOUT:.0f}s）：{lock}；目录内容 {listing}") from None
+                holder = "未知"
+                with suppress(OSError):
+                    holder = lock.read_text(encoding="utf-8").strip() or "空"
+                raise TimeoutError(
+                    f"共享库初始化锁超时（{_INIT_TIMEOUT:.0f}s）：{lock}；持有者 {holder}；目录内容 {listing}"
+                ) from None
             time.sleep(_READY_POLL)
             continue
         os.close(handle)
+        with suppress(OSError):
+            lock.write_text(f"pid={os.getpid()} at={time.strftime('%H:%M:%S')}", encoding="utf-8")
         break
     try:
         yield

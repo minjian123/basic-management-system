@@ -499,6 +499,58 @@ async def test_dev_seed_and_validate_share_single_scope(monkeypatch: pytest.Monk
 
 
 @pytest.mark.kiwi_id(2299)
+async def test_lifespan_skips_db_init_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`app.skip_db_init=true` 时跳过接库初始化（建表 / 归属引导 / 库数量上报）。
+
+    13_08 T7：测试的共享库由准备集一次性建好结构并播好归属登记，每个用例再重做一遍只是把
+    跨进程写门排队时间翻倍；生产缺省不跳过（开关只由测试基座打开）。
+    """
+    monkeypatch.setenv("BMS_APP__SKIP_DB_INIT", "true")
+    monkeypatch.setenv("BMS_REDIS__PROVIDER", "")
+    get_settings.cache_clear()
+    called: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _spy_schema(*args: object, **kwargs: object) -> ConcurrentStableList[str]:
+        called.add("schema")
+        return ConcurrentStableList()
+
+    async def _spy_ownership(*args: object, **kwargs: object) -> None:
+        called.add("ownership")
+
+    async def _spy_inventory(*args: object, **kwargs: object) -> None:
+        called.add("inventory")
+
+    monkeypatch.setattr(app_module, "ensure_unit_schema", _spy_schema)
+    monkeypatch.setattr(app_module, "_bootstrap_table_ownership", _spy_ownership)
+    monkeypatch.setattr(app_module, "_record_db_inventory", _spy_inventory)
+    app = ApplicationFactory().create(None)
+    async with app_module.service_lifespan(app):
+        assert app.state.startup_complete is True
+    assert list(called) == []
+
+
+@pytest.mark.kiwi_id(2299)
+async def test_lifespan_reports_created_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """不跳过接库初始化时，建表结果会落一条日志（`created` 非空分支）。"""
+    monkeypatch.setenv("BMS_APP__SKIP_DB_INIT", "false")
+    monkeypatch.setenv("BMS_REDIS__PROVIDER", "")
+    get_settings.cache_clear()
+
+    async def _spy_schema(*args: object, **kwargs: object) -> ConcurrentStableList[str]:
+        return ConcurrentStableList(("platform",))
+
+    async def _noop(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(app_module, "ensure_unit_schema", _spy_schema)
+    monkeypatch.setattr(app_module, "_bootstrap_table_ownership", _noop)
+    monkeypatch.setattr(app_module, "_record_db_inventory", _noop)
+    app = ApplicationFactory().create(None)
+    async with app_module.service_lifespan(app):
+        assert app.state.startup_complete is True
+
+
+@pytest.mark.kiwi_id(2299)
 async def test_lifespan_assembles_base_capabilities_before_db_bootstrap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -511,6 +563,8 @@ async def test_lifespan_assembles_base_capabilities_before_db_bootstrap(
     """
     monkeypatch.setenv("BMS_REDIS__PROVIDER", "redis")
     monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "true")
+    # 本用例验证「基础能力先于开库引导」：必须真的走接库初始化（测试基座缺省跳过它）
+    monkeypatch.setenv("BMS_APP__SKIP_DB_INIT", "false")
     get_settings.cache_clear()
     clear_shared_redis_client()
     observed: ConcurrentStableList[str] = ConcurrentStableList()

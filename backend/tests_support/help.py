@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -16,7 +17,7 @@ from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.help.values import (
     ARTICLE_SOURCE_TENANT,
     ARTICLE_STATUS_PUBLISHED,
@@ -35,6 +36,13 @@ from bms_core.models.platform.help import (
 )
 from bms_core.models.platform.i18n import SysI18nLocale
 from bms_core.models.platform.permission_meta import SysAction
+from tests_support.shared_access import shared_engine, shared_session, shared_window
+
+_ENSURED_URLS: ConcurrentStableSet[str] = ConcurrentStableSet()
+"""已建过帮助六表的连接串（进程级）：13_08 T7 起每进程只建一次。"""
+
+_ENSURE_LOCK = threading.Lock()
+"""占位互斥：并发首次调用时只让一个协程去建表（锁内不含 await）。"""
 
 __all__ = [
     "HELP_MODELS",
@@ -75,7 +83,10 @@ def tenant_url() -> str:
 
 @asynccontextmanager
 async def help_session(url: str) -> AsyncGenerator[AsyncSession]:
-    """建共享库会话（调用方负责 commit / rollback）。
+    """建共享库会话（取租户写门，调用方负责 commit / rollback）。
+
+    13_08 T7：直连不取门的长读 / 写事务会在 SQLite 层挡住走门的写者（表现为写者卡满
+    `busy_timeout`），故统一走 `shared_session`（共享库读写只此一条路）。
 
     Args:
         url: 租户库连接串。
@@ -83,34 +94,34 @@ async def help_session(url: str) -> AsyncGenerator[AsyncSession]:
     Yields:
         AsyncSession: 异步会话。
     """
-    engine = create_async_engine(  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-        url,
-        pool_pre_ping=True,
-    )
-    try:
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
-            yield session
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=False) as session:
+        yield session
 
 
 async def ensure_help_tables(url: str) -> None:
     """确保帮助内容六表存在（缺则建；不清空）。
 
+    13_08 T7：**每个进程只做一次**，且建表在写门内；结构本应由数据初始化建好，这里只为
+    「共享库被重建 / 本套件独占库」兜底，不做反复 `create_all`。
+
     Args:
         url: 数据库连接串。
     """
-    engine = create_async_engine(  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-        url,
-        pool_pre_ping=True,
-    )
+    with _ENSURE_LOCK:
+        if url in _ENSURED_URLS:
+            return
+        _ENSURED_URLS.add(url)
     try:
-        tables = [cast("Table", model.__table__) for model in HELP_MODELS]
-        async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
-    finally:
-        await engine.dispose()
+        engine = shared_engine(url, pool_pre_ping=True)
+        try:
+            tables = [cast("Table", model.__table__) for model in HELP_MODELS]
+            async with shared_window(engine), engine.begin() as connection:
+                await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables, checkfirst=True))
+        finally:
+            await engine.dispose()
+    except BaseException:
+        _ENSURED_URLS.discard(url)
+        raise
 
 
 @asynccontextmanager
@@ -305,22 +316,11 @@ async def seed_platform_action(url: str, *, code: str, help_key: str) -> int:
     Returns:
         int: 动作码主键。
     """
-    engine = create_async_engine(  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-        url,
-        pool_pre_ping=True,
-    )
-    try:
-        tables = [cast("Table", SysAction.__table__)]
-        async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
-            row = SysAction(form_key=f"act_{code}", code=code, name=code, status="enabled", help_key=help_key)
-            session.add(row)
-            await session.commit()
-            return int(row.id)
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=False) as session:
+        row = SysAction(form_key=f"act_{code}", code=code, name=code, status="enabled", help_key=help_key)
+        session.add(row)
+        await session.commit()
+        return int(row.id)
 
 
 async def delete_platform_action(url: str, code: str) -> None:
@@ -330,16 +330,8 @@ async def delete_platform_action(url: str, code: str) -> None:
         url: 平台库连接串。
         code: 动作码。
     """
-    engine = create_async_engine(  # own_db: 共享基座模块内建引擎（测试库隔离护栏放行点）
-        url,
-        pool_pre_ping=True,
-    )
-    try:
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
-            rows = (await session.execute(select(SysAction).where(SysAction.code == code))).scalars().all()
-            for row in rows:
-                await session.delete(row)
-            await session.commit()
-    finally:
-        await engine.dispose()
+    async with shared_session(url, read_only=False) as session:
+        rows = (await session.execute(select(SysAction).where(SysAction.code == code))).scalars().all()
+        for row in rows:
+            await session.delete(row)
+        await session.commit()

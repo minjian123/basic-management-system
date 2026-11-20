@@ -33,6 +33,7 @@ import os
 import sys
 import threading
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Literal, Protocol, cast
@@ -49,7 +50,13 @@ DEFAULT_TIMEOUT: Final = 30.0
 """
 
 WRITE_WAIT_CAP: Final = 5.0
-"""写门等待上限（秒）：正常写操作是毫秒级，等超过它就是有人长期占着写门，直接报错。"""
+"""写门等待**告警**上限（秒）：正常写是毫秒级，等超过它先告警并继续等。
+
+为什么不再直接失败（13_08 T7，2026-11-20 拍板）：全库一把门后，24 路并行的写是**排队**而不是
+「有人卡死」——实测写门实占中位数 39ms、p99 380ms，排队总时长却是实占的十倍以上。把排队当
+失败会把「并发量超过单写者服务能力」误判成缺陷。真正的长期占用仍由硬上限
+（`DEFAULT_TIMEOUT`，30s）拦下，并在报错里点名持有者。
+"""
 
 WRITE_WAIT_CAP_ENV: Final = "BMS_TEST_GATE_WRITE_WAIT"
 """写门等待上限的环境变量覆盖（秒；缺省用 `WRITE_WAIT_CAP`）。"""
@@ -66,6 +73,27 @@ _LOGGER = logging.getLogger(__name__)
 Mode = Literal["read", "write"]
 """门模式（读共享 / 写独占）。"""
 
+GATE_LABEL: ContextVar[str] = ContextVar("bms_db_gate_label", default="")
+"""诊断标签（当前任务正在取哪把逻辑门：`platform` / `tenant`）。
+
+13_08 T7 起全库共用一把内核门，门实例自己的名字恒为 `all`；日志与栈转储要写「用户视角
+的门名」才定位得到现场，故由 `gate_scope` 在取门前按任务上下文设置，`_log_wait` /
+`_note_gate_wait` 读它、缺省回落实例名。
+"""
+
+
+def gate_label(fallback: str) -> str:
+    """取当前任务的逻辑门名（未设置时回落实例名）。
+
+    Args:
+        fallback: 实例名。
+
+    Returns:
+        str: 诊断用门名。
+    """
+    return GATE_LABEL.get() or fallback
+
+
 READ: Final[Mode] = "read"
 """读门模式名。"""
 
@@ -80,6 +108,8 @@ _RETRY_MAX: Final = 0.005
 
 _LOCKFILE_FAIL_IMMEDIATELY: Final = 0x0001
 _LOCKFILE_EXCLUSIVE_LOCK: Final = 0x0002
+_ERROR_NOT_LOCKED: Final = 158
+"""`UnlockFileEx` 报告「该区间本来就没加锁」（幂等释放时忽略）。"""
 
 _IS_WINDOWS: Final = sys.platform == "win32"
 """是否 Windows（模块常量便于用例注入另一平台分支）。"""
@@ -194,7 +224,13 @@ class _WindowsLock:  # pragma: no cover - 仅 Windows 可达（CI 与覆盖率�
         return bool(acquired)
 
     def release(self) -> None:
-        """释放锁。
+        """释放锁（**幂等**：内核报告「未加锁」视为已释放）。
+
+        为什么容忍 `ERROR_NOT_LOCKED`（158）：升级路径曾在「本进程还有别的读者」时保留共享锁
+        再取独占锁，同一句柄重复加锁会把两种模式合并，解锁一次就把区域整体放掉，后续再释放
+        会报「段已解除锁定」，把 `_kernel_read` 与内核状态弄脱节——表现为「持有者：无」却
+        一直等门。幂等释放让这类历史状态自然收敛；真正的锁覆盖由账目（`_kernel_read` /
+        `_write_depth`）修正保证。
 
         Raises:
             OSError: 系统调用失败（句柄已失效等）。
@@ -203,8 +239,12 @@ class _WindowsLock:  # pragma: no cover - 仅 Windows 可达（CI 与覆盖率�
         released = self._unlock(  # pyright: ignore[reportCallIssue]
             self._handle, 0, 1, 0, ctypes.byref(overlapped)
         )
-        if not released:
-            raise ctypes.WinError(ctypes.get_last_error())
+        if released:
+            return
+        error = ctypes.get_last_error()
+        if error == _ERROR_NOT_LOCKED:
+            return
+        raise ctypes.WinError(error)
 
     def close(self) -> None:
         """关闭文件描述符（进程退出时内核同时释放锁）。"""
@@ -268,7 +308,7 @@ def _make_backend(path: Path) -> _Backend:
 
 
 def write_wait_cap() -> float:
-    """写门等待上限（秒）：环境变量优先，缺省 `WRITE_WAIT_CAP`。
+    """写门等待**告警**上限（秒）：环境变量优先，缺省 `WRITE_WAIT_CAP`。
 
     Returns:
         float: 上限秒数。
@@ -593,9 +633,11 @@ class DbGate:
                 for token in released:
                     del self._own_reads[token]
                     self._untrack_read(mine)
-                # 只有本进程的读份额让空了才放内核共享锁；还有别的任务在读就保留，靠下面的
-                # 独占排队等它们收尾（放掉会把别人的读事务一起卖掉）。
-                drop_kernel = not self._own_reads and not self._write_depth and self._kernel_read
+                # **无论本进程还有没有别的读者，都要先让出内核共享锁**：Windows 上同一句柄
+                # 对同一区间重复加锁会把模式合并，一次解锁就把整个区间放掉（后续再释放报
+                # `ERROR_NOT_LOCKED`），账目与内核状态随即脱节。升级完由 `release_write`
+                # 按剩余读份额重新取共享锁。
+                drop_kernel = self._kernel_read
                 if drop_kernel:
                     self._kernel_read = False
         if reentered:
@@ -658,18 +700,30 @@ class DbGate:
             return
         self._backend.release()
         self._release_holder()
+        # 升级期间让掉的内核共享锁：别的任务仍持有读份额时要补回来，否则它们后续的
+        # `release_read` 会去释放一把并不存在的共享锁（Windows 报 158，账目脱节）。
+        with self._count_lock:
+            need_shared = bool(self._own_reads) and not self._kernel_read
+            if need_shared:
+                self._kernel_read = True
+        if need_shared:
+            await self._wait_and_lock(False)
         if restore:
             await self._restore_reads(restore)
 
     async def _restore_reads(self, restore: ConcurrentStableList[int]) -> None:
-        """把让出的读份额补回（重新取内核共享锁并登记 token）。
+        """把让出的读份额补回（需要时重新取内核共享锁并登记 token）。
 
         Args:
             restore: 要补回的 token 清单。
         """
-        await self._wait_and_lock(False)
         with self._count_lock:
-            self._kernel_read = True
+            need_kernel = not self._kernel_read
+            if need_kernel:
+                self._kernel_read = True
+        if need_kernel:
+            await self._wait_and_lock(False)
+        with self._count_lock:
             for token in restore:
                 self._own_reads[token] = _task_key()
                 self._track_read()
@@ -899,7 +953,7 @@ class DbGate:
         """
         diagnostics.note_gate_wait(
             self._holder_path.with_name(f"gate-stacks-{os.getpid()}.log"),
-            gate_name=self.name,
+            gate_name=gate_label(self.name),
             waited=waited,
             reason=reason,
             holder=self._describe_holder(),
@@ -908,33 +962,52 @@ class DbGate:
     async def _wait_and_lock(self, write: bool, *, cap: float | None = None) -> None:
         """排队等待直到拿到门（事件循环内异步轮询，不占线程池）。
 
-        写门有**更短的上限**（`write_wait_cap`，默认 5s）：正常写是毫秒级，等超过几秒
-        只可能是有人长期占着写门（整条用例持门 / 读会话没退 / 进程卡住），直接报错比
-        默默等 180s 有用。
+        **两段上限**（13_08 T7）：`soft` 是告警线，`hard` 是失败线。
+
+        - 写门缺省：`soft = write_wait_cap()`（5s，告警并继续等），`hard = DEFAULT_TIMEOUT`（30s）；
+        - 读门缺省：`soft = WARN_AFTER`（10s），`hard = DEFAULT_TIMEOUT`；
+        - 调用方显式传 `cap`：视作硬上限（整段临界区的等门预算，如 `GATE_CRITICAL_WAIT`）。
+
+        为什么写门不再 5s 直接失败：全库一把门后，24 路并行的写是**排队**，排队时长取决于
+        总写量而不是谁卡死；把排队判失败会让并发度越高越容易红。真正的长期占用仍由 30s 硬上限
+        拦下，报错里带持有者。
 
         Args:
             write: 独占 True，共享 False。
+            cap: 显式硬上限（秒）；None 走缺省两段上限。
 
         Raises:
-            TimeoutError: 读门超过 `DEFAULT_TIMEOUT`，或写门超过 `write_wait_cap()`。
+            TimeoutError: 超过硬上限（`DEFAULT_TIMEOUT` 或显式 `cap`）。
         """
         started = time.monotonic()
-        limit = cap if cap is not None else (write_wait_cap() if write else DEFAULT_TIMEOUT)
-        deadline = started + min(DEFAULT_TIMEOUT, limit)
+        if cap is not None:
+            soft = min(cap, WARN_AFTER)
+            hard = min(DEFAULT_TIMEOUT, cap)
+        elif write:
+            soft = write_wait_cap()
+            hard = DEFAULT_TIMEOUT
+        else:
+            soft = WARN_AFTER
+            hard = DEFAULT_TIMEOUT
+        deadline = started + hard
         warned = False
         delay = _RETRY_MIN
         while not self._backend.try_acquire(write=write):
             now = time.monotonic()
-            if not warned and now - started >= WARN_AFTER:
+            if not warned and now - started >= soft:
                 warned = True
-                message = f"[rwlock] 等待门 {self.name} 已 {now - started:.1f}s；持有者：{self._describe_holder()}"
+                message = (
+                    f"[rwlock] 等待门 {gate_label(self.name)} 已 {now - started:.1f}s；"
+                    f"持有者：{self._describe_holder()}"
+                )
                 print(message, flush=True)
                 self._log_wait(message)
                 self._note_gate_wait(now - started, "warn")
             if now >= deadline:
                 message = (
-                    f"等待数据库门超时（{limit:.1f}s）：{self.name}；持有者：{self._describe_holder()}；"
-                    "写门等超过几秒通常说明有人长期占用（整条用例持门 / 读会话未释放）"
+                    f"等待数据库门超时（{hard:.1f}s）：{gate_label(self.name)}；"
+                    f"持有者：{self._describe_holder()}；"
+                    "等满硬上限说明有任务长期持门（整条用例持门 / 读会话未释放 / 进程卡住）"
                 )
                 self._log_wait(message)
                 self._note_gate_wait(now - started, "timeout")
