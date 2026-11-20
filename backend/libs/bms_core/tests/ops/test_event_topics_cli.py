@@ -481,6 +481,37 @@ def test_check_reports_gaps(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Capt
     assert "分区数不一致" in err
 
 
+def test_check_group_partitions_consistent_pass(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """同组三个主题分区数全为 4：一致（不因「有 3 个主题」误报不一致）。"""
+    specs: ConcurrentStableList[event_topics._TopicSpec] = ConcurrentStableList(
+        [_spec("bms-sys-operation"), _spec("bms-sys-login"), _spec("bms-sys-data")]
+    )
+    counts: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "bms-sys-operation": 4,
+            "bms-sys-login": 4,
+            "bms-sys-data": 4,
+        }
+    )
+    monkeypatch.setattr(event_topics, "_find_topic", _fake_find(counts))
+
+    code = _check(
+        _Client(),
+        "http://msg",
+        specs,
+        ConcurrentStableList(["acme"]),
+        audit=4,
+        default=1,
+        groups=ConcurrentStableDict(
+            {"bms-audit-chain": ConcurrentStableList(["bms-sys-operation", "bms-sys-login", "bms-sys-data"])}
+        ),
+    )
+    assert code == 0
+    assert "分区数不一致" not in capsys.readouterr().err
+
+
 def test_check_passes_when_all_ready(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """只读校验通过：全部主题存在且分区达标（退出码 0）。"""
     specs: ConcurrentStableList[event_topics._TopicSpec] = ConcurrentStableList(

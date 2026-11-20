@@ -363,7 +363,8 @@ def _check(
                 value = counts.get(topic)
                 if value is not None:
                     values.add(value)
-            if len(values) > 1:
+            # 一致性看「取值是否全相同」，不是「有几个主题」（3 个主题都 4 分区是正常的）
+            if values and any(value != values[0] for value in values[1:]):
                 errors.add(f"{tenant} 组 {group} 的主题分区数不一致：{list(topics)} → {list(values)}")
     if errors:
         for error in errors:
