@@ -105,6 +105,9 @@ services:
       # worker 宿主：服务进程不再消费同一组；本进程显式启动消费
       BMS_EVENT_CONSUMER__HOST: worker
       BMS_EVENT_CONSUMER__ENABLED: "true"
+      # 长轮询挂起上限：msg 侧挂起期间持有数据库连接，单 worker 12 个消费单元
+      # 按缺省 20s 会占满缺省池（5+10）；部署态压到 5s，与 msg 连接池（20+40）配套
+      BMS_EVENT_CONSUMER__LONG_POLL_MS: ${BMS_EVENT_CONSUMER__LONG_POLL_MS:-5000}
 
   identity:
     <<: *service-base
