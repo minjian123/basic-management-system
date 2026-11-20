@@ -442,3 +442,7 @@ def _msg_base(settings: Settings) -> str:
     from bms_core.core.assembly import msg_base_url
 
     return msg_base_url(settings).rstrip("/")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

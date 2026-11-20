@@ -6,6 +6,8 @@
 不发真实请求：HTTP 客户端用替身按预设响应返回，只为验证「派生 → 请求 → 结果归类」这条链路。
 """
 
+import runpy
+import sys
 from types import SimpleNamespace
 from typing import cast
 
@@ -580,3 +582,18 @@ def test_main_check_delegates_and_uses_tenant_options(monkeypatch: pytest.Monkey
     args, kwargs = cast("tuple[tuple[object, ...], dict[str, object]]", captured[0])
     assert list(cast("ConcurrentStableList[str]", args[3])) == ["acme"]
     assert kwargs == {"audit": 8, "default": 2, "groups": ConcurrentStableDict()}
+
+
+def test_module_entry_exposes_main(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`python -m ops.event_topics` 有入口：`__main__` 守卫把 `main()` 的退出码透传。"""
+    client = _Client()
+    _patch_main(monkeypatch, client)
+    monkeypatch.setattr(sys, "argv", ["ops.event_topics", "--tenant", "acme", "--dry-run"])
+
+    with (
+        pytest.warns(RuntimeWarning, match="found in sys.modules"),
+        pytest.raises(SystemExit) as excinfo,
+    ):
+        runpy.run_module("ops.event_topics", run_name="__main__")
+
+    assert excinfo.value.code == 0

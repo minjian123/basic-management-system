@@ -142,7 +142,7 @@ def _assignment(partitions: object | None = None, *, interval_ms: int = 1_000) -
 async def test_join_parses_assignment(channel: TransportChannel) -> None:
     """加入组：解析出分区、世代与心跳间隔；`heartbeat_delay_ms` 取服务端间隔（下限 1 秒）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0, 1], interval_ms=1_000))
+    server.push("/api/v1/msg/join", data=_assignment([0, 1], interval_ms=1_000))
     consumer, stats = build_consumer(_config(channel, clock=_HangClock()), server)
     assignment = await consumer.join()
 
@@ -151,7 +151,7 @@ async def test_join_parses_assignment(channel: TransportChannel) -> None:
     assert assignment.member_count == 1
     assert consumer.heartbeat_delay_ms() == 1_000
     assert stats.snapshot().get("join_total") == 1
-    assert server.request_paths() == ConcurrentStableFrozenList(["/msg/join"])
+    assert server.request_paths() == ConcurrentStableFrozenList(["/api/v1/msg/join"])
     await consumer.close()
 
 
@@ -159,7 +159,7 @@ async def test_join_parses_assignment(channel: TransportChannel) -> None:
 async def test_join_defaults_when_fields_missing(channel: TransportChannel) -> None:
     """分配字段缺失：按缺省填（分区空、成员 0、心跳 10 秒、会话 30 秒）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data={"generation": 1})
+    server.push("/api/v1/msg/join", data={"generation": 1})
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     assignment = await consumer.join()
 
@@ -177,8 +177,8 @@ async def test_join_defaults_when_fields_missing(channel: TransportChannel) -> N
 async def test_join_twice_keeps_single_heartbeat_task(channel: TransportChannel) -> None:
     """重复加入：不重复起心跳任务（否则每 join 一次多一个定时器）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/join", data=_assignment([0]))
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     first = consumer._heartbeat_task  # pyright: ignore[reportPrivateUsage]
@@ -200,7 +200,7 @@ async def test_poll_requires_join(channel: TransportChannel) -> None:
 async def test_poll_rejects_bad_limits(channel: TransportChannel) -> None:
     """条数与等待上限越界：分别拒绝（与服务端 1~100 / 0~60000 同口径）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/join", data=_assignment([0]))
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     with pytest.raises(ParamError, match="max_messages"):
@@ -214,9 +214,9 @@ async def test_poll_rejects_bad_limits(channel: TransportChannel) -> None:
 async def test_poll_decodes_messages(channel: TransportChannel) -> None:
     """拉取：消息体逐字节还原、头原样、链路字段与可选整型按存在与否取值；分区按分配轮转。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0, 1]))
+    server.push("/api/v1/msg/join", data=_assignment([0, 1]))
     server.push(
-        "/msg/consume",
+        "/api/v1/msg/consume",
         data={
             "messages": [
                 {
@@ -265,9 +265,9 @@ async def test_poll_decodes_messages(channel: TransportChannel) -> None:
 async def test_poll_splits_multiple_payloads(channel: TransportChannel) -> None:
     """一批多条、消息体长度不同：逐条按边界还原（帧通道按 `length` 切片、JSON 通道各自 base64）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/join", data=_assignment([0]))
     server.push(
-        "/msg/consume",
+        "/api/v1/msg/consume",
         data={
             "messages": [
                 {"message_id": "m1", "topic": "orders", "partition": 0, "offset": 0},
@@ -287,9 +287,9 @@ async def test_poll_splits_multiple_payloads(channel: TransportChannel) -> None:
 async def test_poll_message_edges(channel: TransportChannel) -> None:
     """消息字段缺失 / 形态不符：载荷空、键空、头非对象、可选整型非整数都按缺省落。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([3]))
+    server.push("/api/v1/msg/join", data=_assignment([3]))
     server.push(
-        "/msg/consume",
+        "/api/v1/msg/consume",
         data={
             "messages": [
                 {
@@ -319,10 +319,10 @@ async def test_poll_message_edges(channel: TransportChannel) -> None:
 async def test_poll_rejoins_once_on_member_invalid(channel: TransportChannel) -> None:
     """`350014`：自动重新加入一次并按新分配继续拉取。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/consume", code=350014)
-    server.push("/msg/join", data=_assignment([5]))
-    server.push("/msg/consume", data={"messages": []})
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/consume", code=350014)
+    server.push("/api/v1/msg/join", data=_assignment([5]))
+    server.push("/api/v1/msg/consume", data={"messages": []})
     consumer, stats = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     result = await consumer.poll()
@@ -336,10 +336,10 @@ async def test_poll_rejoins_once_on_member_invalid(channel: TransportChannel) ->
 async def test_poll_raises_after_second_refresh(channel: TransportChannel) -> None:
     """重新加入后仍 `350014`：不再重试，直接上抛 `refresh`。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/consume", code=350014)
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/consume", code=350014)
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/consume", code=350014)
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/consume", code=350014)
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     with pytest.raises(MsgClientError) as captured:
@@ -352,9 +352,9 @@ async def test_poll_raises_after_second_refresh(channel: TransportChannel) -> No
 async def test_ack_and_ack_many(channel: TransportChannel) -> None:
     """确认：单条取回已提交位点；批量按顺序确认并以最后一条为准；空批次返回 0。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/ack", data={"committed_offset": 6})
-    server.push("/msg/ack", data={"committed_offset": 8})
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/ack", data={"committed_offset": 6})
+    server.push("/api/v1/msg/ack", data={"committed_offset": 8})
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
 
@@ -370,8 +370,8 @@ async def test_ack_and_ack_many(channel: TransportChannel) -> None:
 async def test_nack_and_reason_validation(channel: TransportChannel) -> None:
     """拒绝：给出原因即受理并前进位点；原因不在闭集则参数错误。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/nack", data={"committed_offset": 9})
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/nack", data={"committed_offset": 9})
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     message = ReceivedMessage(message_id="m1", topic="orders", partition=0, offset=8)
@@ -385,8 +385,8 @@ async def test_nack_and_reason_validation(channel: TransportChannel) -> None:
 async def test_heartbeat_updates_assignment(channel: TransportChannel) -> None:
     """心跳：把返回的分配写回，世代与分区跟着变。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/heartbeat", data=_assignment([2, 3]))
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/heartbeat", data=_assignment([2, 3]))
     consumer, stats = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     assignment = await consumer.heartbeat()
@@ -399,7 +399,7 @@ async def test_heartbeat_updates_assignment(channel: TransportChannel) -> None:
 async def test_heartbeat_delay_clamped_to_one_second(channel: TransportChannel) -> None:
     """服务端给的心跳间隔很小：客户端不低于 1 秒（避免打成紧循环）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0], interval_ms=100))
+    server.push("/api/v1/msg/join", data=_assignment([0], interval_ms=100))
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     assert consumer.heartbeat_delay_ms() == 1_000
@@ -416,8 +416,8 @@ def test_heartbeat_delay_defaults_without_join(channel: TransportChannel) -> Non
 async def test_close_swallows_leave_failure_and_is_idempotent(channel: TransportChannel) -> None:
     """关闭：离开组失败只记计数不抛；重复关闭直接返回。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/leave", code=350013)
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/leave", code=350013)
     consumer, stats = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     await consumer.close()
@@ -429,8 +429,8 @@ async def test_close_swallows_leave_failure_and_is_idempotent(channel: Transport
 async def test_operations_reject_after_close(channel: TransportChannel) -> None:
     """关闭后再操作：参数错误（要求新建实例，避免复用半关闭状态）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
-    server.push("/msg/leave", code=0)
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/leave", code=0)
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.join()
     await consumer.close()
@@ -471,7 +471,7 @@ async def test_heartbeat_loop_exits_when_closed_during_sleep(channel: TransportC
 async def test_heartbeat_loop_records_failure_and_continues(channel: TransportChannel) -> None:
     """心跳失败：记一次失败计数后继续下一轮（成员失效由拉取路径的重连处置）。"""
     server = ScriptedServer()
-    server.push("/msg/heartbeat", code=350013)
+    server.push("/api/v1/msg/heartbeat", code=350013)
     consumer, stats = build_consumer(_config(channel), server)
     ticks = [0]
 
@@ -502,7 +502,7 @@ def test_assignment_and_poll_result_defaults_are_empty() -> None:
 async def test_assignment_property_before_and_after_join(channel: TransportChannel) -> None:
     """`assignment` 属性：未加入为 None，加入后是当前分配。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/join", data=_assignment([0]))
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     assert consumer.assignment is None
     await consumer.join()
@@ -514,7 +514,7 @@ async def test_assignment_property_before_and_after_join(channel: TransportChann
 async def test_close_without_join_skips_heartbeat_cancel(channel: TransportChannel) -> None:
     """未加入组就关闭：没有心跳任务可取消，仍照常离开组并关传输层。"""
     server = ScriptedServer()
-    server.push("/msg/leave", code=0)
+    server.push("/api/v1/msg/leave", code=0)
     consumer, _ = build_consumer(_config(channel, clock=_HangClock()), server)
     await consumer.close()
-    assert server.request_paths() == ConcurrentStableFrozenList(["/msg/leave"])
+    assert server.request_paths() == ConcurrentStableFrozenList(["/api/v1/msg/leave"])

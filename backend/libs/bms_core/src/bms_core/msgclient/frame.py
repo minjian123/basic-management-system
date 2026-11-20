@@ -107,13 +107,16 @@ class FrameType(IntEnum):
     """订阅推送的一条消息（03-5：帧流推送；header 带元数据、payload 为消息体原始字节）。"""
 
     JOIN = 7
-    """加入消费组（03-6-2：端点 `POST /msg/join`；响应沿用同类型 + `response` 位，header 平铺分配）。"""
+    """加入消费组（03-6-2：端点 `POST /api/v1/msg/join`，统一 JSON 响应；响应沿用同类型 + `response` 位，
+    header 平铺分配）。"""
 
     LEAVE = 8
-    """离开消费组（03-6-2：端点 `POST /msg/leave`；幂等，header 平铺离开后的组状态）。"""
+    """离开消费组（03-6-2：端点 `POST /api/v1/msg/leave`，统一 JSON 响应；幂等，
+    header 平铺离开后的组状态）。"""
 
     MEMBER_HEARTBEAT = 9
-    """成员心跳（03-6-2：端点 `POST /msg/heartbeat`；**不是**连接心跳——后者是 17，只保活不触库）。"""
+    """成员心跳（03-6-2：端点 `POST /api/v1/msg/heartbeat`，统一 JSON 响应；
+    **不是**连接心跳——后者是 17，只保活不触库）。"""
 
     ERROR = 16
     """错误帧（响应帧，携带 `code` / `layer` / `retryable`）。"""

@@ -123,8 +123,8 @@ async def test_data_not_object_becomes_empty_mapping() -> None:
 async def test_poll_skips_non_object_message_entries() -> None:
     """拉取数组里混入非对象元素：跳过该条，其余照常解析（JSON 通道的宽容读法）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data={"group": "g1", "topic": "orders", "consumer_id": "c1", "partitions": [0]})
-    server.push("/msg/consume", data={"messages": ["junk", {"message_id": "m1", "offset": 0}]})
+    server.push("/api/v1/msg/join", data={"group": "g1", "topic": "orders", "consumer_id": "c1", "partitions": [0]})
+    server.push("/api/v1/msg/consume", data={"messages": ["junk", {"message_id": "m1", "offset": 0}]})
     consumer, _ = build_consumer(_config(), server)
     await consumer.join()
     result = await consumer.poll()
@@ -143,9 +143,9 @@ def test_json_transport_ignores_frame_type() -> None:
 async def test_member_request_ignores_frame_type_in_json_channel() -> None:
     """成员端点（帧类型 7）在 JSON 通道照常发请求体，且不带 `payload` 键。"""
     server = ScriptedServer()
-    server.push("/msg/join", data={"group": "g1", "topic": "orders", "consumer_id": "c1"})
+    server.push("/api/v1/msg/join", data={"group": "g1", "topic": "orders", "consumer_id": "c1"})
     request = ApiRequest(
-        frame_type=int(FrameType.JOIN), path="/msg/join", fields=ConcurrentStableFrozenDict({"group": "g1"})
+        frame_type=int(FrameType.JOIN), path="/api/v1/msg/join", fields=ConcurrentStableFrozenDict({"group": "g1"})
     )
     outcome = await build_transport(_config(), server).post(DEFAULT_ENDPOINT, request)
     body = json.loads(server.requests[0].content)

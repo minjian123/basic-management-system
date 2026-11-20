@@ -39,22 +39,22 @@ __all__ = [
     "ReceivedMessage",
 ]
 
-JOIN_PATH = "/msg/join"
-"""加入消费组（服务端主导分配；帧类型 7，服务端同路径另有 JSON 形态）。"""
+JOIN_PATH = "/api/v1/msg/join"
+"""加入消费组（服务端主导分配；统一 JSON 响应，与 msg 0712 起的成员端点一致）。"""
 
-HEARTBEAT_PATH = "/msg/heartbeat"
-"""成员心跳（顺带清理同组超时成员、必要时重算分配；帧类型 9——与连接心跳 17 是两件事）。"""
+HEARTBEAT_PATH = "/api/v1/msg/heartbeat"
+"""成员心跳（顺带清理同组超时成员、必要时重算分配；与连接心跳是两件事）。"""
 
-LEAVE_PATH = "/msg/leave"
-"""离开消费组（幂等；帧类型 8）。"""
+LEAVE_PATH = "/api/v1/msg/leave"
+"""离开消费组（幂等）。"""
 
-CONSUME_PATH = "/msg/consume"
+CONSUME_PATH = "/api/v1/msg/consume"
 """拉取一批消息（成员制：分区必须在该成员分配内）。"""
 
-ACK_PATH = "/msg/ack"
+ACK_PATH = "/api/v1/msg/ack"
 """确认一条消息（位点前进）。"""
 
-NACK_PATH = "/msg/nack"
+NACK_PATH = "/api/v1/msg/nack"
 """拒绝一条消息（转死信 + 位点前移）。"""
 
 MAX_FETCH_MESSAGES = 100

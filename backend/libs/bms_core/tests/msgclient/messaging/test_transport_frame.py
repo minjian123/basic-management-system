@@ -79,7 +79,7 @@ def _consume() -> ApiRequest:
     """
     return ApiRequest(
         frame_type=int(FrameType.CONSUME),
-        path="/msg/consume",
+        path="/api/v1/msg/consume",
         fields=ConcurrentStableFrozenDict(
             {"group": "g1", "consumer_id": "c1", "namespace": "ns", "topic": "orders", "partition": 0}
         ),
@@ -155,7 +155,7 @@ async def test_consume_payload_is_split_by_length() -> None:
     """拉取结果：payload 段按 `messages[i].length` 切片，`payload_segments` 与元数据一一对应。"""
     server = ScriptedServer()
     server.push(
-        "/msg/consume",
+        "/api/v1/msg/consume",
         data={"messages": [_meta(offset=0), _meta(message_id="m2", offset=1)], "paused": True, "inflight_bytes": 5},
         payloads=ConcurrentStableFrozenList([b"abc", b"de"]),
     )
@@ -173,7 +173,7 @@ async def test_consume_length_mismatch_is_server_bug() -> None:
     """元数据合计长度与 payload 总长不符：判对端装配错误（不重试）。"""
     server = ScriptedServer()
     server.push(
-        "/msg/consume",
+        "/api/v1/msg/consume",
         raw_content=_frame(
             int(FrameType.CONSUME),
             ConcurrentStableFrozenDict({"request_id": "r", "messages": [_meta(length=5)]}),
@@ -191,7 +191,7 @@ async def test_consume_meta_without_length_is_server_bug() -> None:
     """元数据缺整型 `length`：无法切片，判对端装配错误。"""
     server = ScriptedServer()
     server.push(
-        "/msg/consume",
+        "/api/v1/msg/consume",
         raw_content=_frame(
             int(FrameType.CONSUME),
             ConcurrentStableFrozenDict({"request_id": "r", "messages": [_meta()]}),
@@ -206,7 +206,7 @@ async def test_consume_meta_not_mapping_is_server_bug() -> None:
     """元数据不是映射（脏元素）：同样判对端装配错误，不静默跳过（跳过会让消息体错位）。"""
     server = ScriptedServer()
     server.push(
-        "/msg/consume",
+        "/api/v1/msg/consume",
         raw_content=_frame(
             int(FrameType.CONSUME),
             ConcurrentStableFrozenDict({"request_id": "r", "messages": ["junk"]}),
@@ -320,12 +320,12 @@ async def test_member_endpoints_use_frame_not_json() -> None:
     from ._support import build_consumer
 
     server = ScriptedServer()
-    server.push("/msg/join", data={"group": "g1", "topic": "orders", "consumer_id": "c1", "partitions": [0]})
-    server.push("/msg/leave", data={"group": "g1", "topic": "orders", "consumer_id": "c1", "state": "empty"})
+    server.push("/api/v1/msg/join", data={"group": "g1", "topic": "orders", "consumer_id": "c1", "partitions": [0]})
+    server.push("/api/v1/msg/leave", data={"group": "g1", "topic": "orders", "consumer_id": "c1", "state": "empty"})
     consumer, _ = build_consumer(_config(), server)
     await consumer.join()
     request = server.requests[0]
-    assert request.url.path == "/msg/join"
+    assert request.url.path == "/api/v1/msg/join"
     assert request.headers["content-type"].startswith(FRAME_CONTENT_TYPE)
     await consumer.close()
 

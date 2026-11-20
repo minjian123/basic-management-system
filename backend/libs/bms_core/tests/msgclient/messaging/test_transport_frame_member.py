@@ -55,15 +55,15 @@ def _request_frame(server: ScriptedServer, index: int) -> tuple[int, ConcurrentS
 async def test_join_requests_use_join_frame_type() -> None:
     """加入：帧类型 7、路径 `/msg/join`、payload 段为空、帧头带 request_id 与成员四字段。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_ASSIGNMENT)
-    server.push("/msg/leave", data=_LEAVE)
+    server.push("/api/v1/msg/join", data=_ASSIGNMENT)
+    server.push("/api/v1/msg/leave", data=_LEAVE)
     consumer, _ = build_consumer(build_config(), server)
 
     await consumer.join()
     request = server.requests[0]
     frame_type, header = _request_frame(server, 0)
     assert request.headers["content-type"].startswith(FRAME_CONTENT_TYPE)
-    assert request.url.path == "/msg/join"
+    assert request.url.path == "/api/v1/msg/join"
     assert frame_type == int(FrameType.JOIN)
     assert isinstance(header["request_id"], str) and header["request_id"]
     assert header["consumer_id"] == "c1"
@@ -75,8 +75,8 @@ async def test_join_requests_use_join_frame_type() -> None:
 async def test_join_restores_assignment_fields() -> None:
     """加入结果：帧头九键还原成 `Assignment`（含分区列表与心跳间隔）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_ASSIGNMENT)
-    server.push("/msg/leave", data=_LEAVE)
+    server.push("/api/v1/msg/join", data=_ASSIGNMENT)
+    server.push("/api/v1/msg/leave", data=_LEAVE)
     consumer, _ = build_consumer(build_config(), server)
 
     assignment = await consumer.join()
@@ -94,15 +94,15 @@ async def test_join_restores_assignment_fields() -> None:
 async def test_heartbeat_uses_member_heartbeat_frame_type() -> None:
     """成员心跳：帧类型 9（**不是**连接心跳 17），路径 `/msg/heartbeat`。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_ASSIGNMENT)
-    server.push("/msg/heartbeat", data=_ASSIGNMENT)
-    server.push("/msg/leave", data=_LEAVE)
+    server.push("/api/v1/msg/join", data=_ASSIGNMENT)
+    server.push("/api/v1/msg/heartbeat", data=_ASSIGNMENT)
+    server.push("/api/v1/msg/leave", data=_LEAVE)
     consumer, stats = build_consumer(build_config(), server)
 
     await consumer.join()
     assignment = await consumer.heartbeat()
     frame_type, _ = _request_frame(server, 1)
-    assert server.requests[1].url.path == "/msg/heartbeat"
+    assert server.requests[1].url.path == "/api/v1/msg/heartbeat"
     assert frame_type == int(FrameType.MEMBER_HEARTBEAT)
     assert assignment.generation == 3
     assert stats.snapshot()["heartbeat_total"] == 1
@@ -113,14 +113,14 @@ async def test_heartbeat_uses_member_heartbeat_frame_type() -> None:
 async def test_leave_uses_leave_frame_type() -> None:
     """离开：帧类型 8，路径 `/msg/leave`；客户端不读离开结果（进程退出路径不因组已不存在而抛错）。"""
     server = ScriptedServer()
-    server.push("/msg/join", data=_ASSIGNMENT)
-    server.push("/msg/leave", data=_LEAVE)
+    server.push("/api/v1/msg/join", data=_ASSIGNMENT)
+    server.push("/api/v1/msg/leave", data=_LEAVE)
     consumer, _ = build_consumer(build_config(), server)
 
     await consumer.join()
     await consumer.close()
     frame_type, header = _request_frame(server, 1)
-    assert server.requests[1].url.path == "/msg/leave"
+    assert server.requests[1].url.path == "/api/v1/msg/leave"
     assert frame_type == int(FrameType.LEAVE)
     assert header["consumer_id"] == "c1"
 
@@ -129,11 +129,11 @@ async def test_leave_uses_leave_frame_type() -> None:
 async def test_member_error_code_maps_identically_in_both_channels(channel: TransportChannel) -> None:
     """成员失效 350014：两条通道都拿到同一码，分类与动作一律由本地码表给（不读帧里的 category）。"""
     server = ScriptedServer()
-    server.push("/msg/heartbeat", code=350014, message="成员已失效")
+    server.push("/api/v1/msg/heartbeat", code=350014, message="成员已失效")
     transport = build_transport(build_config(channel=channel), server)
     request = ApiRequest(
         frame_type=int(FrameType.MEMBER_HEARTBEAT),
-        path="/msg/heartbeat",
+        path="/api/v1/msg/heartbeat",
         fields=ConcurrentStableFrozenDict({"group": "g1", "namespace": "ns", "topic": "orders", "consumer_id": "c1"}),
     )
     outcome = await transport.post(DEFAULT_ENDPOINT, request)
@@ -148,7 +148,7 @@ async def test_member_error_code_maps_identically_in_both_channels(channel: Tran
 async def test_consumer_heartbeat_raises_refresh_action() -> None:
     """消费端心跳收到 350014：抛 `MsgClientError`，动作是「刷新分配」（与 JSON 通道同一判定）。"""
     server = ScriptedServer()
-    server.push("/msg/heartbeat", code=350014, message="成员已失效")
+    server.push("/api/v1/msg/heartbeat", code=350014, message="成员已失效")
     consumer, _ = build_consumer(build_config(), server)
 
     with pytest.raises(MsgClientError) as raised:

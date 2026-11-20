@@ -65,7 +65,7 @@ from bms_core.events.topic import (
     topic_for,
 )
 from bms_core.metrics.base import BaseMetrics
-from bms_core.msgclient.messaging.config import MessagingConfig
+from bms_core.msgclient.messaging.config import MessagingConfig, TransportChannel
 from bms_core.msgclient.messaging.consumer import Assignment, MsgConsumer, PollResult, ReceivedMessage
 from bms_core.msgclient.messaging.errors import MsgClientError
 from bms_core.msgclient.messaging.stats import ClientStats
@@ -875,6 +875,10 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
     def _config_for(self, tenant: str) -> MessagingConfig:
         """按租户构造客户端配置（缺省实现；用例可注入工厂）。
 
+        **承载口径**：走 JSON 通道（`channel=TransportChannel.JSON`）。msg 0712 起成员端点只在
+        `/api/v1/msg/*` 暴露统一 JSON 形态，帧端点仅剩 `/msg/subscribe`；消费侧统一走 JSON，
+        避免同一批消息一半帧一半 JSON。
+
         Args:
             tenant: 租户编码。
 
@@ -886,6 +890,7 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
         return MessagingConfig(
             endpoints=ConcurrentStableFrozenList(self._endpoints),
             tenant=tenant,
+            channel=TransportChannel.JSON,
             request_timeout_ms=self._settings.event_consumer.long_poll_ms + _LONG_POLL_TIMEOUT_SLACK_MS,
         )
 
