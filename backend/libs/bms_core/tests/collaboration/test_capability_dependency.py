@@ -18,7 +18,12 @@ from bms_core.collaboration import (
     register_capability_grant_source,
     reset_capability_grants,
 )
-from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.collaboration.grant import grant_view_key
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import AuthError, PermissionError
 from bms_core.oauth.verify import VerifiedToken
 from bms_core.services.module_registry import (
@@ -87,6 +92,23 @@ class _Source:
         """
         del provider, consumer
         return self._grants
+
+    async def load_all(
+        self, *, providers: ConcurrentStableList[str], consumer: str | None = None
+    ) -> ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]:
+        """一次加载多个维度（协议要求；本替身按维度分组返回同一批预置记录）。
+
+        Args:
+            providers: 提供方业务域清单（分组键）。
+            consumer: 消费方服务键（未使用）。
+
+        Returns:
+            ConcurrentStableDict[str, ConcurrentStableList[CapabilityGrant]]: 按维度分组的授权记录。
+        """
+        del consumer
+        return ConcurrentStableDict(
+            {grant_view_key(provider=provider): ConcurrentStableList(self._grants) for provider in providers}
+        )
 
 
 def _dependency() -> Callable[..., Awaitable[VerifiedToken]]:

@@ -14,10 +14,10 @@ from bms_core.core.concurrent import (
 from bms_core.formdesign import validator as validator_module
 from bms_core.formdesign.validator import (
     FieldError,
-    NullFormValidator,
     ValidationResult,
     build_validation_error_payload,
 )
+from bms_core.formdesign.validator_null import NullFormValidator
 
 pytestmark = pytest.mark.kiwi_id(2526)
 
