@@ -23,7 +23,6 @@ uv run python -m ops.build_ext_columns --url "sqlite+aiosqlite:///./bms_platform
 """
 
 import argparse
-import asyncio
 from dataclasses import dataclass
 from typing import cast
 
@@ -48,6 +47,7 @@ from bms_core.models.platform.form_design import (
     SysFieldExt,
 )
 from bms_platform.domains.form_design.services.ddl import FormDdlExecutor
+from ops._worker import run_with_worker_id
 from ops.migrate_tenants import tenant_refs
 
 RUN_IMAGE = "platform"
@@ -305,7 +305,11 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         int: 退出码（全部成功 0；存在失败 1）。
     """
     args = build_parser().parse_args(argv)
-    result = asyncio.run(run(args))
+    try:
+        result = run_with_worker_id(lambda: run(args))
+    except ConfigError as exc:
+        print(f"[build_ext_columns] 失败：{exc}")
+        return 1
     if result.failed:
         print(f"[build_ext_columns] 完成（含失败）：建列 {result.built}，失败 {result.failed}")
         return 1

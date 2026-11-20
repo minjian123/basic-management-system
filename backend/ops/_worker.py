@@ -30,6 +30,7 @@ BOOTSTRAPPED_MODULES: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet
     {
         "ops.baseline_series",
         "ops.bootstrap_platform",
+        "ops.build_ext_columns",
         "ops.db_admin",
         "ops.event_consumer",
         "ops.init_schema",

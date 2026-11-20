@@ -11,7 +11,6 @@ import pytest
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.core.exceptions import ConfigError
 from bms_core.models.platform.form_design import (
     DDL_STATUS_ACTIVE,
     DDL_STATUS_FAILED,
@@ -167,16 +166,16 @@ def test_main_returns_exit_code(isolated_tenant: str) -> None:
     assert main(_argv("--url", isolated_tenant)) == 1
 
 
-def test_main_rejects_missing_target() -> None:
-    """既未指定 `--code` 也未指定 `--all-tenants` → 明确报错。"""
-    with pytest.raises(ConfigError):
-        main(_argv())
+def test_main_rejects_missing_target(capsys: pytest.CaptureFixture[str]) -> None:
+    """既未指定 `--code` 也未指定 `--all-tenants` → 明确报错并返回 1。"""
+    assert main(_argv("--service", "platform")) == 1
+    assert "需 `--code` 或 `--all-tenants`" in capsys.readouterr().out
 
 
-def test_main_requires_service_when_resolving_by_code() -> None:
-    """按编码解析库键但没有服务标识 → 明确报错。"""
-    with pytest.raises(ConfigError):
-        main(_argv("--code", "demo"))
+def test_main_requires_service_when_resolving_by_code(capsys: pytest.CaptureFixture[str]) -> None:
+    """按编码解析库键但没有服务标识 → 明确报错并返回 1。"""
+    assert main(_argv("--code", "demo")) == 1
+    assert "需 `--service`" in capsys.readouterr().out
 
 
 def test_main_enumerates_all_tenants(isolated_tenant: str, monkeypatch: pytest.MonkeyPatch) -> None:
