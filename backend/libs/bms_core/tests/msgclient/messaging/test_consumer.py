@@ -333,6 +333,24 @@ async def test_poll_rejoins_once_on_member_invalid(channel: TransportChannel) ->
 
 
 @pytest.mark.asyncio
+async def test_poll_empty_assignment_after_rejoin_returns_empty_batch(channel: TransportChannel) -> None:
+    """重平衡窗口：重新加入后分配暂时为空 → 返回空批，不得因取模零除崩掉单元。"""
+    server = ScriptedServer()
+    server.push("/api/v1/msg/join", data=_assignment([0]))
+    server.push("/api/v1/msg/consume", code=350014)
+    server.push("/api/v1/msg/join", data=_assignment([]))
+    consumer, stats = build_consumer(_config(channel, clock=_HangClock()), server)
+    await consumer.join()
+
+    result = await consumer.poll()
+
+    assert list(result.messages) == []
+    assert result.paused is False
+    assert stats.snapshot().get("rejoin_total") == 1
+    await consumer.close()
+
+
+@pytest.mark.asyncio
 async def test_poll_raises_after_second_refresh(channel: TransportChannel) -> None:
     """重新加入后仍 `350014`：不再重试，直接上抛 `refresh`。"""
     server = ScriptedServer()

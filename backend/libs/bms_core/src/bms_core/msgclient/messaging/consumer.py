@@ -362,6 +362,11 @@ class MsgConsumer(BaseFrameworkObject):
                     rejoined = True
                     self.stats.incr("rejoin_total")
                     await self.join()
+                    # 重平衡窗口内新分配可能暂时为空（成员刚加入 / 服务端正重算）：
+                    # 本轮返回空批交给调用方退避，等 heartbeat 刷新分配后再拉；
+                    # 不能直接取分区，否则 `len(partitions)` 为 0 触发 ZeroDivisionError。
+                    if not self._assignment.partitions:
+                        return PollResult()
                     # 重新加入后分配可能整体改变，本轮改拉新分配里的下一个分区；
                     # `partition` 同步更新，否则返回结果会带着失效分区的号（排障时会指向错分区）。
                     partition = self._next_partition()
