@@ -79,6 +79,21 @@ def _patch_session_factory(session: AsyncSession) -> Any:
     return mock.patch.object(SessionFactory, "create", _create)
 
 
+def gate_for_database(database: str | None) -> str | None:
+    """按库文件路径推断写门名（只认共享平台的 `platform` / `tenant` 两个逻辑数据源）。
+
+    Args:
+        database: 库文件路径（SQLite 连接串的 `database` 段；内存库 / 空串可传）。
+
+    Returns:
+        str | None: 门名；临时库 / 内存库 / 非 SQLite 返回 None（不取门）。
+    """
+    if not database or ":memory:" in database:
+        return None
+    stem = Path(database).stem
+    return stem if stem in (PLATFORM_GATE, TENANT_GATE) else None
+
+
 def gate_for_engine(engine: AsyncEngine) -> str | None:
     """按引擎库文件推断写门名（只认共享平台的 `platform` / `tenant` 两个逻辑数据源）。
 
@@ -88,11 +103,7 @@ def gate_for_engine(engine: AsyncEngine) -> str | None:
     Returns:
         str | None: 门名；临时库 / 非 SQLite 返回 None（不取门）。
     """
-    database = engine.url.database or ""
-    if not database or ":memory:" in database:
-        return None
-    stem = Path(database).stem
-    return stem if stem in (PLATFORM_GATE, TENANT_GATE) else None
+    return gate_for_database(engine.url.database)
 
 
 class GatedSessionMaker:

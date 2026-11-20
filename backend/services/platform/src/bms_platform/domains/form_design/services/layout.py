@@ -118,6 +118,7 @@ class FormDesignService(BaseFrameworkObject):
         cache: CacheRegion,
         outbox: BaseOutboxStore,
         tenant: str | None,
+        allow_runtime_ddl: bool = False,
     ) -> None:
         """初始化。
 
@@ -135,6 +136,7 @@ class FormDesignService(BaseFrameworkObject):
             cache: 缓存 Region。
             outbox: 事务性发件箱。
             tenant: 租户标识（缓存 key / 锁 key 用）。
+            allow_runtime_ddl: 是否允许在请求路径上改表结构（缺省 False；仅开发态开）。
         """
         self._session = session
         self._uow = uow
@@ -149,6 +151,7 @@ class FormDesignService(BaseFrameworkObject):
         self._cache = cache
         self._outbox = outbox
         self._tenant = tenant
+        self._allow_runtime_ddl = allow_runtime_ddl
 
     async def role_types(self, user_id: int | None) -> ConcurrentStableList[tuple[str, int]]:
         """取当前用户的角色集（`(role_type, role_id)` 插入序）。
@@ -196,6 +199,7 @@ class FormDesignService(BaseFrameworkObject):
             ddl_executor=executor,
             tenant=self._tenant,
             invalidate=self.invalidate_form,
+            allow_runtime_ddl=self._allow_runtime_ddl,
         )
 
     # ------------------------------------------------------------------ 读取

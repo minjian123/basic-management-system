@@ -47,7 +47,12 @@ from .helpers import (
     tenant_url,
 )
 
-pytestmark = pytest.mark.kiwi_id(2526)
+pytestmark = [
+    pytest.mark.kiwi_id(2526),
+    pytest.mark.own_db(
+        "自建字段运行期路径要真跑建列 / 造探针表与视图：运行期改结构只允许在独占临时库，共享库结构由数据初始化建好"
+    ),
+]
 
 _LAYOUTS = "/api/v1/form-design/layouts"
 _ATTRS = "/api/v1/form-design/attrs"
@@ -109,14 +114,32 @@ def _permission_registry() -> Callable[[Any, Any], BaseFieldPermissionProvider]:
     return _permission_factory
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def prepared(tenant_db: str) -> None:
-    """租户库 + 系统管理员主体 + 四表存在性（不清表，隔离靠命名空间）。
+@pytest.fixture
+def tenant_db(isolated_tenant: str) -> str:
+    """本文件已迁独占库（`own_db`）：把 `tenant_db` 指向同一份独占库。
+
+    13_08 T7：文件级 `own_db` 后应用与直连会话必须读**同一份**库（否则直连读到共享库的空布局）。
+    保留本夹具名，既有用例签名与 `tenant_session(tenant_db)` 写法零改动。
 
     Args:
-        tenant_db: 共享测试租户库连接串。
+        isolated_tenant: 独占租户库连接串（同时打开运行期 DDL）。
+
+    Returns:
+        str: 独占租户库连接串。
     """
-    await setup_min_tenant(tenant_db)
+    return isolated_tenant
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def prepared(isolated_tenant: str) -> None:
+    """独占租户库 + 系统管理员主体 + 四表存在性（不清表，隔离靠命名空间）。
+
+    13_08 T7：本文件含真跑建列与造视图的用例，故整文件走 `own_db` 独占库，并只在该库打开运行期 DDL。
+
+    Args:
+        isolated_tenant: 独占租户库连接串（同时打开运行期 DDL）。
+    """
+    await setup_min_tenant(isolated_tenant)
 
 
 def _data(response: Any, label: str) -> Any:

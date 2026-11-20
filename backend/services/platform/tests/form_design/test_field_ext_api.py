@@ -7,6 +7,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.config import get_settings
 from bms_core.testing.namespace import Namespace
 from tests_support.permission_admin import setup_min_tenant
 
@@ -20,7 +21,10 @@ from .helpers import (
     tenant_url,
 )
 
-pytestmark = pytest.mark.kiwi_id(2526)
+pytestmark = [
+    pytest.mark.kiwi_id(2526),
+    pytest.mark.own_db("自建字段用例要真跑建列 / 造探针表：运行期改结构只允许在独占临时库，共享库结构由数据初始化建好"),
+]
 
 _FIELDS = "/api/v1/form-design/fields"
 
@@ -28,13 +32,17 @@ _TABLES: dict[str, str] = {}  # bare-collections:allow（测试内简单映射�
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def prepared(tenant_db: str, service_app: Any) -> None:
-    """租户库 + 系统管理员主体 + 四表存在性（不清表，隔离靠命名空间）。
+async def prepared(isolated_tenant: str, service_app: Any) -> None:
+    """独占租户库 + 系统管理员主体 + 四表存在性（不清表，隔离靠命名空间）。
+
+    13_08 T7：本文件要真跑 `ALTER TABLE ADD COLUMN` 与探针表 DDL，故整文件走 `own_db` 独占库
+    （每用例一份 tmp 库 + 同源建表 / 参数种子），并只在该库打开运行期 DDL。
 
     Args:
-        tenant_db: 共享测试租户库连接串。
+        isolated_tenant: 独占租户库连接串（同时打开运行期 DDL）。
+        service_app: 应用实例（先装配，保证会话工厂已就位）。
     """
-    await setup_min_tenant(tenant_db)
+    await setup_min_tenant(isolated_tenant)
     _TABLES.clear()
 
 
@@ -181,3 +189,24 @@ async def test_create_field_unknown_form(client: AsyncClient, ns: Namespace) -> 
     )
     assert response.status_code == 404
     assert response.json()["code"] == 40401
+
+
+async def test_runtime_ddl_disabled_keeps_pending(
+    client: AsyncClient, service_app: Any, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """运行期 DDL 关闭（测试 / 生产口径）→ 只写元数据落 pending、不建物理列。
+
+    结构只有「数据初始化」一次机会：请求路径不执行 `ALTER TABLE`，列由
+    `ops.build_ext_columns` 统一补齐（该脚本行为见 `test_build_ext_columns.py`）。
+    """
+    monkeypatch.setenv("BMS_APP__ALLOW_RUNTIME_DDL", "false")
+    get_settings.cache_clear()
+    code = await _form(ns, "pending", app=service_app)
+    created = await client.post(
+        _FIELDS,
+        json={"form_code": code, "field_key": "pending_col", "name": "待建列", "type": "text"},
+    )
+    data = _data(created, "新建（待初始化建列）")
+    assert data["ddl_status"] == "pending"
+    assert data["column_name"] == "ext_pending_col"
+    assert "ext_pending_col" not in await _columns(_TABLES[code])

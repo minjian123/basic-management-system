@@ -4,6 +4,8 @@
 
 1. 登记：白名单校验（`field_key` / 类型 / 选项集）→ 冲突判定 → 元数据 `ddl_status=pending` **提交**；
 2. 建列：DDL 执行器（单租户串行锁 + 参数化编译）→ 成功 `active`、失败 `failed`（**只影响本字段**）；
+   **运行期 DDL 关闭时（测试 / 生产）不执行建列**，行保持 `pending`，等数据初始化
+   （`ops.build_ext_columns`）补建列——结构只有初始化一次机会，请求路径不改表结构；
 3. 重试：`retry` 复用同一元数据与列名，重走建列；
 4. 停用：`status=disabled`，**不生成 DROP COLUMN**（合规销毁走归档链路 14_01）；
 5. 重建复用：同 `form_code` 下同 `column_name` 的停用字段可恢复，不重复加列。
@@ -71,6 +73,7 @@ class ExtFieldService(BaseFrameworkObject):
         ddl_executor: FormDdlExecutor,
         tenant: str | None,
         invalidate: Callable[[str], Awaitable[None]] | None = None,
+        allow_runtime_ddl: bool = False,
     ) -> None:
         """初始化。
 
@@ -86,6 +89,7 @@ class ExtFieldService(BaseFrameworkObject):
             ddl_executor: DDL 执行器（`FormDdlExecutor`；类型仅在类型检查期 import，运行期按注入实例使用）。
             tenant: 租户标识。
             invalidate: 缓存失效回调（`Callable[[str], Awaitable[None]]`；None 表示不失效）。
+            allow_runtime_ddl: 是否允许在请求路径上改表结构（缺省 False；仅开发态开）。
         """
         self._session = session
         self._uow = uow
@@ -98,6 +102,7 @@ class ExtFieldService(BaseFrameworkObject):
         self._ddl = ddl_executor
         self._tenant = tenant
         self._invalidate = invalidate
+        self._allow_runtime_ddl = allow_runtime_ddl
 
     # ------------------------------------------------------------------ 读取
 
@@ -159,7 +164,7 @@ class ExtFieldService(BaseFrameworkObject):
             sort: 同表单内排序。
 
         Returns:
-            SysFieldExt: 写入并建列后的行（`ddl_status` 为 `active` 或 `failed`）。
+            SysFieldExt: 写入并建列后的行（`ddl_status` 为 `active` / `failed` / `pending`）。
 
         Raises:
             ParamError: 字段键非法（10001）。
@@ -284,6 +289,8 @@ class ExtFieldService(BaseFrameworkObject):
     async def retry_field(self, *, field_id: int) -> SysFieldExt:
         """重试建列（复用同一元数据与列名；`failed` → `active`）。
 
+        运行期 DDL 关闭时只把行置回 `pending`（等数据初始化补建列），不执行 DDL。
+
         Args:
             field_id: 自建字段主键。
 
@@ -339,12 +346,25 @@ class ExtFieldService(BaseFrameworkObject):
     async def _run_ddl(self, row: SysFieldExt) -> SysFieldExt:
         """执行建列并回写状态（失败置 `failed`，不抛——失败信息随行下发给前端标记）。
 
+        **运行期 DDL 关闭时（测试 / 生产）不执行任何 DDL**：行保持 `pending`（待初始化建列），
+        由数据初始化通道 `ops.build_ext_columns` 统一补建列——结构只有初始化一次机会。
+
         Args:
             row: 自建字段行（`ddl_status=pending`）。
 
         Returns:
-            SysFieldExt: 更新后的行（`active` / `failed`）。
+            SysFieldExt: 更新后的行（`active` / `failed` / `pending`）。
         """
+        if not self._allow_runtime_ddl:
+            _LOGGER.info(
+                "运行期改表结构已关闭：自建字段待数据初始化建列",
+                form_code=row.form_code,
+                field_key=row.field_key,
+                column=row.column_name,
+                table=row.table_name,
+            )
+            updated = await self._write_status(row, DDL_STATUS_PENDING)
+            return updated if updated is not None else row
         try:
             outcome = await self._ddl.add_column(row, comment=row.name)
         except Exception as exc:

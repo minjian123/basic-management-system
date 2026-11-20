@@ -121,6 +121,16 @@ class AppSettings(BaseSettings):
     直接调用覆盖。
     """
 
+    allow_runtime_ddl: bool = False
+    """运行期是否允许改表结构（表单定制自建字段的 `ALTER TABLE ... ADD COLUMN`）。
+
+    缺省关（**测试与生产都必须关**）：库结构只有「数据初始化」一次机会——建表 / 加列统一由
+    `ops.init_schema` / `ops.migrate_tenants` 与 `ops.build_ext_columns` 等初始化通道完成；
+    请求路径只写元数据（`ddl_status=pending`）并等初始化补建列。只有**开发态**置 `true`
+    （`config.dev.toml`），让开发者改完表单结构即时看到列。测试基座显式置 `false`：测试里需要
+    真跑建列的用例一律在**独占临时库**（`own_db`）上单点打开，绝不改共享库结构。
+    """
+
     package_prefix: str = "bms"
     """服务包名前缀（env `BMS_APP__PACKAGE_PREFIX`）——链的服务模型模块按
     `{package_prefix}_{service}.models` 解析（见 `db/migration.py::service_model_modules`）。

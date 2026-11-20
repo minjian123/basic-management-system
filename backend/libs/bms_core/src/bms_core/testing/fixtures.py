@@ -143,6 +143,10 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # 只会把跨进程写门排队时间翻倍（实测 1.4 秒/用例，24 路并行完全不提速）。需要验证这些启动
     # 步骤的用例显式把本开关置回 false（直接调用对应函数亦可）。
     monkeypatch.setenv("BMS_APP__SKIP_DB_INIT", "true")
+    # 运行期改表结构在测试里一律关闭（13_08 T7）：结构只有「数据初始化」一次机会，请求路径只写
+    # 元数据等初始化补建列。测试加载的 `config.dev.toml` 把这个开关置成了 true（开发态即时建列），
+    # 必须在这里显式关回去；需要真跑建列的用例只在 `own_db` 独占临时库上单点置 true。
+    monkeypatch.setenv("BMS_APP__ALLOW_RUNTIME_DDL", "false")
     # 操作审计中间件（06_01）默认关闭：单测不因每个写请求额外写发件箱（审计专项用例显式开启）
     monkeypatch.setenv("BMS_AUDIT_LOG__ENABLED", "false")
     # 权限 / 数据范围强制占位：`get_settings()` 是进程级单例，服务套件（platform / identity）会在

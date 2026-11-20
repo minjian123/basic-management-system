@@ -9,6 +9,11 @@
 这类写法在 `services/identity/tests/auth/conftest.py` 已被明确取消（见
 `auth/session_helpers.py` 模块说明）。本域的隔离靠**用例命名空间**（`ns` → 唯一 `form_code`）：
 四表查询一律按 `form_code` 过滤、探针表名由 `form_code` 派生，故无需清场即可互不干扰。
+
+**运行期改结构只允许在独占临时库**（2026-11-20 修订，13_08 T7）：`create_probe_table` /
+`drop_probe_table` / `run_statement` 一律先判目标库——共享平台库 / 租户库（门名 `platform` /
+`tenant`）直接报错。理由：结构只有「数据初始化」一次机会，共享库上改结构会与并行 worker 的
+断言互相破坏；需要造表 / 造视图的用例改用 `isolated_tenant` 独占库夹具。
 """
 
 from __future__ import annotations
@@ -19,10 +24,12 @@ from contextlib import asynccontextmanager
 from typing import Any, cast
 
 from sqlalchemy import Table, inspect, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.base import Base
+from bms_core.testing.transaction import gate_for_database
 from tests_support.shared_access import shared_engine, shared_session, shared_window
 
 __all__ = [
@@ -40,6 +47,26 @@ _ENSURED_URLS: ConcurrentStableSet[str] = ConcurrentStableSet()
 
 _ENSURE_LOCK = threading.Lock()
 """占位互斥：并发首次调用时只让一个协程去建表（锁内不含 await）。"""
+
+_DDL_SCOPE_HINT = (
+    "运行期改表结构只允许在独占临时库上执行（用例请求 `isolated_tenant` 夹具）；"
+    "共享平台库 / 租户库的结构只能由数据初始化建好（ops.init_schema / ops.build_ext_columns）。"
+)
+
+
+def _assert_own_db(url: str, action: str) -> None:
+    """断言目标库不是共享平台 / 租户库（结构类操作的前置守卫）。
+
+    Args:
+        url: 目标库连接串。
+        action: 操作名（用于报错定位）。
+
+    Raises:
+        RuntimeError: 目标是共享平台库 / 租户库（那里只允许数据初始化建结构）。
+    """
+    gate = gate_for_database(make_url(url).database)
+    if gate is not None:
+        raise RuntimeError(f"{action} 拒绝在共享库（门 {gate}）上执行：{_DDL_SCOPE_HINT}")
 
 
 async def ensure_models(url: str, models: ConcurrentStableList[Any]) -> None:
@@ -79,7 +106,11 @@ async def create_probe_table(url: str, name: str, *, columns: str = "id INTEGER 
         url: 数据库连接串。
         name: 表名（调用方保证为白名单形态）。
         columns: 列定义文本。
+
+    Raises:
+        RuntimeError: 目标是共享平台库 / 租户库（结构只允许由数据初始化建好）。
     """
+    _assert_own_db(url, "create_probe_table")
     engine = shared_engine(url)
     try:
         async with shared_window(engine), engine.begin() as connection:
@@ -95,7 +126,11 @@ async def drop_probe_table(url: str, name: str) -> None:
     Args:
         url: 数据库连接串。
         name: 表名。
+
+    Raises:
+        RuntimeError: 目标是共享平台库 / 租户库（结构只允许由数据初始化建好）。
     """
+    _assert_own_db(url, "drop_probe_table")
     engine = shared_engine(url)
     try:
         async with shared_window(engine), engine.begin() as connection:
@@ -129,7 +164,11 @@ async def run_statement(url: str, statement: str) -> None:
     Args:
         url: 数据库连接串。
         statement: SQL 文本（调用方保证已参数化 / 来自白名单）。
+
+    Raises:
+        RuntimeError: 目标是共享平台库 / 租户库（结构只允许由数据初始化建好）。
     """
+    _assert_own_db(url, "run_statement")
     engine = shared_engine(url)
     try:
         async with shared_window(engine), engine.begin() as connection:

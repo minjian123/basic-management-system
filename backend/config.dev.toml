@@ -2,6 +2,9 @@
 
 [app]
 debug = true
+# 开发态允许运行期改表结构（表单定制自建字段即时建列）；测试 / 生产保持缺省 false，
+# 结构只由数据初始化（init_schema / migrate_tenants / build_ext_columns）建好。
+allow_runtime_ddl = true
 
 [log]
 level = "DEBUG"

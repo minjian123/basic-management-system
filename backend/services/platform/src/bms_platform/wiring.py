@@ -13,6 +13,7 @@ from bms_core.audit.base import AuditCapturer
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.config import get_settings
 from bms_core.core.context import get_current_tenant, get_current_user_id
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
@@ -534,6 +535,7 @@ def build_form_design_service(
         cache=cache,
         outbox=outbox,
         tenant=get_current_tenant(),
+        allow_runtime_ddl=get_settings().app.allow_runtime_ddl,
     )
     return service
 
