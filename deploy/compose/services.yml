@@ -98,6 +98,10 @@ services:
     container_name: bms-event-worker
     command: ["python", "-m", "ops.event_consumer", "--service", "platform", "--worker"]
     expose: []
+    # worker 宿主不起 HTTP：镜像层 `/readyz` 探针在此进程恒失败（容器一直 unhealthy），
+    # 进程存活即服务存活（异常退出由 restart 策略拉起），故关闭容器级健康检查
+    healthcheck:
+      disable: true
     environment:
       <<: *service-env
       BMS_APP__WORKER_ID: ${BMS_WORKER_ID_EVENT:-106}
