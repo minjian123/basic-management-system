@@ -30,17 +30,22 @@ async def test_list_contract(client: AsyncClient) -> None:
     assert len(keys) == len(set(keys)), "plugin_key 重复"
     assert keys == sorted(keys)
     by_key = {str(group["plugin_key"]): group for group in groups}
-    for plugin_key in ("audit", "task"):
-        group = by_key[plugin_key]
-        assert group["provider"] == "null"
-        assert group["implementations"] == [{"plugin_name": "null", "contract_version": "0.1.0", "status": "active"}]
-    # 事件发布：缺省 null（未配 provider），真实实现只剩 msg（`MsgEventPublisherFactory`，
-    # `[event].provider = "msg"` 时启用）；RocketMQ 实现已下线
+    # 审计捕获在平台装配期显式启用 DB 实现（`DbAuditCapturer`，06_01 / 06_02）；任务执行体仍为 null 占位。
+    audit = by_key["audit"]
+    assert audit["provider"] == "db"
+    assert audit["implementations"] == [
+        {"plugin_name": "db", "contract_version": "0.1.0", "status": "active"},
+        {"plugin_name": "null", "contract_version": "0.1.0", "status": "registered"},
+    ]
+    task = by_key["task"]
+    assert task["provider"] == "null"
+    assert task["implementations"] == [{"plugin_name": "null", "contract_version": "0.1.0", "status": "active"}]
+    # 事件发布：dev 配置启用 msg（`[event].provider = "msg"`，01_04），null 保留为占位实现
     event = by_key["event"]
-    assert event["provider"] == "null"
+    assert event["provider"] == "msg"
     assert event["implementations"] == [
-        {"plugin_name": "msg", "contract_version": "0.1.0", "status": "registered"},
-        {"plugin_name": "null", "contract_version": "0.1.0", "status": "active"},
+        {"plugin_name": "msg", "contract_version": "0.1.0", "status": "active"},
+        {"plugin_name": "null", "contract_version": "0.1.0", "status": "registered"},
     ]
     cache = by_key["cache"]
     assert cache["provider"] == "memory"  # dev 覆盖启用进程内缓存（租户解析缓存，01_02）

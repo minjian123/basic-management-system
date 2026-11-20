@@ -1003,3 +1003,51 @@ def test_default_consumer_and_config_factory_paths() -> None:
     )
     consumer = real._make_consumer(tenant="t1", group="g", namespace="sys", topic="bms-sys-operation")  # pyright: ignore[reportPrivateUsage]
     assert isinstance(consumer, MsgConsumer)
+
+
+async def test_setup_starts_when_in_service_and_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """装配钩子：启用且宿主为服务进程时调用 `start()`（worker 宿主只装载）。"""
+    group = _group(settings=_settings(host="in_service", enabled=True))
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    started: ConcurrentStableList[bool] = ConcurrentStableList()
+
+    async def _start() -> None:
+        started.add(True)
+
+    monkeypatch.setattr(group, "start", _start)
+    await group.setup()
+    assert list(started) == [True]
+
+
+async def test_start_without_declarations_returns_early() -> None:
+    """无任何组声明：`start()` 直接返回，不建后台任务。"""
+    group = _group()
+    await group.start()
+    assert not group._running  # pyright: ignore[reportPrivateUsage]
+
+
+async def test_stop_unit_without_task_closes_consumer() -> None:
+    """停单元：单元任务为空（已停或未起）仍释放客户端，不抛错。"""
+    directory = _Directory(ConcurrentStableList(["t1"]))
+    consumer = _FakeConsumer()
+    group = _group(directory=directory, consumers=ConcurrentStableDict({("t1", "bms-sys-operation"): consumer}))
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    await group.start()
+    runtime = group._groups["bms-audit-chain"]  # pyright: ignore[reportPrivateUsage]
+    unit = runtime.units[("t1", "bms-sys-operation")]
+    unit.task = None
+    await group._stop_unit(runtime, ("t1", "bms-sys-operation"))  # pyright: ignore[reportPrivateUsage]
+    assert consumer.closed is True
+    await group.stop()
+
+
+async def test_run_unit_handles_empty_batch() -> None:
+    """空批次：`poll` 返回空消息列表时本轮不处理任何消息，继续下一轮。"""
+    directory = _Directory(ConcurrentStableList(["t1"]))
+    consumer = _FakeConsumer(batches=ConcurrentStableList([ConcurrentStableList()]))
+    group = _group(directory=directory, consumers=ConcurrentStableDict({("t1", "bms-sys-operation"): consumer}))
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    await group.start()
+    await _wait(lambda: consumer.poll_calls >= 1)
+    await group.stop()
+    assert list(consumer.acked) == []

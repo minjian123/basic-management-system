@@ -295,14 +295,18 @@ async def test_storage_provider_switch_zero_change(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.kiwi_id(661)
 async def test_dual_implementations_enlisted() -> None:
-    """双实现纳管：装配快照与插件注册表均含 local / minio（+ null），当前 provider 为 local。"""
+    """双实现纳管：装配快照与插件注册表均含 local / minio（+ null），当前 provider 为 local。
+
+    插件注册表是进程级全局对象，同进程其他用例可能注册过替身实现（如归档用例的 `fake`），
+    故按「必须包含」判定，不锁死集合相等。
+    """
     snapshot = build_snapshot()
-    assert set(snapshot["object_storage"]) == {"local", "minio", "null"}
+    assert {"local", "minio", "null"} <= set(snapshot["object_storage"])
 
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.object_storage, LocalObjectStorage)
-    assert set(plugin_registry_snapshot()["object_storage"]) == {"local", "minio", "null"}
+    assert {"local", "minio", "null"} <= set(plugin_registry_snapshot()["object_storage"])
 
 
 @pytest.mark.kiwi_id(662)
