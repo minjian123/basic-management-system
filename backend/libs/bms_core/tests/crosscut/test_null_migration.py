@@ -129,4 +129,6 @@ def test_registration_semantics_unchanged() -> None:
         for name, impl in bucket.items():
             if name == "null":
                 assert isinstance(impl, type)
-                assert impl.__module__.endswith(".null"), (key, impl)
+                # 落点两种等价写法：`xx/null.py`（模块名以 `.null` 结尾）与 `xx/preference_null.py`
+                # （`preference` 已是模块、无法再开子包，故用 `_null` 后缀标注专属模块）。
+                assert impl.__module__.endswith((".null", "_null")), (key, impl)

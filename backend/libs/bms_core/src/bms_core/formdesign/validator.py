@@ -33,7 +33,6 @@ __all__ = [
     "FORM_VALIDATOR_PLUGIN_KEY",
     "BaseFormValidator",
     "FieldError",
-    "NullFormValidator",
     "ValidationResult",
     "build_validation_error_payload",
     "get_form_validator",
@@ -116,40 +115,6 @@ class BaseFormValidator(BaseProvider, ABC):
         """
 
 
-class NullFormValidator(BaseFormValidator):
-    """占位实现（插件名 `null`）：恒定通过——无配置时保持既有接口行为不变。"""
-
-    def describe(self) -> str:
-        """元信息描述。
-
-        Returns:
-            str: 说明文本。
-        """
-        return "表单动态校验占位实现（恒定通过）"
-
-    async def validate(
-        self,
-        form_code: str,
-        values: ConcurrentStableDict[str, object],
-        *,
-        locale: str | None = None,
-        skip_required_keys: ConcurrentStableFrozenList[str] = EMPTY_KEYS,
-    ) -> ValidationResult:
-        """恒定通过（占位不校验）。
-
-        Args:
-            form_code: 表单标识（占位忽略）。
-            values: 待校验值（占位忽略）。
-            locale: 当前语言（占位忽略）。
-            skip_required_keys: 跳过必填的字段键（占位忽略）。
-
-        Returns:
-            ValidationResult: 空错误结果。
-        """
-        del form_code, values, locale, skip_required_keys
-        return ValidationResult()
-
-
 def get_form_validator(request: Request) -> BaseFormValidator:
     """取应用级表单动态校验器（依赖注入提供者）。
 
@@ -186,3 +151,26 @@ def build_validation_error_payload(result: ValidationResult) -> ConcurrentStable
         )
     )
     return ConcurrentStableDict({"errors": items})
+
+
+def __getattr__(name: str) -> object:
+    """向后兼容导出：`NullFormValidator` 已移到专属 `validator_null` 模块。
+
+    `Null*` 占位类必须落在 `null` / `*_null` 模块（护栏 `test_null_migration`），但既有调用方仍按
+    `from bms_core.formdesign.validator import NullFormValidator` 取用，故在此惰性转发，避免循环导入
+    （`validator_null` 依赖本模块的基类与结果类型）。
+
+    Args:
+        name: 属性名。
+
+    Returns:
+        object: 目标属性。
+
+    Raises:
+        AttributeError: 本模块无该属性。
+    """
+    if name == "NullFormValidator":
+        from bms_core.formdesign.validator_null import NullFormValidator
+
+        return NullFormValidator
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

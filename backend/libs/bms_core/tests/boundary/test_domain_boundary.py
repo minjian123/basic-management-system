@@ -426,7 +426,7 @@ def test_directory_domain_queries() -> None:
     assert table_domain("zzz_unknown") is None
     assert "sys_user" in owned_tables_for_domain("user")
     assert owned_tables_for_domain("user", datasource=Datasource.TENANT, include_planned=False) == frozenset(
-        {"sys_user", "sys_account_lock", "sys_user_extension"}
+        {"sys_user", "sys_account_lock", "sys_user_preference", "sys_user_extension"}
     )
 
 
@@ -446,10 +446,10 @@ _REPO_ROOT = Path(__file__).resolve().parents[5]
 
 @pytest.mark.kiwi_id(2355)
 def test_real_layout_all_placement() -> None:
-    """真实域布局：19 域全 `placement`、每域恰 1 个公共出口且出口在本域目录内（07C `03_03`）。"""
+    """真实域布局：26 域全 `placement`、每域恰 1 个公共出口且出口在本域目录内（07C `03_03`）。"""
     layout = load_layout(_REPO_ROOT / DEFAULT_LAYOUT_RELATIVE)
     entries = layout.entries
-    assert len(entries) == 20
+    assert len(entries) == 26
     for entry in entries:
         assert entry.status == "placement", entry.domain_key
         assert len(entry.public_api) == 1, entry.domain_key

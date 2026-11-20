@@ -21,9 +21,6 @@ from bms_core.formdesign.validator import (
     FieldError as FieldError,
 )
 from bms_core.formdesign.validator import (
-    NullFormValidator as NullFormValidator,
-)
-from bms_core.formdesign.validator import (
     ValidationResult as ValidationResult,
 )
 from bms_core.formdesign.validator import (
@@ -31,6 +28,9 @@ from bms_core.formdesign.validator import (
 )
 from bms_core.formdesign.validator import (
     get_form_validator as get_form_validator,
+)
+from bms_core.formdesign.validator_null import (
+    NullFormValidator as NullFormValidator,
 )
 
 __all__ = [

@@ -94,15 +94,15 @@ def test_init_schema_single_db_form(
 
 
 @pytest.mark.kiwi_id(2304)
-def test_init_schema_skips_empty_table_set(
+def test_init_schema_builds_archive_library(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """空表集（归档链）→ 跳过，不计成功、不建库。"""
+    """归档库：建归档行表 `sys_archive_record`（14_01 起归档清单不再是空表集）。"""
     _prepare(tmp_path, monkeypatch)
     assert init_schema.main(ConcurrentStableList(["--target", "archive"])) == 0
     out = capsys.readouterr().out
-    assert "无表集（跳过）" in out and "汇总：成功 0、跳过 1、失败 0" in out
-    assert not (tmp_path / "archive.db").exists()
+    assert "汇总：成功 1、跳过 0、失败 0" in out
+    assert "sys_archive_record" in _table_names(tmp_path / "archive.db")
 
 
 @pytest.mark.kiwi_id(2304)

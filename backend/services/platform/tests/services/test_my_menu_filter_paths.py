@@ -58,7 +58,7 @@ class _Metadata:
 
 def _field(field_id: int, key: str) -> Any:
     """字段快照替身。"""
-    return SimpleNamespace(id=field_id, field_key=key, name=key, type="input", sort=1)
+    return SimpleNamespace(id=field_id, field_key=key, name=key, type="input", sort=1, help_key=None)
 
 
 def _form(form_id: int) -> Any:
@@ -68,6 +68,7 @@ def _form(form_id: int) -> Any:
         business_id=1,
         business_code="menu",
         component="Demo",
+        help_key=None,
         buttons=ConcurrentStableList(),
         fields=ConcurrentStableList([_field(1, "title")]),
     )
@@ -84,6 +85,7 @@ def _menu(menu_id: int, forms: Any) -> Any:
         icon=None,
         sort=1,
         hidden=False,
+        help_key=None,
         forms=forms,
     )
 

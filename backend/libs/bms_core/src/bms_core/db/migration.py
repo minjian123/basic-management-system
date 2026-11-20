@@ -330,7 +330,7 @@ def build_series_name(domain: str, datasource: str) -> str:
         raise ConfigError(f"业务域标识形态非法：{domain}（须为 snake_case，如 platform_registry）")
     if datasource not in DATASOURCES:
         raise ConfigError(f"数据源段非法：{datasource}（允许 {' / '.join(DATASOURCES)}）")
-    if domain == ARCHIVE_DOMAIN and datasource != DATASOURCE_ARCHIVE:
+    if domain == ARCHIVE_DOMAIN and datasource == DATASOURCE_TENANT:
         raise ConfigError(f"归档域占位只能配归档数据源（现 {datasource}）")
     if domain != ARCHIVE_DOMAIN and domain not in known_domains():
         raise ConfigError(f"业务域标识未登记：{domain}（见 {DOMAIN_LAYOUT_RELATIVE}）")
@@ -411,6 +411,8 @@ def series_names() -> ConcurrentStableList[str]:
         f"{domain}{SERIES_SEPARATOR}{datasource}"
         for domain in sorted(known_domains())
         for datasource in (DATASOURCE_PLATFORM, DATASOURCE_TENANT)
+        # 归档域的表只在平台库与归档库：只有 `archive:platform`，没有 `archive:tenant`。
+        if not (domain == ARCHIVE_DOMAIN and datasource == DATASOURCE_TENANT)
     )
     names.add(ARCHIVE_SERIES_NAME)
     return names
@@ -428,6 +430,15 @@ def domain_series(domain: str) -> ConcurrentStableList[MigrationSeries]:
     Raises:
         ConfigError: 域标识未登记。
     """
+    if domain == ARCHIVE_DOMAIN:
+        # 归档域两张清单：`archive:platform`（平台库的归档策略 / 台账表）+ `archive:archive`（归档库行表）；
+        # 没有租户库清单（归档表不落租户库）。
+        return ConcurrentStableList(
+            (
+                resolve_series(build_series_name(ARCHIVE_DOMAIN, DATASOURCE_PLATFORM)),
+                resolve_series(ARCHIVE_SERIES_NAME),
+            )
+        )
     return ConcurrentStableList(resolve_series(build_series_name(domain, datasource)) for datasource in DATASOURCES)
 
 
@@ -480,7 +491,11 @@ def unit_series(unit: str, datasource: str) -> ConcurrentStableList[MigrationSer
     """
     if datasource not in DATASOURCES:
         raise ConfigError(f"数据源段非法：{datasource}（允许 {' / '.join(DATASOURCES)}）")
-    return ConcurrentStableList(resolve_series(build_series_name(domain, datasource)) for domain in unit_domains(unit))
+    # 归档域的表不落租户库：租户数据源下跳过（`archive:tenant` 本就不存在）。
+    domains = ConcurrentStableList(
+        domain for domain in unit_domains(unit) if not (domain == ARCHIVE_DOMAIN and datasource == DATASOURCE_TENANT)
+    )
+    return ConcurrentStableList(resolve_series(build_series_name(domain, datasource)) for domain in domains)
 
 
 def archive_series() -> MigrationSeries:
