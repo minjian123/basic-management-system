@@ -85,6 +85,11 @@ async def _keys() -> ConcurrentStableList[str]:
     return ConcurrentStableList(["platform"])
 
 
+async def _empty_keys() -> ConcurrentStableList[str]:
+    """空库键（只为验证不扫库的循环路径）。"""
+    return ConcurrentStableList()
+
+
 async def _submit(session: AsyncSession, *, max_attempts: int = 2) -> int:
     """提交一条作业。"""
     async with session.begin():
@@ -246,14 +251,18 @@ async def test_properties_run_once_and_stopped_tick(registry: EngineRegistry) ->
 
 
 async def test_run_forever_without_signal(registry: EngineRegistry) -> None:
-    """长驻：未注入信号时只按周期轮询，置停止即退出。"""
+    """长驻：未注入信号时只按周期轮询，置停止即退出。
+
+    单库键置空：本用例验的是「无信号时的轮询 / 停止」这条循环，不验扫库；若真的每 10ms
+    扫一次共享平台库，它会持续抢全局写门，24 路下既把自己拖成等门超时，也拖慢其它 worker。
+    """
     limits = _fast_limits()
     object.__setattr__(limits, "poll_interval_seconds", 0.01)
-    worker = _worker(registry, limits=limits)
+    worker = _worker(registry, limits=limits, db_keys=_empty_keys)
     run = asyncio.create_task(worker.run_forever())
     await asyncio.sleep(0.03)
     await worker.aclose()
-    await asyncio.wait_for(run, timeout=2)
+    await asyncio.wait_for(run, timeout=10)
 
 
 async def test_claim_round_skips_when_mark_dead_false(
