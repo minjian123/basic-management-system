@@ -26,6 +26,7 @@ from bms_core.services.module_registry import (
     reset_seed_records,
     reset_service_records,
 )
+from bms_core.testing.locks import file_lock
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.services import declaration_bootstrap as module
 
@@ -372,6 +373,21 @@ async def test_bootstrap_wraps_unexpected_error(
 
     with pytest.raises(CatalogError, match="平台声明注册失败"):
         await module.bootstrap_platform_declarations(_app())
+
+
+@pytest.fixture(autouse=True)
+def _declaration_global_serial() -> Iterator[None]:
+    """声明表是共享库上的全局状态：整份文件与其它声明 / 配置 / 拓扑用例串行。
+
+    本文件会在共享平台库上做**全量声明注册**；写入已改为立即提交（不再回滚），与并行的
+    `test_declaration_repository`（删改同一批声明表）撞车时会把库写成半套，后续任何
+    `service_app` 启动都会因声明校验不过而拒启。故与它们共用同一把专用文件锁。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("platform-global-state", timeout=180.0):
+        yield
 
 
 @pytest.fixture(autouse=True)
