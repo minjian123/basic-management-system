@@ -75,7 +75,7 @@ def _records(*records: SeedRecord) -> ConcurrentStableList[SeedRecord]:
 
 
 def test_platform_declaration_loaded_into_catalog() -> None:
-    """用例 1：`platform.toml` 的 10 条种子进入合并视图，字段逐一正确。"""
+    """用例 1：`platform.toml` 声明的种子按声明序进入合并视图，字段逐一正确。"""
     reset_seed_records()
     load_product_manifests(ConcurrentStableList())
     view = seed_catalog_view()
@@ -84,6 +84,7 @@ def test_platform_declaration_loaded_into_catalog() -> None:
     assert names == [
         "seed-module",
         "seed-tables",
+        "seed-archive-policies",
         "seed-menu",
         "seed-tenant",
         "seed-config",
@@ -93,6 +94,8 @@ def test_platform_declaration_loaded_into_catalog() -> None:
         "seed-rbac-role",
         "seed-platform-grant",
         "seed-rbac-grant",
+        "seed-dashboard",
+        "seed-help",
     ]
     first = view[0]
     assert first.service == "platform"

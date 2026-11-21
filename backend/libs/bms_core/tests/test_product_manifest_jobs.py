@@ -43,6 +43,11 @@ def test_real_manifest_declares_platform_jobs() -> None:
         "print.artifact.cleanup",
         "tenant.purge.scan",
         "tenant.purge",
+        "platform.archive.run",
+        "platform.archive.cleanup",
+        "platform.recycle.purge",
+        "notification.mail.send",
+        "notification.sms.send",
     }
     assert kinds["platform.import.execute"].service == "platform"
     assert kinds["platform.import.execute"].max_attempts == 1

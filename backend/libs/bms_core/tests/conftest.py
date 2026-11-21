@@ -80,6 +80,25 @@ def _reset_product_registries() -> Iterator[None]:  # pyright: ignore[reportUnus
 
 
 @pytest.fixture(autouse=True)
+def _reset_field_capture() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """卸下字段级审计捕获监听：它是进程级全局监听，应用启动用例会挂上且不自动卸。
+
+    不卸的后果：同进程后续用例自建内存库 / 局部 schema 时，普通 `Session` 提交会顺带写
+    `sys_outbox`，报 `no such table: sys_outbox`（宽范围并行与串行都会踩到）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    from bms_core.audit.field_capture import reset_capture_state, uninstall_field_audit
+
+    uninstall_field_audit()
+    reset_capture_state()
+    yield
+    uninstall_field_audit()
+    reset_capture_state()
+
+
+@pytest.fixture(autouse=True)
 def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """仓库专属隔离：公共隔离之后追加令牌密钥与 fakeredis。
 
