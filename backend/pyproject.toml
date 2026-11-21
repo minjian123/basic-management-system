@@ -102,7 +102,7 @@ asyncio_mode = "auto"
 # 并行档位：缺省 `auto`（按机器核数；2026-11-21 业主拍板恢复）。**不得靠降并发掩盖用例问题**——
 # 5 秒写门硬失败下会红，说明有用例长期持门（整条用例持门 / 逐例重装应用 / 持锁干别的），
 # 正解是修用例写法，不是把 worker 调少。CI / 推送环按同一档位传 `-n`，命令行优先于本缺省。
-addopts = "--import-mode=importlib -p bms_testing_plugin -n auto --basetemp=.cache/pytest"
+addopts = "--import-mode=importlib -p bms_testing_plugin -n auto --dist=loadgroup --basetemp=.cache/pytest"
 testpaths = [
     "libs/bms_core/tests",
     "services/txn/tests",

@@ -29,12 +29,12 @@ from notification._support import add_notification, reset_user, session_opener, 
 pytestmark = pytest.mark.kiwi_id(2517)
 
 
-async def test_detail_and_unread(shared_tenant_engine: AsyncEngine) -> None:
+async def test_detail_and_unread(shared_tenant_engine: AsyncEngine, uid: int) -> None:
     """详情查看即已读；mark_read=False 不改状态；未读数下降。"""
     async with write_session(shared_tenant_engine) as session:
-        row = add_notification(session, user_id=1, title="A")
+        row = add_notification(session, user_id=uid, title="A")
         await session.flush()
-        tokens = use_user(1)
+        tokens = use_user(uid)
         try:
             center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             assert await center.unread_count() == 1
@@ -47,13 +47,13 @@ async def test_detail_and_unread(shared_tenant_engine: AsyncEngine) -> None:
             reset_user(tokens)
 
 
-async def test_list_with_filters(shared_tenant_engine: AsyncEngine) -> None:
+async def test_list_with_filters(shared_tenant_engine: AsyncEngine, uid: int) -> None:
     """列表按类型 / 已读筛选。"""
     async with write_session(shared_tenant_engine) as session:
-        add_notification(session, user_id=1, title="A", notification_type="approval")
-        add_notification(session, user_id=1, title="B", is_read=True)
+        add_notification(session, user_id=uid, title="A", notification_type="approval")
+        add_notification(session, user_id=uid, title="B", is_read=True)
         await session.flush()
-        tokens = use_user(1)
+        tokens = use_user(uid)
         try:
             center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             page = await center.list(
@@ -70,13 +70,13 @@ async def test_list_with_filters(shared_tenant_engine: AsyncEngine) -> None:
             reset_user(tokens)
 
 
-async def test_mark_read_and_all(shared_tenant_engine: AsyncEngine) -> None:
+async def test_mark_read_and_all(shared_tenant_engine: AsyncEngine, uid: int) -> None:
     """批量 / 全部已读与参数校验。"""
     async with write_session(shared_tenant_engine) as session:
-        first = add_notification(session, user_id=1, title="A")
-        add_notification(session, user_id=1, title="B")
+        first = add_notification(session, user_id=uid, title="A")
+        add_notification(session, user_id=uid, title="B")
         await session.flush()
-        tokens = use_user(1)
+        tokens = use_user(uid)
         try:
             center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             assert await center.mark_read(ConcurrentStableList((int(first.id),))) == 1
@@ -89,13 +89,13 @@ async def test_mark_read_and_all(shared_tenant_engine: AsyncEngine) -> None:
             reset_user(tokens)
 
 
-async def test_delete_and_forbidden(shared_tenant_engine: AsyncEngine) -> None:
+async def test_delete_and_forbidden(shared_tenant_engine: AsyncEngine, uid: int) -> None:
     """删除本人通知；他人通知拒绝；不存在拒绝。"""
     async with write_session(shared_tenant_engine) as session:
-        own = add_notification(session, user_id=1, title="A")
-        other = add_notification(session, user_id=2, title="B")
+        own = add_notification(session, user_id=uid, title="A")
+        other = add_notification(session, user_id=uid + 1, title="B")
         await session.flush()
-        tokens = use_user(1)
+        tokens = use_user(uid)
         try:
             center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             assert await center.delete(int(own.id)) is True
@@ -113,7 +113,7 @@ async def test_delete_and_forbidden(shared_tenant_engine: AsyncEngine) -> None:
             reset_user(tokens)
 
 
-async def test_missing_user_context(shared_tenant_engine: AsyncEngine) -> None:
+async def test_missing_user_context(shared_tenant_engine: AsyncEngine, uid: int) -> None:
     """无用户上下文时读面拒绝。"""
     async with write_session(shared_tenant_engine) as session:
         center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
@@ -151,10 +151,10 @@ async def test_transactional_and_default_scope(
         reset_user(tokens)
 
 
-async def test_invalid_filter(shared_tenant_engine: AsyncEngine) -> None:
+async def test_invalid_filter(shared_tenant_engine: AsyncEngine, uid: int) -> None:
     """不支持的筛选字段 / 操作符 / 类型值拒绝。"""
     async with write_session(shared_tenant_engine) as session:
-        tokens = use_user(1)
+        tokens = use_user(uid)
         try:
             center = DatabaseNotificationCenter(session_opener=lambda: session_opener(session), transactional=False)
             for spec in (

@@ -12,6 +12,7 @@ import asyncio
 import os
 import sys
 import time
+import weakref
 from functools import partial
 from pathlib import Path
 
@@ -781,13 +782,18 @@ async def test_ensure_loop_reopens_backend_on_loop_switch(tmp_path: Path) -> Non
     token = await gate.acquire_read()
     await gate.release_read(token)
     backend_before = gate._backend
-    assert gate._loop_id != 0
+    assert gate._loop_ref is not None
+    assert gate._loop_ref() is asyncio.get_running_loop()
 
-    gate._loop_id = -1
-    token = await gate.acquire_read()
-    assert gate._loop_id != -1
-    assert gate._backend is not backend_before
-    await gate.release_read(token)
+    other_loop = asyncio.new_event_loop()
+    gate._loop_ref = weakref.ref(other_loop)
+    try:
+        token = await gate.acquire_read()
+        assert gate._loop_ref is not None
+        assert gate._backend is not backend_before
+        await gate.release_read(token)
+    finally:
+        other_loop.close()
 
 
 async def test_reclaim_dead_owner_recovers_write_gate(tmp_path: Path) -> None:

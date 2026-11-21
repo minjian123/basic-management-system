@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import cast
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
@@ -17,7 +17,9 @@ from bms_core.core.exceptions import EventConsumeError
 from bms_core.db.tenant import TenantContext
 from bms_core.events.base import EventEnvelope
 from bms_core.notification.preference import NotificationPreference, default_notification_preference
-from bms_core.testing.transaction import rollback_session
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.sql_ids import sqlite_id
+from bms_core.testing.transaction import write_session
 from bms_core.ws.base import RealtimeEvent
 from bms_notification.domains.notification.consumers import (
     NotificationRequestConsumer,
@@ -32,6 +34,49 @@ from notification._support import session_opener
 pytestmark = pytest.mark.kiwi_id(2517)
 
 _TENANT = TenantContext(code="demo", db_key="tenant_demo", name="演示", tenant_id=1001)
+
+
+@pytest.fixture
+def user_id(ns: Namespace) -> int:
+    """本用例的收件人主键（按 nodeid 派生：查询与清理都限定本人）。"""
+    return int(ns.prefix[2:], 16) % 900_000 + 1_000
+
+
+@pytest.fixture
+def contact(user_id: int) -> tuple[str, str]:
+    """本用例的邮箱 / 手机号（唯一，便于清理）。"""
+    return f"u{user_id}@example.com", f"1{user_id:010d}"
+
+
+@pytest.fixture(autouse=True)
+async def _clean_notification_rows(
+    shared_tenant_engine: AsyncEngine, user_id: int, contact: tuple[str, str]
+) -> AsyncIterator[None]:
+    """用例前后只清本用例收件人的站内信 / 邮件日志 / 短信日志（写入不再回滚）。
+
+    Args:
+        shared_tenant_engine: 共享租户库引擎。
+        user_id: 本用例收件人。
+        contact: 本用例邮箱与手机号。
+
+    Yields:
+        None: 用例运行期。
+    """
+    email, phone = contact
+
+    async def _purge() -> None:
+        """按收件人删除本用例的行（原生 SQL 带 WHERE；ID 列按 SQLite 补零口径绑定）。"""
+        async with write_session(shared_tenant_engine) as session:
+            await session.execute(
+                text("DELETE FROM sys_notification WHERE user_id IN (:u0, :u1)"),
+                {"u0": sqlite_id(user_id), "u1": sqlite_id(user_id + 1)},
+            )
+            await session.execute(text("DELETE FROM sys_mail_log WHERE recipient = :email"), {"email": email})
+            await session.execute(text("DELETE FROM sys_sms_log WHERE recipient = :phone"), {"phone": phone})
+
+    await _purge()
+    yield
+    await _purge()
 
 
 class _Lookup:
@@ -116,9 +161,9 @@ class _Preference:
         return self._pref
 
 
-def _event(**overrides: object) -> EventEnvelope:
+def _event(uid: int = 1, **overrides: object) -> EventEnvelope:
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
-        {"user_id": "1", "title": "审批待办", "type": "approval", "content": "请处理", "biz_type": "approval"}
+        {"user_id": str(uid), "title": "审批待办", "type": "approval", "content": "请处理", "biz_type": "approval"}
     )
     payload.update(overrides)
     return EventEnvelope(event_type="notification.requested", payload=payload, tenant_id="1001")
@@ -154,106 +199,121 @@ def _consumer(
     )
 
 
-async def test_inbox_and_push(shared_tenant_engine: AsyncEngine) -> None:
+async def test_inbox_and_push(shared_tenant_engine: AsyncEngine, user_id: int) -> None:
     """站内信落库 + notification.sent + notification.new / approval.todo。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         outbox = _Outbox()
         realtime = _Realtime()
-        await _consumer(session, outbox=outbox, realtime=realtime).consume(_event())
-        row = (await session.execute(select(SysNotification))).scalars().one()
-        assert row.user_id == 1
+        await _consumer(session, outbox=outbox, realtime=realtime).consume(_event(user_id))
+        row = (await session.execute(select(SysNotification).where(SysNotification.user_id == user_id))).scalars().one()
+        assert row.user_id == user_id
         assert row.type == "approval"
         assert [event.event_type for event in outbox.events] == ["notification.sent"]
         assert outbox.events[0].payload["biz_type"] == "approval"
         assert [item[0] for item in realtime.events] == ["notification.new", "approval.todo"]
 
 
-async def test_without_biz_type(shared_tenant_engine: AsyncEngine) -> None:
+async def test_without_biz_type(shared_tenant_engine: AsyncEngine, user_id: int) -> None:
     """无业务类型时不写 biz_type 字段。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         outbox = _Outbox()
-        await _consumer(session, outbox=outbox).consume(_event(type="system", biz_type=None))
+        await _consumer(session, outbox=outbox).consume(_event(user_id, type="system", biz_type=None))
         assert "biz_type" not in outbox.events[0].payload
 
 
-async def test_non_approval_only_pushes_new(shared_tenant_engine: AsyncEngine) -> None:
+async def test_non_approval_only_pushes_new(shared_tenant_engine: AsyncEngine, user_id: int) -> None:
     """非审批类只推 notification.new。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         realtime = _Realtime()
-        await _consumer(session, realtime=realtime).consume(_event(type="system"))
+        await _consumer(session, realtime=realtime).consume(_event(user_id, type="system"))
         assert [item[0] for item in realtime.events] == ["notification.new"]
 
 
-async def test_quiet_hours_skips_push(shared_tenant_engine: AsyncEngine) -> None:
+async def test_quiet_hours_skips_push(shared_tenant_engine: AsyncEngine, user_id: int) -> None:
     """免打扰命中：落库但不推送。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         realtime = _Realtime()
         pref = NotificationPreference(dnd_enabled=True, dnd_start="00:00", dnd_end="23:59", timezone="UTC")
         now = datetime.now(UTC)
         assert 0 <= now.hour <= 23
-        await _consumer(session, pref=pref, realtime=realtime).consume(_event())
-        assert (await session.execute(select(SysNotification))).scalars().one()
+        await _consumer(session, pref=pref, realtime=realtime).consume(_event(user_id))
+        assert (
+            (await session.execute(select(SysNotification).where(SysNotification.user_id == user_id))).scalars().one()
+        )
         assert realtime.events == []
 
 
-async def test_inbox_disabled(shared_tenant_engine: AsyncEngine) -> None:
+async def test_inbox_disabled(shared_tenant_engine: AsyncEngine, user_id: int) -> None:
     """站内信渠道关闭：不落库、不发事件、不推送。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         outbox = _Outbox()
         realtime = _Realtime()
         pref = NotificationPreference(channels=ConcurrentStableFrozenDict({"inbox": False, "email": True, "sms": True}))
-        await _consumer(session, pref=pref, outbox=outbox, realtime=realtime).consume(_event())
-        assert (await session.execute(select(SysNotification))).scalars().all() == []
+        await _consumer(session, pref=pref, outbox=outbox, realtime=realtime).consume(_event(user_id))
+        assert (
+            await session.execute(select(SysNotification).where(SysNotification.user_id == user_id))
+        ).scalars().all() == []
         assert outbox.events == []
         assert realtime.events == []
 
 
-async def test_external_channels(shared_tenant_engine: AsyncEngine) -> None:
+async def test_external_channels(shared_tenant_engine: AsyncEngine, user_id: int, contact: tuple[str, str]) -> None:
     """邮件 / 短信按开关与地址经外发调度器落日志 + 提交作业；短信缺模板记失败。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    email, phone = contact
+    async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
         pref = NotificationPreference(channels=ConcurrentStableFrozenDict({"inbox": False, "email": True, "sms": True}))
-        await _consumer(session, pref=pref, jobs=jobs).consume(_event(email="a@b.c", phone="13800000000"))
-        mail = (await session.execute(select(SysMailLog))).scalars().one()
-        assert mail.recipient == "a@b.c"
+        await _consumer(session, pref=pref, jobs=jobs).consume(_event(user_id, email=email, phone=phone))
+        mail = (await session.execute(select(SysMailLog).where(SysMailLog.recipient == email))).scalars().one()
+        assert mail.recipient == email
         assert mail.status == "pending"
-        sms = (await session.execute(select(SysSmsLog))).scalars().one()
+        sms = (await session.execute(select(SysSmsLog).where(SysSmsLog.recipient == phone))).scalars().one()
         assert sms.status == "failed"
         assert "template_code" in (sms.error_msg or "")
         assert [item[0] for item in jobs.submitted] == ["notification.mail.send"]
 
 
-async def test_external_failure_and_pref_failure(shared_tenant_engine: AsyncEngine) -> None:
+async def test_external_failure_and_pref_failure(
+    shared_tenant_engine: AsyncEngine, user_id: int, contact: tuple[str, str]
+) -> None:
     """外发失败与偏好读取失败均不影响站内信。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    email, _phone = contact
+    async with write_session(shared_tenant_engine) as session:
         pref = NotificationPreference(channels=ConcurrentStableFrozenDict({"inbox": True, "email": True, "sms": False}))
-        await _consumer(session, pref=pref, resolver=_Resolver(fail=True)).consume(_event(email="a@b.c"))
-        assert (await session.execute(select(SysNotification))).scalars().one()
+        await _consumer(session, pref=pref, resolver=_Resolver(fail=True)).consume(_event(user_id, email=email))
+        assert (
+            (await session.execute(select(SysNotification).where(SysNotification.user_id == user_id))).scalars().one()
+        )
 
-    async with rollback_session(shared_tenant_engine) as session:
-        await _consumer(session, pref_fail=True, realtime=_Realtime(fail=True)).consume(_event())
-        assert (await session.execute(select(SysNotification))).scalars().one()
+    second_user = user_id + 1
+    async with write_session(shared_tenant_engine) as session:
+        await _consumer(session, pref_fail=True, realtime=_Realtime(fail=True)).consume(_event(second_user))
+        assert (
+            (await session.execute(select(SysNotification).where(SysNotification.user_id == second_user)))
+            .scalars()
+            .one()
+        )
 
 
-async def test_bad_payloads(shared_tenant_engine: AsyncEngine) -> None:
+async def test_bad_payloads(shared_tenant_engine: AsyncEngine, user_id: int) -> None:
     """毒消息：缺字段 / 类型非法 / 超长 / 缺租户 / 租户不可解析。"""
-    async with rollback_session(shared_tenant_engine) as session:
+    async with write_session(shared_tenant_engine) as session:
         consumer = _consumer(session)
         cases = (
-            _event(user_id="x"),
-            _event(title=""),
-            _event(title="x" * 257),
-            _event(type="bad"),
-            _event(content=1),
-            _event(content="x" * 10001),
-            _event(biz_type=1),
-            _event(biz_id="x" * 65),
-            _event(email="x" * 129),
-            _event(phone="x" * 33),
-            _event(sms_template_code="x" * 65),
-            _event(sms_params={"k": 1}),
-            _event(sms_params={"k": "x" * 513}),
-            _event(sms_params=[1]),
+            _event(user_id, user_id="x"),
+            _event(user_id, title=""),
+            _event(user_id, title="x" * 257),
+            _event(user_id, type="bad"),
+            _event(user_id, content=1),
+            _event(user_id, content="x" * 10001),
+            _event(user_id, biz_type=1),
+            _event(user_id, biz_id="x" * 65),
+            _event(user_id, email="x" * 129),
+            _event(user_id, phone="x" * 33),
+            _event(user_id, sms_template_code="x" * 65),
+            _event(user_id, sms_params={"k": 1}),
+            _event(user_id, sms_params={"k": "x" * 513}),
+            _event(user_id, sms_params=[1]),
             EventEnvelope(event_type="notification.requested", payload=ConcurrentStableDict(), tenant_id=None),
         )
         for event in cases:
@@ -264,7 +324,7 @@ async def test_bad_payloads(shared_tenant_engine: AsyncEngine) -> None:
             await consumer.consume(_event_without_tenant())
 
         with pytest.raises(EventConsumeError):
-            await _consumer(session, lookup=_Lookup(fail=True)).consume(_event())
+            await _consumer(session, lookup=_Lookup(fail=True)).consume(_event(user_id))
 
 
 def test_consumer_records() -> None:

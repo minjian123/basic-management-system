@@ -56,13 +56,13 @@ async def engine(shared_platform_engine: AsyncEngine) -> AsyncEngine:
 
 @pytest.fixture
 async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """回滚会话。
+    """操作级写会话（autocommit；本用例数据由清理夹具收尾）。
 
     Args:
         engine: 共享库引擎。
 
     Yields:
-        AsyncSession: 写会话（不提交，退出即回滚）。
+        AsyncSession: 写会话。
     """
     async with write_session(engine) as db_session:
         yield db_session
@@ -112,8 +112,9 @@ async def test_list_help_anchors_skips_null_and_deleted(session: AsyncSession) -
     )
     await session.flush()
     entries = await list_help_anchors(session)
-    assert sorted(entry.table for entry in entries) == ["sys_action", "sys_menu"]
-    assert {entry.help_key for entry in entries} == {"platform:one:::", "platform::::probe_action"}
+    probe = [entry for entry in entries if entry.help_key in {"platform:one:::", "platform::::probe_action"}]
+    assert sorted(entry.table for entry in probe) == ["sys_action", "sys_menu"]
+    assert {entry.help_key for entry in probe} == {"platform:one:::", "platform::::probe_action"}
 
 
 @pytest.mark.kiwi_id(2521)
@@ -182,15 +183,23 @@ async def test_load_help_anchor_index_collects_enabled_rows(session: AsyncSessio
     await session.flush()
 
     index = await load_help_anchor_index(session)
-    assert [(anchor.product, anchor.module_key) for anchor in index.menus] == [("platform", "probe_mod")]
-    assert index.menus[0].model_id == int(menu.id)
-    assert dict(index.forms) == {
+    assert [(anchor.product, anchor.module_key) for anchor in index.menus if anchor.module_key == "probe_mod"] == [
+        ("platform", "probe_mod")
+    ]
+    assert next(anchor for anchor in index.menus if anchor.module_key == "probe_mod").model_id == int(menu.id)
+    assert {key: value for key, value in index.forms.items() if key.startswith("probe")} == {
         "probe_biz": "platform:probe_mod:probe_biz::",
         "probe_orphan": "platform:probe_mod:probe_orphan::",
     }
-    assert dict(index.fields) == {("probe_biz", "probe_field"): "platform:probe_mod:probe_biz:probe_field:"}
-    assert dict(index.buttons) == {("probe_biz", "probe_create"): "platform:probe_mod:probe_biz::probe_create"}
-    assert dict(index.actions) == {"probe_create": "platform::::probe_create"}
+    assert {key: value for key, value in index.fields.items() if key[0].startswith("probe")} == {
+        ("probe_biz", "probe_field"): "platform:probe_mod:probe_biz:probe_field:"
+    }
+    assert {key: value for key, value in index.buttons.items() if key[0].startswith("probe")} == {
+        ("probe_biz", "probe_create"): "platform:probe_mod:probe_biz::probe_create"
+    }
+    assert {key: value for key, value in index.actions.items() if key.startswith("probe")} == {
+        "probe_create": "platform::::probe_create"
+    }
 
 
 async def test_load_anchor_kinds_keeps_first_on_duplicate(

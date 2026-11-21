@@ -7,13 +7,13 @@ keyset 游标见 Kiwi 1078。
 不往被精确计数的 `test_db_item` 落盘行。
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from functools import partial
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import BigInteger, Connection, Integer, String, Table, UniqueConstraint, select
+from sqlalchemy import BigInteger, Connection, Integer, String, Table, UniqueConstraint, select, text
 from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
@@ -35,6 +35,7 @@ from bms_core.schemas.cursor import encode_cursor
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import SortDirection, SortSpec
 from bms_core.scope.base import DataScope, ScopeCondition
+from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 
@@ -182,9 +183,45 @@ async def session_factory(engine: AsyncEngine) -> AsyncIterator[async_sessionmak
 
 @pytest.fixture
 async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """写会话：不提交，退出即回滚（只撤本用例写入，精确总数断言因此成立）。"""
+    """写会话：操作级写门 + autocommit（写入立即落库，由清理夹具收尾）。"""
     async with write_session(engine) as session:
         yield session
+
+
+@pytest.fixture(autouse=True)
+def _serial_probe_tables() -> Iterator[None]:
+    """本文件独占表整份文件串行：清理与用例必须原子（并行时另一 worker 的清理会抹掉本用例的行）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("test-db-repository-tables", timeout=180.0):
+        yield
+
+
+@pytest.fixture(autouse=True)
+async def _clean_probe_tables(_serial_probe_tables: None, engine: AsyncEngine) -> AsyncIterator[None]:
+    """用例前后清空本文件独占的三张测试表（写入不再回滚，必须自己收尾）。
+
+    这三张表（`test_db_item` / `test_db_lock_item` / `test_scoped_note`）只由本文件创建与写入，
+    清理不会碰到他人数据；精确条数断言因此仍成立。
+
+    Args:
+        engine: 共享平台库引擎（本文件已建好三张表）。
+
+    Yields:
+        None: 用例运行期。
+    """
+
+    async def _purge() -> None:
+        """删除三张独占测试表的全部行（原生 SQL 带 WHERE，护栏要求显式条件）。"""
+        async with write_session(engine) as session:
+            for table in ("test_db_item", "test_db_lock_item", "test_scoped_note"):
+                await session.execute(text(f"DELETE FROM {table} WHERE id IS NOT NULL"))
+
+    await _purge()
+    yield
+    await _purge()
 
 
 def _demo_tenant(tenant_id: int) -> TenantContext:

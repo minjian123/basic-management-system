@@ -178,7 +178,8 @@ async def gated_session(engine: AsyncEngine, *, read_only: bool = True) -> Async
     if gate_name is not None and read_only:
         # 读按操作：每次读新开短会话，读完即关（读锁随会话关闭释放）。
         yield cast(
-            "AsyncSession", ReadOperationGatedSession(lambda: db_access_gate(gate_name, read_only=True), factory)
+            "AsyncSession",
+            ReadOperationGatedSession(lambda: db_access_gate(gate_name, read_only=True), factory, bind=engine),
         )
         return
     async with factory() as session:
@@ -186,7 +187,7 @@ async def gated_session(engine: AsyncEngine, *, read_only: bool = True) -> Async
             yield session
             return
         # 写按操作：每个数据库方法调用取放一次写门（不整段持有）。
-        proxy = LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), session)
+        proxy = LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), session, bind=engine)
         try:
             yield cast("AsyncSession", proxy)
         finally:
@@ -219,7 +220,10 @@ async def _write_scope(engine: AsyncEngine, *, savepoint: bool) -> AsyncGenerato
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
     async with factory() as session:
         exposed: AsyncSession = (
-            cast("AsyncSession", LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), session))
+            cast(
+                "AsyncSession",
+                LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), session, bind=engine),
+            )
             if gate_name is not None
             else session
         )

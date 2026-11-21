@@ -22,9 +22,12 @@ from ops.build_ext_columns import build_library, main
 from tests_support.form_design import create_probe_table, list_columns
 from tests_support.shared_access import shared_session
 
-pytestmark = pytest.mark.own_db(
-    "补建列脚本要真造表 / 真加列 / 真回写状态：结构变更只允许在独占临时库，共享库结构由数据初始化建好"
-)
+pytestmark = [
+    pytest.mark.xdist_group("form-design"),
+    pytest.mark.own_db(
+        "补建列脚本要真造表 / 真加列 / 真回写状态：结构变更只允许在独占临时库，共享库结构由数据初始化建好"
+    ),
+]
 
 _TABLE = "biz_ext_probe"
 

@@ -1,6 +1,10 @@
 """注册表仓储与服务用例（07B `02_06`；Kiwi 编号归 `05_01` 统一登记）。
 
-单库叠加口径（04-6-2）：库用共享平台库 + **回滚会话**（写入整体回滚，不动他人数据）。
+单库叠加口径（04-6-2，13_08 修订）：库用共享平台库，**写入立即落库**（不再回滚）；用例只操作
+本文件固定的 `demo` 声明数据，并在用例前后按产品键清理自己的行。声明表是全进程共享的全局
+状态，故整份文件用专用文件锁串行；「损坏 JSON」用例另起独立内存库，避免波及并行 worker 的
+启动读取（`own_db` 白名单理由见模块级标记）。
+
 覆盖：
 - 现状读取（未落库 / 八类回读 / 损坏 JSON 即抛）；
 - 对账落库（新增 / 覆盖 / 退役）与回读一致性；
@@ -8,17 +12,28 @@
 - 平台自注册载荷合并（纯函数分支）。
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import replace
 
 import pytest
-from sqlalchemy import select, text, update
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy import delete, or_, select, update
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.collaboration.usage import CapabilityUsage
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import CatalogError
-from bms_core.models.platform.declaration import SysCollaboration, SysErrcode
+from bms_core.models.base import Base
+from bms_core.models.platform.catalog import SysModule, SysProduct
+from bms_core.models.platform.declaration import (
+    SysCollaboration,
+    SysCollaborationUsage,
+    SysDataSource,
+    SysDomain,
+    SysErrcode,
+    SysProductRoute,
+    SysScopeResourceType,
+    SysSeed,
+)
 from bms_core.registry.declarations import (
     DeclarationPayload,
     RegistrySnapshot,
@@ -31,13 +46,117 @@ from bms_core.services.module_registry import (
     CollaborationRecord,
     ModuleRecord,
 )
+from bms_core.testing.locks import file_lock
 from bms_core.testing.transaction import write_session
 from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.services.declaration_bootstrap import with_platform_services
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
 
-pytestmark = []
-"""无模块级标记：库用共享平台库 + 回滚会话（见 `session` 夹具）。"""
+pytestmark = pytest.mark.own_db(
+    "声明表 JSON 防御分支需在独立库构造损坏行；共享库损坏会波及其它 worker 的启动读取（其余用例走共享库）"
+)
+
+_DEMO_PRODUCT = "demo"
+"""本文件占用的产品键（清理与断言都以此为准）。"""
+
+_DEMO_MODULES = ("demo", "demoextra")
+"""本文件注册的模块键（`demoextra` 为「无服务键行」用例的附加行）。"""
+
+_DECLARATION_MODELS = (
+    SysProductRoute,
+    SysDataSource,
+    SysCollaboration,
+    SysCollaborationUsage,
+    SysSeed,
+    SysErrcode,
+    SysDomain,
+    SysScopeResourceType,
+)
+"""按产品键清理的八张声明表。"""
+
+
+async def _purge_demo(engine: AsyncEngine) -> None:
+    """删除本文件造出的 `demo` 声明行（进入 / 退出各一次）。
+
+    Args:
+        engine: 共享平台库引擎。
+    """
+    async with write_session(engine) as session:
+        await session.execute(
+            delete(SysModule).where(
+                or_(
+                    SysModule.module_key.in_(_DEMO_MODULES),
+                    SysModule.product_key == _DEMO_PRODUCT,
+                )
+            )
+        )
+        await session.execute(delete(SysProduct).where(SysProduct.product_key == _DEMO_PRODUCT))
+        for model in _DECLARATION_MODELS:
+            await session.execute(delete(model).where(model.product_key == _DEMO_PRODUCT))
+
+
+@pytest.fixture(autouse=True)
+def _declaration_global_serial() -> Iterator[None]:
+    """声明表是共享库上的全局状态：整份文件串行（数据库门只管单次读写）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("platform-global-state", timeout=180.0):
+        yield
+
+
+@pytest.fixture(autouse=True)
+async def _clean_demo_declarations(
+    _declaration_global_serial: None, shared_platform_engine: AsyncEngine
+) -> AsyncIterator[None]:
+    """用例前后清理本文件的 `demo` 声明行（写入已立即落库，必须自己收尾）。
+
+    Args:
+        _declaration_global_serial: 保证清理也在串行区间内。
+        shared_platform_engine: 共享平台库引擎。
+
+    Yields:
+        None: 用例运行期。
+    """
+    await _purge_demo(shared_platform_engine)
+    yield
+    await _purge_demo(shared_platform_engine)
+
+
+@pytest.fixture
+async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    """共享平台库上的**操作级写会话**（每条 SQL 立即落库并立即放锁）。
+
+    用例数据由 `_clean_demo_declarations` 在前后清理，不依赖事务回滚。
+
+    Args:
+        shared_platform_engine: 共享平台库引擎。
+
+    Yields:
+        AsyncSession: 操作级门代理会话。
+    """
+    async with write_session(shared_platform_engine) as db:
+        yield db
+
+
+@pytest.fixture
+async def private_session() -> AsyncIterator[AsyncSession]:
+    """独立内存库会话（仅供「损坏 JSON」用例构造坏行，不碰共享声明表）。
+
+    Yields:
+        AsyncSession: 独立库会话（仅含声明相关表）。
+    """
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+        async with factory() as db:
+            yield db
+    finally:
+        await engine.dispose()
+
 
 _MANIFEST = """
 product_key = "demo"
@@ -115,23 +234,6 @@ status = "planned"
 """
 
 
-@pytest.fixture
-async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """共享平台库上的**回滚会话**（用例写入整体回滚，不动他人数据）。
-
-    单库叠加口径（04-6-2）：库用共享平台库；「整表清理后重插 / 行被删」这类被测状态在本用例
-    事务内构造，结束即回滚——既不需要每用例建库，也不影响并行中的其它 worker。
-
-    Args:
-        shared_platform_engine: 共享平台库引擎。
-
-    Yields:
-        AsyncSession: 绑定外层事务的会话。
-    """
-    async with write_session(shared_platform_engine) as db:
-        yield db
-
-
 def _payload(path: str = "/api/v1/demo/roles") -> DeclarationPayload:
     """解析用例清单为注册载荷（可替换能力访问面路径）。
 
@@ -184,7 +286,7 @@ async def _apply(repository: DeclarationRepository, payload: DeclarationPayload)
 
 
 async def test_load_snapshot_empty(session: AsyncSession) -> None:
-    """空库：八类皆空、无声明方。"""
+    """未落库：本文件的能力键无归属方（共享库上其余声明行不影响判定）。"""
     snapshot = await DeclarationRepository(session).load_snapshot()
 
     assert snapshot.owner_of("collaborations", "demo.demo_op.roles") is None
@@ -238,12 +340,19 @@ async def test_apply_updates_changed_content(session: AsyncSession) -> None:
     assert snapshot.hash_of("collaborations", "demo.demo_op.roles") == content_hash_of("collaborations", record)
 
 
-async def test_corrupt_json_raises(session: AsyncSession) -> None:
-    """库内 JSON 字段损坏：抛 `CatalogError`（不静默退化为空）。"""
-    repository = DeclarationRepository(session)
+async def test_corrupt_json_raises(private_session: AsyncSession) -> None:
+    """库内 JSON 字段损坏：抛 `CatalogError`（不静默退化为空）。
+
+    独立内存库：损坏行若落在共享声明表上，会让并行 worker 的启动读取一并失败。
+    """
+    repository = DeclarationRepository(private_session)
     await _apply(repository, _payload())
-    await session.execute(update(SysCollaboration).values(default_consumers="not-json"))
-    await session.flush()
+    await private_session.execute(
+        update(SysCollaboration)
+        .where(SysCollaboration.product_key == _DEMO_PRODUCT)
+        .values(default_consumers="not-json")
+    )
+    await private_session.flush()
 
     with pytest.raises(CatalogError, match="JSON 字段损坏"):
         await repository.load_snapshot()
@@ -261,12 +370,17 @@ async def test_maps_from_round_trips_as_int_list(session: AsyncSession) -> None:
     assert list(errcode.maps_from) == [80002, 80001]
 
 
-async def test_corrupt_maps_from_json_raises(session: AsyncSession) -> None:
-    """`maps_from` 库内损坏：抛 `CatalogError`（不静默退化为「不做映射」）。"""
-    repository = DeclarationRepository(session)
+async def test_corrupt_maps_from_json_raises(private_session: AsyncSession) -> None:
+    """`maps_from` 库内损坏：抛 `CatalogError`（不静默退化为「不做映射」）。
+
+    独立内存库（同上：坏行不能落在共享声明表）。
+    """
+    repository = DeclarationRepository(private_session)
     await _apply(repository, _payload())
-    await session.execute(update(SysErrcode).values(maps_from="not-json"))
-    await session.flush()
+    await private_session.execute(
+        update(SysErrcode).where(SysErrcode.product_key == _DEMO_PRODUCT).values(maps_from="not-json")
+    )
+    await private_session.flush()
 
     with pytest.raises(CatalogError, match="整数数组"):
         await repository.load_snapshot()
@@ -302,7 +416,8 @@ async def test_service_tenant_base_round_trips_through_registry(session: AsyncSe
     assert report.updated["services"] == 1  # 指纹含该要素：改声明即视为一次更新
 
     snapshot = await service.snapshot()
-    assert snapshot.of("services")[0].tenant_base is True
+    demo_service = next(item for item in snapshot.of("services") if item.module_key == _DEMO_PRODUCT)
+    assert demo_service.tenant_base is True
     # 投影（注册后整表重建）把标记带进恒开通集合
     assert "demo" in tenant_base_module_keys()
 
@@ -480,12 +595,16 @@ async def test_apply_skips_retire_when_row_missing(session: AsyncSession) -> Non
     assert snapshot.owner_of("collaborations", "demo.demo_op.roles") is None
 
 
-async def test_corrupt_mapping_json_raises(session: AsyncSession) -> None:
-    """映射型 JSON 字段损坏：同样抛 `CatalogError`。"""
-    repository = DeclarationRepository(session)
+async def test_corrupt_mapping_json_raises(private_session: AsyncSession) -> None:
+    """映射型 JSON 字段损坏：同样抛 `CatalogError`。
+
+    独立内存库：此前这里对 `sys_seed` 做**全表更新**，写入立即落库后会永久污染共享库并
+    连带上百条用例失败（13_08 修订的直接动因）。
+    """
+    repository = DeclarationRepository(private_session)
     await _apply(repository, _payload())
-    await session.execute(text("UPDATE sys_seed SET tables = 'not-json'"))
-    await session.flush()
+    await private_session.execute(update(SysSeed).where(SysSeed.product_key == _DEMO_PRODUCT).values(tables="not-json"))
+    await private_session.flush()
 
     with pytest.raises(CatalogError, match="JSON 字段损坏"):
         await repository.load_snapshot()
@@ -515,14 +634,18 @@ async def test_empty_json_fields_read_as_empty_collections(session: AsyncSession
     """空 JSON 字段（历史行 / 未声明集合）：读回为空集合而非报错。"""
     repository = DeclarationRepository(session)
     await _apply(repository, _payload())
-    await session.execute(update(SysCollaboration).values(default_consumers=""))
-    await session.execute(text("UPDATE sys_seed SET tables = ''"))
+    await session.execute(
+        update(SysCollaboration).where(SysCollaboration.product_key == _DEMO_PRODUCT).values(default_consumers="")
+    )
+    await session.execute(update(SysSeed).where(SysSeed.product_key == _DEMO_PRODUCT).values(tables=""))
     await session.flush()
 
     snapshot = await repository.load_snapshot()
 
-    assert list(snapshot.of("collaborations")[0].default_consumers) == []
-    assert dict(snapshot.of("seeds")[0].tables) == {}
+    collaboration = next(item for item in snapshot.of("collaborations") if item.name == "demo.demo_op.roles")
+    seed = next(item for item in snapshot.of("seeds") if item.name == "demo-seed")
+    assert list(collaboration.default_consumers) == []
+    assert dict(seed.tables) == {}
 
 
 def test_usage_only_payload_keeps_snapshot_shape() -> None:

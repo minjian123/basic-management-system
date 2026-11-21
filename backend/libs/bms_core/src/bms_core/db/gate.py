@@ -69,7 +69,7 @@ async def db_access_gate(db_key: str, *, read_only: bool, wait: float | None = N
         yield
 
 
-class _ScalarProxy:
+class _ScalarProxy(BaseFrameworkObject):
     """物化后的标量结果代理：`Result.scalars()` 的常用只读接口。
 
     读操作在 `execute` 里已把行取完并放门，这里只做内存访问，不再持任何锁。
@@ -124,7 +124,7 @@ class _ScalarProxy:
         return len(self._values)
 
 
-class _MappingsProxy:
+class _MappingsProxy(BaseFrameworkObject):
     """物化后的字典视图代理：`Result.mappings()` 的常用只读接口。"""
 
     def __init__(self, rows: ConcurrentStableList[Any]) -> None:
@@ -148,7 +148,7 @@ class _MappingsProxy:
         return iter([row._mapping for row in self._rows])
 
 
-class ResultProxy:
+class ResultProxy(BaseFrameworkObject):
     """物化后的结果代理：读操作的门已放，所有访问都是内存操作。
 
     为什么要物化：读操作的语义是「取锁 → 立即读 → 取完即放」。SQLAlchemy 的 `AsyncResult`
@@ -267,15 +267,35 @@ class ReadOperationGatedSession(BaseFrameworkObject):
         self,
         scope_factory: Callable[[], AbstractAsyncContextManager[None]],
         session_factory: Callable[[], AbstractAsyncContextManager[object]],
+        bind: object | None = None,
     ) -> None:
         """初始化。
 
         Args:
             scope_factory: 门上下文工厂（每次读操作新建一个）。
             session_factory: 会话工厂（每次读操作新建短会话，退出即关闭并结束事务）。
+            bind: 底层绑定引擎（供 `session.bind` 只读读取；不参与取门）。
         """
         object.__setattr__(self, "_scope_factory", scope_factory)
         object.__setattr__(self, "_session_factory", session_factory)
+        object.__setattr__(self, "_bind", bind)
+
+    @property
+    def bind(self) -> object | None:
+        """底层绑定引擎（与普通会话的 `bind` 同义；读操作仍按次开短会话）。
+
+        Returns:
+            object | None: 绑定引擎；调用方未提供时为 None。
+        """
+        return object.__getattribute__(self, "_bind")
+
+    def get_bind(self) -> object | None:
+        """取绑定引擎（SQLAlchemy 会话协议的兼容入口）。
+
+        Returns:
+            object | None: 绑定引擎。
+        """
+        return object.__getattribute__(self, "_bind")
 
     def __getattr__(self, name: str) -> Any:
         """代理属性：只暴露读路径方法，其余明确报错（避免误用长会话）。
@@ -352,15 +372,40 @@ class LazyGatedSession(BaseFrameworkObject):
         info: 底层会话的 `info`（SQLAlchemy 内部也读它）。
     """
 
-    def __init__(self, scope_factory: Callable[[], AbstractAsyncContextManager[None]], session: object) -> None:
+    def __init__(
+        self,
+        scope_factory: Callable[[], AbstractAsyncContextManager[None]],
+        session: object,
+        bind: object | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             scope_factory: 门上下文工厂（每次写操作新建一个）。
             session: 底层会话对象。
+            bind: 对外暴露的绑定引擎（SQLite autocommit 包装下保留原始引擎身份）。
         """
         object.__setattr__(self, "_scope_factory", scope_factory)
         object.__setattr__(self, "_session", session)
+        object.__setattr__(self, "_bind", bind)
+
+    @property
+    def bind(self) -> object:
+        """绑定引擎：调用方给了原始引擎就用它，否则透传底层会话的 `bind`。
+
+        Returns:
+            object: 绑定引擎。
+        """
+        bind = object.__getattribute__(self, "_bind")
+        return bind if bind is not None else object.__getattribute__(object.__getattribute__(self, "_session"), "bind")
+
+    def get_bind(self) -> object:
+        """取绑定引擎（SQLAlchemy 会话协议的兼容入口）。
+
+        Returns:
+            object: 绑定引擎。
+        """
+        return self.bind
 
     def __getattr__(self, name: str) -> Any:
         """代理属性：协程方法逐个包门，其余原样返回。

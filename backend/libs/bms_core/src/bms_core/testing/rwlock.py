@@ -33,6 +33,7 @@ import os
 import sys
 import threading
 import time
+import weakref
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -511,8 +512,12 @@ class DbGate:
         self._count_lock = threading.Lock()
         self._holder_lock = threading.Lock()
         """持有者文件的读改写互斥（诊断落盘，不与 `_count_lock` 混用，避免把文件 I/O 塞进取门热路径）。"""
-        self._loop_id = 0
-        """当前锁句柄所属事件循环 id（pytest-asyncio 每用例一个新循环，切换时重开句柄）。"""
+        self._loop_ref: weakref.ref[asyncio.AbstractEventLoop] | None = None
+        """当前锁句柄所属事件循环（弱引用）：pytest-asyncio 每用例一个新循环，切换时重开句柄。
+
+        为什么用弱引用而不是 `id(loop)`：旧循环释放后 `id` 会被新循环复用，按 id 比较会把
+        新循环误判成旧循环，于是旧句柄的残留内核锁永远不回收（表现为「持有者：无」却等满上限）。
+        """
 
     def _ensure_loop(self) -> None:
         """事件循环切换时重开锁句柄（回收上一循环残留的门状态）。
@@ -521,12 +526,13 @@ class DbGate:
         `release` 之前被取消，内核锁会随旧句柄留在进程里——账目已清零，但新循环拿到的是
         「持有者：无却永远取不到门」。关闭句柄由系统回收锁，新句柄从干净状态开始。
         """
-        loop_id = id(asyncio.get_running_loop())
+        loop = asyncio.get_running_loop()
         with self._count_lock:
-            if self._loop_id == loop_id:
+            current = self._loop_ref() if self._loop_ref is not None else None
+            if current is loop:
                 return
-            stale = self._loop_id != 0
-            self._loop_id = loop_id
+            stale = current is not None
+            self._loop_ref = weakref.ref(loop)
             self._own_reads.clear()
             self._borrowed_reads.clear()
             self._retired_reads.clear()

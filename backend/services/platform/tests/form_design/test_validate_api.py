@@ -16,7 +16,7 @@ from tests_support.permission_admin import setup_min_tenant
 
 from .helpers import register_form_key, seed_business, seed_form_with_fields
 
-pytestmark = pytest.mark.kiwi_id(2526)
+pytestmark = [pytest.mark.kiwi_id(2526), pytest.mark.xdist_group("form-design")]
 
 _LAYOUTS = "/api/v1/form-design/layouts"
 _ATTRS = "/api/v1/form-design/attrs"

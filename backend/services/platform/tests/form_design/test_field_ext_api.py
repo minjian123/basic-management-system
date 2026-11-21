@@ -23,6 +23,7 @@ from .helpers import (
 
 pytestmark = [
     pytest.mark.kiwi_id(2526),
+    pytest.mark.xdist_group("form-design"),
     pytest.mark.own_db("自建字段用例要真跑建列 / 造探针表：运行期改结构只允许在独占临时库，共享库结构由数据初始化建好"),
 ]
 

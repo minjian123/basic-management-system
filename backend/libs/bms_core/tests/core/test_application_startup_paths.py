@@ -495,7 +495,8 @@ async def test_dev_seed_and_validate_share_single_scope(monkeypatch: pytest.Monk
 
     await app_module._bootstrap_table_ownership(settings, app)  # pyright: ignore[reportPrivateUsage]
     await engine.dispose()
-    assert list(entered) == ["enter"]
+    # 读优先口径（13_08）：只读探测 1 次 + 未播种时写 1 次 + 对账只读 1 次
+    assert list(entered) == ["enter", "enter", "enter"]
 
 
 @pytest.mark.kiwi_id(2299)

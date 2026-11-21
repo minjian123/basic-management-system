@@ -3,17 +3,49 @@
 # pyright: reportPrivateUsage=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import AliyunSmsSettings, SmsSettings, TencentSmsSettings
 from bms_core.core.exceptions import ConflictError, ParamError, SmsTemplateUnavailableError
+from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.schemas.sms import SmsTemplateCreateRequest
 from bms_notification.domains.notification.services.sms import SmsTemplateService
 
 pytestmark = pytest.mark.kiwi_id(2519)
+
+
+@pytest.fixture
+def code(ns: Namespace) -> str:
+    """本用例的短信模板 code（按 nodeid 派生，避免与并行用例撞码）。"""
+    return f"{ns.prefix}_order"
+
+
+@pytest.fixture(autouse=True)
+async def _clean_sms_templates(shared_tenant_engine: AsyncEngine, code: str) -> AsyncIterator[None]:
+    """用例前后只清本用例的模板（写入立即落库，不再回滚）。
+
+    Args:
+        shared_tenant_engine: 共享租户库引擎。
+        code: 本用例模板 code。
+
+    Yields:
+        None: 用例运行期。
+    """
+
+    async def _purge() -> None:
+        """删除本用例的模板行。"""
+        async with write_session(shared_tenant_engine) as session:
+            await session.execute(text("DELETE FROM sys_sms_template WHERE code = :code"), {"code": code})
+
+    await _purge()
+    yield
+    await _purge()
 
 
 class _Registry:
@@ -64,7 +96,7 @@ def _service_with_registry(session: object, registry: _Registry) -> SmsTemplateS
     )
 
 
-def _request(code: str = "order_notice") -> SmsTemplateCreateRequest:
+def _request(code: str) -> SmsTemplateCreateRequest:
     return SmsTemplateCreateRequest(
         code=code,
         name="订单通知",
@@ -76,21 +108,21 @@ def _request(code: str = "order_notice") -> SmsTemplateCreateRequest:
     )
 
 
-async def test_create_list_and_resolve(shared_tenant_engine: AsyncEngine) -> None:
+async def test_create_list_and_resolve(shared_tenant_engine: AsyncEngine, code: str) -> None:
     """新建 / 列表合并内置 / 发送解析。"""
     async with write_session(shared_tenant_engine) as session:
         service = _service(session)
-        detail = await service.create(_request())
-        assert detail.code == "order_notice"
+        detail = await service.create(_request(code))
+        assert detail.code == code
         assert detail.provider_template_id == "SMS_9"
         assert list(detail.provider_param_keys) == ["order_no"]
 
         page = await service.list(page=1, size=50)
         codes = [item.code for item in page.list]
-        assert "order_notice" in codes
+        assert code in codes
         assert "sms_captcha" in codes
 
-        resolved = await service.resolve_for_send("order_notice", params=ConcurrentStableDict({"order_no": "A001"}))
+        resolved = await service.resolve_for_send(code, params=ConcurrentStableDict({"order_no": "A001"}))
         assert resolved.content == "订单 A001 已发货。"
         assert resolved.provider_template_id == "SMS_9"
         assert list(resolved.provider_param_keys) == ["order_no"]
@@ -113,37 +145,37 @@ async def test_builtin_transactional(shared_tenant_engine: AsyncEngine) -> None:
         assert reset.provider_template_id == "SMS_2"
 
 
-async def test_duplicate_scene_and_missing(shared_tenant_engine: AsyncEngine) -> None:
+async def test_duplicate_scene_and_missing(shared_tenant_engine: AsyncEngine, code: str) -> None:
     """同 code+渠道重复 / 场景非法 / 不存在。"""
     async with write_session(shared_tenant_engine) as session:
         service = _service(session)
-        await service.create(_request())
+        await service.create(_request(code))
         with pytest.raises(ConflictError):
-            await service.create(_request())
+            await service.create(_request(code))
         with pytest.raises(ParamError):
             await _service_with_registry(session, _Registry(ConcurrentStableList(("场景不可用",)))).create(
-                _request("bad_scene")
+                _request(f"{code}_bad")
             )
         with pytest.raises(SmsTemplateUnavailableError):
             await service.resolve_for_send("missing", params=ConcurrentStableDict())
 
 
-async def test_update_and_test(shared_tenant_engine: AsyncEngine) -> None:
+async def test_update_and_test(shared_tenant_engine: AsyncEngine, code: str) -> None:
     """编辑停用 / 渲染测试。"""
     async with write_session(shared_tenant_engine) as session:
         service = _service(session)
-        detail = await service.create(_request())
+        detail = await service.create(_request(code))
         assert detail.id is not None
-        code, content = await service.test(int(detail.id), params=ConcurrentStableDict({"order_no": "B002"}))
-        assert code == "order_notice"
+        code_out, content = await service.test(int(detail.id), params=ConcurrentStableDict({"order_no": "B002"}))
+        assert code_out == code
         assert "B002" in content
 
 
-async def test_list_filter_source(shared_tenant_engine: AsyncEngine) -> None:
+async def test_list_filter_source(shared_tenant_engine: AsyncEngine, code: str) -> None:
     """来源 / 场景筛选。"""
     async with write_session(shared_tenant_engine) as session:
         service = _service(session)
-        await service.create(_request())
+        await service.create(_request(code))
         builtin = await service.list(page=1, size=50, source="builtin")
         assert all(item.source == "builtin" for item in builtin.list)
         tenant = await service.list(page=1, size=50, source="tenant")

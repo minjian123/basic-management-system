@@ -3,11 +3,12 @@
 # pyright: reportPrivateUsage=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import cast
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import (
@@ -18,6 +19,7 @@ from bms_core.core.concurrent import (
 from bms_core.core.config import AliyunSmsSettings, MailSettings, SmsSettings, TencentSmsSettings
 from bms_core.core.exceptions import ParamError
 from bms_core.notification.preference import BaseNotificationPreferenceStore, NotificationPreference
+from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.models.mail import SysMailLog
 from bms_notification.domains.notification.models.sms import SysSmsLog
@@ -84,6 +86,40 @@ def _service(session: object, *, pref: NotificationPreference | None = None, job
     )
 
 
+@pytest.fixture
+def contact(ns: Namespace) -> tuple[str, str, str]:
+    """本用例唯一的两封邮箱与一个手机号（查询与清理都限定它们）。"""
+    uid = int(ns.prefix[2:], 16) % 900_000
+    return f"a{uid}@b.c", f"b{uid}@b.c", f"1{uid:010d}"
+
+
+@pytest.fixture(autouse=True)
+async def _clean_outbound_logs(shared_tenant_engine: AsyncEngine, contact: tuple[str, str, str]) -> AsyncIterator[None]:
+    """用例前后只清本用例收件人的邮件 / 短信日志（写入立即落库，不再回滚）。
+
+    Args:
+        shared_tenant_engine: 共享租户库引擎。
+        contact: 本用例的邮箱与手机号。
+
+    Yields:
+        None: 用例运行期。
+    """
+    first, second, phone = contact
+
+    async def _purge() -> None:
+        """按收件人删除本用例的日志（原生 SQL 带 WHERE）。"""
+        async with write_session(shared_tenant_engine) as session:
+            await session.execute(
+                text("DELETE FROM sys_mail_log WHERE recipient IN (:first, :second)"),
+                {"first": first, "second": second},
+            )
+            await session.execute(text("DELETE FROM sys_sms_log WHERE recipient = :phone"), {"phone": phone})
+
+    await _purge()
+    yield
+    await _purge()
+
+
 def _request(**overrides: object) -> DispatchRequest:
     values: ConcurrentStableDict[str, object] = ConcurrentStableDict(
         {
@@ -99,53 +135,63 @@ def _request(**overrides: object) -> DispatchRequest:
     return DispatchRequest(**values)  # pyright: ignore[reportArgumentType]
 
 
-async def test_email_dispatch_creates_log_and_job(shared_tenant_engine: AsyncEngine) -> None:
+async def test_email_dispatch_creates_log_and_job(
+    shared_tenant_engine: AsyncEngine, contact: tuple[str, str, str]
+) -> None:
     """邮件受理：pending 日志 + 作业负载含渲染正文。"""
+    email, _second, _phone = contact
     async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
-        outcome = await _service(session, jobs=jobs).dispatch(_request())
+        outcome = await _service(session, jobs=jobs).dispatch(_request(recipient=email))
         assert outcome.status == "pending"
-        log = (await session.execute(select(SysMailLog))).scalars().one()
+        log = (await session.execute(select(SysMailLog).where(SysMailLog.recipient == email))).scalars().one()
         assert log.status == "pending"
         assert log.subject and "审批" in log.subject
         assert jobs.calls[0][0] == "notification.mail.send"
         assert "审批" in str(jobs.calls[0][1]["content"])
 
 
-async def test_dnd_and_transactional(shared_tenant_engine: AsyncEngine) -> None:
+async def test_dnd_and_transactional(shared_tenant_engine: AsyncEngine, contact: tuple[str, str, str]) -> None:
     """免打扰落 skipped；事务性绕过。"""
+    email, _second, _phone = contact
     pref = NotificationPreference(dnd_enabled=True, dnd_start="00:00", dnd_end="23:59", timezone="UTC")
     async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
-        outcome = await _service(session, pref=pref, jobs=jobs).dispatch(_request())
+        outcome = await _service(session, pref=pref, jobs=jobs).dispatch(_request(recipient=email))
         assert outcome.status == "skipped"
-        log = (await session.execute(select(SysMailLog))).scalars().one()
+        log = (await session.execute(select(SysMailLog).where(SysMailLog.recipient == email))).scalars().one()
         assert log.error_msg == "dnd"
         assert jobs.calls == []
 
     async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
-        outcome = await _service(session, pref=pref, jobs=jobs).dispatch(_request(transactional=True))
+        outcome = await _service(session, pref=pref, jobs=jobs).dispatch(_request(recipient=email, transactional=True))
         assert outcome.status == "pending"
         assert len(jobs.calls) == 1
 
 
-async def test_channel_disabled(shared_tenant_engine: AsyncEngine) -> None:
+async def test_channel_disabled(shared_tenant_engine: AsyncEngine, contact: tuple[str, str, str]) -> None:
     """渠道关闭：API 落 skipped；通知组不落日志。"""
+    email, second, _phone = contact
     pref = NotificationPreference(channels=ConcurrentStableFrozenDict({"inbox": True, "email": False, "sms": True}))
     async with write_session(shared_tenant_engine) as session:
-        outcome = await _service(session, pref=pref).dispatch(_request())
+        outcome = await _service(session, pref=pref).dispatch(_request(recipient=email))
         assert outcome.status == "skipped"
-        assert (await session.execute(select(SysMailLog))).scalars().one()
+        assert (await session.execute(select(SysMailLog).where(SysMailLog.recipient == email))).scalars().one()
 
     async with write_session(shared_tenant_engine) as session:
-        outcome = await _service(session, pref=pref).dispatch(_request(record_skipped_when_disabled=False))
+        outcome = await _service(session, pref=pref).dispatch(
+            _request(recipient=second, record_skipped_when_disabled=False)
+        )
         assert outcome.status == "filtered"
-        assert (await session.execute(select(SysMailLog))).scalars().all() == []
+        assert (await session.execute(select(SysMailLog).where(SysMailLog.recipient == second))).scalars().all() == []
 
 
-async def test_missing_recipient_and_idempotency(shared_tenant_engine: AsyncEngine) -> None:
+async def test_missing_recipient_and_idempotency(
+    shared_tenant_engine: AsyncEngine, contact: tuple[str, str, str]
+) -> None:
     """地址缺失：API 抛错 / 通知组落 failed；幂等键返回同记录。"""
+    email, _second, _phone = contact
     async with write_session(shared_tenant_engine) as session:
         with pytest.raises(ParamError):
             await _service(session).dispatch(_request(recipient=None, user_id=None))
@@ -157,23 +203,25 @@ async def test_missing_recipient_and_idempotency(shared_tenant_engine: AsyncEngi
             )
         )
         assert outcome.status == "failed"
-        log = (await session.execute(select(SysMailLog))).scalars().one()
+        log = (await session.execute(select(SysMailLog).order_by(SysMailLog.id.desc()).limit(1))).scalars().first()
+        assert log is not None
         assert log.status == "failed"
 
     async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
         service = _service(session, jobs=jobs)
-        first = await service.dispatch(_request(idempotency_key="k-1"))
-        second = await service.dispatch(_request(idempotency_key="k-1"))
+        first = await service.dispatch(_request(recipient=email, idempotency_key="k-1"))
+        second = await service.dispatch(_request(recipient=email, idempotency_key="k-1"))
         assert first.log_id == second.log_id
         assert len(jobs.calls) == 1
 
 
-async def test_sms_template_required_and_mask(shared_tenant_engine: AsyncEngine) -> None:
+async def test_sms_template_required_and_mask(shared_tenant_engine: AsyncEngine, contact: tuple[str, str, str]) -> None:
     """短信无模板抛错；内置验证码模板落脱敏正文。"""
+    _email, _second, phone = contact
     async with write_session(shared_tenant_engine) as session:
         with pytest.raises(ParamError):
-            await _service(session).dispatch(_request(channel=CHANNEL_SMS, template_code=None, recipient="13800000000"))
+            await _service(session).dispatch(_request(channel=CHANNEL_SMS, template_code=None, recipient=phone))
 
     async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
@@ -197,11 +245,11 @@ async def test_sms_template_required_and_mask(shared_tenant_engine: AsyncEngine)
                 channel=CHANNEL_SMS,
                 template_code="sms_captcha",
                 params=ConcurrentStableFrozenDict({"code": "123456", "minutes": "5"}),
-                recipient="13800000000",
+                recipient=phone,
             )
         )
         assert outcome.status == "pending"
-        log = (await session.execute(select(SysSmsLog))).scalars().one()
+        log = (await session.execute(select(SysSmsLog).where(SysSmsLog.recipient == phone))).scalars().one()
         assert "123456" not in (log.content or "")
         assert "****" in (log.content or "")
         assert jobs.calls[0][1]["provider_template_id"] == "SMS_1"

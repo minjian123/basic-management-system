@@ -1,6 +1,6 @@
 """统一会话入口测试（Kiwi 1050）：库键解析 / 读写角色透传 / 自定义会话工厂 / 方言分流。"""
 
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -118,6 +118,32 @@ async def test_session_scope_sync_dialect_uses_sync_facade() -> None:
     try:
         async with session_scope(registry, db_key=PLATFORM_DB_KEY) as session:
             assert isinstance(session, SyncSession)
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(1050)
+async def test_request_db_read_path_uses_operation_gated_session() -> None:
+    """请求级只读依赖走「按操作开短会话」代理，并透出绑定引擎（路由断言用）。"""
+    from bms_core.api.middleware import ReadOnlyMiddleware
+
+    registry = EngineRegistry(EngineFactory(_settings()))
+    app = FastAPI()
+    app.add_middleware(ReadOnlyMiddleware)
+    app.state.engine_registry = registry
+    app.state.session_factory = SessionFactory()
+
+    @app.get("/db")
+    # bare-collections:allow（FastAPI 端点返回注解）
+    async def db(session: Annotated[DbSession, Depends(get_db)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+        value = (await session.execute(text("SELECT 1"))).scalar_one()
+        return {"bind_set": cast("Any", session).bind is not None, "value": value}
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/db")
+            assert response.status_code == 200
+            assert response.json() == {"bind_set": True, "value": 1}
     finally:
         await registry.aclose()
 

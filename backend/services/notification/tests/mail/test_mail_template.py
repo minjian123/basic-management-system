@@ -3,7 +3,10 @@
 # pyright: reportPrivateUsage=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Iterator
+
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -12,6 +15,8 @@ from bms_core.core.exceptions import (
     MailTemplateNotFoundError,
     TemplateSyntaxInvalidError,
 )
+from bms_core.testing.locks import file_lock
+from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.mail_constants import MAIL_TEMPLATE_STATUS_DISABLED
 from bms_notification.domains.notification.schemas.mail import (
@@ -25,13 +30,64 @@ from bms_notification.domains.notification.services.mail import MailTemplateServ
 pytestmark = pytest.mark.kiwi_id(2519)
 
 
+@pytest.fixture
+def code(ns: Namespace) -> str:
+    """本用例的邮件模板 code（按 nodeid 派生，避免与并行用例撞码）。"""
+    return f"{ns.prefix}_welcome"
+
+
+@pytest.fixture(autouse=True)
+def _serial_mail_templates() -> Iterator[None]:
+    """模板覆盖内置需要独占 code（`approval_todo`）：整份文件串行，避免并行互相覆盖。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("notification-mail-templates", timeout=180.0):
+        yield
+
+
+@pytest.fixture(autouse=True)
+async def _clean_mail_templates(
+    _serial_mail_templates: None, shared_tenant_engine: AsyncEngine, code: str
+) -> AsyncIterator[None]:
+    """用例前后只清本用例的模板（含多语言附表；写入立即落库，不再回滚）。
+
+    Args:
+        shared_tenant_engine: 共享租户库引擎。
+        code: 本用例模板 code。
+
+    Yields:
+        None: 用例运行期。
+    """
+
+    async def _purge() -> None:
+        """删除本用例的模板与附表（原生 SQL 带 WHERE）。"""
+        async with write_session(shared_tenant_engine) as session:
+            await session.execute(
+                text(
+                    "DELETE FROM sys_mail_template_i18n "
+                    "WHERE template_id IN (SELECT id FROM sys_mail_template WHERE code IN (:code, :override))"
+                ),
+                {"code": code, "override": "approval_todo"},
+            )
+            await session.execute(
+                text("DELETE FROM sys_mail_template WHERE code IN (:code, :override)"),
+                {"code": code, "override": "approval_todo"},
+            )
+
+    await _purge()
+    yield
+    await _purge()
+
+
 def _id(detail: MailTemplateDetail) -> int:
     """取租户模板主键（内置默认为 None，用例只针对租户行）。"""
     assert detail.id is not None
     return int(detail.id)
 
 
-def _create_request(code: str = "welcome") -> MailTemplateCreateRequest:
+def _create_request(code: str) -> MailTemplateCreateRequest:
     return MailTemplateCreateRequest(
         code=code,
         name="欢迎邮件",
@@ -44,18 +100,18 @@ def _create_request(code: str = "welcome") -> MailTemplateCreateRequest:
     )
 
 
-async def test_create_list_detail_and_locale(shared_tenant_engine: AsyncEngine) -> None:
+async def test_create_list_detail_and_locale(shared_tenant_engine: AsyncEngine, code: str) -> None:
     """新建 / 列表合并内置 / 详情 / 多语言回退。"""
     async with write_session(shared_tenant_engine) as session:
         service = MailTemplateService(session, render_timeout_seconds=3)
-        detail = await service.create(_create_request(), request_locale="zh-CN")
-        assert detail.code == "welcome"
+        detail = await service.create(_create_request(code), request_locale="zh-CN")
+        assert detail.code == code
         assert detail.subject == "欢迎 {{ name }}"
         assert set(detail.i18n) == {"zh-CN", "en-US"}
 
         page = await service.list(page=1, size=50, locale="en-US")
         codes = [item.code for item in page.list]
-        assert "welcome" in codes
+        assert code in codes
         assert "approval_todo" in codes
         builtin = next(item for item in page.list if item.code == "approval_todo")
         assert builtin.source == "builtin"
@@ -91,13 +147,13 @@ async def test_preview_builtin_and_override(shared_tenant_engine: AsyncEngine) -
         assert "审批" in subject
 
 
-async def test_update_disable_and_conflict(shared_tenant_engine: AsyncEngine) -> None:
+async def test_update_disable_and_conflict(shared_tenant_engine: AsyncEngine, code: str) -> None:
     """编辑 / 停用 / 重复 code / 语法错误保存即拒。"""
     async with write_session(shared_tenant_engine) as session:
         service = MailTemplateService(session, render_timeout_seconds=3)
-        detail = await service.create(_create_request(), request_locale="zh-CN")
+        detail = await service.create(_create_request(code), request_locale="zh-CN")
         with pytest.raises(ConflictError):
-            await service.create(_create_request(), request_locale="zh-CN")
+            await service.create(_create_request(code), request_locale="zh-CN")
 
         updated = await service.update(
             _id(detail),
@@ -111,7 +167,7 @@ async def test_update_disable_and_conflict(shared_tenant_engine: AsyncEngine) ->
         with pytest.raises(TemplateSyntaxInvalidError):
             await service.create(
                 MailTemplateCreateRequest(
-                    code="bad_syntax",
+                    code=f"{code}_bad",
                     name="坏模板",
                     i18n=ConcurrentStableDict({"zh-CN": MailTextInput(subject="x", content="{% if x %}")}),
                 ),
@@ -119,11 +175,11 @@ async def test_update_disable_and_conflict(shared_tenant_engine: AsyncEngine) ->
             )
 
 
-async def test_test_endpoint_and_missing(shared_tenant_engine: AsyncEngine) -> None:
+async def test_test_endpoint_and_missing(shared_tenant_engine: AsyncEngine, code: str) -> None:
     """按 id 渲染测试；不存在返回 70301。"""
     async with write_session(shared_tenant_engine) as session:
         service = MailTemplateService(session, render_timeout_seconds=3)
-        detail = await service.create(_create_request(), request_locale="zh-CN")
+        detail = await service.create(_create_request(code), request_locale="zh-CN")
         subject, content = await service.test(_id(detail), params=ConcurrentStableDict({"name": "B"}), locale="en-US")
         assert subject == "Welcome B"
         assert "Hello B" in content

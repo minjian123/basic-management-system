@@ -76,6 +76,9 @@ async def test_injected_hook_wraps_access() -> None:
 class _FakeSession:
     """最小会话替身：协程方法、同步方法、关闭各一个。"""
 
+    bind: object = None
+    """绑定引擎占位（显式 `bind` 透传用例会改写）。"""
+
     def __init__(self) -> None:
         """初始化状态。"""
         self.calls = 0
@@ -307,6 +310,42 @@ async def test_read_operation_takes_gate_per_call() -> None:
     assert len(entered) == before, "非读路径方法不得取门"
     await reads.aclose()
     assert session.closed is False, "读会话按次开关，没有长会话需要关闭"
+
+
+def test_read_operation_exposes_bind_for_engine_assertions() -> None:
+    """读会话透出绑定引擎（`bind` / `get_bind`）：路由用例按引擎身份断言。"""
+    engine = object()
+    reads = gate_module.ReadOperationGatedSession(
+        lambda: _recording_scope(ConcurrentStableList()),
+        lambda: _null_session(),  # type: ignore[arg-type]
+        bind=engine,
+    )
+    assert reads.bind is engine
+    assert reads.get_bind() is engine
+    assert (
+        gate_module.ReadOperationGatedSession(
+            lambda: _recording_scope(ConcurrentStableList()),
+            lambda: _null_session(),  # type: ignore[arg-type]
+        ).bind
+        is None
+    )
+
+
+@asynccontextmanager
+async def _null_session() -> AsyncGenerator[_ReadSession]:
+    """空短会话上下文（只为构造参数，不做读）。"""
+    yield _ReadSession()
+
+
+def test_lazy_gated_session_exposes_explicit_bind() -> None:
+    """写会话显式给出原始引擎时 `bind` 返回它；未给出时透传底层会话。"""
+    fake = _FakeSession()
+    fake.bind = "inner"
+    lazy = LazyGatedSession(lambda: _recording_scope(ConcurrentStableList()), fake)
+    assert lazy.bind == "inner"
+    assert lazy.get_bind() == "inner"
+    explicit = LazyGatedSession(lambda: _recording_scope(ConcurrentStableList()), fake, bind="original")
+    assert explicit.bind == "original"
 
 
 async def test_read_operation_scalars_and_stream_rejected() -> None:

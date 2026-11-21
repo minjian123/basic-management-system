@@ -174,6 +174,18 @@ def _restore_session_factory() -> None:
     _original_session_create = None
 
 
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """会话开始：钉住分组调度模式（`xdist_group` 只在 loadgroup 下生效）。
+
+    为什么不在 `pytest_configure`：xdist 自己的配置钩子会在其后重置 `dist`，这里已过全部
+    配置阶段、早于 worker 派发，赋值才真正生效。
+
+    Args:
+        session: pytest 会话（取 config）。
+    """
+    session.config.option.dist = "loadgroup"
+
+
 def pytest_unconfigure(config: pytest.Config) -> None:
     """会话结束：撤销数据库门钩子并关闭门句柄。
 
