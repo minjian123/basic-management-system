@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from sqlalchemy import Table
+from sqlalchemy import Table, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -35,9 +35,33 @@ from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 
-pytestmark = pytest.mark.kiwi_id(2404)
+pytestmark = [pytest.mark.kiwi_id(2404), pytest.mark.xdist_group("platform-writes-i18n")]
 
 _TENANT = "1001"
+
+
+@pytest.fixture(autouse=True)
+async def _clean_locale_table(shared_platform_engine: AsyncEngine) -> AsyncIterator[None]:
+    """locale 登记表是全局状态：本文件需要「空表」起点，进出各清一次。
+
+    `sys_i18n_locale` 只由 i18n 用例写入，且本文件与平台 i18n 用例同属
+    `platform-writes-i18n` 分组（同 worker 串行），清表不会碰到并行中的他人数据。
+
+    Args:
+        shared_platform_engine: 共享平台库引擎。
+
+    Yields:
+        None: 用例运行期。
+    """
+
+    async def _purge() -> None:
+        """清空 locale 登记表（原生 SQL 显式带 WHERE）。"""
+        async with write_session(shared_platform_engine) as session:
+            await session.execute(text("DELETE FROM sys_i18n_locale WHERE id IS NOT NULL"))
+
+    await _purge()
+    yield
+    await _purge()
 
 
 @pytest.fixture
