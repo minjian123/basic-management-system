@@ -49,4 +49,4 @@ async def test_load_locales_falls_back_when_empty() -> None:
         assert list(await load_help_locales(session)) == [DEFAULT_LOCALE]
 
 
-pytestmark = pytest.mark.xdist_group("platform-global-writes")
+pytestmark = pytest.mark.xdist_group("platform-writes-help")

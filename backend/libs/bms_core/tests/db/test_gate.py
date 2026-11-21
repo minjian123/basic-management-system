@@ -83,6 +83,7 @@ class _FakeSession:
         """初始化状态。"""
         self.calls = 0
         self.closed = False
+        self.commits = 0
 
     async def execute(self) -> str:
         """协程方法（应触发取门）。
@@ -106,6 +107,7 @@ class _FakeSession:
 
     async def commit(self) -> None:
         """提交（写门按事务释放的触发点）。"""
+        self.commits += 1
 
     async def rollback(self) -> None:
         """回滚（写门按事务释放的触发点）。"""
@@ -335,6 +337,17 @@ def test_read_operation_exposes_bind_for_engine_assertions() -> None:
 async def _null_session() -> AsyncGenerator[_ReadSession]:
     """空短会话上下文（只为构造参数，不做读）。"""
     yield _ReadSession()
+
+
+async def test_lazy_gated_session_begin_commits_without_transaction() -> None:
+    """写会话的 `begin()` 不开真实事务，但退出时提交（SQLite 测试口径：写完立即落库）。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    fake = _FakeSession()
+    lazy = LazyGatedSession(lambda: _recording_scope(entered), fake)
+    async with lazy.begin() as value:
+        assert value is None
+    assert fake.commits == 1
+    assert list(entered) == ["in", "out"], "退出提交仍走一次写门"
 
 
 def test_lazy_gated_session_exposes_explicit_bind() -> None:

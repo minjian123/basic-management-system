@@ -66,4 +66,4 @@ def test_target_problem_by_anchor_map() -> None:
     assert unknown_kind is not None and "类型不匹配" in unknown_kind
 
 
-pytestmark = pytest.mark.xdist_group("platform-global-writes")
+pytestmark = pytest.mark.xdist_group("platform-writes-help")

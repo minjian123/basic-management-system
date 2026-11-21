@@ -81,3 +81,6 @@ async def test_resolve_requires_service_identity(client: AsyncClient) -> None:
 
     anonymous = await client.post(API, json={"keys": ["captcha.channel.sms"]}, headers={"Authorization": ""})
     assert anonymous.status_code == 401
+
+
+pytestmark = pytest.mark.xdist_group("platform-config")

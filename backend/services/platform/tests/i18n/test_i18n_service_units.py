@@ -474,4 +474,4 @@ async def test_locale_after_write_without_snapshots() -> None:
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
-pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-writes-i18n")]  # pyright: ignore[reportUnknownVariableType]

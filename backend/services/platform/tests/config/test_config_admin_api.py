@@ -406,3 +406,7 @@ async def test_delete_missing_returns_not_found(client: AsyncClient) -> None:
     assert (await client.post("/api/v1/configs/999999/reset")).json()["code"] == 40501
     assert (await client.post("/api/v1/configs/999999/restore")).json()["code"] == 40501
     assert (await client.put("/api/v1/configs/999999", json={"value": "1", "version": 1})).json()["code"] == 40501
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-config")]  # pyright: ignore[reportUnknownVariableType]

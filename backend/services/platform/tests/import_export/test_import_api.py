@@ -579,4 +579,4 @@ async def test_status_malformed_payload_and_terminal_summary(api_env: _ApiEnv) -
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
-pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-writes-core")]  # pyright: ignore[reportUnknownVariableType]

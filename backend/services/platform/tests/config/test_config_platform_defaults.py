@@ -179,3 +179,6 @@ async def test_dependency_reverse_when_dependent_missing(session: AsyncSession) 
     detail = await service.detail("ai.auto_execute")
     updated = await service.update(detail.id, ConfigUpdateRequest(value="false", version=detail.version))
     assert updated.value == "false"
+
+
+pytestmark = pytest.mark.xdist_group("platform-config")

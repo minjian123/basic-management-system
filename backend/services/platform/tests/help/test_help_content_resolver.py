@@ -130,4 +130,4 @@ async def test_resolver_degrades_when_database_unavailable(shared_tenant_engine:
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
-pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-writes-help")]  # pyright: ignore[reportUnknownVariableType]

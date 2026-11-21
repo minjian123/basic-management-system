@@ -12,7 +12,8 @@ import pytest
 import pytest_asyncio
 from openpyxl import Workbook
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.config.base import BaseConfigSource
@@ -54,8 +55,7 @@ from bms_platform.imports import build_import_definitions
 
 pytestmark = [
     pytest.mark.kiwi_id(2401),
-    # 作业会话一进事务就 `BEGIN IMMEDIATE`（见 `session_context`）：跨 worker 的写冲突退化为
-    # `busy_timeout` 下的短等待，不再需要整条用例持写门（13_08）。
+    pytest.mark.own_db("导入作业是整批写：用每用例独占租户库，避免与并行用例争 SQLite 写锁"),
     pytest.mark.xdist_group("import-job"),
 ]
 
@@ -133,92 +133,97 @@ def _unused(*_args: object, **_kwargs: object) -> UserAdminService:
 
 
 @pytest_asyncio.fixture
-async def job_env(shared_tenant_engine: AsyncEngine) -> AsyncIterator[JobEnv]:
-    """作业执行环境（注册表 / 会话 / 源文件）。
+async def job_env(isolated_tenant: str) -> AsyncIterator[JobEnv]:
+    """作业执行环境（独占租户库 / 会话 / 源文件）。
 
-    作业自身在 `session_context` 里一进事务就 `BEGIN IMMEDIATE`，跨 worker 的写冲突退化为
-    `busy_timeout` 下的短等待，不依赖整条用例持写门（13_08）。
+    作业是「整批写」：与并行用例同用一个 SQLite 库时，批量 INSERT 与别处的写会互相
+    `database is locked`（写入已改为立即提交，不再靠回滚兜底）。按业主「全局扫描作业整组独占」
+    口径，本文件用每用例独占租户库，作业写入不受其它 worker 干扰。
 
     Args:
-        shared_tenant_engine: 共享租户库引擎。
+        isolated_tenant: 独占租户库连接串（每用例一份，表集与共享库同源）。
     """
-    tables: list[Table] = cast(  # bare-collections:allow（SQLAlchemy 表清单）
-        "list[Table]",
-        [
-            SysUser.__table__,
-            SysRole.__table__,
-            SysUserRole.__table__,
-            SysAccountLock.__table__,
-        ],
-    )
-    await ensure_tables(shared_tenant_engine, tables)
-    config = _Config()
-    hasher = Pbkdf2PasswordHasher(iterations=100000)
-    policy = DefaultPasswordPolicy(config=config, hasher=hasher)
-    registry = build_import_definitions(
-        hasher=hasher,
-        policy=policy,
-        outbox=NullOutboxStore(),
-        service_client=NullServiceClient(),
-        audit=None,
-        config=config,
-    )
-    source = _SourceStore()
-
-    @asynccontextmanager
-    async def session_context() -> AsyncGenerator[AsyncSession]:
-        # 作业会话是「先校验读、再整批写」：走统一写会话（先门后库锁），与生产 `session_scope`
-        # 同序，避免与其它写会话锁序反转。
-        async with write_session(shared_tenant_engine) as session:
-            yield session
-
-    def make_job(
-        *,
-        batch_size: int = 200,
-        cancel: bool = False,
-        definitions: ImportDefinitionRegistry | None = None,
-        source_store: ImportSourceStore | None = None,
-    ) -> tuple[ImportExecuteJob, ConcurrentStableDict[str, object]]:
-        captured: ConcurrentStableDict[str, object] = ConcurrentStableDict(
-            {
-                "progress": [],
-                "errors": [],
-            }
+    engine = create_async_engine(isolated_tenant, poolclass=NullPool)
+    try:
+        tables: list[Table] = cast(  # bare-collections:allow（SQLAlchemy 表清单）
+            "list[Table]",
+            [
+                SysUser.__table__,
+                SysRole.__table__,
+                SysUserRole.__table__,
+                SysAccountLock.__table__,
+            ],
         )
+        await ensure_tables(engine, tables)
+        config = _Config()
+        hasher = Pbkdf2PasswordHasher(iterations=100000)
+        policy = DefaultPasswordPolicy(config=config, hasher=hasher)
+        registry = build_import_definitions(
+            hasher=hasher,
+            policy=policy,
+            outbox=NullOutboxStore(),
+            service_client=NullServiceClient(),
+            audit=None,
+            config=config,
+        )
+        source = _SourceStore()
 
-        def definitions_factory(**_: object) -> ImportDefinitionRegistry:
-            return definitions if definitions is not None else registry
+        @asynccontextmanager
+        async def session_context() -> AsyncGenerator[AsyncSession]:
+            # 独占库上不取共享门（`gate_for_engine` 判定为临时库）；autocommit 由测试会话统一套。
+            async with write_session(engine) as session:
+                yield session
 
-        async def report(done: int, total: int | None) -> None:
-            cast("list[tuple[int, int | None]]", captured["progress"]).append((done, total))
-
-        async def add_error(
-            message: str,
+        def make_job(
             *,
-            row_no: int | None = None,
-            column_key: str | None = None,
-            item_ref: str | None = None,
-        ) -> None:
-            cast("list[tuple[str, int | None, str | None]]", captured["errors"]).append(
-                (message, row_no, column_key or item_ref)
+            batch_size: int = 200,
+            cancel: bool = False,
+            definitions: ImportDefinitionRegistry | None = None,
+            source_store: ImportSourceStore | None = None,
+        ) -> tuple[ImportExecuteJob, ConcurrentStableDict[str, object]]:
+            captured: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+                {
+                    "progress": [],
+                    "errors": [],
+                }
             )
 
-        async def should_cancel() -> bool:
-            return cancel
+            def definitions_factory(**_: object) -> ImportDefinitionRegistry:
+                return definitions if definitions is not None else registry
 
-        captured["report"] = report
-        captured["add_error"] = add_error
-        captured["should_cancel"] = should_cancel
-        job = ImportExecuteJob(
-            definitions_factory=definitions_factory,
-            importer=OpenpyxlImporter(),
-            source_store=source_store if source_store is not None else source,
-            config=config,
-            limits=ImportLimits(batch_size=batch_size),
-        )
-        return job, captured
+            async def report(done: int, total: int | None) -> None:
+                cast("list[tuple[int, int | None]]", captured["progress"]).append((done, total))
 
-    yield make_job, session_context, source
+            async def add_error(
+                message: str,
+                *,
+                row_no: int | None = None,
+                column_key: str | None = None,
+                item_ref: str | None = None,
+            ) -> None:
+                cast("list[tuple[str, int | None, str | None]]", captured["errors"]).append(
+                    (message, row_no, column_key or item_ref)
+                )
+
+            async def should_cancel() -> bool:
+                return cancel
+
+            captured["report"] = report
+            captured["add_error"] = add_error
+            captured["should_cancel"] = should_cancel
+            job = ImportExecuteJob(
+                definitions_factory=definitions_factory,
+                importer=OpenpyxlImporter(),
+                source_store=source_store if source_store is not None else source,
+                config=config,
+                limits=ImportLimits(batch_size=batch_size),
+            )
+            return job, captured
+
+        yield make_job, session_context, source
+
+    finally:
+        await engine.dispose()
 
 
 def _context(
@@ -618,4 +623,4 @@ async def test_service_definition_without_write_permission() -> None:
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
-pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-writes-core")]  # pyright: ignore[reportUnknownVariableType]

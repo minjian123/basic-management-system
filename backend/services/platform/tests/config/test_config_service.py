@@ -340,3 +340,7 @@ async def test_repository_restore_missing_returns_false(session: AsyncSession) -
 def test_service_is_base_object() -> None:
     """服务继承基座对象（架构铁律：自定义类必须有基类）。"""
     assert issubclass(ConfigAdminService, BaseFrameworkObject)
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-config")]  # pyright: ignore[reportUnknownVariableType]

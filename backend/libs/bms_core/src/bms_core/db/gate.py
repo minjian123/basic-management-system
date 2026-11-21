@@ -19,6 +19,30 @@ from bms_core.core.roots import BaseFrameworkObject
 GateHook = Callable[[str, bool, "float | None"], AbstractAsyncContextManager[None]]
 """门钩子签名：（数据源键, 是否只读, 等待上限）→ 异步上下文管理器。"""
 
+
+@asynccontextmanager
+async def _null_transaction(session: LazyGatedSession) -> AsyncGenerator[None]:
+    """空事务上下文：退出时提交（SQLite 测试会话「不考虑事务、写完立即提交」的 `begin()` 替身）。
+
+    Args:
+        session: 写门代理会话（用于退出时经门提交）。
+
+    Yields:
+        None: 事务区间（不开启真实事务）。
+
+    Raises:
+        BaseException: 区间内异常原样抛出（先尽力回滚，回滚对 autocommit 是空操作）。
+    """
+    try:
+        yield
+    except BaseException:
+        with contextlib.suppress(Exception):
+            await session.rollback()
+        raise
+    else:
+        await session.commit()
+
+
 GATE_CRITICAL_WAIT: Final = 10.0
 """整段临界区的等门上限（秒）：建表、用例级独占、显式写区间等「整段」场景用它。
 
@@ -398,6 +422,20 @@ class LazyGatedSession(BaseFrameworkObject):
         """
         bind = object.__getattribute__(self, "_bind")
         return bind if bind is not None else object.__getattribute__(object.__getattribute__(self, "_session"), "bind")
+
+    def begin(self) -> AbstractAsyncContextManager[object]:
+        """**不开启显式事务**，但退出时提交（业主口径：每条 SQL 立即提交）。
+
+        为什么要覆盖：应用代码里的 `session.begin()` 会在 AUTOCOMMIT 连接上显式开事务，
+        事务跨多次读写期间一直占着 SQLite 库级写锁；别的写者拿到数据库门后仍被 SQLite
+        挡在 `busy_timeout` 里，表现为「写门等超 5 秒」。测试口径是不考虑事务、写完立即提交，
+        故这里不开事务；但 `begin()` 的语义是「退出即提交」，所以退出时仍 flush + commit，
+        否则 `session.add` 之后的改动会丢在会话里。
+
+        Returns:
+            AbstractAsyncContextManager[object]: 退出即提交的空事务上下文。
+        """
+        return _null_transaction(self)
 
     def get_bind(self) -> object:
         """取绑定引擎（SQLAlchemy 会话协议的兼容入口）。

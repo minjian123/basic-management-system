@@ -143,4 +143,4 @@ async def test_dispatch_empty_messages_for_new_tenant_like_locale(client: AsyncC
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
-pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-writes-i18n")]  # pyright: ignore[reportUnknownVariableType]
