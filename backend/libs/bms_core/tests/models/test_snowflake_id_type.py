@@ -126,11 +126,16 @@ async def test_sqlite_roundtrip_and_ordering(shared_platform_engine: AsyncEngine
 @pytest.mark.kiwi_id(2394)
 def test_orm_roundtrip_keeps_int() -> None:
     """ORM 往返：属性恒为 int（含审计人、逻辑外键、tenant_scope 哨兵 0）。"""
+    from bms_core.models.outbox import SysOutbox
     from bms_core.models.platform.user import SysUser
 
     engine = create_engine("sqlite://")
     try:
         cast("Table", SysUser.__table__).create(engine)
+        # 字段级审计捕获是进程级全局监听：宽范围并行跑用例时它可能已被其它用例挂载，
+        # 普通 Session 提交会顺带写 `sys_outbox`。本用例自带内存库，把它一并建出来，
+        # 不依赖执行顺序（否则全量/宽范围跑会报 no such table: sys_outbox）。
+        cast("Table", SysOutbox.__table__).create(engine)
         from sqlalchemy.orm import Session
 
         with Session(engine) as session:
