@@ -7,6 +7,7 @@
 """
 
 import os
+from typing import cast
 
 import pytest
 from sqlalchemy import text
@@ -154,38 +155,48 @@ async def test_gate_for_engine_maps_shared_db_only() -> None:
             await engine.dispose()
 
 
-async def test_sqlite_autocommit_only_wraps_sqlite() -> None:
-    """autocommit 包装只作用于 SQLite；正式数据库原样返回（保持自身事务语义）。"""
-    sqlite_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    try:
-        assert transaction_module._sqlite_autocommit(sqlite_engine) is not sqlite_engine  # pyright: ignore[reportPrivateUsage]
-    finally:
-        await sqlite_engine.dispose()
+class _FakeUrl:
+    """假连接串：只提供方言名。"""
 
-    pg_engine = create_async_engine("postgresql+psycopg://user:secret@localhost:5432/demo")
-    try:
-        assert transaction_module._sqlite_autocommit(pg_engine) is pg_engine  # pyright: ignore[reportPrivateUsage]
-    finally:
-        await pg_engine.dispose()
+    def get_backend_name(self) -> str:
+        """返回正式数据库方言。"""
+        return "postgresql"
 
 
-async def test_gated_session_on_private_engine_skips_gate() -> None:
-    """非共享库引擎（内存库）不取门，直接给出会话。"""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    try:
-        async with gated_session(engine, read_only=False) as session:
-            value = (await session.execute(text("SELECT 1"))).scalar_one()
-            assert value == 1
-    finally:
-        await engine.dispose()
+class _FakeNonSqliteEngine:
+    """假引擎：非 SQLite 方言（autocommit 包装应原样返回）。"""
+
+    url = _FakeUrl()
 
 
-async def test_gated_session_write_uses_operation_gate(platform_db_url: str) -> None:
+async def test_sqlite_autocommit_wraps_sqlite(shared_platform_engine: AsyncEngine) -> None:
+    """SQLite 引擎套 autocommit 包装。"""
+    assert transaction_module._sqlite_autocommit(shared_platform_engine) is not shared_platform_engine  # pyright: ignore[reportPrivateUsage]
+
+
+def test_sqlite_autocommit_keeps_non_sqlite() -> None:
+    """正式数据库引擎原样返回（保持自身事务语义）。"""
+    fake = _FakeNonSqliteEngine()
+    assert transaction_module._sqlite_autocommit(cast("AsyncEngine", fake)) is fake  # pyright: ignore[reportPrivateUsage]
+
+
+async def test_gated_session_on_private_engine_skips_gate(
+    shared_platform_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """非共享库引擎（门判定为 None）不取门，直接给出会话。"""
+
+    def _no_gate(engine: AsyncEngine) -> None:
+        """门判定替身：一律视为非共享库。"""
+        del engine
+
+    monkeypatch.setattr(transaction_module, "gate_for_engine", _no_gate)
+    async with gated_session(shared_platform_engine, read_only=False) as session:
+        value = (await session.execute(text("SELECT 1"))).scalar_one()
+        assert value == 1
+
+
+async def test_gated_session_write_uses_operation_gate(shared_platform_engine: AsyncEngine) -> None:
     """共享库引擎的写会话走操作级写门代理。"""
-    engine = create_async_engine(platform_db_url)
-    try:
-        async with gated_session(engine, read_only=False) as session:
-            value = (await session.execute(text("SELECT 1"))).scalar_one()
-            assert value == 1
-    finally:
-        await engine.dispose()
+    async with gated_session(shared_platform_engine, read_only=False) as session:
+        value = (await session.execute(text("SELECT 1"))).scalar_one()
+        assert value == 1

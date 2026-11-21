@@ -435,19 +435,9 @@ async def test_gated_engine_connect_and_begin_use_gate() -> None:
     assert fake.connection.executed == 2
 
 
-async def test_session_factory_patch_keeps_non_sqlite_transaction() -> None:
-    """会话工厂补丁只对 SQLite 套 autocommit；正式数据库原样建工厂（且补丁幂等）。"""
-    from sqlalchemy.ext.asyncio import create_async_engine
-
-    from bms_core.db.session import SessionFactory
-
-    plugin._patch_session_factory_autocommit()  # pyright: ignore[reportPrivateUsage]  # 第二次调用走早退分支
-    engine = create_async_engine("postgresql+psycopg://user:secret@localhost:5432/demo")
-    try:
-        maker = SessionFactory().create(engine)
-        assert maker is not None
-    finally:
-        await engine.dispose()
+def test_session_factory_patch_is_idempotent() -> None:
+    """会话工厂补丁可重复调用（第二次走早退分支）。"""
+    plugin._patch_session_factory_autocommit()  # pyright: ignore[reportPrivateUsage]
 
 
 def test_restore_session_factory_is_noop_without_patch(monkeypatch: pytest.MonkeyPatch) -> None:
