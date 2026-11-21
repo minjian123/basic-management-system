@@ -18,6 +18,7 @@ from bms_core.core.concurrent import (
 )
 from bms_core.core.config import AliyunSmsSettings, MailSettings, SmsSettings, TencentSmsSettings
 from bms_core.core.exceptions import ParamError
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.notification.preference import BaseNotificationPreferenceStore, NotificationPreference
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
@@ -108,7 +109,7 @@ async def _clean_outbound_logs(shared_tenant_engine: AsyncEngine, contact: tuple
 
     async def _purge() -> None:
         """按收件人删除本用例的日志（原生 SQL 带 WHERE）。"""
-        async with write_session(shared_tenant_engine) as session:
+        async with write_session(shared_tenant_engine, wait=GATE_CRITICAL_WAIT) as session:
             await session.execute(
                 text("DELETE FROM sys_mail_log WHERE recipient IN (:first, :second)"),
                 {"first": first, "second": second},

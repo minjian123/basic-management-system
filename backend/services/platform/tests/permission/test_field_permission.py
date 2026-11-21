@@ -14,7 +14,7 @@ from typing import cast
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import Table
+from sqlalchemy import Table, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -30,6 +30,7 @@ from bms_core.permission.field import (
 from bms_core.permission.snapshot import TIER_STANDARD, TIER_SYSTEM_ADMIN, PermissionSnapshot
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.sql_ids import sqlite_id
 from bms_core.testing.transaction import write_session
 from bms_platform.domains.role.permission.field_provider import (
     StaticFieldPermissionProvider,
@@ -38,6 +39,8 @@ from bms_platform.domains.role.permission.field_provider import (
 
 _FORM_ID = 7001
 _OTHER_FORM_ID = 7002
+_FIELD_KEYS = ("salary", "name")
+"""本文件在固定表单上占用的字段键（清理按它限定）。"""
 
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
     (cast("Table", SysField.__table__), cast("Table", SysRoleField.__table__))
@@ -104,8 +107,37 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
         AsyncSession: 回滚会话（用例内直插种子数据，结束整体回滚）。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    async with write_session(shared_platform_engine) as opened:
-        yield opened
+    await _purge(shared_platform_engine)
+    try:
+        async with write_session(shared_platform_engine) as opened:
+            yield opened
+    finally:
+        await _purge(shared_platform_engine)
+
+
+async def _purge(engine: AsyncEngine) -> None:
+    """删除本文件在固定表单上造的字段与角色收窄行（写入立即提交，必须自己收尾）。
+
+    只命中 `_FORM_ID` 上的 `salary` / `name` 两个探测字段及其收窄行（含幽灵角色那一条），
+    不触碰真实登记数据。
+
+    Args:
+        engine: 共享平台库引擎。
+    """
+    async with write_session(engine) as db:
+        params = {"form": sqlite_id(_FORM_ID), "k0": _FIELD_KEYS[0], "k1": _FIELD_KEYS[1], "ghost": sqlite_id(999999)}
+        await db.execute(
+            text(
+                "DELETE FROM sys_role_field WHERE form_id = :form AND ("
+                "field_id IN (SELECT id FROM sys_field WHERE form_id = :form AND field_key IN (:k0, :k1)) "
+                "OR field_id = :ghost)"
+            ),
+            params,
+        )
+        await db.execute(
+            text("DELETE FROM sys_field WHERE form_id = :form AND field_key IN (:k0, :k1)"),
+            params,
+        )
 
 
 async def _seed(session: AsyncSession, ns: Namespace) -> _Seeded:

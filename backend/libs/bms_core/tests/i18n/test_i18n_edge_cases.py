@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import I18nSettings
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.registry import EngineRegistry
 from bms_core.i18n import seed as seed_module
 from bms_core.i18n.cache import I18nCacheRegion, MemoryI18nCacheRegion
@@ -56,7 +57,7 @@ async def _clean_locale_table(shared_platform_engine: AsyncEngine) -> AsyncItera
 
     async def _purge() -> None:
         """清空 locale 登记表（原生 SQL 显式带 WHERE）。"""
-        async with write_session(shared_platform_engine) as session:
+        async with write_session(shared_platform_engine, wait=GATE_CRITICAL_WAIT) as session:
             await session.execute(text("DELETE FROM sys_i18n_locale WHERE id IS NOT NULL"))
 
     await _purge()

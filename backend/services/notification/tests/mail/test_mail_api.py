@@ -11,6 +11,7 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 
@@ -41,7 +42,7 @@ async def _clean_templates_and_logs(shared_tenant_engine: AsyncEngine, codes: tu
 
     async def _purge() -> None:
         """删除本用例的模板（含多语言附表）与日志（原生 SQL 带 WHERE）。"""
-        async with write_session(shared_tenant_engine) as session:
+        async with write_session(shared_tenant_engine, wait=GATE_CRITICAL_WAIT) as session:
             await session.execute(
                 text(
                     "DELETE FROM sys_mail_template_i18n "

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import AliyunSmsSettings, SmsSettings, TencentSmsSettings
 from bms_core.core.exceptions import ConflictError, ParamError, SmsTemplateUnavailableError
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.schemas.sms import SmsTemplateCreateRequest
@@ -40,7 +41,7 @@ async def _clean_sms_templates(shared_tenant_engine: AsyncEngine, code: str) -> 
 
     async def _purge() -> None:
         """删除本用例的模板行。"""
-        async with write_session(shared_tenant_engine) as session:
+        async with write_session(shared_tenant_engine, wait=GATE_CRITICAL_WAIT) as session:
             await session.execute(text("DELETE FROM sys_sms_template WHERE code = :code"), {"code": code})
 
     await _purge()

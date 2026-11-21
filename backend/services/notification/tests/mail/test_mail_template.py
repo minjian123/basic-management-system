@@ -15,6 +15,7 @@ from bms_core.core.exceptions import (
     MailTemplateNotFoundError,
     TemplateSyntaxInvalidError,
 )
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
@@ -63,7 +64,7 @@ async def _clean_mail_templates(
 
     async def _purge() -> None:
         """删除本用例的模板与附表（原生 SQL 带 WHERE）。"""
-        async with write_session(shared_tenant_engine) as session:
+        async with write_session(shared_tenant_engine, wait=GATE_CRITICAL_WAIT) as session:
             await session.execute(
                 text(
                     "DELETE FROM sys_mail_template_i18n "

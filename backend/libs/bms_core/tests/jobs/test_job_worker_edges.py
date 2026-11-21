@@ -20,7 +20,7 @@ from bms_core.jobs.spec import JobSubmission, JobTypeSpec
 from bms_core.jobs.worker import JobWorker
 from bms_core.models.job import SysJob
 
-pytestmark = pytest.mark.kiwi_id(2377)
+pytestmark = [pytest.mark.kiwi_id(2377), pytest.mark.xdist_group("job-worker")]
 
 
 class _Handler(BaseJobHandler):

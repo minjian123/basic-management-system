@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.collaboration.usage import CapabilityUsage
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import CatalogError
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.models.base import Base
 from bms_core.models.platform.catalog import SysModule, SysProduct
 from bms_core.models.platform.declaration import (
@@ -84,7 +85,7 @@ async def _purge_demo(engine: AsyncEngine) -> None:
     Args:
         engine: 共享平台库引擎。
     """
-    async with write_session(engine) as session:
+    async with write_session(engine, wait=GATE_CRITICAL_WAIT) as session:
         await session.execute(
             delete(SysModule).where(
                 or_(

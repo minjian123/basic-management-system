@@ -22,6 +22,7 @@ from sqlalchemy.types import UserDefinedType
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_user_id, reset_tenant_context, set_tenant_context
 from bms_core.core.exceptions import ConcurrentConflictError, ConfigError, ParamError
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.tenant import TenantContext
 from bms_core.models.base import BaseModel
 from bms_core.permission.cache import current_permission_cache_store, reset_permission_cache_store
@@ -215,7 +216,7 @@ async def _clean_probe_tables(_serial_probe_tables: None, engine: AsyncEngine) -
 
     async def _purge() -> None:
         """删除三张独占测试表的全部行（原生 SQL 带 WHERE，护栏要求显式条件）。"""
-        async with write_session(engine) as session:
+        async with write_session(engine, wait=GATE_CRITICAL_WAIT) as session:
             for table in ("test_db_item", "test_db_lock_item", "test_scoped_note"):
                 await session.execute(text(f"DELETE FROM {table} WHERE id IS NOT NULL"))
 

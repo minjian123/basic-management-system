@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.exceptions import EventConsumeError
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.tenant import TenantContext
 from bms_core.events.base import EventEnvelope
 from bms_core.notification.preference import NotificationPreference, default_notification_preference
@@ -66,7 +67,7 @@ async def _clean_notification_rows(
 
     async def _purge() -> None:
         """按收件人删除本用例的行（原生 SQL 带 WHERE；ID 列按 SQLite 补零口径绑定）。"""
-        async with write_session(shared_tenant_engine) as session:
+        async with write_session(shared_tenant_engine, wait=GATE_CRITICAL_WAIT) as session:
             await session.execute(
                 text("DELETE FROM sys_notification WHERE user_id IN (:u0, :u1)"),
                 {"u0": sqlite_id(user_id), "u1": sqlite_id(user_id + 1)},
