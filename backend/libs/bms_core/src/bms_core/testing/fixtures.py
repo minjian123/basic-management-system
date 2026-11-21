@@ -336,10 +336,10 @@ def isolation_notice() -> str:
     return f"[bms_testing_plugin] 当前为隔离调试模式（{ISOLATED_ENV}=1）：测试库落 {test_db_dir()}，结果不代表 CI 口径"
 
 
-_INIT_TIMEOUT = 120.0
-"""共享库初始化等待上限（秒）；超时即红，不做无限等待。"""
+_INIT_TIMEOUT = 10.0
+"""共享库初始化等待上限（秒）；超时即红，不做无限等待（2026-11-21 统一收到 10s）。"""
 
-_LOCK_STALE = 60.0
+_LOCK_STALE = 5.0
 """残留锁判定阈值（秒）：锁文件 mtime 超过该值视为上次进程崩溃。
 
 **必须小于 `_INIT_TIMEOUT`**：两者相等时，等待方会在超时前一刻同时判陈旧、同时 `unlink`、

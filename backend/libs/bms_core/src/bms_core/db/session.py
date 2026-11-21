@@ -307,7 +307,7 @@ async def session_scope(
         registry: 引擎注册表。
         db_key: 数据源键；None 取当前租户库键。
         read_only: 是否取只读引擎（副本，无副本回落主库）。
-        gate_wait: 等门上限（秒）；None 用门的默认（单次写 5s、读 180s），整段临界区传
+        gate_wait: 等门上限（秒）；None 用门的默认（单次写 5s、读 10s），整段临界区传
             `GATE_CRITICAL_WAIT`。
         factory: 会话工厂（仅异步方言路径）；None 新建缺省工厂。
 

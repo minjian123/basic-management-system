@@ -42,20 +42,18 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.testing import diagnostics
 from bms_core.testing.paths import project_root
 
-DEFAULT_TIMEOUT: Final = 30.0
+DEFAULT_TIMEOUT: Final = 10.0
 """等门上限（秒）：超时即报错，不静默降级。
 
-13_08 T7 从 180s 收到 30s：等满 180s 的区间会把「等门超时」记成超长实占，
-且一轮全量只暴露一个现场；30s 让卡点快速失败。
+13_08 T7 由 180s 收到 30s，2026-11-21 再收到 10s：测试等待超过 10s 本身就是「用例写得不好 /
+有任务长期持门」的信号，报错比继续等更有用。
 """
 
 WRITE_WAIT_CAP: Final = 5.0
-"""写门等待**告警**上限（秒）：正常写是毫秒级，等超过它先告警并继续等。
+"""写门等待上限（秒）：超过即失败并点名持有者（13_08 T7 起恢复短上限）。
 
-为什么不再直接失败（13_08 T7，2026-11-20 拍板）：全库一把门后，24 路并行的写是**排队**而不是
-「有人卡死」——实测写门实占中位数 39ms、p99 380ms，排队总时长却是实占的十倍以上。把排队当
-失败会把「并发量超过单写者服务能力」误判成缺陷。真正的长期占用仍由硬上限
-（`DEFAULT_TIMEOUT`，30s）拦下，并在报错里点名持有者。
+正常写是毫秒级，等超过几秒就不是「排队」而是「有人长期持门」——报错比继续等更有用。
+整段临界区（建表 / 用例级独占等）经显式 `cap`（`GATE_CRITICAL_WAIT`）放宽，不走本缺省。
 """
 
 WRITE_WAIT_CAP_ENV: Final = "BMS_TEST_GATE_WRITE_WAIT"
@@ -308,7 +306,7 @@ def _make_backend(path: Path) -> _Backend:
 
 
 def write_wait_cap() -> float:
-    """写门等待**告警**上限（秒）：环境变量优先，缺省 `WRITE_WAIT_CAP`。
+    """写门等待上限（秒）：环境变量优先，缺省 `WRITE_WAIT_CAP`；超过即失败并点名持有者。
 
     Returns:
         float: 上限秒数。
@@ -962,39 +960,33 @@ class DbGate:
     async def _wait_and_lock(self, write: bool, *, cap: float | None = None) -> None:
         """排队等待直到拿到门（事件循环内异步轮询，不占线程池）。
 
-        **两段上限**（13_08 T7）：`soft` 是告警线，`hard` 是失败线。
+        **上限**（13_08 T7）：写门缺省 `write_wait_cap()`（5s，超时即失败并点名持有者）；
+        读门缺省 `DEFAULT_TIMEOUT`；调用方显式传 `cap` 时按 `min(DEFAULT_TIMEOUT, cap)`
+        （整段临界区的等门预算，如 `GATE_CRITICAL_WAIT`）。
 
-        - 写门缺省：`soft = write_wait_cap()`（5s，告警并继续等），`hard = DEFAULT_TIMEOUT`（30s）；
-        - 读门缺省：`soft = WARN_AFTER`（10s），`hard = DEFAULT_TIMEOUT`；
-        - 调用方显式传 `cap`：视作硬上限（整段临界区的等门预算，如 `GATE_CRITICAL_WAIT`）。
-
-        为什么写门不再 5s 直接失败：全库一把门后，24 路并行的写是**排队**，排队时长取决于
-        总写量而不是谁卡死；把排队判失败会让并发度越高越容易红。真正的长期占用仍由 30s 硬上限
-        拦下，报错里带持有者。
+        为什么写门要短上限：正常写是毫秒级，等超过几秒说明有任务长期持门（整条用例持门 /
+        读会话未释放 / 进程卡住），继续等只会把卡点拖成整批超时——立即失败才能定位持锁用例。
 
         Args:
             write: 独占 True，共享 False。
-            cap: 显式硬上限（秒）；None 走缺省两段上限。
+            cap: 显式硬上限（秒）；None 走缺省上限。
 
         Raises:
-            TimeoutError: 超过硬上限（`DEFAULT_TIMEOUT` 或显式 `cap`）。
+            TimeoutError: 超过上限（写门 `write_wait_cap()` / 读门 `DEFAULT_TIMEOUT` / 显式 `cap`）。
         """
         started = time.monotonic()
         if cap is not None:
-            soft = min(cap, WARN_AFTER)
-            hard = min(DEFAULT_TIMEOUT, cap)
+            limit = min(DEFAULT_TIMEOUT, cap)
         elif write:
-            soft = write_wait_cap()
-            hard = DEFAULT_TIMEOUT
+            limit = write_wait_cap()
         else:
-            soft = WARN_AFTER
-            hard = DEFAULT_TIMEOUT
-        deadline = started + hard
+            limit = DEFAULT_TIMEOUT
+        deadline = started + limit
         warned = False
         delay = _RETRY_MIN
         while not self._backend.try_acquire(write=write):
             now = time.monotonic()
-            if not warned and now - started >= soft:
+            if not warned and now - started >= WARN_AFTER:
                 warned = True
                 message = (
                     f"[rwlock] 等待门 {gate_label(self.name)} 已 {now - started:.1f}s；"
@@ -1005,7 +997,7 @@ class DbGate:
                 self._note_gate_wait(now - started, "warn")
             if now >= deadline:
                 message = (
-                    f"等待数据库门超时（{hard:.1f}s）：{gate_label(self.name)}；"
+                    f"等待数据库门超时（{limit:.1f}s）：{gate_label(self.name)}；"
                     f"持有者：{self._describe_holder()}；"
                     "等满硬上限说明有任务长期持门（整条用例持门 / 读会话未释放 / 进程卡住）"
                 )

@@ -174,3 +174,16 @@ def test_test_db_dir_creates_directory(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.chdir(tmp_path)
     directory: Path = fixtures.test_db_dir()
     assert directory.is_dir()
+
+
+async def test_enable_concurrency_runs_on_sqlite(tmp_path: Path) -> None:
+    """共享库并发上限落到 SQLite `busy_timeout`（10s）：建库后设置不报错。"""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from bms_core.testing.shared_db import enable_concurrency
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'busy.db'}")
+    try:
+        await enable_concurrency(engine)
+    finally:
+        await engine.dispose()

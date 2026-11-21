@@ -18,14 +18,12 @@ from bms_core.core.roots import BaseFrameworkObject
 GateHook = Callable[[str, bool, "float | None"], AbstractAsyncContextManager[None]]
 """门钩子签名：（数据源键, 是否只读, 等待上限）→ 异步上下文管理器。"""
 
-GATE_CRITICAL_WAIT: Final = 30.0
+GATE_CRITICAL_WAIT: Final = 10.0
 """整段临界区的等门上限（秒）：建表、用例级独占、显式写区间等「整段」场景用它。
 
-与单次写的短上限（测试基座默认 5s）分工：单次写是毫秒级，等超几秒就是有长占用，报错更有用；
-而整段临界区本身合法地要跑若干秒（首次建表、跨多步全局状态），用短上限会把正常作业打死。
-
-13_08 T7 从 180s 收到 30s：180s 一轮的卡顿会让整批 worker 的启动引导全部等满超时，
-一次全量只暴露一个现场；30s 既能容下正常的整段作业，又能让卡点快速失败、快速暴露。
+与单次写的短上限（5s）分工：单次写是毫秒级，等超几秒就是有长占用，报错更有用；
+整段临界区本身合法地要跑若干秒，故给到 10s（2026-11-21 由 30s 收到 10s：测试等待超过 10s
+即视为用例问题，立即失败并点名持有者）。
 """
 
 _hook: GateHook | None = None

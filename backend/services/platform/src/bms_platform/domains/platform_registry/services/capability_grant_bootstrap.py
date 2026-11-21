@@ -67,7 +67,8 @@ class PlatformCapabilityGrantSource(BaseFrameworkObject):
         async with session_scope(
             self._app.state.engine_registry,
             db_key=PLATFORM_DB_KEY,
-            # 启动期整段作业（预热是启动链路的一步）：全并行起 worker 时短上限会误杀正常排队
+            # 启动期整段作业（预热是启动链路的一步）：读写门是一套锁，读也占同一把锁；
+            # 排队靠缩短临界区解决，不靠「读门」另开通道。
             gate_wait=GATE_CRITICAL_WAIT,
             factory=self._app.state.session_factory,
         ) as session:
@@ -90,7 +91,8 @@ class PlatformCapabilityGrantSource(BaseFrameworkObject):
         async with session_scope(
             self._app.state.engine_registry,
             db_key=PLATFORM_DB_KEY,
-            # 启动期整段作业（预热是启动链路的一步）：全并行起 worker 时短上限会误杀正常排队
+            # 启动期整段作业（预热是启动链路的一步）：读写门是一套锁，读也占同一把锁；
+            # 排队靠缩短临界区解决，不靠「读门」另开通道。
             gate_wait=GATE_CRITICAL_WAIT,
             factory=self._app.state.session_factory,
         ) as session:

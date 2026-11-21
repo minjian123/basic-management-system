@@ -24,8 +24,8 @@ from bms_core.testing.locks import file_lock
 _ALREADY_EXISTS = "already exists"
 """并发建表的幂等信号（`table ... already exists`）。"""
 
-DDL_LOCK_TIMEOUT = 300.0
-"""建表等锁上限（秒）：建表含全表 DDL，比普通写锁给得更宽。"""
+DDL_LOCK_TIMEOUT = 10.0
+"""建表等锁上限（秒）：2026-11-21 统一收到 10s（超过即视为用例 / 环境问题，快速失败）。"""
 
 _ORIGINAL_CREATE_ALL = MetaData.create_all
 

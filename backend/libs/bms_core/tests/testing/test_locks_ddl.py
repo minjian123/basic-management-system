@@ -592,7 +592,7 @@ async def test_create_all_works_on_shared_library(shared_platform_engine: AsyncE
 @pytest.mark.kiwi_id(2317)
 def test_lock_module_exposes_timeout_default() -> None:
     """默认等锁上限对外可见（用例侧按需覆盖）；陈旧阈值必须小于等待上限。"""
-    assert locks_module.DEFAULT_TIMEOUT == 180.0
-    assert locks_module.STALE_AFTER == 30.0
+    assert locks_module.DEFAULT_TIMEOUT == 10.0
+    assert locks_module.STALE_AFTER == 5.0
     assert locks_module.HEARTBEAT_INTERVAL * 2 < locks_module.STALE_AFTER
     assert locks_module.STALE_AFTER < locks_module.DEFAULT_TIMEOUT

@@ -358,18 +358,17 @@ async def test_gate_timeout_reports_name(
     assert "task=" in str(excinfo.value)
 
 
-async def test_write_wait_soft_cap_warns_then_hard_cap_fails(
+async def test_write_wait_cap_fails_at_short_limit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """写门 5 秒是**告警线**：超过继续等，等满硬上限（`DEFAULT_TIMEOUT`）才失败。
+    """写门超过短上限（缺省 5s）立即失败并点名持有者，不等 `DEFAULT_TIMEOUT`。
 
-    13_08 T7 拍板：全库一把门后 24 路并行的写是排队，排队时长由总写量决定，判失败会让并发度
-    越高越红；真正长期持门仍由硬上限拦下并点名持有者。
+    13_08 T7 恢复：正常写是毫秒级，等超过几秒说明有任务长期持门；继续等只会把卡点
+    拖成整批超时，立即失败才能按报错里的持有者定位用例。
     """
     monkeypatch.setattr(rwlock, "WRITE_WAIT_CAP", 0.05)
-    monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 0.5)
+    monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 5.0)
     monkeypatch.delenv(rwlock.WRITE_WAIT_CAP_ENV, raising=False)
     path = tmp_path / "shared.lock"
     holder = rwlock.DbGate("holder", path)
@@ -377,15 +376,35 @@ async def test_write_wait_soft_cap_warns_then_hard_cap_fails(
     await holder.acquire_write()
     started = time.monotonic()
     try:
-        with pytest.raises(TimeoutError, match="contender"):
+        with pytest.raises(TimeoutError, match="contender") as excinfo:
             await contender.acquire_write()
     finally:
         await holder.release_write()
 
     elapsed = time.monotonic() - started
-    # 软上限（0.05s）之后仍继续等，直到硬上限（0.5s）才抛
-    assert 0.4 < elapsed < 3.0
-    assert "等待门" in capsys.readouterr().out
+    # 短上限（0.05s）即失败，不再等到 DEFAULT_TIMEOUT（5s）
+    assert 0.04 <= elapsed < 1.5
+    assert "等待数据库门超时" in str(excinfo.value)
+
+
+async def test_write_wait_explicit_cap_is_hard_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """显式 `wait=cap` 作为硬上限：超过即失败（整段临界区路径）。"""
+    monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 5.0)
+    path = tmp_path / "shared.lock"
+    holder = rwlock.DbGate("holder", path)
+    contender = rwlock.DbGate("contender", path)
+    await holder.acquire_write()
+    started = time.monotonic()
+    try:
+        with pytest.raises(TimeoutError, match="contender"):
+            await contender.acquire_write(wait=0.05)
+    finally:
+        await holder.release_write()
+
+    assert time.monotonic() - started < 1.5
 
 
 def test_write_wait_cap_parsing(monkeypatch: pytest.MonkeyPatch) -> None:

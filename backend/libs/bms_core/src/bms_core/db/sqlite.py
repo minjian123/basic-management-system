@@ -25,8 +25,8 @@ __all__ = [
     "is_sqlite_url",
 ]
 
-SQLITE_BUSY_TIMEOUT_SECONDS = 30
-"""SQLite 写锁忙等上限（秒）；与共享库建表时的 `PRAGMA busy_timeout` 同值。"""
+SQLITE_BUSY_TIMEOUT_SECONDS = 10
+"""SQLite 写锁忙等上限（秒）；与共享库建表时的 `PRAGMA busy_timeout` 同值（2026-11-21 由 30 收到 10）。"""
 
 
 def is_sqlite_url(url: str) -> bool:
