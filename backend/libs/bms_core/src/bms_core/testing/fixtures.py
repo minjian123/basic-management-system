@@ -7,14 +7,15 @@
 
 import asyncio
 import hashlib
+import importlib
 import inspect
 import os
 import shutil
 import time
-from collections.abc import AsyncIterator, Callable, Generator, Iterator
+from collections.abc import AsyncIterator, Callable, Generator, Iterable, Iterator
 from contextlib import contextmanager, suppress
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Final, cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -604,32 +605,87 @@ def resolve_prepare(request: pytest.FixtureRequest, name: str) -> Callable[[str]
     return None
 
 
-def version_for(prepare: Callable[[str], None] | None) -> str:
-    """由准备集所在模块的源码派生 `.ready` 版本戳（准备内容一改即变）。
+_SCHEMA_SOURCE_PACKAGES: Final = ("bms_core.models",)
+"""参与共享库版本戳的模型源码包：模型加列 / 改约束必须让共享库自动重建。
+
+产品仓若有自有模型包，可在自己的准备夹具里调用 `version_for(..., packages=(...))` 追加。
+"""
+
+
+def version_for(prepare: Callable[[str], None] | None, *, packages: Iterable[str] = ()) -> str:
+    """派生 `.ready` 版本戳（准备集源码 + 指定模型包源码；任一变化即重建）。
 
     为什么自动派生：手写常量需要人记得改，忘了就是「改了种子但旧库沿用」——
     现象是诡异的断言失败而非明确报错。取准备回调所在文件的摘要，改注释也会触发一次
     重建（只影响下一次会话，可忽略）。
 
+    **模型源码必须一起参与**（2026-11-21 实测的坑）：只摘要准备集源码时，模型加一列不会改变
+    版本戳，`create_all(checkfirst=True)` 又只补表不补列，共享库便永久停在旧结构上，报
+    `no such column`。把模型包源码纳入后，改模型即自动重建，不再依赖人工在准备集里 bump 注释。
+
     Args:
-        prepare: 建库回调；`None` 表示走缺省建表（版本戳固定 `1`）。
+        prepare: 建库回调；`None` 表示走缺省建表。
+        packages: 参与摘要的模型包名（其目录下全部 `.py` 递归计入）。
 
     Returns:
-        str: 12 位十六进制摘要；无法定位源文件时返回 `1`。
+        str: 12 位十六进制摘要；准备集与模型包都无法定位源码时返回 `1`。
     """
-    if prepare is None:
-        return "1"
+    hasher = hashlib.sha256()
+    digested = False
+    if prepare is not None:
+        source = _source_file(prepare)
+        if source:
+            try:
+                hasher.update(Path(source).read_bytes())
+                digested = True
+            except OSError:
+                return "1"
+    for package in packages:
+        digest = _package_source_digest(package)
+        if digest:
+            hasher.update(digest.encode("utf-8"))
+            digested = True
+    return hasher.hexdigest()[:12] if digested else "1"
+
+
+def _source_file(obj: object) -> str | None:
+    """取对象所在源文件路径（取不到返回 None，不抛错）。
+
+    Args:
+        obj: 函数 / 模块等可定位源码的对象。
+
+    Returns:
+        str | None: 源文件绝对路径；动态编译或无 `__file__` 时为 None。
+    """
     try:
-        source = inspect.getsourcefile(prepare)
+        return inspect.getsourcefile(obj)  # pyright: ignore[reportArgumentType]
     except OSError, TypeError:
-        # 内置函数 / `exec` 动态编译的函数取不到源文件：退回缺省版本戳
-        return "1"
-    if not source:
-        return "1"
+        return None
+
+
+def _package_source_digest(package: str) -> str:
+    """取包目录下全部 `.py` 的源码摘要（按相对路径排序；读失败的文件跳过）。
+
+    Args:
+        package: 包名（如 `bms_core.models`）。
+
+    Returns:
+        str: 十六进制摘要；包不可导入或无 `__file__` 时返回空串。
+    """
     try:
-        return hashlib.sha256(Path(source).read_bytes()).hexdigest()[:12]
-    except OSError:
-        return "1"
+        module = importlib.import_module(package)
+    except ImportError:
+        return ""
+    module_file = getattr(module, "__file__", None)
+    if not module_file:
+        return ""
+    directory = Path(cast("str", module_file)).parent
+    hasher = hashlib.sha256()
+    for path in sorted(directory.rglob("*.py")):
+        hasher.update(path.relative_to(directory).as_posix().encode("utf-8"))
+        with suppress(OSError):
+            hasher.update(path.read_bytes())
+    return hasher.hexdigest()
 
 
 @pytest.fixture(scope="session")
@@ -643,7 +699,7 @@ def shared_platform_db_url(request: pytest.FixtureRequest) -> str:
         str: 平台库连接串。
     """
     prepare = resolve_prepare(request, "platform")
-    return ensure_shared_db("platform", prepare, version=version_for(prepare))
+    return ensure_shared_db("platform", prepare, version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
 
 
 @pytest.fixture(scope="session")
@@ -657,7 +713,7 @@ def shared_tenant_db_url(request: pytest.FixtureRequest) -> str:
         str: 租户库连接串。
     """
     prepare = resolve_prepare(request, "tenant")
-    return ensure_shared_db("tenant", prepare, version=version_for(prepare))
+    return ensure_shared_db("tenant", prepare, version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
 
 
 @pytest.fixture

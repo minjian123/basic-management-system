@@ -6,6 +6,7 @@
 本模块自建库属「建库即被测」（被测对象就是准备集本身），故整体进 `own_db` 白名单。
 """
 
+import sys
 import types
 from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
@@ -138,6 +139,38 @@ def test_version_for_dynamic_and_anonymous_sources() -> None:
     assert fixtures.version_for(cast("Callable[[str], None]", dynamic)) == "1"
     module = types.ModuleType("no_file_module")
     assert fixtures.version_for(cast("Callable[[str], None]", module)) == "1"
+
+
+def test_version_for_includes_model_sources() -> None:
+    """版本戳含模型源码摘要：模型加列即自动重建，不再依赖人工 bump 注释。"""
+    plain = fixtures.version_for(_prepare)
+    with_models = fixtures.version_for(_prepare, packages=("bms_core.models",))
+    assert len(with_models) == 12
+    assert with_models != plain
+    assert fixtures.version_for(_prepare, packages=("bms_core.models",)) == with_models
+    # 只有模型包、没有准备集源文件时同样给出摘要（缺省建表也要随模型重建）
+    assert fixtures.version_for(None, packages=("bms_core.models",)) != "1"
+
+
+def test_version_for_unknown_package_keeps_prepare_digest() -> None:
+    """包不可导入：不因模型包缺失退回 `1`，只用准备集摘要。"""
+    assert fixtures.version_for(_prepare, packages=("no.such.package",)) == fixtures.version_for(_prepare)
+
+
+def test_package_source_digest_variants(monkeypatch: pytest.MonkeyPatch) -> None:
+    """包摘要：正常包非空；不可导入 / 无 `__file__` 为空串；个别文件读失败跳过。"""
+    assert fixtures._package_source_digest("bms_core.models")  # pyright: ignore[reportPrivateUsage]
+    assert fixtures._package_source_digest("no.such.package") == ""  # pyright: ignore[reportPrivateUsage]
+    module = types.ModuleType("no_file_package")
+    monkeypatch.setitem(sys.modules, "no_file_package", module)
+    assert fixtures._package_source_digest("no_file_package") == ""  # pyright: ignore[reportPrivateUsage]
+
+    def _boom(_self: Path) -> bytes:
+        raise OSError("读失败")
+
+    monkeypatch.setattr(Path, "read_bytes", _boom)
+    digest = fixtures._package_source_digest("bms_core.models")  # pyright: ignore[reportPrivateUsage]
+    assert digest  # 读不到内容时仍按相对路径给出摘要，不抛错
 
 
 def test_root_conftest_exposes_prepare_fixtures() -> None:

@@ -59,8 +59,12 @@ WRITE_WAIT_CAP: Final = 5.0
 WRITE_WAIT_CAP_ENV: Final = "BMS_TEST_GATE_WRITE_WAIT"
 """写门等待上限的环境变量覆盖（秒；缺省用 `WRITE_WAIT_CAP`）。"""
 
-WARN_AFTER: Final = 10.0
-"""等门告警阈值（秒）：超过即打印一行，便于定位长期占用。"""
+WARN_AFTER: Final = 1.0
+"""等门告警阈值（秒）：超过即打印一行并点名持有者。
+
+写操作本身是毫秒级，单次写门持有一秒已属可疑（2026-11-21 业主口径：超过 1 秒连续写数据
+就是极度可疑的用例），十秒更不必说；告警线先于 5s 失败线，便于在失败前就看到持有用例。
+"""
 
 DEFAULT_GATE_DIRNAME: Final = "test"
 """门文件所在目录名（`<工程根>/.cache/test/`，与共享测试库同区）。"""
