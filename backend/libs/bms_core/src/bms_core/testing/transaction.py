@@ -163,7 +163,9 @@ def _sqlite_autocommit(engine: AsyncEngine) -> AsyncEngine:
 
 
 @contextlib.asynccontextmanager
-async def gated_session(engine: AsyncEngine, *, read_only: bool = True) -> AsyncGenerator[AsyncSession]:
+async def gated_session(
+    engine: AsyncEngine, *, read_only: bool = True, wait: float | None = None
+) -> AsyncGenerator[AsyncSession]:
     """直连共享引擎的会话：**按引擎所在库取门**，门的作用域是每次读 / 写操作。
 
     Args:
@@ -179,7 +181,9 @@ async def gated_session(engine: AsyncEngine, *, read_only: bool = True) -> Async
         # 读按操作：每次读新开短会话，读完即关（读锁随会话关闭释放）。
         yield cast(
             "AsyncSession",
-            ReadOperationGatedSession(lambda: db_access_gate(gate_name, read_only=True), factory, bind=engine),
+            ReadOperationGatedSession(
+                lambda: db_access_gate(gate_name, read_only=True, wait=wait), factory, bind=engine
+            ),
         )
         return
     async with factory() as session:
@@ -187,7 +191,7 @@ async def gated_session(engine: AsyncEngine, *, read_only: bool = True) -> Async
             yield session
             return
         # 写按操作：每个数据库方法调用取放一次写门（不整段持有）。
-        proxy = LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), session, bind=engine)
+        proxy = LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False, wait=wait), session, bind=engine)
         try:
             yield cast("AsyncSession", proxy)
         finally:
@@ -195,7 +199,9 @@ async def gated_session(engine: AsyncEngine, *, read_only: bool = True) -> Async
 
 
 @contextlib.asynccontextmanager
-async def _write_scope(engine: AsyncEngine, *, savepoint: bool) -> AsyncGenerator[AsyncSession]:
+async def _write_scope(
+    engine: AsyncEngine, *, savepoint: bool, wait: float | None = None
+) -> AsyncGenerator[AsyncSession]:
     """测试侧写会话的**唯一实现**：autocommit 会话 + 操作级写门。
 
     2026-11-21 口径（业主拍板）：**不再用「外层事务 + 退出回滚」**。每次 SQL 立即落库、立即
@@ -222,7 +228,7 @@ async def _write_scope(engine: AsyncEngine, *, savepoint: bool) -> AsyncGenerato
         exposed: AsyncSession = (
             cast(
                 "AsyncSession",
-                LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), session, bind=engine),
+                LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False, wait=wait), session, bind=engine),
             )
             if gate_name is not None
             else session
@@ -235,7 +241,7 @@ async def _write_scope(engine: AsyncEngine, *, savepoint: bool) -> AsyncGenerato
 
 
 @contextlib.asynccontextmanager
-async def write_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
+async def write_session(engine: AsyncEngine, *, wait: float | None = None) -> AsyncGenerator[AsyncSession]:
     """开启写会话：**autocommit + 操作级写门**（每条 SQL 立即落库、立即放锁）。
 
     与 `rollback_session` 的区别是**不改写 `SessionFactory.create`**——被测代码自建的会话
@@ -251,7 +257,7 @@ async def write_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     Raises:
         Exception: 用例体内的异常原样抛出。
     """
-    async with _write_scope(engine, savepoint=False) as session:
+    async with _write_scope(engine, savepoint=False, wait=wait) as session:
         yield session
 
 

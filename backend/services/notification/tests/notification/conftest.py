@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.sql_ids import sqlite_id
 from bms_core.testing.transaction import write_session
@@ -40,7 +41,7 @@ async def _clean_notification_rows(shared_tenant_engine: AsyncEngine, uid: int) 
 
     async def _purge() -> None:
         """按收件人删除本用例的站内信。"""
-        async with write_session(shared_tenant_engine) as session:
+        async with write_session(shared_tenant_engine, wait=GATE_CRITICAL_WAIT) as session:
             await session.execute(statement, params)
 
     await _purge()

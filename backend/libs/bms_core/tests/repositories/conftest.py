@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.testing.locks import file_lock
 from bms_core.testing.transaction import write_session
 
@@ -84,6 +85,6 @@ async def _purge_probe(engine: AsyncEngine) -> None:
     Args:
         engine: 共享平台库引擎。
     """
-    async with write_session(engine) as session:
+    async with write_session(engine, wait=GATE_CRITICAL_WAIT) as session:
         for statement in _PURGE_STATEMENTS:
             await session.execute(text(statement))
