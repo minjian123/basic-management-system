@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from redis.asyncio import Redis
 
+from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.exceptions import RedisUnavailableError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
@@ -91,6 +92,32 @@ class EventConsumeDedup(BaseFrameworkObject):
             _LOGGER.warning("event_dedup_degraded", op="seen", group=group, error=repr(exc))
             return False
 
+    async def seen_many(
+        self, *, group: str, event_ids: ConcurrentStableList[str]
+    ) -> ConcurrentStableFrozenDict[str, bool]:
+        """批量只读预判（一次 `MGET`）。
+
+        Args:
+            group: 消费组名。
+            event_ids: 事件 ID 列表。
+
+        Returns:
+            ConcurrentStableFrozenDict[str, bool]: 事件 ID → 是否已处理；Redis 不可用时全 False。
+        """
+        if not event_ids:
+            return ConcurrentStableFrozenDict({})
+        keys = ConcurrentStableList(dedup_key(group=group, event_id=event_id) for event_id in event_ids)
+        try:
+            values = await self.client.mget(keys)
+        except RedisUnavailableError:
+            return ConcurrentStableFrozenDict({event_id: False for event_id in event_ids})
+        except Exception as exc:
+            _LOGGER.warning("event_dedup_degraded", op="seen_many", group=group, error=repr(exc))
+            return ConcurrentStableFrozenDict({event_id: False for event_id in event_ids})
+        return ConcurrentStableFrozenDict(
+            {event_id: bool(value) for event_id, value in zip(event_ids, values, strict=False)}
+        )
+
     async def remember(self, *, group: str, event_id: str) -> None:
         """标记窗口内已处理（仅业务成功后调用）。
 
@@ -104,3 +131,22 @@ class EventConsumeDedup(BaseFrameworkObject):
             return
         except Exception as exc:  # 标记失败只影响 L1 效率，不影响正确性
             _LOGGER.warning("event_dedup_degraded", op="remember", group=group, error=repr(exc))
+
+    async def remember_many(self, *, group: str, event_ids: ConcurrentStableList[str]) -> None:
+        """批量标记窗口内已处理（一次 pipeline）。
+
+        Args:
+            group: 消费组名。
+            event_ids: 事件 ID 列表。
+        """
+        if not event_ids:
+            return
+        try:
+            pipeline = self.client.pipeline(transaction=False)
+            for event_id in event_ids:
+                pipeline.set(dedup_key(group=group, event_id=event_id), "1", ex=self._ttl)
+            await pipeline.execute()
+        except RedisUnavailableError:
+            return
+        except Exception as exc:
+            _LOGGER.warning("event_dedup_degraded", op="remember_many", group=group, error=repr(exc))

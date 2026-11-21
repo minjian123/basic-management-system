@@ -1627,6 +1627,15 @@ class EventConsumerSettings(PluginSelection):
     timing_enabled: bool = Field(default=False)
     """批次分段计时开关：True 时每批输出一条 `event_consumer_batch_timing`（拉取 / 处理 / ack / 条数）。"""
 
+    commit_batch_size: int = Field(default=50, ge=1, le=500)
+    """单次事务最多写入条数（与拉取 `batch_size` 解耦；实际取 `min(拉取条数, 本值)`）。"""
+
+    ordered_lane_limit: int = Field(default=64, ge=1)
+    """有序组动态道上限：活跃链键数超上限时，新键按稳定哈希合并到桶道。"""
+
+    lane_idle_seconds: float = Field(default=600.0, gt=0)
+    """有序组动态道空闲回收阈值（秒）：道内空闲超时后回收协程，键映射保留。"""
+
 
 class TaskSchedulerSettings(BaseSettings):
     """任务调度运行参数（`[task_scheduler]`，01_02）。

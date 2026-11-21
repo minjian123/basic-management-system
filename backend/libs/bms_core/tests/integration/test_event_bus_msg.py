@@ -12,7 +12,12 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings, get_settings
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.tenant import TenantContext, TenantDirectory
@@ -110,11 +115,25 @@ class _MemoryDedup:
         del group
         return event_id in self._seen
 
+    async def seen_many(
+        self, *, group: str, event_ids: ConcurrentStableList[str]
+    ) -> ConcurrentStableFrozenDict[str, bool]:
+        """批量判读。"""
+        del group
+        return ConcurrentStableFrozenDict({event_id: event_id in self._seen for event_id in event_ids})
+
     async def remember(self, *, group: str, event_id: str) -> None:
         """标记已处理。"""
         del group
         if event_id not in self._seen:
             self._seen.add(event_id)
+
+    async def remember_many(self, *, group: str, event_ids: ConcurrentStableList[str]) -> None:
+        """批量标记。"""
+        del group
+        for event_id in event_ids:
+            if event_id not in self._seen:
+                self._seen.add(event_id)
 
 
 class _Recorder:

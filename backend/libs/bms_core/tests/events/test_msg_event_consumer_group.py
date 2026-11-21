@@ -27,7 +27,7 @@ from bms_core.core.config import EventConsumerSettings, Settings
 from bms_core.core.exceptions import EventConsumeError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.tenant import TenantContext, TenantDirectory
-from bms_core.events.base import ConsumedTally, EventConsumer, EventEnvelope
+from bms_core.events.base import BatchConsumeOutcome, ConsumedTally, EventConsumer, EventEnvelope
 from bms_core.events.consumer_records import EventConsumerRecord
 from bms_core.events.dead_letter import EventDeadLetterEntry
 from bms_core.events.msg_consumer import (
@@ -83,9 +83,20 @@ class _Dedup:
         del group, event_id
         return self._seen
 
+    async def seen_many(
+        self, *, group: str, event_ids: ConcurrentStableList[str]
+    ) -> ConcurrentStableFrozenDict[str, bool]:
+        del group
+        return ConcurrentStableFrozenDict({event_id: self._seen for event_id in event_ids})
+
     async def remember(self, *, group: str, event_id: str) -> None:
         del group
         self.remembered.add(event_id)
+
+    async def remember_many(self, *, group: str, event_ids: ConcurrentStableList[str]) -> None:
+        del group
+        for event_id in event_ids:
+            self.remembered.add(event_id)
 
 
 class _Recorder:
@@ -338,7 +349,8 @@ def test_load_builds_groups_topics_and_subscriptions() -> None:
     assert set(runtime.topics.keys()) == {"bms-sys-operation", "bms-sys-login", "bms-sys-data"}
     assert set(runtime.topics.values()) == {"sys"}
     assert len(group.subscriptions()) == 3
-    assert runtime.lanes_or_create().lanes == 1
+    # 有序组按链键动态建道：未提交前活跃道数为 0。
+    assert runtime.lanes_or_create().lanes == 0
 
 
 def test_load_rejects_topic_with_second_namespace(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -381,7 +393,7 @@ async def test_start_consumes_and_acks() -> None:
     assert consumer.closed
     success_key = "bms_event_consume_total|{'group': 'bms-audit-chain', 'result': 'succeeded'}"
     assert metrics.counters.get(success_key) == 1.0
-    assert metrics.histograms
+    assert any(key.startswith("bms_event_consume_seconds_total|") for key in metrics.counters)
 
 
 async def test_dedup_hit_skips_and_acks() -> None:
@@ -1158,3 +1170,169 @@ async def test_batch_continues_after_unacked_message() -> None:
     await group.stop()
     assert list(consumer.nacked) == ["schema_invalid"]
     assert [message.message_id for message in consumer.acked] == ["m-e-2"]
+
+
+class _BatchHandler(_Handler):
+    """批量处理器替身：按编排返回非可重试失败 / 数量不符 / 直接抛错。"""
+
+    def __init__(
+        self,
+        event_type: str,
+        *,
+        kind: str = "failed",
+        retryable: bool = False,
+        delta: int = 0,
+        raises: bool = False,
+    ) -> None:
+        super().__init__(event_type)
+        self._kind = kind
+        self._retryable = retryable
+        self._delta = delta
+        self._raises = raises
+
+    async def consume_batch(
+        self, events: ConcurrentStableList[EventEnvelope]
+    ) -> ConcurrentStableList[BatchConsumeOutcome]:
+        if self._raises:
+            raise RuntimeError("batch boom")
+        outcomes: ConcurrentStableList[BatchConsumeOutcome] = ConcurrentStableList()
+        for event in events[: max(0, len(events) - self._delta)]:
+            outcomes.add(
+                BatchConsumeOutcome(
+                    event_id=event.event_id or "",
+                    kind=self._kind,
+                    retryable=self._retryable,
+                    error="batch failed",
+                )
+            )
+        return outcomes
+
+
+async def _run_single_with(handler: EventConsumer) -> tuple[_FakeConsumer, _Recorder, _Metrics]:
+    """用给定处理器跑一条消息并返回观测点。
+
+    Args:
+        handler: 处理器实例。
+
+    Returns:
+        tuple[_FakeConsumer, _Recorder, _Metrics]: 消费替身 / 死信替身 / 指标替身。
+    """
+    directory = _Directory(ConcurrentStableList(["t1"]))
+    consumer = _FakeConsumer(batches=ConcurrentStableList([ConcurrentStableList([_message()])]))
+    recorder = _Recorder()
+    metrics = _Metrics()
+    group = _group(
+        directory=directory,
+        consumers=ConcurrentStableDict({("t1", "bms-sys-operation"): consumer}),
+        recorder=recorder,
+        metrics=metrics,
+    )
+    record = EventConsumerRecord(
+        consumer="audit-chain",
+        event_type="sys.operation.logged",
+        handler_factory=lambda: handler,
+        ordered=True,
+    )
+    group.load(ConcurrentStableList([record]))
+    await group.start()
+    await _wait(lambda: bool(consumer.acked))
+    await group.stop()
+    return consumer, recorder, metrics
+
+
+async def test_batch_non_retryable_failure_goes_dead_letter() -> None:
+    """批结果标记不可重试：直接写死信并 ack（不进入退避重试）。"""
+    consumer, recorder, _ = await _run_single_with(_BatchHandler("sys.operation.logged", retryable=False))
+    assert consumer.acked
+    assert len(recorder.entries) == 1
+    assert recorder.entries[0].retry_count == 0
+
+
+async def test_batch_result_length_mismatch_is_retried() -> None:
+    """批结果数量不符：按可重试失败回退单条重试（此处单条成功 → 计 retried）。"""
+    consumer, _, metrics = await _run_single_with(_BatchHandler("sys.operation.logged", delta=1))
+    assert consumer.acked
+    assert "bms_event_consume_total|{'group': 'bms-audit-chain', 'result': 'retried'}" in metrics.counters
+
+
+async def test_batch_handler_exception_is_retried() -> None:
+    """批处理器整体抛错：按可重试失败逐条重试，单条成功即 ack。"""
+    consumer, _, metrics = await _run_single_with(_BatchHandler("sys.operation.logged", raises=True))
+    assert consumer.acked
+    assert "bms_event_consume_total|{'group': 'bms-audit-chain', 'result': 'retried'}" in metrics.counters
+
+
+async def test_commit_batch_size_chunks_messages() -> None:
+    """提交批量小于拉取条数：按 `commit_batch_size` 分块，两条都处理并 ack。"""
+    directory = _Directory(ConcurrentStableList(["t1"]))
+    consumer = _FakeConsumer(
+        batches=ConcurrentStableList(
+            [ConcurrentStableList([_message(_event(event_id="e-1")), _message(_event(event_id="e-2"))])]
+        )
+    )
+    group = _group(
+        directory=directory,
+        consumers=ConcurrentStableDict({("t1", "bms-sys-operation"): consumer}),
+        settings=_settings(commit_batch_size=1),
+    )
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    await group.start()
+    await _wait(lambda: len(consumer.acked) == 2)
+    await group.stop()
+    assert [message.message_id for message in consumer.acked] == ["m-e-1", "m-e-2"]
+
+
+def test_chain_key_uses_declared_derivation() -> None:
+    """链键：声明了派生函数就用它；未声明回落分区键。"""
+    group = _group()
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    runtime = group._groups["bms-audit-chain"]  # pyright: ignore[reportPrivateUsage]
+    event = _event()
+    assert group._chain_key_of(runtime, event) == "tenant:1"  # pyright: ignore[reportPrivateUsage]
+
+    runtime.chain_keys.set("sys.operation.logged", lambda item: f"chain:{item.tenant_id}")
+    assert group._chain_key_of(runtime, event) == "chain:1"  # pyright: ignore[reportPrivateUsage]
+
+
+def test_load_registers_declared_chain_key() -> None:
+    """装载声明时链键派生进入运行时（批量分道据此取键）。"""
+    group = _group()
+    record = EventConsumerRecord(
+        consumer="audit-chain",
+        event_type="sys.operation.logged",
+        handler_factory=lambda: _Handler("sys.operation.logged"),
+        ordered=True,
+        chain_key=lambda event: "custom",
+    )
+    group.load(ConcurrentStableList([record]))
+    runtime = group._groups["bms-audit-chain"]  # pyright: ignore[reportPrivateUsage]
+    assert runtime.chain_keys.get("sys.operation.logged") is not None
+
+
+def test_non_ordered_group_uses_fixed_lanes() -> None:
+    """非有序组仍用固定道数（组级 concurrency 覆盖）。"""
+    import bms_core.events.msg_consumer as module
+
+    runtime = module._GroupRuntime(  # pyright: ignore[reportPrivateUsage]
+        name="bms-job-monitor", ordered=False, concurrency=3
+    )
+    assert runtime.lanes_or_create().lanes == 3
+
+
+async def test_dead_letter_ack_failure_on_poison_message_is_logged() -> None:
+    """毒消息写死信成功后 ack 失败：只记日志，不阻断后续消息。"""
+    directory = _Directory(ConcurrentStableList(["t1"]))
+    consumer = _FakeConsumer(
+        batches=ConcurrentStableList([ConcurrentStableList([_message(payload=b"not-json")])]), ack_error=True
+    )
+    group = _group(
+        directory=directory,
+        consumers=ConcurrentStableDict({("t1", "bms-sys-operation"): consumer}),
+        recorder=_Recorder(),
+    )
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    await group.start()
+    await _wait(lambda: consumer.ack_attempts > 0)
+    await group.stop()
+    assert consumer.ack_attempts == 1
+    assert consumer.acked == []

@@ -48,6 +48,7 @@ from bms_core.db.tenant import TenantContext, TenantDirectory
 from bms_core.events.base import (
     DEFAULT_CONSUME_BATCH,
     BaseEventConsumerGroup,
+    BatchConsumeOutcome,
     ConsumedTally,
     EventConsumer,
     EventEnvelope,
@@ -76,6 +77,7 @@ __all__ = ["MessageConsumer", "MsgEventConsumerGroup", "PlatformOnlyTenantDirect
 _LOGGER = get_logger("bms")
 
 _METRIC_CONSUME = "bms_event_consume_total"
+_METRIC_CONSUME_SECONDS = "bms_event_consume_seconds_total"
 _METRIC_DEAD = "bms_event_dead_letter_total"
 _METRIC_DURATION = "bms_event_consume_duration_seconds"
 
@@ -97,6 +99,21 @@ class _Outcome(BaseValueObject):
 
     kind: str
     ack: bool
+
+
+@dataclass(frozen=True)
+class _Prepared(BaseValueObject):
+    """已通过预检、待处理的单条消息。
+
+    Attributes:
+        message: 原始消息。
+        event: 已解码事件。
+        handler: 命中的处理器。
+    """
+
+    message: ReceivedMessage
+    event: EventEnvelope
+    handler: EventConsumer
 
 
 class MessageConsumer(Protocol):
@@ -171,8 +188,13 @@ class _GroupRuntime(BaseDataContract):
     name: str
     ordered: bool
     concurrency: int | None
+    lane_limit: int = 64
+    lane_idle_seconds: float = 600.0
     handlers: ConcurrentStableDict[str, EventConsumer] = field(
         default_factory=lambda: ConcurrentStableDict[str, EventConsumer]()
+    )
+    chain_keys: ConcurrentStableDict[str, Callable[[EventEnvelope], str]] = field(
+        default_factory=lambda: ConcurrentStableDict[str, Callable[[EventEnvelope], str]]()
     )
     topics: ConcurrentStableDict[str, str] = field(default_factory=lambda: ConcurrentStableDict[str, str]())
     units: ConcurrentStableDict[tuple[str, str], _ConsumerUnit] = field(
@@ -184,10 +206,15 @@ class _GroupRuntime(BaseDataContract):
         """取（或创建）组级执行器。
 
         Returns:
-            KeyedLaneExecutor: 执行器（有序组 1 道）。
+            KeyedLaneExecutor: 执行器（有序组按链键动态建道；其余组固定道数）。
         """
         if self.lanes is None:
-            self.lanes = KeyedLaneExecutor(1 if self.ordered else (self.concurrency or 1))
+            if self.ordered:
+                self.lanes = KeyedLaneExecutor(
+                    1, dynamic=True, limit=self.lane_limit, idle_seconds=self.lane_idle_seconds
+                )
+            else:
+                self.lanes = KeyedLaneExecutor(self.concurrency or 1)
         return self.lanes
 
 
@@ -289,11 +316,17 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
             runtime = self._groups.get(qualified.consumer)
             if runtime is None:
                 runtime = _GroupRuntime(
-                    name=qualified.consumer, ordered=qualified.ordered, concurrency=qualified.concurrency
+                    name=qualified.consumer,
+                    ordered=qualified.ordered,
+                    concurrency=qualified.concurrency,
+                    lane_limit=self._settings.event_consumer.ordered_lane_limit,
+                    lane_idle_seconds=self._settings.event_consumer.lane_idle_seconds,
                 )
                 self._groups.set(qualified.consumer, runtime)
             if runtime.handlers.get(qualified.event_type) is None:
                 runtime.handlers.set(qualified.event_type, qualified.handler_factory())
+            if qualified.chain_key is not None:
+                runtime.chain_keys.set(qualified.event_type, qualified.chain_key)
             topic = topic_for(qualified.event_type)
             namespace = namespace_for(qualified.event_type)
             existing = runtime.topics.get(topic)
@@ -564,11 +597,15 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
                 continue
             process_seconds = 0.0
             ack_seconds = 0.0
-            for message in result.messages:
+            chunk_size = max(1, self._settings.event_consumer.commit_batch_size)
+            messages = ConcurrentStableList(result.messages)
+            for offset in range(0, len(messages), chunk_size):
                 if not self._running:
                     break
+                chunk = ConcurrentStableList(messages[offset : offset + chunk_size])
                 started = time.perf_counter()
-                ack_seconds += await self._settle_message(runtime, unit, message)
+                settled = await self._settle_batch(runtime, unit, chunk)
+                ack_seconds += settled
                 process_seconds += time.perf_counter() - started
             if timing:
                 _LOGGER.info(
@@ -582,6 +619,201 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
                     ack_ms=round(ack_seconds * 1000, 2),
                     total_ms=round((poll_seconds + process_seconds) * 1000, 2),
                 )
+
+    async def _settle_batch(
+        self, runtime: _GroupRuntime, unit: _ConsumerUnit, messages: ConcurrentStableList[ReceivedMessage]
+    ) -> float:
+        """处理并确认一批消息（按链键并行；批内保持每链顺序）。
+
+        Args:
+            runtime: 组运行时。
+            unit: 消费单元。
+            messages: 本批消息（按拉取顺序）。
+
+        Returns:
+            float: ack 累计耗时（秒）。
+        """
+        batch_started = time.perf_counter()
+        outcomes: ConcurrentStableDict[int, BatchConsumeOutcome] = ConcurrentStableDict()
+        pre_dead: ConcurrentStableDict[int, _Outcome] = ConcurrentStableDict()
+        prepared_by_index: ConcurrentStableDict[int, _Prepared] = ConcurrentStableDict()
+        groups: ConcurrentStableDict[str, ConcurrentStableList[tuple[int, _Prepared]]] = ConcurrentStableDict()
+        for index, message in enumerate(messages):
+            prepared = await self._prepare(runtime, unit, message)
+            if isinstance(prepared, _Outcome):
+                pre_dead.set(index, prepared)
+                continue
+            prepared_by_index.set(index, prepared)
+            chain = self._chain_key_of(runtime, prepared.event)
+            items = groups.get(chain)
+            if items is None:
+                created: ConcurrentStableList[tuple[int, _Prepared]] = ConcurrentStableList()
+                groups.set(chain, created)
+                items = created
+            items.add((index, prepared))
+        if groups:
+            lanes = runtime.lanes_or_create()
+            keys = ConcurrentStableList(groups.keys())
+            results = await asyncio.gather(
+                *(
+                    lanes.submit(
+                        key,
+                        lambda items=groups[key]: self._consume_group(runtime, unit, items),
+                    )
+                    for key in keys
+                )
+            )
+            for items, group_outcomes in zip((groups[key] for key in keys), results, strict=False):
+                for (index, _prepared), outcome in zip(items, group_outcomes, strict=False):
+                    outcomes.set(index, outcome)
+
+        counts: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+        ack_seconds = 0.0
+        for index, message in enumerate(messages):
+            early = pre_dead.get(index)
+            if early is not None:
+                counts.set(early.kind, counts.get(early.kind, 0) + 1)
+                if early.ack:
+                    ack_started = time.perf_counter()
+                    try:
+                        await unit.consumer.ack(message)
+                    except Exception as exc:  # ack 失败：可见性超时负责重投
+                        _LOGGER.warning(
+                            "event_consumer_ack_failed",
+                            group=unit.group,
+                            tenant=unit.tenant,
+                            topic=unit.topic,
+                            error=repr(exc),
+                        )
+                    else:
+                        ack_seconds += time.perf_counter() - ack_started
+                continue
+            outcome = outcomes.get(index)
+            if outcome is None:  # pragma: no cover - 分组结果缺失属实现缺陷
+                outcome = BatchConsumeOutcome(event_id="", kind="failed", retryable=True, error="批次结果缺失")
+            prepared = prepared_by_index.get(index)
+            if outcome.kind == "failed" and prepared is not None:
+                if outcome.retryable:
+                    settled = await self._retry_or_dead(
+                        runtime,
+                        unit,
+                        prepared.message,
+                        prepared.event,
+                        prepared.handler,
+                        EventConsumeError(outcome.error or "批量处理失败"),
+                    )
+                else:
+                    settled = await self._to_dead_letter(
+                        runtime,
+                        unit,
+                        prepared.message,
+                        prepared.event,
+                        outcome.error or "批量处理失败",
+                    )
+                kind = settled.kind
+                should_ack = settled.ack
+            else:
+                kind = outcome.kind
+                should_ack = kind in ("succeeded", "skipped")
+            counts.set(kind, counts.get(kind, 0) + 1)
+            if not should_ack:
+                continue
+            ack_started = time.perf_counter()
+            try:
+                await unit.consumer.ack(message)
+            except Exception as exc:  # ack 失败：msg 停等 + 可见性超时负责重投
+                _LOGGER.warning(
+                    "event_consumer_ack_failed",
+                    group=unit.group,
+                    tenant=unit.tenant,
+                    topic=unit.topic,
+                    error=repr(exc),
+                )
+                continue
+            ack_seconds += time.perf_counter() - ack_started
+        for kind, count in counts.items():
+            await self._count_many(runtime.name, kind, count)
+        await self._observe_batch(runtime.name, time.perf_counter() - batch_started, counts)
+        return ack_seconds
+
+    async def _consume_group(
+        self, runtime: _GroupRuntime, unit: _ConsumerUnit, items: ConcurrentStableList[tuple[int, _Prepared]]
+    ) -> ConcurrentStableList[BatchConsumeOutcome]:
+        """链键道内批量处理一组消息（预判 → 批量处理 → 标记）。
+
+        Args:
+            runtime: 组运行时。
+            unit: 消费单元（重试 / 死信用）。
+            items: 本链键内按拉取顺序排列的（原始索引，已准备项）。
+
+        Returns:
+            ConcurrentStableList[BatchConsumeOutcome]: 与 `items` 等长的逐条结果。
+        """
+        ids = ConcurrentStableList(prepared.event.event_id or "" for _, prepared in items)
+        seen = await self._dedup.seen_many(group=runtime.name, event_ids=ids)
+        outcomes: ConcurrentStableDict[int, BatchConsumeOutcome] = ConcurrentStableDict()
+        pending: ConcurrentStableList[tuple[int, _Prepared]] = ConcurrentStableList()
+        for position, (_, prepared) in enumerate(items):
+            event_id = prepared.event.event_id or ""
+            if seen.get(event_id, False):
+                outcomes.set(position, BatchConsumeOutcome(event_id=event_id, kind="skipped"))
+            else:
+                pending.add((position, prepared))
+        if pending:
+            handler = pending[0][1].handler
+            events = ConcurrentStableList(prepared.event for _, prepared in pending)
+            try:
+                batch_outcomes = await handler.consume_batch(events)
+            except Exception as exc:  # 批整体失败：全部按可重试失败交运行时逐条重试
+                for position, prepared in pending:
+                    outcomes.set(
+                        position,
+                        BatchConsumeOutcome(
+                            event_id=prepared.event.event_id or "",
+                            kind="failed",
+                            retryable=True,
+                            error=repr(exc),
+                        ),
+                    )
+                batch_outcomes = None
+            if batch_outcomes is not None:
+                if len(batch_outcomes) != len(pending):
+                    for position, prepared in pending:
+                        outcomes.set(
+                            position,
+                            BatchConsumeOutcome(
+                                event_id=prepared.event.event_id or "",
+                                kind="failed",
+                                retryable=True,
+                                error="批量处理结果数量与入参不一致",
+                            ),
+                        )
+                else:
+                    remembered: ConcurrentStableList[str] = ConcurrentStableList()
+                    for (position, prepared), outcome in zip(pending, batch_outcomes, strict=False):
+                        outcomes.set(position, outcome)
+                        if outcome.kind in ("succeeded", "skipped"):
+                            remembered.add(prepared.event.event_id or "")
+                    if remembered:
+                        await self._dedup.remember_many(group=runtime.name, event_ids=remembered)
+        return ConcurrentStableList(
+            outcomes.get(position)
+            or BatchConsumeOutcome(event_id="", kind="failed", retryable=True, error="批次结果缺失")
+            for position in range(len(items))
+        )
+
+    def _chain_key_of(self, runtime: _GroupRuntime, event: EventEnvelope) -> str:
+        """取事件的链键（组声明了链键派生就用它，否则回落分区键）。
+
+        Args:
+            runtime: 组运行时。
+            event: 事件信封。
+
+        Returns:
+            str: 链键。
+        """
+        derive = runtime.chain_keys.get(event.event_type)
+        return derive(event) if derive is not None else _partition_key(event)
 
     async def _settle_message(self, runtime: _GroupRuntime, unit: _ConsumerUnit, message: ReceivedMessage) -> float:
         """处理并确认一条消息（处理异常不终止该单元）。
@@ -629,6 +861,28 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
         Returns:
             _Outcome: 处理结果。
         """
+        prepared = await self._prepare(runtime, unit, message)
+        if isinstance(prepared, _Outcome):
+            return prepared
+        lanes = runtime.lanes_or_create()
+        return await lanes.submit(
+            _partition_key(prepared.event),
+            lambda: self._consume_once_deduped(runtime, unit, prepared.message, prepared.event, prepared.handler),
+        )
+
+    async def _prepare(
+        self, runtime: _GroupRuntime, unit: _ConsumerUnit, message: ReceivedMessage
+    ) -> _Prepared | _Outcome:
+        """解码与预检（毒消息 / 无处理器 / 版本不兼容直接转死信）。
+
+        Args:
+            runtime: 组运行时。
+            unit: 消费单元。
+            message: 拉取到的消息。
+
+        Returns:
+            _Prepared | _Outcome: 可直接处理，或已判定的死信结果。
+        """
         try:
             event = decode_event(message.payload, ConcurrentStableDict(message.headers))
         except EventConsumeError as exc:
@@ -659,11 +913,7 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
                 event,
                 f"订阅不支持该契约版本：{event.event_version}",
             )
-        lanes = runtime.lanes_or_create()
-        return await lanes.submit(
-            _partition_key(event),
-            lambda: self._consume_once_deduped(runtime, unit, message, event, handler),
-        )
+        return _Prepared(message=message, event=event, handler=handler)
 
     async def _consume_once_deduped(
         self,
@@ -945,6 +1195,19 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
         with contextlib.suppress(Exception):
             await self._metrics.counter(_METRIC_CONSUME, labels={"group": group, "result": kind})
 
+    async def _count_many(self, group: str, kind: str, count: int) -> None:
+        """按批上报消费结果计数（一次上报条数）。
+
+        Args:
+            group: 组名。
+            kind: 结果类别。
+            count: 条数（≤0 跳过）。
+        """
+        if self._metrics is None or count <= 0:
+            return
+        with contextlib.suppress(Exception):
+            await self._metrics.counter(_METRIC_CONSUME, value=float(count), labels={"group": group, "result": kind})
+
     async def _dead_count(self, group: str) -> None:
         """上报转死信计数。
 
@@ -955,6 +1218,24 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
             return
         with contextlib.suppress(Exception):
             await self._metrics.counter(_METRIC_DEAD, labels={"consumer": group})
+
+    async def _observe_batch(self, group: str, seconds: float, counts: ConcurrentStableDict[str, int]) -> None:
+        """上报批处理累计耗时（按批一次；配合计数算每条均值）。
+
+        Args:
+            group: 组名。
+            seconds: 本批耗时（秒）。
+            counts: 本批结果分布（`retried` / `dead` 视为部分失败）。
+        """
+        if self._metrics is None:
+            return
+        failed = counts.get("retried", 0) + counts.get("dead", 0) > 0
+        with contextlib.suppress(Exception):
+            await self._metrics.counter(
+                _METRIC_CONSUME_SECONDS,
+                value=seconds,
+                labels={"group": group, "result": "partial" if failed else "ok"},
+            )
 
     async def _observe(self, group: str, result: str, seconds: float) -> None:
         """上报单次处理器耗时（指标失败不影响消费）。

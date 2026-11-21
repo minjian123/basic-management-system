@@ -28,7 +28,7 @@ from bms_core.audit.shards import (
     build_shard_table,
     shard_table_name,
 )
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenSet, ConcurrentStableList
 from bms_core.core.logging import get_logger
 from bms_core.core.roots import BaseFrameworkObject
 from bms_core.db.session import DbSession
@@ -221,6 +221,25 @@ class LogShardRepository(BaseFrameworkObject):
         result = await self._session.execute(select(table.c.id).where(table.c.event_id == event_id).limit(1))
         return result.first() is not None
 
+    async def event_exists_many(
+        self, log_type: str, month: str, event_ids: ConcurrentStableList[str]
+    ) -> ConcurrentStableFrozenSet[str]:
+        """按事件 ID 批量判重（同分片内一次 `IN` 查询）。
+
+        Args:
+            log_type: 日志类型。
+            month: 月份键。
+            event_ids: 事件 ID 列表（空列表直接返回空集）。
+
+        Returns:
+            ConcurrentStableFrozenSet[str]: 已存在的事件 ID。
+        """
+        if not event_ids:
+            return ConcurrentStableFrozenSet()
+        table = self._table(log_type, month)
+        result = await self._session.execute(select(table.c.event_id).where(table.c.event_id.in_(list(event_ids))))
+        return ConcurrentStableFrozenSet(str(row[0]) for row in result)
+
     async def last_hash(self, log_type: str, month: str, tenant_id: int | None) -> str:
         """取同租户链尾哈希（当月优先，其次更早分片；无则空串）。
 
@@ -255,6 +274,21 @@ class LogShardRepository(BaseFrameworkObject):
         """
         table = self._table(log_type, month)
         await self._session.execute(table.insert().values(**dict(values)))
+
+    async def insert_many(
+        self, log_type: str, month: str, rows: ConcurrentStableList[ConcurrentStableDict[str, object]]
+    ) -> None:
+        """批量写入日志（一次 executemany；调用方负责链计算与幂等判重）。
+
+        Args:
+            log_type: 日志类型。
+            month: 月份键。
+            rows: 行值列表（空列表直接返回）。
+        """
+        if not rows:
+            return
+        table = self._table(log_type, month)
+        await self._session.execute(table.insert(), [dict(row) for row in rows])
 
     # ---- 查询 ----
 

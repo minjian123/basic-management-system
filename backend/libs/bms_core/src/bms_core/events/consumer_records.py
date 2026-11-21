@@ -21,7 +21,7 @@ from typing import cast
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import EventContractError
 from bms_core.core.objects import BaseValueObject
-from bms_core.events.base import EventConsumer
+from bms_core.events.base import EventConsumer, EventEnvelope
 from bms_core.events.contracts import (
     EVENT_TYPE_RE,
     EventContractRegistry,
@@ -56,8 +56,9 @@ class EventConsumerRecord(BaseValueObject):
         consumer: 组名（`{group_prefix}-{域}`；不含前缀时由装载方补齐）。
         event_type: 订阅的事件类型（须已登记契约）。
         handler_factory: 处理器工厂（每次启动构造独立实例）。
-        ordered: 是否全组串行（True → 该组 lane 固定 1，审计链组等强顺序场景）。
-        concurrency: 组级并发（lane 数）覆盖；None 取 `[event_consumer].concurrency`。
+        ordered: 是否强顺序（True → 组级执行器按链键串行、跨键并行）。
+        concurrency: 组级并发（固定道数）覆盖；None 取 `[event_consumer].concurrency`。
+        chain_key: 有序组的链键派生（同键串行）；None 回落「聚合键 → 租户 → 事件 ID」。
         description: 说明（中文，供启动日志与排障）。
     """
 
@@ -66,6 +67,7 @@ class EventConsumerRecord(BaseValueObject):
     handler_factory: Callable[[], EventConsumer]
     ordered: bool = False
     concurrency: int | None = None
+    chain_key: Callable[[EventEnvelope], str] | None = None
     description: str = ""
 
 
@@ -111,6 +113,7 @@ def merge_event_consumer_records(
             handler_factory=record.handler_factory,
             ordered=record.ordered,
             concurrency=record.concurrency,
+            chain_key=record.chain_key,
             description=record.description,
         )
         key = (qualified.consumer, qualified.event_type)
@@ -142,6 +145,7 @@ def validate_event_consumer_records(
     """
     errors: ConcurrentStableList[str] = ConcurrentStableList()
     ordered_by_group: ConcurrentStableDict[str, bool] = ConcurrentStableDict()
+    chain_key_by_group: ConcurrentStableDict[str, Callable[[EventEnvelope], str] | None] = ConcurrentStableDict()
     contract_registry = registry or default_event_contract_registry()
     for record in records:
         label = f"{record.consumer} ← {record.event_type}"
@@ -157,11 +161,17 @@ def validate_event_consumer_records(
             errors.add(f"并发数非法（应 ≥1）：{label}（{record.concurrency}）")
         if record.ordered and record.concurrency is not None and record.concurrency > 1:
             errors.add(f"有序组不得并行（ordered=True 时并发只能为 1）：{label}（{record.concurrency}）")
+        if record.chain_key is not None and not record.ordered:
+            errors.add(f"链键派生只允许用于有序组（ordered=True）：{label}")
         previous = ordered_by_group.get(record.consumer)
         if previous is None:
             ordered_by_group[record.consumer] = record.ordered
         elif previous != record.ordered:
             errors.add(f"同组内 ordered 声明不一致：{record.consumer}（{previous} 与 {record.ordered}）")
+        if record.consumer not in chain_key_by_group:
+            chain_key_by_group[record.consumer] = record.chain_key
+        elif chain_key_by_group[record.consumer] is not record.chain_key:
+            errors.add(f"同组内链键派生不一致：{record.consumer}")
     return errors
 
 

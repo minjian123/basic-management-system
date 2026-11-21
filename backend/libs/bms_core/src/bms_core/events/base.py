@@ -17,7 +17,7 @@ from bms_core.core.concurrent import (
 )
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import OutboxDeliveryError
-from bms_core.core.objects import BaseDataContract, BaseTallyContract
+from bms_core.core.objects import BaseDataContract, BaseTallyContract, BaseValueObject
 from bms_core.core.plugin import (
     DEFAULT_CONTRACT_VERSION,
     NULL_PLUGIN_NAME,
@@ -141,6 +141,45 @@ class EventConsumer(BaseEventConsumer):
         Args:
             event: 事件信封。
         """
+
+    async def consume_batch(
+        self, events: ConcurrentStableList[EventEnvelope]
+    ) -> ConcurrentStableList[BatchConsumeOutcome]:
+        """批量消费（缺省逐条调用 `consume`；单条失败只影响该条）。
+
+        Args:
+            events: 同一链键内按拉取顺序排列的事件。
+
+        Returns:
+            ConcurrentStableList[BatchConsumeOutcome]: 与入参等长的逐条结果。
+        """
+        outcomes: ConcurrentStableList[BatchConsumeOutcome] = ConcurrentStableList()
+        for event in events:
+            event_id = event.event_id or ""
+            try:
+                await self.consume(event)
+            except Exception as exc:  # 单条失败不连坐整批，交由运行时重试 / 死信
+                outcomes.add(BatchConsumeOutcome(event_id=event_id, kind="failed", error=repr(exc)))
+                continue
+            outcomes.add(BatchConsumeOutcome(event_id=event_id, kind="succeeded"))
+        return outcomes
+
+
+@dataclass(frozen=True)
+class BatchConsumeOutcome(BaseValueObject):
+    """批量消费的单条结果（与入参按位置对应）。
+
+    Attributes:
+        event_id: 事件 ID（死信 / 排障用）。
+        kind: `succeeded` / `skipped` / `failed`。
+        retryable: 失败是否可重试（毒消息 / 不支持的类型为 False，直接转死信）。
+        error: 失败原因（成功为空）。
+    """
+
+    event_id: str
+    kind: str
+    retryable: bool = True
+    error: str | None = None
 
 
 @dataclass(frozen=True)

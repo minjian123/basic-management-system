@@ -21,7 +21,7 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, session_scope
-from bms_core.events.base import EventConsumer, EventEnvelope
+from bms_core.events.base import BatchConsumeOutcome, EventConsumer, EventEnvelope
 from bms_core.events.consumer_records import EventConsumerRecord
 from bms_core.metrics.base import BaseMetrics
 from bms_platform.domains.log.services.writer import AuditLogWriter
@@ -146,6 +146,35 @@ class AuditLogConsumer(EventConsumer):
         ):
             await AuditLogWriter(session, _hash_chain(), metrics=_metrics()).write(event)
 
+    async def consume_batch(
+        self, events: ConcurrentStableList[EventEnvelope]
+    ) -> ConcurrentStableList[BatchConsumeOutcome]:
+        """批量消费（一批一个事务：每链一次链尾查询 + 内存衔接 + 批量插入）。
+
+        Args:
+            events: 同一链键内按拉取顺序排列的事件。
+
+        Returns:
+            ConcurrentStableList[BatchConsumeOutcome]: 与入参等长的逐条结果。
+        """
+        async with (
+            session_scope(_audit_registry(), db_key=PLATFORM_DB_KEY, factory=SessionFactory()) as session,
+            session.begin(),
+        ):
+            return await AuditLogWriter(session, _hash_chain(), metrics=_metrics()).write_batch(events)
+
+
+def _audit_chain_key(event: EventEnvelope) -> str:
+    """审计链键：租户 + 事件类型（每个事件类型对应一张分片表，故等价于「租户 × 日志类型」）。
+
+    Args:
+        event: 审计事件信封。
+
+    Returns:
+        str: 链键（同键串行追加，跨键并行）。
+    """
+    return f"{event.tenant_id or 'global'}:{event.event_type}"
+
 
 def event_consumer_records() -> ConcurrentStableList[EventConsumerRecord]:
     """平台自持的审计链消费组声明（两条事件各一条记录）。
@@ -161,6 +190,7 @@ def event_consumer_records() -> ConcurrentStableList[EventConsumerRecord]:
                 event_type=event_type,
                 handler_factory=_factory(event_type),
                 ordered=True,
+                chain_key=_audit_chain_key,
                 description=f"审计链落库：{event_type} → 按月分片 + 哈希链",
             )
         )

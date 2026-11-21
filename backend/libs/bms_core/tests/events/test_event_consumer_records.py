@@ -71,6 +71,7 @@ def _record(
     handler_factory: object = _first_handler,
     ordered: bool = False,
     concurrency: int | None = None,
+    chain_key: object = None,
 ) -> EventConsumerRecord:
     """构造一条声明。
 
@@ -78,8 +79,9 @@ def _record(
         consumer: 组名。
         event_type: 事件类型。
         handler_factory: 处理器工厂。
-        ordered: 是否全组串行。
+        ordered: 是否强顺序。
         concurrency: 并发覆盖。
+        chain_key: 链键派生。
 
     Returns:
         EventConsumerRecord: 声明。
@@ -90,6 +92,7 @@ def _record(
         handler_factory=handler_factory,  # type: ignore[arg-type]
         ordered=ordered,
         concurrency=concurrency,
+        chain_key=chain_key,  # type: ignore[arg-type]
     )
 
 
@@ -179,3 +182,31 @@ def test_validate_rejects_non_callable_factory() -> None:
     """处理器工厂不可调用 → 拒（声明写错比启动后才炸更好）。"""
     errors = validate_event_consumer_records(_records(_record(handler_factory="not-callable")))
     assert any("处理器工厂不可调用" in error for error in errors)
+
+
+def _chain_key(event: EventEnvelope) -> str:
+    """链键派生替身。"""
+    return event.tenant_id or "global"
+
+
+def test_validate_rejects_chain_key_without_ordered() -> None:
+    """链键派生只允许用于有序组（非有序组按固定道数哈希，声明链键无意义）。"""
+    errors = validate_event_consumer_records(_records(_record(chain_key=_chain_key)))
+    assert any("链键派生只允许用于有序组" in error for error in errors)
+
+
+def test_validate_rejects_inconsistent_chain_key_in_group() -> None:
+    """同组内链键派生必须一致（一半有键一半无键 = 顺序语义不明）。"""
+    errors = validate_event_consumer_records(
+        _records(
+            _record(ordered=True, chain_key=_chain_key),
+            _record(event_type="sys.user.updated", ordered=True),
+        )
+    )
+    assert any("链键派生不一致" in error for error in errors)
+
+
+def test_merge_preserves_chain_key() -> None:
+    """合并声明时链键派生随记录保留（装载期据此建道）。"""
+    merged = merge_event_consumer_records(_records(_record(ordered=True, chain_key=_chain_key)))
+    assert merged[0].chain_key is _chain_key

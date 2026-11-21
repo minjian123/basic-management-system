@@ -21,13 +21,19 @@ from bms_core.audit.events import (
 )
 from bms_core.audit.hashchain import GENESIS_HASH, BaseHashChain
 from bms_core.audit.observability import GLOBAL_TENANT_LABEL, record_audit_write
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenSet,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.exceptions import EventConsumeError
 from bms_core.core.id import id_generator
 from bms_core.core.logging import get_logger
 from bms_core.core.roots import BaseFrameworkObject
 from bms_core.db.session import DbSession
-from bms_core.events.base import EventEnvelope
+from bms_core.events.base import BatchConsumeOutcome, EventEnvelope
 from bms_core.metrics.base import BaseMetrics
 from bms_platform.domains.log.repositories.shard import LogShardRepository
 from bms_platform.domains.log.schema import (
@@ -41,6 +47,15 @@ from bms_platform.domains.log.schema import (
 __all__ = ["AuditLogWriter", "parse_occurred_at"]
 
 _LOGGER = get_logger("bms.platform.log")
+
+_LOG_TYPE_OF_EVENT: ConcurrentStableFrozenDict[str, str] = ConcurrentStableFrozenDict(
+    {
+        OPERATION_LOG_EVENT: LOG_TYPE_OPERATION,
+        LOGIN_LOG_EVENT: LOG_TYPE_LOGIN,
+        DATA_CHANGED_EVENT: LOG_TYPE_DATA_AUDIT,
+    }
+)
+"""审计事件类型 → 分片日志类型（批量写入分组用）。"""
 
 
 def _utc_now() -> datetime:
@@ -139,7 +154,6 @@ class AuditLogWriter(BaseFrameworkObject):
         Raises:
             EventConsumeError: 必填字段缺失 / 非法。
         """
-        payload = event.payload
         now = self._clock()
         month = month_key(now)
         event_id = event.event_id
@@ -149,6 +163,26 @@ class AuditLogWriter(BaseFrameworkObject):
         if await self._repo.event_exists(LOG_TYPE_OPERATION, month, event_id):
             _LOGGER.debug("audit_log_duplicate", log_type=LOG_TYPE_OPERATION, event_id=event_id)
             return False
+        values, tenant_id = self.operation_row(event)
+        await self._append(LOG_TYPE_OPERATION, month, values, tenant_id)
+        return True
+
+    def operation_row(self, event: EventEnvelope) -> tuple[ConcurrentStableDict[str, object], int | None]:
+        """取操作日志行值（不含链字段；批量写入复用）。
+
+        Args:
+            event: `sys.operation.logged` 事件。
+
+        Returns:
+            tuple[ConcurrentStableDict[str, object], int | None]: 行值与租户主键。
+
+        Raises:
+            EventConsumeError: 必填字段缺失 / 非法。
+        """
+        payload = event.payload
+        event_id = event.event_id
+        if not event_id:
+            raise EventConsumeError("操作审计事件缺少 event_id")
         module = _as_str(payload.get("module"))
         action = _as_str(payload.get("action"))
         method = _as_str(payload.get("method"))
@@ -178,8 +212,7 @@ class AuditLogWriter(BaseFrameworkObject):
                 "occurred_at": parse_occurred_at(event),
             }
         )
-        await self._append(LOG_TYPE_OPERATION, month, values, tenant_id)
-        return True
+        return values, tenant_id
 
     async def write_login(self, event: EventEnvelope) -> bool:
         """写一条登录日志。
@@ -193,7 +226,6 @@ class AuditLogWriter(BaseFrameworkObject):
         Raises:
             EventConsumeError: 必填字段缺失 / 非法。
         """
-        payload = event.payload
         now = self._clock()
         month = month_key(now)
         event_id = event.event_id
@@ -203,6 +235,26 @@ class AuditLogWriter(BaseFrameworkObject):
         if await self._repo.event_exists(LOG_TYPE_LOGIN, month, event_id):
             _LOGGER.debug("audit_log_duplicate", log_type=LOG_TYPE_LOGIN, event_id=event_id)
             return False
+        values, tenant_id = self.login_row(event)
+        await self._append(LOG_TYPE_LOGIN, month, values, tenant_id)
+        return True
+
+    def login_row(self, event: EventEnvelope) -> tuple[ConcurrentStableDict[str, object], int | None]:
+        """取登录日志行值（不含链字段；批量写入复用）。
+
+        Args:
+            event: `sys.login.logged` 事件。
+
+        Returns:
+            tuple[ConcurrentStableDict[str, object], int | None]: 行值与租户主键。
+
+        Raises:
+            EventConsumeError: 必填字段缺失 / 非法。
+        """
+        payload = event.payload
+        event_id = event.event_id
+        if not event_id:
+            raise EventConsumeError("登录审计事件缺少 event_id")
         username = _as_str(payload.get("username"))
         status = _as_str(payload.get("status"))
         if not username or not status:
@@ -222,8 +274,7 @@ class AuditLogWriter(BaseFrameworkObject):
                 "occurred_at": parse_occurred_at(event),
             }
         )
-        await self._append(LOG_TYPE_LOGIN, month, values, tenant_id)
-        return True
+        return values, tenant_id
 
     async def write_data_audit(self, event: EventEnvelope) -> bool:
         """写一条字段级变更审计记录。
@@ -237,7 +288,6 @@ class AuditLogWriter(BaseFrameworkObject):
         Raises:
             EventConsumeError: 必填字段缺失 / 非法。
         """
-        payload = event.payload
         now = self._clock()
         month = month_key(now)
         event_id = event.event_id
@@ -247,6 +297,26 @@ class AuditLogWriter(BaseFrameworkObject):
         if await self._repo.event_exists(LOG_TYPE_DATA_AUDIT, month, event_id):
             _LOGGER.debug("audit_log_duplicate", log_type=LOG_TYPE_DATA_AUDIT, event_id=event_id)
             return False
+        values, tenant_id = self.data_audit_row(event)
+        await self._append(LOG_TYPE_DATA_AUDIT, month, values, tenant_id)
+        return True
+
+    def data_audit_row(self, event: EventEnvelope) -> tuple[ConcurrentStableDict[str, object], int | None]:
+        """取字段级审计行值（不含链字段；批量写入复用）。
+
+        Args:
+            event: `sys.data.changed` 事件。
+
+        Returns:
+            tuple[ConcurrentStableDict[str, object], int | None]: 行值与租户主键。
+
+        Raises:
+            EventConsumeError: 必填字段缺失 / 非法。
+        """
+        payload = event.payload
+        event_id = event.event_id
+        if not event_id:
+            raise EventConsumeError("字段级审计事件缺少 event_id")
         table_name = _as_str(payload.get("table"))
         field = _as_str(payload.get("field"))
         if not table_name or not field:
@@ -268,8 +338,7 @@ class AuditLogWriter(BaseFrameworkObject):
                 "occurred_at": parse_occurred_at(event),
             }
         )
-        await self._append(LOG_TYPE_DATA_AUDIT, month, values, tenant_id)
-        return True
+        return values, tenant_id
 
     async def _append(
         self,
@@ -296,6 +365,134 @@ class AuditLogWriter(BaseFrameworkObject):
         await self._repo.insert(log_type, month, values)
         await self._record_metrics(log_type, tenant_id, values.get("occurred_at"), written_at)
         _LOGGER.debug("audit_log_appended", log_type=log_type, month=month, record_id=str(values.get("id")))
+
+    async def write_batch(
+        self, events: ConcurrentStableList[EventEnvelope]
+    ) -> ConcurrentStableList[BatchConsumeOutcome]:
+        """批量写入（一个事务内：每链一次链尾查询 + 内存衔接哈希 + 一次 executemany）。
+
+        语义与逐条 `write` 一致：命中幂等返回 `skipped`，毒消息返回 `failed(retryable=False)`；
+        事务由调用方管理，异常向上抛出由调用方整批回滚。
+
+        Args:
+            events: 同一链键内按拉取顺序排列的事件。
+
+        Returns:
+            ConcurrentStableList[BatchConsumeOutcome]: 与入参等长的逐条结果。
+
+        Raises:
+            EventConsumeError: 批内出现链计算 / 数据库错误时整体上抛（调用方回滚并整批重试）。
+        """
+        outcomes: ConcurrentStableDict[int, BatchConsumeOutcome] = ConcurrentStableDict()
+        month = month_key(self._clock())
+        pending: ConcurrentStableDict[
+            tuple[str, int | None], ConcurrentStableList[tuple[int, ConcurrentStableDict[str, object]]]
+        ] = ConcurrentStableDict()
+        used_types: ConcurrentStableSet[str] = ConcurrentStableSet()
+        ids_by_type: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
+        for index, event in enumerate(events):
+            log_type = _LOG_TYPE_OF_EVENT.get(event.event_type)
+            if log_type is None:
+                outcomes.set(
+                    index,
+                    BatchConsumeOutcome(
+                        event_id=event.event_id or "",
+                        kind="failed",
+                        retryable=False,
+                        error=f"未知审计事件类型：{event.event_type}",
+                    ),
+                )
+                continue
+            try:
+                values, tenant_id = self._row_of(log_type, event)
+            except EventConsumeError as exc:
+                outcomes.set(
+                    index,
+                    BatchConsumeOutcome(event_id=event.event_id or "", kind="failed", retryable=False, error=str(exc)),
+                )
+                continue
+            used_types.add(log_type)
+            ids = ids_by_type.get(log_type)
+            if ids is None:
+                created_ids: ConcurrentStableList[str] = ConcurrentStableList()
+                ids_by_type.set(log_type, created_ids)
+                ids = created_ids
+            ids.add(str(values["event_id"]))
+            items = pending.get((log_type, tenant_id))
+            if items is None:
+                created_items: ConcurrentStableList[tuple[int, ConcurrentStableDict[str, object]]] = (
+                    ConcurrentStableList()
+                )
+                pending.set((log_type, tenant_id), created_items)
+                items = created_items
+            items.add((index, values))
+
+        existing: ConcurrentStableDict[str, ConcurrentStableFrozenSet[str]] = ConcurrentStableDict()
+        for log_type in used_types:
+            await self._repo.ensure_shard(log_type, month)
+            existing.set(log_type, await self._repo.event_exists_many(log_type, month, ids_by_type[log_type]))
+
+        written_at = self._clock()
+        rows_by_type: ConcurrentStableDict[str, ConcurrentStableList[ConcurrentStableDict[str, object]]] = (
+            ConcurrentStableDict()
+        )
+        seen_ids: ConcurrentStableSet[str] = ConcurrentStableSet()
+        for (log_type, tenant_id), items in pending.items():
+            prev_hash = (await self._repo.last_hash(log_type, month, tenant_id)) or GENESIS_HASH
+            for index, values in items:
+                event_id = str(values["event_id"])
+                if event_id in existing[log_type] or event_id in seen_ids:
+                    outcomes.set(
+                        index,
+                        BatchConsumeOutcome(event_id=event_id, kind="skipped"),
+                    )
+                    continue
+                seen_ids.add(event_id)
+                record = canonical_record(log_type, values)
+                record_hash = self._chain.compute(prev_hash, record)
+                values.set("prev_hash", prev_hash)
+                values.set("record_hash", record_hash)
+                values.set("created_at", written_at)
+                prev_hash = record_hash
+                rows = rows_by_type.get(log_type)
+                if rows is None:
+                    created_rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+                    rows_by_type.set(log_type, created_rows)
+                    rows = created_rows
+                rows.add(values)
+                outcomes.set(index, BatchConsumeOutcome(event_id=event_id, kind="succeeded"))
+        for log_type, rows in rows_by_type.items():
+            await self._repo.insert_many(log_type, month, rows)
+            for values in rows:
+                tenant_value = values.get("tenant_id")
+                await self._record_metrics(
+                    log_type,
+                    None if tenant_value is None else int(str(tenant_value)),
+                    values.get("occurred_at"),
+                    written_at,
+                )
+        _LOGGER.debug("audit_log_batch_appended", month=month, records=len(events))
+        return ConcurrentStableList(
+            outcomes.get(index)
+            or BatchConsumeOutcome(event_id=events[index].event_id or "", kind="failed", error="批次结果缺失")
+            for index in range(len(events))
+        )
+
+    def _row_of(self, log_type: str, event: EventEnvelope) -> tuple[ConcurrentStableDict[str, object], int | None]:
+        """按日志类型取行值（批量写入用）。
+
+        Args:
+            log_type: 日志类型。
+            event: 审计事件信封。
+
+        Returns:
+            tuple[ConcurrentStableDict[str, object], int | None]: 行值与租户主键。
+        """
+        if log_type == LOG_TYPE_OPERATION:
+            return self.operation_row(event)
+        if log_type == LOG_TYPE_LOGIN:
+            return self.login_row(event)
+        return self.data_audit_row(event)
 
     async def _record_metrics(
         self,

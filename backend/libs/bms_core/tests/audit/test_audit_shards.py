@@ -337,3 +337,23 @@ async def test_verifier_scans_earlier_active_month_for_tail(session: AsyncSessio
     outcome = await AuditChainVerifier(session, chain).verify(LOG_TYPE_OPERATION, None)
     assert outcome.valid is True
     assert outcome.checked_months == ["202601", "202602"]
+
+
+async def test_event_exists_many_and_insert_many(session: AsyncSession) -> None:
+    """批量判重与批量插入（01_05 批量写入的仓储面）。"""
+    repo = LogShardRepository(session)
+    month = "202611"
+    await repo.ensure_shard(LOG_TYPE_OPERATION, month)
+    assert list(await repo.event_exists_many(LOG_TYPE_OPERATION, month, ConcurrentStableList())) == []
+
+    await repo.insert_many(
+        LOG_TYPE_OPERATION,
+        month,
+        ConcurrentStableList(
+            [_row(LOG_TYPE_OPERATION, month, event_id="e1"), _row(LOG_TYPE_OPERATION, month, event_id="e2")]
+        ),
+    )
+    await session.commit()
+    found = await repo.event_exists_many(LOG_TYPE_OPERATION, month, ConcurrentStableList(["e1", "e3"]))
+    assert set(found) == {"e1"}
+    await repo.insert_many(LOG_TYPE_OPERATION, month, ConcurrentStableList())

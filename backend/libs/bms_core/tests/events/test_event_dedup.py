@@ -10,6 +10,8 @@ import pytest
 from fakeredis.aioredis import FakeRedis
 from redis.asyncio import Redis
 
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.exceptions import RedisUnavailableError
 from bms_core.events.dedup import EventConsumeDedup, dedup_key
 
 pytestmark = pytest.mark.kiwi_id(2370)
@@ -25,6 +27,18 @@ class _BrokenClient:
     async def set(self, *args: object, **kwargs: object) -> None:
         """恒定抛错。"""
         raise ConnectionError("redis down")
+
+
+class _UnavailableClient:
+    """恒抛 `RedisUnavailableError` 的客户端替身（验证不可用分支）。"""
+
+    async def mget(self, *args: object, **kwargs: object) -> object:
+        """恒定抛错。"""
+        raise RedisUnavailableError("redis unavailable")
+
+    def pipeline(self, *args: object, **kwargs: object) -> object:
+        """恒定抛错。"""
+        raise RedisUnavailableError("redis unavailable")
 
 
 def _client() -> Redis:
@@ -88,6 +102,35 @@ async def test_remember_is_idempotent() -> None:
     await dedup.remember(group="g.one", event_id="evt-1")
     await dedup.remember(group="g.one", event_id="evt-1")
     assert await dedup.seen(group="g.one", event_id="evt-1") is True
+
+
+async def test_seen_many_and_remember_many() -> None:
+    """批量判读 / 批量标记与逐条语义一致（一次 MGET + 一次 pipeline）。"""
+    dedup = EventConsumeDedup(client=_client())
+    await dedup.remember_many(group="g.one", event_ids=ConcurrentStableList(["evt-1", "evt-2"]))
+    outcome = await dedup.seen_many(group="g.one", event_ids=ConcurrentStableList(["evt-1", "evt-3"]))
+    assert outcome["evt-1"] is True
+    assert outcome["evt-3"] is False
+
+
+async def test_batch_dedup_empty_and_degraded() -> None:
+    """空列表直接返回；Redis 不可用时批量判读放行、批量标记静默跳过。"""
+    dedup = EventConsumeDedup(client=_client())
+    assert dict((await dedup.seen_many(group="g.one", event_ids=ConcurrentStableList())).items()) == {}
+    await dedup.remember_many(group="g.one", event_ids=ConcurrentStableList())
+
+    broken = EventConsumeDedup(client=cast("Redis", _BrokenClient()))
+    degraded = await broken.seen_many(group="g.one", event_ids=ConcurrentStableList(["evt-1"]))
+    assert degraded["evt-1"] is False
+    await broken.remember_many(group="g.one", event_ids=ConcurrentStableList(["evt-1"]))
+
+
+async def test_batch_dedup_unavailable_branch() -> None:
+    """`RedisUnavailableError` 分支：批量判读放行、批量标记直接返回。"""
+    unavailable = EventConsumeDedup(client=cast("Redis", _UnavailableClient()))
+    outcome = await unavailable.seen_many(group="g.one", event_ids=ConcurrentStableList(["evt-1"]))
+    assert outcome["evt-1"] is False
+    await unavailable.remember_many(group="g.one", event_ids=ConcurrentStableList(["evt-1"]))
 
 
 @pytest.mark.parametrize("group", ["g.one", "bms.audit.chain"])
