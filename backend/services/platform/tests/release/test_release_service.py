@@ -31,6 +31,7 @@ from bms_platform.domains.platform_registry.repositories.release_manifest import
     ReleaseManifestDomainRepository,
     ReleaseManifestRepository,
 )
+from bms_platform.domains.platform_registry.repositories.tenant_topology import TenantTopologyRepository
 from bms_platform.domains.platform_registry.services import release as release_service
 from bms_platform.domains.platform_registry.services.release import ReleaseService
 
@@ -171,6 +172,8 @@ async def test_precheck_passes_and_record_writes_manifest(client: AsyncClient, s
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
         service = ReleaseService(session, revisions=_Revisions())
+        # 共享测试库跨用例叠加：默认拓扑可能已因补齐新域升版，快照须与「当前版本」一致而非写死 1。
+        current_topology_version = await TenantTopologyRepository(session).current_version(0)
         result = await service.precheck(unit_key=UNIT, tenant_scope=scope)
         assert result.passed, [item.detail for item in result.failures()]
         assert [item.key for item in result.items] == [
@@ -187,7 +190,8 @@ async def test_precheck_passes_and_record_writes_manifest(client: AsyncClient, s
 
     assert snapshot.status == RELEASE_STATUS_RELEASED
     assert snapshot.manifest_version == 1
-    assert snapshot.topology_version == 1
+    assert snapshot.topology_version == current_topology_version
+    assert snapshot.topology_version >= 1
     assert [entry.domain_key for entry in snapshot.domains] == list(_platform_domains())
     assert {entry.schema_revision for entry in snapshot.domains} == {"0001_init"}
 
