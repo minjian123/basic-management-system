@@ -99,10 +99,10 @@ asyncio_mode = "auto"
 # -n auto：pytest-xdist 进程级并行（随 engkit 安装，2026-10-25 拍板默认并行）——全量 / 选测 / 预检
 #   一律并行，不再依赖调用方记得加参数；确需串行（共享库文件或端口独占）的用例用 `-p no:xdist` 或
 #   `@pytest.mark.xdist_group` 局部隔离
-# 并行档位：缺省 4 路（2026-11-21 由 auto 收到 4）。全库一把读写门后，worker 越多写门排队越长；
-# 缺省 auto 在 24 核机器上会把排队拖过 5s 硬上限（用例本身没慢，是争用），与「等待超 5s 即失败」冲突。
-# CI / 推送环仍按需显式传 `-n 6`（engkit `--jobs`），命令行优先于本缺省。
-addopts = "--import-mode=importlib -p bms_testing_plugin -n 4 --basetemp=.cache/pytest"
+# 并行档位：缺省 2 路（2026-11-21 由 auto 收到 4 再收到 2）。全库一把读写门后，worker 越多写门
+# 排队越长；5s 写门硬失败下 4 路仍会偶发排队超时（实测两个平台测试文件 4 路 3 条超时、2 路 46 条全过）。
+# CI / 推送环仍按需显式传 `-n`（engkit `--jobs`），命令行优先于本缺省。
+addopts = "--import-mode=importlib -p bms_testing_plugin -n 2 --basetemp=.cache/pytest"
 testpaths = [
     "libs/bms_core/tests",
     "services/txn/tests",
