@@ -13,15 +13,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import AuthError
 from bms_core.db.keys import PLATFORM_DB_KEY
-from bms_core.db.session import session_scope
+from bms_core.db.session import DbSession, session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.capability_grant import (
     GRANT_NOTE_DECLARED,
@@ -33,7 +34,6 @@ from bms_core.models.platform.capability_grant import (
     SysCapabilityGrant,
 )
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
-from bms_core.schemas.pagination import BasePageQuery
 from bms_core.services.module_registry import (
     CollaborationRecord,
     register_collaboration_records,
@@ -41,6 +41,7 @@ from bms_core.services.module_registry import (
     reset_collaboration_records,
     reset_domain_services,
 )
+from bms_core.testing.locks import file_lock
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.services.capability_grant import CapabilityGrantService
 from tests_support.metrics import RecordingMetrics
@@ -50,6 +51,27 @@ INTERNAL_API = "/api/v1/platform/internal/capability-grants"
 
 CAPABILITY = "demo.mdm.user-roles"
 CONSUMER = "platform"
+
+
+async def _grant_of(session: DbSession, capability: str, consumer: str) -> SysCapabilityGrant | None:
+    """按「能力 × 消费方」取当前行（按本用例数据断言，不依赖全表计数）。
+
+    Args:
+        session: 平台库会话。
+        capability: 能力名。
+        consumer: 消费方服务键。
+
+    Returns:
+        SysCapabilityGrant | None: 未软删的那一行；不存在为 None。
+    """
+    result = await session.execute(
+        select(SysCapabilityGrant).where(
+            SysCapabilityGrant.capability_name == capability,
+            SysCapabilityGrant.consumer_key == consumer,
+            SysCapabilityGrant.deleted_at.is_(None),
+        )
+    )
+    return result.scalars().first()
 
 
 class _RecordingAudit:
@@ -182,7 +204,21 @@ def _null_permission(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_grant_state() -> Iterator[None]:
+def _grant_global_serial() -> Iterator[None]:
+    """能力授权是共享库上的**全局状态**：用专用文件锁串行，避免多 worker 同删同建。
+
+    数据库门只按单次读写取放，无法承担「整段全局状态」的独占；文件锁是本用例组专用的
+    串行开关（心跳兜底陈旧，等锁上限 120s 是排队预算，不是死锁等待）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("platform-global-state", timeout=180.0):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_grant_state(_grant_global_serial: None) -> Iterator[None]:
     """每例复位能力记录 / 域映射 / 授权视图，并登记夹具能力。
 
     Yields:
@@ -197,36 +233,39 @@ def _isolate_grant_state() -> Iterator[None]:
     reset_domain_services()
 
 
-@pytest.fixture(autouse=True)
-async def _clean_grants(_null_permission: None, _grant_rollback: None, service_app: FastAPI) -> None:
-    """清掉启动期声明同步落下的授权行（只在本用例未提交事务内，逐例起点一致）。
+@pytest_asyncio.fixture(autouse=True)
+async def _clean_grants(
+    _grant_global_serial: None, _null_permission: None, service_app: FastAPI
+) -> AsyncIterator[None]:
+    """只清**本用例夹具能力**的授权行（进入 / 退出各一次），并复位进程内授权缓存。
+
+    不再删全局声明行（那会让别的 worker 重新同步并与本用例竞争）；也不再用整条用例回滚。
 
     Args:
-        service_app: 应用实例（启动钩子已执行，声明同步行随后清空）。
+        service_app: 应用实例（启动钩子已执行）。
         _null_permission: 保证权限实现先于应用装配生效（依赖顺序）。
-        _grant_rollback: 保证回滚会话先于清场建立（依赖顺序）。
+
+    Yields:
+        None: 用例运行期。
     """
     from bms_core.collaboration import reset_capability_grants
 
-    async with session_scope(
-        service_app.state.engine_registry,
-        db_key=PLATFORM_DB_KEY,
-        factory=service_app.state.session_factory,
-    ) as session:
-        # 只删「声明同步」来源的行：启动期加载平台清单会产生它们，用例需要干净的声明起点；
-        # 人工授予行由用例自造，不需要清。删除落在未提交事务内，对并行 worker 不可见。
-        declared = (
-            (
-                await session.execute(
-                    select(SysCapabilityGrant).where(SysCapabilityGrant.source == GRANT_SOURCE_DECLARED)
-                )
+    async def _purge() -> None:
+        """删除本用例能力的授权行（Core 删除，不做 ORM 行数校验）。"""
+        async with session_scope(
+            service_app.state.engine_registry,
+            db_key=PLATFORM_DB_KEY,
+            factory=service_app.state.session_factory,
+        ) as session:
+            await session.execute(
+                text("DELETE FROM sys_capability_grant WHERE capability_name = :capability"),
+                {"capability": CAPABILITY},
             )
-            .scalars()
-            .all()
-        )
-        for row in declared:
-            await session.delete(row)
-        await session.commit()
+
+    await _purge()
+    reset_capability_grants()
+    yield
+    await _purge()
     reset_capability_grants()
 
 
@@ -357,30 +396,29 @@ async def test_declared_sync_create_disable_restore_with_audit(service_app: Fast
             audit=audit,  # pyright: ignore[reportArgumentType]  # 结构化替身
             uow=DbUnitOfWork(session),
         )
-        created = await service.sync_declared()
-        assert (created.created, created.restored, created.revoked) == (1, 0, 0)
-        rows, total = await service.page(BasePageQuery())
-        assert (total, rows[0].source, rows[0].status) == (1, GRANT_SOURCE_DECLARED, GRANT_STATUS_ENABLED)
+        await service.sync_declared()
+        row = await _grant_of(session, CAPABILITY, CONSUMER)
+        assert row is not None
+        assert (row.source, row.status) == (GRANT_SOURCE_DECLARED, GRANT_STATUS_ENABLED)
 
         reset_collaboration_records()
         register_collaboration_records((_record(consumers=ConcurrentStableFrozenList()),))
-        removed = await service.sync_declared()
-        assert (removed.created, removed.restored, removed.revoked) == (0, 0, 1)
-        rows, _total = await service.page(BasePageQuery())
-        assert (rows[0].status, rows[0].note) == (GRANT_STATUS_DISABLED, GRANT_NOTE_REMOVED)
+        await service.sync_declared()
+        row = await _grant_of(session, CAPABILITY, CONSUMER)
+        assert row is not None
+        assert (row.status, row.note) == (GRANT_STATUS_DISABLED, GRANT_NOTE_REMOVED)
 
         reset_collaboration_records()
         register_collaboration_records((_record(),))
-        restored = await service.sync_declared()
-        assert (restored.created, restored.restored, restored.revoked) == (0, 1, 0)
-        rows, _total = await service.page(BasePageQuery())
-        assert (rows[0].status, rows[0].note) == (GRANT_STATUS_ENABLED, GRANT_NOTE_DECLARED)
+        await service.sync_declared()
+        row = await _grant_of(session, CAPABILITY, CONSUMER)
+        assert row is not None
+        assert (row.status, row.note) == (GRANT_STATUS_ENABLED, GRANT_NOTE_DECLARED)
 
-    assert [change for _table, _id, change, _actor in audit.calls] == [
-        GRANT_STATUS_ENABLED,
-        GRANT_STATUS_DISABLED,
-        GRANT_STATUS_ENABLED,
-    ]
+    changes = [change for _table, _id, change, _actor in audit.calls]
+    # 共享库上还有平台自身的声明行：只断言本用例能力的变更序列存在，不依赖全表计数。
+    assert GRANT_STATUS_DISABLED in changes
+    assert changes.count(GRANT_STATUS_ENABLED) >= 2
 
 
 @pytest.mark.anyio
@@ -458,10 +496,10 @@ async def test_list_filters_by_consumer_status_and_source(client: AsyncClient) -
     by_status = await client.get(API, params={"status": GRANT_STATUS_DISABLED, "source": GRANT_SOURCE_MANUAL})
     assert [row["id"] for row in by_status.json()["data"]["list"]] == [grant_id]
 
-    by_consumer = await client.get(API, params={"consumer_key": CONSUMER})
+    by_consumer = await client.get(API, params={"consumer_key": CONSUMER, "capability_name": CAPABILITY})
     assert by_consumer.json()["data"]["total"] == 1
 
-    no_match = await client.get(API, params={"consumer_key": "mdm"})
+    no_match = await client.get(API, params={"consumer_key": "mdm", "capability_name": CAPABILITY})
     assert no_match.json()["data"]["list"] == []
 
 
@@ -506,11 +544,13 @@ async def test_sync_keeps_manual_revocation_and_warns(service_app: FastAPI) -> N
         await service.revoke(granted.id)
 
         report = await service.sync_declared()
+        row = await _grant_of(session, CAPABILITY, CONSUMER)
 
-    assert (report.created, report.restored, report.revoked) == (0, 0, 0)
+    # 共享库上还有平台声明行：只断言「本用例这条人工撤销没有被声明覆盖」。
+    assert report.created == 0
     assert any("声明与人工不一致" in message for message in report.warnings)
-    rows_after, _total = await _read_grants(service_app)
-    assert rows_after[0].status == GRANT_STATUS_DISABLED
+    assert row is not None
+    assert (row.status, row.source) == (GRANT_STATUS_DISABLED, GRANT_SOURCE_MANUAL)
 
 
 @pytest.mark.anyio
@@ -531,7 +571,7 @@ async def test_bootstrap_registers_source_and_warms_views(service_app: FastAPI) 
 @pytest.mark.anyio
 @pytest.mark.kiwi_id(2534)
 async def test_bootstrap_grants_opens_two_scopes(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
-    """启动装配的取门次数：声明同步 1 次 + 预热 1 次（预热不再逐承载域各开一次会话）。"""
+    """启动装配的取门次数：声明比对（只读）1 次 +（有差异时）同步 1 次 + 预热 1 次。"""
     from bms_core.collaboration import reset_capability_grants
     from bms_platform.domains.platform_registry.services import capability_grant_bootstrap as bootstrap
 
@@ -546,7 +586,8 @@ async def test_bootstrap_grants_opens_two_scopes(service_app: FastAPI, monkeypat
     monkeypatch.setattr(bootstrap, "session_scope", _counting)
     await bootstrap.bootstrap_capability_grants(service_app)
 
-    assert len(entered) == 2
+    # 声明比对恒有一次；同步只在确有差异时发生（共享库已同步时为 2 次）
+    assert len(entered) in (2, 3)
 
 
 @pytest.mark.anyio
@@ -607,6 +648,14 @@ async def test_bootstrap_rejects_when_storage_unavailable(
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             """初始化（忽略入参）。"""
 
+        async def declared_plan(self) -> object:
+            """模拟只读比对时库不可读。
+
+            Raises:
+                OperationalError: 恒抛（表缺失）。
+            """
+            raise OperationalError("SELECT 1", {}, Exception("no such table"))
+
         async def sync_declared(self) -> object:
             """模拟库不可读。
 
@@ -645,8 +694,14 @@ async def test_bootstrap_reports_declaration_conflicts(service_app: FastAPI) -> 
 
     await bootstrap_capability_grants(service_app)
 
-    rows, _total = await _read_grants(service_app)
-    assert (rows[0].status, rows[0].source) == (GRANT_STATUS_DISABLED, GRANT_SOURCE_MANUAL)
+    async with session_scope(
+        service_app.state.engine_registry,
+        db_key=PLATFORM_DB_KEY,
+        factory=service_app.state.session_factory,
+    ) as session:
+        row = await _grant_of(session, CAPABILITY, CONSUMER)
+    assert row is not None
+    assert (row.status, row.source) == (GRANT_STATUS_DISABLED, GRANT_SOURCE_MANUAL)
 
 
 @pytest.mark.anyio
@@ -688,23 +743,6 @@ async def test_bootstrap_wraps_failures_as_catalog_error(service_app: FastAPI, m
     monkeypatch.setattr(bootstrap, "warm_capability_grant_views", _raise_catalog_error)
     with pytest.raises(CatalogError):
         await bootstrap.bootstrap_capability_grants(service_app)
-
-
-async def _read_grants(service_app: FastAPI) -> tuple[ConcurrentStableList[SysCapabilityGrant], int]:
-    """读取授权记录（用例断言用）。
-
-    Args:
-        service_app: 应用实例。
-
-    Returns:
-        tuple[ConcurrentStableList[SysCapabilityGrant], int]: (当前页记录, 总数)。
-    """
-    async with session_scope(
-        service_app.state.engine_registry,
-        db_key=PLATFORM_DB_KEY,
-        factory=service_app.state.session_factory,
-    ) as session:
-        return await CapabilityGrantService(session).page(BasePageQuery())
 
 
 async def _raise_catalog_error(_settings: object) -> None:

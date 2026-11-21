@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
@@ -25,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bms_core.config.models import SysConfig
 from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
-from bms_core.testing.gates import write_window
+from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import gated_session, gated_sessionmaker
@@ -122,16 +123,18 @@ async def config_admin_bootstrap(tenant_db: str, shared_tenant_engine: AsyncEngi
     del tenant_db
     await ensure_tables(shared_tenant_engine, _TABLES)
     factory = gated_sessionmaker(shared_tenant_engine)
-    async with write_window("tenant_demo"), factory():
+    async with factory():
         await assign_system_admin()
     yield
 
 
 @pytest_asyncio.fixture
 async def config_global_state(shared_tenant_engine: AsyncEngine) -> AsyncIterator[None]:
-    """整条用例持租户库写门，并在前后复位平台默认键（**只给读写全局默认键的用例声明**）。
+    """全局默认键的独占区间：**专用跨进程锁**保独占，数据库门只在复位那一瞬取。
 
-    读写的若是本用例命名空间派生的私有键，不需要这个夹具——那样才能并行。
+    为什么不再用 `write_window` 包住 yield：那是「整条用例持数据库写门」，24 路下会把
+    其它 worker 全堵在门口（门是全局一把）。这里换成文件锁独占全局键，用例主体照常
+    读写、读按操作取放，复位才短暂进写门。
 
     Args:
         shared_tenant_engine: 共享租户库引擎。
@@ -140,10 +143,17 @@ async def config_global_state(shared_tenant_engine: AsyncEngine) -> AsyncIterato
         None: 用例运行期。
     """
     factory = gated_sessionmaker(shared_tenant_engine)
-    async with write_window("tenant_demo"), factory() as db:
-        await _reset(db)
+    lock = file_lock("platform-global-state", timeout=180.0)
+    """专用文件锁：等的是「同组用例串行跑完」，不是死锁——死锁由锁的陈旧判据（心跳 30s）兜底。"""
+    await asyncio.to_thread(lock.__enter__)
+    try:
+        async with factory() as db:
+            await _reset(db)
         yield
-        await _reset(db)
+        async with factory() as db:
+            await _reset(db)
+    finally:
+        await asyncio.to_thread(lock.__exit__, None, None, None)
 
 
 @pytest_asyncio.fixture

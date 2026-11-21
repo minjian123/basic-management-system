@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,7 +13,7 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.config.http import HttpConfigSource
 from bms_core.config.null import NullConfigSource
@@ -28,7 +28,9 @@ from bms_core.servicecall.base import BaseServiceClient
 from bms_core.servicecall.null import NullServiceClient
 from bms_core.storage.base import BaseObjectStorage
 from bms_core.storage.local import LocalObjectStorage
+from bms_core.testing.locks import file_lock
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import GatedSessionMaker, gated_sessionmaker
 from bms_report.domains.report.artifact_cleanup import (
     JOB_TYPE,
     SOURCE_JOB_TYPE,
@@ -41,10 +43,19 @@ from bms_report.domains.report.repositories.job import (
     with_expired,
 )
 
-pytestmark = [
-    pytest.mark.kiwi_id(2403),
-    pytest.mark.usefixtures("tenant_db_write"),
-]
+pytestmark = [pytest.mark.kiwi_id(2403)]
+
+
+@pytest.fixture(autouse=True)
+def _platform_global_lock() -> Iterator[None]:
+    """全局扫描作业按过期时间扫全表：用专用文件锁串行（数据库门只管单次读写）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("platform-global-state", timeout=180.0):
+        yield
+
 
 _TTL = 600
 """用例保留期（10 分钟）。"""
@@ -54,7 +65,7 @@ _TTL = 600
 class _Env:
     """清理作业测试环境。"""
 
-    factory: async_sessionmaker[AsyncSession]
+    factory: GatedSessionMaker
     storage: LocalObjectStorage
     root: Path
     created: ConcurrentStableList[int]
@@ -87,7 +98,7 @@ async def env(
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     monkeypatch.setenv("BMS_STORAGE__OPTIONS__ROOT", str(tmp_path / "storage"))
     await ensure_tables(shared_tenant_engine, cast("list[Table]", [SysJob.__table__]))
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    factory = gated_sessionmaker(shared_tenant_engine, read_only=False)
     created: ConcurrentStableList[int] = ConcurrentStableList()
     root = tmp_path / "storage"
     try:

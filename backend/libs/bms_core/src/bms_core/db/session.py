@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.core.context import is_read_only
 from bms_core.core.exceptions import DatabaseUnavailableError
 from bms_core.core.factory import BaseDbFactory
-from bms_core.db.gate import LazyGatedSession, current_gate_hook, db_access_gate
+from bms_core.db.gate import LazyGatedSession, ReadOperationGatedSession, current_gate_hook, db_access_gate
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.keys import ARCHIVE_DB_KEY
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
@@ -151,13 +151,18 @@ async def _open_session(
         return
     engine = await _resolve_engine(request, registry, read_only=read_only, db_key=resolved)
     factory = cast("SessionFactory | None", getattr(request.app.state, "session_factory", None)) or SessionFactory()
-    async with factory.create(engine)() as session:
+    maker = factory.create(engine)
+    if current_gate_hook() is not None and read_only:
+        # 读按操作：每次 execute / get 新开短会话，读完即关（读锁随会话关闭释放）。
+        yield cast("DbSession", ReadOperationGatedSession(lambda: db_access_gate(resolved, read_only=True), maker))
+        return
+    async with maker() as session:
         if current_gate_hook() is None:  # pragma: no cover - 生产路径（测试会话必注门钩子）
             async with db_access_gate(resolved, read_only=read_only):
                 yield session
             return
-        # 测试环境：门推迟到第一次真正用库时再取（鉴权 / 能力调用 / 装配不进临界区）。
-        lazy = LazyGatedSession(db_access_gate(resolved, read_only=read_only), session)
+        # 写按操作：每次数据库方法调用取写锁、写完立即放。
+        lazy = LazyGatedSession(lambda: db_access_gate(resolved, read_only=False), session)
         try:
             yield cast("DbSession", lazy)
         finally:
@@ -315,13 +320,30 @@ async def session_scope(
         DbSession: 会话（异步会话或同步方言下的同步门面）。
     """
     resolved = db_key if db_key is not None else current_tenant_context().db_key
-    async with db_access_gate(resolved, read_only=read_only, wait=gate_wait):
-        if registry.is_sync_only(resolved):  # pragma: no cover - 同步方言仅达梦等外部库使用，SQLite 用例走异步分支
+    if registry.is_sync_only(resolved):  # pragma: no cover - 同步方言仅达梦等外部库使用，SQLite 用例走异步分支
+        async with db_access_gate(resolved, read_only=read_only, wait=gate_wait):
             sync_engine = await registry.get_sync(resolved, read_only=read_only)
             async with sync_session_scope(sync_engine) as sync_session:
                 yield sync_session
+        return
+    engine = await registry.get(resolved, read_only=read_only)
+    session_factory = factory if factory is not None else SessionFactory()
+    maker = session_factory.create(engine)
+    if current_gate_hook() is not None and read_only:
+        # 读按操作：每次 execute / get 新开短会话，取完结果即关（读锁与读门同生共死）。
+        yield cast(
+            "DbSession",
+            ReadOperationGatedSession(lambda: db_access_gate(resolved, read_only=True, wait=gate_wait), maker),
+        )
+        return
+    async with maker() as session:
+        if current_gate_hook() is None:  # pragma: no cover - 生产路径（测试会话必注门钩子）
+            async with db_access_gate(resolved, read_only=read_only, wait=gate_wait):
+                yield session
             return
-        engine = await registry.get(resolved, read_only=read_only)
-        session_factory = factory if factory is not None else SessionFactory()
-        async with session_factory.create(engine)() as session:
-            yield session
+        # 写按操作：每次数据库方法调用取写锁、写完立即放。
+        lazy = LazyGatedSession(lambda: db_access_gate(resolved, read_only=False, wait=gate_wait), session)
+        try:
+            yield cast("DbSession", lazy)
+        finally:
+            await lazy.aclose()

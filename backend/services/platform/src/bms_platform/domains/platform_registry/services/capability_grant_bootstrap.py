@@ -21,7 +21,7 @@ from bms_core.collaboration.grant import (
     CapabilityGrant,
     register_capability_grant_source,
 )
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
@@ -31,7 +31,7 @@ from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_platform.domains.platform_registry.services.capability_grant import CapabilityGrantService
+from bms_platform.domains.platform_registry.services.capability_grant import CapabilityGrantService, GrantSyncReport
 
 __all__ = ["PlatformCapabilityGrantSource", "bootstrap_capability_grants", "warm_capability_grant_views"]
 
@@ -115,20 +115,35 @@ async def bootstrap_capability_grants(app: FastAPI) -> None:
     )
     metrics = getattr(app.state, "metrics", None)
     try:
+        # 只读比对：声明与库内一致（绝大多数启动）不开写事务，装配期不占写门。
         async with session_scope(
-            app.state.engine_registry,
-            db_key=PLATFORM_DB_KEY,
-            # 启动期整段作业：首次要按声明重算全部授权基线，用单次写的短上限会被排队误杀
-            gate_wait=GATE_CRITICAL_WAIT,
-            factory=app.state.session_factory,
+            app.state.engine_registry, db_key=PLATFORM_DB_KEY, read_only=True, factory=app.state.session_factory
         ) as session:
-            service = CapabilityGrantService(
-                session,
-                audit=audit,
-                metrics=metrics,
-                uow=DbUnitOfWork(session),
+            plan = await CapabilityGrantService(session).declared_plan()
+        if plan.creates or plan.restores or plan.revokes:
+            async with session_scope(
+                app.state.engine_registry,
+                db_key=PLATFORM_DB_KEY,
+                # 确有差异才写：整段写事务
+                gate_wait=GATE_CRITICAL_WAIT,
+                factory=app.state.session_factory,
+            ) as session:
+                service = CapabilityGrantService(
+                    session,
+                    audit=audit,
+                    metrics=metrics,
+                    uow=DbUnitOfWork(session),
+                )
+                report = await service.sync_declared()
+        else:
+            report = GrantSyncReport(
+                created=0,
+                restored=0,
+                revoked=0,
+                warnings=ConcurrentStableFrozenList(plan.warnings),
             )
-            report = await service.sync_declared()
+            for message in plan.warnings:
+                _LOGGER.warning("capability_grant_manual_conflict", detail=message)
     except SQLAlchemyError as exc:
         # 库不可读 / 未建表：数据库未就绪属部署错误，拒启（入站判定仍 fail-closed）
         _LOGGER.critical("capability_grant_sync_unavailable", error=type(exc).__name__, detail=str(exc))

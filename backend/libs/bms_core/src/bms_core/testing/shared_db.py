@@ -197,6 +197,11 @@ async def enable_concurrency(engine: AsyncEngine) -> None:
     autocommit = engine.execution_options(isolation_level="AUTOCOMMIT")
     try:
         async with autocommit.connect() as connection:
+            # 测试库统一 WAL（2026-11-21 实测）：回滚日志模式下**任何**未结束的读事务都会挡住写者，
+            # 24 路并行时表现为「写门里等库锁 10 秒」。WAL 下读写不互斥，读事务不再挡写；
+            # 先读后写的升级冲突由 `busy_timeout` 兜底（历史担心的 `SQLITE_BUSY_SNAPSHOT` 会在
+            # 用例里直接暴露成明确报错，而不是静默拖慢整批）。
+            await connection.exec_driver_sql("PRAGMA journal_mode=WAL")
             await connection.exec_driver_sql("PRAGMA busy_timeout=10000")
     finally:
         await autocommit.dispose()

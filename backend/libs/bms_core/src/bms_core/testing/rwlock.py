@@ -511,6 +511,34 @@ class DbGate:
         self._count_lock = threading.Lock()
         self._holder_lock = threading.Lock()
         """持有者文件的读改写互斥（诊断落盘，不与 `_count_lock` 混用，避免把文件 I/O 塞进取门热路径）。"""
+        self._loop_id = 0
+        """当前锁句柄所属事件循环 id（pytest-asyncio 每用例一个新循环，切换时重开句柄）。"""
+
+    def _ensure_loop(self) -> None:
+        """事件循环切换时重开锁句柄（回收上一循环残留的门状态）。
+
+        为什么必须重开：pytest-asyncio 默认每用例新建事件循环。旧循环关闭时若某个任务在
+        `release` 之前被取消，内核锁会随旧句柄留在进程里——账目已清零，但新循环拿到的是
+        「持有者：无却永远取不到门」。关闭句柄由系统回收锁，新句柄从干净状态开始。
+        """
+        loop_id = id(asyncio.get_running_loop())
+        with self._count_lock:
+            if self._loop_id == loop_id:
+                return
+            stale = self._loop_id != 0
+            self._loop_id = loop_id
+            self._own_reads.clear()
+            self._borrowed_reads.clear()
+            self._retired_reads.clear()
+            self._write_tasks.clear()
+            self._read_tasks.clear()
+            self._write_depth = 0
+            self._write_owner = 0
+            self._kernel_read = False
+        if stale:
+            with contextlib.suppress(Exception):
+                self._backend.close()
+            self._backend = _make_backend(self._path)
 
     @property
     def mode(self) -> Mode | None:
@@ -534,11 +562,14 @@ class DbGate:
         """
         return len(self._own_reads) + len(self._borrowed_reads) + self._write_depth
 
-    async def acquire_read(self) -> int:
+    async def acquire_read(self, *, wait: float | None = None) -> int:
         """取读门，返回本次份额的 token（释放时凭它销账）。
 
         **只有持写门的那个任务**取读门才走「借用」（不取内核共享锁、随写门作废）；
         同一进程里的**其它任务**必须排队等写门释放——否则会读到写了一半的数据。
+
+        Args:
+            wait: 等「同进程写者退出」的上限（秒）；None 用 `DEFAULT_TIMEOUT`。
 
         Returns:
             int: 读份额 token。
@@ -546,8 +577,19 @@ class DbGate:
         Raises:
             TimeoutError: 等待超时。
         """
+        mine = _task_key()
+        self._ensure_loop()
         with self._count_lock:
-            if self._write_depth and self._write_owner == _task_key():
+            if self._write_depth and self._write_owner == mine:
+                token = next(self._next_token)
+                self._borrowed_reads[token] = None
+                return token
+        # 本进程有别的任务在写（含「正在取内核写锁」的预占）：先等它退出。
+        await self._wait_no_process_writer(limit=DEFAULT_TIMEOUT if wait is None else min(DEFAULT_TIMEOUT, wait))
+        need_kernel = False
+        with self._count_lock:
+            # 等待期间本任务可能已拿到写门（例如 gate_scope 的升级路径），此时仍走借用。
+            if self._write_depth and self._write_owner == mine:
                 token = next(self._next_token)
                 self._borrowed_reads[token] = None
                 return token
@@ -609,11 +651,12 @@ class DbGate:
             return token in self._own_reads or token in self._borrowed_reads or token in self._retired_reads
 
     async def acquire_write(self, *, wait: float | None = None) -> ConcurrentStableList[int]:
-        """取写门（独占；同一进程内可重入）。
+        """取写门（独占；**同一任务**可重入）。
 
-        本任务持有的读份额先让出（不还内核共享锁，除非本进程已无其它读者），再去排队取
-        独占锁；**别的任务**的读份额一律不动——它们收尾后本任务自然拿到写门，这就是
-        「并发写排队」，不报错。
+        进程内互斥**不依赖内核锁**：同一进程的不同任务共用同一句柄，Windows 会把重复加锁合并、
+        Posix 对同一文件的不同 fd 又会各自成功——两种平台行为都不能保证「同进程其它任务被挡住」。
+        故先用 `_write_owner` 做任务级仲裁：别的任务持写门 / 仍有读份额时排队等它们退出，
+        拿到「进程内写权」后再取内核独占锁（内核锁只负责挡别的进程）。
 
         Returns:
             ConcurrentStableList[int]: 让出的读份额 token（写完后由 `release_write` 原样补回）。
@@ -621,54 +664,130 @@ class DbGate:
         Raises:
             TimeoutError: 等待超时。
         """
-        reentered = False
-        drop_kernel = False
+        mine = _task_key()
+        self._ensure_loop()
         released: ConcurrentStableList[int] = ConcurrentStableList()
+        limit = write_wait_cap() if wait is None else min(DEFAULT_TIMEOUT, wait)
+        deadline = time.monotonic() + limit
+        delay = _RETRY_MIN
+        drop_kernel = False
         with self._count_lock:
-            if self._write_depth:
+            if self._write_depth and self._write_owner == mine:
                 self._write_depth += 1
                 self._track_write()
-                reentered = True
-            else:
-                mine = _task_key()
-                released = ConcurrentStableList(token for token, owner in self._own_reads.items() if owner == mine)
-                for token in released:
-                    del self._own_reads[token]
-                    self._untrack_read(mine)
-                # **无论本进程还有没有别的读者，都要先让出内核共享锁**：Windows 上同一句柄
-                # 对同一区间重复加锁会把模式合并，一次解锁就把整个区间放掉（后续再释放报
-                # `ERROR_NOT_LOCKED`），账目与内核状态随即脱节。升级完由 `release_write`
-                # 按剩余读份额重新取共享锁。
-                drop_kernel = self._kernel_read
-                if drop_kernel:
-                    self._kernel_read = False
-        if reentered:
-            # 写门已由本进程持有：不重复取内核锁，只补一条任务级记录（诊断点名用）。
-            self._flush_task_holders()
-            return released
+                self._flush_task_holders()
+                return released
+        while True:
+            if self._reclaim_dead_owner():
+                continue
+            with self._count_lock:
+                others_reading = any(owner != mine for owner in self._own_reads.values())
+                if self._write_owner == 0 and not self._write_depth and not others_reading:
+                    # 预占进程内写权：之后新读者会看到 owner 非 0 而排队，不再产生新读份额。
+                    self._write_owner = mine
+                    released = ConcurrentStableList(token for token, owner in self._own_reads.items() if owner == mine)
+                    for token in released:
+                        del self._own_reads[token]
+                        self._untrack_read(mine)
+                    drop_kernel = self._kernel_read
+                    if drop_kernel:
+                        self._kernel_read = False
+                    break
+            now = time.monotonic()
+            if now >= deadline:
+                message = (
+                    f"等待数据库门超时（{limit:.1f}s）：{gate_label(self.name)}；"
+                    f"持有者：{self._describe_holder()}；"
+                    "等满硬上限说明有任务长期持门（整条用例持门 / 读会话未释放 / 进程卡住）"
+                )
+                self._log_wait(message)
+                self._note_gate_wait(now - (deadline - limit), "timeout")
+                raise TimeoutError(message)
+            await asyncio.sleep(min(delay, max(deadline - now, 0.0)))
+            delay = min(delay * 2, _RETRY_MAX)
         if drop_kernel:
             # 先让出共享锁，再排队取独占锁（顺序不能反）。
             self._backend.release()
-        await self._wait_and_lock(True, cap=wait)
+        try:
+            await self._wait_and_lock(True, cap=wait)
+        except BaseException:
+            with self._count_lock:
+                self._write_owner = 0
+            raise
         with self._count_lock:
             self._write_depth = 1
-            self._write_owner = _task_key()
             self._track_write()
         self._record_holder(True)
         return released
 
-    async def release_write(self, restore: ConcurrentStableList[int] | None = None) -> None:
-        """释放写门，并恢复升级时让出的读份额。
+    def _reclaim_dead_owner(self) -> bool:
+        """若写门 owner 已不在当前事件循环的活跃任务里，回收写权（账目 + 内核锁）。
 
-        **未持写门时不抛错**：`gate_scope` 的 `finally` 无论取写门是否成功都会走到这里，
-        抛错会把真正的失败（如等锁超时）盖掉。未持有时只记一条告警，并尽力补回让出的份额。
+        为什么需要：请求侧会话在取消 / 收尾异常路径漏放时，owner 会变成**已结束任务**，
+        之后所有同进程任务在门口空等满上限——现象是整批用例超时而不是某条报错。回收时
+        **必须连内核独占锁一起放**，只清账目会留下「持有者：无却拿不到门」的孤锁。
 
-        **解锁一律同步执行**（不走 `asyncio.to_thread`）：释放常发生在事件循环收尾阶段，
-        此时线程池已关闭，`to_thread` 会抛 `RuntimeError: cannot schedule new futures after
-        shutdown`，内核锁因此永久泄漏。
+        Returns:
+            bool: 是否发生了回收。
+        """
+        with self._count_lock:
+            owner = self._write_owner
+            if owner == 0:
+                return False
+            if any(id(task) == owner for task in asyncio.all_tasks()):
+                return False
+            _LOGGER.warning("gate_reclaim_dead_writer", extra={"gate": self.name, "owner": owner})
+            self._write_owner = 0
+            self._write_depth = 0
+            self._write_tasks.clear()
+            self._kernel_read = False
+        with contextlib.suppress(Exception):
+            self._backend.release()
+        return True
+
+    async def _wait_no_process_writer(self, *, limit: float) -> None:
+        """等本进程内其它任务退出写门（任务级仲裁；内核锁只在跨进程层面有效）。
+
+        Args:
+            limit: 等待上限（秒）。
+
+        Raises:
+            TimeoutError: 等待超时。
+        """
+        started = time.monotonic()
+        deadline = started + limit
+        delay = _RETRY_MIN
+        while True:
+            if self._reclaim_dead_owner():
+                return
+            with self._count_lock:
+                if self._write_owner == 0:
+                    return
+            now = time.monotonic()
+            if now >= deadline:
+                message = (
+                    f"等待数据库门超时（{limit:.1f}s）：{gate_label(self.name)}；"
+                    f"同进程写者仍持门（持有者：{self._describe_holder()}）；"
+                    "等满硬上限说明有任务长期持门（整条用例持门 / 读会话未释放 / 进程卡住）"
+                )
+                self._log_wait(message)
+                self._note_gate_wait(now - started, "timeout")
+                raise TimeoutError(message)
+            await asyncio.sleep(min(delay, max(deadline - now, 0.0)))
+            delay = min(delay * 2, _RETRY_MAX)
+
+    def release_write_now(self, restore: ConcurrentStableList[int] | None = None) -> ConcurrentStableList[int]:
+        """**同步**释放写门：账目与内核解锁立即完成（取消 / 收尾阶段也一定生效）。
+
+        为什么拆出同步版：用例被取消时 `finally` 里的 `await` 可能立刻再抛 `CancelledError`，
+        异步释放就走不完——写门深度永久多一层，之后整批任务在门口等满上限。这里把「必须生效」
+        的部分（清账目 + 解内核独占锁）做成同步调用，恢复读份额另行尽力执行。
 
         Args:
             restore: `acquire_write` 返回的 token 清单（升级路径传入；None 表示无）。
+
+        Returns:
+            ConcurrentStableList[int]: 需要补回的读份额（调用方异步恢复；无则空）。
         """
         with self._count_lock:
             if not self._write_depth:
@@ -694,24 +813,38 @@ class DbGate:
                 extra={"gate": self.name, "restore": len(restore or ())},
             )
             self._flush_task_holders()
-            if restore:
-                await self._restore_reads(restore)
-            return
+            return ConcurrentStableList(restore or ())
         if remaining:
             self._flush_task_holders()
-            return
+            return ConcurrentStableList()
         self._backend.release()
         self._release_holder()
-        # 升级期间让掉的内核共享锁：别的任务仍持有读份额时要补回来，否则它们后续的
-        # `release_read` 会去释放一把并不存在的共享锁（Windows 报 158，账目脱节）。
-        with self._count_lock:
-            need_shared = bool(self._own_reads) and not self._kernel_read
-            if need_shared:
-                self._kernel_read = True
-        if need_shared:
-            await self._wait_and_lock(False)
-        if restore:
-            await self._restore_reads(restore)
+        return ConcurrentStableList(restore or ())
+
+    async def release_write(self, restore: ConcurrentStableList[int] | None = None) -> None:
+        """释放写门，并恢复升级时让出的读份额。
+
+        **未持写门时不抛错**：`gate_scope` 的 `finally` 无论取写门是否成功都会走到这里，
+        抛错会把真正的失败（如等锁超时）盖掉。未持有时只记一条告警，并尽力补回让出的份额。
+
+        **解锁一律同步执行**（不走 `asyncio.to_thread`）：释放常发生在事件循环收尾阶段，
+        此时线程池已关闭，`to_thread` 会抛 `RuntimeError: cannot schedule new futures after
+        shutdown`，内核锁因此永久泄漏。
+
+        Args:
+            restore: `acquire_write` 返回的 token 清单（升级路径传入；None 表示无）。
+        """
+        pending = self.release_write_now(restore)
+        if pending:
+            await self._restore_reads(pending)
+
+    async def restore_reads(self, restore: ConcurrentStableList[int]) -> None:
+        """把让出的读份额补回（公开包装，供 `gate_scope` 的取消安全路径调用）。
+
+        Args:
+            restore: 要补回的 token 清单。
+        """
+        await self._restore_reads(restore)
 
     async def _restore_reads(self, restore: ConcurrentStableList[int]) -> None:
         """把让出的读份额补回（需要时重新取内核共享锁并登记 token）。
@@ -987,9 +1120,17 @@ class DbGate:
             limit = DEFAULT_TIMEOUT
         deadline = started + limit
         warned = False
+        reopened = False
         delay = _RETRY_MIN
         while not self._backend.try_acquire(write=write):
             now = time.monotonic()
+            if not reopened and not warned and now - started >= WARN_AFTER and self.depth == 0:
+                # 账目为空却拿不到门：本进程残留的句柄仍占着锁（取消 / 收尾路径漏放）。
+                # 关掉旧句柄重开——系统随句柄关闭释放锁，不影响别的进程持有的锁。
+                reopened = True
+                with contextlib.suppress(Exception):
+                    self._backend.close()
+                self._backend = _make_backend(self._path)
             if not warned and now - started >= WARN_AFTER:
                 warned = True
                 message = (

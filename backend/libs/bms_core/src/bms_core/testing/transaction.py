@@ -22,12 +22,12 @@ import contextlib
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from bms_core.db.gate import db_access_gate
+from bms_core.db.gate import LazyGatedSession, ReadOperationGatedSession, db_access_gate
 from bms_core.db.session import SessionFactory
 from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE
 
@@ -145,91 +145,107 @@ def gated_sessionmaker(engine: AsyncEngine, *, read_only: bool = False) -> Gated
     return GatedSessionMaker(engine, read_only=read_only)
 
 
+def _sqlite_autocommit(engine: AsyncEngine) -> AsyncEngine:
+    """仅对 SQLite 套 autocommit（正式数据库保持自己的事务语义）。
+
+    这套「操作级读写锁 + 立即提交」只为绕开 SQLite 的库级读写独占；MySQL / PostgreSQL /
+    达梦没有这个问题，测试与生产都按各自事务语义运行。
+
+    Args:
+        engine: 目标库引擎。
+
+    Returns:
+        AsyncEngine: SQLite 返回 autocommit 包装，其余原样。
+    """
+    if engine.url.get_backend_name() != "sqlite":
+        return engine
+    return engine.execution_options(isolation_level="AUTOCOMMIT")
+
+
 @contextlib.asynccontextmanager
 async def gated_session(engine: AsyncEngine, *, read_only: bool = True) -> AsyncGenerator[AsyncSession]:
-    """直连共享引擎的会话：**按引擎所在库取门**，临界区＝会话生命周期。
-
-    直连引擎（`shared_*_engine`）拿不到请求入口，原先不取门；它的读事务会和别人的写门
-    叠在一起（SQLite 上表现为写请求卡到 `busy_timeout` 10s、门被长期占住）。这里统一补上：
-    读会话持读门，写会话（`read_only=False`）走 `gate_scope` 的升级路径。
+    """直连共享引擎的会话：**按引擎所在库取门**，门的作用域是每次读 / 写操作。
 
     Args:
         engine: 目标库引擎（共享平台库 / 租户库；临时库不取门）。
         read_only: 只读 True；写 False。
 
     Yields:
-        AsyncSession: 门内会话（退出即关闭、未提交的改动回滚）。
+        AsyncSession: 操作级门代理会话（SQLite 下 autocommit，其余库保持原事务语义）。
     """
     gate_name = gate_for_engine(engine)
-    scope = db_access_gate(gate_name, read_only=read_only) if gate_name is not None else contextlib.nullcontext()
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    async with scope, factory() as session:
-        yield session
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    if gate_name is not None and read_only:
+        # 读按操作：每次读新开短会话，读完即关（读锁随会话关闭释放）。
+        yield cast(
+            "AsyncSession", ReadOperationGatedSession(lambda: db_access_gate(gate_name, read_only=True), factory)
+        )
+        return
+    async with factory() as session:
+        if gate_name is None:
+            yield session
+            return
+        # 写按操作：每个数据库方法调用取放一次写门（不整段持有）。
+        proxy = LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), session)
+        try:
+            yield cast("AsyncSession", proxy)
+        finally:
+            await proxy.aclose()
 
 
 @contextlib.asynccontextmanager
 async def _write_scope(engine: AsyncEngine, *, savepoint: bool) -> AsyncGenerator[AsyncSession]:
-    """测试侧写会话的**唯一实现**：取库写门 → 产出会话（退出即回滚）。
+    """测试侧写会话的**唯一实现**：autocommit 会话 + 操作级写门。
 
-    互斥**只由门提供**（设计决策 2 / 3）：本函数不取任何 SQLite 写锁，也不允许别处绕过门
-    单独取库锁——两套锁序混用即锁序反转，24 路并行时表现为大量「等待门 已 10.0s」与整轮停滞。
+    2026-11-21 口径（业主拍板）：**不再用「外层事务 + 退出回滚」**。每次 SQL 立即落库、立即
+    释放数据库锁，门只覆盖这一次写操作。用例隔离靠命名空间（`ns`）与按用例清理，不靠「整条
+    用例回滚」——那种写法既掩盖了真实写入路径，又把锁（或数据库事务）拉到整条用例，
+    24 路并行时必然互相拖死。
 
-    `savepoint=True` 把会话绑到外层事务（`join_transaction_mode="create_savepoint"`），并改写
-    `SessionFactory.create` 让被测代码自建的会话复用同一事务；`savepoint=False` 用普通会话，
-    被测代码自建的会话照常开自己的连接。
+    互斥**只由门提供**：本函数不另外取 SQLite 锁，也不允许别处绕过门单独取库锁。
 
     Args:
         engine: 目标库引擎。
-        savepoint: 是否使用外层事务 + savepoint 形态。
+        savepoint: 保留形参以兼容既有调用点；**不再使用事务 / savepoint**。
 
     Yields:
-        AsyncSession: 已取门、未预开事务的会话。
+        AsyncSession: 操作级门代理会话（autocommit）。
 
     Raises:
-        Exception: 用例体内的异常原样抛出（回滚在 `finally` 完成）。
+        Exception: 用例体内的异常原样抛出。
     """
+    del savepoint
     gate_name = gate_for_engine(engine)
-    scope = db_access_gate(gate_name, read_only=False) if gate_name is not None else contextlib.nullcontext()
-    async with scope:
-        if not savepoint:
-            factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-            async with factory() as session:
-                yield session
-            return
-        connection = await engine.connect()
-        transaction = await connection.begin()
-        # pysqlite 的延迟事务不发 BEGIN：不显式开事务时 SAVEPOINT 会退化成最外层事务，
-        # 用例内的 `commit()` 就直落库了。这里只发**普通** BEGIN（不取写锁）——
-        # 互斥由门提供，事务边界只负责 savepoint 语义。
-        await connection.exec_driver_sql("BEGIN")
-        session = AsyncSession(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    async with factory() as session:
+        exposed: AsyncSession = (
+            cast("AsyncSession", LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), session))
+            if gate_name is not None
+            else session
+        )
         try:
-            with _patch_session_factory(session):
-                yield session
+            with _patch_session_factory(exposed):
+                yield exposed
         finally:
             await session.close()
-            await transaction.rollback()
-            await connection.close()
 
 
 @contextlib.asynccontextmanager
 async def write_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
-    """开启「不提交」写会话：进入即取库写门并前置 SQLite 写锁，退出不提交（等价整体回滚）。
+    """开启写会话：**autocommit + 操作级写门**（每条 SQL 立即落库、立即放锁）。
 
-    与 `rollback_session` 的唯一区别是**不改写 `SessionFactory.create`**——被测代码自建的
-    会话照常开自己的连接，因此只适用于「用例与被测代码共用同一个会话」的形态（服务层直调、
-    或经依赖覆盖注入会话的接口用例）。门与锁的取用顺序见 `_write_scope`（全仓唯一实现）。
-
-    用例内的 `commit()` 会真提交（本函数不拦），需要「数据不落库」时用 `flush()`。
+    与 `rollback_session` 的区别是**不改写 `SessionFactory.create`**——被测代码自建的会话
+    照常开自己的连接，因此只适用于「用例与被测代码共用同一个会话」的形态（服务层直调、
+    或经依赖覆盖注入会话的接口用例）。
 
     Args:
         engine: 目标库引擎（通常是共享平台 / 租户库夹具）。
 
     Yields:
-        AsyncSession: 已取门、已 `BEGIN IMMEDIATE`、退出即回滚的会话。
+        AsyncSession: 操作级门代理会话（写入即落库，不回滚）。
 
     Raises:
-        Exception: 用例体内的异常原样抛出（回滚在 `finally` 由会话关闭完成）。
+        Exception: 用例体内的异常原样抛出。
     """
     async with _write_scope(engine, savepoint=False) as session:
         yield session
@@ -237,16 +253,19 @@ async def write_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
 
 @contextlib.asynccontextmanager
 async def rollback_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
-    """开启回滚会话：用例结束整体回滚（外层事务 + savepoint，门与库锁经唯一实现取用）。
+    """开启写会话（历史名保留）：**autocommit + 操作级写门**，不再整条用例回滚。
+
+    2026-11-21 业主拍板：`rollback_session` 的「退出整体回滚」是旧做法的产物（用事务替用例
+    做清理，同时把锁拉到整条用例）。现在写入即落库，用例隔离靠命名空间与按用例清理。
 
     Args:
         engine: 目标库引擎。
 
     Yields:
-        AsyncSession: 绑定外层事务（savepoint 模式）的会话。
+        AsyncSession: 操作级门代理会话。
 
     Raises:
-        Exception: 用例体内的异常原样抛出（回滚在 `finally` 中完成）。
+        Exception: 用例体内的异常原样抛出。
     """
     async with _write_scope(engine, savepoint=True) as session:
         yield session

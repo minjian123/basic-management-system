@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import contextlib
 import inspect
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, Callable, Iterator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Any, Final
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.roots import BaseFrameworkObject
 
 GateHook = Callable[[str, bool, "float | None"], AbstractAsyncContextManager[None]]
@@ -68,30 +69,301 @@ async def db_access_gate(db_key: str, *, read_only: bool, wait: float | None = N
         yield
 
 
-class LazyGatedSession(BaseFrameworkObject):
-    """把门推迟到「第一次真正用库」再取（懒请求）。
+class _ScalarProxy:
+    """物化后的标量结果代理：`Result.scalars()` 的常用只读接口。
 
-    为什么要它：请求进来就取门，会把鉴权、能力调用、装配这些**不碰库**的时间也算进
-    临界区（实测单次可达数秒）。本类包一层会话：第一次 `await` 数据库方法时才进入门，
-    `aclose()` 时释放。生产（未注钩子）不会创建本类，零开销。
+    读操作在 `execute` 里已把行取完并放门，这里只做内存访问，不再持任何锁。
+    """
+
+    def __init__(self, values: ConcurrentStableList[Any]) -> None:
+        """初始化。
+
+        Args:
+            values: 已物化的标量值。
+        """
+        self._values = values
+
+    def all(self) -> ConcurrentStableList[Any]:
+        """全部值（副本）。"""
+        return ConcurrentStableList(self._values)
+
+    def first(self) -> Any | None:
+        """首个值；空结果返回 None。"""
+        return self._values[0] if self._values else None
+
+    def one(self) -> Any:
+        """唯一值。
+
+        Raises:
+            ValueError: 结果不是恰好一条。
+        """
+        if len(self._values) != 1:
+            raise ValueError(f"期望恰好一条标量结果，实际 {len(self._values)} 条")
+        return self._values[0]
+
+    def one_or_none(self) -> Any | None:
+        """零或一条；多条抛错。
+
+        Raises:
+            ValueError: 结果多于一条。
+        """
+        if len(self._values) > 1:
+            raise ValueError(f"期望最多一条标量结果，实际 {len(self._values)} 条")
+        return self._values[0] if self._values else None
+
+    def unique(self) -> _ScalarProxy:
+        """去重占位（结果已物化，本实现原样返回）。"""
+        return self
+
+    def __iter__(self) -> Iterator[Any]:
+        """迭代。"""
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        """条数。"""
+        return len(self._values)
+
+
+class _MappingsProxy:
+    """物化后的字典视图代理：`Result.mappings()` 的常用只读接口。"""
+
+    def __init__(self, rows: ConcurrentStableList[Any]) -> None:
+        """初始化。
+
+        Args:
+            rows: 已物化的行。
+        """
+        self._rows = rows
+
+    def all(self) -> ConcurrentStableList[Any]:
+        """全部行映射（副本）。"""
+        return ConcurrentStableList(row._mapping for row in self._rows)
+
+    def first(self) -> Any | None:
+        """首个行映射；空结果返回 None。"""
+        return self._rows[0]._mapping if self._rows else None
+
+    def __iter__(self) -> Iterator[Any]:
+        """迭代行映射。"""
+        return iter([row._mapping for row in self._rows])
+
+
+class ResultProxy:
+    """物化后的结果代理：读操作的门已放，所有访问都是内存操作。
+
+    为什么要物化：读操作的语义是「取锁 → 立即读 → 取完即放」。SQLAlchemy 的 `AsyncResult`
+    是惰性的，若把门跟到结果消费完，游标会长时间占库、写者只能等满上限；因此在门内一次性
+    取完行，再用本代理提供常用只读接口。
+    """
+
+    def __init__(self, rows: ConcurrentStableList[Any], *, rowcount: int = -1) -> None:
+        """初始化。
+
+        Args:
+            rows: 已物化的行。
+            rowcount: 受影响行数（非 DML 为 -1）。
+        """
+        self._rows = rows
+        self.rowcount = rowcount
+
+    @property
+    def returns_rows(self) -> bool:
+        """是否返回行（物化后恒为 True）。"""
+        return True
+
+    def all(self) -> ConcurrentStableList[Any]:
+        """全部行（副本）。"""
+        return ConcurrentStableList(self._rows)
+
+    def fetchall(self) -> ConcurrentStableList[Any]:
+        """同 `all()`。"""
+        return self.all()
+
+    def first(self) -> Any | None:
+        """首行；空结果返回 None。"""
+        return self._rows[0] if self._rows else None
+
+    def one(self) -> Any:
+        """唯一行。
+
+        Raises:
+            ValueError: 结果不是恰好一条。
+        """
+        if len(self._rows) != 1:
+            raise ValueError(f"期望恰好一条结果，实际 {len(self._rows)} 条")
+        return self._rows[0]
+
+    def one_or_none(self) -> Any | None:
+        """零或一条行；多条抛错。
+
+        Raises:
+            ValueError: 结果多于一条。
+        """
+        if len(self._rows) > 1:
+            raise ValueError(f"期望最多一条结果，实际 {len(self._rows)} 条")
+        return self._rows[0] if self._rows else None
+
+    def scalars(self) -> _ScalarProxy:
+        """取首列标量视图。"""
+        return _ScalarProxy(ConcurrentStableList(row[0] for row in self._rows))
+
+    def scalar(self) -> Any | None:
+        """首行首列。"""
+        return self._rows[0][0] if self._rows else None
+
+    def scalar_one(self) -> Any:
+        """唯一标量。
+
+        Raises:
+            ValueError: 结果不是恰好一条。
+        """
+        return self.scalars().one()
+
+    def scalar_one_or_none(self) -> Any | None:
+        """零或一条标量。
+
+        Raises:
+            ValueError: 结果多于一条。
+        """
+        return self.scalars().one_or_none()
+
+    def mappings(self) -> _MappingsProxy:
+        """字典视图。"""
+        return _MappingsProxy(self._rows)
+
+    def unique(self) -> ResultProxy:
+        """去重占位（结果已物化，本实现原样返回）。"""
+        return self
+
+    def keys(self) -> ConcurrentStableList[str]:
+        """列名清单。"""
+        if not self._rows:
+            return ConcurrentStableList()
+        return ConcurrentStableList(self._rows[0]._mapping.keys())
+
+    def close(self) -> None:
+        """关闭占位（已无底层游标）。"""
+
+    def __iter__(self) -> Iterator[Any]:
+        """迭代行。"""
+        return iter(self._rows)
+
+    def __len__(self) -> int:
+        """行数。"""
+        return len(self._rows)
+
+
+class ReadOperationGatedSession(BaseFrameworkObject):
+    """把读门收窄到**每次读操作**：取读门 → 开短会话 → 取完结果 → 关会话 → 放门。
+
+    **每次读操作都新开一个短会话**：只把游标关掉时，SQLite 读事务会留到长会话关闭，
+    24 路并行下写者在写门里等库锁满 10 秒（表现为「拿着写门 10 秒」）。短会话退出即回滚并
+    关闭连接，读锁必然释放，读门与 SQLite 事务的生命周期完全一致。
+
+    生产（未注钩子）不会创建本类，零开销。
+    """
+
+    def __init__(
+        self,
+        scope_factory: Callable[[], AbstractAsyncContextManager[None]],
+        session_factory: Callable[[], AbstractAsyncContextManager[object]],
+    ) -> None:
+        """初始化。
+
+        Args:
+            scope_factory: 门上下文工厂（每次读操作新建一个）。
+            session_factory: 会话工厂（每次读操作新建短会话，退出即关闭并结束事务）。
+        """
+        object.__setattr__(self, "_scope_factory", scope_factory)
+        object.__setattr__(self, "_session_factory", session_factory)
+
+    def __getattr__(self, name: str) -> Any:
+        """代理属性：只暴露读路径方法，其余明确报错（避免误用长会话）。
+
+        Args:
+            name: 属性名。
+
+        Returns:
+            Any: 包装后的读方法。
+
+        Raises:
+            AttributeError: 非读路径方法。
+        """
+        if name in {"execute", "scalars", "scalar", "get", "stream", "stream_scalars"}:
+
+            async def _read_call(*args: object, **kwargs: object) -> Any:
+                """转交到门内读操作。"""
+                return await self._read(name, *args, **kwargs)
+
+            return _read_call
+        raise AttributeError(f"读会话不提供 {name}：读操作按次开短会话，仅支持 execute / scalars / scalar / get")
+
+    async def _read(self, name: str, *args: object, **kwargs: object) -> Any:
+        """门内执行一次读操作：开短会话 → 取完结果 → 关会话（事务随之结束）。
+
+        Args:
+            name: 底层会话方法名。
+            *args: 位置参数。
+            **kwargs: 关键字参数。
+
+        Returns:
+            Any: 物化后的结果或方法返回值。
+
+        Raises:
+            NotImplementedError: 流式结果（门无法跟到消费结束）。
+        """
+        if name in {"stream", "stream_scalars"}:
+            raise NotImplementedError("读门按操作取放不支持流式结果；请改用 execute / scalars")
+        scope_factory = object.__getattribute__(self, "_scope_factory")
+        session_factory = object.__getattribute__(self, "_session_factory")
+        async with scope_factory(), session_factory() as session:
+            if name == "get":
+                return await session.get(*args, **kwargs)
+            if name == "scalar":
+                return await session.scalar(*args, **kwargs)
+            result = await session.execute(*args, **kwargs)
+            rowcount = int(getattr(result, "rowcount", -1))
+            rows = ConcurrentStableList(result.all())
+            result.close()
+        if name == "scalars":
+            return ResultProxy(rows, rowcount=rowcount).scalars()
+        return ResultProxy(rows, rowcount=rowcount)
+
+    async def aclose(self) -> None:
+        """关闭占位（读会话按次开关，没有长会话需要关闭）。"""
+
+    def __repr__(self) -> str:
+        """诊断用表示。
+
+        Returns:
+            str: 表示串。
+        """
+        return "ReadOperationGatedSession(per-operation)"
+
+
+class LazyGatedSession(BaseFrameworkObject):
+    """写会话的**操作级**门代理：每个写操作取写门、执行完立即放。
+
+    为什么不做会话级 / 事务级：会话级会把「等审计、组装响应、拼参数」全算进临界区；事务级会
+    把事务中间的空档也占着。业主口径（2026-11-21）是「取写锁后必须立即写」——门的作用域就是
+    一次数据库方法调用。生产（未注钩子）不会创建本类，零开销。
 
     Attributes:
         info: 底层会话的 `info`（SQLAlchemy 内部也读它）。
     """
 
-    def __init__(self, scope: AbstractAsyncContextManager[None], session: object) -> None:
+    def __init__(self, scope_factory: Callable[[], AbstractAsyncContextManager[None]], session: object) -> None:
         """初始化。
 
         Args:
-            scope: 门上下文（每次会话一个）。
+            scope_factory: 门上下文工厂（每次写操作新建一个）。
             session: 底层会话对象。
         """
-        object.__setattr__(self, "_scope", scope)
+        object.__setattr__(self, "_scope_factory", scope_factory)
         object.__setattr__(self, "_session", session)
-        object.__setattr__(self, "_entered", False)
 
     def __getattr__(self, name: str) -> Any:
-        """代理属性：协程方法包一层「先取门」，其余原样返回。
+        """代理属性：协程方法逐个包门，其余原样返回。
 
         Args:
             name: 属性名。
@@ -100,31 +372,19 @@ class LazyGatedSession(BaseFrameworkObject):
             Any: 属性值或包装后的方法。
         """
         attr = getattr(object.__getattribute__(self, "_session"), name)
-        # 只包协程方法：`begin()` / `add()` 这类同步方法必须原样返回，包成协程会直接崩。
         if not inspect.iscoroutinefunction(attr):
             return attr
 
         async def _call(*args: object, **kwargs: object) -> object:
-            await self._ensure()
-            return await attr(*args, **kwargs)
+            async with object.__getattribute__(self, "_scope_factory")():
+                return await attr(*args, **kwargs)
 
         return _call
 
-    async def _ensure(self) -> None:
-        """首次使用时进入门。"""
-        if not object.__getattribute__(self, "_entered"):
-            await object.__getattribute__(self, "_scope").__aenter__()
-            object.__setattr__(self, "_entered", True)
-
     async def aclose(self) -> None:
-        """关闭底层会话并放门（未取过门则只关会话）。"""
-        session = object.__getattribute__(self, "_session")
+        """关闭底层会话（门已按操作放完，无需额外释放）。"""
         with contextlib.suppress(Exception):
-            await session.aclose()
-        if object.__getattribute__(self, "_entered"):
-            with contextlib.suppress(Exception):
-                await object.__getattribute__(self, "_scope").__aexit__(None, None, None)
-            object.__setattr__(self, "_entered", False)
+            await object.__getattribute__(self, "_session").aclose()
 
     def __repr__(self) -> str:
         """诊断用表示。

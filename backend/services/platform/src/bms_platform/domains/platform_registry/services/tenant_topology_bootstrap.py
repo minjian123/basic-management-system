@@ -28,6 +28,7 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import CatalogError, ConflictError
 from bms_core.core.logging import get_logger
 from bms_core.core.plugin import resolve_plugin
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
@@ -54,15 +55,26 @@ async def bootstrap_tenant_topologies(app: FastAPI) -> None:
         resolve_plugin("audit", settings.audit.provider, expected_version=AuditCapturer.contract_version),
     )
     try:
-        async with session_scope(
-            app.state.engine_registry,
-            db_key=PLATFORM_DB_KEY,
-            factory=app.state.session_factory,
-        ) as session:
-            service = TenantTopologyService(session, audit=audit)
-            version = await service.ensure_default()
-            await DbUnitOfWork(session).commit()
-            snapshots = await service.snapshot()
+        registry = app.state.engine_registry
+        factory = app.state.session_factory
+        # 只读探测：已覆盖全部登记域（绝大多数启动）不再开写事务。
+        async with session_scope(registry, db_key=PLATFORM_DB_KEY, read_only=True, factory=factory) as session:
+            version, missing = await TenantTopologyService(session).default_status()
+        if version > 0 and not missing:
+            async with session_scope(registry, db_key=PLATFORM_DB_KEY, read_only=True, factory=factory) as session:
+                snapshots = await TenantTopologyService(session).snapshot()
+        else:
+            async with session_scope(
+                registry,
+                db_key=PLATFORM_DB_KEY,
+                # 首启 / 补齐新域才写：整段写事务
+                gate_wait=GATE_CRITICAL_WAIT,
+                factory=factory,
+            ) as session:
+                service = TenantTopologyService(session, audit=audit)
+                version = await service.ensure_default()
+                await DbUnitOfWork(session).commit()
+                snapshots = await service.snapshot()
     except ConflictError:
         # 并发启动幂等收敛：多个实例（或并行 worker）同时读到「无版本」后各写版本 1，后提交者撞版本校验。
         # 目标是「默认拓扑存在且覆盖全部域」，谁写的不影响结果——换新事务重跑一次 `ensure_default`

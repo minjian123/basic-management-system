@@ -280,11 +280,10 @@ async def _validate_capability_usages(app: FastAPI) -> None:
 
 
 async def _bootstrap_table_ownership(settings: Settings, app: FastAPI) -> None:
-    """表归属引导：离线清单校验 → （dev 平台）播种 → 接库对账，全程一次会话一次取门。
+    """表归属引导：离线清单校验 → （dev 平台）只读探测 → 缺行才播种 → 只读对账。
 
-    合并的理由：播种与对账读同一张表、背靠背执行；分两次会话（13_08 实测）不仅每次启动多付一次
-    写门排队，还在两段之间给别的 worker 留了插队窗口（刚播种完被清库 → 对账报空）。合进一个临界区
-    后「探测 → 播种 → 提交 → 读回 → 对账」是同一视图，顺序与失败语义逐项保持原样。
+    读操作按操作取放（共享读门），只有首启播种是写事务；已播种的启动不再占写门。
+    单把门下不存在「读-写两把锁互等」，探测与写入之间以只读视图为准、写前门内复核即可。
 
     Args:
         settings: 应用配置（取 `app.env`）。
@@ -303,31 +302,37 @@ async def _bootstrap_table_ownership(settings: Settings, app: FastAPI) -> None:
         # 表归属登记归平台服务库（产品服务不读不写），产品进程到此为止
         return
     seeded = False
+    registry = cast("EngineRegistry", app.state.engine_registry)
+    factory = cast("SessionFactory", app.state.session_factory)
     try:
-        async with session_scope(
-            cast("EngineRegistry", app.state.engine_registry),
-            db_key=PLATFORM_DB_KEY,
-            # 启动期整段作业（播种 + 对账同一次临界区）：全并行起 worker 时短上限会误杀正常排队
-            gate_wait=GATE_CRITICAL_WAIT,
-            factory=cast("SessionFactory", app.state.session_factory),
-        ) as session:
-            # 探测与写入放在同一道写门内：SQLite（rollback journal）读写互斥，门外另起一次
-            # 「只读探测」会在别处持写门时阻塞，反过来又把它自己的读份额压在写门前面，
-            # 形成「读者等写、写者等读者」的互等（13_08 实测会把启动拖到短上限超时）。
-            if settings.app.env == "dev" and not await _table_ownership_seeded(session):
-                for record in table_ownership_view():
-                    session.add(
-                        SysTableOwnership(
-                            table_name=record.table_name,
-                            owner=record.owner,
-                            domain=record.domain,
-                            datasource=record.datasource,
-                            status=record.status,
-                            note=record.note,
-                        )
-                    )
-                await session.commit()
-                seeded = True
+        # 读操作按操作取放：先只读探测是否已播种；已播种（生产 / 已 prepare 的测试库）不再进写门。
+        if settings.app.env == "dev":
+            async with session_scope(registry, db_key=PLATFORM_DB_KEY, read_only=True, factory=factory) as session:
+                seeded_already = await _table_ownership_seeded(session)
+            if not seeded_already:
+                async with session_scope(
+                    registry,
+                    db_key=PLATFORM_DB_KEY,
+                    # 首启播种是唯一的写事务：门内复核后一次写完
+                    gate_wait=GATE_CRITICAL_WAIT,
+                    factory=factory,
+                ) as session:
+                    if not await _table_ownership_seeded(session):
+                        for record in table_ownership_view():
+                            session.add(
+                                SysTableOwnership(
+                                    table_name=record.table_name,
+                                    owner=record.owner,
+                                    domain=record.domain,
+                                    datasource=record.datasource,
+                                    status=record.status,
+                                    note=record.note,
+                                )
+                            )
+                        await session.commit()
+                        seeded = True
+        # 对账只读：播种后 / 已播种的启动都走读操作，不占写门。
+        async with session_scope(registry, db_key=PLATFORM_DB_KEY, read_only=True, factory=factory) as session:
             statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))
             records = [TableRecord.from_row(row) for row in (await session.execute(statement)).scalars().all()]
     except Exception as exc:  # 库不可读（未迁移）：数据库未就绪，拒启

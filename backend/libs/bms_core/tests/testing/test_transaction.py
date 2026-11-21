@@ -6,18 +6,20 @@
 注：探针表在夹具外先建好（SQLite 的 DDL 会隐式提交外层事务，不能用 CREATE TABLE 验证回滚）。
 """
 
+import os
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from bms_core.testing import rollback_session
 from bms_core.testing import transaction as transaction_module
-from bms_core.testing.transaction import write_session
+from bms_core.testing.transaction import gated_session, write_session
 
 pytestmark = pytest.mark.own_db("测试基座自测：回滚事务夹具本身（savepoint / 独立连接可见性 / 显式 BEGIN）需真实库")
 
-_TABLE = "_rb_probe"
-"""探针表名（夹具外建表，用例只做 DML）。"""
+_TABLE = f"_rb_probe_{os.environ.get('PYTEST_XDIST_WORKER', 'main')}_{os.getpid()}"
+"""探针表名（按 worker + 进程派生：同文件用例可能被 xdist 分到不同 worker，共用一张表必然互相污染）。"""
 
 
 async def _ensure_probe_table(platform_db_url: str) -> AsyncEngine:
@@ -37,32 +39,29 @@ async def _ensure_probe_table(platform_db_url: str) -> AsyncEngine:
 
 
 @pytest.mark.kiwi_id(2317)
-async def test_rollback_session_commit_is_savepoint_only(platform_db_url: str) -> None:
-    """提交只提交 savepoint：同会话可见，独立连接看不到未提交的行。"""
+async def test_rollback_session_commits_each_statement(platform_db_url: str) -> None:
+    """写会话 autocommit：每条语句立即落库，独立连接立即可见（不再保存 savepoint）。"""
     engine = await _ensure_probe_table(platform_db_url)
     try:
         async with rollback_session(engine) as session:
             await session.execute(text(f"INSERT INTO {_TABLE} VALUES (1)"))
-            await session.commit()
 
-            rows = (await session.execute(text(f"SELECT COUNT(*) FROM {_TABLE}"))).scalar_one()
-            assert rows == 1
-
-            # 另起引擎（独立连接池）读取：未提交数据不可见
             other_engine = create_async_engine(platform_db_url)
             try:
                 async with other_engine.connect() as other:
                     visible = (await other.execute(text(f"SELECT COUNT(*) FROM {_TABLE}"))).scalar_one()
-                    assert visible == 0
+                    assert visible == 1
             finally:
                 await other_engine.dispose()
+        async with engine.connect() as connection:
+            await connection.execute(text(f"DELETE FROM {_TABLE}"))
     finally:
         await engine.dispose()
 
 
 @pytest.mark.kiwi_id(2317)
-async def test_rollback_session_discards_everything(platform_db_url: str) -> None:
-    """整体回滚：上一个用例写入的行不存在（用例间零残留）。"""
+async def test_probe_table_is_clean_before_cases(platform_db_url: str) -> None:
+    """探针表在用例序列起点为空（每个用例只清理自己写的行）。"""
     engine = await _ensure_probe_table(platform_db_url)
     try:
         async with engine.connect() as connection:
@@ -73,27 +72,25 @@ async def test_rollback_session_discards_everything(platform_db_url: str) -> Non
 
 
 @pytest.mark.kiwi_id(2533)
-async def test_write_session_keeps_writes_uncommitted(platform_db_url: str) -> None:
-    """写会话不提交：会话内可见，独立连接与退出后都读不到（数据不落库、可反复跑）。"""
+async def test_write_session_commits_each_statement(platform_db_url: str) -> None:
+    """写会话 autocommit：写入立即落库、立即释放数据库锁（不再保持未提交）。"""
     engine = await _ensure_probe_table(platform_db_url)
     try:
         async with write_session(engine) as session:
             await session.execute(text(f"INSERT INTO {_TABLE} VALUES (7)"))
-            await session.flush()
-            rows = (await session.execute(text(f"SELECT COUNT(*) FROM {_TABLE}"))).scalar_one()
-            assert rows == 1
 
             other_engine = create_async_engine(platform_db_url)
             try:
                 async with other_engine.connect() as other:
                     visible = (await other.execute(text(f"SELECT COUNT(*) FROM {_TABLE}"))).scalar_one()
-                    assert visible == 0
+                    assert visible == 1
             finally:
                 await other_engine.dispose()
 
         async with engine.connect() as connection:
             remaining = (await connection.execute(text(f"SELECT COUNT(*) FROM {_TABLE}"))).scalar_one()
-            assert remaining == 0
+            assert remaining == 1
+            await connection.execute(text(f"DELETE FROM {_TABLE}"))
     finally:
         await engine.dispose()
 
@@ -155,3 +152,40 @@ async def test_gate_for_engine_maps_shared_db_only() -> None:
             assert transaction_module.gate_for_engine(engine) == expected, url
         finally:
             await engine.dispose()
+
+
+async def test_sqlite_autocommit_only_wraps_sqlite() -> None:
+    """autocommit 包装只作用于 SQLite；正式数据库原样返回（保持自身事务语义）。"""
+    sqlite_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        assert transaction_module._sqlite_autocommit(sqlite_engine) is not sqlite_engine  # pyright: ignore[reportPrivateUsage]
+    finally:
+        await sqlite_engine.dispose()
+
+    pg_engine = create_async_engine("postgresql+psycopg://user:secret@localhost:5432/demo")
+    try:
+        assert transaction_module._sqlite_autocommit(pg_engine) is pg_engine  # pyright: ignore[reportPrivateUsage]
+    finally:
+        await pg_engine.dispose()
+
+
+async def test_gated_session_on_private_engine_skips_gate() -> None:
+    """非共享库引擎（内存库）不取门，直接给出会话。"""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with gated_session(engine, read_only=False) as session:
+            value = (await session.execute(text("SELECT 1"))).scalar_one()
+            assert value == 1
+    finally:
+        await engine.dispose()
+
+
+async def test_gated_session_write_uses_operation_gate(platform_db_url: str) -> None:
+    """共享库引擎的写会话走操作级写门代理。"""
+    engine = create_async_engine(platform_db_url)
+    try:
+        async with gated_session(engine, read_only=False) as session:
+            value = (await session.execute(text("SELECT 1"))).scalar_one()
+            assert value == 1
+    finally:
+        await engine.dispose()

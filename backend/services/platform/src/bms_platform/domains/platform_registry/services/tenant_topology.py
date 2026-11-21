@@ -184,6 +184,20 @@ class TenantTopologyService(BaseFrameworkObject):
         self._capture(tenant_id, version=target_version, previous=current, entries=entries, actor=actor)
         return target_version, await self._repo.list_current(tenant_id)
 
+    async def default_status(self) -> tuple[int, ConcurrentStableList[str]]:
+        """只读探测默认拓扑：当前版本 + 尚未覆盖的已登记域（不写库）。
+
+        Returns:
+            tuple[int, ConcurrentStableList[str]]: （版本, 缺失域清单）；版本 0 表示尚未自举。
+        """
+        version = await self._repo.current_version(DEFAULT_TOPOLOGY_TENANT)
+        domains = domain_service_view()
+        if version == 0:
+            return 0, ConcurrentStableList(domains)
+        existing = await self._repo.list_current(DEFAULT_TOPOLOGY_TENANT)
+        known = ConcurrentStableSet(row.domain_key for row in existing)
+        return version, ConcurrentStableList(domain for domain in domains if domain not in known)
+
     async def ensure_default(self, *, actor: int | None = None) -> int:
         """确保默认拓扑存在且覆盖全部已登记域（无则自举版本 1，缺域则补齐下一版本）。
 

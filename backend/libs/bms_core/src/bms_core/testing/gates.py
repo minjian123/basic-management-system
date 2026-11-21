@@ -17,10 +17,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 import traceback
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppress
+from typing import Any
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.gate import db_access_gate
@@ -131,10 +133,12 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             yield
         finally:
             # 无论是否报错都释放写门；没拿到（取写门就失败）时只记日志。
-            # `release_write` 会把升级时让出的读份额**原样补回**，故这里不再另取新份额：
-            # 多取一份就永远没人释放（实测每升级一次漏一份读份额，最终读者的内核共享锁
-            # 长期不放，写者只能等满硬上限）。
-            await target.release_write(restored)
+            # **同步释放**：用例 / 夹具被取消时 finally 里的 await 会立刻再抛 CancelledError，
+            # 异步释放就走不完，写门深度永久多一层。这里先同步清账目与内核锁，再尽力恢复读份额。
+            pending = target.release_write_now(restored)
+            if pending:
+                with suppress(BaseException):
+                    await target.restore_reads(pending)
     except BaseException as exc:
         if stage == "hold":
             # 门内业务异常：与门等待区分开，避免把用例自身超时算成「等门超时」。
@@ -203,3 +207,102 @@ def close_gates() -> None:
 def reset_gates() -> None:
     """关闭并清空门单例（用例隔离与诊断用，等价于 `close_gates`）。"""
     close_gates()
+
+
+class _GatedConnection:
+    """连接代理：每次执行按操作取放门（读 / 写由包装方决定）。"""
+
+    def __init__(self, connection: Any, scope: Callable[[], AbstractAsyncContextManager[None]]) -> None:
+        """初始化。
+
+        Args:
+            connection: 底层异步连接。
+            scope: 门上下文工厂（每次执行新建一个）。
+        """
+        object.__setattr__(self, "_connection", connection)
+        object.__setattr__(self, "_scope", scope)
+
+    async def execute(self, *args: object, **kwargs: object) -> Any:
+        """执行 SQL（门内）；执行前本无事务时，执行后立即结束自动事务（释放数据库锁）。"""
+        return await self._run("execute", *args, **kwargs)
+
+    async def exec_driver_sql(self, *args: object, **kwargs: object) -> Any:
+        """执行驱动级 SQL（门内）；自动事务随执行结束。"""
+        return await self._run("exec_driver_sql", *args, **kwargs)
+
+    async def scalar(self, *args: object, **kwargs: object) -> Any:
+        """取首行首列（门内）；自动事务随执行结束。"""
+        return await self._run("scalar", *args, **kwargs)
+
+    async def scalars(self, *args: object, **kwargs: object) -> Any:
+        """取标量集合（门内）；自动事务随执行结束。"""
+        return await self._run("scalars", *args, **kwargs)
+
+    async def _run(self, method: str, *args: object, **kwargs: object) -> Any:
+        """门内执行一次连接方法，并在自动事务后立即回滚结束它。
+
+        Args:
+            method: 底层连接方法名。
+            *args: 位置参数。
+            **kwargs: 关键字参数。
+
+        Returns:
+            Any: 底层返回值。
+        """
+        connection = object.__getattribute__(self, "_connection")
+        scope = object.__getattribute__(self, "_scope")
+        auto = not connection.in_transaction()
+        async with scope():
+            value = await getattr(connection, method)(*args, **kwargs)
+            if auto:
+                with contextlib.suppress(Exception):
+                    await connection.rollback()
+        return value
+
+    def __getattr__(self, name: str) -> Any:
+        """其余属性 / 方法原样透传（commit / rollback / close 等）。"""
+        return getattr(object.__getattribute__(self, "_connection"), name)
+
+
+class GatedEngine:
+    """共享测试库引擎代理：`connect()` 走读门、`begin()` 走写门，**每次执行取放一次**。
+
+    为什么要有它：用例里大量直连 `shared_platform_engine` / `shared_tenant_engine` 开连接、开事务，
+    不经过任何会话入口；这些读事务会长期持有 SQLite 读锁，24 路并行时写者在写门里等库锁满 10 秒。
+    代理引擎把「所有直连读写」也纳入操作级门，用例无需改动。
+
+    Attributes:
+        url: 底层引擎连接串（透传）。
+    """
+
+    def __init__(self, engine: Any, gate_name: str) -> None:
+        """初始化。
+
+        Args:
+            engine: 底层异步引擎。
+            gate_name: 门名（诊断标签）。
+        """
+        object.__setattr__(self, "_engine", engine)
+        object.__setattr__(self, "_gate_name", gate_name)
+
+    @asynccontextmanager
+    async def connect(self) -> AsyncGenerator[Any]:
+        """打开连接（执行走读门）。"""
+        gate_name = object.__getattribute__(self, "_gate_name")
+        async with object.__getattribute__(self, "_engine").connect() as connection:
+            yield _GatedConnection(connection, lambda: db_access_gate(gate_name, read_only=True, wait=DEFAULT_TIMEOUT))
+
+    @asynccontextmanager
+    async def begin(self) -> AsyncGenerator[Any]:
+        """打开写连接（执行走写门）；**不再开事务**，每条 SQL 自动提交。"""
+        gate_name = object.__getattribute__(self, "_gate_name")
+        async with object.__getattribute__(self, "_engine").connect() as connection:
+            yield _GatedConnection(connection, lambda: db_access_gate(gate_name, read_only=False, wait=DEFAULT_TIMEOUT))
+
+    async def dispose(self) -> None:
+        """销毁底层引擎。"""
+        await object.__getattribute__(self, "_engine").dispose()
+
+    def __getattr__(self, name: str) -> Any:
+        """其余属性 / 方法原样透传（`sync_engine` / `url` 等）。"""
+        return getattr(object.__getattribute__(self, "_engine"), name)

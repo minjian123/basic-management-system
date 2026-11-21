@@ -20,6 +20,7 @@ from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.models.platform.tenant_topology import SysTenantTopology
 from bms_core.services.module_registry import domain_service_view
+from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_platform.domains.platform_registry.repositories.tenant_topology import (
     TenantTopologyRepository,
@@ -47,6 +48,17 @@ DISABLED_TENANT = 9004
 
 FALLBACK_TENANT = 9500
 """导出回退用例的租户主键（同上）。"""
+
+
+@pytest.fixture(autouse=True)
+def _platform_global_lock() -> Iterator[None]:
+    """平台全局状态（拓扑 / 授权 / 默认参数）用专用文件锁串行，避免多 worker 同改。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("platform-global-state", timeout=180.0):
+        yield
 
 
 @pytest.fixture(autouse=True)

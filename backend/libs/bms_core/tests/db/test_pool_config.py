@@ -7,6 +7,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import DbPoolSettings, Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import pool_budget_rows, pool_budget_warnings
+from bms_core.db.sqlite import SQLITE_BUSY_TIMEOUT_SECONDS
 
 
 class _FakeEngine:
@@ -78,7 +79,7 @@ def test_pool_defaults_and_sqlite_no_pool(monkeypatch: pytest.MonkeyPatch) -> No
     sqlite_settings.database.platform.url = _sqlite_url("./app.db")
     EngineFactory(sqlite_settings).create("platform")
     sqlite_kwargs = captured[1][1]
-    assert sqlite_kwargs == {"pool_pre_ping": True, "connect_args": {"timeout": 30}}
+    assert sqlite_kwargs == {"pool_pre_ping": True, "connect_args": {"timeout": SQLITE_BUSY_TIMEOUT_SECONDS}}
 
 
 @pytest.mark.kiwi_id(984)

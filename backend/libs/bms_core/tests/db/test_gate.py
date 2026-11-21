@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Iterator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from typing import Any
 
 import pytest
 
@@ -100,6 +101,12 @@ class _FakeSession:
         """
         return f"added:{type(item).__name__}"
 
+    async def commit(self) -> None:
+        """提交（写门按事务释放的触发点）。"""
+
+    async def rollback(self) -> None:
+        """回滚（写门按事务释放的触发点）。"""
+
     async def aclose(self) -> None:
         """关闭会话。"""
         self.closed = True
@@ -127,23 +134,23 @@ def _recording_scope(entered: ConcurrentStableList[str]) -> AbstractAsyncContext
 
 
 async def test_lazy_session_defers_gate_until_first_db_call() -> None:
-    """写会话：第一次协程调用才进门；同步方法不触发。"""
+    """写会话：只有协程数据库方法才取门；同步方法不触发。"""
     entered: ConcurrentStableList[str] = ConcurrentStableList()
     session = _FakeSession()
-    lazy = LazyGatedSession(_recording_scope(entered), session)
+    lazy = LazyGatedSession(lambda: _recording_scope(entered), session)
 
     assert lazy.add(object()) == "added:object"
     assert list(entered) == [], "同步方法不应取门"
 
     assert await lazy.execute() == "ok"  # type: ignore[misc]
-    assert list(entered) == ["in"]
+    assert list(entered) == ["in", "out"]
 
 
 async def test_lazy_session_close_releases_gate() -> None:
     """写会话：`aclose` 关闭底层会话并放门（写门覆盖事务）。"""
     entered: ConcurrentStableList[str] = ConcurrentStableList()
     session = _FakeSession()
-    lazy = LazyGatedSession(_recording_scope(entered), session)
+    lazy = LazyGatedSession(lambda: _recording_scope(entered), session)
 
     await lazy.execute()  # type: ignore[misc]
     await lazy.aclose()
@@ -156,7 +163,7 @@ async def test_lazy_session_close_without_use_skips_gate() -> None:
     """写会话：没碰库就关闭，不进门、不放门。"""
     entered: ConcurrentStableList[str] = ConcurrentStableList()
     session = _FakeSession()
-    lazy = LazyGatedSession(_recording_scope(entered), session)
+    lazy = LazyGatedSession(lambda: _recording_scope(entered), session)
 
     await lazy.aclose()
 
@@ -164,19 +171,258 @@ async def test_lazy_session_close_without_use_skips_gate() -> None:
     assert list(entered) == []
 
 
-async def test_lazy_session_enter_is_idempotent() -> None:
-    """写会话：多次协程调用只取一次门（事务级持有）。"""
+async def test_lazy_session_gates_each_call() -> None:
+    """写会话：**每次**协程调用各取放一次写门（操作级持有）。"""
     entered: ConcurrentStableList[str] = ConcurrentStableList()
-    lazy = LazyGatedSession(_recording_scope(entered), _FakeSession())
+    lazy = LazyGatedSession(lambda: _recording_scope(entered), _FakeSession())
 
     await lazy.execute()  # type: ignore[misc]
     await lazy.execute()  # type: ignore[misc]
 
-    assert list(entered) == ["in"]
+    assert list(entered) == ["in", "out", "in", "out"]
 
 
 async def test_lazy_session_repr_contains_session() -> None:
     """`repr` 带底层会话，便于诊断。"""
-    lazy = LazyGatedSession(_recording_scope(ConcurrentStableList()), _FakeSession())
+    lazy = LazyGatedSession(lambda: _recording_scope(ConcurrentStableList()), _FakeSession())
 
     assert "LazyGatedSession" in repr(lazy)
+
+
+class _FakeResult:
+    """结果替身：行 + 可选 rowcount（`ChunkedIteratorResult` 没有 rowcount）。"""
+
+    rowcount: int
+
+    def __init__(self, rows: ConcurrentStableList[Any], rowcount: int = -1) -> None:
+        """初始化。
+
+        Args:
+            rows: 物化行。
+            rowcount: 受影响行数。
+        """
+        self._rows = rows
+        self.rowcount = rowcount
+
+    def all(self) -> ConcurrentStableList[Any]:
+        """全部行。"""
+        return ConcurrentStableList(self._rows)
+
+    def close(self) -> None:
+        """关闭占位。"""
+
+
+class _Row:
+    """行替身：支持下标与 `_mapping`。"""
+
+    def __init__(self, value: int) -> None:
+        """初始化。
+
+        Args:
+            value: 单列值。
+        """
+        self._value = value
+        self._mapping = {"value": value}
+
+    def __getitem__(self, index: int) -> int:
+        """按下标取值。"""
+        assert index == 0
+        return self._value
+
+
+class _ReadSession:
+    """读会话替身：覆盖读路径的协程方法与同步方法。"""
+
+    def __init__(self) -> None:
+        """初始化状态。"""
+        self.closed = False
+        self.executed = 0
+
+    async def execute(self, *args: object, **kwargs: object) -> _FakeResult:
+        """返回两行结果（第三行用于 `one` 的报错分支）。"""
+        del args, kwargs
+        self.executed += 1
+        return _FakeResult(ConcurrentStableList((_Row(1), _Row(2))), rowcount=7)
+
+    async def scalar(self, *args: object, **kwargs: object) -> int:
+        """返回固定标量。"""
+        del args, kwargs
+        return 42
+
+    async def get(self, *args: object, **kwargs: object) -> str:
+        """返回固定对象。"""
+        del args, kwargs
+        return "entity"
+
+    async def flush(self) -> None:
+        """写库协程（读会话不该被调用，仅为分支覆盖）。"""
+
+    def add(self, item: object) -> str:
+        """同步方法透传。"""
+        return f"added:{type(item).__name__}"
+
+    async def scalars(self, *args: object, **kwargs: object) -> _FakeResult:
+        """返回两行结果（供读代理的 scalars 分支覆盖）。"""
+        return await self.execute(*args, **kwargs)
+
+    async def stream(self, *args: object, **kwargs: object) -> _FakeResult:
+        """流式结果（读代理应明确拒绝，避免门泄漏）。"""
+        return await self.execute(*args, **kwargs)
+
+    async def aclose(self) -> None:
+        """关闭会话。"""
+        self.closed = True
+
+
+def _gated_reads(session: _ReadSession, entered: ConcurrentStableList[str]) -> gate_module.ReadOperationGatedSession:
+    """构造读按操作会话（每次读操作：新门 + 新短会话）。"""
+
+    @asynccontextmanager
+    async def _session_ctx() -> AsyncGenerator[_ReadSession]:
+        yield session
+
+    return gate_module.ReadOperationGatedSession(lambda: _recording_scope(entered), _session_ctx)
+
+
+async def test_read_operation_takes_gate_per_call() -> None:
+    """读会话：每次 execute / get / scalar 各取放一次门（不跨调用持有）。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    session = _ReadSession()
+    reads = _gated_reads(session, entered)
+
+    first = await reads.execute("stmt")
+    second = await reads.execute("stmt")
+    assert list(entered) == ["in", "out", "in", "out"]
+    assert [row[0] for row in first.all()] == [1, 2]
+    assert first.rowcount == 7
+    assert [row[0] for row in second.fetchall()] == [1, 2]
+
+    entered.clear()
+    assert await reads.get("entity", 1) == "entity"
+    assert await reads.scalar("stmt") == 42
+    assert list(entered) == ["in", "out", "in", "out"]
+    before = len(entered)
+    with pytest.raises(AttributeError, match="读会话不提供 add"):
+        reads.add  # noqa: B018  # 触发 __getattr__ 的拒绝分支
+    assert len(entered) == before, "非读路径方法不得取门"
+    await reads.aclose()
+    assert session.closed is False, "读会话按次开关，没有长会话需要关闭"
+
+
+async def test_read_operation_scalars_and_stream_rejected() -> None:
+    """读会话：`scalars` 返回标量代理；流式结果明确拒绝（避免门泄漏）。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    reads = _gated_reads(_ReadSession(), entered)
+
+    scalars = await reads.scalars("stmt")
+    assert list(scalars.all()) == [1, 2]
+    with pytest.raises(NotImplementedError, match="流式结果"):
+        await reads.stream("stmt")
+    assert "ReadOperationGatedSession" in repr(reads)
+
+
+def test_result_proxy_readonly_views() -> None:
+    """结果代理：常用只读接口都是内存操作。"""
+    rows = ConcurrentStableList((_Row(1), _Row(2)))
+    proxy = gate_module.ResultProxy(rows, rowcount=3)
+
+    assert proxy.returns_rows is True
+    assert len(proxy) == 2
+    assert list(proxy) == list(rows)
+    assert proxy.rowcount == 3
+    assert proxy.first() is rows[0]
+    assert proxy.scalar() == 1
+    assert list(proxy.scalars().all()) == [1, 2]
+    assert proxy.scalars().first() == 1
+    assert list(proxy.mappings().all()) == [{"value": 1}, {"value": 2}]
+    assert proxy.mappings().first() == {"value": 1}
+    assert list(proxy.mappings()) == [{"value": 1}, {"value": 2}]
+    assert list(proxy.keys()) == ["value"]
+    assert proxy.unique() is proxy
+    proxy.close()
+
+
+def test_result_proxy_one_branches() -> None:
+    """单行 / 空行的 one / one_or_none / scalar_one 分支。"""
+    single = gate_module.ResultProxy(ConcurrentStableList((_Row(5),)))
+    assert single.one() is single.first()
+    assert single.scalar_one() == 5
+    assert single.scalar_one_or_none() == 5
+    empty = gate_module.ResultProxy(ConcurrentStableList())
+    assert empty.first() is None
+    assert empty.scalar() is None
+    assert empty.scalar_one_or_none() is None
+    assert list(empty.keys()) == []
+    with pytest.raises(ValueError, match="恰好一条"):
+        empty.one()
+    with pytest.raises(ValueError, match="最多一条"):
+        gate_module.ResultProxy(ConcurrentStableList((_Row(1), _Row(2)))).one_or_none()
+    with pytest.raises(ValueError, match="恰好一条"):
+        gate_module.ResultProxy(ConcurrentStableList((_Row(1), _Row(2)))).scalar_one()
+    with pytest.raises(ValueError, match="最多一条"):
+        gate_module.ResultProxy(ConcurrentStableList((_Row(1), _Row(2)))).scalar_one_or_none()
+
+
+def test_scalar_proxy_branches() -> None:
+    """标量代理：空 / 单行 / 多行的取值与报错分支。"""
+    single = gate_module.ResultProxy(ConcurrentStableList((_Row(5),))).scalars()
+    assert single.one() == 5
+    assert single.one_or_none() == 5
+    assert single.unique() is single
+    assert len(single) == 1
+    empty = gate_module.ResultProxy(ConcurrentStableList()).scalars()
+    assert empty.first() is None
+    assert empty.one_or_none() is None
+    with pytest.raises(ValueError, match="恰好一条"):
+        empty.one()
+    many = gate_module.ResultProxy(ConcurrentStableList((_Row(1), _Row(2)))).scalars()
+    with pytest.raises(ValueError, match="最多一条"):
+        many.one_or_none()
+    with pytest.raises(ValueError, match="恰好一条"):
+        many.one()
+
+
+async def test_read_operation_without_rowcount_reports_minus_one() -> None:
+    """底层结果没有 rowcount（如 `ChunkedIteratorResult`）时按 -1 记录，不抛错。"""
+
+    class _NoRowcount(_ReadSession):
+        """去掉 rowcount 的读会话。"""
+
+        async def execute(self, *args: object, **kwargs: object) -> _FakeResult:
+            del args, kwargs
+            return _FakeResult(ConcurrentStableList((_Row(9),)))
+
+    reads = _gated_reads(_NoRowcount(), ConcurrentStableList())
+    result = await reads.execute("stmt")
+    assert result.rowcount == -1
+
+
+async def test_lazy_session_gates_commit_and_rollback_too() -> None:
+    """写会话：提交 / 回滚也是各取放一次门（同样是操作级）。"""
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    session = _FakeSession()
+    lazy = LazyGatedSession(lambda: _recording_scope(entered), session)
+
+    await lazy.execute()  # type: ignore[misc]
+    await lazy.commit()  # type: ignore[misc]
+    await lazy.rollback()  # type: ignore[misc]
+
+    assert list(entered) == ["in", "out", "in", "out", "in", "out"]
+
+
+async def test_lazy_session_commit_failure_propagates_and_releases() -> None:
+    """提交失败：异常原样抛出，写门已按操作放掉（不遗留持门）。"""
+
+    class _FailingCommit(_FakeSession):
+        """提交恒失败的会话。"""
+
+        async def commit(self) -> None:
+            raise RuntimeError("提交失败")
+
+    entered: ConcurrentStableList[str] = ConcurrentStableList()
+    session = _FailingCommit()
+    lazy = LazyGatedSession(lambda: _recording_scope(entered), session)
+
+    with pytest.raises(RuntimeError, match="提交失败"):
+        await lazy.commit()  # type: ignore[misc]
+    assert list(entered) == ["in", "out"]

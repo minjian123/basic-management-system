@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from openpyxl import load_workbook
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -29,14 +29,16 @@ from bms_core.models.platform.user import SysUser
 from bms_core.print.exporter import StoragePrintExporter
 from bms_core.print.templates import BuiltinPrintTemplateProvider
 from bms_core.storage.local import LocalObjectStorage
+from bms_core.testing.locks import file_lock
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import GatedSessionMaker, gated_sessionmaker
 from bms_core.transfer.artifacts import ExportArtifactStore, ObjectStorageExportArtifactStore
 from bms_core.transfer.export_limits import ExportLimits
 from bms_core.transfer.openpyxl_exporter import OpenpyxlExporter
 from bms_platform.domains.import_export.export_jobs import ExportCleanupJob, ExportExecuteJob
 from bms_platform.domains.import_export.services.exports import JOB_TYPE, KIND_EXCEL, ExportPayload
 
-pytestmark = [pytest.mark.kiwi_id(2402), pytest.mark.usefixtures("tenant_db_write")]
+pytestmark = [pytest.mark.kiwi_id(2402)]
 """导出作业含产物清理：清理作业按类型**全局扫描**，夹具准备阶段就会造过期行，
 锁必须覆盖准备 / 清理全程，否则并行下会把别的用例刚造的行当作自己的批次处理。"""
 
@@ -45,9 +47,20 @@ pytestmark = [pytest.mark.kiwi_id(2402), pytest.mark.usefixtures("tenant_db_writ
 class _Env:
     """导出作业测试环境。"""
 
-    factory: async_sessionmaker[AsyncSession]
+    factory: GatedSessionMaker
     storage: LocalObjectStorage
     artifacts: ObjectStorageExportArtifactStore
+
+
+@pytest.fixture(autouse=True)
+def _platform_global_lock() -> Iterator[None]:
+    """全局扫描作业按过期时间扫全表：用专用文件锁串行（数据库门只管单次读写）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("platform-global-state", timeout=180.0):
+        yield
 
 
 @pytest_asyncio.fixture
@@ -65,7 +78,7 @@ async def env(
         shared_tenant_engine,
         cast("list[Table]", [SysUser.__table__, SysJob.__table__]),
     )
-    factory = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    factory = gated_sessionmaker(shared_tenant_engine, read_only=False)
     storage = LocalObjectStorage(root=tmp_path / "storage")
     async with factory() as session:
         session.add_all(

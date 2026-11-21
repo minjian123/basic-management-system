@@ -36,6 +36,7 @@ from bms_core.core.context import (
 from bms_core.core.id import MAX_WORKER_ID, id_generator
 from bms_core.permission.cache import reset_permission_cache_store
 from bms_core.testing import namespace as namespace_module
+from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, GatedEngine
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.paths import configure_project_root, project_root
 
@@ -527,6 +528,7 @@ def ensure_shared_db(
         # 抢到锁后再判一次：可能上一个持锁者已经建好
         if _is_ready():
             return url
+        _drop_shared_db_files(name)
         (prepare or _default_prepare)(url)
         ready.write_text(version, encoding="utf-8")
     deadline = time.monotonic() + _INIT_TIMEOUT
@@ -576,12 +578,33 @@ async def ensure_shared_db_async(
         # 抢到锁后再判一次：可能上一个持锁者已经建好
         if _is_ready():
             return url
+        _drop_shared_db_files(name)
         if prepare is None:
             await _default_prepare_async(url)
         else:
             await prepare(url)
         ready.write_text(version, encoding="utf-8")
     return url
+
+
+def _drop_shared_db_files(name: str) -> None:
+    """删掉共享库文件（含 WAL / 日志伴生文件），供「版本戳不一致」时重建。
+
+    为什么必须删：`prepare` 内部是 `create_all(checkfirst=True)`，**只补表不补列**；
+    模型加一列后仅重跑准备集会得到「表在、列缺」的库，报 `no such column` 且永远自愈不了
+    （2026-11-21 实测）。版本戳一变就删库，重建才是真正的「结构重建」。
+
+    Args:
+        name: 逻辑数据源名（`platform` / `tenant`）。
+
+    Raises:
+        PermissionError: 文件被占用删不掉——护栏失效必须显式失败，不得静默沿用旧库。
+    """
+    directory = test_db_dir()
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        path = directory / f"{name}.db{suffix}"
+        with suppress(FileNotFoundError):
+            path.unlink()
 
 
 def resolve_prepare(request: pytest.FixtureRequest, name: str) -> Callable[[str], None] | None:
@@ -723,39 +746,42 @@ async def shared_platform_engine(shared_platform_db_url: str) -> AsyncIterator[A
     为什么放在基座：单库叠加口径下，用例**不得**自己 `create_async_engine`（护栏 G1 拦），
     需要直连共享库时一律经本夹具；`NullPool` 保证用例结束后连接不残留未提交事务。
 
-    13_08：夹具**不取门**——读写门的作用域是一次数据库操作（一次会话），直连引擎拿不到会话边界，
-    只能整条用例持门，那会让写者等到所有并发读用例收尾（设计决策 2 明确否定）。直连读与写门并发
-    时由 SQLite 的快照 + `busy_timeout` 兜底（与读写门引入前同一口径）；需要写的用例声明
-    ``platform_db_write`` 取写门，与经会话入口的写同队。
+    返回的是 `GatedEngine` 代理：`connect()` 的每次执行走读门、`begin()` 的每次执行走写门，
+    读完 / 写完立即放。直连读事务若不入门，24 路并行下会长期持有 SQLite 读锁，写者在写门里
+    等库锁满 10 秒（2026-11-21 实测）。
 
     Args:
         shared_platform_db_url: 共享平台库连接串（会话级）。
 
     Yields:
-        AsyncEngine: 指向共享平台库的引擎。
+        AsyncEngine: 指向共享平台库的门代理引擎。
     """
-    engine = create_async_engine(shared_platform_db_url, poolclass=NullPool, connect_args={"timeout": 30})
+    engine = create_async_engine(
+        shared_platform_db_url, poolclass=NullPool, connect_args={"timeout": 30}, isolation_level="AUTOCOMMIT"
+    )
+    gated = GatedEngine(engine, PLATFORM_GATE)
     try:
-        yield engine
+        yield cast("AsyncEngine", gated)
     finally:
         await engine.dispose()
 
 
 @pytest.fixture
 async def shared_tenant_engine(shared_tenant_db_url: str) -> AsyncIterator[AsyncEngine]:
-    """共享租户库引擎（用例级，`NullPool`）。
-
-    13_08：与 `shared_platform_engine` 同口径，夹具**不取门**；写库的用例声明 ``tenant_db_write``。
+    """共享租户库引擎（用例级，`NullPool`；门代理与平台库同口径）。
 
     Args:
         shared_tenant_db_url: 共享租户库连接串（会话级）。
 
     Yields:
-        AsyncEngine: 指向共享租户库的引擎。
+        AsyncEngine: 指向共享租户库的门代理引擎。
     """
-    engine = create_async_engine(shared_tenant_db_url, poolclass=NullPool, connect_args={"timeout": 30})
+    engine = create_async_engine(
+        shared_tenant_db_url, poolclass=NullPool, connect_args={"timeout": 30}, isolation_level="AUTOCOMMIT"
+    )
+    gated = GatedEngine(engine, TENANT_GATE)
     try:
-        yield engine
+        yield cast("AsyncEngine", gated)
     finally:
         await engine.dispose()
 

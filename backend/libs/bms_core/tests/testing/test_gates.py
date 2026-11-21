@@ -335,3 +335,122 @@ async def test_hold_error_is_distinguished(tmp_path: Path, monkeypatch: pytest.M
     cols = (tmp_path / ".cache/test/gate-hold.log").read_text(encoding="utf-8").strip().split("\t")
     assert cols[1] == "write"
     assert cols[8] == "hold-error"
+
+
+class _FakeConnection:
+    """异步连接替身：记录执行次数与回滚次数（`in_transaction` 恒 False）。"""
+
+    def __init__(self) -> None:
+        """初始化计数。"""
+        self.executed = 0
+        self.rolled_back = 0
+
+    def in_transaction(self) -> bool:
+        """恒「不在事务中」（autocommit 连接）。"""
+        return False
+
+    async def execute(self, *args: object, **kwargs: object) -> str:
+        """执行 SQL。"""
+        del args, kwargs
+        self.executed += 1
+        return "executed"
+
+    async def exec_driver_sql(self, *args: object, **kwargs: object) -> str:
+        """执行驱动级 SQL。"""
+        del args, kwargs
+        self.executed += 1
+        return "driver"
+
+    async def scalar(self, *args: object, **kwargs: object) -> int:
+        """取标量。"""
+        del args, kwargs
+        self.executed += 1
+        return 7
+
+    async def scalars(self, *args: object, **kwargs: object) -> str:
+        """取标量集合。"""
+        del args, kwargs
+        self.executed += 1
+        return "scalars"
+
+    async def rollback(self) -> None:
+        """结束自动事务。"""
+        self.rolled_back += 1
+
+
+class _FakeEngine:
+    """异步引擎替身：`connect()` / `begin()` 产出同一个假连接。"""
+
+    def __init__(self) -> None:
+        """初始化连接。"""
+        self.connection = _FakeConnection()
+        self.disposed = 0
+
+    @asynccontextmanager
+    async def connect(self) -> AsyncGenerator[_FakeConnection]:
+        """打开连接。"""
+        yield self.connection
+
+    @asynccontextmanager
+    async def begin(self) -> AsyncGenerator[_FakeConnection]:
+        """打开写事务（假实现不开事务）。"""
+        yield self.connection
+
+    async def dispose(self) -> None:
+        """销毁。"""
+        self.disposed += 1
+
+
+async def test_gated_connection_wraps_each_execution() -> None:
+    """门代理连接：每次执行各取放一次门，并在自动事务后立即结束事务。"""
+    entered: ConcurrentStableList[bool] = ConcurrentStableList()
+    fake = _FakeConnection()
+
+    @asynccontextmanager
+    async def _scope() -> AsyncGenerator[None]:
+        entered.add(True)
+        yield
+
+    connection = gates._GatedConnection(fake, _scope)  # pyright: ignore[reportPrivateUsage]
+    assert await connection.execute("stmt") == "executed"
+    assert await connection.exec_driver_sql("stmt") == "driver"
+    assert await connection.scalar("stmt") == 7
+    assert await connection.scalars("stmt") == "scalars"
+    assert fake.executed == 4
+    assert fake.rolled_back == 4
+    assert len(entered) == 4
+
+
+async def test_gated_engine_connect_and_begin_use_gate() -> None:
+    """门代理引擎：`connect()` 的读与 `begin()` 的写都走门，销毁透传。"""
+    fake = _FakeEngine()
+    engine = gates.GatedEngine(fake, PLATFORM_DB_KEY)
+
+    async with engine.connect() as reader:
+        assert await reader.execute("stmt") == "executed"
+    async with engine.begin() as writer:
+        assert await writer.execute("stmt") == "executed"
+    await engine.dispose()
+    assert fake.disposed == 1
+    assert fake.connection.executed == 2
+
+
+async def test_session_factory_patch_keeps_non_sqlite_transaction() -> None:
+    """会话工厂补丁只对 SQLite 套 autocommit；正式数据库原样建工厂（且补丁幂等）。"""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from bms_core.db.session import SessionFactory
+
+    plugin._patch_session_factory_autocommit()  # pyright: ignore[reportPrivateUsage]  # 第二次调用走早退分支
+    engine = create_async_engine("postgresql+psycopg://user:secret@localhost:5432/demo")
+    try:
+        maker = SessionFactory().create(engine)
+        assert maker is not None
+    finally:
+        await engine.dispose()
+
+
+def test_restore_session_factory_is_noop_without_patch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """未打补丁时恢复是空操作（会话结束路径可重复调用）。"""
+    monkeypatch.setattr(plugin, "_original_session_create", None)
+    plugin._restore_session_factory()  # pyright: ignore[reportPrivateUsage]

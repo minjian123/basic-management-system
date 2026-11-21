@@ -22,6 +22,7 @@ from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.collaboration.grant import (
     METRIC_CAPABILITY_GRANT_ACTIVE,
     CapabilityGrant,
+    GrantSyncPlan,
     declare_capability_grants,
     grant_view_key,
     invalidate_capability_grants,
@@ -152,6 +153,19 @@ class CapabilityGrantService(BaseFrameworkObject):
         await self._session.rollback()
         async with self._transaction().begin():
             yield
+
+    async def declared_plan(self) -> GrantSyncPlan:
+        """只读比对：按产品声明算出需要的增 / 补 / 撤（**不写库、不开事务**）。
+
+        启动钩子用它先判断「是否已有差异」：绝大多数启动声明与库内一致，走只读即可，
+        不必每次都取写门（逐例装配时写门是最贵的排队来源）。
+
+        Returns:
+            GrantSyncPlan: 差异计划（空计划即「已同步」）。
+        """
+        declared = declare_capability_grants()
+        current = await self._current_grants()
+        return plan_grant_sync(declared, current)
 
     async def sync_declared(self) -> GrantSyncReport:
         """按产品声明同步默认授权（启动钩子调用；幂等）。

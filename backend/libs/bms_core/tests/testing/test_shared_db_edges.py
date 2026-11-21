@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import fixtures
@@ -143,7 +145,43 @@ def test_shared_db_url_fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     tenant_fixture = cast("Any", fixtures.shared_tenant_db_url)
     assert platform_fixture.__wrapped__(request) == "url-platform"
     assert tenant_fixture.__wrapped__(request) == "url-tenant"
-    assert list(calls) == ["platform:1", "tenant:1"]
+    # 版本戳含模型源码摘要（不再是固定 "1"）：两个数据源同戳，且随模型变更
+    platform_name, platform_version = calls[0].split(":")
+    tenant_name, tenant_version = calls[1].split(":")
+    assert (platform_name, tenant_name) == ("platform", "tenant")
+    assert platform_version == tenant_version
+    assert platform_version != "1"
+
+
+def test_drop_shared_db_files_removes_db_and_siblings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """版本戳变化时删库重建：主文件与 WAL / 日志伴生文件一并清掉。"""
+    monkeypatch.chdir(tmp_path)
+    directory = fixtures.test_db_dir()
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        (directory / f"platform.db{suffix}").write_text("x", encoding="utf-8")
+    fixtures._drop_shared_db_files("platform")  # pyright: ignore[reportPrivateUsage]
+    assert not list(directory.glob("platform.db*"))
+
+
+def test_drop_shared_db_files_missing_is_noop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """库文件不存在时静默跳过（首启路径）。"""
+    monkeypatch.chdir(tmp_path)
+    fixtures._drop_shared_db_files("platform")  # pyright: ignore[reportPrivateUsage]
+    assert not list(fixtures.test_db_dir().glob("platform.db*"))
+
+
+def test_drop_shared_db_files_propagates_permission_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """库文件被占用删不掉时显式失败——静默沿用旧库会变成永久的 `no such column`。"""
+    monkeypatch.chdir(tmp_path)
+    directory = fixtures.test_db_dir()
+    (directory / "platform.db").write_text("x", encoding="utf-8")
+
+    def _deny(_self: Path) -> None:
+        raise PermissionError("占用")
+
+    monkeypatch.setattr(Path, "unlink", _deny)
+    with pytest.raises(PermissionError):
+        fixtures._drop_shared_db_files("platform")  # pyright: ignore[reportPrivateUsage]
 
 
 def test_init_lock_acquires_and_releases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -184,3 +222,29 @@ def test_init_lock_treats_permission_error_as_contended(tmp_path: Path, monkeypa
         assert lock.exists()
     assert len(attempts) == 2
     assert not lock.exists()
+
+
+async def test_shared_platform_engine_is_gated(shared_platform_engine: AsyncEngine) -> None:
+    """共享平台库引擎夹具返回门代理引擎：连接上的执行可用且走 SQLite。"""
+    assert shared_platform_engine.url.get_backend_name() == "sqlite"
+    async with shared_platform_engine.connect() as connection:
+        assert (await connection.execute(text("SELECT 1"))).scalar_one() == 1
+
+
+async def test_ensure_shared_db_async_rebuilds_on_version_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """异步版本戳不一致：先删库再重建（建表只补表不补列，必须真重建）。"""
+    monkeypatch.chdir(tmp_path)
+    directory = fixtures.test_db_dir()
+    (directory / "platform.db").write_text("stale", encoding="utf-8")
+    (directory / "platform.ready").write_text("old", encoding="utf-8")
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _prepare(url: str) -> None:
+        calls.add(url)
+
+    url = await fixtures.ensure_shared_db_async("platform", _prepare, version="new-version")
+    assert url.startswith("sqlite+aiosqlite:///")
+    assert list(calls) == [url]
+    assert (directory / "platform.ready").read_text(encoding="utf-8").strip() == "new-version"

@@ -77,6 +77,7 @@ async def test_bootstrap_converges_on_concurrent_version_conflict(
             raise ConflictError("拓扑版本须递增：当前 1，请求 1")
         return await original(self, actor=actor)
 
+    monkeypatch.setattr(TenantTopologyService, "default_status", _not_bootstrapped)
     monkeypatch.setattr(TenantTopologyService, "ensure_default", _conflict_once)
     await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
 
@@ -119,6 +120,7 @@ async def test_hook_wraps_unexpected_failure_as_catalog_error(
     async def _boom(*_: object) -> int:
         raise RuntimeError("db down")
 
+    monkeypatch.setattr(TenantTopologyService, "default_status", _not_bootstrapped)
     monkeypatch.setattr(TenantTopologyService, "ensure_default", _boom)
     with pytest.raises(CatalogError, match="租户部署拓扑装配失败"):
         await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
@@ -130,14 +132,19 @@ async def test_hook_propagates_catalog_error(service_app: FastAPI, monkeypatch: 
     async def _boom(*_: object) -> int:
         raise CatalogError("域登记为空")
 
+    monkeypatch.setattr(TenantTopologyService, "default_status", _not_bootstrapped)
     monkeypatch.setattr(TenantTopologyService, "ensure_default", _boom)
     with pytest.raises(CatalogError, match="域登记为空"):
         await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
 
 
+async def _not_bootstrapped(*_: object) -> tuple[int, ConcurrentStableList[str]]:
+    """模拟「默认拓扑尚未自举」：强制启动钩子走写路径。"""
+    return 0, ConcurrentStableList()
+
+
 async def _zero(self: object, tenant_id: int) -> int:
     """无版本替身（模拟首次自举）。
-
     Args:
         self: 仓储实例占位（类级替身会被绑定为方法）。
         tenant_id: 租户主键（未使用）。
@@ -214,11 +221,11 @@ async def test_hook_rejects_when_table_not_ready(service_app: FastAPI, monkeypat
     与「拓扑未配置」区分：表可读但缺域同样拒启（见其他用例）。
     """
 
-    async def _boom(*_: object) -> int:
+    async def _boom(*_: object) -> tuple[int, ConcurrentStableList[str]]:
         raise OperationalError("select 1", {}, Exception("no such table: sys_tenant_topology"))
 
     reset_topology_resolver()
-    monkeypatch.setattr(TenantTopologyService, "ensure_default", _boom)
+    monkeypatch.setattr(TenantTopologyService, "default_status", _boom)
     with pytest.raises(CatalogError, match="租户部署拓扑装配失败：库未就绪"):
         await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
     assert isinstance(resolve_topology(), DomainLayoutTopologyResolver)

@@ -16,8 +16,10 @@
 
 import os
 from contextlib import AbstractAsyncContextManager
+from typing import Any, cast
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.db.gate import set_gate_hook
 from bms_core.db.registry import PLATFORM_DB_KEY
@@ -105,6 +107,10 @@ def pytest_configure(config: pytest.Config) -> None:
     assert_entrypoint(config)
     # 13_08：把会话入口的数据库访问接到跨进程读写门（生产侧是直通钩子，只在测试会话注入）
     set_gate_hook(_gate_hook)
+    # 2026-11-21 业主拍板：**测试里的读写全部按操作、autocommit**。应用请求会话的生产工厂是
+    # 「一个请求一个事务」，事务未提交前会一直持有 SQLite 写锁，24 路并行下别的写者只能排队；
+    # 测试会话统一换成 autocommit，每条 SQL 立即落库、立即释放数据库锁。
+    _patch_session_factory_autocommit()
     # 共享测试库基址钉在会话起始的工程根：用例 `chdir` 后解析夹具也不会把库落到临时目录
     # （否则表现为随机的「no such table」；见 `fixtures.configure_project_root`）。
     fixtures.configure_project_root(os.getcwd())
@@ -133,6 +139,41 @@ def pytest_configure(config: pytest.Config) -> None:
             print(f"[bms_testing_plugin] 共享测试库清理失败（Windows 句柄占用），本次改用新库：{failed}")
 
 
+_original_session_create: Any = None
+"""被替换前的 `SessionFactory.create`（会话结束时恢复）。"""
+
+
+def _patch_session_factory_autocommit() -> None:
+    """把测试用的会话工厂改成 autocommit（每条 SQL 立即落库、立即释放数据库锁）。"""
+    global _original_session_create
+    if _original_session_create is not None:
+        return
+    from bms_core.db.session import SessionFactory
+
+    original = SessionFactory.create
+    _original_session_create = original
+
+    def _create(self: SessionFactory, engine: Any) -> Any:
+        """SQLite 下按 autocommit 建会话工厂；正式数据库保持原事务语义。"""
+        typed = cast("AsyncEngine", engine)
+        if typed.url.get_backend_name() != "sqlite":
+            return original(self, typed)
+        return original(self, typed.execution_options(isolation_level="AUTOCOMMIT"))
+
+    SessionFactory.create = _create  # type: ignore[method-assign]
+
+
+def _restore_session_factory() -> None:
+    """恢复被替换的 `SessionFactory.create`。"""
+    global _original_session_create
+    if _original_session_create is None:
+        return
+    from bms_core.db.session import SessionFactory
+
+    SessionFactory.create = _original_session_create  # type: ignore[method-assign]
+    _original_session_create = None
+
+
 def pytest_unconfigure(config: pytest.Config) -> None:
     """会话结束：撤销数据库门钩子并关闭门句柄。
 
@@ -141,4 +182,5 @@ def pytest_unconfigure(config: pytest.Config) -> None:
     """
     del config
     set_gate_hook(None)
+    _restore_session_factory()
     close_gates()

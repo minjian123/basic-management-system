@@ -26,6 +26,7 @@ from bms_core.models.platform.release_manifest import (
     SysReleaseManifestDomain,
 )
 from bms_core.services.module_registry import domain_service_view, service_catalog_view
+from bms_core.testing.locks import file_lock
 from bms_platform.domains.platform_registry.dto import ReleaseDomainEntry
 from bms_platform.domains.platform_registry.repositories.release_manifest import (
     ReleaseManifestDomainRepository,
@@ -37,6 +38,17 @@ from bms_platform.domains.platform_registry.services.release import ReleaseServi
 
 UNIT = "platform"
 """默认拓扑里平台自身承载的部署单元（域 → 承载服务键自举）。"""
+
+
+@pytest.fixture(autouse=True)
+def _platform_global_lock() -> Iterator[None]:
+    """平台全局状态（拓扑 / 授权 / 默认参数）用专用文件锁串行，避免多 worker 同改。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("platform-global-state", timeout=180.0):
+        yield
 
 
 @pytest.fixture(autouse=True)
