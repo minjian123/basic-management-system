@@ -142,11 +142,12 @@ async def test_run_forever_exits_after_stop(registry: EngineRegistry, monkeypatc
         async def wake_loop(self, event: asyncio.Event) -> None:
             event.set()
 
-    worker = _worker(registry, signal=cast("Any", _Signal()))
+    # 不扫库：本用例只验「置停止即退出」，扫库会去抢共享平台写门，24 路下反而被拖超时。
+    worker = _worker(registry, signal=cast("Any", _Signal()), db_keys=_empty_keys)
     run = asyncio.create_task(worker.run_forever())
     await asyncio.sleep(0.05)
     await worker.aclose()
-    await asyncio.wait_for(run, timeout=2)
+    await asyncio.wait_for(run, timeout=10)
 
 
 async def test_tick_continues_when_one_db_fails(registry: EngineRegistry, monkeypatch: pytest.MonkeyPatch) -> None:
