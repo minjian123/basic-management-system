@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.models.platform.i18n import SysI18nLocale
 from bms_core.repositories.help_locale import load_help_default_locale, load_help_locales
@@ -45,3 +47,6 @@ async def test_load_locales_falls_back_when_empty() -> None:
         await session.commit()
         assert await load_help_default_locale(session) == DEFAULT_LOCALE
         assert list(await load_help_locales(session)) == [DEFAULT_LOCALE]
+
+
+pytestmark = pytest.mark.xdist_group("platform-global-writes")

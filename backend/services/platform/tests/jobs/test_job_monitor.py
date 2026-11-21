@@ -123,3 +123,7 @@ async def test_event_without_job_id_is_ignored(shared_platform_engine: AsyncEngi
         envelope = EventEnvelope(event_type=JOB_STARTED_EVENT, payload=ConcurrentStableDict(), occurred_at=BASE)
         applied = await JobMonitorService(JobMonitorRepository(session)).apply(envelope)
         assert applied is False
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

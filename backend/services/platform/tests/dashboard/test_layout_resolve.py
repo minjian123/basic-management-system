@@ -178,3 +178,7 @@ async def test_disabled_card_is_filtered_with_warning(client: AsyncClient, ns: N
     assert [item["code"] for item in data["layout"]["cards"]] == [keeping]
     warning_codes = [(item["code"], item["reason"]) for item in data["warnings"]]
     assert (dropped, "card_disabled") in warning_codes
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

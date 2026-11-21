@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from bms_core.core.concurrent import ConcurrentStableFrozenDict
 from bms_core.help.anchors import HelpAnchorKind
 from bms_core.help.values import (
@@ -62,3 +64,6 @@ def test_target_problem_by_anchor_map() -> None:
     assert mismatch is not None and "类型不匹配" in mismatch
     unknown_kind = target_problem(TARGET_TYPE_ACTION, "platform:sys:user::", anchors)
     assert unknown_kind is not None and "类型不匹配" in unknown_kind
+
+
+pytestmark = pytest.mark.xdist_group("platform-global-writes")

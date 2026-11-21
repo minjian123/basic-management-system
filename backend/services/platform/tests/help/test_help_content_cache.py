@@ -103,3 +103,7 @@ async def test_resolve_miss_is_not_cached(monkeypatch: pytest.MonkeyPatch) -> No
     second = await resolver.resolve(_query())
     assert first.matched is False and second.matched is False
     assert len(calls) == 2
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

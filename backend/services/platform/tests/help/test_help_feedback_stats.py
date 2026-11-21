@@ -148,3 +148,7 @@ async def test_statistics_service_rejects_bad_params() -> None:
         await service.load(group_by="bad", category_id=None, keyword=None, page=1, size=20)
     with pytest.raises(ParamError):
         await service.load(group_by="article", category_id=None, keyword=None, page=1, size=201)
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

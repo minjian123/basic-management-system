@@ -313,3 +313,7 @@ async def test_lenient_all_invalid_is_rejected(
             await HelpPackageService(session).load(
                 load_package(package), anchors=anchor_map(ns.prefix), apply=False, lenient=True
             )
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

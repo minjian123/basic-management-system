@@ -63,3 +63,7 @@ async def test_list_role_templates_includes_disabled(shared_tenant_engine: Async
     async with factory() as session:
         items = await DashboardTemplateRepository(session).list_role_templates(enabled_only=False)
         assert isinstance(items, ConcurrentStableList)
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

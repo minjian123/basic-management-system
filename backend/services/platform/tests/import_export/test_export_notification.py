@@ -104,3 +104,7 @@ def test_export_payload_roundtrip() -> None:
     payload = ExportPayload(biz="users", kind="excel", actor=1001)
     assert payload.to_job_payload()["actor"] == 1001
     assert payload.to_job_payload()["biz"] == "users"
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

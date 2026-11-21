@@ -169,3 +169,7 @@ async def test_category_status_and_self_parent_rejected(client: AsyncClient, ns:
     assert (await client.put(f"{_CATEGORIES}/{node_id}", json={"status": "paused"})).json()["code"] == 10001
     self_parent = _body(await client.put(f"{_CATEGORIES}/{node_id}", json={"parent_id": node_id}))
     assert self_parent["code"] == 40023
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

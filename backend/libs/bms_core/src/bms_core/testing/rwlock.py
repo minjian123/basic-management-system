@@ -528,10 +528,13 @@ class DbGate:
         """
         loop = asyncio.get_running_loop()
         with self._count_lock:
+            previous = self._loop_ref is not None
             current = self._loop_ref() if self._loop_ref is not None else None
             if current is loop:
                 return
-            stale = current is not None
+            # 旧循环已被回收时弱引用为 None，但“曾经设过循环”仍是切换信号：
+            # 必须重开句柄，否则旧句柄的内核锁永远留在进程里。
+            stale = previous
             self._loop_ref = weakref.ref(loop)
             self._own_reads.clear()
             self._borrowed_reads.clear()

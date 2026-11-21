@@ -140,3 +140,7 @@ async def test_dispatch_empty_messages_for_new_tenant_like_locale(client: AsyncC
     """语言包为空（模拟未种子）时返回空映射而不是报错。"""
     data = (await client.get("/api/v1/i18n/messages", params={"locale": "en-US"})).json()["data"]
     assert isinstance(data["messages"], dict)
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

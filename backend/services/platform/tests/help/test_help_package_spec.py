@@ -280,3 +280,7 @@ def test_filter_for_tenant_locale_and_category(tmp_path: Path, ns: Namespace) ->
     assert not filter_for_tenant(
         spec, default_locale="zh-CN", category_paths=ConcurrentStableList(), lenient=True
     ).articles
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

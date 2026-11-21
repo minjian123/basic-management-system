@@ -174,3 +174,7 @@ async def test_finish_opens_own_transaction(session: AsyncSession, monkeypatch: 
     )
     result = await TaskJobHandler().run(ctx)
     assert result.status == "succeeded"
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

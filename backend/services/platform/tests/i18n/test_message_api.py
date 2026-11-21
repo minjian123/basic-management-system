@@ -222,3 +222,7 @@ async def test_cache_invalidate(client: AsyncClient) -> None:
     data = resp.json()["data"]
     assert data["version"] >= 1
     assert data["degraded"] is False
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

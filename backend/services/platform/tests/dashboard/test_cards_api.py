@@ -198,3 +198,7 @@ async def test_delete_dataset_card(client: AsyncClient, ns: Namespace) -> None:
     assert deleted["code"] == 0
     assert deleted["data"]["applied"] is True
     assert (await client.delete(f"{_CARDS}/{code}")).json()["code"] == 40301
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

@@ -792,3 +792,7 @@ async def test_role_level_returns_none_when_no_template_matches() -> None:
     service = _service(cards=_FakeCards(ConcurrentStableList((_card_row("todo"),))), templates=_FakeTemplates())
     data = await service.resolve_layout(user_id=1, role_types=ConcurrentStableList((("custom", 7),)), locale="zh-CN")
     assert data.source == "empty"
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

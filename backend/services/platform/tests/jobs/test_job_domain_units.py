@@ -380,3 +380,7 @@ async def test_monitor_service_ignores_incomplete_payload(session: AsyncSession)
         )
     )
     assert applied is False
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

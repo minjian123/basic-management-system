@@ -214,3 +214,7 @@ async def test_list_without_filters(client: AsyncClient) -> None:
     assert locales["total"] >= 2
     messages = (await client.get("/api/v1/i18n/messages/manage")).json()["data"]
     assert messages["total"] >= 1
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

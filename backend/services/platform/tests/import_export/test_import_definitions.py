@@ -120,3 +120,7 @@ async def test_role_validate_existing_and_status() -> None:
         ("code", "角色码已存在"),
         ("status", "状态取值非法"),
     }
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

@@ -471,3 +471,7 @@ async def test_locale_after_write_without_snapshots() -> None:
     """写后处理：前后快照均缺失时不产生审计事件。"""
     service = _locale_service(audit=_BrokenAudit())
     await service._after_write(1, None, None)  # pyright: ignore[reportPrivateUsage]
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

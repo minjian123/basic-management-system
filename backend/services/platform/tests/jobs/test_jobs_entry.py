@@ -158,3 +158,7 @@ def test_module_entrypoint_runs_single_round(monkeypatch: pytest.MonkeyPatch) ->
         runpy.run_module("bms_platform.jobs", run_name="__main__")
 
     assert excinfo.value.code == 0
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

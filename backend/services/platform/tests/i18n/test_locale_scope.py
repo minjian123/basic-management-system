@@ -24,3 +24,7 @@ async def test_locale_scope_without_app_scope() -> None:
     assert current_dict_locale.get()
     await generator.aclose()
     assert current_dict_locale.get() == before
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

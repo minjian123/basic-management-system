@@ -615,3 +615,7 @@ async def test_service_definition_without_write_permission() -> None:
             actor=None,
             db_key="tenant_demo",
         )
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

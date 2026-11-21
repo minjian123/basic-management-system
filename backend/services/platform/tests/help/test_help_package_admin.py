@@ -137,3 +137,7 @@ async def test_unload_not_loaded_rejected(client: AsyncClient, ns: Namespace) ->
     """未装载产品卸载返回 40012。"""
     response = _body(await client.post(f"{_PACKAGES}/{ns.prefix}_none/unload", json={}))
     assert response["code"] == 40012
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

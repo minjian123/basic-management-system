@@ -420,3 +420,7 @@ async def test_article_list_filters(client: AsyncClient, ns: Namespace) -> None:
     unfiltered = _body(await client.get(_ARTICLES))
     assert unfiltered["code"] == 0
     assert unfiltered["data"]["total"] >= 1
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

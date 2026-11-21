@@ -109,3 +109,7 @@ async def test_empty_layout_is_allowed_and_falls_back(client: AsyncClient) -> No
     assert saved["data"]["applied"] is True
     data = _body(await client.get(_LAYOUT, headers=auth_headers("3103")))["data"]
     assert data["source"] == "platform"
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

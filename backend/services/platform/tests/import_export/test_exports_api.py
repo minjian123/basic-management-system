@@ -466,3 +466,7 @@ async def test_export_list_pdf_async(env: _Env) -> None:
     data = _data(response)
     assert data["async"] is True
     assert int(cast("int", data["job_id"])) > 0
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

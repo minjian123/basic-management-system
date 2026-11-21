@@ -276,3 +276,7 @@ def test_run_load_and_unload_orchestration(
 
     monkeypatch.setattr(cli, "_unload_for_tenant", _unload_fail)
     assert asyncio.run(cli._run_unload(unload_args, object(), object())) == 2
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

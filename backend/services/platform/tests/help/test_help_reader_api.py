@@ -254,3 +254,7 @@ def testsummary_of_empty_and_truncated() -> None:
     long_text = summary_of("<p>" + "长" * 200 + "</p>")
     assert long_text.endswith("…")
     assert len(long_text) == 121
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

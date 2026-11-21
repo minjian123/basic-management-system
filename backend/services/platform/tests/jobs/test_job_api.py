@@ -38,3 +38,7 @@ async def test_authenticated_without_permission_is_forbidden(client: AsyncClient
     for path in (API, f"{API}/types", f"{API}/999999999999"):
         response = await client.get(path)
         assert response.status_code == 403, (path, response.text)
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

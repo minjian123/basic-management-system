@@ -541,3 +541,7 @@ async def test_submit_without_open_transaction_skips_rollback() -> None:
     assert job_id == 42
     assert session.rolled_back is False
     assert len(runner.submitted) == 1
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]

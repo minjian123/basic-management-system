@@ -126,3 +126,7 @@ def test_badge_contract_shape() -> None:
 
     dumped = DashboardBadgeCount(count=2, available=True).model_dump()
     assert dumped == {"count": 2, "available": True, "reason": None}
+
+
+_existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-writes")]  # pyright: ignore[reportUnknownVariableType]
