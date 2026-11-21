@@ -24,7 +24,7 @@ from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.config.models import SysConfig
-from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS
+from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
@@ -88,6 +88,8 @@ async def _reset(db: AsyncSession) -> None:
         row.is_overridden = False
         row.status = _ENABLED
     await db.commit()
+    # 同 `test_config_platform_defaults`：历史硬删留下的缺键用生产种子入口补回。
+    await seed_configs(db)
 
 
 async def _soft_delete(db: AsyncSession, config_key: str) -> None:

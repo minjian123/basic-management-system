@@ -59,6 +59,9 @@ pytestmark = pytest.mark.own_db(
 _DEMO_PRODUCT = "demo"
 """本文件占用的产品键（清理与断言都以此为准）。"""
 
+_DEMO_DOMAINS = ("demo_op",)
+"""本文件注册的业务域（拓扑补齐的残留按它清理）。"""
+
 _DEMO_MODULES = ("demo", "demoextra")
 """本文件注册的模块键（`demoextra` 为「无服务键行」用例的附加行）。"""
 

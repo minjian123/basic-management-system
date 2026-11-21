@@ -65,12 +65,18 @@ def _isolate_topology_state() -> Iterator[None]:
 
 
 async def test_startup_registers_resolver_and_snapshot(service_app: FastAPI) -> None:
-    """用例 1 / 14：启动后默认拓扑已自举、快照在位、第二段解析换成本实现。"""
+    """用例 1 / 14：启动后默认拓扑已自举、快照在位、第二段解析换成本实现。
+
+    不变式是「**已登记域全部被默认拓扑覆盖**」；拓扑里允许存在历史域的手工行（生产语义
+    只补不缺，不删除既有行），故这里判包含关系而不是集合相等。
+    """
     del service_app
     snapshot = topology_snapshot(0)
     assert snapshot is not None
     assert snapshot.version >= 1
-    assert set(snapshot.entries) == set(domain_service_view())
+    registered = set(domain_service_view())
+    entries = set(snapshot.entries)
+    assert registered <= entries, f"默认拓扑漏掉已登记域：{sorted(registered - entries)}"
     assert isinstance(resolve_topology(), TenantTopologyResolver)
 
 
@@ -98,7 +104,7 @@ async def test_bootstrap_converges_on_concurrent_version_conflict(
 
 
 async def test_bootstrap_is_idempotent(service_app: FastAPI) -> None:
-    """自举幂等：已有默认拓扑时再跑不改数据（版本与行数不变）。"""
+    """自举幂等：已有默认拓扑时再跑不改版本，且仍覆盖全部已登记域。"""
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
@@ -106,7 +112,12 @@ async def test_bootstrap_is_idempotent(service_app: FastAPI) -> None:
         before = await service.export(0)
         version = await service.ensure_default()
     assert version == before[0]
-    assert len(before[1]) == len(domain_service_view())
+    rows = before[1]
+    keys = [row.domain_key for row in rows]
+    assert len(set(keys)) == len(keys), "默认拓扑同一域不得多行"
+    registered = set(domain_service_view())
+    missing = registered - set(keys)
+    assert not missing, f"默认拓扑漏掉已登记域：{sorted(missing)}"
 
 
 async def test_empty_domain_registry_refuses_bootstrap(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:

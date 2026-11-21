@@ -15,12 +15,16 @@
 """
 
 import os
-from contextlib import AbstractAsyncContextManager
+from collections.abc import AsyncGenerator
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from functools import lru_cache
 from typing import Any, cast
 
 import pytest
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bms_core.core.config import get_settings
 from bms_core.db.gate import set_gate_hook
 from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.testing import ddl, fixtures
@@ -44,7 +48,8 @@ from bms_core.testing.fixtures import (
     tenant_db,
     test_db_dir,
 )
-from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, close_gates, gate_scope
+from bms_core.testing.gates import close_gates, gate_scope
+from bms_core.testing.transaction import gate_for_database
 from bms_core.testing.write_locks import platform_db_write, tenant_db_write
 
 __all__ = (
@@ -71,17 +76,53 @@ __all__ = (
 )
 
 
+@lru_cache(maxsize=8)
+def _gate_name_for_db_url(url: str) -> str | None:
+    """按连接串判断是否共享库并返回门名（解析结果按连接串缓存）。
+
+    每次数据库读写都要经过取门入口，`get_settings()` + `make_url()` 虽快也不该放进热路径；
+    连接串一变缓存键就变，`monkeypatch` 换库后自动失效。
+
+    Args:
+        url: 数据源连接串。
+
+    Returns:
+        str | None: 门名；临时库 / 内存库 / 非共享库返回 None。
+    """
+    return gate_for_database(make_url(url).database)
+
+
+@asynccontextmanager
+async def _no_gate() -> AsyncGenerator[None]:
+    """不取门的空上下文（用例把库换成独占临时库 / 内存库时用）。
+
+    Yields:
+        None: 直接执行区间。
+    """
+    yield
+
+
 def _gate_hook(db_key: str, read_only: bool, wait: float | None = None) -> AbstractAsyncContextManager[None]:
     """把会话入口的数据源键映射到读写门（13_08 注入点）。
+
+    **按当前配置判断库身份**：`own_db` 用例会把平台 / 租户库换成每用例独占的临时库
+    （`tmp_path/*.db`）或内存库，这类库没有跨进程读者，取共享门只会让它们排在 24 路的
+    全局门后面（实测把「无信号轮询」这类毫秒级用例拖成等门超时）。故只有库文件名仍是共享的
+    `platform.db` / `tenant.db` 才取门，其余直通。
 
     Args:
         db_key: 数据源键（平台库键或租户库键）。
         read_only: 是否只读。
+        wait: 等待上限（秒）；None 走门缺省。
 
     Returns:
-        AbstractAsyncContextManager[None]: 读门或写门上下文。
+        AbstractAsyncContextManager[None]: 读门 / 写门上下文；独占库返回空上下文。
     """
-    name = PLATFORM_GATE if db_key == PLATFORM_DB_KEY else TENANT_GATE
+    settings = get_settings()
+    url = settings.database.platform.url if db_key == PLATFORM_DB_KEY else settings.database.tenants.url
+    name = _gate_name_for_db_url(url)
+    if name is None:
+        return _no_gate()
     return gate_scope(name, read_only=read_only, wait=wait)
 
 

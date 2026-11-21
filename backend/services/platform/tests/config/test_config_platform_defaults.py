@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.config.cache import MemoryConfigCacheRegion
 from bms_core.config.models import SysConfig
-from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS
+from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.db.unit_of_work import DbUnitOfWork
@@ -56,6 +56,9 @@ async def _restore(db: AsyncSession) -> None:
         row.is_overridden = False
         row.status = "enabled"
     await db.commit()
+    # 共享库是持久文件，历史用例硬删过的默认键不会随库初始化重建：复用生产种子入口按 key
+    # 判存补插，缺键即可自愈，不依赖「库初始化时播过种」这一前提。
+    await seed_configs(db)
 
 
 @pytest_asyncio.fixture
