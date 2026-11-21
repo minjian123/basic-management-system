@@ -31,7 +31,15 @@ async def test_option_sets_all_and_key_normalization(client: AsyncClient) -> Non
     """空 keys = 全部已登记；逗号项去空白 / 去重 / 忽略空项。"""
     all_items = (await client.get("/api/v1/option-sets")).json()["data"]["items"]
     keys = [item["option_set_key"] for item in all_items]
-    assert set(keys) == {"bms.tenant.status", "bms.tenant.module_status", "bms.datasource.kind"}
+    # 平台清单声明全量：租户 / 数据源 + 通知域（07_02 公告、07_03 短信）三条。
+    assert set(keys) == {
+        "bms.tenant.status",
+        "bms.tenant.module_status",
+        "bms.datasource.kind",
+        "bms.notice.type",
+        "bms.notice.priority",
+        "bms.sms.scene",
+    }
 
     normalized = (
         await client.get(
