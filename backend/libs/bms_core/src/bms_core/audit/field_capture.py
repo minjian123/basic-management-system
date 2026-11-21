@@ -33,6 +33,7 @@ from bms_core.core.config import Settings, get_settings
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import InternalError
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.events.contracts import resolve_event_version
 from bms_core.models.outbox import SysOutbox
@@ -61,7 +62,7 @@ _CAPTURED: ConcurrentStableSet[tuple[str, str, str]] = ConcurrentStableSet()
 
 
 @dataclass(frozen=True)
-class _PendingChange:
+class _PendingChange(BaseValueObject):
     """一条待转发的字段级变更（flush 期暂存形态）。"""
 
     table: str

@@ -80,7 +80,7 @@ SECTION_KEY_PREFIX = "section-"
 
 
 @dataclass(frozen=True)
-class LayoutFieldRef:
+class LayoutFieldRef(BaseValueObject):
     """字段引用（分区内顺序与跨列）。"""
 
     key: str
@@ -90,7 +90,7 @@ class LayoutFieldRef:
 
 
 @dataclass(frozen=True)
-class LayoutGroup:
+class LayoutGroup(BaseValueObject):
     """分区内分组（二级组织，可选）。"""
 
     key: str
@@ -102,7 +102,7 @@ class LayoutGroup:
 
 
 @dataclass(frozen=True)
-class LayoutSection:
+class LayoutSection(BaseValueObject):
     """布局分区。"""
 
     key: str
@@ -118,7 +118,7 @@ class LayoutSection:
 
 
 @dataclass(frozen=True)
-class LayoutMain:
+class LayoutMain(BaseValueObject):
     """主表结构。"""
 
     label_position: str
@@ -130,7 +130,7 @@ class LayoutMain:
 
 
 @dataclass(frozen=True)
-class LayoutQuery:
+class LayoutQuery(BaseValueObject):
     """查询表单区（列表页筛选）。"""
 
     fields: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList(()))
@@ -138,7 +138,7 @@ class LayoutQuery:
 
 
 @dataclass(frozen=True)
-class LayoutDetailColumn:
+class LayoutDetailColumn(BaseValueObject):
     """明细区列。"""
 
     key: str
@@ -148,7 +148,7 @@ class LayoutDetailColumn:
 
 
 @dataclass(frozen=True)
-class LayoutDictAdvanced:
+class LayoutDictAdvanced(BaseValueObject):
     """字典高级查询界面配置（可选）。"""
 
     fields: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList(()))
@@ -162,7 +162,7 @@ class LayoutDictAdvanced:
 
 
 @dataclass(frozen=True)
-class FormLayout:
+class FormLayout(BaseValueObject):
     """布局模型（`sys_form_layout.layout_config` 的结构；运行态确定值）。"""
 
     main: LayoutMain

@@ -28,7 +28,7 @@ from bms_core.core.exceptions import (
     HelpPackageNotLoadedError,
     HelpPackageVersionConflictError,
 )
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.help.anchors import HelpAnchorKind
 from bms_core.help.values import (
@@ -172,7 +172,7 @@ class _LoadPlan(BaseValueObject):
         )
 
 
-class HelpPackageService:
+class HelpPackageService(BaseFrameworkObject):
     """帮助包装载 / 卸载服务（单租户库会话）。"""
 
     def __init__(self, session: DbSession) -> None:

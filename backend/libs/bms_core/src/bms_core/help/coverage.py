@@ -29,6 +29,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableFrozenSet,
     ConcurrentStableList,
 )
+from bms_core.core.exceptions import ConfigError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseValueObject
 from bms_core.help.anchors import PLATFORM_PRODUCT_KEY, HelpAnchorKind
@@ -99,11 +100,11 @@ _EXEMPTION_MIN_REASON_LENGTH = 10
 """豁免理由最小长度（防止「暂时跳过」式空话）。"""
 
 
-class HelpCoverageExemptionError(ValueError):
+class HelpCoverageExemptionError(ConfigError):
     """豁免文件非法（结构 / 字段 / 重复 / 产品不符）。"""
 
 
-class HelpCoverageBaselineError(ValueError):
+class HelpCoverageBaselineError(ConfigError):
     """基线台账结构不可解析。"""
 
 

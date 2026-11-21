@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from sqlalchemy import case, func, select, update
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.help.values import (
     ARTICLE_SOURCE_TENANT,
@@ -113,7 +113,7 @@ class StatusSummaryRow(BaseValueObject):
     """无帮助数合计。"""
 
 
-class HelpArticleMaintenanceRepository:
+class HelpArticleMaintenanceRepository(BaseFrameworkObject):
     """帮助内容维护仓储（租户库会话）。"""
 
     def __init__(self, session: DbSession) -> None:

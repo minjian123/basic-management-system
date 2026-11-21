@@ -33,6 +33,7 @@ from bms_core.core.exceptions import (
     FormDdlFailedError,
 )
 from bms_core.core.logging import get_logger
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.fieldtype.mapping import ext_column_type
 from bms_core.formdesign.identifier import (
@@ -56,7 +57,7 @@ DDL_LOCK_WAIT = 5.0
 
 
 @dataclass(frozen=True)
-class DdlOutcome:
+class DdlOutcome(BaseValueObject):
     """DDL 执行结果。"""
 
     column_name: str
@@ -65,7 +66,7 @@ class DdlOutcome:
     """是否本次新建（False 表示列已存在且元数据一致，幂等命中）。"""
 
 
-class FormDdlExecutor:
+class FormDdlExecutor(BaseFrameworkObject):
     """自建字段 DDL 执行器（无状态：会话 / 锁 / 租户标识按次注入）。"""
 
     def __init__(self, session: DbSession, *, lock: BaseDistributedLock, tenant: str | None) -> None:

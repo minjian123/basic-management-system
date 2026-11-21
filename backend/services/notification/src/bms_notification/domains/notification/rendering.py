@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import re
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
 from jinja2 import StrictUndefined, Undefined, nodes
 from jinja2.exceptions import SecurityError, TemplateError, TemplateSyntaxError, UndefinedError
@@ -22,6 +23,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
 )
 from bms_core.core.exceptions import TemplateRenderError, TemplateSyntaxInvalidError
+from bms_core.core.objects import BaseValueObject
 
 __all__ = ["ALLOWED_FILTERS", "MAX_PARAMS", "RenderedTemplate", "render_template", "validate_template"]
 
@@ -193,20 +195,20 @@ def _render_sync(
     return RenderedTemplate(content="".join(chunks), truncated=False)
 
 
-class RenderedTemplate:
-    """渲染结果（内容 + 是否被截断占位）。"""
+@dataclass(frozen=True)
+class RenderedTemplate(BaseValueObject):
+    """渲染结果（内容 + 是否被截断占位）。
 
-    __slots__ = ("content", "truncated")
+    Attributes:
+        content: 渲染后的内容。
+        truncated: 是否触发截断（当前超限直接失败，恒 False）。
+    """
 
-    def __init__(self, content: str, truncated: bool = False) -> None:
-        """初始化。
+    content: str
+    """渲染后的内容。"""
 
-        Args:
-            content: 渲染后的内容。
-            truncated: 是否触发截断（当前超限直接失败，恒 False）。
-        """
-        self.content = content
-        self.truncated = truncated
+    truncated: bool = False
+    """是否触发截断（当前超限直接失败，恒 False）。"""
 
 
 def validate_template(

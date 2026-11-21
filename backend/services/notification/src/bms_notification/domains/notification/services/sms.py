@@ -19,7 +19,7 @@ from bms_core.core.exceptions import (
     ParamError,
     SmsTemplateUnavailableError,
 )
-from bms_core.core.roots import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.optionset.base import BaseOptionSetRegistry
 from bms_core.schemas.pagination import BasePageResponse
@@ -52,7 +52,7 @@ __all__ = ["SmsResolvedTemplate", "SmsTemplateService"]
 
 
 @dataclass(frozen=True)
-class SmsResolvedTemplate:
+class SmsResolvedTemplate(BaseValueObject):
     """短信发送解析结果（本地文案 + 厂商模板要素）。"""
 
     content: str

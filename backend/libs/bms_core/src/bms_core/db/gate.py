@@ -13,6 +13,8 @@ from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Any, Final
 
+from bms_core.core.roots import BaseFrameworkObject
+
 GateHook = Callable[[str, bool, "float | None"], AbstractAsyncContextManager[None]]
 """门钩子签名：（数据源键, 是否只读, 等待上限）→ 异步上下文管理器。"""
 
@@ -68,7 +70,7 @@ async def db_access_gate(db_key: str, *, read_only: bool, wait: float | None = N
         yield
 
 
-class LazyGatedSession:
+class LazyGatedSession(BaseFrameworkObject):
     """把门推迟到「第一次真正用库」再取（懒请求）。
 
     为什么要它：请求进来就取门，会把鉴权、能力调用、装配这些**不碰库**的时间也算进

@@ -16,7 +16,7 @@ from typing import Any, Protocol
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.objects import BaseValueObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.registry.forms import FormRecord, FormRegistry
 from bms_platform.domains.form_design.ports import FormFieldSnapshot
@@ -84,7 +84,7 @@ class BusinessFormSnapshot(BaseValueObject):
     """平台字段清单（`sort` 升序；契约按 `FormMetadataSnapshot` 声明，构造时填 `FieldSnapshot`）。"""
 
 
-class MetadataRepository:
+class MetadataRepository(BaseFrameworkObject):
     r"""平台库表单元数据只读仓储（`FormMetadataPort` 的实现）。
 
     **模型引用经注入**：本仓储只做「按业务码 → 表单 → 字段」的读取编排，三张平台表的 ORM 模型由

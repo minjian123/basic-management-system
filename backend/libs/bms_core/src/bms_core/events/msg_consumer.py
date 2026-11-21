@@ -41,7 +41,7 @@ from bms_core.core.concurrent import (
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import EventConsumeError
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseDataContract, BaseValueObject
+from bms_core.core.objects import BaseDataContract, BaseFrameworkObject, BaseValueObject
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
 from bms_core.db.tenant import TenantContext, TenantDirectory
@@ -145,7 +145,7 @@ class MessageConsumer(Protocol):
         ...
 
 
-class PlatformOnlyTenantDirectory:
+class PlatformOnlyTenantDirectory(BaseFrameworkObject):
     """退化租户目录：只返回平台租户（租户源不支持清单时的显式降级）。
 
     只在「服务没有可枚举的租户源、但确实声明了消费组」时使用，并在启动日志告警；

@@ -13,11 +13,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
+from bms_core.core.objects import BaseValueObject
 from bms_core.formdesign.attrs import FieldAttrs, dump_attrs, parse_attrs_config
 from bms_core.formdesign.layout import (
     FormLayout,
@@ -58,60 +61,60 @@ __all__ = [
 本模块经 `__all__` 再导出 `ROLE_TYPE_PRIORITY` 与 `pick_role_level` 以保持既有引用不变。"""
 
 
-class LevelSnapshot:
-    """单层快照（布局 + 该层属性），供三级解析后取用。"""
+@dataclass(frozen=True)
+class LevelSnapshot(BaseValueObject):
+    """单层快照（布局 + 该层属性），供三级解析后取用。
 
-    def __init__(
-        self,
-        *,
-        scope: str,
-        role_id: int,
-        layout: FormLayout | None,
-        attrs: ConcurrentStableDict[str, FieldAttrs],
-    ) -> None:
-        """初始化。
+    Attributes:
+        scope: 层级。
+        role_id: 角色 ID（非角色层级为 0）。
+        layout: 该层布局（无配置为 None）。
+        attrs: 该层字段属性（字段键 → 属性）。
+    """
 
-        Args:
-            scope: 层级。
-            role_id: 角色 ID（非角色层级为 0）。
-            layout: 该层布局（无配置为 None）。
-            attrs: 该层字段属性（字段键 → 属性）。
-        """
-        self.scope = scope
-        self.role_id = role_id
-        self.layout = layout
-        self.attrs = attrs
+    scope: str
+    """层级。"""
+
+    role_id: int
+    """角色 ID（非角色层级为 0）。"""
+
+    layout: FormLayout | None
+    """该层布局（无配置为 None）。"""
+
+    attrs: ConcurrentStableDict[str, FieldAttrs]
+    """该层字段属性（字段键 → 属性）。"""
 
 
-class AssembledLayout:
-    """组装结果（布局 + 字段 + 来源 + 权限 + 选项集）。"""
+@dataclass(frozen=True)
+class AssembledLayout(BaseValueObject):
+    """组装结果（布局 + 字段 + 来源 + 权限 + 选项集）。
 
-    def __init__(
-        self,
-        *,
-        layout: FormLayout,
-        fields: ConcurrentStableFrozenList[ConcurrentStableDict[str, object]],
-        source: str,
-        fallback: bool,
-        permissions: ConcurrentStableDict[str, ConcurrentStableDict[str, object]],
-        option_sets: ConcurrentStableFrozenList[ConcurrentStableDict[str, object]],
-    ) -> None:
-        """初始化。
+    Attributes:
+        layout: 生效布局。
+        fields: 合并字段清单（已剔除不可见）。
+        source: 来源层级或 `empty`。
+        fallback: 是否走空布局回退。
+        permissions: 字段权限标记（仅收窄项）。
+        option_sets: 选项集快照集。
+    """
 
-        Args:
-            layout: 生效布局。
-            fields: 合并字段清单（已剔除不可见）。
-            source: 来源层级或 `empty`。
-            fallback: 是否走空布局回退。
-            permissions: 字段权限标记（仅收窄项）。
-            option_sets: 选项集快照集。
-        """
-        self.layout = layout
-        self.fields = fields
-        self.source = source
-        self.fallback = fallback
-        self.permissions = permissions
-        self.option_sets = option_sets
+    layout: FormLayout
+    """生效布局。"""
+
+    fields: ConcurrentStableFrozenList[ConcurrentStableDict[str, object]]
+    """合并字段清单（已剔除不可见）。"""
+
+    source: str
+    """来源层级或 `empty`。"""
+
+    fallback: bool
+    """是否走空布局回退。"""
+
+    permissions: ConcurrentStableDict[str, ConcurrentStableDict[str, object]]
+    """字段权限标记（仅收窄项）。"""
+
+    option_sets: ConcurrentStableFrozenList[ConcurrentStableDict[str, object]]
+    """选项集快照集。"""
 
     def layout_config(self) -> ConcurrentStableDict[str, object]:
         """取布局配置字典（下发用）。

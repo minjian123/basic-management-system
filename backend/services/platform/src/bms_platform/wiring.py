@@ -15,6 +15,7 @@ from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.context import get_current_tenant, get_current_user_id
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.help.content import BaseHelpContentResolver
@@ -471,7 +472,7 @@ async def bind_form_design_resolvers(app: object | None = None) -> None:
     register_layout_column_resolver(_resolve)
 
 
-class _PlatformMetadataModels:
+class _PlatformMetadataModels(BaseFrameworkObject):
     """平台库表单元数据三表模型集合（装配面注入给 MetadataRepository）。
 
     装配面是唯一允许跨域的组合点：menu_form（表单 / 字段）与 permission_meta（业务码）的模型
