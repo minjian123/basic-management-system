@@ -156,7 +156,7 @@ def _patch_session_factory_autocommit() -> None:
     def _create(self: SessionFactory, engine: Any) -> Any:
         """SQLite 下按 autocommit 建会话工厂；正式数据库保持原事务语义。"""
         typed = cast("AsyncEngine", engine)
-        if typed.url.get_backend_name() != "sqlite":
+        if typed.url.get_backend_name() != "sqlite":  # pragma: no cover - 正式数据库不经测试基座的 autocommit 包装
             return original(self, typed)
         return original(self, typed.execution_options(isolation_level="AUTOCOMMIT"))
 
