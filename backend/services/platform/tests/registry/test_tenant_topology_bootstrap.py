@@ -29,6 +29,7 @@ from bms_core.services.module_registry import (
     register_domain_services,
     reset_domain_services,
 )
+from bms_core.testing.locks import file_lock
 from bms_platform.domains.platform_registry.repositories.tenant_topology import (
     TenantTopologyRepository,
 )
@@ -36,6 +37,17 @@ from bms_platform.domains.platform_registry.services import tenant_topology_boot
 from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
 
 pytestmark = pytest.mark.kiwi_id(2366)
+
+
+@pytest.fixture(autouse=True)
+def _topology_global_serial() -> Iterator[None]:
+    """拓扑是共享库上的全局状态：整份文件用专用文件锁串行（操作级门只管单次读写）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    with file_lock("platform-global-state", timeout=180.0):
+        yield
 
 
 @pytest.fixture(autouse=True)

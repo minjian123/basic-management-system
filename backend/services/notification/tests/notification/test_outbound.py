@@ -188,30 +188,36 @@ async def test_channel_disabled(shared_tenant_engine: AsyncEngine, contact: tupl
 
 
 async def test_missing_recipient_and_idempotency(
-    shared_tenant_engine: AsyncEngine, contact: tuple[str, str, str]
+    shared_tenant_engine: AsyncEngine, contact: tuple[str, str, str], ns: Namespace
 ) -> None:
     """地址缺失：API 抛错 / 通知组落 failed；幂等键返回同记录。"""
     email, _second, _phone = contact
+    missing_template = f"{ns.prefix}_missing"
+    idem_key = f"{ns.prefix}-idem-1"
     async with write_session(shared_tenant_engine) as session:
         with pytest.raises(ParamError):
-            await _service(session).dispatch(_request(recipient=None, user_id=None))
+            await _service(session).dispatch(_request(recipient=None, user_id=None, template_code=missing_template))
         outcome = await _service(session).dispatch(
             _request(
                 recipient=None,
                 user_id=None,
+                template_code=missing_template,
                 fail_on_missing_recipient=False,
             )
         )
         assert outcome.status == "failed"
-        log = (await session.execute(select(SysMailLog).order_by(SysMailLog.id.desc()).limit(1))).scalars().first()
-        assert log is not None
+        log = (
+            (await session.execute(select(SysMailLog).where(SysMailLog.template_code == missing_template)))
+            .scalars()
+            .one()
+        )
         assert log.status == "failed"
 
     async with write_session(shared_tenant_engine) as session:
         jobs = _Jobs()
         service = _service(session, jobs=jobs)
-        first = await service.dispatch(_request(recipient=email, idempotency_key="k-1"))
-        second = await service.dispatch(_request(recipient=email, idempotency_key="k-1"))
+        first = await service.dispatch(_request(recipient=email, idempotency_key=idem_key))
+        second = await service.dispatch(_request(recipient=email, idempotency_key=idem_key))
         assert first.log_id == second.log_id
         assert len(jobs.calls) == 1
 

@@ -23,7 +23,10 @@ from bms_core.testing.schema import ensure_tables
 from tests_support.auth import TEST_SUBJECT
 from tests_support.locks import file_lock
 
-pytestmark = [pytest.mark.kiwi_id(2405)]
+pytestmark = [
+    pytest.mark.kiwi_id(2405),
+    pytest.mark.xdist_group("platform-writes-i18n"),
+]
 
 _URI = "/api/v1/profile/preferences"
 _USER_ID = int(TEST_SUBJECT)
