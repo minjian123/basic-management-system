@@ -1624,6 +1624,9 @@ class EventConsumerSettings(PluginSelection):
     dedup_ttl_seconds: int = Field(default=600, ge=1)
     """幂等短窗口 TTL（秒）：Redis 只读预判 + 成功后标记，窗口内重复投递直接跳过。"""
 
+    timing_enabled: bool = Field(default=False)
+    """批次分段计时开关：True 时每批输出一条 `event_consumer_batch_timing`（拉取 / 处理 / ack / 条数）。"""
+
 
 class TaskSchedulerSettings(BaseSettings):
     """任务调度运行参数（`[task_scheduler]`，01_02）。

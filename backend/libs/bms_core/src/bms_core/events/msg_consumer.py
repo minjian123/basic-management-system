@@ -520,11 +520,13 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
             unit: 消费单元。
         """
         interval = self._settings.event_consumer.poll_interval_seconds
+        timing = self._settings.event_consumer.timing_enabled
         while self._running:
             assignment = unit.consumer.assignment
             if assignment is None or not assignment.partitions:
                 await asyncio.sleep(interval)
                 continue
+            poll_started = time.perf_counter()
             try:
                 result = await unit.consumer.poll(
                     max_messages=self._settings.event_consumer.batch_size,
@@ -552,6 +554,7 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
                 )
                 await asyncio.sleep(interval)
                 continue
+            poll_seconds = time.perf_counter() - poll_started
             if result.paused:
                 await asyncio.sleep(interval)
                 continue
@@ -559,18 +562,37 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
                 # 长轮询正常会挂起；替身 / 异常实现返回空时也给事件循环让出机会，避免空转
                 await asyncio.sleep(interval)
                 continue
+            process_seconds = 0.0
+            ack_seconds = 0.0
             for message in result.messages:
                 if not self._running:
                     break
-                await self._settle_message(runtime, unit, message)
+                started = time.perf_counter()
+                ack_seconds += await self._settle_message(runtime, unit, message)
+                process_seconds += time.perf_counter() - started
+            if timing:
+                _LOGGER.info(
+                    "event_consumer_batch_timing",
+                    group=unit.group,
+                    tenant=unit.tenant,
+                    topic=unit.topic,
+                    records=len(result.messages),
+                    poll_ms=round(poll_seconds * 1000, 2),
+                    process_ms=round(process_seconds * 1000, 2),
+                    ack_ms=round(ack_seconds * 1000, 2),
+                    total_ms=round((poll_seconds + process_seconds) * 1000, 2),
+                )
 
-    async def _settle_message(self, runtime: _GroupRuntime, unit: _ConsumerUnit, message: ReceivedMessage) -> None:
+    async def _settle_message(self, runtime: _GroupRuntime, unit: _ConsumerUnit, message: ReceivedMessage) -> float:
         """处理并确认一条消息（处理异常不终止该单元）。
 
         Args:
             runtime: 组运行时。
             unit: 消费单元。
             message: 拉取到的消息。
+
+        Returns:
+            float: ack 耗时（秒；未 ack 或失败为 0）。
         """
         try:
             outcome = await self._process_message(runtime, unit, message)
@@ -578,10 +600,11 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
             raise
         except Exception as exc:  # 兜底：绝不让单条消息把拉取循环打挂
             _LOGGER.error("event_consumer_process_error", group=unit.group, error=repr(exc))
-            return
+            return 0.0
         await self._count(runtime.name, outcome.kind)
         if not outcome.ack:
-            return
+            return 0.0
+        ack_started = time.perf_counter()
         try:
             await unit.consumer.ack(message)
         except Exception as exc:  # ack 失败：msg 停等 + 可见性超时负责重投
@@ -592,6 +615,8 @@ class MsgEventConsumerGroup(BaseEventConsumerGroup):
                 topic=unit.topic,
                 error=repr(exc),
             )
+            return 0.0
+        return time.perf_counter() - ack_started
 
     async def _process_message(self, runtime: _GroupRuntime, unit: _ConsumerUnit, message: ReceivedMessage) -> _Outcome:
         """解码 → 版本校验 → 进串行道（预判 + 处理 + 标记）。

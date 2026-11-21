@@ -927,6 +927,58 @@ async def test_run_unit_breaks_when_stop_requested_mid_batch() -> None:
     assert len(consumer.acked) == 0
 
 
+async def test_run_unit_emits_batch_timing_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`timing_enabled=True`：每批输出一条分段计时日志（拉取 / 处理 / ack / 条数）。"""
+    import bms_core.events.msg_consumer as module
+
+    captured: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+
+    class _Capturing:
+        def info(self, event: str, **fields: object) -> None:
+            if event == "event_consumer_batch_timing":
+                captured.add(ConcurrentStableDict(fields))
+
+        def warning(self, event: str, **fields: object) -> None:
+            del event, fields
+
+        def error(self, event: str, **fields: object) -> None:
+            del event, fields
+
+        def debug(self, event: str, **fields: object) -> None:
+            del event, fields
+
+    monkeypatch.setattr(module, "_LOGGER", _Capturing())
+    group = _group(settings=_settings(timing_enabled=True))
+    group.load(ConcurrentStableList([_record("sys.operation.logged")]))
+    runtime = group._groups["bms-audit-chain"]  # pyright: ignore[reportPrivateUsage]
+    done = asyncio.Event()
+
+    class _Timed(_FakeConsumer):
+        async def poll(self, *, max_messages: int = 20, max_wait_ms: int = 30_000) -> PollResult:
+            if self.batches:
+                return await super().poll(max_messages=max_messages, max_wait_ms=max_wait_ms)
+            group._running = False  # pyright: ignore[reportPrivateUsage]
+            done.set()
+            return PollResult()
+
+    consumer = _Timed(batches=ConcurrentStableList([ConcurrentStableList([_message()])]))
+    unit = module._ConsumerUnit(  # pyright: ignore[reportPrivateUsage]
+        tenant="t1",
+        group="bms-audit-chain",
+        namespace="sys",
+        topic="bms-sys-operation",
+        consumer=consumer,
+    )
+    group._running = True  # pyright: ignore[reportPrivateUsage]
+    task = asyncio.create_task(group._run_unit(runtime, unit))  # pyright: ignore[reportPrivateUsage]
+    await done.wait()
+    await task
+    assert captured
+    assert captured[0]["records"] == 1
+    assert set(captured[0]) >= {"poll_ms", "process_ms", "ack_ms", "total_ms"}
+    assert len(consumer.acked) == 1
+
+
 async def test_settle_message_process_error_is_contained(monkeypatch: pytest.MonkeyPatch) -> None:
     """处理链路抛未预期异常：只记日志，不向拉取循环冒泡。"""
     import bms_core.events.msg_consumer as module
