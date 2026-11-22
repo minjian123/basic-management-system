@@ -6,12 +6,11 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from sqlalchemy import Table, text
+from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import I18nSettings
-from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.db.registry import EngineRegistry
 from bms_core.i18n import seed as seed_module
 from bms_core.i18n.cache import I18nCacheRegion, MemoryI18nCacheRegion
@@ -41,35 +40,14 @@ pytestmark = [pytest.mark.kiwi_id(2404), pytest.mark.xdist_group("platform-write
 _TENANT = "1001"
 
 
-@pytest.fixture(autouse=True)
-async def _clean_locale_table(shared_platform_engine: AsyncEngine) -> AsyncIterator[None]:
-    """locale 登记表是全局状态：本文件需要「空表」起点，进出各清一次。
-
-    `sys_i18n_locale` 只由 i18n 用例写入，且本文件与平台 i18n 用例同属
-    `platform-writes-i18n` 分组（同 worker 串行），清表不会碰到并行中的他人数据。
-
-    Args:
-        shared_platform_engine: 共享平台库引擎。
-
-    Yields:
-        None: 用例运行期。
-    """
-
-    async def _purge() -> None:
-        """清空 locale 登记表（原生 SQL 显式带 WHERE）。"""
-        async with write_session(shared_platform_engine, wait=GATE_CRITICAL_WAIT) as session:
-            await session.execute(text("DELETE FROM sys_i18n_locale WHERE id IS NOT NULL"))
-
-    await _purge()
-    yield
-    await _purge()
-
-
 @pytest.fixture
 async def i18n_session(
     shared_platform_engine: AsyncEngine,
 ) -> AsyncIterator[AsyncSession]:
-    """共享平台库上的回滚会话（整条用例持写锁）。
+    """共享平台库上的写会话（每条 SQL 立即落库、立即放锁）。
+
+    语言清单是全局状态：本文件只写本用例命名空间下的 `code`，不做整表清场，
+    断言也只针对自己的行，与其他 i18n 用例并行互不干扰。
 
     Args:
         shared_platform_engine: 共享平台库引擎。
@@ -220,15 +198,28 @@ async def test_sql_registry_load_exception_degrades(monkeypatch: pytest.MonkeyPa
 
 
 async def test_sql_registry_query_locales_from_db(i18n_session: AsyncSession, ns: Namespace) -> None:
-    """真库查询：按 `sort` 升序返回，空表返回 None。"""
-    assert await _query_locales(i18n_session) is None
+    """真库查询：按 `sort` 升序返回，只断本用例登记的两行相对次序。"""
     i18n_session.add(SysI18nLocale(code=f"{ns.prefix}-en", name="English", sort=20))
     i18n_session.add(SysI18nLocale(code=f"{ns.prefix}-zh", name="简体中文", sort=10, is_default=True))
     await i18n_session.flush()
     rows = await _query_locales(i18n_session)
     assert rows is not None
-    assert [row.code for row in rows] == [f"{ns.prefix}-zh", f"{ns.prefix}-en"]
-    assert rows[0].is_default is True
+    own = [row for row in rows if row.code.startswith(f"{ns.prefix}-")]
+    assert [row.code for row in own] == [f"{ns.prefix}-zh", f"{ns.prefix}-en"]
+    assert own[0].is_default is True
+
+
+@pytest.mark.own_db("空表返回 None 是整表语义：共享库总有他人登记的语言，需独立空库验证")
+async def test_sql_registry_query_locales_empty_db_is_none() -> None:
+    """空表查询返回 None（上层据此回退种子清单）。"""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    tables = [cast("Table", SysI18nLocale.__table__)]
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, tables=tables))  # type: ignore[arg-type]
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        assert await _query_locales(session) is None
+    await engine.dispose()
 
 
 async def test_invalidator_degrades_on_failure() -> None:
@@ -340,12 +331,22 @@ async def test_query_messages_skips_blank_values(i18n_session: AsyncSession, ns:
     assert dict(loaded) == {"common.ok": "有值"}
 
 
-async def test_ensure_single_default_without_seed_row(i18n_session: AsyncSession, ns: Namespace) -> None:
+@pytest.mark.own_db("默认语言「恰好一条」是整表语义：共享库里有他人默认语言，需独立空库验证")
+async def test_ensure_single_default_without_seed_row(ns: Namespace) -> None:
     """库中无出厂默认语言行且无默认标记 → 不置位（交由调用方按业务补齐）。"""
-    i18n_session.add(SysI18nLocale(code=f"{ns.prefix}-en", name="English", is_default=False))
-    await i18n_session.flush()
-    await seed_module._ensure_single_default(i18n_session)  # pyright: ignore[reportPrivateUsage]
-    await i18n_session.flush()
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    tables = [cast("Table", SysI18nLocale.__table__)]
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, tables=tables))  # type: ignore[arg-type]
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        session.add(SysI18nLocale(code=f"{ns.prefix}-en", name="English", is_default=False))
+        await session.flush()
+        await seed_module._ensure_single_default(session)  # pyright: ignore[reportPrivateUsage]
+        await session.flush()
+        rows = (await session.execute(select(SysI18nLocale))).scalars().all()
+        assert [(row.code, row.is_default) for row in rows] == [(f"{ns.prefix}-en", False)]
+    await engine.dispose()
 
 
 def test_database_url_prefers_env(monkeypatch: pytest.MonkeyPatch) -> None:

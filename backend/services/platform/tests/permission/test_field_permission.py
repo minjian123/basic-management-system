@@ -4,8 +4,9 @@
 （任一角色不可见即不可见 / 任一不可编辑即不可编辑）、表单过滤与空角色短路、默认全开
 （未收窄字段不进结果）、快照 `field_state` 与豁免层级。
 
-单库叠加口径（04-6-2）：库用共享平台库、写入不提交（会话结束回滚）且事务开头取 SQLite 写锁；
-角色主键按命名空间派生（`_role_id`），使「本角色只有一条收窄行」一类断言在用例叠加下仍成立。
+单库叠加口径（04-6-2）：库用共享平台库、每条 SQL 立即落库（操作级写门，不再整条用例回滚）；
+字段键与角色主键都按命名空间派生（`ns.prefix` / `_role_id`），使「本角色只有一条收窄行」
+「未收窄字段不进结果」一类断言在用例叠加下仍成立，因此无需独占分组、也不做任何清场。
 """
 
 from collections.abc import AsyncIterator
@@ -14,7 +15,7 @@ from typing import cast
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import Table, text
+from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -30,7 +31,6 @@ from bms_core.permission.field import (
 from bms_core.permission.snapshot import TIER_STANDARD, TIER_SYSTEM_ADMIN, PermissionSnapshot
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.sql_ids import sqlite_id
 from bms_core.testing.transaction import write_session
 from bms_platform.domains.role.permission.field_provider import (
     StaticFieldPermissionProvider,
@@ -39,8 +39,6 @@ from bms_platform.domains.role.permission.field_provider import (
 
 _FORM_ID = 7001
 _OTHER_FORM_ID = 7002
-_FIELD_KEYS = ("salary", "name")
-"""本文件在固定表单上占用的字段键（清理按它限定）。"""
 
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
     (cast("Table", SysField.__table__), cast("Table", SysRoleField.__table__))
@@ -71,6 +69,8 @@ class _Seeded:
         loose_role: 收窄为「可见 + 不可编辑」的角色。
         ghost_role: 收窄项指向未登记字段的角色。
         empty_role: 无任何收窄行的角色。
+        salary_key: 本用例的薪资字段键。
+        name_key: 本用例的姓名字段键。
     """
 
     keys: ConcurrentStableDict[str, int]
@@ -78,6 +78,8 @@ class _Seeded:
     loose_role: int
     ghost_role: int
     empty_role: int
+    salary_key: str
+    name_key: str
 
 
 def _build_field_provider(session: AsyncSession, platform_session: AsyncSession) -> object:
@@ -98,46 +100,17 @@ def _build_field_provider(session: AsyncSession, platform_session: AsyncSession)
 
 @pytest_asyncio.fixture
 async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """共享平台库上的回滚会话：字段元数据（`sys_field`）+ 角色字段收窄（`sys_role_field`）。
+    """共享平台库上的写会话：字段元数据（`sys_field`）+ 角色字段收窄（`sys_role_field`）。
 
     Args:
         shared_platform_engine: 共享平台库引擎。
 
     Yields:
-        AsyncSession: 回滚会话（用例内直插种子数据，结束整体回滚）。
+        AsyncSession: 写会话（每条 SQL 立即落库、立即放锁）。
     """
     await ensure_tables(shared_platform_engine, _TABLES)
-    await _purge(shared_platform_engine)
-    try:
-        async with write_session(shared_platform_engine) as opened:
-            yield opened
-    finally:
-        await _purge(shared_platform_engine)
-
-
-async def _purge(engine: AsyncEngine) -> None:
-    """删除本文件在固定表单上造的字段与角色收窄行（写入立即提交，必须自己收尾）。
-
-    只命中 `_FORM_ID` 上的 `salary` / `name` 两个探测字段及其收窄行（含幽灵角色那一条），
-    不触碰真实登记数据。
-
-    Args:
-        engine: 共享平台库引擎。
-    """
-    async with write_session(engine) as db:
-        params = {"form": sqlite_id(_FORM_ID), "k0": _FIELD_KEYS[0], "k1": _FIELD_KEYS[1], "ghost": sqlite_id(999999)}
-        await db.execute(
-            text(
-                "DELETE FROM sys_role_field WHERE form_id = :form AND ("
-                "field_id IN (SELECT id FROM sys_field WHERE form_id = :form AND field_key IN (:k0, :k1)) "
-                "OR field_id = :ghost)"
-            ),
-            params,
-        )
-        await db.execute(
-            text("DELETE FROM sys_field WHERE form_id = :form AND field_key IN (:k0, :k1)"),
-            params,
-        )
+    async with write_session(shared_platform_engine) as opened:
+        yield opened
 
 
 async def _seed(session: AsyncSession, ns: Namespace) -> _Seeded:
@@ -150,8 +123,10 @@ async def _seed(session: AsyncSession, ns: Namespace) -> _Seeded:
     Returns:
         _Seeded: 播种结果（字段键 → 字段主键与角色主键）。
     """
-    salary = SysField(form_id=_FORM_ID, field_key="salary", name="薪资", type="number", sort=1)
-    name = SysField(form_id=_FORM_ID, field_key="name", name="姓名", type="text", sort=2)
+    salary_key = f"{ns.prefix}_salary"
+    name_key = f"{ns.prefix}_name"
+    salary = SysField(form_id=_FORM_ID, field_key=salary_key, name="薪资", type="number", sort=1)
+    name = SysField(form_id=_FORM_ID, field_key=name_key, name="姓名", type="text", sort=2)
     session.add_all([salary, name])
     await session.flush()
     strict_role = _role_id(ns, 0)
@@ -164,14 +139,16 @@ async def _seed(session: AsyncSession, ns: Namespace) -> _Seeded:
     )
     await session.flush()
     keys: ConcurrentStableDict[str, int] = ConcurrentStableDict()
-    keys.set("salary", salary.id)
-    keys.set("name", name.id)
+    keys.set(salary_key, salary.id)
+    keys.set(name_key, name.id)
     return _Seeded(
         keys=keys,
         strict_role=strict_role,
         loose_role=loose_role,
         ghost_role=_role_id(ns, 2),
         empty_role=_role_id(ns, 3),
+        salary_key=salary_key,
+        name_key=name_key,
     )
 
 
@@ -184,10 +161,10 @@ async def test_static_provider_merges_narrowing_strictly(session: AsyncSession, 
     role_ids.add(seeded.strict_role)
     role_ids.add(seeded.loose_role)
     perms = await provider.resolve(role_ids=role_ids, form_ids=ConcurrentStableSet[int]())
-    assert seeded.keys.get("salary") is not None
+    assert seeded.keys.get(seeded.salary_key) is not None
     assert len(perms) == 1
     only = perms[0]
-    assert (only.form_id, only.field_key) == (_FORM_ID, "salary")
+    assert (only.form_id, only.field_key) == (_FORM_ID, seeded.salary_key)
     assert only.visible is False
     assert only.editable is False
     assert provider.key == DEFAULT_FIELD_PERMISSION_PROVIDER_KEY

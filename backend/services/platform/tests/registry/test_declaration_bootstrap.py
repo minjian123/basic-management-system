@@ -16,16 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import CatalogError
-from bms_core.datasource.registry import reset_data_source_records
-from bms_core.services.module_registry import (
-    reset_collaboration_records,
-    reset_domain_services,
-    reset_error_code_records,
-    reset_product_records,
-    reset_product_routes,
-    reset_seed_records,
-    reset_service_records,
-)
 from bms_core.testing.locks import file_lock
 from bms_core.testing.transaction import rollback_session
 from bms_platform.domains.platform_registry.services import declaration_bootstrap as module
@@ -51,7 +41,7 @@ status = "enabled"
 async def session(
     shared_platform_engine: AsyncEngine,
 ) -> AsyncIterator[AsyncSession]:
-    """共享平台库上的回滚会话（整条用例持写锁）。
+    """共享平台库上的写会话（每条 SQL 立即落库、立即放锁）。
 
     Args:
         shared_platform_engine: 共享平台库引擎。
@@ -227,37 +217,38 @@ async def test_bootstrap_logs_report_warnings(
 
 
 @pytest.fixture
-async def _declarations_rollback(
+async def _declarations_write_scope(
     service_app: Any,
     shared_platform_engine: AsyncEngine,
 ) -> AsyncIterator[None]:
-    """真启动链用例的共享库回滚区间（应用装配完成后再开事务）。
+    """真启动链用例的写会话区间（应用装配完成后再开会话）。
 
-    全量上报会按清单退役平台其他声明；在回滚会话内执行，退役只在本用例事务中可见。
+    全量上报会按清单退役平台其他声明；写入立即落共享库，本模块与其它声明 / 配置用例
+    共用 `platform-global-state` 文件锁串行，不会彼此穿插。
 
     Args:
         service_app: 平台应用实例（先装配，启动期声明同步先落库）。
         shared_platform_engine: 共享平台库引擎。
 
     Yields:
-        None: 回滚会话区间。
+        None: 写会话区间。
     """
     async with rollback_session(shared_platform_engine):
         yield
 
 
 async def test_startup_hook_registers_platform_declarations(
-    service_app: Any, client: Any, _declarations_rollback: None
+    service_app: Any, client: Any, _declarations_write_scope: None
 ) -> None:
     """真启动链：钩子把本仓平台声明写进库，快照出口随即能看到平台服务行。
 
     单测环境默认关掉该钩子（避免「声明即全量」退役夹具行），这里显式打开并**手动触发一次**，
-    验证「钩子 → 注册表 → 快照出口」这条生产路径真实可用（写入整体回滚）。
+    验证「钩子 → 注册表 → 快照出口」这条生产路径真实可用（写入落共享库，模块内串行）。
 
     Args:
         service_app: 平台应用实例。
         client: 带认证头的异步客户端。
-        _declarations_rollback: 共享库回滚区间（仅用于声明依赖）。
+        _declarations_write_scope: 共享库写会话区间（仅用于声明依赖）。
     """
     service_app.state.settings.registry.register_on_startup = True
 
@@ -388,27 +379,6 @@ def _declaration_global_serial() -> Iterator[None]:
     """
     with file_lock("platform-global-state", timeout=180.0):
         yield
-
-
-@pytest.fixture(autouse=True)
-def _restore_views() -> Iterator[None]:
-    """用例后复位全局登记视图（本模块向视图写入合成声明，避免污染其他用例）。
-
-    Yields:
-        None: 用例运行期。
-    """
-    yield
-    for reset in (
-        reset_collaboration_records,
-        reset_data_source_records,
-        reset_domain_services,
-        reset_error_code_records,
-        reset_product_records,
-        reset_product_routes,
-        reset_seed_records,
-        reset_service_records,
-    ):
-        reset()
 
 
 @pytest.fixture(autouse=True)
