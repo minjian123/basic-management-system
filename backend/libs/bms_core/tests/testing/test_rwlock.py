@@ -336,6 +336,7 @@ class _WarningRecorder:
         self.events.add(event)
 
 
+@pytest.mark.kiwi_id(2538)
 async def test_release_write_without_write_warns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """自认为持有却查无账目（重复释放 / 租约丢了）：留一条告警，便于定位「谁把门弄丢了」。"""
     recorder = _WarningRecorder()
@@ -345,6 +346,7 @@ async def test_release_write_without_write_warns(tmp_path: Path, monkeypatch: py
     assert list(recorder.events) == ["gate_release_without_write"]
 
 
+@pytest.mark.kiwi_id(2539)
 async def test_release_write_without_write_quiet_when_expected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """取写门超时后收尾的释放是**预期未持有**：不告警（否则每轮超时都刷一条假警告）。"""
     recorder = _WarningRecorder()

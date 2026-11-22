@@ -313,6 +313,7 @@ def test_drop_shared_db_files_missing_is_noop(tmp_path: Path, monkeypatch: pytes
     assert not list(fixtures.test_db_dir().glob("platform.db*"))
 
 
+@pytest.mark.kiwi_id(2540)
 def test_drop_shared_db_files_returns_stuck_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """库文件被占用删不掉时**返回失败清单**（由调用方分级：清场告警 / 重建失败）。"""
     monkeypatch.chdir(tmp_path)
@@ -412,6 +413,7 @@ def _deny_platform_db(self: Path, missing_ok: bool = False) -> None:
         raise FileNotFoundError(self)
 
 
+@pytest.mark.kiwi_id(2543)
 def test_ensure_shared_db_fails_when_rebuild_blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """版本戳不一致但旧库删不掉：**显式失败**（沿用旧库会变成永久的 `no such column`）。"""
     monkeypatch.chdir(tmp_path)
@@ -423,6 +425,7 @@ def test_ensure_shared_db_fails_when_rebuild_blocked(tmp_path: Path, monkeypatch
         fixtures.ensure_shared_db("platform", lambda url: None, version="new-version")
 
 
+@pytest.mark.kiwi_id(2543)
 async def test_ensure_shared_db_async_fails_when_rebuild_blocked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -440,6 +443,7 @@ async def test_ensure_shared_db_async_fails_when_rebuild_blocked(
         await fixtures.ensure_shared_db_async("platform", _prepare, version="new-version")
 
 
+@pytest.mark.kiwi_id(2542)
 def test_reset_shared_databases_reports_stuck_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """就绪标记删不掉也要进失败清单（清场后不得留下「库已就绪」的假标记）。"""
     monkeypatch.chdir(tmp_path)
@@ -502,6 +506,7 @@ def test_reset_shared_databases_removes_files_and_markers(tmp_path: Path, monkey
     assert not (directory / "platform.db-wal").exists()
 
 
+@pytest.mark.kiwi_id(2541)
 def test_reset_shared_databases_reports_stuck_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """清场遇到句柄占用：返回失败清单而不抛错（库文件只告警由调用方决定）。"""
     monkeypatch.chdir(tmp_path)

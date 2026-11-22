@@ -43,6 +43,7 @@ def _isolate_gates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[
     gates.reset_gates()
 
 
+@pytest.mark.kiwi_id(2536)
 def test_gate_is_singleton_per_library() -> None:
     """**按库一把门**：同名复用同一实例，不同库（`platform` / `tenant` / 私有库）各一把。"""
     assert gates.gate(gates.PLATFORM_GATE) is gates.gate(gates.PLATFORM_GATE)
@@ -83,6 +84,7 @@ async def test_write_window_takes_tenant_gate_for_other_keys() -> None:
     assert gates.gate(gates.TENANT_GATE).mode is None
 
 
+@pytest.mark.kiwi_id(2537)
 async def test_cross_db_write_follows_fixed_order() -> None:
     """跨库嵌套取门只允许**固定顺序**「平台库在前、租户库在后」：同向嵌套可完成、两把门各自归零。
 
