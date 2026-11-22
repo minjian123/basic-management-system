@@ -107,7 +107,7 @@ WRITE: Final[Mode] = "write"
 _RETRY_MIN: Final = 0.0005
 """首次重试间隔（秒）：争用少时尽快拿到门。"""
 
-_RETRY_MAX: Final = 0.005
+_RETRY_MAX: Final = 0.02
 """重试间隔上限（秒）：比原文件锁的 50ms 轮询低一个数量级。"""
 
 

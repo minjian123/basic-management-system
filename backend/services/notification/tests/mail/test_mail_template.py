@@ -3,7 +3,7 @@
 # pyright: reportPrivateUsage=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 
 import pytest
 from sqlalchemy import text
@@ -16,7 +16,6 @@ from bms_core.core.exceptions import (
     TemplateSyntaxInvalidError,
 )
 from bms_core.db.gate import GATE_CRITICAL_WAIT
-from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.mail_constants import MAIL_TEMPLATE_STATUS_DISABLED
@@ -28,7 +27,8 @@ from bms_notification.domains.notification.schemas.mail import (
 )
 from bms_notification.domains.notification.services.mail import MailTemplateService
 
-pytestmark = pytest.mark.kiwi_id(2519)
+pytestmark = [pytest.mark.kiwi_id(2519), pytest.mark.xdist_group("notification-mail-templates")]
+"""同文件用例必须同 worker 串行：覆盖内置 `system_alert` 与列表合并断言都要独占这份内置集。"""
 
 
 @pytest.fixture
@@ -38,20 +38,7 @@ def code(ns: Namespace) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _serial_mail_templates() -> Iterator[None]:
-    """模板覆盖内置需要独占 code（`approval_todo`）：整份文件串行，避免并行互相覆盖。
-
-    Yields:
-        None: 用例运行期。
-    """
-    with file_lock("notification-mail-templates", timeout=180.0):
-        yield
-
-
-@pytest.fixture(autouse=True)
-async def _clean_mail_templates(
-    _serial_mail_templates: None, shared_tenant_engine: AsyncEngine, code: str
-) -> AsyncIterator[None]:
+async def _clean_mail_templates(shared_tenant_engine: AsyncEngine, code: str) -> AsyncIterator[None]:
     """用例前后只清本用例的模板（含多语言附表；写入立即落库，不再回滚）。
 
     Args:
@@ -70,11 +57,11 @@ async def _clean_mail_templates(
                     "DELETE FROM sys_mail_template_i18n "
                     "WHERE template_id IN (SELECT id FROM sys_mail_template WHERE code IN (:code, :override))"
                 ),
-                {"code": code, "override": "approval_todo"},
+                {"code": code, "override": "system_alert"},
             )
             await session.execute(
                 text("DELETE FROM sys_mail_template WHERE code IN (:code, :override)"),
-                {"code": code, "override": "approval_todo"},
+                {"code": code, "override": "system_alert"},
             )
 
     await _purge()
@@ -128,20 +115,20 @@ async def test_preview_builtin_and_override(shared_tenant_engine: AsyncEngine) -
     async with write_session(shared_tenant_engine) as session:
         service = MailTemplateService(session, render_timeout_seconds=3)
         subject, content = await service.preview(
-            "approval_todo",
+            "system_alert",
             params=ConcurrentStableDict({"title": "审批", "content": "内容"}),
             locale="zh-CN",
         )
         assert "审批" in subject
         assert "内容" in content
 
-        override = await service.create(_create_request("approval_todo"), request_locale="zh-CN")
-        subject, _ = await service.preview("approval_todo", params=ConcurrentStableDict({"name": "A"}), locale="zh-CN")
+        override = await service.create(_create_request("system_alert"), request_locale="zh-CN")
+        subject, _ = await service.preview("system_alert", params=ConcurrentStableDict({"name": "A"}), locale="zh-CN")
         assert subject == "欢迎 A"
 
         await service.delete(_id(override))
         subject, _ = await service.preview(
-            "approval_todo",
+            "system_alert",
             params=ConcurrentStableDict({"title": "审批", "content": "内容"}),
             locale="zh-CN",
         )
