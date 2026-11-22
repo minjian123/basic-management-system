@@ -92,6 +92,23 @@ def platform_db_url(shared_platform_db_url: str) -> str:
     return shared_platform_db_url
 
 
+@pytest.fixture
+def platform_tenant_serial() -> Iterator[None]:
+    """平台租户是**全库唯一行**：多个用例文件对它做状态编排，用专用文件锁串行。
+
+    为什么不用数据库门：门只覆盖**一次写操作**，而这里的临界区跨「读现状 → 编排 → 断言」多步；
+    两个 worker 同时改同一行会撞 ORM 版本谓词（`StaleDataError: UPDATE ... 0 were matched`）。
+    锁名语义化、锁文件落 `.cache/test/`，与会话入口的残留锁清理同源。
+
+    Yields:
+        None: 持锁区间。
+    """
+    from bms_core.testing.locks import file_lock
+
+    with file_lock("platform-tenant-bootstrap"):
+        yield
+
+
 @pytest.fixture(autouse=True)
 def fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
     """租户源替身：应用装配时改注入 `FakeTenantSource`（令牌主键经 `by_id` 可解析）。"""

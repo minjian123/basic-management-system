@@ -95,6 +95,10 @@ class TenantBase:
                 status=spec.status,
                 **({"db_key": spec.db_key} if spec.db_key is not None else {}),
             )
+            # **软删在建行前就置上**：autocommit 下「先插 active、再 UPDATE 软删」是两次提交，
+            # 中间窗口别的 worker 会读到活跃的 `gone`（实测 `by_code("gone")` 偶发不抛 404）。
+            if spec.soft_deleted:
+                row.soft_delete()
             self.session.add(row)
             try:
                 await self.session.flush()
@@ -104,9 +108,8 @@ class TenantBase:
                 continue
             if spec.db_basis is not None:
                 self.session.add(SysTenantDatabase(tenant_id=int(row.id), db_basis=spec.db_basis))
-            if spec.soft_deleted:
-                row.soft_delete()
-            await self.session.flush()
+            if spec.db_basis is not None or spec.soft_deleted:
+                await self.session.flush()
 
     async def seed(
         self,

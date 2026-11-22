@@ -124,7 +124,9 @@ async def _ensure_platform_row(session: AsyncSession, *, status: str = "active")
     return row
 
 
-async def test_registry_platform_row_and_partial_update(session: AsyncSession, ns: Namespace) -> None:
+async def test_registry_platform_row_and_partial_update(
+    session: AsyncSession, ns: Namespace, platform_tenant_serial: None
+) -> None:
     """注册仓储：平台租户行查询；名称 / 域名 / 到期时间按 None 跳过。"""
     await _ensure_platform_row(session)
     repo = TenantRegistryRepository(session)
@@ -221,7 +223,7 @@ async def test_validate_optional_rejects_non_optional_module(session: AsyncSessi
 
 
 async def test_platform_tenant_provisioning_row_completed(
-    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch, platform_tenant_serial: None
 ) -> None:
     """既有平台租户处于 `provisioning`：直接走库侧编排完成，不改状态前置。"""
     calls: ConcurrentStableList[str] = ConcurrentStableList()
@@ -255,7 +257,7 @@ async def test_platform_tenant_provisioning_row_completed(
 
 
 async def test_provision_cleanup_failure_keeps_original_error(
-    session: AsyncSession, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+    session: AsyncSession, ns: Namespace, monkeypatch: pytest.MonkeyPatch, platform_tenant_serial: None
 ) -> None:
     """开通失败且清理自身失败：仍上抛 82006（不掩盖原始失败）。"""
 

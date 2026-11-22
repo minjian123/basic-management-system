@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -160,15 +160,21 @@ async def _ensure_platform_row(session: AsyncSession, *, status: str) -> SysTena
         SysTenant: 平台租户行。
     """
     code = get_settings().platform_tenant.code
-    row = (await session.execute(select(SysTenant).where(SysTenant.code == code))).scalars().first()
+    stmt = select(SysTenant).where(SysTenant.code == code)
+    row = (await session.execute(stmt)).scalars().first()
     if row is None:
         row = SysTenant(code=code, name="平台", kind="platform", status=status)
         session.add(row)
-    else:
-        row.kind = "platform"
-        row.status = status
+        await session.flush()
+        return row
+    # **原子改，不用 ORM 属性赋值**：本基座的会话是操作级门 + autocommit，且嵌套作用域退出会关闭
+    # 调用方会话（行脱管），属性改动可能不生成 UPDATE——实测 `kind` 留在 `business`，后续
+    # `ensure_platform_tenant_row` 据此误判「平台租户编码被业务租户占用」。
+    await session.execute(update(SysTenant).where(SysTenant.id == row.id).values(kind="platform", status=status))
     await session.flush()
-    return row
+    fresh = (await session.execute(stmt.execution_options(populate_existing=True))).scalars().first()
+    assert fresh is not None
+    return fresh
 
 
 async def test_module_catalog_cache_and_errors() -> None:
@@ -258,7 +264,9 @@ async def test_module_repository_open_reopen_status_map(session: AsyncSession) -
     assert (await repo.get(tenant_id, "pur")).opened_by == 3  # type: ignore[union-attr]
 
 
-async def test_platform_tenant_suspended_reprovision(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_platform_tenant_suspended_reprovision(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch, platform_tenant_serial: None
+) -> None:
     """既有平台租户被停用：重新置 provisioning 并走库侧编排补齐。"""
 
     async def _ok(**kwargs: object) -> ProvisionOutcome:
@@ -289,7 +297,7 @@ async def _noop_open(tenant_id: int, *, opened_by: int | None = None) -> None:
 
 
 async def test_platform_tenant_base_modules_failure_tolerated(
-    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch, platform_tenant_serial: None
 ) -> None:
     """基础模块开通失败仅告警（不阻断）。"""
 
@@ -321,7 +329,7 @@ async def test_platform_tenant_base_modules_failure_tolerated(
 
 
 async def test_platform_tenant_cleanup_failure_tolerated(
-    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch, platform_tenant_serial: None
 ) -> None:
     """库侧失败 + 清理失败：仅告警并返回 False。"""
 
