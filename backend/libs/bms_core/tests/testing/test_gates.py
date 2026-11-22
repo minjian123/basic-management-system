@@ -43,11 +43,12 @@ def _isolate_gates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[
     gates.reset_gates()
 
 
-def test_gate_is_singleton() -> None:
-    """全库共用一把门：不同数据源取到同一实例（13_08 T7 消除跨库互等）。"""
+def test_gate_is_singleton_per_library() -> None:
+    """**按库一把门**：同名复用同一实例，不同库（`platform` / `tenant` / 私有库）各一把。"""
     assert gates.gate(gates.PLATFORM_GATE) is gates.gate(gates.PLATFORM_GATE)
-    assert gates.gate(gates.PLATFORM_GATE) is gates.gate(gates.TENANT_GATE)
-    assert gates.gate(gates.PLATFORM_GATE).name == gates.GLOBAL_GATE
+    assert gates.gate(gates.PLATFORM_GATE) is not gates.gate(gates.TENANT_GATE)
+    assert gates.gate(gates.PLATFORM_GATE).name == gates.PLATFORM_GATE
+    assert gates.gate(gates.TENANT_GATE).name == gates.TENANT_GATE
 
 
 async def test_read_gate_context_releases() -> None:
@@ -82,30 +83,31 @@ async def test_write_window_takes_tenant_gate_for_other_keys() -> None:
     assert gates.gate(gates.TENANT_GATE).mode is None
 
 
-async def test_cross_db_write_does_not_deadlock() -> None:
-    """跨库反向嵌套取写门不再互等：全库一把门，只能串行完成，不会出现 ABBA 死锁。
+async def test_cross_db_write_follows_fixed_order() -> None:
+    """跨库嵌套取门只允许**固定顺序**「平台库在前、租户库在后」：同向嵌套可完成、两把门各自归零。
 
-    13_08 T7 实测（24 路并行）：进程 A 持平台写门又等租户门、进程 B 持租户写门又等平台门，
-    两边各卡 30 秒把整批拖垮。合成一把门后同样的调用顺序只能排队。
+    口径变更（2026-11-22 业主拍板）：门从「全库一把」改为「按库一把」。旧实现靠合并成一把门
+    消除跨库 ABBA 互等；拆分后互等的可能性由**锁序约定**消除——反序嵌套（租户→平台）属违规
+    用法，会等到超时后失败，不再有「同一把门可重入」的隐性兜底。因此本用例只锁「合规顺序」。
     """
     done: ConcurrentStableList[str] = ConcurrentStableList()
 
-    async def _nested(tag: str, first: str, second: str) -> None:
+    async def _nested(tag: str) -> None:
+        """平台写门内再取租户写门（合规顺序）。
+
+        Args:
+            tag: 完成标记。
+        """
         async with (
-            gates.gate_scope(first, read_only=False, wait=10.0),
-            gates.gate_scope(second, read_only=False, wait=10.0),
+            gates.gate_scope(gates.PLATFORM_GATE, read_only=False, wait=10.0),
+            gates.gate_scope(gates.TENANT_GATE, read_only=False, wait=10.0),
         ):
             done.add(tag)
 
-    await asyncio.wait_for(
-        asyncio.gather(
-            _nested("a", gates.PLATFORM_GATE, gates.TENANT_GATE),
-            _nested("b", gates.TENANT_GATE, gates.PLATFORM_GATE),
-        ),
-        timeout=30.0,
-    )
+    await asyncio.wait_for(asyncio.gather(_nested("a"), _nested("b")), timeout=30.0)
     assert sorted(done) == ["a", "b"]
     assert gates.gate(gates.PLATFORM_GATE).mode is None
+    assert gates.gate(gates.TENANT_GATE).mode is None
 
 
 async def test_write_upgrade_leaves_no_read_share() -> None:
@@ -120,7 +122,7 @@ async def test_write_upgrade_leaves_no_read_share() -> None:
     assert target.mode is None
     assert target.depth == 0
     # 有残余读份额时这里会自锁超时，故用短上限验证「门是干净的」
-    async with gates.gate_scope(gates.TENANT_GATE, read_only=False, wait=1.0):
+    async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False, wait=1.0):
         assert target.mode == rwlock.WRITE
 
 
@@ -184,17 +186,21 @@ def test_close_gates_drops_singletons() -> None:
 
 
 @asynccontextmanager
-async def _noop_hook(db_key: str, read_only: bool, wait: float | None = None) -> AsyncGenerator[None]:
+async def _noop_hook(
+    db_key: str, read_only: bool, wait: float | None = None, url: str | None = None
+) -> AsyncGenerator[None]:
     """空门钩子（仅用于验证撤销逻辑）。
 
     Args:
         db_key: 数据源键。
         read_only: 是否只读。
+        wait: 等待上限。
+        url: 实际库连接串。
 
     Yields:
         None: 区间。
     """
-    del db_key, read_only
+    del db_key, read_only, wait, url
     yield
 
 
@@ -386,6 +392,9 @@ class _FakeConnection:
 class _FakeEngine:
     """异步引擎替身：`connect()` / `begin()` 产出同一个假连接。"""
 
+    url = "fake://engine"
+    """假引擎连接串（`GatedEngine` 取门时读它，用于按库取名）。"""
+
     def __init__(self) -> None:
         """初始化连接。"""
         self.connection = _FakeConnection()
@@ -553,11 +562,20 @@ def test_prepare_test_dir_resets_and_warns(monkeypatch: pytest.MonkeyPatch, caps
         del include_databases
         return ConcurrentStableList(["x.tmp"])
 
-    monkeypatch.setattr(fixtures, "reset_shared_databases", lambda: calls.add("reset"))
+    def _reset_ok() -> ConcurrentStableList[str]:
+        """记录一次清场并返回空失败清单。
+
+        Returns:
+            ConcurrentStableList[str]: 空清单（共享库已删净）。
+        """
+        calls.add("reset")
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(fixtures, "reset_shared_databases", _reset_ok)
     monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_warn)
     plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]
     assert list(calls) == ["reset"]
-    assert "测试目录清理失败" in capsys.readouterr().out
+    assert "共享测试库清理失败" in capsys.readouterr().out
 
 
 def test_prepare_test_dir_fails_on_stuck_lock(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -575,7 +593,7 @@ def test_prepare_test_dir_fails_on_stuck_lock(monkeypatch: pytest.MonkeyPatch) -
         del include_databases
         return ConcurrentStableList(["a.lock"])
 
-    monkeypatch.setattr(fixtures, "reset_shared_databases", lambda: None)
+    monkeypatch.setattr(fixtures, "reset_shared_databases", lambda: ConcurrentStableList())
     monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_lock)
     with pytest.raises(RuntimeError, match="残留测试锁清理失败"):
         plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]

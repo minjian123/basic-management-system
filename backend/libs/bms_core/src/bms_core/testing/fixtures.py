@@ -373,6 +373,45 @@ def test_db_dir() -> Path:
     return directory
 
 
+def shared_db_path(name: str) -> Path:
+    """共享库文件路径（`<会话测试库目录>/<name>.db`）。
+
+    Args:
+        name: 逻辑数据源名（如 `platform` / `tenant`）。
+
+    Returns:
+        Path: 共享库文件路径。
+    """
+    return test_db_dir() / f"{name}.db"
+
+
+def db_file_identity(database: str) -> str:
+    """库文件路径的归一形态（门名判定的唯一口径：同库必同串、异库必异串）。
+
+    只做「绝对化 + 正斜杠 + 小写」：不做 `resolve()`（会跟随符号链接且慢），也不读文件系统。
+    Windows 大小写不敏感，故统一小写；跨进程判定因此稳定。
+
+    Args:
+        database: 库文件路径（SQLite 连接串的 `database` 段 / 引擎 URL 的 `database`）。
+
+    Returns:
+        str: 归一后的库身份串。
+    """
+    return Path(database).expanduser().absolute().as_posix().casefold()
+
+
+def shared_db_identity(name: str) -> str:
+    """共享库的归一身份串（与 `db_file_identity` 同口径，供门名判定比对）。
+
+    Args:
+        name: 逻辑数据源名（`platform` / `tenant`）。
+
+    Returns:
+        str: 归一后的共享库身份串。
+    """
+    return db_file_identity(shared_db_path(name).as_posix())
+
+
 def shared_db_url(name: str) -> str:
     """共享库连接串（固定路径，全 worker 共用）。
 
@@ -387,7 +426,8 @@ def shared_db_url(name: str) -> str:
     Returns:
         str: `sqlite+aiosqlite:///<绝对路径>?timeout=0.1`。
     """
-    return f"sqlite+aiosqlite:///{(test_db_dir() / f'{name}.db').as_posix()}?timeout={sqlite_busy_timeout_seconds():g}"
+    path = shared_db_path(name).as_posix()
+    return f"sqlite+aiosqlite:///{path}?timeout={sqlite_busy_timeout_seconds():g}"
 
 
 def clear_shared_db_files(*, include_databases: bool = True) -> ConcurrentStableList[str]:
@@ -565,7 +605,12 @@ def ensure_shared_db(
             f"{name} old={_ready_stamp(ready)} new={version} dir={test_db_dir()} "
             f"src={_source_file(prepare) if prepare else None}",
         )
-        _drop_shared_db_files(name)
+        stuck = _drop_shared_db_files(name)
+        if stuck:
+            raise PermissionError(
+                f"[bms_testing] 共享库重建失败：{list(stuck)} 被占用删不掉；"
+                f"请结束占用进程或删除 {test_db_dir()} 下的同名文件后重跑"
+            )
         (prepare or _default_prepare)(url)
         ready.write_text(version, encoding="utf-8")
         lock_probe.note("rebuild-done", f"{name} {version}")
@@ -623,7 +668,14 @@ async def ensure_shared_db_async(
             f"{name} old={_ready_stamp(ready)} new={version} dir={test_db_dir()} "
             f"src={_source_file(prepare) if prepare else None}",
         )
-        _drop_shared_db_files(name)
+        stuck = _drop_shared_db_files(name)
+        if stuck:
+            # 版本戳重建路径：删不掉就不能沿用旧库（`create_all(checkfirst=True)` 只补表不补列，
+            # 沿用会得到「表在、列缺」的库），必须显式失败而不是告警。
+            raise PermissionError(
+                f"[bms_testing] 共享库重建失败：{list(stuck)} 被占用删不掉；"
+                f"请结束占用进程或删除 {test_db_dir()} 下的同名文件后重跑"
+            )
         if prepare is None:
             await _default_prepare_async(url)
         else:
@@ -633,31 +685,41 @@ async def ensure_shared_db_async(
     return url
 
 
-def _drop_shared_db_files(name: str) -> None:
-    """删掉共享库文件（含 WAL / 日志伴生文件），供「版本戳不一致」时重建。
+def _drop_shared_db_files(name: str) -> ConcurrentStableList[str]:
+    """删掉共享库文件（含 WAL / 日志伴生文件），**返回删不掉的清单**。
 
     为什么必须删：`prepare` 内部是 `create_all(checkfirst=True)`，**只补表不补列**；
     模型加一列后仅重跑准备集会得到「表在、列缺」的库，报 `no such column` 且永远自愈不了
     （2026-11-21 实测）。版本戳一变就删库，重建才是真正的「结构重建」。
 
+    为什么返回而不是抛：同一段清理在两种场景下要求不同——会话入口清场（`reset_shared_databases`）
+    遇到 Windows 句柄占用应**告警后继续**（《测试规范》「库文件清不掉只告警」）；版本戳重建
+    （`ensure_shared_db`）遇到占用则**必须失败**（无法重建就不能沿用旧库）。判定权留给调用方。
+
     Args:
         name: 逻辑数据源名（`platform` / `tenant`）。
 
-    Raises:
-        PermissionError: 文件被占用删不掉——护栏失效必须显式失败，不得静默沿用旧库。
+    Returns:
+        ConcurrentStableList[str]: 删除失败的文件名（空表示全部删净）。
     """
+    failed: ConcurrentStableList[str] = ConcurrentStableList()
     directory = test_db_dir()
     for suffix in ("", "-wal", "-shm", "-journal"):
         path = directory / f"{name}.db{suffix}"
-        with suppress(FileNotFoundError):
+        try:
             path.unlink()
+        except FileNotFoundError:
+            continue
+        except PermissionError:
+            failed.add(path.name)
+    return failed
 
 
 _SHARED_DB_NAMES: Final = ("platform", "tenant")
 """共享测试库的数据源名（会话入口清场的固定范围）。"""
 
 
-def reset_shared_databases() -> None:
+def reset_shared_databases() -> ConcurrentStableList[str]:
     """会话入口清场：删掉上一轮遗留的共享库与就绪标记（控制器 / 单进程调用一次）。
 
     为什么每轮重建：测试期连接是**真自动提交**（写入即落库、会话退出不回滚），同一用例在
@@ -668,10 +730,20 @@ def reset_shared_databases() -> None:
     建库仍由初始化阶段（`pytest_collection_modifyitems`）负责——先删库、再建库、再跑用例。
 
     并发前提：同一时刻只跑一个 pytest 会话（多会话共用 `.cache/test` 会互相删库）。
+
+    Returns:
+        ConcurrentStableList[str]: 删不掉的条目（库文件 / 就绪标记）；空表示清场完成。
+            由调用方分级处置：库文件删不掉只告警（本轮改用新建库），残留 `.lock` 删不掉才阻断。
     """
+    failed: ConcurrentStableList[str] = ConcurrentStableList()
     for name in _SHARED_DB_NAMES:
-        _drop_shared_db_files(name)
-        (test_db_dir() / f"{name}.ready").unlink(missing_ok=True)
+        failed.extend(_drop_shared_db_files(name))
+        marker = test_db_dir() / f"{name}.ready"
+        try:
+            marker.unlink(missing_ok=True)
+        except PermissionError:
+            failed.add(marker.name)
+    return failed
 
 
 def resolve_prepare(request: pytest.FixtureRequest, name: str) -> Callable[[str], None] | None:

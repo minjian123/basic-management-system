@@ -313,18 +313,20 @@ def test_drop_shared_db_files_missing_is_noop(tmp_path: Path, monkeypatch: pytes
     assert not list(fixtures.test_db_dir().glob("platform.db*"))
 
 
-def test_drop_shared_db_files_propagates_permission_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """库文件被占用删不掉时显式失败——静默沿用旧库会变成永久的 `no such column`。"""
+def test_drop_shared_db_files_returns_stuck_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """库文件被占用删不掉时**返回失败清单**（由调用方分级：清场告警 / 重建失败）。"""
     monkeypatch.chdir(tmp_path)
     directory = fixtures.test_db_dir()
     (directory / "platform.db").write_text("x", encoding="utf-8")
 
-    def _deny(_self: Path) -> None:
-        raise PermissionError("占用")
+    def _deny(self: Path, missing_ok: bool = False) -> None:
+        if self.name == "platform.db":
+            raise PermissionError("占用")
+        if not missing_ok:
+            raise FileNotFoundError(self)
 
     monkeypatch.setattr(Path, "unlink", _deny)
-    with pytest.raises(PermissionError):
-        fixtures._drop_shared_db_files("platform")  # pyright: ignore[reportPrivateUsage]
+    assert list(fixtures._drop_shared_db_files("platform")) == ["platform.db"]  # pyright: ignore[reportPrivateUsage]
 
 
 def test_init_lock_acquires_and_releases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -393,6 +395,73 @@ async def test_ensure_shared_db_async_rebuilds_on_version_change(
     assert (directory / "platform.ready").read_text(encoding="utf-8").strip() == "new-version"
 
 
+def _deny_platform_db(self: Path, missing_ok: bool = False) -> None:
+    """`Path.unlink` 替身：`platform.db` 一律占用（其余按原语义）。
+
+    Args:
+        self: 目标路径。
+        missing_ok: 是否允许不存在。
+
+    Raises:
+        PermissionError: 目标是 `platform.db`。
+        FileNotFoundError: 其它目标且不存在。
+    """
+    if self.name == "platform.db":
+        raise PermissionError("占用")
+    if not missing_ok:
+        raise FileNotFoundError(self)
+
+
+def test_ensure_shared_db_fails_when_rebuild_blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """版本戳不一致但旧库删不掉：**显式失败**（沿用旧库会变成永久的 `no such column`）。"""
+    monkeypatch.chdir(tmp_path)
+    directory = fixtures.test_db_dir()
+    (directory / "platform.db").write_text("stale", encoding="utf-8")
+    (directory / "platform.ready").write_text("old", encoding="utf-8")
+    monkeypatch.setattr(Path, "unlink", _deny_platform_db)
+    with pytest.raises(PermissionError, match="共享库重建失败"):
+        fixtures.ensure_shared_db("platform", lambda url: None, version="new-version")
+
+
+async def test_ensure_shared_db_async_fails_when_rebuild_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """异步版同口径：删不掉旧库即失败，不静默沿用。"""
+    monkeypatch.chdir(tmp_path)
+    directory = fixtures.test_db_dir()
+    (directory / "platform.db").write_text("stale", encoding="utf-8")
+    (directory / "platform.ready").write_text("old", encoding="utf-8")
+    monkeypatch.setattr(Path, "unlink", _deny_platform_db)
+
+    async def _prepare(url: str) -> None:
+        del url
+
+    with pytest.raises(PermissionError, match="共享库重建失败"):
+        await fixtures.ensure_shared_db_async("platform", _prepare, version="new-version")
+
+
+def test_reset_shared_databases_reports_stuck_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """就绪标记删不掉也要进失败清单（清场后不得留下「库已就绪」的假标记）。"""
+    monkeypatch.chdir(tmp_path)
+    directory = fixtures.test_db_dir()
+    (directory / "platform.ready").write_text("v1", encoding="utf-8")
+
+    def _deny(self: Path, missing_ok: bool = False) -> None:
+        """只拦就绪标记。
+
+        Args:
+            self: 目标路径。
+            missing_ok: 是否允许不存在。
+        """
+        if self.name == "platform.ready":
+            raise PermissionError("占用")
+        if not missing_ok:
+            raise FileNotFoundError(self)
+
+    monkeypatch.setattr(Path, "unlink", _deny)
+    assert list(fixtures.reset_shared_databases()) == ["platform.ready"]
+
+
 def test_shared_db_ready_false_when_file_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """就绪判定：库文件存在但为 0 字节（上次崩溃 / 手工截断）按未就绪处理。"""
     monkeypatch.chdir(tmp_path)
@@ -425,12 +494,28 @@ def test_reset_shared_databases_removes_files_and_markers(tmp_path: Path, monkey
         (directory / f"{name}.ready").write_text("v1", encoding="utf-8")
     (directory / "platform.db-wal").write_text("x", encoding="utf-8")
 
-    fixtures.reset_shared_databases()
+    assert list(fixtures.reset_shared_databases()) == []
 
     for name in ("platform", "tenant"):
         assert not (directory / f"{name}.db").exists()
         assert not (directory / f"{name}.ready").exists()
     assert not (directory / "platform.db-wal").exists()
+
+
+def test_reset_shared_databases_reports_stuck_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """清场遇到句柄占用：返回失败清单而不抛错（库文件只告警由调用方决定）。"""
+    monkeypatch.chdir(tmp_path)
+    directory = fixtures.test_db_dir()
+    (directory / "platform.db").write_text("x", encoding="utf-8")
+
+    def _deny(self: Path, missing_ok: bool = False) -> None:
+        if self.name == "platform.db":
+            raise PermissionError("占用")
+        if not missing_ok:
+            raise FileNotFoundError(self)
+
+    monkeypatch.setattr(Path, "unlink", _deny)
+    assert list(fixtures.reset_shared_databases()) == ["platform.db"]
 
 
 def test_clear_shared_db_files_keeps_databases_when_excluded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

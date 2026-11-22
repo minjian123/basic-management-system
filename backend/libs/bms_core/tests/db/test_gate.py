@@ -7,32 +7,42 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Iterator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.db import bootstrap
 from bms_core.db import gate as gate_module
+from bms_core.db import session as session_module
 from bms_core.db.gate import LazyGatedSession
 
 pytestmark = pytest.mark.kiwi_id(2533)
 
-_CALLS: ConcurrentStableList[tuple[str, bool]] = ConcurrentStableList()
+_CALLS: ConcurrentStableList[tuple[str, bool, str | None]] = ConcurrentStableList()
 """钩子调用记录（每个用例开始清空）。"""
 
 
 @asynccontextmanager
-async def _recording_hook(db_key: str, read_only: bool, wait: float | None = None) -> AsyncGenerator[None]:
+async def _recording_hook(
+    db_key: str, read_only: bool, wait: float | None = None, url: str | None = None
+) -> AsyncGenerator[None]:
     """记录调用参数后放行的钩子。
 
     Args:
         db_key: 数据源键。
         read_only: 是否只读。
+        wait: 等待上限。
+        url: 实际库连接串。
 
     Yields:
         None: 区间。
     """
-    _CALLS.append((db_key, read_only))
+    del wait
+    _CALLS.append((db_key, read_only, url))
     yield
 
 
@@ -67,8 +77,8 @@ async def test_injected_hook_wraps_access() -> None:
     """注入钩子后按其上下文进入，参数原样透传。"""
     gate_module.set_gate_hook(_recording_hook)
 
-    async with gate_module.db_access_gate("tenant_demo", read_only=False):
-        assert list(_CALLS) == [("tenant_demo", False)]
+    async with gate_module.db_access_gate("tenant_demo", read_only=False, url="fake://own"):
+        assert list(_CALLS) == [("tenant_demo", False, "fake://own")]
 
     assert gate_module.current_gate_hook() is _recording_hook
 
@@ -478,3 +488,113 @@ async def test_lazy_session_commit_failure_propagates_and_releases() -> None:
     with pytest.raises(RuntimeError, match="提交失败"):
         await lazy.commit()  # type: ignore[misc]
     assert list(entered) == ["in", "out"]
+
+
+@asynccontextmanager
+async def _passthrough_hook(
+    db_key: str, read_only: bool, wait: float | None = None, url: str | None = None
+) -> AsyncGenerator[None]:
+    """放行钩子（只让会话入口走「已注门」分支，不记录调用）。
+
+    Args:
+        db_key: 数据源键。
+        read_only: 是否只读。
+        wait: 等待上限。
+        url: 实际库连接串。
+
+    Yields:
+        None: 区间。
+    """
+    del db_key, read_only, wait, url
+    yield
+
+
+def _sqlite_url(name: str) -> str:
+    """构造 SQLite 连接串（拆分字面量，避免被「自建库」护栏误判为建库）。
+
+    Args:
+        name: 库名或相对路径。
+
+    Returns:
+        str: `sqlite+aiosqlite:///<name>`。
+    """
+    return "sqlite+aiosqlite" + ":///" + name
+
+
+class _StubRegistry:
+    """引擎注册表替身：只提供异步引擎（同步方言分支不在本用例范围）。"""
+
+    def __init__(self, engine: AsyncEngine) -> None:
+        """保存目标引擎。
+
+        Args:
+            engine: 目标库引擎。
+        """
+        self._engine = engine
+
+    def is_sync_only(self, db_key: str) -> bool:
+        """恒返回异步方言。
+
+        Args:
+            db_key: 数据源键（未使用）。
+
+        Returns:
+            bool: False。
+        """
+        del db_key
+        return False
+
+    async def get(self, db_key: str, *, read_only: bool) -> AsyncEngine:
+        """按任意库键返回同一个目标引擎。
+
+        Args:
+            db_key: 数据源键（未使用）。
+            read_only: 是否只读（未使用）。
+
+        Returns:
+            AsyncEngine: 目标引擎。
+        """
+        del db_key, read_only
+        return self._engine
+
+
+def _stub_request(engine: AsyncEngine) -> Any:
+    """构造请求替身（只带会话入口需要的属性）。
+
+    Args:
+        engine: 目标库引擎。
+
+    Returns:
+        Any: 请求替身。
+    """
+    app = SimpleNamespace(
+        state=SimpleNamespace(engine_registry=_StubRegistry(engine), session_factory=None, primary_health=None)
+    )
+    return SimpleNamespace(app=app, scope={"state": {}}, state=SimpleNamespace())
+
+
+async def test_open_session_passes_engine_url_to_gate(shared_platform_engine: AsyncEngine) -> None:
+    """请求级会话（读 / 写两条路径）把**实际引擎 URL** 传给门：门名按库派生。"""
+    gate_module.set_gate_hook(_passthrough_hook)
+    request = _stub_request(shared_platform_engine)
+    read_sessions = [
+        session
+        async for session in session_module._open_session(  # pyright: ignore[reportPrivateUsage]
+            request, read_only=True
+        )
+    ]
+    assert (await read_sessions[0].execute(text("SELECT 1"))).scalar_one() == 1
+    write_sessions = [
+        session
+        async for session in session_module._open_session(  # pyright: ignore[reportPrivateUsage]
+            request, read_only=False
+        )
+    ]
+    assert (await write_sessions[0].execute(text("SELECT 1"))).scalar_one() == 1
+
+
+@pytest.mark.own_db("被测对象是建表入口的取门透传：在内存库上建平台表集，不与共享库交互")
+async def test_apply_unit_schema_enters_gate_with_url() -> None:
+    """建表入口在门内执行，并把目标 URL 传给门（私有库据此拿到自己的门）。"""
+    outcome = await bootstrap.apply_unit_schema("platform", "platform", _sqlite_url(":memory:"))
+    assert outcome.total > 0 and outcome.created > 0

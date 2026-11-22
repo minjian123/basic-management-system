@@ -21,7 +21,6 @@
 import contextlib
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager
-from pathlib import Path
 from typing import Any, cast
 from unittest import mock
 
@@ -82,6 +81,9 @@ def _patch_session_factory(session: AsyncSession) -> Any:
 def gate_for_database(database: str | None) -> str | None:
     """按库文件路径推断写门名（只认共享平台的 `platform` / `tenant` 两个逻辑数据源）。
 
+    **按完整路径判定，不按文件名**：`tmp_path` 下同样叫 `platform.db` 的一次性库不是共享库，
+    按文件名判会把它当共享库、把私有库的建表排进共享库的队（2026-11-22 预检实测即由此超时）。
+
     Args:
         database: 库文件路径（SQLite 连接串的 `database` 段；内存库 / 空串可传）。
 
@@ -90,8 +92,14 @@ def gate_for_database(database: str | None) -> str | None:
     """
     if not database or ":memory:" in database:
         return None
-    stem = Path(database).stem
-    return stem if stem in (PLATFORM_GATE, TENANT_GATE) else None
+    # 延迟导入：`fixtures` 依赖本模块（模块级导入会成环），调用期两模块均已加载。
+    from bms_core.testing import fixtures
+
+    identity = fixtures.db_file_identity(database)
+    for name in (PLATFORM_GATE, TENANT_GATE):
+        if identity == fixtures.shared_db_identity(name):
+            return name
+    return None
 
 
 def gate_for_engine(engine: AsyncEngine) -> str | None:

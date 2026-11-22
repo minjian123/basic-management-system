@@ -13,6 +13,7 @@ from sqlalchemy import ColumnElement, select
 from bms_core.boundary.domains import DomainEntry
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import CatalogError
+from bms_core.core.roots import BaseFrameworkObject
 from bms_core.datasource.registry import DataSourceRecord
 from bms_core.models.platform.catalog import SysModule, SysProduct
 from bms_core.models.platform.declaration import (
@@ -68,7 +69,7 @@ _NEW_MODELS: ConcurrentStableDict[str, type[Any]] = ConcurrentStableDict(
 """
 
 
-class _FieldRecorder:
+class _FieldRecorder(BaseFrameworkObject):
     """属性写入录制器：把 `_assign` 的逐字段赋值录成「列 → 值」映射。
 
     为什么需要：落库改走原子语句后，需要的是列值而不是 ORM 对象；若另写一份「每类声明有哪些

@@ -14,11 +14,14 @@
 故这里的夹具必须显式导入到本模块命名空间，pytest 才会收集注册。
 """
 
+import hashlib
 import os
 from contextlib import AbstractAsyncContextManager, suppress
 from typing import Any, cast
 
 import pytest
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.db.gate import set_gate_hook
@@ -71,18 +74,73 @@ __all__ = (
 )
 
 
-def _gate_hook(db_key: str, read_only: bool, wait: float | None = None) -> AbstractAsyncContextManager[None]:
-    """把会话入口的数据源键映射到读写门（13_08 注入点）。
+_OWN_GATE_PREFIX = "own-"
+"""私有库（非共享测试库）的门名前缀。"""
+
+
+def _db_identity(url: str) -> str:
+    """把连接串归一成「库的身份」（库文件绝对路径小写串；非文件库退回 URL 主体）。
+
+    归一的目的：同一个库经不同写法（`sqlite+aiosqlite:///D:/…` 与 `sqlite:///D:/…`、带不带
+    `?timeout=`）必须落到同一个门名，否则同一个库会出现两把门、又回到互相争用。
+
+    Args:
+        url: 数据库连接串。
+
+    Returns:
+        str: 库身份（跨进程稳定）。
+    """
+    text = url.split("?", 1)[0]
+    try:
+        database = make_url(url).database or ""
+    except ArgumentError, ValueError:
+        return text.casefold()
+    if not database:
+        return text.casefold()
+    if database.startswith("file:"):
+        database = database[len("file:") :]
+    return fixtures.db_file_identity(database)
+
+
+def gate_name_for(db_key: str, url: str | None = None) -> str:
+    """把「数据源键 + 实际库连接串」归一到门名（**按库排队**，见 `bms_core.testing.gates`）。
+
+    共享测试库（`.cache/test/platform.db` / `tenant.db`）映射为 `platform` / `tenant`，诊断文本
+    与既有采样汇总保持不变；其余库（`own_db` / `tmp_path` 建的一次性库）按库文件路径哈希得到
+    `own-xxxxxxxx`，与共享库的门彻底分开——私有库的建表 / 播种不再占住共享库的排队路径。
+
+    Args:
+        db_key: 数据源键（调用方掌握的唯一信息；不掌握实际库时作为回落依据）。
+        url: 本次操作实际指向的库连接串；None 按数据源键回落。
+
+    Returns:
+        str: 门名。
+    """
+    if not url:
+        return PLATFORM_GATE if db_key == PLATFORM_DB_KEY else TENANT_GATE
+    identity = _db_identity(url)
+    for name in (PLATFORM_GATE, TENANT_GATE):
+        if identity == fixtures.shared_db_identity(name):
+            return name
+    digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:8]
+    return f"{_OWN_GATE_PREFIX}{digest}"
+
+
+def _gate_hook(
+    db_key: str, read_only: bool, wait: float | None = None, url: str | None = None
+) -> AbstractAsyncContextManager[None]:
+    """把会话入口的「数据源键 + 实际库」映射到读写门（13_08 注入点）。
 
     Args:
         db_key: 数据源键（平台库键或租户库键）。
         read_only: 是否只读。
+        wait: 等待上限（秒）；None 走默认（写门 5s / 读门 10s）。
+        url: 实际库连接串（决定门名）；None 按数据源键回落。
 
     Returns:
         AbstractAsyncContextManager[None]: 读门或写门上下文。
     """
-    name = PLATFORM_GATE if db_key == PLATFORM_DB_KEY else TENANT_GATE
-    return gate_scope(name, read_only=read_only, wait=wait)
+    return gate_scope(gate_name_for(db_key, url), read_only=read_only, wait=wait)
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -163,8 +221,8 @@ def _prepare_test_dir() -> None:
     Raises:
         RuntimeError: 残留 `.lock` 清不掉（有进程占着）。
     """
-    fixtures.reset_shared_databases()
-    failed = fixtures.clear_shared_db_files(include_databases=False)
+    failed = fixtures.reset_shared_databases()
+    failed.extend(fixtures.clear_shared_db_files(include_databases=False))
     stuck_locks = [name for name in failed if name.endswith(".lock")]
     if stuck_locks:
         raise RuntimeError(
@@ -172,7 +230,8 @@ def _prepare_test_dir() -> None:
             f"请结束占用进程或手工删除 {fixtures.test_db_dir()} 下的同名 .lock 后重跑"
         )
     if failed:
-        print(f"[bms_testing_plugin] 测试目录清理失败（Windows 句柄占用）：{failed}")
+        # 库文件删不掉只告警（《测试规范》：残留锁才阻断）：本轮会在新建库上继续跑。
+        print(f"[bms_testing_plugin] 共享测试库清理失败（Windows 句柄占用）：{failed}；本轮改用新建库继续")
 
 
 def _maybe_install_lock_probe() -> None:  # pragma: no cover - 仅诊断期按环境变量开启，默认关闭

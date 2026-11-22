@@ -11,6 +11,7 @@ import contextlib
 import itertools
 import os
 import sqlite3
+import sys
 import threading
 import time
 import traceback
@@ -22,6 +23,9 @@ _enabled = False
 
 _path: Path | None = None
 """本进程探针文件路径。"""
+
+_emit_warned = False
+"""写失败提示是否已打过（只提示一次，避免刷屏）。"""
 
 _WRITE_HEADS = (
     "INSERT",
@@ -47,11 +51,12 @@ _SEQ = itertools.count(1)
 
 
 def _emit(line: str) -> None:  # pragma: no cover - 默认关闭，正常测试不写探针日志
-    """追加一行（失败即静默：探针不得影响被测行为）。
+    """追加一行（写失败只提示一次：探针不得影响被测行为，但也不许静默吞掉）。
 
     Args:
         line: 待写内容（不含换行）。
     """
+    global _emit_warned
     path = _path
     if path is None:
         return
@@ -59,8 +64,12 @@ def _emit(line: str) -> None:  # pragma: no cover - 默认关闭，正常测试�
         try:
             with path.open("a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
-        except OSError:
-            pass
+        except OSError as exc:
+            # 探针是诊断工具，写失败不能让用例失败；但静默吞掉会让人误以为「没有门外写」，
+            # 故首次失败在 stderr 留一行（后续同类失败不再提示）。
+            if not _emit_warned:
+                _emit_warned = True
+                print(f"[bms_testing_lock_probe] 探针日志写失败（后续同类不再提示）：{exc}", file=sys.stderr)
 
 
 def note(event: str, detail: str = "") -> None:  # pragma: no cover - 默认关闭，门内只走一次布尔判断即返回

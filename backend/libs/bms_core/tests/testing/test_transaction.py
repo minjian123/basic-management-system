@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from bms_core.db.gate import GATE_CRITICAL_WAIT
-from bms_core.testing import rollback_session
+from bms_core.testing import fixtures, rollback_session
 from bms_core.testing import transaction as transaction_module
 from bms_core.testing.gates import PLATFORM_GATE, gate_scope
 from bms_core.testing.transaction import gated_session, write_session
@@ -141,10 +141,12 @@ async def test_rollback_session_propagates_exception(platform_db_url: str) -> No
 
 @pytest.mark.kiwi_id(2317)
 async def test_gate_for_engine_maps_shared_db_only() -> None:
-    """写门推断：只认共享 `platform` / `tenant` 库文件；临时库 / 内存库 / 无库名不取门。"""
+    """写门推断：只认**共享测试库的完整路径**；同名私有库 / 临时库 / 内存库 / 无库名一律不取门。"""
     cases = (
-        ("sqlite+aiosqlite:///.cache/test/platform.db", "platform"),
-        ("sqlite+aiosqlite:///.cache/test/tenant.db", "tenant"),
+        (fixtures.shared_db_url("platform"), "platform"),
+        (fixtures.shared_db_url("tenant"), "tenant"),
+        # 私有库里同样叫 platform 的一次性库**不是**共享库：按完整路径判定，不按文件名
+        ("sqlite+aiosqlite:///tmp/platform.db", None),
         ("sqlite+aiosqlite:///tmp/other.db", None),
         ("sqlite+aiosqlite://", None),
         ("sqlite+aiosqlite:///:memory:", None),

@@ -319,6 +319,41 @@ async def test_write_gate_blocks_other_instance_reads(tmp_path: Path) -> None:
     assert reader.mode is None
 
 
+class _WarningRecorder:
+    """日志门面替身：只记下 `warning` 事件名（本模块用 `StdoutLogger`，capsys 抓不到）。"""
+
+    def __init__(self) -> None:
+        """初始化事件清单。"""
+        self.events: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def warning(self, event: str, **_kwargs: object) -> None:
+        """记录一次告警。
+
+        Args:
+            event: 事件名。
+            **_kwargs: 其余字段（忽略）。
+        """
+        self.events.add(event)
+
+
+async def test_release_write_without_write_warns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """自认为持有却查无账目（重复释放 / 租约丢了）：留一条告警，便于定位「谁把门弄丢了」。"""
+    recorder = _WarningRecorder()
+    monkeypatch.setattr(rwlock, "_LOGGER", recorder)
+    gate = _gate(tmp_path)
+    await gate.release_write()
+    assert list(recorder.events) == ["gate_release_without_write"]
+
+
+async def test_release_write_without_write_quiet_when_expected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """取写门超时后收尾的释放是**预期未持有**：不告警（否则每轮超时都刷一条假警告）。"""
+    recorder = _WarningRecorder()
+    monkeypatch.setattr(rwlock, "_LOGGER", recorder)
+    gate = _gate(tmp_path)
+    await gate.release_write(expect_held=False)
+    assert list(recorder.events) == []
+
+
 async def test_write_gate_reentrant(tmp_path: Path) -> None:
     """写门同任务重入只加深度，不重复取系统锁。"""
     gate = _gate(tmp_path)

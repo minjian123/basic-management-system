@@ -285,10 +285,10 @@ async def apply_domains_schema(
     metadata = domains_metadata(resolved, datasource)
     if not metadata.tables:
         return SchemaOutcome(target=label, total=0, created=0, existing=0)
-    # 建表也是数据库写：与数据读写**共用同一把读写写门**（业主口径：所有数据库读写统一走门）。
-    # 初始化阶段（共享库建库 / 播种）由测试基座持门调用；用例并发期的启动建表通常零新建，
-    # 仍按同一条路径取门——门是唯一排队路径，DDL 专用文件锁只作门内的同步 API 兜底。
-    async with db_access_gate(_gate_key_for(datasource), read_only=False, wait=GATE_CRITICAL_WAIT):
+    # 建表也是数据库写：与数据读写**共用同一条门路**（业主口径：所有数据库读写统一走门）。
+    # 门按**实际库**排队：共享测试库用共享门，`own_db` / `tmp_path` 的一次性库用自己的门——
+    # 否则私库建全套表（实测 >5s）会把 24 路其它 worker 全挡在写门 5s 上限外（2026-11-22）。
+    async with db_access_gate(_gate_key_for(datasource), read_only=False, wait=GATE_CRITICAL_WAIT, url=url):
         if _is_async_url(url):
             created, existing = await _apply_async(url, metadata)
         else:

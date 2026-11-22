@@ -152,19 +152,25 @@ async def _open_session(
     engine = await _resolve_engine(request, registry, read_only=read_only, db_key=resolved)
     factory = cast("SessionFactory | None", getattr(request.app.state, "session_factory", None)) or SessionFactory()
     maker = factory.create(engine)
+    # 门按**实际库**排队（不是按数据源段）：同一数据源段在用例里可能指向共享测试库，也可能指向
+    # `own_db` / `tmp_path` 的一次性库，两者没有互相排队的理由（2026-11-22 业主口径）。
+    engine_url = str(engine.url)
     if current_gate_hook() is not None and read_only:
         # 读按操作：每次 execute / get 新开短会话，读完即关（读锁随会话关闭释放）。
         yield cast(
-            "DbSession", ReadOperationGatedSession(lambda: db_access_gate(resolved, read_only=True), maker, bind=engine)
+            "DbSession",
+            ReadOperationGatedSession(
+                lambda: db_access_gate(resolved, read_only=True, url=engine_url), maker, bind=engine
+            ),
         )
         return
     async with maker() as session:
         if current_gate_hook() is None:  # pragma: no cover - 生产路径（测试会话必注门钩子）
-            async with db_access_gate(resolved, read_only=read_only):
+            async with db_access_gate(resolved, read_only=read_only, url=engine_url):
                 yield session
             return
         # 写按操作：每次数据库方法调用取写锁、写完立即放。
-        lazy = LazyGatedSession(lambda: db_access_gate(resolved, read_only=False), session, bind=engine)
+        lazy = LazyGatedSession(lambda: db_access_gate(resolved, read_only=False, url=engine_url), session, bind=engine)
         try:
             yield cast("DbSession", lazy)
         finally:
@@ -331,22 +337,28 @@ async def session_scope(
     engine = await registry.get(resolved, read_only=read_only)
     session_factory = factory if factory is not None else SessionFactory()
     maker = session_factory.create(engine)
+    # 门按**实际库**排队（同 `_open_session`）：私有库（`own_db` / `tmp_path`）有自己的门。
+    engine_url = str(engine.url)
     if current_gate_hook() is not None and read_only:
         # 读按操作：每次 execute / get 新开短会话，取完结果即关（读锁与读门同生共死）。
         yield cast(
             "DbSession",
             ReadOperationGatedSession(
-                lambda: db_access_gate(resolved, read_only=True, wait=gate_wait), maker, bind=engine
+                lambda: db_access_gate(resolved, read_only=True, wait=gate_wait, url=engine_url),
+                maker,
+                bind=engine,
             ),
         )
         return
     async with maker() as session:
         if current_gate_hook() is None:  # pragma: no cover - 生产路径（测试会话必注门钩子）
-            async with db_access_gate(resolved, read_only=read_only, wait=gate_wait):
+            async with db_access_gate(resolved, read_only=read_only, wait=gate_wait, url=engine_url):
                 yield session
             return
         # 写按操作：每次数据库方法调用取写锁、写完立即放。
-        lazy = LazyGatedSession(lambda: db_access_gate(resolved, read_only=False, wait=gate_wait), session, bind=engine)
+        lazy = LazyGatedSession(
+            lambda: db_access_gate(resolved, read_only=False, wait=gate_wait, url=engine_url), session, bind=engine
+        )
         try:
             yield cast("DbSession", lazy)
         finally:

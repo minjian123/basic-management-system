@@ -224,14 +224,42 @@ async def test_delete_suspended_tenant_allowed(
 
 
 async def test_delete_computes_purge_at_when_archive_ready(
-    client: AsyncClient, service_app: FastAPI, platform_ctx: tuple[AsyncSession, StubClient], ns: Namespace
+    client: AsyncClient,
+    service_app: FastAPI,
+    platform_ctx: tuple[AsyncSession, StubClient],
+    ns: Namespace,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """归档就绪（provider 非空 / 非 null）时按保留期算 `purge_at` 并写进事件载荷。"""
+    """归档就绪（provider 非空 / 非 null）时按保留期算 `purge_at` 并写进事件载荷。
+
+    保留期天数**在本用例内钉定**（`_retention_days` 打桩）：共享测试库里 `sys_config` 的参数
+    是全 worker 共用的，别的用例可能已写入自定义保留期（实测 24 路下读到 7 天）。"参数 → 天数"
+    的换算与回落由 `test_parse_retention_days_fallbacks` / `test_retention_days_*` 专测覆盖，
+    本用例只验「按保留期算出时点 + 落库 + 事件载荷 + 列表回显」这条链路。
+    """
     session, _stub = platform_ctx
     tenant = await _seed_tenant(session, ns)
     tenant_id = int(tenant.id)
     settings = service_app.state.settings
     settings.archive_policy.provider = "db"
+
+    async def _fixed_days(_self: TenantAdminService) -> int:
+        """固定保留期天数，并**顺带关闭会话**（复刻「读参数时嵌套作用域退出」的既有行为）。
+
+        为什么连关闭一起模拟：真实配置取数会重入会话作用域并在退出时关闭调用方会话，使已加载的
+        注册行脱管——若服务在算出 `purge_at` 后直接写库，改动会静默丢失（实测 `sys_tenant` 无
+        UPDATE）。本用例因此同时锁住两件事：保留期天数确定、以及**写前重新取行**让写入照常落库。
+
+        Args:
+            _self: 服务实例（未使用）。
+
+        Returns:
+            int: 缺省保留期天数。
+        """
+        await session.close()
+        return DEFAULT_RETENTION_DAYS
+
+    monkeypatch.setattr(TenantAdminService, "_retention_days", _fixed_days)
 
     resp = await client.post(f"{API}/{tenant_id}/delete", json={"confirm_code": tenant.code})
     assert resp.status_code == 200

@@ -259,6 +259,12 @@ class TenantAdminService(BaseFrameworkObject):
             raise TenantDeleteConfirmError("注销确认码与租户编码不一致")
         now = _now()
         purge_at = await self._purge_at(now)
+        # **写前重新取行**：`_purge_at` 会读系统参数（`sys_config`），该读取重入会话作用域并在退出时
+        # 关闭调用方会话——SQLAlchemy `close()` 会清空 identity map，此时 `row` 已脱管，`set_deleted`
+        # 的改动不会生成 UPDATE（实测：`sys_tenant` 无 UPDATE、接口返回 `purge_at=None`，事件却带着
+        # `purge_at`，即「事件发了、数据没落」）。重新取一次行，写入落在仍附着的实例上。
+        # 根因（嵌套会话复用并关闭调用方会话）另立项治理，见任务 13_08 测试记录「观察项」。
+        row = await self._require(tenant_id)
         await self._repo.set_deleted(row, requested_at=now, purge_at=purge_at)
         extra: ConcurrentStableDict[str, object] = ConcurrentStableDict()
         if purge_at is not None:

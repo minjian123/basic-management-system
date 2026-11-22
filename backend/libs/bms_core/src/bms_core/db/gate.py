@@ -16,8 +16,15 @@ from typing import Any, Final
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.roots import BaseFrameworkObject
 
-GateHook = Callable[[str, bool, "float | None"], AbstractAsyncContextManager[None]]
-"""门钩子签名：（数据源键, 是否只读, 等待上限）→ 异步上下文管理器。"""
+GateHook = Callable[[str, bool, "float | None", "str | None"], AbstractAsyncContextManager[None]]
+"""门钩子签名：（数据源键, 是否只读, 等待上限, 实际库连接串）→ 异步上下文管理器。
+
+为什么要带实际库连接串（2026-11-22）：门按**库**排队，不按数据源段排队——同一个数据源段
+在用例里可能指向共享测试库，也可能指向 `own_db` / `tmp_path` 建的一次性库。只按数据源段
+取名，私有库的建表会占住全局写门（实测 `apply_unit_schema` 在临时库上建全套表持门 >5s，
+把 24 路其它 worker 全挡在 5s 上限外）。连接串为 None 时钩子按数据源段回落（生产直通路径
+与显式写区间不需要它）。
+"""
 
 
 @asynccontextmanager
@@ -75,12 +82,16 @@ def current_gate_hook() -> GateHook | None:
 
 
 @asynccontextmanager
-async def db_access_gate(db_key: str, *, read_only: bool, wait: float | None = None) -> AsyncGenerator[None]:
+async def db_access_gate(
+    db_key: str, *, read_only: bool, wait: float | None = None, url: str | None = None
+) -> AsyncGenerator[None]:
     """数据库访问门（未注入钩子时直通）。
 
     Args:
         db_key: 数据源键（平台库键或租户库键）。
         read_only: 是否只读（只读取读门，写取写门）。
+        wait: 等待上限（秒）；None 走门的默认。
+        url: 本次操作实际指向的库连接串；None 表示调用方不掌握（钩子按数据源段回落）。
 
     Yields:
         None: 门内区间。
@@ -89,7 +100,7 @@ async def db_access_gate(db_key: str, *, read_only: bool, wait: float | None = N
     if hook is None:
         yield
         return
-    async with hook(db_key, read_only, wait):
+    async with hook(db_key, read_only, wait, url):
         yield
 
 

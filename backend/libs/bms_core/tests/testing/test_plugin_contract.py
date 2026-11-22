@@ -1,6 +1,8 @@
 """测试公共基座：插件注册与「同名同语义」契约（Kiwi 2317）。"""
 
+import hashlib
 import os
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -9,7 +11,7 @@ import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.testing import plugin
+from bms_core.testing import fixtures, plugin
 from bms_core.testing.fixtures import clear_isolated_env, clear_tenant_cache
 
 
@@ -33,6 +35,7 @@ def _no_session_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:  # pyrigh
     需要断言清理行为的用例在用例内自行 `monkeypatch` 覆盖本夹具的打桩。
     """
     monkeypatch.setattr(plugin.fixtures, "configure_project_root", _ignore_root)
+    monkeypatch.setattr(plugin.fixtures, "reset_shared_databases", _no_cleanup)
     monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", _no_cleanup)
 
 
@@ -45,13 +48,37 @@ def _ignore_root(value: str) -> None:
     del value
 
 
-def _no_cleanup() -> ConcurrentStableList[str]:
-    """桩：不清共享库。
+def _no_cleanup(**_kwargs: object) -> ConcurrentStableList[str]:
+    """桩：不清共享库（`reset_shared_databases` 与 `clear_shared_db_files` 共用）。
 
     Returns:
         ConcurrentStableList[str]: 空失败清单。
     """
     return ConcurrentStableList()
+
+
+def _cleanup_failed(*names: str) -> Callable[..., ConcurrentStableList[str]]:
+    """构造「清库失败清单」桩（`clear_shared_db_files` 的形状）。
+
+    Args:
+        *names: 要报告的失败条目。
+
+    Returns:
+        Callable[..., ConcurrentStableList[str]]: 返回固定失败清单的桩。
+    """
+
+    def _stub(**_kwargs: object) -> ConcurrentStableList[str]:
+        """返回固定失败清单。
+
+        Args:
+            **_kwargs: 与真函数同形的关键字参数（忽略）。
+
+        Returns:
+            ConcurrentStableList[str]: 失败清单。
+        """
+        return ConcurrentStableList(names)
+
+    return _stub
 
 
 @pytest.mark.kiwi_id(2317)
@@ -189,7 +216,8 @@ def test_configure_warns_when_shared_db_cleanup_fails(
     """会话开始清库失败（句柄占用）：打印告警并继续（本次改用新库）。"""
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
-    monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", lambda: ConcurrentStableList(["platform.db"]))
+    monkeypatch.setattr(plugin.fixtures, "reset_shared_databases", lambda: ConcurrentStableList())
+    monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", _cleanup_failed("platform.db"))
     plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
     assert "共享测试库清理失败" in capsys.readouterr().out
 
@@ -199,10 +227,9 @@ def test_configure_fails_when_residual_lock_survives_cleanup(monkeypatch: pytest
     """残留锁清不掉：会话直接失败（带锁开跑只会把整轮拖成等锁超时）。"""
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
+    monkeypatch.setattr(plugin.fixtures, "reset_shared_databases", lambda: ConcurrentStableList())
     monkeypatch.setattr(
-        plugin.fixtures,
-        "clear_shared_db_files",
-        lambda: ConcurrentStableList(["platform.db", "shared-db-write.lock"]),
+        plugin.fixtures, "clear_shared_db_files", _cleanup_failed("platform.db", "shared-db-write.lock")
     )
     with pytest.raises(RuntimeError, match="残留测试锁清理失败"):
         plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
@@ -215,7 +242,8 @@ def test_configure_quiet_when_shared_db_cleanup_succeeds(
     """会话开始清库成功（`failed` 为空）：不打印告警（补齐该分支在 worker 内的覆盖）。"""
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
-    monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", lambda: ConcurrentStableList())
+    monkeypatch.setattr(plugin.fixtures, "reset_shared_databases", lambda: ConcurrentStableList())
+    monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", _cleanup_failed())
     plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
     assert "共享测试库清理失败" not in capsys.readouterr().out
 
@@ -237,3 +265,40 @@ def test_configure_skips_cleanup_in_worker(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(plugin.fixtures, "clear_shared_db_files", lambda: called.append(1) or ConcurrentStableList())
     plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
     assert called == []
+
+
+@pytest.mark.kiwi_id(2399)
+def test_gate_name_for_shared_libraries() -> None:
+    """门名按**实际库**归一：共享测试库映射为 `platform` / `tenant`（诊断文本保持不变）。"""
+    assert plugin.gate_name_for(plugin.PLATFORM_DB_KEY, fixtures.shared_db_url("platform")) == "platform"
+    assert plugin.gate_name_for("tenant_demo", fixtures.shared_db_url("tenant")) == "tenant"
+    # 同一个库的另一种写法（无查询串 / 换方言前缀）必须落到同一个门名
+    shared_path = fixtures.shared_db_url("platform").split(":///", 1)[1].split("?", 1)[0]
+    assert plugin.gate_name_for(plugin.PLATFORM_DB_KEY, _sqlite_url(shared_path)) == "platform"
+
+
+@pytest.mark.kiwi_id(2399)
+def test_gate_name_for_falls_back_without_url() -> None:
+    """不掌握实际库（显式写区间 / 初始化阶段）：按数据源段回落。"""
+    assert plugin.gate_name_for(plugin.PLATFORM_DB_KEY) == "platform"
+    assert plugin.gate_name_for("tenant_demo") == "tenant"
+
+
+@pytest.mark.kiwi_id(2399)
+def test_gate_name_for_private_library() -> None:
+    """私有库（`own_db` / 临时库）：按库文件路径哈希各拿一把门，与共享库的门分开。"""
+    private = _sqlite_url("own.db")
+    name = plugin.gate_name_for(plugin.PLATFORM_DB_KEY, private)
+    assert name.startswith("own-")
+    assert plugin.gate_name_for(plugin.PLATFORM_DB_KEY, private + "?timeout=5") == name
+    assert plugin.gate_name_for(plugin.PLATFORM_DB_KEY, _sqlite_url("other.db")) != name
+
+
+@pytest.mark.kiwi_id(2399)
+def test_gate_name_for_identity_fallbacks() -> None:
+    """归一兜底：无 `database` 段 / 无法解析 / `file:` 形式都有确定门名（不抛错、不误判共享库）。"""
+    assert plugin.gate_name_for(plugin.PLATFORM_DB_KEY, _sqlite_url("")).startswith("own-")
+    assert plugin.gate_name_for(plugin.PLATFORM_DB_KEY, "not a url").startswith("own-")
+    uri = plugin.gate_name_for(plugin.PLATFORM_DB_KEY, _sqlite_url("file:memdb1?uri=true"))
+    digest = hashlib.sha1(fixtures.db_file_identity("memdb1").encode("utf-8")).hexdigest()[:8]
+    assert uri == f"own-{digest}"

@@ -1,7 +1,7 @@
 """事务性发件箱存储用例（Kiwi 2172 / 2174）：同库同事务写入 / 取待投递顺序 / 标记 / 退避死信 / 重放 / 看板
 / 事件契约版本与签发校验模式（2174）。
 
-测试库：临时 SQLite（建发件箱三表）。每次数据库交互均显式事务（会话自动开事务，勿混用）。
+测试库：临时 SQLite（建发件箱三表）。写入即落库（测试库 autocommit）；「业务失败随事务回滚」由三库集成层验证。
 """
 
 from datetime import UTC, datetime, timedelta
@@ -52,8 +52,13 @@ async def _event_id_by_payload(session: AsyncSession, value: int) -> str:
 
 
 @pytest.mark.kiwi_id(2172)
-async def test_enqueue_defaults_and_rollback(session: AsyncSession) -> None:
-    """写入缺省补齐 event_id / occurred_at；事务回滚不发事件。"""
+async def test_enqueue_defaults_and_persists_under_test_autocommit(session: AsyncSession) -> None:
+    """写入缺省补齐 event_id / occurred_at；业务异常后事件**仍已落库**（测试库 autocommit 口径）。
+
+    为什么不断言「回滚不发事件」：2026-11-22 业主口径确定 SQLite 测试库写入即落库（DBAPI
+    `isolation_level=None` + 操作级写门），「业务失败 → 事件不入库」是**正式数据库**语义，
+    归三库集成层验证；本地锁住「缺省值补齐 + 落库可见 + 状态为待投递」这一面。
+    """
     store = SqlOutboxStore()
     async with session.begin():
         event_id = await store.enqueue(
@@ -72,7 +77,7 @@ async def test_enqueue_defaults_and_rollback(session: AsyncSession) -> None:
         async with session.begin():
             await store.enqueue(session, EventEnvelope(event_type="order.created"))
             raise RuntimeError("业务失败回滚")
-    assert await _count(session, SysOutbox) == 1
+    assert await _count(session, SysOutbox) == 2
 
 
 @pytest.mark.kiwi_id(2172)

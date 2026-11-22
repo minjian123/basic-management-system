@@ -6,13 +6,15 @@
 - 读门之间共享、写门与所有读门互斥；写门持有期间新读锁加不上，不会读到写了一半的数据；
 - 作用域是**一次数据库操作**（一次会话），不是整条用例；
 - 升级顺序固定为「让出读份额 → 取写门 → 放写门 → 取回读份额」，异常路径同序执行；
-- **全库一把门**（13_08 T7，2026-11-20 拍板）：平台库与租户库**共用同一把读写门**。
+- **按库一把门**（2026-11-22 业主口径）：门的粒度是**实际库文件**，不是数据源段。共享测试库
+  （`.cache/test/platform.db` / `tenant.db`）各一把，私有库（`own_db` / `tmp_path` 建的一次性库）
+  按库文件路径各一把——数据库都不一样，没有互相排队的理由。
 
-为什么不再按数据源分把：一个请求常常同时碰两个库（平台库存表单元数据、租户库存布局与
-自建字段），而门的粒度是「请求级会话」。两个进程各持一把、互等对方那把，就构成跨库 ABBA
-死锁——实测 24 路并行时每轮稳定在同样几个用例卡满 30 秒，把整批拖到 3~5 分钟。合成一把后，
-同一时刻最多一个写者，「持 A 库门等 B 库门」在结构上不可能出现，也不必再靠「谁在前谁在后」
-的约定维持正确性；代价只是跨库写不再并行（SQLite 单文件写本来就是串行，读仍并行）。
+为什么不再「全库一把」（13_08 T7 的旧口径）：那把锁是为了消除「平台库门 ↔ 租户库门」的跨库
+ABBA 互等。改成按库分部后，互等只可能出现在「同一任务在一次操作内先后取两把门」——操作级门
+持有时长是一次 SQL，且跨库会话顺序已有「平台库在前、租户库在后」的固定约定，故可拆。拆分换来的
+是**私有库的建表 / 播种不再占住共享库的排队路径**：实测 `apply_unit_schema` 在临时库上建全套表
+持门 >5s，曾把 24 路其它 worker 全挡在写门 5s 上限外（2026-11-22 预检实测 3 条用例因此失败）。
 """
 
 from __future__ import annotations
@@ -30,35 +32,32 @@ from bms_core.testing import diagnostics, lock_probe
 from bms_core.testing.rwlock import DEFAULT_TIMEOUT, GATE_LABEL, DbGate, gate_path
 
 PLATFORM_GATE = "platform"
-"""平台库门名（诊断标签；与租户库共用同一把内核门，见模块说明）。"""
+"""共享平台库门名（锁文件 `db-gate-platform.lock`）。"""
 
 TENANT_GATE = "tenant"
-"""租户库门名（诊断标签；与平台库共用同一把内核门，见模块说明）。"""
-
-GLOBAL_GATE = "all"
-"""全局门的锁文件名（`db-gate-all.lock`）：全库读写共用一把。"""
+"""共享租户库门名（锁文件 `db-gate-tenant.lock`）。"""
 
 _GATES: ConcurrentStableDict[str, DbGate] = ConcurrentStableDict()
-"""门单例（进程内复用同一句柄；`-n auto` 下由操作系统保证跨进程互斥）。"""
+"""门单例（**一门一锁文件**；`-n auto` 下由操作系统保证跨进程互斥）。"""
 
 
 def gate(name: str) -> DbGate:
-    """取（或创建）**全局门**单例。
+    """取（或创建）指定库的门单例。
 
-    13_08 T7 起门不再按数据源区分：`name` 只用于诊断标签（日志 / 持有者记录里写
-    `platform` / `tenant`），底层锁文件恒为 `db-gate-all.lock`，跨库写因此不可能互相等待。
+    门名即库的身份（见 `gate_name_for`）：共享库用 `platform` / `tenant`，私有库用
+    `own-<路径哈希>`。每个门名对应独立锁文件 `db-gate-<name>.lock`，不同库之间不再互相排队。
 
     Args:
-        name: 诊断标签（`platform` / `tenant`），不决定锁文件。
+        name: 门名（库的身份）。
 
     Returns:
-        DbGate: 全局门实例。
+        DbGate: 该库的门实例。
     """
-    existing = _GATES.get(GLOBAL_GATE)
+    existing = _GATES.get(name)
     if existing is not None:
         return existing
-    created = DbGate(GLOBAL_GATE, gate_path(GLOBAL_GATE))
-    _GATES[GLOBAL_GATE] = created
+    created = DbGate(name, gate_path(name))
+    _GATES[name] = created
     return created
 
 
@@ -103,6 +102,7 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
     restored: ConcurrentStableList[int] = ConcurrentStableList()
     stage = "read"
     outcome = "ok"
+    write_acquired = False
     try:
         read_started = time.monotonic()
         try:
@@ -133,6 +133,7 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
                 restored = await target.acquire_write(wait=wait)
             finally:
                 wait_write = time.monotonic() - write_wait_start
+            write_acquired = True
             stage = "hold"
             lock_probe.note("gate+", f"{name} rw")
             try:
@@ -140,10 +141,11 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             finally:
                 lock_probe.note("gate-", f"{name} rw")
         finally:
-            # 无论是否报错都释放写门；没拿到（取写门就失败）时只记日志。
+            # 无论是否报错都释放写门；没拿到（取写门就失败）时**不告警**——那是超时的预期路径，
+            # 真告警只在「自认为持有却查无账目」（重复释放 / 租约泄漏）。
             # **同步释放**：用例 / 夹具被取消时 finally 里的 await 会立刻再抛 CancelledError，
             # 异步释放就走不完，写门深度永久多一层。这里先同步清账目与内核锁，再尽力恢复读份额。
-            pending = target.release_write_now(restored)
+            pending = target.release_write_now(restored, expect_held=write_acquired)
             if pending:
                 with suppress(BaseException):
                     await target.restore_reads(pending)
@@ -298,15 +300,21 @@ class GatedEngine:
     async def connect(self) -> AsyncGenerator[Any]:
         """打开连接（执行走读门）。"""
         gate_name = object.__getattribute__(self, "_gate_name")
+        url = str(object.__getattribute__(self, "_engine").url)
         async with object.__getattribute__(self, "_engine").connect() as connection:
-            yield _GatedConnection(connection, lambda: db_access_gate(gate_name, read_only=True, wait=DEFAULT_TIMEOUT))
+            yield _GatedConnection(
+                connection, lambda: db_access_gate(gate_name, read_only=True, wait=DEFAULT_TIMEOUT, url=url)
+            )
 
     @asynccontextmanager
     async def begin(self) -> AsyncGenerator[Any]:
         """打开写连接（执行走写门）；**不再开事务**，每条 SQL 自动提交。"""
         gate_name = object.__getattribute__(self, "_gate_name")
+        url = str(object.__getattribute__(self, "_engine").url)
         async with object.__getattribute__(self, "_engine").connect() as connection:
-            yield _GatedConnection(connection, lambda: db_access_gate(gate_name, read_only=False, wait=DEFAULT_TIMEOUT))
+            yield _GatedConnection(
+                connection, lambda: db_access_gate(gate_name, read_only=False, wait=DEFAULT_TIMEOUT, url=url)
+            )
 
     async def dispose(self) -> None:
         """销毁底层引擎。"""

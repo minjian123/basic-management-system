@@ -998,7 +998,9 @@ class DbGate:
             held.release()
         return released
 
-    def release_write_now(self, restore: ConcurrentStableList[int] | None = None) -> ConcurrentStableList[int]:
+    def release_write_now(
+        self, restore: ConcurrentStableList[int] | None = None, *, expect_held: bool = True
+    ) -> ConcurrentStableList[int]:
         """**同步**释放写门：账目与系统解锁立即完成（取消 / 收尾阶段也一定生效）。
 
         为什么拆出同步版：用例被取消时 `finally` 里的 `await` 可能立刻再抛 `CancelledError`，
@@ -1006,6 +1008,9 @@ class DbGate:
 
         Args:
             restore: `acquire_write` 返回的 token 清单（升级路径传入；None 表示无）。
+            expect_held: 调用方**自认为**持有写门。取写门超时时 `gate_scope` 也会走到本方法，
+                此时「未持有」是预期的，不该刷告警（否则每轮超时都多一条假警告，排障先要排除它）；
+                真正的重复释放 / 租约泄漏仍传 True，照常告警。
 
         Returns:
             ConcurrentStableList[int]: 需要补回的读份额（调用方异步恢复；无则空）。
@@ -1037,11 +1042,13 @@ class DbGate:
         if timer is not None:
             timer.cancel()
         if not was_held:
-            # 结构要求：取写门失败也走这里。留痕后把让出的份额补回，保证读状态不失衡。
-            _LOGGER.warning(
-                "gate_release_without_write",
-                extra={"gate": self.name, "restore": len(restore or ())},
-            )
+            # 结构要求：取写门失败也走这里。预期的「未持有」（取门超时）不告警，只补回份额；
+            # 其余情况（重复释放 / 租约丢了）留痕，便于定位「谁把门弄丢了」。
+            if expect_held:
+                _LOGGER.warning(
+                    "gate_release_without_write",
+                    extra={"gate": self.name, "restore": len(restore or ())},
+                )
             self._flush_task_holders()
             return ConcurrentStableList(restore or ())
         if remaining:
@@ -1052,16 +1059,20 @@ class DbGate:
         self._release_holder()
         return ConcurrentStableList(restore or ())
 
-    async def release_write(self, restore: ConcurrentStableList[int] | None = None) -> None:
+    async def release_write(
+        self, restore: ConcurrentStableList[int] | None = None, *, expect_held: bool = True
+    ) -> None:
         """释放写门，并恢复升级时让出的读份额。
 
         **未持写门时不抛错**：`gate_scope` 的 `finally` 无论取写门是否成功都会走到这里，
-        抛错会把真正的失败（如等门超时）盖掉。未持有时只记一条告警，并尽力补回让出的份额。
+        抛错会把真正的失败（如等门超时）盖掉。未持有时按 `expect_held` 决定是否告警，
+        并尽力补回让出的份额。
 
         Args:
             restore: `acquire_write` 返回的 token 清单（升级路径传入；None 表示无）。
+            expect_held: 调用方自认为持有写门（见 `release_write_now`）。
         """
-        pending = self.release_write_now(restore)
+        pending = self.release_write_now(restore, expect_held=expect_held)
         if pending:
             await self.restore_reads(pending)
 
