@@ -14,7 +14,7 @@ from typing import Any, cast
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -441,6 +441,20 @@ async def test_execute_plan_falls_back_for_runner_without_stats() -> None:
     assert reports[0].created == 0
 
 
+def _transactional(url: str) -> AsyncEngine:
+    """建**显式事务**引擎：本基座的测试连接默认自动提交（DBAPI `isolation_level=None`），
+    要验证「回滚撤销 / 未提交不可见」必须由 SQLAlchemy 在建连后覆盖为 `SERIALIZABLE`
+    （与 `test_unit_of_work` 验证回滚同一做法）。
+
+    Args:
+        url: SQLite 连接串。
+
+    Returns:
+        AsyncEngine: 显式事务引擎。
+    """
+    return create_async_engine(url).execution_options(isolation_level="SERIALIZABLE")
+
+
 # ---- 用例 16：无脏数据（真实库证明）----
 
 
@@ -450,7 +464,7 @@ async def test_rollback_leaves_no_rows_in_real_database(tmp_path: Path) -> None:
     证明方式：真实事务内写入 → 回滚 → 另一连接查询为空。对应编排侧「整体回滚 → 零脏数据」。
     """
     url = f"sqlite+aiosqlite:///{tmp_path / 'seed.db'}"
-    engine = create_async_engine(url)
+    engine = _transactional(url)
     try:
         async with engine.begin() as connection:
             await connection.execute(text("CREATE TABLE probe (id INTEGER PRIMARY KEY, note TEXT)"))
@@ -477,8 +491,8 @@ async def test_uncommitted_rows_invisible_to_other_connection(tmp_path: Path) ->
     SQLite 无两阶段，故用「未提交事务对其他连接不可见」证明同一性质（见实施记录 §2）。
     """
     url = f"sqlite+aiosqlite:///{tmp_path / 'visibility.db'}"
-    engine = create_async_engine(url)
-    writer_engine = create_async_engine(url)
+    engine = _transactional(url)
+    writer_engine = _transactional(url)
     try:
         async with engine.begin() as connection:
             await connection.execute(text("CREATE TABLE probe (id INTEGER PRIMARY KEY, note TEXT)"))
@@ -499,8 +513,8 @@ async def test_uncommitted_rows_invisible_to_other_connection(tmp_path: Path) ->
 async def test_committed_rows_visible_to_other_connection(tmp_path: Path) -> None:
     """用例 17 对照：提交后另一连接**可见**（证明上一用例的「看不到」确因未提交）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'visible.db'}"
-    engine = create_async_engine(url)
-    writer_engine = create_async_engine(url)
+    engine = _transactional(url)
+    writer_engine = _transactional(url)
     try:
         async with engine.begin() as connection:
             await connection.execute(text("CREATE TABLE probe (id INTEGER PRIMARY KEY, note TEXT)"))
