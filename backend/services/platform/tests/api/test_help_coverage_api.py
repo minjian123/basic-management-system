@@ -171,7 +171,13 @@ async def test_coverage_filters_and_determinism(client: AsyncClient, ns: Namespa
     first = _data(await client.get(_COVERAGE, params={"module_key": module}), "覆盖率（首次）")
     second = _data(await client.get(_COVERAGE, params={"module_key": module}), "覆盖率（再次）")
     stable_keys = ("schema_version", "kind", "as_of", "scope", "summary", "groups", "units", "exemptions")
-    assert {key: first[key] for key in stable_keys} == {key: second[key] for key in stable_keys}
+    scoped_keys = tuple(key for key in stable_keys if key != "summary")
+    assert {key: first[key] for key in scoped_keys} == {key: second[key] for key in scoped_keys}
+    # `summary.reference`（表单 / 字段 / 动作码兜底）是**全平台**口径、不随 module_key 收敛：
+    # 两次调用之间别的 worker 新增锚点就会变（2026-11-23 末批实测 4→5 / 5→7），不参与确定性比对。
+    first_summary = {key: value for key, value in first["summary"].items() if key != "reference"}
+    second_summary = {key: value for key, value in second["summary"].items() if key != "reference"}
+    assert first_summary == second_summary
     assert first["summary"]["action"]["total"] == 1
     assert first["summary"]["action"]["gap"] == 1
     assert first["summary"]["menu"]["total"] == 1

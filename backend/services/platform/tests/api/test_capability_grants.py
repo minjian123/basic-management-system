@@ -405,10 +405,17 @@ async def test_revoke_is_soft_and_idempotent(client: AsyncClient) -> None:
     assert missing.json()["code"] == 10002
 
 
+@pytest.mark.own_db("声明同步是全局口径：用独占平台库，避免并行 worker 的启动同步把本用例造的能力行判为「声明移除」")
 @pytest.mark.anyio
-async def test_declared_sync_create_disable_restore_with_audit(service_app: FastAPI) -> None:
-    """声明同步：新建 → 声明移除置撤销 → 声明回归恢复；状态变更逐次经审计捕获。"""
+async def test_declared_sync_create_disable_restore_with_audit(_isolated_service_app: FastAPI) -> None:
+    """声明同步：新建 → 声明移除置撤销 → 声明回归恢复；状态变更逐次经审计捕获。
+
+    独占平台库（`own_db`）：`sync_declared()` 会把「库内存在、当前声明没有」的行判为声明移除，
+    而别的 worker 的启动装配用的是真实目录（不含本用例的 `demo.mdm.user-roles`）——共享库上
+    本用例造的行会被并发启动同步改成 disabled（2026-11-23 末批实测：1/3 轮次复现）。
+    """
     audit = _RecordingAudit()
+    service_app = _isolated_service_app  # 独占库应用：与共享库的 service_app 同装配，仅库不同
     async with session_scope(
         service_app.state.engine_registry,
         db_key=PLATFORM_DB_KEY,
@@ -439,7 +446,7 @@ async def test_declared_sync_create_disable_restore_with_audit(service_app: Fast
         assert (row.status, row.note) == (GRANT_STATUS_ENABLED, GRANT_NOTE_DECLARED)
 
     changes = [change for _table, _id, change, _actor in audit.calls]
-    # 共享库上还有平台自身的声明行：只断言本用例能力的变更序列存在，不依赖全表计数。
+    # 独占库上仍有平台自身的声明行：只断言本用例能力的变更序列存在，不依赖全表计数。
     assert GRANT_STATUS_DISABLED in changes
     assert changes.count(GRANT_STATUS_ENABLED) >= 2
 
