@@ -30,6 +30,7 @@ import ctypes
 import itertools
 import logging
 import os
+import random
 import sys
 import threading
 import time
@@ -108,6 +109,23 @@ _RETRY_MIN: Final = 0.0005
 
 _RETRY_MAX: Final = 0.005
 """重试间隔上限（秒）：比原文件锁的 50ms 轮询低一个数量级。"""
+
+
+def _retry_delay(delay: float) -> float:
+    """把退避间隔随机抖开再睡（消除多进程同步重试的「惊群」）。
+
+    为什么需要：24 个 worker 同频轮询同一个门文件时，同频退避会让它们一起撞锁、一起失败、
+    一起再撞，个别任务被反复抢输后能累积到数秒（实测单次持门最长 0.116s，等门却到 4.4s）。
+    抖动只改「何时重试」，不改判据与上限。
+
+    Args:
+        delay: 基准退避间隔（秒）。
+
+    Returns:
+        float: `[0.5×delay, delay]` 内的随机间隔。
+    """
+    return delay * (0.5 + random.random() * 0.5)
+
 
 _LOCKFILE_FAIL_IMMEDIATELY: Final = 0x0001
 _LOCKFILE_EXCLUSIVE_LOCK: Final = 0x0002
@@ -712,7 +730,7 @@ class DbGate:
                 self._log_wait(message)
                 self._note_gate_wait(now - (deadline - limit), "timeout")
                 raise TimeoutError(message)
-            await asyncio.sleep(min(delay, max(deadline - now, 0.0)))
+            await asyncio.sleep(min(_retry_delay(delay), max(deadline - now, 0.0)))
             delay = min(delay * 2, _RETRY_MAX)
         if drop_kernel:
             # 先让出共享锁，再排队取独占锁（顺序不能反）。
@@ -782,7 +800,7 @@ class DbGate:
                 self._log_wait(message)
                 self._note_gate_wait(now - started, "timeout")
                 raise TimeoutError(message)
-            await asyncio.sleep(min(delay, max(deadline - now, 0.0)))
+            await asyncio.sleep(min(_retry_delay(delay), max(deadline - now, 0.0)))
             delay = min(delay * 2, _RETRY_MAX)
 
     def release_write_now(self, restore: ConcurrentStableList[int] | None = None) -> ConcurrentStableList[int]:
@@ -1158,5 +1176,5 @@ class DbGate:
                 self._log_wait(message)
                 self._note_gate_wait(now - started, "timeout")
                 raise TimeoutError(message)
-            await asyncio.sleep(min(delay, max(deadline - now, 0.0)))
+            await asyncio.sleep(min(_retry_delay(delay), max(deadline - now, 0.0)))
             delay = min(delay * 2, _RETRY_MAX)

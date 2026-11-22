@@ -20,6 +20,7 @@ from bms_core.core.exceptions import (
     NoticeTimeInvalidError,
     ParamError,
 )
+from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.models.notice import SysNotice, SysNoticeI18n, SysNoticeRead
 from bms_notification.domains.notification.notice_constants import (
@@ -113,25 +114,26 @@ async def _i18n_rows(session: AsyncSession, notice_id: int) -> ConcurrentStableD
     return ConcurrentStableDict({row.locale: row.title for row in rows})
 
 
-async def test_create_published_with_i18n_and_event(shared_tenant_engine: AsyncEngine) -> None:
+async def test_create_published_with_i18n_and_event(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
     """直接发布：主表派生中文、附表两种语言、发 published 事件。"""
+    own = f"{ns.prefix}-"
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
             outbox = Outbox()
             service = _service(session, outbox=outbox)
             detail = await service.create(
-                NoticeCreateRequest(i18n=_texts(zh="中文标题", en="English title"), is_top=True),
+                NoticeCreateRequest(i18n=_texts(zh=f"{own}中文标题", en=f"{own}English title"), is_top=True),
                 now=utc_now(),
                 request_locale="zh-CN",
                 tenant_id="1001",
             )
-            assert detail.title == "中文标题"
+            assert detail.title == f"{own}中文标题"
             assert detail.is_top is True
             assert detail.status == NOTICE_STATUS_PUBLISHED
             assert detail.i18n is not None and set(detail.i18n) == {"zh-CN", "en-US"}
             assert await _i18n_rows(session, detail.id) == ConcurrentStableDict(
-                {"zh-CN": "中文标题", "en-US": "English title"}
+                {"zh-CN": f"{own}中文标题", "en-US": f"{own}English title"}
             )
             assert [event.event_type for event in outbox.events] == ["sys.notice.published"]
             payload = outbox.events[0].payload
@@ -172,35 +174,37 @@ async def test_create_draft_then_publish(shared_tenant_engine: AsyncEngine) -> N
             reset_user(tokens)
 
 
-async def test_update_published_emits_updated(shared_tenant_engine: AsyncEngine) -> None:
+async def test_update_published_emits_updated(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
     """编辑已发布公告：标题 / 置顶更新并写 updated 事件。"""
+    own = f"{ns.prefix}-"
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
-            row = add_notice(session, title="旧标题")
+            row = add_notice(session, title=f"{own}旧标题")
             await session.flush()
             outbox = Outbox()
             service = _service(session, outbox=outbox)
             detail = await service.update(
                 int(row.id),
-                NoticeUpdateRequest(i18n=_texts(zh="新标题"), is_top=True),
+                NoticeUpdateRequest(i18n=_texts(zh=f"{own}新标题"), is_top=True),
                 now=utc_now(),
                 request_locale="zh-CN",
                 tenant_id="1001",
                 can_manage=True,
             )
-            assert detail.title == "新标题" and detail.is_top is True
+            assert detail.title == f"{own}新标题" and detail.is_top is True
             assert [event.payload["action"] for event in outbox.events] == [NOTICE_ACTION_UPDATED]
         finally:
             reset_user(tokens)
 
 
-async def test_update_conflicts_and_offshelf(shared_tenant_engine: AsyncEngine) -> None:
+async def test_update_conflicts_and_offshelf(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
     """已下线不可编辑；不支持撤回草稿；不存在 70201。"""
+    own = f"{ns.prefix}-"
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
-            offline = add_notice(session, title="下线", status=NOTICE_STATUS_OFFLINE)
+            offline = add_notice(session, title=f"{own}下线", status=NOTICE_STATUS_OFFLINE)
             await session.flush()
             service = _service(session)
             with pytest.raises(NoticeStatusConflictError):
@@ -212,7 +216,7 @@ async def test_update_conflicts_and_offshelf(shared_tenant_engine: AsyncEngine) 
                     tenant_id="1001",
                     can_manage=True,
                 )
-            published = add_notice(session, title="发布中")
+            published = add_notice(session, title=f"{own}发布中")
             await session.flush()
             with pytest.raises(NoticeStatusConflictError):
                 await service.update(
@@ -350,39 +354,43 @@ async def test_content_byte_limit(shared_tenant_engine: AsyncEngine) -> None:
             reset_user(tokens)
 
 
-async def test_list_detail_visibility_and_locale(shared_tenant_engine: AsyncEngine) -> None:
-    """普通用户只看发布中；管理侧看全部；显式 locale 命中附表。"""
+async def test_list_detail_visibility_and_locale(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
+    """普通用户只看发布中；管理侧看全部；显式 locale 命中附表（只认本用例前缀的行）。"""
+    own = f"{ns.prefix}-"
     now = utc_now()
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(2)
         try:
-            published = add_notice(session, title="中文标题")
-            draft = add_notice(session, title="草稿", status=NOTICE_STATUS_DRAFT)
+            published = add_notice(session, title=f"{own}中文标题")
+            draft = add_notice(session, title=f"{own}草稿", status=NOTICE_STATUS_DRAFT)
             await session.flush()
             session.add(
-                SysNoticeI18n(notice_id=int(published.id), locale="en-US", title="English title", content="<p>en</p>")
+                SysNoticeI18n(
+                    notice_id=int(published.id), locale="en-US", title=f"{own}English title", content="<p>en</p>"
+                )
             )
             await session.flush()
             service = _service(session)
-            page = await service.list_published(page=1, size=10, now=now, locale="en-US")
-            assert page.total == 1 and page.list[0].title == "English title"
+            page = await service.list_published(page=1, size=1000, now=now, locale="en-US")
+            own_rows = [row for row in page.list if row.title.startswith(own)]
+            assert len(own_rows) == 1 and own_rows[0].title == f"{own}English title"
             page = await service.list_manage(
                 page=1,
-                size=10,
+                size=100,
                 now=now,
                 locale="zh-CN",
-                keyword=None,
+                keyword=own,
                 status=None,
                 notice_type=None,
                 can_manage=False,
             )
-            assert page.total == 1 and page.list[0].title == "中文标题"
+            assert page.total == 1 and page.list[0].title == f"{own}中文标题"
             page = await service.list_manage(
                 page=1,
-                size=10,
+                size=100,
                 now=now,
                 locale="zh-CN",
-                keyword=None,
+                keyword=own,
                 status=None,
                 notice_type=None,
                 can_manage=True,
@@ -391,9 +399,9 @@ async def test_list_detail_visibility_and_locale(shared_tenant_engine: AsyncEngi
             with pytest.raises(NoticeNotFoundError):
                 await service.detail(int(draft.id), now=now, locale="zh-CN", can_manage=False)
             detail = await service.detail(int(draft.id), now=now, locale="zh-CN", can_manage=True)
-            assert detail.title == "草稿"
+            assert detail.title == f"{own}草稿"
             detail = await service.detail(int(published.id), now=now, locale="en-US", can_manage=False)
-            assert detail.title == "English title" and detail.i18n is None
+            assert detail.title == f"{own}English title" and detail.i18n is None
             detail = await service.detail(int(published.id), now=now, locale="zh-CN", can_manage=True)
             assert detail.i18n is not None and "en-US" in detail.i18n
             with pytest.raises(ParamError):
@@ -422,14 +430,15 @@ async def test_list_detail_visibility_and_locale(shared_tenant_engine: AsyncEngi
             reset_user(tokens)
 
 
-async def test_mark_read_idempotent_and_errors(shared_tenant_engine: AsyncEngine) -> None:
+async def test_mark_read_idempotent_and_errors(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
     """回执幂等；不可见 70202；不存在 70201。"""
+    own = f"{ns.prefix}-"
     now = utc_now()
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(3)
         try:
-            row = add_notice(session, title="阅读")
-            draft = add_notice(session, title="草稿", status=NOTICE_STATUS_DRAFT)
+            row = add_notice(session, title=f"{own}阅读")
+            draft = add_notice(session, title=f"{own}草稿", status=NOTICE_STATUS_DRAFT)
             await session.flush()
             service = _service(session)
             first = await service.mark_read(int(row.id), now=now)
@@ -449,12 +458,12 @@ async def test_mark_read_idempotent_and_errors(shared_tenant_engine: AsyncEngine
             reset_user(tokens)
 
 
-async def test_read_stats_and_unavailable(shared_tenant_engine: AsyncEngine) -> None:
+async def test_read_stats_and_unavailable(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
     """统计：应读 / 已读 / 未读与读>应读边界；应读不可用 70206。"""
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
-            row = add_notice(session, title="统计")
+            row = add_notice(session, title=f"{ns.prefix}-统计")
             await session.flush()
             add_receipt(session, notice_id=int(row.id), user_id=1)
             add_receipt(session, notice_id=int(row.id), user_id=2)
@@ -475,22 +484,29 @@ async def test_read_stats_and_unavailable(shared_tenant_engine: AsyncEngine) -> 
             reset_user(tokens)
 
 
-async def test_expire_batches_and_events(shared_tenant_engine: AsyncEngine) -> None:
-    """过期扫描：批量下线、发 offline 事件、已下线不重复。"""
+@pytest.mark.xdist_group("notice-expire")
+async def test_expire_batches_and_events(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
+    """过期扫描：批量下线、发 offline 事件、已下线不重复（全局扫描只断本用例的行与事件）。"""
+    own = f"{ns.prefix}-"
     now = utc_now()
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
-            first = add_notice(session, title="到期1", expire_at=now - timedelta(minutes=2))
-            second = add_notice(session, title="到期2", expire_at=now - timedelta(minutes=1))
-            add_notice(session, title="未到期", expire_at=now + timedelta(hours=1))
+            first = add_notice(session, title=f"{own}到期1", expire_at=now - timedelta(minutes=2))
+            second = add_notice(session, title=f"{own}到期2", expire_at=now - timedelta(minutes=1))
+            add_notice(session, title=f"{own}未到期", expire_at=now + timedelta(hours=1))
             await session.flush()
             outbox = Outbox()
             service = _service(session, outbox=outbox)
-            assert await service.expire(now=now, limit=10, tenant_id="1001") == 2
-            assert {event.payload["action"] for event in outbox.events} == {NOTICE_ACTION_OFFLINE}
+            assert await service.expire(now=now, limit=1000, tenant_id="1001") >= 2
             assert first.status == NOTICE_STATUS_OFFLINE and second.status == NOTICE_STATUS_OFFLINE
-            assert await service.expire(now=now, limit=10, tenant_id="1001") == 0
+            own_events = [event for event in outbox.events if str(event.payload["title"]).startswith(own)]
+            assert {event.payload["action"] for event in own_events} == {NOTICE_ACTION_OFFLINE}
+            assert {event.payload["notice_id"] for event in own_events} == {str(int(first.id)), str(int(second.id))}
+            seen = len(outbox.events)
+            await service.expire(now=now, limit=1000, tenant_id="1001")
+            again = [event for event in list(outbox.events)[seen:] if str(event.payload["title"]).startswith(own)]
+            assert again == []
         finally:
             reset_user(tokens)
 
@@ -551,7 +567,9 @@ async def test_locale_limit_aware_time_and_update_fields(shared_tenant_engine: A
             reset_user(tokens)
 
 
-async def test_mark_read_integrity_race(shared_tenant_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_mark_read_integrity_race(
+    shared_tenant_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch, ns: Namespace
+) -> None:
     """并发重复回执：保存点回滚后重查既有行。"""
     from sqlalchemy.exc import IntegrityError
 
@@ -560,7 +578,7 @@ async def test_mark_read_integrity_race(shared_tenant_engine: AsyncEngine, monke
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
-            row = add_notice(session, title="并发阅读")
+            row = add_notice(session, title=f"{ns.prefix}-并发阅读")
             await session.flush()
             service = _service(session)
             existing = SysNoticeRead(notice_id=int(row.id), user_id=1, read_at=utc_now())
@@ -584,14 +602,16 @@ async def test_mark_read_integrity_race(shared_tenant_engine: AsyncEngine, monke
             reset_user(tokens)
 
 
-async def test_expire_no_progress_breaks(shared_tenant_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_expire_no_progress_breaks(
+    shared_tenant_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch, ns: Namespace
+) -> None:
     """到期行全部并发冲突时不死循环，直接返回 0。"""
     from bms_notification.domains.notification.repositories.notice import NoticeRepository
 
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
-            row = add_notice(session, title="冲突", expire_at=utc_now() - timedelta(minutes=1))
+            row = add_notice(session, title=f"{ns.prefix}-冲突", expire_at=utc_now() - timedelta(minutes=1))
             await session.flush()
             service = _service(session)
 

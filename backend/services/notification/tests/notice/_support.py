@@ -158,7 +158,7 @@ def add_notice(
     """造一条公告（未 flush）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         title: 标题。
         content: 正文。
         status: 状态。
@@ -191,7 +191,7 @@ def add_receipt(
     """造一条已读回执（未 flush）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         notice_id: 公告主键。
         user_id: 用户主键。
         read_at: 阅读时间。
@@ -208,7 +208,7 @@ async def set_updated_at(session: AsyncSession, notice_id: int, value: datetime)
     """直接改公告更新时间（排序测试用；绕过 ORM 审计钩子）。
 
     Args:
-        session: 回滚会话。
+        session: 写会话。
         notice_id: 公告主键。
         value: 更新时间。
     """

@@ -18,6 +18,7 @@ from bms_core.core.exceptions import NoticeAudienceUnavailableError
 from bms_core.db.session import get_uow
 from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.permission.base import BasePermissionChecker, get_permission_checker
+from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.api.notice import (
     _resolve_locale,
@@ -90,11 +91,12 @@ def _overrides(app: FastAPI, session: AsyncSession, *, can_update: bool = True) 
 
 
 def _payload(
-    *, publish: bool = True, is_top: bool = False
+    prefix: str, *, publish: bool = True, is_top: bool = False
 ) -> dict[str, object]:  # bare-collections:allow — httpx json 参数只接受内置 dict
     """构造新建请求体。
 
     Args:
+        prefix: 本用例标题前缀（清理与断言都以此为准）。
         publish: 是否发布。
         is_top: 是否置顶。
 
@@ -103,8 +105,8 @@ def _payload(
     """
     return {
         "i18n": {
-            "zh-CN": {"title": "中文标题", "content": "<p>正文</p>"},
-            "en-US": {"title": "English", "content": "<p>body</p>"},
+            "zh-CN": {"title": f"{prefix}中文标题", "content": "<p>正文</p>"},
+            "en-US": {"title": f"{prefix}English", "content": "<p>body</p>"},
         },
         "type": "system",
         "priority": "normal",
@@ -113,24 +115,28 @@ def _payload(
     }
 
 
-async def test_crud_and_stats(service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine) -> None:
-    """新建 / 列表 / 详情 / 回执 / 统计 / 编辑 / 删除。"""
+async def test_crud_and_stats(
+    service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine, ns: Namespace
+) -> None:
+    """新建 / 列表 / 详情 / 回执 / 统计 / 编辑 / 删除（只认本用例前缀的行）。"""
+    own = f"{ns.prefix}-"
     async with write_session(shared_tenant_engine) as session:
         _overrides(service_app, session)
-        created = await client.post(API, json=_payload(is_top=True))
+        created = await client.post(API, json=_payload(own, is_top=True))
         assert created.status_code == 200
         body = created.json()["data"]
-        assert body["title"] == "中文标题" and body["is_top"] is True
-        assert body["i18n"]["en-US"]["title"] == "English"
+        assert body["title"] == f"{own}中文标题" and body["is_top"] is True
+        assert body["i18n"]["en-US"]["title"] == f"{own}English"
         notice_id = body["id"]
 
-        listed = await client.get(API)
+        listed = await client.get(API, params={"keyword": own})
         assert listed.json()["data"]["total"] == 1
-        published = await client.get(f"{API}/published")
-        assert published.json()["data"]["total"] == 1
+        published = await client.get(f"{API}/published", params={"size": 200})
+        own_rows = [row for row in published.json()["data"]["list"] if row["title"].startswith(own)]
+        assert [row["id"] for row in own_rows] == [notice_id]
 
         detail = await client.get(f"{API}/{notice_id}", params={"locale": "en-US"})
-        assert detail.json()["data"]["title"] == "English"
+        assert detail.json()["data"]["title"] == f"{own}English"
 
         read = await client.post(f"{API}/{notice_id}/read")
         assert read.status_code == 200
@@ -142,9 +148,9 @@ async def test_crud_and_stats(service_app: FastAPI, client: AsyncClient, shared_
 
         updated = await client.put(
             f"{API}/{notice_id}",
-            json={"is_top": False, "i18n": {"zh-CN": {"title": "新标题", "content": "<p>新正文</p>"}}},
+            json={"is_top": False, "i18n": {"zh-CN": {"title": f"{own}新标题", "content": "<p>新正文</p>"}}},
         )
-        assert updated.json()["data"]["title"] == "新标题" and updated.json()["data"]["is_top"] is False
+        assert updated.json()["data"]["title"] == f"{own}新标题" and updated.json()["data"]["is_top"] is False
 
         deleted = await client.delete(f"{API}/{notice_id}")
         assert deleted.json()["data"] == {"deleted": True}
@@ -152,31 +158,35 @@ async def test_crud_and_stats(service_app: FastAPI, client: AsyncClient, shared_
 
 
 async def test_visibility_for_non_manager(
-    service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine
+    service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine, ns: Namespace
 ) -> None:
-    """普通用户（无 notice:update）：草稿不可见、列表只剩发布中。"""
+    """普通用户（无 notice:update）：草稿不可见、列表只剩发布中（只认本用例前缀的行）。"""
+    own = f"{ns.prefix}-"
     async with write_session(shared_tenant_engine) as session:
-        published = add_notice(session, title="发布中")
-        draft = add_notice(session, title="草稿", status=NOTICE_STATUS_DRAFT)
+        published = add_notice(session, title=f"{own}发布中")
+        draft = add_notice(session, title=f"{own}草稿", status=NOTICE_STATUS_DRAFT)
         await session.flush()
         _overrides(service_app, session, can_update=False)
-        listed = await client.get(API)
+        listed = await client.get(API, params={"keyword": own})
         data = listed.json()["data"]
-        assert data["total"] == 1 and data["list"][0]["title"] == "发布中"
+        assert data["total"] == 1 and data["list"][0]["title"] == f"{own}发布中"
         assert (await client.get(f"{API}/{draft.id}")).json()["code"] == 70201
         detail = await client.get(f"{API}/{published.id}")
-        assert detail.json()["data"]["title"] == "发布中"
+        assert detail.json()["data"]["title"] == f"{own}发布中"
         assert detail.json()["data"]["i18n"] is None
 
 
-async def test_errors(service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine) -> None:
+async def test_errors(
+    service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine, ns: Namespace
+) -> None:
     """非法类型 / 不存在 / 时间冲突 / 已下线状态冲突 / 统计不可用。"""
+    own = f"{ns.prefix}-"
     now = utc_now()
     async with write_session(shared_tenant_engine) as session:
-        offline = add_notice(session, title="下线", status=NOTICE_STATUS_OFFLINE)
+        offline = add_notice(session, title=f"{own}下线", status=NOTICE_STATUS_OFFLINE)
         await session.flush()
         _overrides(service_app, session)
-        bad_type = await client.post(API, json={**_payload(), "type": "unknown"})
+        bad_type = await client.post(API, json={**_payload(own), "type": "unknown"})
         assert bad_type.json()["code"] == 10001
         bad_status = await client.get(API, params={"status": "bad"})
         assert bad_status.json()["code"] == 10001
@@ -184,7 +194,7 @@ async def test_errors(service_app: FastAPI, client: AsyncClient, shared_tenant_e
         bad_time = await client.post(
             API,
             json={
-                "i18n": {"zh-CN": {"title": "x", "content": "<p>x</p>"}},
+                "i18n": {"zh-CN": {"title": f"{own}x", "content": "<p>x</p>"}},
                 "publish_at": now.isoformat(),
                 "expire_at": now.isoformat(),
             },
@@ -229,20 +239,25 @@ def test_audience_reader_dependency() -> None:
     assert isinstance(reader, NoticeAudienceReader)
 
 
-async def test_internal_expire_handler(shared_tenant_engine: AsyncEngine) -> None:
-    """内部过期端点处理函数：置下线并返回条数。"""
+@pytest.mark.xdist_group("notice-expire")
+async def test_internal_expire_handler(shared_tenant_engine: AsyncEngine, ns: Namespace) -> None:
+    """内部过期端点处理函数：置下线并返回条数（只断本用例的行）。"""
+    own = f"{ns.prefix}-"
     async with write_session(shared_tenant_engine) as session:
         tokens = use_user(1)
         try:
-            add_notice(session, title="到期", expire_at=utc_now() - timedelta(minutes=1))
+            row = add_notice(session, title=f"{own}到期", expire_at=utc_now() - timedelta(minutes=1))
             await session.flush()
             register_platform_event_contracts()
             uow = _Uow(session)
             result = await expire_notices(  # pyright: ignore[reportArgumentType]
                 uow,  # pyright: ignore[reportArgumentType]
                 cast("object", FakeOptionSets()),  # pyright: ignore[reportArgumentType]
-                NoticeExpireRequest(limit=10),
+                NoticeExpireRequest(limit=1000),
             )
-            assert getattr(result.data, "expired", None) == 1
+            expired = getattr(result.data, "expired", None)
+            assert isinstance(expired, int) and expired >= 1
+            await session.refresh(row)
+            assert row.status == NOTICE_STATUS_OFFLINE
         finally:
             reset_user(tokens)
