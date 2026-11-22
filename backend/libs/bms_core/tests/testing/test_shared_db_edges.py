@@ -614,3 +614,26 @@ async def test_ensure_unit_schema_applies_declared_unit(tmp_path: Path, monkeypa
 
     assert "platform" in handled
     assert list(calls) == ["platform:platform:platform"]
+
+
+def test_module_prepare_reads_callable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """准备模块里有对应回调即返回它；没有该数据源的回调返回 None。"""
+
+    def prepare(url: str) -> None:
+        """桩准备回调（不建库）。
+
+        Args:
+            url: 连接串（忽略）。
+        """
+        del url
+
+    module = SimpleNamespace(prepare_platform=prepare)
+    monkeypatch.setattr(fixtures, "_load_prepare_module", lambda: module)
+    assert fixtures.module_prepare("platform") is prepare
+    assert fixtures.module_prepare("tenant") is None
+
+
+def test_module_prepare_returns_none_without_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    """准备模块缺失（产品仓未提供 / 未装）时返回 None，由调用方退化为缺省口径。"""
+    monkeypatch.setattr(fixtures, "_load_prepare_module", lambda: None)
+    assert fixtures.module_prepare("platform") is None

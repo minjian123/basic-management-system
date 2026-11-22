@@ -990,6 +990,26 @@ async def _build_shared_db_under_gate(name: str, prepare: Callable[[str], None],
         await asyncio.to_thread(ensure_shared_db, name, prepare, version=version)
 
 
+def module_prepare(name: str) -> Callable[[str], None] | None:
+    """从准备模块取建库回调（`tests_support.shared_db.prepare_<name>`）。
+
+    为什么要它与夹具回调并用：**版本戳必须两边算得一样**。初始化阶段
+    （`prepare_shared_databases`）按本模块取回调；而 worker 侧夹具用的是「套件声明的
+    `{name}_db_prepare`」——某些工程根（如 `libs/bms_core`）的 conftest 不声明该夹具，
+    夹具侧便拿不到回调、版本戳退化成「只摘要模型包」，与初始化阶段写入的戳不一致，表现为
+    `共享库版本戳不一致` 的 setup 报错。故夹具侧在拿不到套件回调时**回落到同一模块**。
+
+    Args:
+        name: 逻辑数据源名（`platform` / `tenant`）。
+
+    Returns:
+        Callable[[str], None] | None: 建库回调；模块缺失或未提供时为 None。
+    """
+    module = _load_prepare_module()
+    candidate = getattr(module, f"prepare_{name}", None) if module is not None else None
+    return cast("Callable[[str], None]", candidate) if callable(candidate) else None
+
+
 def _load_prepare_module() -> Any | None:
     """载入准备回调模块（`tests_support.shared_db`，可由环境变量覆盖）。
 
@@ -1017,7 +1037,7 @@ def shared_platform_db_url(request: pytest.FixtureRequest) -> str:
     Returns:
         str: 平台库连接串。
     """
-    prepare = resolve_prepare(request, "platform")
+    prepare = resolve_prepare(request, "platform") or module_prepare("platform")
     return require_shared_db("platform", version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
 
 
@@ -1031,7 +1051,7 @@ def shared_tenant_db_url(request: pytest.FixtureRequest) -> str:
     Returns:
         str: 租户库连接串。
     """
-    prepare = resolve_prepare(request, "tenant")
+    prepare = resolve_prepare(request, "tenant") or module_prepare("tenant")
     return require_shared_db("tenant", version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
 
 
