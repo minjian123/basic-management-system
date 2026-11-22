@@ -108,7 +108,7 @@ _RETRY_MIN: Final = 0.0005
 """首次重试间隔（秒）：争用少时尽快拿到门。"""
 
 _RETRY_MAX: Final = 0.02
-"""重试间隔上限（秒）：比原文件锁的 50ms 轮询低一个数量级。"""
+"""重试间隔上限（秒）：进程内写权仲裁用；内核锁改阻塞排队后不再靠它抢锁。"""
 
 
 def _retry_delay(delay: float) -> float:
@@ -724,7 +724,7 @@ class DbGate:
             if now >= deadline:
                 message = (
                     f"等待数据库门超时（{limit:.1f}s）：{gate_label(self.name)}；"
-                    f"持有者：{self._describe_holder()}；"
+                    f"持有者：{self._describe_holder()}；{self._describe_local_ledger()}；"
                     "等满硬上限说明有任务长期持门（整条用例持门 / 读会话未释放 / 进程卡住）"
                 )
                 self._log_wait(message)
@@ -794,7 +794,7 @@ class DbGate:
             if now >= deadline:
                 message = (
                     f"等待数据库门超时（{limit:.1f}s）：{gate_label(self.name)}；"
-                    f"同进程写者仍持门（持有者：{self._describe_holder()}）；"
+                    f"同进程写者仍持门（持有者：{self._describe_holder()}；{self._describe_local_ledger()}）；"
                     "等满硬上限说明有任务长期持门（整条用例持门 / 读会话未释放 / 进程卡住）"
                 )
                 self._log_wait(message)
@@ -1093,6 +1093,22 @@ class DbGate:
                 entries.append(line)
         return " | ".join(entries) if entries else "无（可能刚释放或记录未落盘）"
 
+    def _describe_local_ledger(self) -> str:
+        """本进程账目（读份额 token 数 / 写深度 / 内核读标记），补上磁盘记录看不到的泄漏。
+
+        为什么需要：持有记录按「任务 → 文件」落盘，任务被取消 / 收尾异常时**文件可能已删**
+        而账目里的读份额还在——现象是「持有者：无」却一直等门。这里直接读内存账目，
+        一行说清是本进程还压着读份额（真泄漏），还是账目也空（跨进程争用）。
+
+        Returns:
+            str: 形如 `本进程账目：read_tokens=2 write_depth=0 kernel_read=True`。
+        """
+        with self._count_lock:
+            read_tokens = len(self._own_reads)
+            write_depth = self._write_depth
+            kernel_read = self._kernel_read
+        return f"本进程账目：read_tokens={read_tokens} write_depth={write_depth} kernel_read={kernel_read}"
+
     def _log_wait(self, message: str) -> None:
         """把等门告警 / 超时追加到诊断文件（pytest 会捕获 stdout，落文件才留得住）。
 
@@ -1162,7 +1178,7 @@ class DbGate:
                 warned = True
                 message = (
                     f"[rwlock] 等待门 {gate_label(self.name)} 已 {now - started:.1f}s；"
-                    f"持有者：{self._describe_holder()}"
+                    f"持有者：{self._describe_holder()}；{self._describe_local_ledger()}"
                 )
                 print(message, flush=True)
                 self._log_wait(message)
@@ -1170,7 +1186,7 @@ class DbGate:
             if now >= deadline:
                 message = (
                     f"等待数据库门超时（{limit:.1f}s）：{gate_label(self.name)}；"
-                    f"持有者：{self._describe_holder()}；"
+                    f"持有者：{self._describe_holder()}；{self._describe_local_ledger()}；"
                     "等满硬上限说明有任务长期持门（整条用例持门 / 读会话未释放 / 进程卡住）"
                 )
                 self._log_wait(message)
