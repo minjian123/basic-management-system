@@ -153,6 +153,12 @@ SYSTEM_ADMIN_CODES: ConcurrentStableList[str] = ConcurrentStableList(
 DEFAULT_ASSIGN_ACCOUNT = "admin"
 """缺省绑定账号（本地 bootstrap：把首个可用账号绑到内置系统管理员，命中豁免层级）。"""
 
+_PLANNED_ROLE_ID = 0
+"""预演（`dry_run`）下「将新增」角色的占位主键。
+
+角色尚未落库、无真实主键（真实主键恒 ≥ 1），以 0 占位使后续授权 / 绑定判存一律「不存在」，
+与「计划新增」语义一致。"""
+
 AUDIT_ADMIN_CODES: ConcurrentStableList[str] = ConcurrentStableList(("log:query", "log:manage", "archive:query"))
 """审计管理员授权（`log:query` 只读查询 + `log:manage` 链校验 + `archive:query` 归档数据只读；06_01 / 06_02 / 14_01）。
 
@@ -280,7 +286,8 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, assign_user: str = ""
         tenant_url: platform 服务租户库连接串（角色域）。
         platform_url: platform 服务平台库连接串（业务 / 动作码）。
         assign_user: 待绑定到内置系统管理员的账号（`sys_user.code`）或用户主键（空串跳过）。
-        dry_run: 仅预演（不写库）。
+        dry_run: 仅预演（**显式跳过写入**，不靠 `rollback()` 撤销——测试基座与运维通道的连接
+            可能处于自动提交，回滚撤不掉已落库的行）。
 
     Returns:
         SeedOutcome: 执行结果。
@@ -290,13 +297,16 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, assign_user: str = ""
     plan: ConcurrentStableList[tuple[str, str, str, ConcurrentStableList[str]]] = ConcurrentStableList(
         BUILTIN_ADMIN_ROLES
     )
+    apply = not dry_run
     engine = create_async_engine(tenant_url)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
             system_role_id = 0
             for code, name, role_type, codes in plan:
-                role_id = await _ensure_role(session, code=code, name=name, role_type=role_type, outcome=outcome)
+                role_id = await _ensure_role(
+                    session, code=code, name=name, role_type=role_type, outcome=outcome, apply=apply
+                )
                 if code == ROLE_SYSTEM_ADMIN:
                     system_role_id = role_id
                 for permission in codes:
@@ -305,12 +315,17 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, assign_user: str = ""
                         if permission not in outcome.missing_codes:
                             outcome.missing_codes.add(permission)
                         continue
-                    await _ensure_grant(session, role_id=role_id, target_id=target_id, outcome=outcome)
+                    await _ensure_grant(session, role_id=role_id, target_id=target_id, outcome=outcome, apply=apply)
             if assign_user != "":
-                await _ensure_assignment(session, role_id=system_role_id, account=assign_user, outcome=outcome)
-            if dry_run:
-                await session.rollback()
-            else:
+                await _ensure_assignment(
+                    session,
+                    role_id=system_role_id,
+                    role_type=ROLE_TYPE_SYSTEM,
+                    account=assign_user,
+                    outcome=outcome,
+                    apply=apply,
+                )
+            if apply:
                 await session.commit()
     finally:
         await engine.dispose()
@@ -350,7 +365,9 @@ async def _load_permission_ids(platform_url: str) -> ConcurrentStableDict[str, i
         await engine.dispose()
 
 
-async def _ensure_role(session: AsyncSession, *, code: str, name: str, role_type: str, outcome: SeedOutcome) -> int:
+async def _ensure_role(
+    session: AsyncSession, *, code: str, name: str, role_type: str, outcome: SeedOutcome, apply: bool = True
+) -> int:
     """取或建内置角色（按 `code` 判存）。
 
     Args:
@@ -359,9 +376,10 @@ async def _ensure_role(session: AsyncSession, *, code: str, name: str, role_type
         name: 角色名。
         role_type: 角色类型（内置判定依据）。
         outcome: 结果累计。
+        apply: 是否真正写库（缺省 True；`False` 为预演：只计「将新增」，不 `add` / 不 `flush`）。
 
     Returns:
-        int: 角色主键。
+        int: 角色主键；预演下新建角色返回占位主键 `_PLANNED_ROLE_ID`。
     """
     existing = (
         await session.execute(select(SysRole).where(SysRole.code == code, SysRole.deleted_at.is_(None)))
@@ -369,21 +387,26 @@ async def _ensure_role(session: AsyncSession, *, code: str, name: str, role_type
     if existing is not None:
         outcome.roles_skipped += 1
         return existing.id
+    outcome.roles_created += 1
+    if not apply:
+        return _PLANNED_ROLE_ID
     role = SysRole(code=code, name=name, status="enabled", role_type=role_type)
     session.add(role)
     await session.flush()
-    outcome.roles_created += 1
     return role.id
 
 
-async def _ensure_grant(session: AsyncSession, *, role_id: int, target_id: int, outcome: SeedOutcome) -> None:
+async def _ensure_grant(
+    session: AsyncSession, *, role_id: int, target_id: int, outcome: SeedOutcome, apply: bool = True
+) -> None:
     """取或建授权条目（按 `(role_id, perm_type, target_id, source_menu_id)` 判存）。
 
     Args:
         session: 租户库会话。
-        role_id: 角色主键。
+        role_id: 角色主键（预演下新建角色为占位值 → 判存必然「不存在」，计「将新增」）。
         target_id: 动作主键。
         outcome: 结果累计。
+        apply: 是否真正写库（缺省 True；`False` 为预演：只计「将新增」）。
     """
     existing = (
         await session.execute(
@@ -399,6 +422,9 @@ async def _ensure_grant(session: AsyncSession, *, role_id: int, target_id: int, 
     if existing is not None:
         outcome.grants_skipped += 1
         return
+    outcome.grants_created += 1
+    if not apply:
+        return
     session.add(
         SysRolePermission(
             role_id=role_id,
@@ -408,7 +434,6 @@ async def _ensure_grant(session: AsyncSession, *, role_id: int, target_id: int, 
         )
     )
     await session.flush()
-    outcome.grants_created += 1
 
 
 async def _resolve_user_id(session: AsyncSession, account: str) -> int | None:
@@ -427,7 +452,9 @@ async def _resolve_user_id(session: AsyncSession, account: str) -> int | None:
     ).scalar_one_or_none()
 
 
-async def _ensure_assignment(session: AsyncSession, *, role_id: int, account: str, outcome: SeedOutcome) -> None:
+async def _ensure_assignment(
+    session: AsyncSession, *, role_id: int, role_type: str, account: str, outcome: SeedOutcome, apply: bool = True
+) -> None:
     """把 bootstrap 账号绑定到内置系统管理员角色（按 `(role_id, user_id)` 判存）。
 
     绑定后主体命中**豁免层级**（`role_type=system`），使本地开发对全部 `require_permission`
@@ -439,15 +466,17 @@ async def _ensure_assignment(session: AsyncSession, *, role_id: int, account: st
 
     Args:
         session: 租户库会话。
-        role_id: 内置系统管理员角色主键。
+        role_id: 内置系统管理员角色主键（预演下新建角色为占位值 → 判存必然「不存在」）。
+        role_type: 目标角色类型（`SEPARATION_ROLE_TYPES` 之一；预演下角色可能尚未落库，
+            故由调用方给出，不回读占位主键对应的行）。
         account: 待绑定账号（`sys_user.username`）或用户主键。
         outcome: 结果累计。
+        apply: 是否真正写库（缺省 True；`False` 为预演：只计「将新增」）。
     """
     user_id = await _resolve_user_id(session, account)
     if user_id is None:
         outcome.assign_unresolved.add(account)
         return
-    target_type = (await session.execute(select(SysRole.role_type).where(SysRole.id == role_id))).scalar_one_or_none()
     held_types = (
         await session.execute(
             select(SysRole.role_type)
@@ -460,7 +489,7 @@ async def _ensure_assignment(session: AsyncSession, *, role_id: int, account: st
             )
         )
     ).scalars()
-    if any(held != target_type for held in held_types):
+    if any(held != role_type for held in held_types):
         outcome.assign_conflicts.add(account)
         return
     existing = (
@@ -475,9 +504,11 @@ async def _ensure_assignment(session: AsyncSession, *, role_id: int, account: st
     if existing is not None:
         outcome.assignments_skipped += 1
         return
+    outcome.assignments_created += 1
+    if not apply:
+        return
     session.add(SysUserRole(role_id=role_id, user_id=user_id))
     await session.flush()
-    outcome.assignments_created += 1
 
 
 def _safe_url(url: str) -> str:

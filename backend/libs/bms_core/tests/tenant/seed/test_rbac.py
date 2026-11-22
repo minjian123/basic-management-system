@@ -212,13 +212,34 @@ async def test_seed_refuses_assignment_conflicting_with_separation(urls: tuple[s
 
 @pytest.mark.kiwi_id(2269)
 async def test_seed_dry_run_does_not_write(urls: tuple[str, str]) -> None:
-    """预演模式只报计划、不落库。"""
+    """预演模式只报计划、不落库（角色 / 授权 / bootstrap 绑定三侧都不写）。"""
     tenant_url, platform_url = urls
-    outcome = await seed_rbac(tenant_url=tenant_url, platform_url=platform_url, dry_run=True)
+    engine = create_async_engine(tenant_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            session.add(SysUser(username="dry_admin", password_hash="x", name="预演管理员"))
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+    outcome = await seed_rbac(tenant_url=tenant_url, platform_url=platform_url, assign_user="dry_admin", dry_run=True)
     assert outcome.roles_created == 3
+    assert outcome.grants_created > 0
+    assert outcome.assignments_created == 1
     codes, grants = await _roles_and_grants(tenant_url)
     assert codes == {}
     assert grants == 0
+    engine = create_async_engine(tenant_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            bindings = (
+                (await session.execute(select(SysUserRole).where(SysUserRole.deleted_at.is_(None)))).scalars().all()
+            )
+            assert list(bindings) == []
+    finally:
+        await engine.dispose()
 
 
 @pytest.mark.kiwi_id(2343)
