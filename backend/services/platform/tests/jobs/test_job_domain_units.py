@@ -112,6 +112,64 @@ async def test_catalog_sync_creates_updates_and_retires(session: AsyncSession, n
     assert row is not None and row.status == JOB_TYPE_STATUS_RETIRED
 
 
+async def test_create_declaration_skips_existing_type(session: AsyncSession, ns: Namespace) -> None:
+    """原子插入：同 `job_type` 已存在时跳过（并发启动不产生重复行，也不报唯一键冲突）。"""
+    job_type = ns.code("job")
+    repo = JobTypeRepository(session)
+    catalog = JobCatalogService(repo)
+    declaration = _declaration(job_type, service=ns.code("svc"))
+
+    first = await catalog.sync(ConcurrentStableList([declaration]), source="platform")
+    assert first.created == 1
+
+    # 再插一次同键（模拟两个 worker 都判定「需新增」）
+    values = ConcurrentStableDict(
+        {
+            "job_type": job_type,
+            "service_key": declaration.service,
+            "domain_key": declaration.domain,
+            "handler": declaration.handler,
+            "description": declaration.description,
+            "timeout_seconds": declaration.timeout_seconds,
+            "max_attempts": declaration.max_attempts,
+            "backoff_seconds": declaration.backoff_seconds,
+            "concurrency": declaration.concurrency,
+            "payload_version": declaration.payload_version,
+            "status": declaration.status,
+            "source": "platform",
+            "content_hash": "duplicate",
+        }
+    )
+    assert await repo.create_declaration(**dict(values)) is None
+    rows = [row for row in await repo.list_all() if row.job_type == job_type]
+    assert len(rows) == 1
+
+
+async def test_catalog_sync_counts_concurrent_insert_as_unchanged(
+    session: AsyncSession, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """声明同步：并发方已插（服务层判新增、插入时校验命中）计 unchanged，不重复写入。"""
+    job_type = ns.code("job")
+    repo = JobTypeRepository(session)
+
+    async def _absent(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        return None
+
+    async def _skip(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        return None
+
+    monkeypatch.setattr(repo, "get_by_type", _absent)
+    monkeypatch.setattr(repo, "create_declaration", _skip)
+    report = await JobCatalogService(repo).sync(
+        ConcurrentStableList([_declaration(job_type, service=ns.code("svc"))]), source="platform"
+    )
+
+    assert report.created == 0
+    assert report.unchanged == 1
+
+
 async def test_catalog_page_and_list_all(session: AsyncSession, ns: Namespace) -> None:
     """目录查询：分页过滤与全量清单（按本用例服务键 / 类型前缀限定）。"""
     job_type = ns.code("job")

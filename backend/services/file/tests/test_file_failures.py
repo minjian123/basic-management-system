@@ -1,6 +1,6 @@
-"""文件接口失败分支测试（Kiwi 2374）：序号越界 / 声明类型冲突 / 会话失效 / 快照重建 / 落库失败回滚。
+"""文件接口失败分支测试（Kiwi 2374）：序号越界 / 声明类型冲突 / 会话失效 / 快照重建 / 落库失败补偿。
 
-与成功路径用例分开：这里只断言**失败语义与回滚副作用**（对象是否清理、状态是否落失败、配额是否回滚）。
+与成功路径用例分开：这里只断言**失败语义与补偿副作用**（对象是否清理、状态是否落失败、配额是否回滚）。
 """
 
 import hashlib
@@ -12,12 +12,15 @@ import pytest
 from fastapi import FastAPI
 from file_fixtures import PDF_BYTES, FilePorts
 from httpx import AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.api.deps import get_outbox_store
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.error_codes import ErrorCode
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.redis.base import shared_redis_client
+from bms_core.testing.transaction import write_session
 from bms_file.domains.file.services import file as service_module
 
 pytestmark = pytest.mark.kiwi_id(2374)
@@ -192,10 +195,19 @@ async def test_complete_rolls_back_when_event_write_fails(
     assert any(call.endswith("/quotas/release") for call in file_ports.quota.calls)
 
 
-async def test_upload_rolls_back_when_event_write_fails(
-    client: AsyncClient, file_ports: FilePorts, service_app: FastAPI, tmp_path: Path
+async def test_upload_compensates_when_event_write_fails(
+    client: AsyncClient,
+    file_ports: FilePorts,
+    service_app: FastAPI,
+    tmp_path: Path,
+    shared_tenant_engine: AsyncEngine,
 ) -> None:
-    """整包上传落库阶段失败（事件写不进）：删对象、回滚配额、不落元数据。"""
+    """整包上传落库阶段失败（事件写不进）：删对象、回滚配额；元数据行由用例显式清理。
+
+    测试库是**真自动提交**（13_08 口径）：生产侧「失败即回滚」在这里不会发生，故本用例验证
+    失败路径的**补偿动作**（删已上传对象、释放配额），残留元数据行显式删除，避免泄漏给并行
+    用例；事务边界本身由 `test_unit_of_work` 用真实隔离级别的独立库验证。
+    """
     service_app.dependency_overrides[get_outbox_store] = lambda: cast("BaseOutboxStore", _FailingOutbox())
 
     with pytest.raises(RuntimeError, match="outbox unavailable"):
@@ -203,5 +215,7 @@ async def test_upload_rolls_back_when_event_write_fails(
 
     assert not [path for path in tmp_path.rglob("*") if path.is_file()]
     assert any(call.endswith("/quotas/release") for call in file_ports.quota.calls)
+    async with write_session(shared_tenant_engine) as session:
+        await session.execute(text("DELETE FROM sys_file WHERE name = :name"), {"name": "rollback.pdf"})
     listed = (await client.get(API, params={"name": "rollback.pdf"})).json()["data"]
     assert listed["total"] == 0

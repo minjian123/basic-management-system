@@ -3,8 +3,10 @@
 - **建表集口径（07C `03_02`）**：单元在某库类别的表集 = **所含各业务域表集的并集 + 基础设施表**
   （`services/table_registry.py::unit_tables`）。域表集由归属登记按域派生，基础设施表（发件箱三表）
   不进任何域清单、每库一份。任一拓扑下「库结构 = 所含域表集并集」由本函数保证。
-- **开关**：`[database].auto_create`（默认 `true`）；语义为**启动期建表总开关**——开发 / 测试默认开，
-  生产建议置 `false` 并改经 ops 显式建表入口（`ops.init_schema`：部署链上先建表、后起服务）；
+- **开关**：`[database].auto_create`（默认 `false`）；语义为**启动期建表总开关**。这是**开发环境
+  便利**（单进程、无并发）：正式环境不在应用启动时建表，由部署链的 ops 显式建表入口
+  （`ops.init_schema`）先建表、后起服务，该开关在生产配置里关闭；测试期由测试基座
+  `[app].skip_db_init=true` 跳过每例启动建表，结构在**初始化独立阶段**一次建好；
 - **方言**：SQLite / MySQL / PostgreSQL / 达梦一律生效（DDL 由 SQLAlchemy 按方言生成，达梦走既有方言
   补丁），建表前把会话切到连接串 `database` 段指定的模式（达梦；其余方言无此概念）；
 - **单元**：`[app].unit` 可选，缺省回落 `[app].service`；单元所含域由域布局声明按承载服务反推
@@ -71,6 +73,22 @@ def db_keys_for(datasource: str, settings: Settings) -> ConcurrentStableList[str
     return ConcurrentStableList()
 
 
+def _gate_key_for(datasource: str) -> str:
+    """取「建表写门」的数据源键（按库类别；与数据读写共用同一个门）。
+
+    Args:
+        datasource: 数据源段（`platform` / `tenant` / `archive`）。
+
+    Returns:
+        str: 数据源键（测试基座的钩子据此映射到平台 / 租户门；生产侧直通）。
+    """
+    if datasource == DATASOURCE_PLATFORM:
+        return PLATFORM_DB_KEY
+    if datasource == DATASOURCE_ARCHIVE:
+        return ARCHIVE_DB_KEY
+    return DATASOURCE_TENANT
+
+
 @dataclass(frozen=True)
 class SchemaOutcome(BaseValueObject):
     """单库建表结果（表集大小与新建 / 已存在分布）。"""
@@ -131,6 +149,9 @@ def _existing_tables(connection: Connection, metadata: MetaData) -> ConcurrentSt
 async def _apply_async(url: str, metadata: MetaData) -> tuple[int, int]:
     """异步驱动建表（一次性引擎；返回（新建数, 已存在数））。
 
+    建表引擎走 **AUTOCOMMIT**：DDL 的写锁窗口只覆盖单条 `CREATE`（逐表提交），
+    不让「整段建表事务」在门内长时间占住 SQLite 写锁；排队仍只由读写门负责。
+
     Args:
         url: 目标连接串（禁止写入日志）。
         metadata: 建表集元数据。
@@ -138,13 +159,16 @@ async def _apply_async(url: str, metadata: MetaData) -> tuple[int, int]:
     Returns:
         tuple[int, int]: （新建表数, 已存在表数）。
     """
-    engine = create_async_engine(url, poolclass=NullPool)
+    engine = create_async_engine(url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
     try:
-        async with engine.begin() as connection:
+        async with engine.connect() as connection:
             existing = await connection.run_sync(_existing_tables, metadata)
             missing = [table for name, table in metadata.tables.items() if name not in existing]
-            if missing:
-                await connection.run_sync(metadata.create_all, tables=missing, checkfirst=False)
+            for table in missing:
+                # 逐表建、逐表结束隐式事务：SQLAlchemy 在 DDL 前后会开一个隐式事务，
+                # AUTOCOMMIT 下 DDL 已落库，rollback 只是结束事务对象并立即释放 SQLite 写锁。
+                await connection.run_sync(metadata.create_all, tables=[table], checkfirst=True)
+                await connection.rollback()
     finally:
         await engine.dispose()
     return len(metadata.tables) - len(existing), len(existing)
@@ -261,10 +285,14 @@ async def apply_domains_schema(
     metadata = domains_metadata(resolved, datasource)
     if not metadata.tables:
         return SchemaOutcome(target=label, total=0, created=0, existing=0)
-    if _is_async_url(url):
-        created, existing = await _apply_async(url, metadata)
-    else:
-        created, existing = await asyncio.to_thread(_apply_sync, url, metadata, schema or default_schema_of(url))
+    # 建表也是数据库写：与数据读写**共用同一把读写写门**（业主口径：所有数据库读写统一走门）。
+    # 初始化阶段（共享库建库 / 播种）由测试基座持门调用；用例并发期的启动建表通常零新建，
+    # 仍按同一条路径取门——门是唯一排队路径，DDL 专用文件锁只作门内的同步 API 兜底。
+    async with db_access_gate(_gate_key_for(datasource), read_only=False, wait=GATE_CRITICAL_WAIT):
+        if _is_async_url(url):
+            created, existing = await _apply_async(url, metadata)
+        else:
+            created, existing = await asyncio.to_thread(_apply_sync, url, metadata, schema or default_schema_of(url))
     logger.info(
         "schema_auto_create",
         target=label,
@@ -333,11 +361,9 @@ async def ensure_unit_schema(settings: Settings, *, factory: EngineFactory | Non
             if url in seen_urls:
                 continue
             seen_urls.add(url)
-            # 13_08 T7：建表是**写共享库**的整段作业，必须与经会话入口的写排同一条队。
-            # 24 路并行起 worker 时这段原先不取门，与「走门的启动引导」在 SQLite 层互等，
-            # 表现为「有人持写门几分钟」+ 其它 worker 引导等门超时（整批 setup 失败）。
-            async with db_access_gate(db_key, read_only=False, wait=GATE_CRITICAL_WAIT):
-                outcome = await apply_unit_schema(unit, datasource, url, target=db_key)
+            # 建表走 `apply_unit_schema`，由它统一取**写门**（`db_access_gate`）——结构初始化与
+            # 数据读写共用同一条排队路径；门内仍由 `testing.ddl` 的 DDL 文件锁兜底同步 API 的并发建表。
+            outcome = await apply_unit_schema(unit, datasource, url, target=db_key)
             if outcome.total:
                 handled.add(db_key)
     return handled

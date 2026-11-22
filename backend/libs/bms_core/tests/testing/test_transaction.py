@@ -13,8 +13,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.testing import rollback_session
 from bms_core.testing import transaction as transaction_module
+from bms_core.testing.gates import PLATFORM_GATE, gate_scope
 from bms_core.testing.transaction import gated_session, write_session
 
 pytestmark = pytest.mark.own_db("测试基座自测：回滚事务夹具本身（savepoint / 独立连接可见性 / 显式 BEGIN）需真实库")
@@ -24,7 +26,7 @@ _TABLE = f"_rb_probe_{os.environ.get('PYTEST_XDIST_WORKER', 'main')}_{os.getpid(
 
 
 async def _ensure_probe_table(platform_db_url: str) -> AsyncEngine:
-    """在夹具外建好探针表并提交（幂等）。
+    """在夹具外建好探针表并提交（幂等；DDL 走写门，数据库层不再自行排队）。
 
     Args:
         platform_db_url: 测试库连接串。
@@ -33,7 +35,7 @@ async def _ensure_probe_table(platform_db_url: str) -> AsyncEngine:
         AsyncEngine: 已就绪的引擎（调用方负责 `dispose`）。
     """
     engine = create_async_engine(platform_db_url)
-    async with engine.begin() as connection:
+    async with gate_scope(PLATFORM_GATE, read_only=False, wait=GATE_CRITICAL_WAIT), engine.begin() as connection:
         await connection.execute(text(f"CREATE TABLE IF NOT EXISTS {_TABLE} (x INTEGER)"))
         await connection.execute(text(f"DELETE FROM {_TABLE}"))
     return engine
@@ -54,7 +56,7 @@ async def test_rollback_session_commits_each_statement(platform_db_url: str) -> 
                     assert visible == 1
             finally:
                 await other_engine.dispose()
-        async with engine.connect() as connection:
+        async with gate_scope(PLATFORM_GATE, read_only=False), engine.connect() as connection:
             await connection.execute(text(f"DELETE FROM {_TABLE}"))
     finally:
         await engine.dispose()
@@ -88,7 +90,7 @@ async def test_write_session_commits_each_statement(platform_db_url: str) -> Non
             finally:
                 await other_engine.dispose()
 
-        async with engine.connect() as connection:
+        async with gate_scope(PLATFORM_GATE, read_only=False), engine.connect() as connection:
             remaining = (await connection.execute(text(f"SELECT COUNT(*) FROM {_TABLE}"))).scalar_one()
             assert remaining == 1
             await connection.execute(text(f"DELETE FROM {_TABLE}"))

@@ -14,9 +14,7 @@ pytestmark = pytest.mark.kiwi_id(2325)
 
 
 class _NoopChecker(BasePermissionChecker):
-    """权限检查器替身：恒定允许。"""
-
-    plugin_name = "fake"
+    """权限检查器替身：恒定允许（直接实例化使用，不登记为插件候选）。"""
 
     def check(self, code: str) -> bool:
         del code

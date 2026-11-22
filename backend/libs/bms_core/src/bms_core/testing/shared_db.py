@@ -24,7 +24,7 @@ from collections.abc import Iterable
 from typing import cast
 
 from sqlalchemy import MetaData, Table, select, update
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from bms_core.config.seed import seed_configs
@@ -32,6 +32,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.bootstrap import domains_metadata
 from bms_core.db.migration import BASE_MODEL_MODULES, COMMON_MODEL_MODULES, DATASOURCE_TENANT, known_domains
+from bms_core.db.sqlite import create_async_engine, sqlite_busy_timeout_seconds
 from bms_core.models.base import Base
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.services.table_registry import table_ownership_view
@@ -181,28 +182,32 @@ async def create_tables(url: str, metadata: MetaData) -> None:
 
 
 async def enable_concurrency(engine: AsyncEngine) -> None:
-    """设置写锁等待上限（`busy_timeout`）。
+    """设置 SQLite 并发口径（WAL + 忙等上限 + 关闭 WAL 自动检查点）。
 
-    单库叠加下多 worker 并发写同一份 SQLite 库，「写-写」必然短暂互斥：默认等待 5s、且只会
-    在获取锁时等待，调用方不重试就直接报 `database is locked`。这里把等待上限设为 10s
-    （与共享引擎夹具的驱动侧 `timeout` 同值；2026-11-21 由 30s 收到 10s），把偶发冲突退化为短等待
-    （《测试规范》13「并行与隔离」）。
+    单库叠加下多 worker 并发写同一份 SQLite 库，「写-写」由读写门排成一条队，数据库层不再是
+    排队主路径：测试基座把忙等设为 **0.1s**（`sqlite_busy_timeout_seconds()`），只吸收 SQLite
+    自身的瞬时独占（建表检查 / WAL checkpoint）；真正绕过门的冲突仍会很快报 `database is locked`
+    （2026-11-22 业主口径；0ms 实测连 SELECT 都会被瞬时独占打挂）。
 
-    为什么不用 WAL：WAL 下「先读后写」的事务取快照后升级写会立即 `SQLITE_BUSY_SNAPSHOT`
-    （**不等待**），对「回滚会话里读-改-写」的用例反而更容易失败。
+    为什么不用回滚日志：回滚日志模式下**任何**未结束的读事务都会挡住写者；WAL 下读写不互斥，
+    读事务不再挡写，门的独占语义与之一致。
+
+    **为什么关掉 WAL 自动检查点**（`wal_autocheckpoint=0`）：默认阈值（约 1000 页）一到，最后一个
+    提交的连接会顺手做检查点，把 WAL 合并回主库并重置 WAL——这一段**不需要任何写者**就会让别的
+    连接报 `SQLITE_BUSY` / `database is locked`。这类冲突在探针里既找不到「门外写者」也找不到
+    「持门的其它进程」（实测 24 路通知域：0.1s 忙等报 132 次、1s 忙等归零，正是跨过了检查点窗口）。
+    测试库整轮只有几 MB，不检查点不会撑爆磁盘；会话结束删库文件时 WAL 一并清掉。
 
     Args:
         engine: 共享库引擎。
     """
     autocommit = engine.execution_options(isolation_level="AUTOCOMMIT")
+    timeout_ms = int(sqlite_busy_timeout_seconds() * 1000)
     try:
         async with autocommit.connect() as connection:
-            # 测试库统一 WAL（2026-11-21 实测）：回滚日志模式下**任何**未结束的读事务都会挡住写者，
-            # 24 路并行时表现为「写门里等库锁 10 秒」。WAL 下读写不互斥，读事务不再挡写；
-            # 先读后写的升级冲突由 `busy_timeout` 兜底（历史担心的 `SQLITE_BUSY_SNAPSHOT` 会在
-            # 用例里直接暴露成明确报错，而不是静默拖慢整批）。
             await connection.exec_driver_sql("PRAGMA journal_mode=WAL")
-            await connection.exec_driver_sql("PRAGMA busy_timeout=10000")
+            await connection.exec_driver_sql(f"PRAGMA busy_timeout={timeout_ms}")
+            await connection.exec_driver_sql("PRAGMA wal_autocheckpoint=0")
     finally:
         await autocommit.dispose()
 

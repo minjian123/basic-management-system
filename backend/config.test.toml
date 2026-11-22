@@ -1,6 +1,8 @@
 # test 环境覆盖（结构化日志，不开放跨域）
 
 [database]
+# 测试不启动建表：共享库结构由初始化独立阶段一次建好（测试基座 `[app].skip_db_init=true`）
+auto_create = false
 # CI 测试库统一落工作区根 database/bms/test（相对 backend/ 上两级；仅改此处即可切库）
 sqlite_dir = "../../database/bms/test"
 

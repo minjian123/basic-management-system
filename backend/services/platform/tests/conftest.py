@@ -25,9 +25,11 @@ from bms_core.permission.sources import reset_permission_data_sources
 from bms_core.registry.products import load_product_manifests
 from bms_core.services.module_registry import (
     CollaborationRecord,
+    domain_service_view,
     register_collaboration_records,
     register_domain_services,
     reset_collaboration_records,
+    reset_domain_services,
     reset_error_code_records,
     reset_product_records,
     reset_product_routes,
@@ -125,6 +127,7 @@ def isolate_catalog_records(
         None: 用例运行期。
     """
     get_settings.cache_clear()
+    saved_domains = ConcurrentStableFrozenDict(domain_service_view().to_list())
     reset_product_records()
     reset_service_records()
     reset_product_routes()
@@ -145,6 +148,10 @@ def isolate_catalog_records(
     reset_seed_records()
     reset_error_code_records()
     reset_capability_usages()
+    # 业务域承载映射同样是进程级全局表：用例装载的临时清单（如声明注册用例的 `[[domains]]`）
+    # 若留在进程里，后续用例的启动自举会把临时域写进共享库默认拓扑（测试库为真自动提交，写完即生效）
+    reset_domain_services()
+    register_domain_services(saved_domains)
 
 
 _MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(

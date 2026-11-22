@@ -129,8 +129,12 @@ class JobCatalogService(BaseFrameworkObject):
                 }
             )
             if existing is None:
-                await self._repo.create_declaration(job_type=declaration.job_type, **dict(values))
-                created += 1
+                inserted = await self._repo.create_declaration(job_type=declaration.job_type, **dict(values))
+                if inserted is None:
+                    # 并发启动：同键行已由别的 worker 插入，本次按「无变化」计
+                    unchanged += 1
+                else:
+                    created += 1
                 continue
             if existing.content_hash == content_hash and existing.status == declaration.status:
                 unchanged += 1

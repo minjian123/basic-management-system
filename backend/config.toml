@@ -138,8 +138,9 @@ exempt_role_types = ["system", "platform_admin"]
 
 [database]
 # 启动期建表总开关（四库方言、按服务表集幂等；只补不建改）
-# prod 覆盖为 false：改经 ops 显式建表入口（ops.init_schema）先建表后起服务
-auto_create = true
+# 缺省 false：应用启动不建表，由部署链 ops 显式建表入口（ops.init_schema）先建表后起服务；
+# 开发环境在 config.dev.toml 显式开启（单进程、无并发，图方便），测试由初始化阶段建好结构
+auto_create = false
 # 库名前缀（平台库 {prefix}_{service} / 服务租户库 {prefix}_{service}_{code} / 归档库 {prefix}_archive 的统一来源）
 # 默认 bms（基座既有口径，现有部署零影响）；产品部署可配自有前缀（如 mdm → mdm / mdm_{code} / mdm_archive）
 name_prefix = "bms"

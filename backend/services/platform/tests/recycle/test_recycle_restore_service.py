@@ -11,8 +11,7 @@ import pytest
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.audit.base import FieldChange
-from bms_core.audit.null import NullAuditCapturer
+from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import RecycleSettings
@@ -47,10 +46,8 @@ _TABLES = (
 )
 
 
-class RecordingAudit(NullAuditCapturer):
-    """测试替身：记录显式留痕调用。"""
-
-    plugin_name: str = "recycle_recording_audit"
+class RecordingAudit(AuditCapturer):
+    """测试替身：记录显式留痕调用（直接实例化使用，不登记进插件候选）。"""
 
     def __init__(self, *, audited: bool = False) -> None:
         """初始化。
@@ -81,9 +78,7 @@ class RecordingAudit(NullAuditCapturer):
 
 
 class BrokenAudit(RecordingAudit):
-    """测试替身：留痕抛错。"""
-
-    plugin_name: str = "recycle_broken_audit"
+    """测试替身：留痕抛错（直接实例化使用；不声明 `plugin_name`，避免登记进插件候选）。"""
 
     def capture(
         self,

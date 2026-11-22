@@ -144,6 +144,15 @@ class SyncSession(BaseFrameworkObject):
         """加入待写对象（纯内存操作，不产生 IO）。"""
         self._session.add(instance)
 
+    def expire_all(self) -> None:
+        """让会话内已加载对象过期（纯内存操作，不产生 IO）。
+
+        用途：Core 原子语句（`INSERT ... WHERE NOT EXISTS` / `UPDATE ...`）绕过 ORM 身份映射，
+        已加载的行会停在旧值；调用本方法后，后续访问属性会按库内真值重新装载，
+        与 `AsyncSession.expire_all` 同义（会话公共契约 `DbSession` 的两处实现须同步）。
+        """
+        self._session.expire_all()
+
     async def delete(self, instance: object) -> None:
         """标记删除（线程池）。"""
         await asyncio.to_thread(self._session.delete, instance)
@@ -199,8 +208,8 @@ class SyncSession(BaseFrameworkObject):
 
 type DbSession = AsyncSession | SyncSession
 # 会话公共契约：异步会话（各异步方言）或同步门面（达梦等同步方言）；两项须共同覆盖服务 /
-# 仓储 / 租户源实际使用的方法集（execute / add / delete / refresh / get / flush / commit /
-# rollback / close / get_bind）；新增会话方法须在契约与两处实现同步（登记见《后端基类清单》）。
+# 仓储 / 租户源实际使用的方法集（execute / add / expire_all / delete / refresh / get / flush /
+# commit / rollback / close / get_bind）；新增会话方法须在契约与两处实现同步（登记见《后端基类清单》）。
 
 
 @asynccontextmanager

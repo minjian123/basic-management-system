@@ -12,20 +12,25 @@ from bms_core.api.deps import get_notification_center
 from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.center import DatabaseNotificationCenter
 from notification._support import add_notification, session_opener
+from tests_support.auth import auth_headers
 
 pytestmark = pytest.mark.kiwi_id(2517)
 
 API = "/api/v1/notifications"
-_USER_ID = 1001
 
 
 async def test_list_and_detail_with_db_center(
-    service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine
+    service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine, uid: int
 ) -> None:
-    """列表筛选 / 查看即已读 / 未读数。"""
+    """列表筛选 / 查看即已读 / 未读数。
+
+    收件人取自 `uid` 夹具（用例前后由 `conftest._clean_notification_rows` 清场）：测试库是
+    **真自动提交**，会话退出不回滚，硬编码用户主键会把上一轮的未读行留给下一轮（实测 1→4）。
+    """
+    client.headers.update(auth_headers(subject=str(uid), session_id=str(uid)))
     async with write_session(shared_tenant_engine) as session:
-        first = add_notification(session, user_id=_USER_ID, title="审批待办", notification_type="approval")
-        add_notification(session, user_id=_USER_ID, title="系统提示", is_read=True)
+        first = add_notification(session, user_id=uid, title="审批待办", notification_type="approval")
+        add_notification(session, user_id=uid, title="系统提示", is_read=True)
         await session.flush()
         service_app.dependency_overrides[get_notification_center] = lambda: DatabaseNotificationCenter(
             session_opener=lambda: session_opener(session), transactional=False
@@ -40,10 +45,12 @@ async def test_list_and_detail_with_db_center(
         assert (await client.get(f"{API}/unread-count")).json()["data"] == {"count": 0}
 
 
-async def test_api_errors(service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine) -> None:
+async def test_api_errors(
+    service_app: FastAPI, client: AsyncClient, shared_tenant_engine: AsyncEngine, uid: int
+) -> None:
     """非法筛选 / 不存在 / 批量参数 / 越权删除错误码。"""
     async with write_session(shared_tenant_engine) as session:
-        other = add_notification(session, user_id=2002, title="他人")
+        other = add_notification(session, user_id=uid + 1, title="他人")
         await session.flush()
         service_app.dependency_overrides[get_notification_center] = lambda: DatabaseNotificationCenter(
             session_opener=lambda: session_opener(session), transactional=False

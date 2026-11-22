@@ -121,6 +121,13 @@ test_dir_suffix = "/services/txn/tests/"
 match_prefix = "backend/libs/bms_core/src/bms_core/msgclient/"
 test_dir_suffix = "/libs/bms_core/tests/msgclient/"
 
+# 13_08：建表 / 自动建表入口（`db/bootstrap.py`）的用例按主题放在 `tests/alembic/`，
+# 与模块不同构、导入关系也推不到（测试导入的是入口函数而非反向依赖）——显式声明，
+# 否则改 bootstrap 时选测为空，覆盖率门禁会把「没人跑」误判成「没测」。
+[[rules.backend.extra_tests]]
+match_prefix = "backend/libs/bms_core/src/bms_core/db/bootstrap.py"
+test_dir_suffix = "/libs/bms_core/tests/alembic/"
+
 [rules.frontend.global]
 exact = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json", ".npmrc"]
 prefixes = ["scripts/"]

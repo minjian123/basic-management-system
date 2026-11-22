@@ -8,8 +8,9 @@
 from collections.abc import AsyncIterator
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from bms_core.db.sqlite import create_async_engine
 from bms_core.models.base import Base
 from bms_core.testing.base import BaseTestCase
 from bms_core.testing.transaction import rollback_session

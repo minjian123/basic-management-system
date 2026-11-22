@@ -192,7 +192,7 @@ class SnowflakeId(TypeDecorator[int]):
         return int
 
 
-def _utc_now() -> datetime:
+def utc_now() -> datetime:
     """当前 UTC 时间（naive，跨库统一存储）。
 
     Returns:
@@ -242,7 +242,7 @@ class BaseModel(Base, BaseDataContract):
 
     def soft_delete(self) -> None:
         """标记软删除（置 `deleted_at`，由 ORM 事件刷新审计）。"""
-        self.deleted_at = _utc_now()
+        self.deleted_at = utc_now()
 
     def restore(self) -> None:
         """恢复软删除（清空 `deleted_at`）。"""
@@ -252,7 +252,7 @@ class BaseModel(Base, BaseDataContract):
 @event.listens_for(BaseModel, "before_insert", propagate=True)
 def _fill_audit_on_insert(mapper: Mapper[Any], connection: Connection, target: BaseModel) -> None:  # pyright: ignore[reportUnusedFunction]
     """插入前自动填充审计字段（业务代码禁止手动赋值）。"""
-    now = _utc_now()
+    now = utc_now()
     target.created_at = now
     target.updated_at = now
     user = current_user_id.get()
@@ -263,5 +263,5 @@ def _fill_audit_on_insert(mapper: Mapper[Any], connection: Connection, target: B
 @event.listens_for(BaseModel, "before_update", propagate=True)
 def _fill_audit_on_update(mapper: Mapper[Any], connection: Connection, target: BaseModel) -> None:  # pyright: ignore[reportUnusedFunction]
     """更新前刷新更新时间与更新人。"""
-    target.updated_at = _utc_now()
+    target.updated_at = utc_now()
     target.updated_by = current_user_id.get()

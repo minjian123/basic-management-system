@@ -1,4 +1,4 @@
-"""跨进程读写门语义用例（Kiwi 2533）：多读并发 / 写独占 / 重入 / 超时诊断 / 后端分支。
+"""跨进程读写门语义用例（Kiwi 2533）：真阻塞等待 / 写门卡住读门 / 重入 / 超时诊断 / 后端分支。
 
 口径见 `bms_core.testing.rwlock` 模块文档与《测试规范》「并行与隔离」节。
 """
@@ -15,6 +15,7 @@ import time
 import weakref
 from functools import partial
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -29,7 +30,6 @@ class _FakeFcntl:
 
     LOCK_EX = 1
     LOCK_SH = 2
-    LOCK_NB = 4
     LOCK_UN = 8
 
     def __init__(self) -> None:
@@ -37,8 +37,8 @@ class _FakeFcntl:
         self.calls: ConcurrentStableList[tuple[int, int]] = ConcurrentStableList()
         self.busy = False
 
-    def lockf(self, fd: int, operation: int) -> None:
-        """记录调用；`busy` 且带非阻塞位时抛 `OSError`。
+    def flock(self, fd: int, operation: int) -> None:
+        """记录调用；`busy` 且不是解锁时抛 `OSError`。
 
         Args:
             fd: 文件描述符。
@@ -48,8 +48,20 @@ class _FakeFcntl:
             OSError: 模拟锁被占用。
         """
         self.calls.append((fd, operation))
-        if self.busy and operation & self.LOCK_NB:
+        if self.busy and operation != self.LOCK_UN:
             raise OSError("busy")
+
+
+class _StubHeld:
+    """已持有锁替身。"""
+
+    def __init__(self) -> None:
+        """初始化。"""
+        self.released = False
+
+    def release(self) -> None:
+        """记录释放。"""
+        self.released = True
 
 
 class _StubBackend:
@@ -62,17 +74,12 @@ class _StubBackend:
             path: 锁文件路径。
         """
         self.path = path
+        self.acquires: ConcurrentStableList[bool] = ConcurrentStableList()
 
-    def try_acquire(self, *, write: bool) -> bool:
-        """恒成功。"""
-        del write
-        return True
-
-    def release(self) -> None:
-        """无操作。"""
-
-    def close(self) -> None:
-        """无操作。"""
+    def acquire(self, *, write: bool) -> _StubHeld:
+        """记录模式并恒成功。"""
+        self.acquires.append(write)
+        return _StubHeld()
 
 
 def _gate(tmp_path: Path, name: str = "unit") -> rwlock.DbGate:
@@ -116,24 +123,39 @@ def test_make_backend_posix_branch(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
     backend = rwlock._make_backend(tmp_path / "posix.lock")
 
-    assert backend.try_acquire(write=True) is True
-    backend.release()
-    backend.close()
+    held = backend.acquire(write=True)
+    assert fake.calls[-1][1] == fake.LOCK_EX
+    held.release()
+    assert fake.calls[-1][1] == fake.LOCK_UN
 
 
 def test_posix_backend_with_injected_module(tmp_path: Path) -> None:
-    """POSIX 后端：覆盖独占 / 共享 / 被占用 / 解锁四个分支。"""
+    """POSIX 后端：共享 / 独占 / 被占用 / 解锁四个分支。"""
     fake = _FakeFcntl()
     backend = rwlock._PosixLock(tmp_path / "posix.lock", fake)
 
-    assert backend.try_acquire(write=True) is True
-    assert fake.calls[-1][1] == fake.LOCK_EX | fake.LOCK_NB
-    backend.release()
+    held = backend.acquire(write=False)
+    assert fake.calls[-1][1] == fake.LOCK_SH
+    held.release()
     assert fake.calls[-1][1] == fake.LOCK_UN
+
     fake.busy = True
-    assert backend.try_acquire(write=False) is False
-    assert fake.calls[-1][1] == fake.LOCK_SH | fake.LOCK_NB
-    backend.close()
+    with pytest.raises(OSError, match="busy"):
+        backend.acquire(write=True)
+    assert fake.calls[-1][1] == fake.LOCK_EX
+
+
+def test_posix_held_release_is_idempotent(tmp_path: Path) -> None:
+    """同一份系统锁重复释放只生效一次（取消路径可能重复调用）。"""
+    fake = _FakeFcntl()
+    backend = rwlock._PosixLock(tmp_path / "posix.lock", fake)
+    held = backend.acquire(write=True)
+
+    held.release()
+    calls = len(fake.calls)
+    held.release()
+
+    assert len(fake.calls) == calls
 
 
 def test_posix_backend_imports_real_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -144,7 +166,6 @@ def test_posix_backend_imports_real_module(tmp_path: Path, monkeypatch: pytest.M
     backend = rwlock._PosixLock(tmp_path / "posix.lock")
 
     assert backend._fcntl is fake
-    backend.close()
 
 
 async def test_gate_reentrant_same_mode(tmp_path: Path) -> None:
@@ -178,7 +199,7 @@ async def test_write_waits_for_other_task_reads(tmp_path: Path) -> None:
     holder = asyncio.create_task(_hold())
     await reading.wait()
     writer = asyncio.create_task(gate.acquire_write())
-    await asyncio.to_thread(lambda: None)
+    await asyncio.sleep(0.05)
     assert not writer.done(), "有读者时写门必须排队"
 
     finish.set()
@@ -196,7 +217,7 @@ async def test_gate_upgrade_releases_only_own_share(tmp_path: Path) -> None:
 
     restored = await gate.acquire_write()
     try:
-        assert restored == (token,)
+        assert list(restored) == [token]
         assert gate.mode == rwlock.WRITE
     finally:
         await gate.release_write(restored)
@@ -208,7 +229,7 @@ async def test_gate_upgrade_releases_only_own_share(tmp_path: Path) -> None:
 
 
 async def test_release_read_token_mismatch_raises(tmp_path: Path) -> None:
-    """释放不属于本门的读份额 token 报错（写门未持有时则只告警，见后一条）。"""
+    """释放不属于本门的读份额 token 报错。"""
     gate = _gate(tmp_path)
     await gate.acquire_write()
     try:
@@ -248,7 +269,7 @@ async def test_borrowed_read_share_retires_with_write_gate(tmp_path: Path) -> No
 
 
 async def test_read_gates_run_concurrently(tmp_path: Path) -> None:
-    """两个句柄同时持读门：总耗时接近单个，而不是两倍。"""
+    """两个句柄同时持读门：总耗时接近单个，而不是两倍（共享锁真并发）。"""
     path = tmp_path / "shared.lock"
     first = rwlock.DbGate("first", path)
     second = rwlock.DbGate("second", path)
@@ -268,11 +289,11 @@ async def test_read_gates_run_concurrently(tmp_path: Path) -> None:
 
 
 async def test_write_gate_blocks_other_task_reads(tmp_path: Path) -> None:
-    """写门持有期间，**同一进程的其它任务**取读门必须等它释放（不能读到写一半的数据）。"""
+    """**写门落锁即同步卡住读门**：写门持有期间同进程其它任务取读门必须阻塞。"""
     gate = _gate(tmp_path)
     await gate.acquire_write()
     reader = asyncio.create_task(gate.acquire_read())
-    await asyncio.to_thread(lambda: None)
+    await asyncio.sleep(0.05)
     assert not reader.done(), "写门持有期间其它任务不得拿到读门"
 
     await gate.release_write()
@@ -282,8 +303,24 @@ async def test_write_gate_blocks_other_task_reads(tmp_path: Path) -> None:
     assert gate.mode is None
 
 
+async def test_write_gate_blocks_other_instance_reads(tmp_path: Path) -> None:
+    """写门持有期间，**另一个门实例**（模拟另一进程 / 另一套连接）的读门也必须阻塞。"""
+    path = tmp_path / "shared.lock"
+    writer = rwlock.DbGate("writer", path)
+    reader = rwlock.DbGate("reader", path)
+    await writer.acquire_write()
+    pending = asyncio.create_task(reader.acquire_read())
+    await asyncio.sleep(0.05)
+    assert not pending.done(), "写门独占期间读门不得进入"
+
+    await writer.release_write()
+    token = await asyncio.wait_for(pending, timeout=2.0)
+    await reader.release_read(token)
+    assert reader.mode is None
+
+
 async def test_write_gate_reentrant(tmp_path: Path) -> None:
-    """写门同任务重入只加深度，不重复取内核锁。"""
+    """写门同任务重入只加深度，不重复取系统锁。"""
     gate = _gate(tmp_path)
     await gate.acquire_write()
     restored = await gate.acquire_write()
@@ -342,84 +379,107 @@ async def test_read_waits_process_writer_and_times_out(tmp_path: Path) -> None:
 
     contender = asyncio.create_task(_contend())
     try:
-        with pytest.raises(TimeoutError, match="同进程写者仍持门"):
+        with pytest.raises(TimeoutError, match="等待数据库门超时"):
             await contender
     finally:
         await gate.release_write()
     assert gate.mode is None
 
 
-async def test_write_kernel_timeout_releases_process_claim(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """内核独占锁取不到（别的进程占着）时，进程内写权预占必须撤回，不能把门卡死。"""
-    gate = _gate(tmp_path)
-
-    def _never_acquire(*, write: bool) -> bool:
-        """恒失败的内核锁替身。"""
-        del write
-        return False
-
-    monkeypatch.setattr(gate._backend, "try_acquire", _never_acquire)
-    with pytest.raises(TimeoutError):
-        await gate.acquire_write(wait=0.05)
-    assert gate._write_owner == 0
-    assert gate.mode is None
-
-
-async def test_read_acquire_timeout_resets_kernel_flag(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """读门等锁超时后，内核占位必须复位，下一次取读门仍可成功。"""
-    monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 0.2)
-    monkeypatch.setattr(rwlock, "WARN_AFTER", 0.05)
+async def test_read_timeout_leaves_no_stale_lock(tmp_path: Path) -> None:
+    """读门等锁超时后不残留租约：写门释放后下一次取读门立即成功。"""
+    monkeypatch_timeout = 0.05
     path = tmp_path / "shared.lock"
     holder = rwlock.DbGate("holder", path)
     contender = rwlock.DbGate("contender", path)
     await holder.acquire_write()
     try:
         with pytest.raises(TimeoutError):
-            await contender.acquire_read()
+            await contender.acquire_read(wait=monkeypatch_timeout)
     finally:
         await holder.release_write()
-    assert contender._kernel_read is False
-    token = await contender.acquire_read()
+
+    token = await asyncio.wait_for(contender.acquire_read(), timeout=2.0)
     await contender.release_read(token)
     assert contender.mode is None
 
 
-async def test_gate_timeout_reports_name(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """等门超过告警阈值先打印一行，超过上限抛 `TimeoutError`（按任务点名持有者）。"""
-    monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 0.3)
-    monkeypatch.setattr(rwlock, "WRITE_WAIT_CAP", 0.3)
-    monkeypatch.setattr(rwlock, "WARN_AFTER", 0.05)
+async def test_reclaims_write_of_finished_task(tmp_path: Path) -> None:
+    """持有任务已结束时回收写租约：别的任务取读门不再等满上限。
+
+    真实场景：用例收尾漏放 / 事件循环关闭时 pending 任务不会被自动取消，持有方进程仍活着，
+    跨进程的等待者只能等满 10s；必须由持有方自查回收（旧实现在等门循环里做，本轮补回）。
+    """
+    gate = _gate(tmp_path)
+
+    async def _grab_without_release() -> None:
+        """取写门后不释放，任务直接结束。"""
+        await gate.acquire_write()
+
+    await asyncio.create_task(_grab_without_release())
+    assert gate.mode == rwlock.WRITE
+
+    token = await asyncio.wait_for(gate.acquire_read(), timeout=2.0)
+    assert gate.mode == rwlock.READ
+    await gate.release_read(token)
+    assert gate.mode is None
+
+
+async def test_reclaims_read_share_of_finished_task(tmp_path: Path) -> None:
+    """持有任务已结束时回收读份额：后续写门不被已结束任务的共享锁挡住。"""
+    gate = _gate(tmp_path)
+
+    async def _grab_without_release() -> None:
+        """取读门后不释放，任务直接结束。"""
+        await gate.acquire_read()
+
+    await asyncio.create_task(_grab_without_release())
+    assert gate.mode == rwlock.READ
+
+    started = time.monotonic()
+    await asyncio.wait_for(gate.acquire_write(wait=1.0), timeout=2.0)
+    assert time.monotonic() - started < 0.5
+    await gate.release_write()
+    assert gate.mode is None
+
+
+async def test_cancelled_read_wait_releases_granted_lock(tmp_path: Path) -> None:
+    """取消等门后，工作线程拿到的共享锁必须立即释放，后续写门能立刻进来。"""
     path = tmp_path / "shared.lock"
     holder = rwlock.DbGate("holder", path)
     contender = rwlock.DbGate("contender", path)
     await holder.acquire_write()
-    try:
-        with pytest.raises(TimeoutError, match="contender") as excinfo:
-            await contender.acquire_write()
-    finally:
-        await holder.release_write()
+    reader = asyncio.create_task(contender.acquire_read())
+    await asyncio.sleep(0.05)
+    reader.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await reader
+    await holder.release_write()
 
-    assert "等待门" in capsys.readouterr().out
-    # 点名到任务：光有进程分不清「同进程另一协程也进了写门」
-    assert "task=" in str(excinfo.value)
+    started = time.monotonic()
+    await asyncio.wait_for(contender.acquire_write(wait=1.0), timeout=1.5)
+    assert time.monotonic() - started < 0.5
+    await contender.release_write()
+    assert contender.mode is None
+
+
+def test_write_wait_cap_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """上限读取：环境变量优先，非法 / 非正回落默认。"""
+    monkeypatch.delenv(rwlock.WRITE_WAIT_CAP_ENV, raising=False)
+    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
+    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "abc")
+    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
+    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "0")
+    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
+    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "1.5")
+    assert rwlock.write_wait_cap() == 1.5
 
 
 async def test_write_wait_cap_fails_at_short_limit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """写门超过短上限（缺省 5s）立即失败并点名持有者，不等 `DEFAULT_TIMEOUT`。
-
-    13_08 T7 恢复：正常写是毫秒级，等超过几秒说明有任务长期持门；继续等只会把卡点
-    拖成整批超时，立即失败才能按报错里的持有者定位用例。
-    """
+    """写门超过短上限（缺省 5s）立即失败并点名持有者，不等 `DEFAULT_TIMEOUT`。"""
     monkeypatch.setattr(rwlock, "WRITE_WAIT_CAP", 0.05)
     monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 5.0)
     monkeypatch.delenv(rwlock.WRITE_WAIT_CAP_ENV, raising=False)
@@ -435,76 +495,30 @@ async def test_write_wait_cap_fails_at_short_limit(
         await holder.release_write()
 
     elapsed = time.monotonic() - started
-    # 短上限（0.05s）即失败，不再等到 DEFAULT_TIMEOUT（5s）
     assert 0.04 <= elapsed < 1.5
     assert "等待数据库门超时" in str(excinfo.value)
+    # 点名到任务：光有进程分不清「同进程另一协程也进了写门」
+    assert "task=" in str(excinfo.value)
 
 
-async def test_write_wait_explicit_cap_is_hard_limit(
+async def test_hold_over_threshold_prints_warning(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """显式 `wait=cap` 作为硬上限：超过即失败（整段临界区路径）。"""
-    monkeypatch.setattr(rwlock, "DEFAULT_TIMEOUT", 5.0)
-    path = tmp_path / "shared.lock"
-    holder = rwlock.DbGate("holder", path)
-    contender = rwlock.DbGate("contender", path)
-    await holder.acquire_write()
-    started = time.monotonic()
-    try:
-        with pytest.raises(TimeoutError, match="contender"):
-            await contender.acquire_write(wait=0.05)
-    finally:
-        await holder.release_write()
-
-    assert time.monotonic() - started < 1.5
-
-
-def test_write_wait_cap_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
-    """上限读取：环境变量优先，非法 / 非正回落默认。"""
-    monkeypatch.delenv(rwlock.WRITE_WAIT_CAP_ENV, raising=False)
-    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
-    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "abc")
-    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
-    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "0")
-    assert rwlock.write_wait_cap() == rwlock.WRITE_WAIT_CAP
-    monkeypatch.setenv(rwlock.WRITE_WAIT_CAP_ENV, "1.5")
-    assert rwlock.write_wait_cap() == 1.5
-
-
-async def test_write_waits_for_other_task_reads_before_entry(tmp_path: Path) -> None:
-    """别的任务持读时，写门必须等它退出**才进**（不允许边读边写）。
-
-    旧实现让写者先升级、事后补回别人的共享锁，等于在别人读事务开着时提交写——正是
-    「读到写一半数据」的来源；现在改为预占进程内写权前先等其它读份额归零。
-    """
+    """持门超过 1s（用例里缩短阈值）常开告警：直接打印并点名持有任务。"""
+    monkeypatch.setattr(rwlock, "WARN_AFTER", 0.05)
     gate = _gate(tmp_path)
-    ready = asyncio.Event()
-    release = asyncio.Event()
-
-    async def _reader() -> None:
-        token = await gate.acquire_read()
-        ready.set()
-        await release.wait()
+    token = await gate.acquire_read()
+    try:
+        await asyncio.sleep(0.15)
+    finally:
         await gate.release_read(token)
 
-    task = asyncio.create_task(_reader())
-    await ready.wait()
-    try:
-        writer = asyncio.create_task(gate.acquire_write())
-        await asyncio.to_thread(lambda: None)
-        assert not writer.done(), "还有别的任务在读时，写门不得进入"
-        release.set()
-        await task
-        await asyncio.wait_for(writer, timeout=2.0)
-        assert gate.mode == rwlock.WRITE
-        assert gate._kernel_read is False
-        await gate.release_write()
-    finally:
-        release.set()
-        await task
-    assert gate.mode is None
-    assert gate._kernel_read is False
+    out = capsys.readouterr().out
+    assert "[rwlock]" in out
+    assert "已持有" in out
+    assert "疑似长区间" in out
 
 
 async def test_holder_description_lists_holder_and_clears_on_release(
@@ -676,7 +690,7 @@ async def test_write_holders_name_only_owning_task(tmp_path: Path) -> None:
         await gate.release_write()
 
     contender = asyncio.create_task(_contend())
-    await asyncio.to_thread(lambda: None)
+    await asyncio.sleep(0.05)
     assert not entered.is_set(), "别的任务不得重入写门"
     assert len(gate.write_holders()) == 1
 
@@ -700,20 +714,11 @@ def test_gate_close_removes_holder_files(tmp_path: Path) -> None:
 
 
 def test_gate_close(tmp_path: Path) -> None:
-    """关闭门不报错（会话结束路径）。"""
+    """关闭门不报错（会话结束路径），且可再次使用（重开会话）。"""
     gate = _gate(tmp_path, "close")
 
     gate.close()
-
-
-@pytest.mark.skipif(not rwlock._IS_WINDOWS, reason="仅 Windows 真实字节锁")
-def test_windows_release_after_close_raises(tmp_path: Path) -> None:
-    """句柄关闭后释放锁报 `OSError`（覆盖释放失败分支）。"""
-    backend = rwlock._WindowsLock(tmp_path / "closed.lock")
-    backend.close()
-
-    with pytest.raises(OSError):
-        backend.release()
+    gate.close()
 
 
 async def test_describe_holder_skips_unreadable_entry(tmp_path: Path) -> None:
@@ -765,7 +770,7 @@ async def test_release_write_without_hold_restores_outer_shares(tmp_path: Path) 
 
 
 async def test_release_write_now_is_sync_and_idempotent(tmp_path: Path) -> None:
-    """同步释放写门：立即清账目与内核锁；未持有时只返回待恢复份额。"""
+    """同步释放写门：立即清账目与系统锁；未持有时只返回待恢复份额。"""
     gate = _gate(tmp_path)
     await gate.acquire_write()
     assert gate.release_write_now() == ()
@@ -776,63 +781,255 @@ async def test_release_write_now_is_sync_and_idempotent(tmp_path: Path) -> None:
     assert gate.mode is None
 
 
-async def test_ensure_loop_reopens_backend_on_loop_switch(tmp_path: Path) -> None:
-    """事件循环切换时重开锁句柄：旧循环残留的孤锁随句柄关闭回收。"""
+async def test_ensure_loop_reclaims_previous_loop_locks(tmp_path: Path) -> None:
+    """事件循环切换时回收上一循环残留的系统锁（新循环从干净状态开始）。"""
     gate = _gate(tmp_path)
-    token = await gate.acquire_read()
-    await gate.release_read(token)
-    backend_before = gate._backend
+    leaked = await gate.acquire_read()
     assert gate._loop_ref is not None
-    assert gate._loop_ref() is asyncio.get_running_loop()
-
     other_loop = asyncio.new_event_loop()
     gate._loop_ref = weakref.ref(other_loop)
     try:
-        token = await gate.acquire_read()
-        assert gate._loop_ref is not None
-        assert gate._backend is not backend_before
+        token = await asyncio.wait_for(gate.acquire_read(), timeout=2.0)
+        assert gate.depth == 1, "上一循环的读份额必须被回收"
+        assert not gate.owns(leaked)
         await gate.release_read(token)
     finally:
         other_loop.close()
-
-
-async def test_reclaim_dead_owner_recovers_write_gate(tmp_path: Path) -> None:
-    """owner 是已结束任务时回收写权（账目 + 内核锁），后续写门可正常获取。"""
-    gate = _gate(tmp_path)
-    gate._write_owner = 999999999
-    gate._write_depth = 1
-
-    assert gate._reclaim_dead_owner() is True
-    assert gate._write_owner == 0
-    await gate.acquire_write()
-    await gate.release_write()
     assert gate.mode is None
 
 
-async def test_reclaim_dead_owner_skips_live_owner(tmp_path: Path) -> None:
-    """owner 是当前任务或本就没有 owner 时不回收。"""
+class _StaticBackend:
+    """后端替身：恒授予给定锁。"""
+
+    def __init__(self, held: _StubHeld) -> None:
+        """记录要返回的锁。
+
+        Args:
+            held: 已持有锁替身。
+        """
+        self._held = held
+
+    def acquire(self, *, write: bool) -> _StubHeld:
+        """恒返回给定锁（记录模式）。
+
+        Args:
+            write: 写门 True。
+
+        Returns:
+            _StubHeld: 已持有锁替身。
+        """
+        del write
+        return self._held
+
+
+class _RaisingBackend:
+    """后端替身：取锁即抛错（模拟系统调用失败）。"""
+
+    def acquire(self, *, write: bool) -> _StubHeld:
+        """抛错。
+
+        Args:
+            write: 写门 True。
+
+        Raises:
+            OSError: 固定异常。
+        """
+        del write
+        raise OSError("boom")
+
+
+def _lease(loop: asyncio.AbstractEventLoop, *, token: int = 1, write: bool = False) -> rwlock._Lease:
+    """构造一条取门租约（用例直接驱动租约状态机）。
+
+    Args:
+        loop: 所属事件循环。
+        token: 份额 / 租约编号。
+        write: 写门 True。
+
+    Returns:
+        rwlock._Lease: 租约。
+    """
+    return rwlock._Lease(token=token, task=0, write=write, loop=loop, event=asyncio.Event(), started=time.monotonic())
+
+
+async def test_gate_reuse_after_close_resets_state(tmp_path: Path) -> None:
+    """`close()` 后再次使用：重置队列与工作线程（同一会话多次开关门不残留状态）。"""
     gate = _gate(tmp_path)
-    assert gate._reclaim_dead_owner() is False
-    gate._write_owner = rwlock._task_key()  # pyright: ignore[reportPrivateUsage]
-    gate._write_depth = 1
-    assert gate._reclaim_dead_owner() is False
-
-
-async def test_acquire_write_reclaims_dead_owner_in_loop(tmp_path: Path) -> None:
-    """取写门时若 owner 是已结束任务，循环内回收后正常拿到写门。"""
-    gate = _gate(tmp_path)
-    gate._write_owner = 999999999
-    gate._write_depth = 1
-    await gate.acquire_write(wait=0.5)
-    await gate.release_write()
-    assert gate.mode is None
-
-
-async def test_acquire_read_reclaims_dead_owner_in_loop(tmp_path: Path) -> None:
-    """取读门时若 owner 是已结束任务，等待循环内回收后正常拿到读门。"""
-    gate = _gate(tmp_path)
-    gate._write_owner = 999999999
-    gate._write_depth = 1
-    token = await gate.acquire_read(wait=0.5)
+    gate.close()
+    token = await asyncio.wait_for(gate.acquire_read(), timeout=2.0)
     await gate.release_read(token)
+    gate.close()
+
+
+def test_ensure_loop_reclaims_write_and_timer_of_closed_loop(tmp_path: Path) -> None:
+    """上一循环留下的写门 + 告警定时器：新循环取门时一并回收（不残留系统锁）。"""
+    gate = _gate(tmp_path)
+
+    async def _hold_write() -> None:
+        await gate.acquire_write()
+        # 故意不释放：模拟任务在循环关闭前被中断
+
+    asyncio.run(_hold_write())
+    assert gate._write_depth == 1
+
+    async def _take_read() -> None:
+        token = await asyncio.wait_for(gate.acquire_read(), timeout=2.0)
+        assert gate.depth == 1, "上一循环的写门必须被回收"
+        await gate.release_read(token)
+
+    asyncio.run(_take_read())
     assert gate.mode is None
+
+
+async def test_reclaim_turns_borrowed_reads_into_retired(tmp_path: Path) -> None:
+    """写门持有任务结束后回收：借用读转为「已退役」（之后释放只销账）。"""
+    gate = _gate(tmp_path)
+
+    async def _hold_and_finish() -> None:
+        await gate.acquire_write()
+        await gate.acquire_read()  # 借用份额（随写门作废）
+
+    await asyncio.create_task(_hold_and_finish())
+    assert gate._borrowed_reads
+
+    token = await asyncio.wait_for(gate.acquire_read(), timeout=2.0)
+    assert gate._retired_reads, "借用读须转为已退役，后续释放只销账"
+    await gate.release_read(token)
+
+
+async def test_backend_error_propagates_to_waiter(tmp_path: Path) -> None:
+    """系统调用异常：由工作线程回传给等待方（协程按原异常抛出）。"""
+    gate = _gate(tmp_path)
+    gate._backend = cast("Any", _RaisingBackend())
+    with pytest.raises(OSError, match="boom"):
+        await asyncio.wait_for(gate.acquire_write(), timeout=3.0)
+
+
+async def test_wait_granted_propagates_error_and_abandon(tmp_path: Path) -> None:
+    """等待侧：租约带系统异常时抛出原异常；已放弃（授予 / 弃约并发）时报等待失败。"""
+    gate = _gate(tmp_path)
+    loop = asyncio.get_running_loop()
+
+    failed = _lease(loop)
+    failed.error = OSError("boom")
+    failed.event.set()
+    with pytest.raises(OSError, match="boom"):
+        await gate._wait_granted(failed, 1.0)
+    assert failed.error is None
+
+    abandoned = _lease(loop, token=2)
+    abandoned.abandoned = True
+    abandoned.event.set()
+    with pytest.raises(TimeoutError, match="租约已放弃"):
+        await gate._wait_granted(abandoned, 1.0)
+
+
+async def test_deliver_and_abandon_release_leftover_locks(tmp_path: Path) -> None:
+    """租约已放弃 / 超时弃约：已授予的系统锁就地释放（不留残锁）。"""
+    gate = _gate(tmp_path)
+    loop = asyncio.get_running_loop()
+
+    delivered = _StubHeld()
+    delivered_lease = _lease(loop)
+    delivered_lease.lock = cast("Any", delivered)
+    delivered_lease.abandoned = True
+    gate._deliver(delivered_lease)
+    assert delivered.released
+
+    abandoned = _StubHeld()
+    abandoned_lease = _lease(loop, token=2)
+    abandoned_lease.lock = cast("Any", abandoned)
+    gate._abandon(abandoned_lease)
+    assert abandoned.released
+
+
+def test_acquire_blocking_releases_when_loop_closed(tmp_path: Path) -> None:
+    """工作线程授予时循环已关闭：立即释放系统锁（不让锁跟着死循环留着）。"""
+    gate = _gate(tmp_path)
+    held = _StubHeld()
+    gate._backend = cast("Any", _StaticBackend(held))
+    loop = asyncio.new_event_loop()
+    loop.close()
+    gate._acquire_blocking(_lease(loop, write=True))
+    assert held.released is True
+
+
+async def test_write_failure_restores_reads_silently(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """取写门失败时补回已让出的读份额；补回本身失败也不掩盖原始错误。"""
+    gate = _gate(tmp_path)
+    token = await gate.acquire_read()
+
+    async def _boom(tokens: object) -> None:
+        del tokens
+        raise RuntimeError("restore boom")
+
+    monkeypatch.setattr(gate, "restore_reads", _boom)
+    gate._backend = cast("Any", _RaisingBackend())
+    with pytest.raises(OSError, match="boom"):
+        await asyncio.wait_for(gate.acquire_write(), timeout=3.0)
+    assert not gate.owns(token)
+
+
+async def test_hold_warning_covers_live_and_stale(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """持门告警：写 / 读存活各打一行；账目已清则静默。"""
+    gate = _gate(tmp_path)
+    gate._write_depth = 1
+    gate._write_owner = rwlock._task_key()
+    gate._warn_hold(1, time.monotonic() - 2, read_only=False)
+
+    gate._own_reads[2] = rwlock._task_key()
+    gate._warn_hold(2, time.monotonic() - 2, read_only=True)
+    gate._warn_hold(3, time.monotonic() - 2, read_only=True)  # 账目已清：静默
+
+    assert capsys.readouterr().out.count("已持有") == 2
+
+
+async def test_wait_warning_skips_settled_lease(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """等门告警：仍在等才打一行；已授予 / 已放弃静默。"""
+    gate = _gate(tmp_path)
+    lease = _lease(asyncio.get_running_loop(), write=True)
+    gate._warn_wait(lease)
+    lease.abandoned = True
+    gate._warn_wait(lease)
+    lease.abandoned = False
+    lease.granted = True
+    gate._warn_wait(lease)
+
+    assert capsys.readouterr().out.count("等待门") == 1
+
+
+async def test_close_releases_write_lock_and_timer(tmp_path: Path) -> None:
+    """关闭门时释放仍持有的写门并取消告警定时器（会话结束不留锁）。"""
+    gate = _gate(tmp_path)
+    await gate.acquire_write()
+    assert gate._write_lock is not None
+    assert gate._write_timer is not None
+    gate.close()
+    assert gate.mode is None
+    assert gate._write_lock is None
+    assert gate._write_timer is None
+
+
+async def test_schedule_hold_timer_registers_both_modes(tmp_path: Path) -> None:
+    """持门告警定时器：读 / 写各自登记一份。"""
+    gate = _gate(tmp_path)
+    gate._schedule_hold_timer(1, time.monotonic(), read_only=True)
+    gate._schedule_hold_timer(2, time.monotonic(), read_only=False)
+    assert 1 in gate._read_timers
+    assert gate._write_timer is not None
+    gate.close()
+
+
+async def test_ensure_loop_abandons_pending_leases(tmp_path: Path) -> None:
+    """事件循环切换：尚未授予的租约统一标记放弃（旧循环的等待方不会再被唤起）。"""
+    gate = _gate(tmp_path)
+    lease = _lease(asyncio.get_running_loop(), token=99)
+    gate._pending[lease.token] = lease
+    other_loop = asyncio.new_event_loop()
+    gate._loop_ref = weakref.ref(other_loop)
+    try:
+        token = await asyncio.wait_for(gate.acquire_read(), timeout=2.0)
+        await gate.release_read(token)
+    finally:
+        other_loop.close()
+    assert lease.abandoned is True

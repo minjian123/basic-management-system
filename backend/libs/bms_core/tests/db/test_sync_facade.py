@@ -78,6 +78,11 @@ async def test_sync_session_crud_and_scope(tmp_path: Path) -> None:
             assert loaded is not None
             await session.refresh(loaded)
             assert loaded.name == "demo"
+            # Core 原子语句绕过身份映射：过期前读到的是会话缓存，过期后按库内真值重新装载
+            await session.execute(text("UPDATE sync_probe SET name = 'changed' WHERE id = 1"))
+            assert loaded.name == "demo"
+            session.expire_all()
+            assert loaded.name == "changed"
             assert session.get_bind() is engine
             await session.delete(loaded)
             await session.commit()

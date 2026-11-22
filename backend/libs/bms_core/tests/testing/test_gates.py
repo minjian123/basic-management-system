@@ -9,14 +9,14 @@ import asyncio
 from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db import gate as gate_module
 from bms_core.db.registry import PLATFORM_DB_KEY
-from bms_core.testing import gates, plugin, rwlock
+from bms_core.testing import fixtures, gates, plugin, rwlock
 
 pytestmark = pytest.mark.kiwi_id(2533)
 
@@ -156,15 +156,15 @@ async def test_upgrade_timeout_restores_read_share(monkeypatch: pytest.MonkeyPat
     """升级等写门超时（份额已让出）：补回读份额并原样抛出，退出后不残留。"""
     target = gates.gate(gates.PLATFORM_GATE)
 
-    real = target._wait_and_lock  # pyright: ignore[reportPrivateUsage]
+    real = target._wait_granted  # pyright: ignore[reportPrivateUsage]
 
-    async def _fail(wait_write: bool, *, cap: float | None = None) -> None:
-        """只在等写门时失败；读门走真实实现（保证真持有内核共享锁）。"""
-        if wait_write:
+    async def _fail(lease: rwlock._Lease, limit: float) -> None:  # pyright: ignore[reportPrivateUsage]
+        """只在等写门时失败；读门走真实实现（保证真持有系统共享锁）。"""
+        if lease.write:
             raise TimeoutError("boom")
-        await real(wait_write)
+        await real(lease, limit)
 
-    monkeypatch.setattr(target, "_wait_and_lock", _fail)
+    monkeypatch.setattr(target, "_wait_granted", _fail)
     with pytest.raises(TimeoutError, match="boom"):
         async with gates.gate_scope(gates.PLATFORM_GATE, read_only=False):
             pass
@@ -203,10 +203,15 @@ def test_pytest_unconfigure_clears_hook(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(gate_module, "_hook", gate_module.current_gate_hook())
     gate_module.set_gate_hook(_noop_hook)
     gates.gate(gates.PLATFORM_GATE)
+    # 会话结束的「恢复补丁」用替身：直接调真实现会把本进程的自动提交补丁撤掉，影响同 worker 后续用例
+    restored: ConcurrentStableList[str] = ConcurrentStableList()
+    monkeypatch.setattr(plugin, "_restore_session_factory", lambda: restored.add("session"))
+    monkeypatch.setattr(plugin, "_restore_sqlite_connections", lambda: restored.add("sqlite"))
 
     plugin.pytest_unconfigure(cast("pytest.Config", None))
 
     assert gate_module.current_gate_hook() is None
+    assert set(restored) == {"session", "sqlite"}
 
 
 async def test_gate_scope_records_hold_when_enabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -440,7 +445,206 @@ def test_session_factory_patch_is_idempotent() -> None:
     plugin._patch_session_factory_autocommit()  # pyright: ignore[reportPrivateUsage]
 
 
+def test_patch_sqlite_connections_sets_autocommit_and_pragma(monkeypatch: pytest.MonkeyPatch) -> None:
+    """连接补丁：新建连接为自动提交，并关掉 WAL 自动检查点（会话结束后恢复）。"""
+    import sqlite3
+
+    original = sqlite3.connect
+    monkeypatch.setattr(plugin, "_original_sqlite_connect", None)
+    # 用例结束由 monkeypatch 还原，避免把本进程的补丁再套一层
+    monkeypatch.setattr(sqlite3, "connect", original)
+
+    plugin._patch_sqlite_connections()  # pyright: ignore[reportPrivateUsage]
+    try:
+        connection = sqlite3.connect(":memory:")
+        try:
+            assert connection.isolation_level is None
+            assert connection.execute("PRAGMA wal_autocheckpoint").fetchone()[0] == 0
+        finally:
+            connection.close()
+    finally:
+        plugin._restore_sqlite_connections()  # pyright: ignore[reportPrivateUsage]
+
+    assert sqlite3.connect is original
+    assert plugin._original_sqlite_connect is None  # pyright: ignore[reportPrivateUsage]
+
+
 def test_restore_session_factory_is_noop_without_patch(monkeypatch: pytest.MonkeyPatch) -> None:
     """未打补丁时恢复是空操作（会话结束路径可重复调用）。"""
     monkeypatch.setattr(plugin, "_original_session_create", None)
     plugin._restore_session_factory()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_restore_sqlite_connections_is_noop_without_patch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """未改写过 `sqlite3.connect` 时恢复是空操作（会话结束路径可重复调用）。"""
+    monkeypatch.setattr(plugin, "_original_sqlite_connect", None)
+    plugin._restore_sqlite_connections()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_restore_sqlite_connections_puts_back_original(monkeypatch: pytest.MonkeyPatch) -> None:
+    """恢复把 `sqlite3.connect` 换回补丁前的实现，并清空快照。"""
+    import sqlite3
+
+    sentinel = sqlite3.connect
+
+    def _passthrough(*args: object, **kwargs: object) -> sqlite3.Connection:
+        """透传建连（替身只为验证恢复换回引用）。
+
+        Args:
+            *args: 透传。
+            **kwargs: 透传。
+
+        Returns:
+            sqlite3.Connection: 原实现建出的连接。
+        """
+        return cast("Any", sentinel)(*args, **kwargs)
+
+    monkeypatch.setattr(plugin, "_original_sqlite_connect", sentinel)
+    monkeypatch.setattr(sqlite3, "connect", _passthrough)
+
+    plugin._restore_sqlite_connections()  # pyright: ignore[reportPrivateUsage]
+
+    assert sqlite3.connect is sentinel
+    assert plugin._original_sqlite_connect is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_restore_session_factory_puts_back_original(monkeypatch: pytest.MonkeyPatch) -> None:
+    """恢复把会话工厂的 `create` 换回补丁前的实现，并清空快照。"""
+    from bms_core.db.session import SessionFactory
+
+    sentinel = SessionFactory.create
+
+    def _create(*args: object, **kwargs: object) -> None:
+        """空替身（只为验证恢复换回引用）。"""
+        del args, kwargs
+
+    monkeypatch.setattr(plugin, "_original_session_create", sentinel)
+    monkeypatch.setattr(SessionFactory, "create", _create)
+
+    plugin._restore_session_factory()  # pyright: ignore[reportPrivateUsage]
+
+    assert SessionFactory.create is sentinel
+    assert plugin._original_session_create is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_busy_timeout_from_env_parses_and_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    """忙等上限：环境变量缺省 0.1s、合法值生效、非法值回落 0.1s。"""
+    monkeypatch.delenv("BMS_TEST_SQLITE_BUSY_TIMEOUT", raising=False)
+    assert plugin._busy_timeout_from_env() == 0.1  # pyright: ignore[reportPrivateUsage]
+    monkeypatch.setenv("BMS_TEST_SQLITE_BUSY_TIMEOUT", "0.5")
+    assert plugin._busy_timeout_from_env() == 0.5  # pyright: ignore[reportPrivateUsage]
+    monkeypatch.setenv("BMS_TEST_SQLITE_BUSY_TIMEOUT", "abc")
+    assert plugin._busy_timeout_from_env() == 0.1  # pyright: ignore[reportPrivateUsage]
+
+
+def test_prepare_test_dir_resets_and_warns(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    """会话入口准备：先重建共享库，再清临时产物；非锁文件清理失败只告警。"""
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _clear_warn(*, include_databases: bool) -> ConcurrentStableList[str]:
+        """返回一份「清不掉的临时文件」清单（不含 .lock）。
+
+        Args:
+            include_databases: 未使用（与真函数同形）。
+
+        Returns:
+            ConcurrentStableList[str]: 失败清单。
+        """
+        del include_databases
+        return ConcurrentStableList(["x.tmp"])
+
+    monkeypatch.setattr(fixtures, "reset_shared_databases", lambda: calls.add("reset"))
+    monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_warn)
+    plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]
+    assert list(calls) == ["reset"]
+    assert "测试目录清理失败" in capsys.readouterr().out
+
+
+def test_prepare_test_dir_fails_on_stuck_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """会话入口准备：残留 `.lock` 清不掉即阻断（带锁开跑会拖成一堆假超时）。"""
+
+    def _clear_lock(*, include_databases: bool) -> ConcurrentStableList[str]:
+        """返回一份残留锁清单。
+
+        Args:
+            include_databases: 未使用（与真函数同形）。
+
+        Returns:
+            ConcurrentStableList[str]: 失败清单。
+        """
+        del include_databases
+        return ConcurrentStableList(["a.lock"])
+
+    monkeypatch.setattr(fixtures, "reset_shared_databases", lambda: None)
+    monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_lock)
+    with pytest.raises(RuntimeError, match="残留测试锁清理失败"):
+        plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_collection_modifyitems_skips_without_shared_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    """初始化阶段：本次用例用不到共享库时直接返回（纯单元测试不为建库多花数秒）。"""
+    prepared: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _needed(items: object) -> ConcurrentStableList[str]:
+        """不需要任何共享库。
+
+        Args:
+            items: 收集到的用例（未使用）。
+
+        Returns:
+            ConcurrentStableList[str]: 空清单。
+        """
+        del items
+        return ConcurrentStableList()
+
+    def _prepare(names: object) -> ConcurrentStableList[str]:
+        """记录被调用（本用例不应发生）。
+
+        Args:
+            names: 数据源清单（未使用）。
+
+        Returns:
+            ConcurrentStableList[str]: 空清单。
+        """
+        del names
+        prepared.add("called")
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(fixtures, "needed_shared_databases", _needed)
+    monkeypatch.setattr(fixtures, "prepare_shared_databases", _prepare)
+    plugin.pytest_collection_modifyitems(cast("pytest.Config", None), [])
+    assert list(prepared) == []
+
+
+def test_collection_modifyitems_prepares_needed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """初始化阶段：按夹具闭包需要共享库时调建库（首个建、其余等就绪）。"""
+    prepared: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
+
+    def _needed(items: object) -> ConcurrentStableList[str]:
+        """需要平台库。
+
+        Args:
+            items: 收集到的用例（未使用）。
+
+        Returns:
+            ConcurrentStableList[str]: 数据源清单。
+        """
+        del items
+        return ConcurrentStableList(["platform"])
+
+    def _prepare(names: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
+        """记录建库入参。
+
+        Args:
+            names: 数据源清单。
+
+        Returns:
+            ConcurrentStableList[str]: 空清单。
+        """
+        prepared.add(ConcurrentStableList(names))
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(fixtures, "needed_shared_databases", _needed)
+    monkeypatch.setattr(fixtures, "prepare_shared_databases", _prepare)
+    plugin.pytest_collection_modifyitems(cast("pytest.Config", None), [])
+    assert [list(names) for names in prepared] == [["platform"]]

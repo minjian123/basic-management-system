@@ -19,14 +19,13 @@ from dataclasses import dataclass
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.models.tenant.tenant_module import SysTenantModule
-from bms_core.testing.gates import write_window
+from bms_core.testing.transaction import gated_session
 
 __all__ = ("BASE_TENANTS", "TenantBase", "tenant_base")
 
@@ -78,32 +77,36 @@ class TenantBase:
         self.session = session
 
     async def ensure_base(self) -> None:
-        """幂等写入基础租户集合（已存在的编码跳过；并发撞唯一约束时以后落库者为准）。"""
+        """幂等写入基础租户集合（已存在的编码跳过；并发撞唯一约束时以后落库者为准）。
+
+        会话是**操作级写门 + autocommit**（见 `tenant_base` 夹具），每条 SQL 立即提交并立即放锁；
+        因此这里不再用 `begin_nested`（autocommit 连接上开 savepoint 会绕开门）。
+        """
         for spec in BASE_TENANTS:
             existing = (
                 (await self.session.execute(select(SysTenant).where(SysTenant.code == spec.code))).scalars().first()
             )
             if existing is not None:
                 continue
+            row = SysTenant(
+                code=spec.code,
+                name=spec.name,
+                domain=spec.domain,
+                status=spec.status,
+                **({"db_key": spec.db_key} if spec.db_key is not None else {}),
+            )
+            self.session.add(row)
             try:
-                async with self.session.begin_nested():
-                    row = SysTenant(
-                        code=spec.code,
-                        name=spec.name,
-                        domain=spec.domain,
-                        status=spec.status,
-                        **({"db_key": spec.db_key} if spec.db_key is not None else {}),
-                    )
-                    self.session.add(row)
-                    await self.session.flush()
-                    if spec.db_basis is not None:
-                        self.session.add(SysTenantDatabase(tenant_id=int(row.id), db_basis=spec.db_basis))
-                    if spec.soft_deleted:
-                        row.soft_delete()
-                    await self.session.flush()
+                await self.session.flush()
             except IntegrityError:
+                # 并发写入同一编码：本次整条回滚（autocommit 下 flush 失败即该语句失败），以后落库者为准
+                await self.session.rollback()
                 continue
-        await self.session.commit()
+            if spec.db_basis is not None:
+                self.session.add(SysTenantDatabase(tenant_id=int(row.id), db_basis=spec.db_basis))
+            if spec.soft_deleted:
+                row.soft_delete()
+            await self.session.flush()
 
     async def seed(
         self,
@@ -198,15 +201,13 @@ async def tenant_base(shared_platform_db_url: str) -> AsyncIterator[TenantBase]:
     Yields:
         TenantBase: 基础数据集句柄。
     """
-    # 会话级夹具：会话要跨整轮存活，**不能常驻持写门**（会把整轮串行化）。故只在
-    # `ensure_base()` 这一次初始化写入上取写门，其余用例自造行的写入沿用本会话。
-    engine = create_async_engine(shared_platform_db_url)  # own_db: 会话级夹具，仅初始化那一次取门
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    # 会话级夹具：会话跨整轮存活，但**门按操作取放**（`gated_session` = autocommit + 每个数据库方法
+    # 一次写门），所以既不会把整轮串行化，也不会有「事务开着、门已放」的门外写者。
+    engine = create_async_engine(shared_platform_db_url)  # own_db: 会话级夹具，门由 gated_session 逐操作取
     try:
-        async with factory() as session:
+        async with gated_session(engine, read_only=False) as session:
             base = TenantBase(shared_platform_db_url, session)
-            async with write_window(PLATFORM_DB_KEY):
-                await base.ensure_base()
+            await base.ensure_base()
             yield base
     finally:
         await engine.dispose()

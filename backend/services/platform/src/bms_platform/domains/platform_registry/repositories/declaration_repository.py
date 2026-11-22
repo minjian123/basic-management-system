@@ -8,7 +8,7 @@
 
 from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, select
 
 from bms_core.boundary.domains import DomainEntry
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -68,6 +68,58 @@ _NEW_MODELS: ConcurrentStableDict[str, type[Any]] = ConcurrentStableDict(
 """
 
 
+class _FieldRecorder:
+    """属性写入录制器：把 `_assign` 的逐字段赋值录成「列 → 值」映射。
+
+    为什么需要：落库改走原子语句后，需要的是列值而不是 ORM 对象；若另写一份「每类声明有哪些
+    字段」的清单，就会和 `_assign` 各改各的、迟早漂移。录制器让 `_assign` 继续做**唯一事实源**：
+    它赋了哪些属性，原子语句就写哪些列（未赋值的列，如运营态 `admin_status`，一律不写）。
+
+    `declaration_version` 只被读取、不被赋值（`_assign` 用它 +1），故初始值给 0 供其计算。
+    """
+
+    def __init__(self, initial: ConcurrentStableDict[str, object]) -> None:
+        """初始化。
+
+        Args:
+            initial: 供 `_assign` 读取的只读初值（不计入录制结果）。
+        """
+        object.__setattr__(self, "_values", ConcurrentStableDict(initial))
+        object.__setattr__(self, "_touched", ConcurrentStableSet())
+
+    def __getattr__(self, name: str) -> object:
+        """读取初值（`_assign` 只读 `declaration_version`）。
+
+        Args:
+            name: 属性名。
+
+        Returns:
+            object: 初值；未给出为 None。
+        """
+        return object.__getattribute__(self, "_values").get(name)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """记录一次赋值。
+
+        Args:
+            name: 属性名。
+            value: 属性值。
+        """
+        object.__getattribute__(self, "_values").set(name, value)
+        object.__getattribute__(self, "_touched").add(name)
+
+    @property
+    def values(self) -> ConcurrentStableDict[str, object]:
+        """录制到的列值（只含 `_assign` 赋过值的列）。
+
+        Returns:
+            ConcurrentStableDict[str, object]: 列名 → 值。
+        """
+        values = object.__getattribute__(self, "_values")
+        touched = object.__getattribute__(self, "_touched")
+        return ConcurrentStableDict({name: values.get(name) for name in touched})
+
+
 class DeclarationRepository(BaseDbRepository[Any]):
     """声明注册仓储：现状读取 + 对账结果落库。"""
 
@@ -125,25 +177,82 @@ class DeclarationRepository(BaseDbRepository[Any]):
     async def apply(self, plan: DeclarationPlan, *, product_key: str) -> None:
         """把对账结果落库（新增 / 覆盖 / 退役）。
 
+        全部走**原子语句**：新增是 `INSERT ... WHERE NOT EXISTS`（同键已存在则跳过），覆盖与退役
+        是 Core `UPDATE`（不带「读到的版本」谓词）。为什么不用 ORM 写：注册是「读现状 → 对账 →
+        落库」跨多次操作，两个进程同时注册时，后写方的 ORM `UPDATE` 会因版本已变而
+        `StaleDataError`（0 行匹配），新增则可能各插一行。原子语句让数据库自己判「该不该写」，
+        并发注册收敛到同一份注册表。
+
         Args:
             plan: 对账计划。
             product_key: 声明方产品键（新增行写入归属）。
         """
-        session = self._session
         for kind in DECLARATION_KINDS:
+            target = self._model_of(kind)
             for record in plan.created.get(kind) or ():
-                session.add(self._to_model(kind, record, product_key=product_key))
+                key = declaration_key(kind, record)
+                await self.insert_if_absent(
+                    self._values_of(kind, record, product_key=product_key, creating=True),
+                    match=self._key_match(kind, key),
+                    model=target,
+                )
             for key in plan.retired.get(kind) or ():
-                row: Any = await self._row_by_key(kind, key)
-                if row is not None:
-                    row.status = _RETIRED
+                await self.update_where(
+                    self._key_match(kind, key),
+                    values=ConcurrentStableDict({"status": _RETIRED}),
+                    model=target,
+                )
             for record in plan.updated.get(kind) or ():
-                row = await self._row_by_key(kind, declaration_key(kind, record))
-                if row is None:
-                    session.add(self._to_model(kind, record, product_key=product_key))
-                    continue
-                self._assign(kind, row, record, product_key=product_key)
-        await session.flush()
+                key = declaration_key(kind, record)
+                values = self._values_of(kind, record, product_key=product_key, creating=False)
+                if kind == "resource_types":
+                    # 声明版本按内容变更派生：由数据库侧自增，避免并发注册互相覆盖成同一个值
+                    values.set("declaration_version", target.declaration_version + 1)
+                changed = await self.update_where(self._key_match(kind, key), values=values, model=target)
+                if changed == 0:
+                    # 计划里是「覆盖」，但目标行已被并发软删 / 从未落库：退回原子新增（语义同原实现）
+                    await self.insert_if_absent(
+                        self._values_of(kind, record, product_key=product_key, creating=True),
+                        match=self._key_match(kind, key),
+                        model=target,
+                    )
+        # 原子语句绕过了 ORM 身份映射：会话里已加载的行会停在旧值。统一过期，后续读按库内真值
+        # 重新装载（本方法之后仍持有 ORM 行的调用方，读属性前须先重新查询 / `refresh`）。
+        self._session.expire_all()
+
+    def _values_of(
+        self, kind: str, record: object, *, product_key: str, creating: bool
+    ) -> ConcurrentStableDict[str, object]:
+        """把声明记录录成「列 → 值」（复用 `_assign`，避免两份字段清单漂移）。
+
+        Args:
+            kind: 声明类别。
+            record: 声明记录。
+            product_key: 声明方产品键。
+            creating: 是否新增（补表单判别列等新建期字段）。
+
+        Returns:
+            ConcurrentStableDict[str, object]: 待写入的列值（ORM 属性名）。
+        """
+        # 覆盖时 `_assign` 会读 `declaration_version` 再 +1；先给 0 让录制器能算，
+        # 真正的版本自增由 `apply` 用 SQL 表达式覆盖（并发下不会写成同一个字面值）。
+        recorder = _FieldRecorder(ConcurrentStableDict({"declaration_version": 0}))
+        self._assign(kind, recorder, record, product_key=product_key, creating=creating)
+        return recorder.values
+
+    def _key_match(self, kind: str, key: str) -> ConcurrentStableList[ColumnElement[bool]]:
+        """按声明业务键构造原子写定位条件。
+
+        Args:
+            kind: 声明类别。
+            key: 业务键。
+
+        Returns:
+            ConcurrentStableList[ColumnElement[bool]]: 定位条件（未软删过滤由基座方法追加）。
+        """
+        model = self._model_of(kind)
+        column = getattr(model, self._column_name(kind))
+        return ConcurrentStableList((column == self._cast_key(kind, key),))
 
     async def _rows(self, kind: str) -> ConcurrentStableList[Any]:
         """读某类声明的全部未软删行。
@@ -155,7 +264,12 @@ class DeclarationRepository(BaseDbRepository[Any]):
             ConcurrentStableList[Any]: ORM 行（插入序）。
         """
         model = self._model_of(kind)
-        result = await self._session.execute(select(model).where(model.deleted_at.is_(None)).order_by(model.id))
+        # `populate_existing`：本轮写入走 Core 语句，会话身份映射里可能还留着旧值；
+        # 投影必须按库内真值重建，否则会「写成功、视图还是旧的」。
+        statement = (
+            select(model).where(model.deleted_at.is_(None)).order_by(model.id).execution_options(populate_existing=True)
+        )
+        result = await self._session.execute(statement)
         return ConcurrentStableList(result.scalars().all())
 
     def _model_of(self, kind: str) -> Any:
@@ -172,21 +286,6 @@ class DeclarationRepository(BaseDbRepository[Any]):
         if kind == "services":
             return SysModule
         return _NEW_MODELS.get(kind)
-
-    async def _row_by_key(self, kind: str, key: str) -> Any:
-        """按业务键取单行（未软删）。
-
-        Args:
-            kind: 声明类别。
-            key: 业务键。
-
-        Returns:
-            Any: ORM 行；不存在为 None。
-        """
-        model = self._model_of(kind)
-        column = getattr(model, self._column_name(kind))
-        statement = select(model).where(column == self._cast_key(kind, key), model.deleted_at.is_(None))
-        return (await self._session.execute(statement)).scalars().first()
 
     @staticmethod
     def _column_name(kind: str) -> str:
@@ -223,22 +322,6 @@ class DeclarationRepository(BaseDbRepository[Any]):
             object: 查询用键值。
         """
         return int(key) if kind == "errcodes" else key
-
-    def _to_model(self, kind: str, record: object, *, product_key: str) -> Any:
-        """声明记录 → 待插入模型对象。
-
-        Args:
-            kind: 声明类别。
-            record: 声明记录。
-            product_key: 声明方产品键。
-
-        Returns:
-            Any: 模型对象。
-        """
-        model = self._model_of(kind)
-        row: Any = model()
-        self._assign(kind, row, record, product_key=product_key, creating=True)
-        return row
 
     def _assign(self, kind: str, row: Any, record: object, *, product_key: str, creating: bool = False) -> None:
         """把声明要素写进模型对象（新增与覆盖共用）。

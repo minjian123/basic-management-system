@@ -15,7 +15,7 @@
 """
 
 import os
-from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractAsyncContextManager, suppress
 from typing import Any, cast
 
 import pytest
@@ -111,6 +111,14 @@ def pytest_configure(config: pytest.Config) -> None:
     # 「一个请求一个事务」，事务未提交前会一直持有 SQLite 写锁，24 路并行下别的写者只能排队；
     # 测试会话统一换成 autocommit，每条 SQL 立即落库、立即释放数据库锁。
     _patch_session_factory_autocommit()
+    _patch_sqlite_connections()
+    # 2026-11-22 业主口径：**数据库层不再是排队主路径**。测试库忙等缺省 0.1s：只吸收 SQLite
+    # 自身的瞬时独占（建表检查 / WAL checkpoint）；数据读写的排队仍只在读写门上发生。
+    # `BMS_TEST_SQLITE_BUSY_TIMEOUT` 仅用于定位期调整（秒），缺省 0.1。
+    from bms_core.db.sqlite import set_sqlite_busy_timeout
+
+    set_sqlite_busy_timeout(_busy_timeout_from_env())
+    _maybe_install_lock_probe()
     # 共享测试库基址钉在会话起始的工程根：用例 `chdir` 后解析夹具也不会把库落到临时目录
     # （否则表现为随机的「no such table」；见 `fixtures.configure_project_root`）。
     fixtures.configure_project_root(os.getcwd())
@@ -125,18 +133,75 @@ def pytest_configure(config: pytest.Config) -> None:
     if notice:
         print(notice)
     if not os.environ.get("PYTEST_XDIST_WORKER"):
-        # 会话开始清空共享测试库（controller 先于 xdist worker 启动，不与 worker 建库竞争）
-        failed = fixtures.clear_shared_db_files()
-        stuck_locks = [name for name in failed if name.endswith(".lock")]
-        if stuck_locks:
-            # 残留锁会让后续每个等待方等满整段上限后才超时（bms#1659 续修实测：8 worker × 300s），
-            # 带锁开跑只会把「一行启动错误」拖成「一堆假超时」，必须立即阻断。
-            raise RuntimeError(
-                f"[bms_testing_plugin] 残留测试锁清理失败：{stuck_locks}；"
-                f"请结束占用进程或手工删除 {fixtures.test_db_dir()} 下的同名 .lock 后重跑"
-            )
-        if failed:
-            print(f"[bms_testing_plugin] 共享测试库清理失败（Windows 句柄占用），本次改用新库：{failed}")
+        _prepare_test_dir()
+
+
+_BUSY_TIMEOUT_DEFAULT = 0.1
+"""测试库忙等上限缺省值（秒）：只吸收 SQLite 自身的瞬时独占，排队走读写门。"""
+
+
+def _busy_timeout_from_env() -> float:
+    """从环境变量解析测试库忙等上限（秒；非法值回落缺省 0.1）。
+
+    Returns:
+        float: 忙等上限（秒）。
+    """
+    raw = os.environ.get("BMS_TEST_SQLITE_BUSY_TIMEOUT", "").strip()
+    try:
+        return float(raw) if raw else _BUSY_TIMEOUT_DEFAULT
+    except ValueError:
+        return _BUSY_TIMEOUT_DEFAULT
+
+
+def _prepare_test_dir() -> None:
+    """会话入口的测试目录准备：重建共享库 → 清残留锁与临时产物。
+
+    为什么在这里做：必须在**所有 worker 起来之前**（控制器 / 单进程）完成，否则删库会撞上
+    正在跑用例的 worker。残留 `.lock` 直接失败——带锁开跑会把「一行启动错误」拖成一堆假超时
+    （bms#1659 续修实测：8 worker × 300s）。
+
+    Raises:
+        RuntimeError: 残留 `.lock` 清不掉（有进程占着）。
+    """
+    fixtures.reset_shared_databases()
+    failed = fixtures.clear_shared_db_files(include_databases=False)
+    stuck_locks = [name for name in failed if name.endswith(".lock")]
+    if stuck_locks:
+        raise RuntimeError(
+            f"[bms_testing_plugin] 残留测试锁清理失败：{stuck_locks}；"
+            f"请结束占用进程或手工删除 {fixtures.test_db_dir()} 下的同名 .lock 后重跑"
+        )
+    if failed:
+        print(f"[bms_testing_plugin] 测试目录清理失败（Windows 句柄占用）：{failed}")
+
+
+def _maybe_install_lock_probe() -> None:  # pragma: no cover - 仅诊断期按环境变量开启，默认关闭
+    """按 `BMS_TEST_LOCK_PROBE=1` 安装 SQLite 语句 / 门外写探针。"""
+    if os.environ.get("BMS_TEST_LOCK_PROBE", "").strip() == "1":
+        from bms_core.testing import lock_probe
+
+        lock_probe.install()
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config,
+    items: list[pytest.Item],  # bare-collections:allow - pytest 钩子签名（框架约定）
+) -> None:
+    """初始化阶段：**在跑任何用例之前**把共享库建好（首个进程建、其余等就绪）。
+
+    放在收集完成时：此时才知道本次会话用不用共享库（纯单元测试不该为建库多花数秒）；
+    xdist 下各 worker 都会走到这里，且都还没开始跑用例；幂等由 `_init_lock` 选主 +
+    `.ready` 轮询保证。
+
+    Args:
+        config: pytest 配置（未使用，保留钩子签名）。
+        items: 本次收集到的用例（读它们的夹具闭包）。
+    """
+    del config
+    needed = fixtures.needed_shared_databases(items)
+    if not needed:
+        return
+    fixtures.prepare_shared_databases(needed)
 
 
 _original_session_create: Any = None
@@ -161,6 +226,68 @@ def _patch_session_factory_autocommit() -> None:
         return original(self, typed.execution_options(isolation_level="AUTOCOMMIT"))
 
     SessionFactory.create = _create  # type: ignore[method-assign]
+
+
+_original_sqlite_connect: Any = None
+"""被替换前的 `sqlite3.connect`（会话结束时恢复）。"""
+
+
+def _patch_sqlite_connections() -> None:
+    """把测试期**每一个** SQLite 连接建成自动提交，并关掉 WAL 自动检查点。
+
+    为什么改在最底层 `sqlite3.connect`：SQLAlchemy 的引擎工厂有多个入口（`bms_core.db.sqlite`
+    统一入口、各处 `from sqlalchemy.ext.asyncio import create_async_engine` 的既有绑定），
+    只包一层工厂函数覆盖不全——实测 `bms_core.testing.fixtures` 在插件导入时就绑定了原函数，
+    共享库引擎因此一直是 SERIALIZABLE（事务跨语句开着、门已放但 SQLite 写锁还占着）。
+    改在 DBAPI 建连处，无论引擎从哪条路径创建都生效。
+
+    两项设置都是**连接级**、且都是测试口径：
+
+    - `isolation_level=None`：每条 SQL 立即提交、立即放锁。显式要求隔离级别的引擎
+      （如 `test_unit_of_work` 用真实事务验证回滚）由 SQLAlchemy 在建连后自行覆盖，不受影响。
+    - `wal_autocheckpoint=0`：自动检查点由「最后一个提交的连接」顺手触发，与读写门无关；
+      检查点期间别的连接会报 `SQLITE_BUSY`（探针里既找不到门外写者，也找不到持门的进程）。
+      测试库只有几 MB，不检查点不会撑爆磁盘，会话结束删库时 WAL 一并清掉。
+
+    作用域只到测试会话（`pytest_configure` 调用）；正式运行不经过本函数。
+    """
+    global _original_sqlite_connect
+    if _original_sqlite_connect is not None:
+        return
+    import sqlite3
+
+    original = sqlite3.connect
+    _original_sqlite_connect = original
+
+    def _connect(*args: Any, **kwargs: Any) -> sqlite3.Connection:
+        """建连时注入自动提交与测试 pragma。
+
+        Args:
+            *args: 透传 `sqlite3.connect`。
+            **kwargs: 透传；未显式给隔离级别时按自动提交。
+
+        Returns:
+            sqlite3.Connection: 建好的连接。
+        """
+        kwargs.setdefault("isolation_level", None)
+        connection = original(*args, **kwargs)
+        # 只读 / 特殊 VFS 连接可能不支持该 pragma；失败不影响测试主流程
+        with suppress(sqlite3.Error):
+            connection.execute("PRAGMA wal_autocheckpoint=0")
+        return connection
+
+    sqlite3.connect = _connect  # type: ignore[assignment]
+
+
+def _restore_sqlite_connections() -> None:
+    """恢复被替换的 `sqlite3.connect`。"""
+    global _original_sqlite_connect
+    if _original_sqlite_connect is None:
+        return
+    import sqlite3
+
+    sqlite3.connect = _original_sqlite_connect  # type: ignore[assignment]
+    _original_sqlite_connect = None
 
 
 def _restore_session_factory() -> None:
@@ -195,4 +322,5 @@ def pytest_unconfigure(config: pytest.Config) -> None:
     del config
     set_gate_hook(None)
     _restore_session_factory()
+    _restore_sqlite_connections()
     close_gates()

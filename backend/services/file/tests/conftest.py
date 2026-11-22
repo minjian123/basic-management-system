@@ -40,9 +40,9 @@ from tests_support.tenant_source import install_fake_tenant_source
 
 @pytest.fixture(autouse=True)
 def _plugin_fixtures(  # pyright: ignore[reportUnusedFunction]
-    platform_db: None, reset_request_context: None, reset_plugin_registry: None
+    platform_db: None, tenant_db: str, reset_request_context: None, reset_plugin_registry: None
 ) -> None:
-    """启用测试公共基座的公共夹具（平台库 / 请求上下文 / 插件注册表复位）。
+    """启用测试公共基座的公共夹具（平台库 / 租户库 / 请求上下文 / 插件注册表复位）。
 
     夹具实现单源在 `bms_core.testing.fixtures`；本包装只负责在本套件启用
     （交易服务单测不依赖平台库，故不启用）。

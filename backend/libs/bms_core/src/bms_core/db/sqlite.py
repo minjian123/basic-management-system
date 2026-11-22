@@ -3,8 +3,8 @@
 **为什么需要**：SQLite 写只能单写者。默认事务是 deferred——先读后写时写锁在**中途**升级，
 升级失败会报 `database is locked`；共享测试库全 worker 叠加时尤甚。本模块统一两件事：
 
-1. 所有 SQLite 连接带 `timeout=10`（驱动层忙等上限；不再是默认 5s）——2026-11-21 由 30 收到 10：
-   单次写是毫秒级，忙等 10 秒还没拿到锁，说明有长读事务 / 用例长期持门，等更久只会拖长整批；
+1. 所有 SQLite 连接带 `timeout=SQLITE_BUSY_TIMEOUT_SECONDS`（缺省 10s；**测试基座置 0.1s**，
+   写排队只走读写门，见 `set_sqlite_busy_timeout`）——0.1s 只吸收 SQLite 自身的瞬时独占；
 2. `immediate=True` 可额外在事务起点发 `BEGIN IMMEDIATE`（写锁先排队），但当前测试的
    「外层回滚事务 + 应用连接」模型会互相等锁，故缺省关闭，待事务模型重做后启用。
 
@@ -23,10 +23,46 @@ __all__ = [
     "SQLITE_BUSY_TIMEOUT_SECONDS",
     "create_async_engine",
     "is_sqlite_url",
+    "set_sqlite_busy_timeout",
+    "sqlite_busy_timeout_seconds",
 ]
 
 SQLITE_BUSY_TIMEOUT_SECONDS = 10
-"""SQLite 写锁忙等上限（秒）；与共享库建表时的 `PRAGMA busy_timeout` 同值（2026-11-21 由 30 收到 10）。"""
+"""SQLite 写锁忙等上限缺省值（秒）：生产 / 开发态用；测试基座会把它改成 0.1。"""
+
+_busy_timeout_seconds: float = float(SQLITE_BUSY_TIMEOUT_SECONDS)
+"""当前生效的忙等上限（测试基座在会话起始置 0.1，见 `set_sqlite_busy_timeout`）。"""
+
+
+def set_sqlite_busy_timeout(seconds: float) -> float:
+    """设置 SQLite 忙等上限（测试基座置 0.1s：数据库层不再是排队主路径）。
+
+    为什么测试要收到 0.1s：README / 《测试规范》的口径是「所有读写只在读写门上排队」，数据库层
+    再长时间忙等就成了第二条排队路径——既看不到持有者，也会把门外的旁路悄悄吞掉。但收到 0
+    会把 SQLite **自身的瞬时独占**（建表检查 / WAL checkpoint）也当成失败：24 路实测连
+    `SELECT` 都会偶发 `database is locked`。0.1s 只吸收这类毫秒级独占，门仍是唯一的数据排队
+    路径；绕过门的访问若真正冲突会立刻报错，旁路仍然暴露。
+
+    作用域只到本进程后续创建的引擎；已建引擎保持原参数。生产进程不调用本函数。
+
+    Args:
+        seconds: 忙等上限（秒，>= 0）。
+
+    Returns:
+        float: 实际生效值。
+    """
+    global _busy_timeout_seconds
+    _busy_timeout_seconds = max(0.0, float(seconds))
+    return _busy_timeout_seconds
+
+
+def sqlite_busy_timeout_seconds() -> float:
+    """当前生效的 SQLite 忙等上限（秒）。
+
+    Returns:
+        float: 忙等秒数（测试基座下为 0）。
+    """
+    return _busy_timeout_seconds
 
 
 def is_sqlite_url(url: str) -> bool:
@@ -57,7 +93,7 @@ def create_async_engine(url: str, **kwargs: Any) -> AsyncEngine:
     if not is_sqlite_url(url):
         return sa_asyncio.create_async_engine(url, **kwargs)
     connect_args = dict(kwargs.pop("connect_args", {}) or {})
-    connect_args.setdefault("timeout", SQLITE_BUSY_TIMEOUT_SECONDS)
+    connect_args.setdefault("timeout", _busy_timeout_seconds)
     if immediate:
         # `isolation_level=None`：由 SQLAlchemy 显式发 `BEGIN`，begin 钩子才能换成
         # `BEGIN IMMEDIATE`；仅在启用写队列时设置，避免改变默认事务语义。

@@ -18,11 +18,11 @@ from pathlib import Path
 from typing import Any, Final, cast
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.pool import NullPool
 
 from bms_core.cache.memory import MemoryCacheRegion
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.context import (
     current_client_ip,
@@ -34,6 +34,8 @@ from bms_core.core.context import (
     current_user_id,
 )
 from bms_core.core.id import MAX_WORKER_ID, id_generator
+from bms_core.db.gate import db_access_gate
+from bms_core.db.sqlite import create_async_engine, sqlite_busy_timeout_seconds
 from bms_core.permission.cache import reset_permission_cache_store
 from bms_core.testing import namespace as namespace_module
 from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE, GatedEngine
@@ -49,9 +51,12 @@ __all__ = (
     "ensure_shared_db",
     "isolation_enabled",
     "isolation_notice",
+    "needed_shared_databases",
     "ns",
     "platform_db",
+    "prepare_shared_databases",
     "project_root",
+    "require_shared_db",
     "reset_plugin_registry",
     "reset_request_context",
     "resolve_fixture",
@@ -371,16 +376,21 @@ def test_db_dir() -> Path:
 def shared_db_url(name: str) -> str:
     """共享库连接串（固定路径，全 worker 共用）。
 
+    **`?timeout=<当前值>`**（测试缺省 0.1s）：共享库的写排队只走读写门，SQLite 自己只做毫秒级
+    兜底（建表检查 / WAL checkpoint），不承担数据排队（2026-11-22 业主口径）。
+    查询参数由 SQLAlchemy 透传给 sqlite3，任何用本连接串建的引擎（夹具 / 直连辅助 / 应用会话）
+    都得到同一口径；真正绕过门的长时间冲突仍会很快报 `database is locked`。
+
     Args:
         name: 逻辑数据源名（如 `platform` / `tenant`）。
 
     Returns:
-        str: `sqlite+aiosqlite:///<绝对路径>`。
+        str: `sqlite+aiosqlite:///<绝对路径>?timeout=0.1`。
     """
-    return f"sqlite+aiosqlite:///{(test_db_dir() / f'{name}.db').as_posix()}"
+    return f"sqlite+aiosqlite:///{(test_db_dir() / f'{name}.db').as_posix()}?timeout={sqlite_busy_timeout_seconds():g}"
 
 
-def clear_shared_db_files() -> ConcurrentStableList[str]:
+def clear_shared_db_files(*, include_databases: bool = True) -> ConcurrentStableList[str]:
     """清空会话测试库目录下的库文件、就绪标记与残留锁（会话开始调用）。
 
     删除失败（Windows 句柄未释放）时跳过并返回失败清单，由调用方分级处置：
@@ -388,6 +398,9 @@ def clear_shared_db_files() -> ConcurrentStableList[str]:
 
     目录（如历史遗留的 `cov_dummy`）走 `rmtree`——旧实现用 `unlink` 删目录必然失败，
     会被误报成「句柄占用」。
+
+    Args:
+        include_databases: 是否连库文件与就绪标记一起删（初始化阶段自己按数据源删，传 False）。
 
     Returns:
         ConcurrentStableList[str]: 未能删除的文件名清单。
@@ -397,6 +410,8 @@ def clear_shared_db_files() -> ConcurrentStableList[str]:
     for path in sorted(directory.glob("*")):
         name = path.name
         if name == "namespace-map.jsonl":
+            continue
+        if not include_databases and (path.suffix in (".db", ".ready") or name.endswith(("-wal", "-shm", "-journal"))):
             continue
         # 读写门锁文件是**常驻**的：互斥由内核字节锁保证（进程退出自动回收），文件本身无需清空。
         # 上一轮进程被强杀时句柄尚未释放会让 `unlink` 失败，若按「残留锁」判死会误把整轮拒启
@@ -493,6 +508,21 @@ async def _default_prepare_async(url: str) -> None:
         await engine.dispose()
 
 
+def _ready_stamp(ready: Path) -> str:
+    """读取就绪标记内容（探针用；读不到给 `<none>`）。
+
+    Args:
+        ready: 就绪标记路径。
+
+    Returns:
+        str: 标记内容或 `<none>`。
+    """
+    try:
+        return ready.read_text(encoding="utf-8").strip() or "<empty>"
+    except OSError:
+        return "<none>"
+
+
 def ensure_shared_db(
     name: str,
     prepare: Callable[[str], None] | None = None,
@@ -528,9 +558,17 @@ def ensure_shared_db(
         # 抢到锁后再判一次：可能上一个持锁者已经建好
         if _is_ready():
             return url
+        from bms_core.testing import lock_probe
+
+        lock_probe.note(
+            "rebuild",
+            f"{name} old={_ready_stamp(ready)} new={version} dir={test_db_dir()} "
+            f"src={_source_file(prepare) if prepare else None}",
+        )
         _drop_shared_db_files(name)
         (prepare or _default_prepare)(url)
         ready.write_text(version, encoding="utf-8")
+        lock_probe.note("rebuild-done", f"{name} {version}")
     deadline = time.monotonic() + _INIT_TIMEOUT
     while not _is_ready():
         if time.monotonic() > deadline:
@@ -569,7 +607,7 @@ async def ensure_shared_db_async(
     ready = test_db_dir() / f"{name}.ready"
 
     def _is_ready() -> bool:
-        """就绪判据：标记存在且版本戳一致（库文件完整性由准备集自身负责）。"""
+        """就绪判据：标记存在且版本戳一致。"""
         return ready.exists() and ready.read_text(encoding="utf-8").strip() == version
 
     if _is_ready():
@@ -578,12 +616,20 @@ async def ensure_shared_db_async(
         # 抢到锁后再判一次：可能上一个持锁者已经建好
         if _is_ready():
             return url
+        from bms_core.testing import lock_probe
+
+        lock_probe.note(
+            "rebuild",
+            f"{name} old={_ready_stamp(ready)} new={version} dir={test_db_dir()} "
+            f"src={_source_file(prepare) if prepare else None}",
+        )
         _drop_shared_db_files(name)
         if prepare is None:
             await _default_prepare_async(url)
         else:
             await prepare(url)
         ready.write_text(version, encoding="utf-8")
+        lock_probe.note("rebuild-done", f"{name} {version}")
     return url
 
 
@@ -605,6 +651,27 @@ def _drop_shared_db_files(name: str) -> None:
         path = directory / f"{name}.db{suffix}"
         with suppress(FileNotFoundError):
             path.unlink()
+
+
+_SHARED_DB_NAMES: Final = ("platform", "tenant")
+"""共享测试库的数据源名（会话入口清场的固定范围）。"""
+
+
+def reset_shared_databases() -> None:
+    """会话入口清场：删掉上一轮遗留的共享库与就绪标记（控制器 / 单进程调用一次）。
+
+    为什么每轮重建：测试期连接是**真自动提交**（写入即落库、会话退出不回滚），同一用例在
+    新会话里重跑会读到上一轮自己的行——轻则断言漂移，重则撞唯一键（实测：24 路全量后紧接着
+    跑定向测试，8 条作业域用例因 `sys_job_monitor` / `sys_job_type` 残留失败）。
+
+    时序：本函数只在**所有 worker 起来之前**执行（`pytest_configure`，非 worker 进程）；
+    建库仍由初始化阶段（`pytest_collection_modifyitems`）负责——先删库、再建库、再跑用例。
+
+    并发前提：同一时刻只跑一个 pytest 会话（多会话共用 `.cache/test` 会互相删库）。
+    """
+    for name in _SHARED_DB_NAMES:
+        _drop_shared_db_files(name)
+        (test_db_dir() / f"{name}.ready").unlink(missing_ok=True)
 
 
 def resolve_prepare(request: pytest.FixtureRequest, name: str) -> Callable[[str], None] | None:
@@ -711,32 +778,189 @@ def _package_source_digest(package: str) -> str:
     return hasher.hexdigest()
 
 
-@pytest.fixture(scope="session")
-def shared_platform_db_url(request: pytest.FixtureRequest) -> str:
-    """共享平台库（`platform`，全 worker 共用、会话开始删库重建）。
+def require_shared_db(name: str, *, version: str) -> str:
+    """校验共享库已由**初始化阶段**建好（worker 侧只校验，绝不重建）。
+
+    为什么不再允许 worker 重建：并发用例开跑后，任何 worker 发现版本戳不一致就删库重建，
+    会在别的 worker 读写中途把共享库删掉（Windows 上是 `WinError 32`，非 Windows 上是数据被清空 /
+    `database is locked`）。初始化是**独立阶段**：worker 在收集完成、跑用例前统一建库，之后只读校验。
 
     Args:
-        request: pytest 夹具请求（取套件自定义建库回调）。
+        name: 逻辑数据源名（`platform` / `tenant`）。
+        version: 当前代码期望的版本戳。
+
+    Returns:
+        str: 共享库连接串。
+
+    Raises:
+        RuntimeError: 库文件缺失、就绪标记缺失，或版本戳与当前代码不一致。
+    """
+    url = shared_db_url(name)
+    directory = test_db_dir()
+    ready = directory / f"{name}.ready"
+    database = directory / f"{name}.db"
+    if not database.exists():
+        raise RuntimeError(
+            f"共享库文件缺失：{database}。初始化阶段没跑到（须先建库、后跑用例）；"
+            "请从工程根启动 pytest，或检查控制器是否加载了 bms_core.testing.plugin。"
+        )
+    if not ready.exists():
+        raise RuntimeError(
+            f"共享库未初始化：{ready} 不存在。共享库现在由**初始化阶段**在跑用例前统一建库；"
+            "请从工程根启动 pytest（勿在 worker 里手工建库）。"
+        )
+    stamp = ready.read_text(encoding="utf-8").strip()
+    if stamp != version:
+        raise RuntimeError(
+            f"共享库版本戳不一致：{name}.ready={stamp}，当前代码期望 {version}。"
+            "初始化阶段未能完成（或库是上一版代码建的）。重新跑一次即可：初始化阶段会删库重建。"
+        )
+    return url
+
+
+def needed_shared_databases(items: Iterable[Any]) -> ConcurrentStableList[str]:
+    """从收集到的用例推断本次会话需要哪些共享库（初始化阶段用）。
+
+    判据是用例的夹具闭包：直接或间接依赖 `shared_platform_db_url` / `shared_tenant_db_url`
+    即视为需要（服务 conftest 的 `platform_db_url` / `tenant_db` 都依赖它们，闭包里一定出现）。
+
+    Args:
+        items: 收集到的用例项。
+
+    Returns:
+        ConcurrentStableList[str]: 需要建的数据源名（`platform` / `tenant`，可同时）。
+    """
+    closure: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for item in items:
+        closure.update(getattr(item, "fixturenames", ()))
+    needed: ConcurrentStableList[str] = ConcurrentStableList()
+    if {"shared_platform_db_url", "shared_platform_engine", "platform_db", "platform_db_url"} & closure:
+        needed.add("platform")
+    if {"shared_tenant_db_url", "shared_tenant_engine", "tenant_db", "tenant_db_url"} & closure:
+        needed.add("tenant")
+    return needed
+
+
+def prepare_shared_databases(names: Iterable[str]) -> ConcurrentStableList[str]:
+    """**初始化阶段**：在跑任何用例之前把共享库建好（每个数据源只建一次，全程持写门）。
+
+    为什么要单列阶段：建表 + 播种是「读 → 写」的长事务（实测 2.4s），并发用例开跑后再建，
+    其它 worker 的门内写会在 SQLite 层撞上这把写锁（`database is locked`），甚至被删库。
+
+    幂等与并发：就绪标记命中即跳过；未命中时由 `ensure_shared_db` 在 `_init_lock` 里选主重建，
+    其余调用方等到就绪标记出现后直接返回——因此允许多个 worker 同时调用。
+
+    准备回调从 `tests_support.shared_db` 取（`prepare_platform` / `prepare_tenant`）；
+    产品仓可用环境变量 `BMS_TEST_SHARED_DB_MODULE` 指定自己的模块。
+
+    Args:
+        names: 需要建的数据源（`platform` / `tenant`；由收集到的用例实际用到的夹具决定）。
+
+    Returns:
+        ConcurrentStableList[str]: 本次真正建过的数据源名（已就绪的不计）。
+
+    Raises:
+        RuntimeError: 需要建库但找不到准备回调模块。
+    """
+    module = _load_prepare_module()
+    built: ConcurrentStableList[str] = ConcurrentStableList()
+    for name in names:
+        attribute = f"prepare_{name}"
+        prepare = getattr(module, attribute, None) if module is not None else None
+        if prepare is None:
+            raise RuntimeError(
+                f"缺少共享库准备回调 {attribute}：初始化阶段无法建库。"
+                "请在工程根提供 tests_support/shared_db.py（或设置 BMS_TEST_SHARED_DB_MODULE）。"
+            )
+        version = version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES)
+        if _shared_db_ready(name, version):
+            continue
+        # 就绪标记内容可能与当前版本戳相同、但库文件已被删空（上次进程崩溃 / 手工删库）：
+        # `ensure_shared_db` 以标记为「已建好」，必须先把标记清掉，让它走重建分支。
+        (test_db_dir() / f"{name}.ready").unlink(missing_ok=True)
+        print(f"[bms_testing_plugin] 初始化阶段：建共享库 {name}（先建库、后跑用例）", flush=True)
+        asyncio.run(_build_shared_db_under_gate(name, prepare, version))
+        built.add(name)
+    return built
+
+
+def _shared_db_ready(name: str, version: str) -> bool:
+    """就绪判据：标记内容等于版本戳，且库文件存在且非空（被删空的文件不算就绪）。
+
+    Args:
+        name: 逻辑数据源名。
+        version: 期望版本戳。
+
+    Returns:
+        bool: 就绪返回 True。
+    """
+    directory = test_db_dir()
+    database = directory / f"{name}.db"
+    try:
+        if database.stat().st_size == 0:
+            return False
+        return (directory / f"{name}.ready").read_text(encoding="utf-8").strip() == version
+    except OSError:
+        return False
+
+
+async def _build_shared_db_under_gate(name: str, prepare: Callable[[str], None], version: str) -> None:
+    """在写门内建一个共享库（初始化阶段唯一入口）。
+
+    Args:
+        name: 逻辑数据源名。
+        prepare: 建库与播种回调（同步实现，内部自开事件循环）。
+        version: 版本戳。
+    """
+    # 初始化阶段只有控制器一个进程，取门只为守住「所有数据库读写都走门」的口径；
+    # 真正的互斥价值在测试期：worker 侧不会再有第二个建库者。
+    async with db_access_gate(PLATFORM_GATE, read_only=False, wait=_INIT_TIMEOUT):
+        await asyncio.to_thread(ensure_shared_db, name, prepare, version=version)
+
+
+def _load_prepare_module() -> Any | None:
+    """载入准备回调模块（`tests_support.shared_db`，可由环境变量覆盖）。
+
+    Returns:
+        Any | None: 模块；找不到为 None。
+    """
+    candidates = ConcurrentStableList(
+        [os.environ.get("BMS_TEST_SHARED_DB_MODULE", "").strip() or "tests_support.shared_db"]
+    )
+    for candidate in candidates:
+        try:
+            return importlib.import_module(candidate)
+        except ImportError:
+            continue
+    return None
+
+
+@pytest.fixture(scope="session")
+def shared_platform_db_url(request: pytest.FixtureRequest) -> str:
+    """共享平台库（`platform`，控制器在 worker 起来前建好；worker 只校验）。
+
+    Args:
+        request: pytest 夹具请求（取套件自定义建库回调，仅用于派生版本戳）。
 
     Returns:
         str: 平台库连接串。
     """
     prepare = resolve_prepare(request, "platform")
-    return ensure_shared_db("platform", prepare, version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
+    return require_shared_db("platform", version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
 
 
 @pytest.fixture(scope="session")
 def shared_tenant_db_url(request: pytest.FixtureRequest) -> str:
-    """共享租户库（`tenant`，全 worker 共用、会话开始删库重建）。
+    """共享租户库（`tenant`，控制器在 worker 起来前建好；worker 只校验）。
 
     Args:
-        request: pytest 夹具请求（取套件自定义建库回调）。
+        request: pytest 夹具请求（取套件自定义建库回调，仅用于派生版本戳）。
 
     Returns:
         str: 租户库连接串。
     """
     prepare = resolve_prepare(request, "tenant")
-    return ensure_shared_db("tenant", prepare, version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
+    return require_shared_db("tenant", version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
 
 
 @pytest.fixture
@@ -757,7 +981,12 @@ async def shared_platform_engine(shared_platform_db_url: str) -> AsyncIterator[A
         AsyncEngine: 指向共享平台库的门代理引擎。
     """
     engine = create_async_engine(
-        shared_platform_db_url, poolclass=NullPool, connect_args={"timeout": 30}, isolation_level="AUTOCOMMIT"
+        shared_platform_db_url,
+        poolclass=NullPool,
+        # 与 `shared_db_url` 的 `?timeout=` 同口径：数据排队只在读写门上，数据库层只做毫秒级兜底。
+        # 原先硬编码 30s 会让「持门等 SQLite 写锁」最长持续 30s，其它 worker 等门 5s/10s 全超时。
+        connect_args={"timeout": sqlite_busy_timeout_seconds()},
+        isolation_level="AUTOCOMMIT",
     )
     gated = GatedEngine(engine, PLATFORM_GATE)
     try:
@@ -777,7 +1006,10 @@ async def shared_tenant_engine(shared_tenant_db_url: str) -> AsyncIterator[Async
         AsyncEngine: 指向共享租户库的门代理引擎。
     """
     engine = create_async_engine(
-        shared_tenant_db_url, poolclass=NullPool, connect_args={"timeout": 30}, isolation_level="AUTOCOMMIT"
+        shared_tenant_db_url,
+        poolclass=NullPool,
+        connect_args={"timeout": sqlite_busy_timeout_seconds()},
+        isolation_level="AUTOCOMMIT",
     )
     gated = GatedEngine(engine, TENANT_GATE)
     try:

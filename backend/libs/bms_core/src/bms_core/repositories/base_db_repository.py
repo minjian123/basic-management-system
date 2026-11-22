@@ -13,16 +13,17 @@ from abc import ABC
 from collections.abc import Callable, Iterable, Sequence, Set
 from typing import Any, ClassVar, cast
 
-from sqlalchemy import ColumnElement, Select, false, func, inspect, select
+from sqlalchemy import ColumnElement, Select, false, func, insert, inspect, literal, select, update
 from sqlalchemy import exists as sa_exists
 from sqlalchemy.orm import InstrumentedAttribute
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.logging import get_logger
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_context
-from bms_core.models.base import BaseModel
+from bms_core.models.base import BaseModel, utc_now
 from bms_core.permission.cache import current_permission_cache_store
 from bms_core.repositories.base_scoped_repository import BaseScopedRepository
 from bms_core.repositories.ordering import keyset_condition, order_criteria
@@ -228,7 +229,9 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         # 字段白名单取 **ORM 属性名**（`mapper.column_attrs`），与 `_column` / `_write_values` 的
         # `getattr` / `model(**payload)` / `setattr` 同口径——DB 列名可经 `mapped_column("code")`
         # 与属性名不同（系统字段口径：标识列 DB 名统一 `code`，属性名与契约字段名保持）。
-        self._columns = frozenset(attribute.key for attribute in inspect(self.model).mapper.column_attrs)
+        self._columns: ConcurrentStableSet[str] = ConcurrentStableSet(
+            attribute.key for attribute in inspect(self.model).mapper.column_attrs
+        )
 
     async def list(self, *, sort: ConcurrentStableList[SortSpec] | None = None) -> ConcurrentStableList[ModelT]:
         """查询全部记录（作用域过滤 + 排序，默认 `id` 升序）。
@@ -293,6 +296,155 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         self._session.add(item)
         await self._session.flush()
         return cast("ModelT", item)
+
+    async def insert_if_absent(
+        self,
+        values: ConcurrentStableDict[str, object],
+        *,
+        match: ConcurrentStableList[ColumnElement[bool]],
+        model: type[BaseModel] | None = None,
+    ) -> bool:
+        """原子插入：`match` 命中未删行则跳过（并发启动不产生重复行）。
+
+        为什么不用 ORM 插入：ORM 插入是「先查无、再插」两步，两个进程同时启动会各插一行。
+        唯一键含可空 `deleted_at` 时数据库**约束不到**（SQLite / 达梦把多个 NULL 视为互不相等），
+        于是同键出现两行，后续 `scalar_one_or_none` 直接抛 `MultipleResultsFound`。本方法把
+        「不存在才插」压成一条 `INSERT ... SELECT ... WHERE NOT EXISTS`，由数据库原子判定。
+
+        Args:
+            values: 业务列值（**ORM 属性名**）。系统列（`id` / `version` / 审计四件套）由本方法补齐；
+                未给出的列沿用模型列默认值——SQLAlchemy 会把默认值补进 `SELECT` 投影。
+            match: 判定「同一条记录」的条件（业务键列；作用域条件由本方法追加）。
+            model: 目标模型；None 用仓储声明的 `model`（多表共用的仓储按类别传入）。
+
+        Returns:
+            bool: 是否真的插入一行（False 表示同键已存在、本次跳过）。
+
+        Raises:
+            ConfigError: 字段不在模型映射列 / 试图手写系统列。
+        """
+        target = self.model if model is None else model
+        payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+        for field, value in values.items():
+            self._column_object(field, model=target)
+            if field in _WRITE_BLOCKED_FIELDS:
+                raise ConfigError(f"字段不可经原子插入写入：{target.__name__}.{field}")
+            if value is not None:
+                payload.set(field, value)
+        now = utc_now()
+        payload.set("created_at", now)
+        payload.set("updated_at", now)
+        payload.set("created_by", current_user_id.get())
+        payload.set("updated_by", current_user_id.get())
+        columns: ConcurrentStableList[Any] = ConcurrentStableList(
+            self._column_object(field, model=target) for field in payload
+        )
+        projection: ConcurrentStableList[Any] = ConcurrentStableList(
+            literal(payload[field], type_=self._column_object(field, model=target).type) for field in payload
+        )
+        guard = select(literal(1)).where(*match, *self._scope_where(model=target))
+        statement = insert(target).from_select(columns, select(*projection).where(~sa_exists(guard)))
+        result = await self._session.execute(statement)
+        return int(cast("Any", result).rowcount) > 0
+
+    async def update_where(
+        self,
+        match: ConcurrentStableList[ColumnElement[bool]],
+        *,
+        values: ConcurrentStableDict[str, object],
+        model: type[BaseModel] | None = None,
+    ) -> int:
+        """原子更新：符合 `match` 即直接覆盖，**不做「读到的版本」谓词**。
+
+        为什么不用 ORM 赋值：ORM 更新会把读取时的 `version` 写进 `WHERE`，并发的声明同步
+        只要有一方先写，另一方就 `StaleDataError`（0 行匹配）。声明同步的语义是「以本次声明
+        为准覆盖」，与「读到的版本」无关，故用 Core 语句直接覆盖；`version` 仍自增，其它走
+        ORM 乐观锁的写路径依旧能发现并发变更。
+
+        Args:
+            match: 定位条件（业务键列；作用域条件由本方法追加）。
+            values: 待覆盖的业务列值（**ORM 属性名**）。
+            model: 目标模型；None 用仓储声明的 `model`（多表共用的仓储按类别传入）。
+
+        Returns:
+            int: 受影响行数（0 表示目标行不存在或已被软删除）。
+
+        Raises:
+            ConfigError: 字段不在模型映射列 / 试图手写系统列。
+        """
+        target = self.model if model is None else model
+        payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+        for field, value in values.items():
+            self._column_object(field, model=target)
+            if field in _WRITE_BLOCKED_FIELDS:
+                raise ConfigError(f"字段不可经原子更新写入：{target.__name__}.{field}")
+            payload.set(field, value)
+        payload.set("updated_at", utc_now())
+        payload.set("updated_by", current_user_id.get())
+        payload.set("version", target.version + 1)
+        statement = (
+            update(target)
+            .where(*match, *self._scope_where(model=target))
+            .values(**payload)
+            .execution_options(synchronize_session=False)
+        )
+        result = await self._session.execute(statement)
+        return int(cast("Any", result).rowcount)
+
+    async def soft_delete_where(
+        self,
+        match: ConcurrentStableList[ColumnElement[bool]],
+        *,
+        now: object | None = None,
+        model: type[BaseModel] | None = None,
+    ) -> int:
+        """原子软删：符合 `match` 的未删行置 `deleted_at`（并发下幂等）。
+
+        为什么需要单独原语：`update_where` 的白名单禁写 `deleted_at`（软删是语义动作，不是普通覆盖），
+        而「整批替换」类写入（如租户部署拓扑）必须能原子地把旧版本行一次性软删。
+
+        Args:
+            match: 定位条件（业务键 / 版本条件；未删过滤由本方法追加）。
+            now: 软删时刻；None 取当前 UTC。
+            model: 目标模型；None 用仓储声明的 `model`（多表共用的仓储按类别传入）。
+
+        Returns:
+            int: 受影响行数（0 表示没有可软删的行——并发下的正常结果）。
+        """
+        target = self.model if model is None else model
+        moment = utc_now() if now is None else now
+        statement = (
+            update(target)
+            .where(*match, *self._scope_where(model=target))
+            .values(
+                deleted_at=moment,
+                updated_at=moment,
+                updated_by=current_user_id.get(),
+                version=target.version + 1,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        result = await self._session.execute(statement)
+        return int(cast("Any", result).rowcount)
+
+    def _column_object(self, field: str, *, model: type[BaseModel] | None = None) -> Any:
+        """属性名 → 表列对象（兼容 `mapped_column("code")` 这类属性名与列名不同的映射）。
+
+        Args:
+            field: ORM 属性名。
+            model: 目标模型；None 用仓储声明的 `model`。
+
+        Returns:
+            Any: 表列对象（`Column`）。
+
+        Raises:
+            ConfigError: 字段不在模型映射列。
+        """
+        target = self.model if model is None else model
+        for attribute in inspect(target).mapper.column_attrs:
+            if attribute.key == field:
+                return attribute.columns[0]
+        raise ConfigError(f"字段不存在：{target.__name__}.{field}")
 
     async def update(self, item_id: int, **values: object) -> ModelT | None:
         """更新记录（作用域内取行 → 赋值 → flush；不存在返回 None）。
@@ -438,23 +590,29 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         statement = select(self.model).where(*self._scope_where(include_soft_delete=include_soft_delete))
         return cast("Select[tuple[ModelT]]", statement)
 
-    def _scope_where(self, *, include_soft_delete: bool = True) -> ConcurrentStableList[ColumnElement[bool]]:
+    def _scope_where(
+        self, *, include_soft_delete: bool = True, model: type[BaseModel] | None = None
+    ) -> ConcurrentStableList[ColumnElement[bool]]:
         """作用域条件翻译为 SQL WHERE（次序软删除 → 数据范围 → 租户）。
 
         Args:
             include_soft_delete: 是否包含软删除过滤。
+            model: 目标模型；None 用仓储声明的 `model`（多表共用的仓储按类别传入）。
 
         Returns:
             ConcurrentStableList[ColumnElement[bool]]: 条件表达式列表。
         """
         conditions = self._scope_conditions(include_soft_delete=include_soft_delete)
-        return ConcurrentStableList(self._condition_expression(condition) for condition in conditions)
+        return ConcurrentStableList(self._condition_expression(condition, model=model) for condition in conditions)
 
-    def _condition_expression(self, condition: ScopeCondition) -> ColumnElement[bool]:
+    def _condition_expression(
+        self, condition: ScopeCondition, *, model: type[BaseModel] | None = None
+    ) -> ColumnElement[bool]:
         """单条作用域条件 → SQL 条件。
 
         Args:
             condition: 作用域条件。
+            model: 目标模型；None 用仓储声明的 `model`。
 
         Returns:
             ColumnElement[bool]: 条件表达式。
@@ -465,7 +623,7 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         builder = _OPERATOR_BUILDERS.get(condition.operator)
         if builder is None:
             raise ConfigError(f"作用域条件操作符不受支持：{condition.operator}")
-        column = self._column(condition.field)
+        column = self._column(condition.field, model=model)
         value, ok = _coerce_value(column, condition.operator, condition.value)
         if not ok:
             get_logger("bms").warning(
@@ -478,11 +636,12 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             return false()
         return builder(column, value)
 
-    def _column(self, field: str) -> InstrumentedAttribute[Any]:
+    def _column(self, field: str, *, model: type[BaseModel] | None = None) -> InstrumentedAttribute[Any]:
         """字段名 → 模型列对象（非映射列快速失败）。
 
         Args:
             field: 字段名。
+            model: 目标模型；None 用仓储声明的 `model`。
 
         Returns:
             InstrumentedAttribute[Any]: 模型列。
@@ -490,9 +649,23 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         Raises:
             ConfigError: 字段不在模型映射列。
         """
-        if field not in self._columns:
-            raise ConfigError(f"字段不存在：{self.model.__name__}.{field}")
-        return cast("InstrumentedAttribute[Any]", getattr(self.model, field))
+        target = self.model if model is None else model
+        if field not in self._attribute_keys(target):
+            raise ConfigError(f"字段不存在：{target.__name__}.{field}")
+        return cast("InstrumentedAttribute[Any]", getattr(target, field))
+
+    def _attribute_keys(self, model: type[BaseModel]) -> ConcurrentStableSet[str]:
+        """取模型映射列属性名集合（多表共用仓储按类别校验字段用）。
+
+        Args:
+            model: 目标模型。
+
+        Returns:
+            ConcurrentStableSet[str]: 属性名集合。
+        """
+        if model is self.model:
+            return self._columns
+        return ConcurrentStableSet(attribute.key for attribute in inspect(model).mapper.column_attrs)
 
     def _sort_column(self, field: str) -> InstrumentedAttribute[Any] | None:
         """排序字段 → 模型列（白名单外返回 None，由调用方忽略）。

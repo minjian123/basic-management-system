@@ -38,7 +38,7 @@ def test_shared_db_created_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 
     url = fixtures.ensure_shared_db("platform", prepare)
     assert calls == [url]
-    assert url.endswith(".cache/test/platform.db")
+    assert url.split("?", 1)[0].endswith(".cache/test/platform.db")
     assert (tmp_path / ".cache/test/platform.ready").read_text(encoding="utf-8").strip() == "1"
 
     assert fixtures.ensure_shared_db("platform", prepare) == url
@@ -82,7 +82,7 @@ def test_stale_lock_is_taken_over(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     os.utime(lock, (old, old))
 
     url = fixtures.ensure_shared_db("platform", lambda _: None)
-    assert url.endswith("platform.db")
+    assert url.split("?", 1)[0].endswith("platform.db")
     assert not lock.exists()
 
 
@@ -165,7 +165,7 @@ def test_shared_db_url_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     """连接串形态：`sqlite+aiosqlite:///` + 仓内绝对路径。"""
     monkeypatch.chdir(tmp_path)
     url = fixtures.shared_db_url("tenant")
-    assert url.startswith("sqlite+aiosqlite:///") and url.endswith("tenant.db")
+    assert url.startswith("sqlite+aiosqlite:///") and url.split("?", 1)[0].endswith("tenant.db")
     assert (tmp_path / ".cache/test").is_dir()
 
 
@@ -177,13 +177,25 @@ def test_test_db_dir_creates_directory(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 async def test_enable_concurrency_runs_on_sqlite(tmp_path: Path) -> None:
-    """共享库并发上限落到 SQLite `busy_timeout`（10s）：建库后设置不报错。"""
-    from sqlalchemy.ext.asyncio import create_async_engine
+    """共享库并发口径落到 SQLite：WAL 生效、忙等为测试口径、WAL 自动检查点关闭。"""
+    from sqlalchemy import text
 
+    from bms_core.db.sqlite import create_async_engine as create_sqlite_engine
+    from bms_core.db.sqlite import sqlite_busy_timeout_seconds
     from bms_core.testing.shared_db import enable_concurrency
 
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'busy.db'}")
+    engine = create_sqlite_engine(f"sqlite+aiosqlite:///{tmp_path / 'busy.db'}")
     try:
         await enable_concurrency(engine)
+        # 新连接的 pragma 才是真实生效值：`wal_autocheckpoint` / `busy_timeout` 都是连接级设置，
+        # 只测「建库那一条连接」会漏掉「后续连接又回到默认检查点阈值」的回归。
+        async with engine.connect() as connection:
+            journal_mode = (await connection.execute(text("PRAGMA journal_mode"))).scalar_one()
+            busy_timeout = (await connection.execute(text("PRAGMA busy_timeout"))).scalar_one()
+            autocheckpoint = (await connection.execute(text("PRAGMA wal_autocheckpoint"))).scalar_one()
+        assert str(journal_mode).lower() == "wal"
+        assert int(busy_timeout) == int(sqlite_busy_timeout_seconds() * 1000)
+        # 自动检查点会由「无写者」的连接触发，是 0.1s 忙等下的假锁冲突来源，必须关掉
+        assert int(autocheckpoint) == 0
     finally:
         await engine.dispose()

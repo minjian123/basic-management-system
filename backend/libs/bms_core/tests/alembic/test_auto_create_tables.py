@@ -204,3 +204,15 @@ async def test_ensure_unit_schema_skips_when_unit_not_declared(tmp_path: Path, m
     settings.app.service = ""
 
     assert await ensure_unit_schema(settings) == []
+
+
+def test_gate_key_for_maps_each_datasource() -> None:
+    """建表取门键：平台库用平台键、归档库用归档键、租户库归租户门（同一把内核门仅诊断名不同）。"""
+    from bms_core.db.bootstrap import _gate_key_for  # pyright: ignore[reportPrivateUsage]
+    from bms_core.db.engine import PLATFORM_DB_KEY
+    from bms_core.db.keys import ARCHIVE_DB_KEY
+    from bms_core.db.migration import DATASOURCE_ARCHIVE, DATASOURCE_PLATFORM, DATASOURCE_TENANT
+
+    assert _gate_key_for(DATASOURCE_PLATFORM) == PLATFORM_DB_KEY  # pyright: ignore[reportPrivateUsage]
+    assert _gate_key_for(DATASOURCE_ARCHIVE) == ARCHIVE_DB_KEY  # pyright: ignore[reportPrivateUsage]
+    assert _gate_key_for(DATASOURCE_TENANT) == DATASOURCE_TENANT  # pyright: ignore[reportPrivateUsage]

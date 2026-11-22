@@ -37,9 +37,7 @@ def utc(year: int, month: int, day: int = 1) -> datetime:
 
 
 class FakeStorage(BaseObjectStorage):
-    """内存对象存储替身。"""
-
-    plugin_name = "fake"
+    """内存对象存储替身（直接实例化使用；不声明 `plugin_name`，避免登记为插件候选）。"""
 
     def __init__(self) -> None:
         self.objects: ConcurrentStableDict[str, bytes] = ConcurrentStableDict()

@@ -96,11 +96,44 @@ class CapabilityGrantRepository(BaseDbRepository[SysCapabilityGrant]):
         Returns:
             SysCapabilityGrant | None: 记录；不存在返回 None。
         """
-        statement = self._select().where(
-            self._column("capability_name") == capability,
-            self._column("consumer_key") == consumer,
+        statement = (
+            self._select()
+            .where(
+                self._column("capability_name") == capability,
+                self._column("consumer_key") == consumer,
+            )
+            # 原子写绕过 ORM 身份映射：读回一律以库内真值覆盖已加载实例
+            .execution_options(populate_existing=True)
         )
         return (await self._session.execute(statement)).scalar_one_or_none()
+
+    def pair_where(self, capability: str, consumer: str) -> ConcurrentStableList[ColumnElement[bool]]:
+        """按 `(能力, 消费方)` 构造原子写定位条件。
+
+        Args:
+            capability: 能力名。
+            consumer: 消费方标识。
+
+        Returns:
+            ConcurrentStableList[ColumnElement[bool]]: 定位条件（未软删过滤由基座方法追加）。
+        """
+        return ConcurrentStableList(
+            (
+                self._column("capability_name") == capability,
+                self._column("consumer_key") == consumer,
+            )
+        )
+
+    def id_where(self, grant_id: int) -> ConcurrentStableList[ColumnElement[bool]]:
+        """按主键构造原子写定位条件。
+
+        Args:
+            grant_id: 授权记录 ID。
+
+        Returns:
+            ConcurrentStableList[ColumnElement[bool]]: 定位条件（未软删过滤由基座方法追加）。
+        """
+        return ConcurrentStableList((self._column("id") == grant_id,))
 
     async def list_all(self) -> ConcurrentStableList[SysCapabilityGrant]:
         """取全部未软删记录（声明同步的现状基线，`id` 升序）。
@@ -108,7 +141,7 @@ class CapabilityGrantRepository(BaseDbRepository[SysCapabilityGrant]):
         Returns:
             ConcurrentStableList[SysCapabilityGrant]: 记录列表。
         """
-        statement = self._select().order_by(self._column("id").asc())
+        statement = self._select().order_by(self._column("id").asc()).execution_options(populate_existing=True)
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def list_enabled_all(self) -> ConcurrentStableList[SysCapabilityGrant]:

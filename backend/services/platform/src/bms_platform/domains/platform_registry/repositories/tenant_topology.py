@@ -7,9 +7,9 @@
 """
 
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import ColumnElement, func, select, update
+from sqlalchemy import ColumnElement, func, select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.platform.tenant_topology import SysTenantTopology
@@ -114,6 +114,8 @@ class TenantTopologyRepository(BaseDbRepository[SysTenantTopology]):
                 self._column("topology_version") == version,
             )
             .order_by(self._column("domain_key").asc())
+            # 原子写绕过 ORM 身份映射：读回一律按库内真值覆盖已加载实例
+            .execution_options(populate_existing=True)
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
@@ -123,8 +125,10 @@ class TenantTopologyRepository(BaseDbRepository[SysTenantTopology]):
         Returns:
             ConcurrentStableList[SysTenantTopology]: 当前版本行（按租户 / 域升序）。
         """
-        statement = self._select(include_soft_delete=True).order_by(
-            self._column("tenant_id").asc(), self._column("domain_key").asc()
+        statement = (
+            self._select(include_soft_delete=True)
+            .order_by(self._column("tenant_id").asc(), self._column("domain_key").asc())
+            .execution_options(populate_existing=True)
         )
         rows = ConcurrentStableList((await self._session.execute(statement)).scalars().all())
         latest: ConcurrentStableDict[int, int] = ConcurrentStableDict()
@@ -141,28 +145,91 @@ class TenantTopologyRepository(BaseDbRepository[SysTenantTopology]):
         rows: Iterable[SysTenantTopology],
         now: datetime | None = None,
     ) -> int:
-        """整批替换某租户的拓扑（软删旧行 + 写入新版本行）。
+        """整批替换某租户的拓扑（先原子写新版本行，再原子软删旧版本）。
+
+        为什么用原语而不是 ORM：`ensure_default` 在多个 worker 启动时并发执行，两边会算出同一个
+        下一版本。ORM 的「先软删、后多行插入」会让后写方插出同域重复行，随后软删撞
+        `(tenant_id, domain_key, deleted_at)` 唯一键。改为「逐行 `INSERT ... WHERE NOT EXISTS`
+        （按业务键 + 版本判重）+ 按版本条件批量软删」后，并发的两方收敛到同一版本。
+
+        顺序是**先插后删**：任何时刻读方按「最大版本」取行，都不会看到空拓扑。
 
         Args:
             tenant_id: 租户主键。
             version: 新版本号（由服务层校验递增）。
-            rows: 新版本行（已绑定租户与版本）。
+            rows: 新版本行（只用 `domain_key` / `unit_key` / `status` / `note` 四个字段；
+                租户与版本由本方法统一写入，避免两份事实源）。
             now: 软删除时刻（缺省取当前 UTC；同批次一致）。
 
         Returns:
-            int: 写入行数。
+            int: 实际插入行数（并发时部分行可能已由其它写者插入，按实际插入计数）。
         """
-        moment = now or datetime.now(UTC)
-        await self._session.execute(
-            update(self.model)
-            .where(
-                *self._scope_where(include_soft_delete=True),
-                self._column("tenant_id") == tenant_id,
-            )
-            .values(deleted_at=moment, updated_at=moment)
-        )
         items = ConcurrentStableList(rows)
+        written = 0
         for row in items:
-            self._session.add(row)
-        await self._session.flush()
-        return len(items)
+            payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+                {
+                    "domain_key": row.domain_key,
+                    "unit_key": row.unit_key,
+                    "status": row.status,
+                    "note": row.note,
+                    "tenant_id": tenant_id,
+                    "topology_version": version,
+                }
+            )
+            inserted = await self.insert_if_absent(
+                payload,
+                match=self.version_match(tenant_id, row.domain_key, version),
+            )
+            written += 1 if inserted else 0
+        await self.soft_delete_below(tenant_id, version, now=now or datetime.now(UTC))
+        return written
+
+    async def soft_delete_below(self, tenant_id: int, version: int, *, now: datetime) -> int:
+        """软删该租户版本号小于 `version` 的未删行（**逐行、时刻递增**）。
+
+        为什么不能一条 `UPDATE ... WHERE topology_version < :version`：唯一键是
+        `(tenant_id, domain_key, deleted_at)`，而同域可能同时存在多个旧版本行（并发替换乱序完成时：
+        v8 先落、v7 后落），一条语句会把同域的多行写成同一个 `deleted_at`，直接撞唯一键。
+        逐行写且每行 `now` 递增 1 微秒，既保留「本批删除」的语义，也保证跨方言都不会撞键。
+
+        Args:
+            tenant_id: 租户主键。
+            version: 新版本号（删除严格小于它的行）。
+            now: 本批软删基准时刻。
+
+        Returns:
+            int: 实际软删行数。
+        """
+        statement = select(self._column("id")).where(
+            *self._scope_where(),
+            self._column("tenant_id") == tenant_id,
+            self._column("topology_version") < version,
+        )
+        ids = ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+        deleted = 0
+        for index, row_id in enumerate(ids):
+            deleted += await self.soft_delete_where(
+                ConcurrentStableList((self._column("id") == row_id,)),
+                now=now + timedelta(microseconds=index + 1),
+            )
+        return deleted
+
+    def version_match(self, tenant_id: int, domain_key: str, version: int) -> ConcurrentStableList[ColumnElement[bool]]:
+        """按「租户 + 业务域 + 版本」构造原子写定位条件。
+
+        Args:
+            tenant_id: 租户主键。
+            domain_key: 业务域标识。
+            version: 拓扑版本号。
+
+        Returns:
+            ConcurrentStableList[ColumnElement[bool]]: 定位条件（未删过滤由基座方法追加）。
+        """
+        return ConcurrentStableList(
+            (
+                self._column("tenant_id") == tenant_id,
+                self._column("domain_key") == domain_key,
+                self._column("topology_version") == version,
+            )
+        )

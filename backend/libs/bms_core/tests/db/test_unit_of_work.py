@@ -49,9 +49,10 @@ async def test_db_unit_of_work_commit_and_rollback(ns: Namespace) -> None:
     """数据库工作单元事务：`begin` 上下文提交生效，`rollback` 回滚未提交写入。
 
     独立内存库：共享测试库按业主口径（2026-11-21）对 SQLite 一律 autocommit，验不到回滚；
-    事务边界是被测对象本身，故这里用真实事务语义的独立库。
+    事务边界是被测对象本身，故这里用真实事务语义的独立库（显式声明隔离级别，绕开测试期的
+    连接级自动提交改写）。
     """
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", isolation_level="SERIALIZABLE")
     try:
         factory = async_sessionmaker(engine, expire_on_commit=False)
         prefix = ns.code("uow")

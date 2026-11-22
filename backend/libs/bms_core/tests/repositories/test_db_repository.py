@@ -262,6 +262,102 @@ async def test_crud_roundtrip_and_audit(session: AsyncSession) -> None:
 
 
 @pytest.mark.kiwi_id(1050)
+async def test_atomic_insert_if_absent_and_update_where(session: AsyncSession) -> None:
+    """原子写原语：同键只插一行；覆盖不带版本谓词、版本仍自增。"""
+    repo = DbItemRepository(session)
+    match: ConcurrentStableList[Any] = ConcurrentStableList((DbItem.name == "原子",))
+    values: ConcurrentStableDict[str, object] = ConcurrentStableDict({"name": "原子", "rank": 3})
+
+    assert await repo.insert_if_absent(values, match=match) is True
+    assert await repo.insert_if_absent(values, match=match) is False, "同键已存在必须跳过，不能插第二行"
+    assert await repo.count() == 1
+    row = (await repo.list())[0]
+    assert row.version == 1 and row.created_at is not None
+
+    token = current_user_id.set(7)
+    try:
+        changed = await repo.update_where(
+            ConcurrentStableList((DbItem.id == row.id,)),
+            values=ConcurrentStableDict({"rank": 9}),
+        )
+    finally:
+        current_user_id.reset(token)
+    assert changed == 1
+    item_id = row.id
+    session.expire_all()
+    fetched = await repo.get(item_id)
+    assert fetched is not None and fetched.rank == 9
+    assert fetched.version == 2, "原子覆盖必须让乐观锁版本自增"
+    assert fetched.updated_by == 7
+
+    missing = await repo.update_where(
+        ConcurrentStableList((DbItem.id == 999_999,)),
+        values=ConcurrentStableDict({"rank": 1}),
+    )
+    assert missing == 0
+
+
+@pytest.mark.kiwi_id(1050)
+async def test_atomic_write_rejects_unknown_and_system_fields(session: AsyncSession) -> None:
+    """原子写白名单：未知列与 id / 审计 / version / deleted_at 一律 ConfigError。"""
+    repo = DbItemRepository(session)
+    match: ConcurrentStableList[Any] = ConcurrentStableList((DbItem.name == "x",))
+    with pytest.raises(ConfigError):
+        await repo.insert_if_absent(ConcurrentStableDict({"ghost": 1}), match=match)
+    with pytest.raises(ConfigError):
+        await repo.insert_if_absent(ConcurrentStableDict({"name": "x", "version": 5}), match=match)
+    with pytest.raises(ConfigError):
+        await repo.update_where(ConcurrentStableList((DbItem.id == 1,)), values=ConcurrentStableDict({"ghost": 1}))
+    with pytest.raises(ConfigError):
+        await repo.update_where(
+            ConcurrentStableList((DbItem.id == 1,)),
+            values=ConcurrentStableDict({"name": "x", "deleted_at": None}),
+        )
+
+
+@pytest.mark.kiwi_id(1050)
+async def test_atomic_write_supports_foreign_model(session: AsyncSession) -> None:
+    """多表共用仓储：`model=` 让校验与作用域落到目标表，而不是仓储声明的 `model`。"""
+    repo = DbItemRepository(session)
+    match: ConcurrentStableList[Any] = ConcurrentStableList((LockItem.name == "他表",))
+
+    assert await repo.insert_if_absent(ConcurrentStableDict({"name": "他表"}), match=match, model=LockItem) is True
+    assert await repo.insert_if_absent(ConcurrentStableDict({"name": "他表"}), match=match, model=LockItem) is False
+    changed = await repo.update_where(
+        match,
+        values=ConcurrentStableDict({"rank": 2}),
+        model=LockItem,
+    )
+    assert changed == 1
+    with pytest.raises(ConfigError):
+        await repo.insert_if_absent(ConcurrentStableDict({"ghost": 1}), match=match, model=LockItem)
+
+
+@pytest.mark.kiwi_id(1050)
+async def test_soft_delete_where_marks_rows_and_is_idempotent(session: AsyncSession) -> None:
+    """原子软删：命中行置 `deleted_at`、版本自增；再删同一行返回 0（并发幂等）。"""
+    repo = DbItemRepository(session)
+    await repo.insert_if_absent(
+        ConcurrentStableDict({"name": "软删"}),
+        match=ConcurrentStableList((DbItem.name == "软删",)),
+    )
+    row = (await repo.list())[0]
+    match: ConcurrentStableList[Any] = ConcurrentStableList((DbItem.id == row.id,))
+    item_id = row.id
+    version_before = row.version
+
+    assert await repo.soft_delete_where(match, model=DbItem) == 1
+    assert await repo.soft_delete_where(match) == 0
+    session.expire_all()
+    assert await repo.get(item_id) is None
+    deleted = (
+        await session.execute(select(DbItem).where(DbItem.id == item_id).execution_options(populate_existing=True))
+    ).scalar_one()
+    assert deleted.deleted_at is not None
+    assert deleted.version == version_before + 1
+
+
+@pytest.mark.kiwi_id(1050)
 async def test_write_whitelist_rejects_unknown_and_internal_fields(session: AsyncSession) -> None:
     """写入白名单：未知键与 id / 审计 / version / deleted_at 一律 ConfigError。"""
     repo = DbItemRepository(session)

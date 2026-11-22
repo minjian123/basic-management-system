@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -56,3 +57,15 @@ async def test_ensure_tables_reraises_other_operational_errors(
 async def test_ensure_tables_defaults_to_full_metadata(shared_platform_engine: AsyncEngine) -> None:
     """入参缺省：按 `Base.metadata` 全量并集建表（共享库已建齐，本用例验证缺省分支可走通）。"""
     await ensure_tables(shared_platform_engine)
+
+
+@pytest.mark.own_db("临时库不取门：验证 `gate_for_engine` 返回 None 时的直通分支")
+async def test_ensure_tables_skips_gate_for_private_db(tmp_path: Path) -> None:
+    """临时库（非共享平台 / 租户库）建表不取门：它与其它 worker 无共享状态。"""
+    from bms_core.db.sqlite import create_async_engine
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'private.db'}")
+    try:
+        await ensure_tables(engine, ConcurrentStableList((_TABLE,)))
+    finally:
+        await engine.dispose()

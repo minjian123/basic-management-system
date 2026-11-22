@@ -180,36 +180,68 @@ class CapabilityGrantService(BaseFrameworkObject):
         async with self._write_scope():
             current = await self._current_grants()
             plan = plan_grant_sync(declared, current)
+            moment = datetime.now(UTC)
             for grant in plan.creates:
-                row = await self._repo.create(
-                    capability_name=grant.capability_name,
-                    consumer_key=grant.consumer_key,
-                    source=grant.source,
-                    status=grant.status,
-                    granted_at=datetime.now(UTC),
-                    note=grant.note,
+                # 原子插入：两个 worker 同时启动时只有一个真正插入，另一个跳过（不产生重复行）。
+                inserted = await self._repo.insert_if_absent(
+                    ConcurrentStableDict(
+                        {
+                            "capability_name": grant.capability_name,
+                            "consumer_key": grant.consumer_key,
+                            "source": grant.source,
+                            "status": grant.status,
+                            "granted_at": moment,
+                            "note": grant.note,
+                        }
+                    ),
+                    match=self._repo.pair_where(grant.capability_name, grant.consumer_key),
                 )
-                self._capture(row, old_status=None, actor=None)
+                if not inserted:
+                    continue
+                row = await self._repo.get_by_pair(grant.capability_name, grant.consumer_key)
+                if row is not None:  # pragma: no cover - 插入后立刻被并发软删（防御）
+                    self._capture(row.id, old_status=None, new_status=grant.status, actor=None)
             for grant in plan.restores:
+                # 原子覆盖：不带「读到的版本」谓词，避免并发同步撞 StaleDataError。
                 row = await self._repo.get_by_pair(grant.capability_name, grant.consumer_key)
                 if row is None:  # pragma: no cover - 计划与现状同源（防御）
                     continue
                 old_status = row.status
-                row.status = GRANT_STATUS_ENABLED
-                row.revoked_at = None
-                row.note = GRANT_NOTE_DECLARED
-                await self._repo.flush()
-                self._capture(row, old_status=old_status, actor=None)
+                grant_id = row.id
+                changed = await self._repo.update_where(
+                    self._repo.pair_where(grant.capability_name, grant.consumer_key),
+                    values=ConcurrentStableDict(
+                        {
+                            "status": GRANT_STATUS_ENABLED,
+                            "revoked_at": None,
+                            "note": GRANT_NOTE_DECLARED,
+                        }
+                    ),
+                )
+                # 读回走 `populate_existing`（见仓储）：同步刷新身份映射里已加载的实例，
+                # 后续查询 / 断言看到的是库内真值；行可能已被并发清理硬删，读回结果不再使用。
+                await self._repo.get_by_pair(grant.capability_name, grant.consumer_key)
+                if changed:
+                    self._capture(grant_id, old_status=old_status, new_status=GRANT_STATUS_ENABLED, actor=None)
             for grant in plan.revokes:
                 row = await self._repo.get_by_pair(grant.capability_name, grant.consumer_key)
                 if row is None:  # pragma: no cover - 计划与现状同源（防御）
                     continue
                 old_status = row.status
-                row.status = GRANT_STATUS_DISABLED
-                row.revoked_at = datetime.now(UTC)
-                row.note = grant.note
-                await self._repo.flush()
-                self._capture(row, old_status=old_status, actor=None)
+                grant_id = row.id
+                changed = await self._repo.update_where(
+                    self._repo.pair_where(grant.capability_name, grant.consumer_key),
+                    values=ConcurrentStableDict(
+                        {
+                            "status": GRANT_STATUS_DISABLED,
+                            "revoked_at": moment,
+                            "note": grant.note,
+                        }
+                    ),
+                )
+                await self._repo.get_by_pair(grant.capability_name, grant.consumer_key)
+                if changed:
+                    self._capture(grant_id, old_status=old_status, new_status=GRANT_STATUS_DISABLED, actor=None)
         for message in plan.warnings:
             _LOGGER.warning("capability_grant_manual_conflict", detail=message)
         report = GrantSyncReport(
@@ -252,31 +284,36 @@ class CapabilityGrantService(BaseFrameworkObject):
         reason = note.strip()
         moment = datetime.now(UTC)
         self._require_window(expire_at=expire_at, note=reason, now=moment)
+        values: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "source": GRANT_SOURCE_MANUAL,
+                "status": GRANT_STATUS_ENABLED,
+                "expire_at": expire_at,
+                "granted_by": actor,
+                "granted_at": moment,
+                "revoked_at": None,
+                "note": reason or None,
+            }
+        )
         async with self._write_scope():
             row = await self._repo.get_by_pair(name, consumer)
             if row is None:
-                row = await self._repo.create(
-                    capability_name=name,
-                    consumer_key=consumer,
-                    source=GRANT_SOURCE_MANUAL,
-                    status=GRANT_STATUS_ENABLED,
-                    expire_at=expire_at,
-                    granted_by=actor,
-                    granted_at=moment,
-                    note=reason or None,
-                )
-                self._capture(row, old_status=None, actor=actor)
+                payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(values)
+                payload.set("capability_name", name)
+                payload.set("consumer_key", consumer)
+                await self._repo.insert_if_absent(payload, match=self._repo.pair_where(name, consumer))
+                row = await self._repo.get_by_pair(name, consumer)
+                if row is None:  # pragma: no cover - 插入后立刻被并发软删（防御）
+                    raise NotFoundError(f"授权写入后取不到记录：{name} / {consumer}")
+                self._capture(row.id, old_status=None, new_status=row.status, actor=actor)
             else:
                 old_status = row.status
-                row.source = GRANT_SOURCE_MANUAL
-                row.status = GRANT_STATUS_ENABLED
-                row.expire_at = expire_at
-                row.granted_by = actor
-                row.granted_at = moment
-                row.revoked_at = None
-                row.note = reason or None
-                await self._repo.flush()
-                self._capture(row, old_status=old_status, actor=actor)
+                await self._repo.update_where(self._repo.pair_where(name, consumer), values=values)
+                fresh = await self._repo.get_by_pair(name, consumer)
+                if fresh is None:  # pragma: no cover - 并发清理硬删（防御）
+                    raise NotFoundError(f"授权更新后取不到记录：{name} / {consumer}")
+                row = fresh
+                self._capture(row.id, old_status=old_status, new_status=row.status, actor=actor)
         await self._after_change(provider_domain_of=name, consumer=consumer)
         return row
 
@@ -298,12 +335,25 @@ class CapabilityGrantService(BaseFrameworkObject):
             if row is None:
                 raise NotFoundError(f"授权记录不存在：{grant_id}")
             old_status = row.status
-            row.status = GRANT_STATUS_DISABLED
-            row.source = GRANT_SOURCE_MANUAL
-            row.revoked_at = datetime.now(UTC)
-            await self._repo.flush()
+            capability = row.capability_name
+            consumer = row.consumer_key
+            grant_id = row.id
+            await self._repo.update_where(
+                self._repo.id_where(grant_id),
+                values=ConcurrentStableDict(
+                    {
+                        "status": GRANT_STATUS_DISABLED,
+                        "source": GRANT_SOURCE_MANUAL,
+                        "revoked_at": datetime.now(UTC),
+                    }
+                ),
+            )
+            refreshed = await self._repo.get_by_pair(capability, consumer)
+            if refreshed is None:  # pragma: no cover - 并发清理硬删（防御）
+                raise NotFoundError(f"授权记录不存在：{grant_id}")
+            row = refreshed
             if old_status != GRANT_STATUS_DISABLED:
-                self._capture(row, old_status=old_status, actor=actor)
+                self._capture(row.id, old_status=old_status, new_status=row.status, actor=actor)
         await self._after_change(provider_domain_of=row.capability_name, consumer=row.consumer_key)
         return row
 
@@ -436,20 +486,21 @@ class CapabilityGrantService(BaseFrameworkObject):
             labels: ConcurrentStableDict[str, str] = ConcurrentStableDict({"capability": capability})
             await self._metrics.gauge(METRIC_CAPABILITY_GRANT_ACTIVE, value=float(count), labels=labels)
 
-    def _capture(self, row: SysCapabilityGrant, *, old_status: str | None, actor: int | None) -> None:
+    def _capture(self, model_id: int, *, old_status: str | None, new_status: str, actor: int | None) -> None:
         """写审计留痕（状态变更）。
 
         Args:
-            row: 授权记录。
+            model_id: 授权记录 ID（原语写不产出 ORM 对象，故显式传入）。
             old_status: 变更前状态（新建为 None）。
+            new_status: 变更后状态。
             actor: 操作人（声明装载为 None）。
         """
         if self._audit is None:
             return
         changes: ConcurrentStableList[FieldChange] = ConcurrentStableList(
-            [FieldChange(field="status", old=old_status, new=row.status)]
+            [FieldChange(field="status", old=old_status, new=new_status)]
         )
-        self._audit.capture(table=_TABLE, model_id=row.id, changes=changes, actor=actor)
+        self._audit.capture(table=_TABLE, model_id=model_id, changes=changes, actor=actor)
 
     @staticmethod
     def _require_capability(capability: str) -> None:

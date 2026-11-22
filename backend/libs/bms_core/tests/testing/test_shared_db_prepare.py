@@ -220,13 +220,15 @@ async def test_ensure_shared_db_async_default_prepare_and_peer_ready(
 ) -> None:
     """异步入口：无回调走缺省建表；抢锁后若别处已建好则直接返回（不重复准备）。"""
     url = await fixtures.ensure_shared_db_async("platform", None, version="v3")
-    assert url.endswith("test/platform.db")
+    assert url.split("?", 1)[0].endswith("test/platform.db")
     assert (tmp_path / ".cache" / "test" / "platform.db").is_file()
 
     @contextmanager
     def _peer_built(name: str) -> Generator[None]:
-        """替身锁：进入时假装别的 worker 已写好就绪标记。"""
-        (fixtures.test_db_dir() / f"{name}.ready").write_text("v3", encoding="utf-8")
+        """替身锁：进入时假装别的 worker 已写好就绪标记（库文件也已落盘）。"""
+        directory = fixtures.test_db_dir()
+        (directory / f"{name}.db").write_text("x", encoding="utf-8")
+        (directory / f"{name}.ready").write_text("v3", encoding="utf-8")
         yield
 
     monkeypatch.setattr(fixtures, "_init_lock", _peer_built)
@@ -236,7 +238,7 @@ async def test_ensure_shared_db_async_default_prepare_and_peer_ready(
         calls.append(target)
 
     peer_url = await fixtures.ensure_shared_db_async("tenant", _prepare, version="v3")
-    assert peer_url.endswith("tenant.db")
+    assert peer_url.split("?", 1)[0].endswith("tenant.db")
     assert list(calls) == []
 
 
@@ -248,8 +250,8 @@ async def test_shared_engines_point_at_shared_db(
         assert (await connection.execute(text("SELECT 1"))).scalar() == 1
     async with shared_tenant_engine.connect() as connection:
         assert (await connection.execute(text("SELECT 1"))).scalar() == 1
-    assert str(shared_platform_engine.url).endswith("test/platform.db")
-    assert str(shared_tenant_engine.url).endswith("test/tenant.db")
+    assert str(shared_platform_engine.url).split("?", 1)[0].endswith("test/platform.db")
+    assert str(shared_tenant_engine.url).split("?", 1)[0].endswith("test/tenant.db")
 
 
 async def test_prepare_tenant_async_creates_tables_and_configs(tmp_path: Path) -> None:

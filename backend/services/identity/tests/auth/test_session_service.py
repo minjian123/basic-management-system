@@ -1,8 +1,9 @@
 """会话管理服务单元测试（Kiwi 2195）：统一撤销原语三态、过期踢出、多端上限无溢出。
 
 单库叠加口径（04-6-2）：会话行落共享租户库，会话 / 用户主键按用例命名空间派生。
-`tenant_rollback`：按租户批量撤销的语义就是「本租户库全部在线会话」（全局口径）——用例跑在
-**未提交事务**里，撤销对并行 worker 不可见且结束即回滚，既不动他人数据也不建独占库。
+按租户批量撤销的语义是「本租户库全部在线会话」（全局口径），两个相关用例用 `isolated_tenant`
+（`own_db`）拿**独占租户库**：共享库上跑会把并行 worker 的在线会话一并撤销；测试库为真自动
+提交（13_08），不能再靠「未提交事务回滚」隔离。
 """
 
 from datetime import timedelta
@@ -100,13 +101,14 @@ async def test_enforce_max_active_no_overflow(service_app: FastAPI, ns: Namespac
 
 
 @pytest.mark.kiwi_id(2325)
+@pytest.mark.own_db("按租户批量撤销是全库口径：用独占租户库，避免撤销并行用例的会话")
 async def test_revoke_tenant_sessions_revokes_all_active(
-    tenant_rollback: None, service_app: FastAPI, ns: Namespace
+    isolated_tenant: None, service_app: FastAPI, ns: Namespace
 ) -> None:
     """按租户撤销：只涉及在线会话（已撤销 / 过期不动），返回会话清单并广播。
 
-    单库叠加口径：库用共享租户库 + 回滚会话（本用例的撤销整体回滚，不动并行 worker 的会话）；
-    「本租户库全部在线会话」是全局口径，故只断言**本用例的会话**在其中、已撤销的会话不在其中。
+    独占租户库（`own_db`）：本用例库内只有本用例播种的会话，故「本租户库全部在线会话」的
+    全局断言成立，且不会撤销并行 worker 的会话。
     """
     active = [sid(ns, 11), sid(ns, 12)]
     await seed_session(service_app, session_id=active[0], user_id=uid(ns, 1))
@@ -127,8 +129,9 @@ async def test_revoke_tenant_sessions_revokes_all_active(
 
 
 @pytest.mark.kiwi_id(2325)
+@pytest.mark.own_db("按租户批量撤销是全库口径：用独占租户库，避免撤销并行用例的会话")
 async def test_revoke_tenant_sessions_cleanup_failure_tolerated(
-    tenant_rollback: None, service_app: FastAPI, ns: Namespace
+    isolated_tenant: None, service_app: FastAPI, ns: Namespace
 ) -> None:
     """运行时清理失败不阻断 DB 撤销（逐会话尽力而为）。"""
     session_id = sid(ns, 14)

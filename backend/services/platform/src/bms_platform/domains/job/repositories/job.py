@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CursorResult, delete, func, select, update
+from sqlalchemy import ColumnElement, CursorResult, delete, func, select, update
 
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.platform.job import (
     JOB_TYPE_STATUS_RETIRED,
     SysJobMonitor,
@@ -32,7 +32,7 @@ class JobTypeRepository(BaseDbRepository[SysJobType]):
         Returns:
             SysJobType | None: 目录行；不存在 None。
         """
-        statement = self._select().where(self._column("job_type") == job_type)
+        statement = self._select().where(self._column("job_type") == job_type).execution_options(populate_existing=True)
         return (await self._session.execute(statement)).scalars().first()
 
     async def list_all(self) -> ConcurrentStableList[SysJobType]:
@@ -41,7 +41,7 @@ class JobTypeRepository(BaseDbRepository[SysJobType]):
         Returns:
             ConcurrentStableList[SysJobType]: 目录行。
         """
-        statement = self._select().order_by(self._column("job_type").asc())
+        statement = self._select().order_by(self._column("job_type").asc()).execution_options(populate_existing=True)
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def page_filtered(
@@ -75,19 +75,38 @@ class JobTypeRepository(BaseDbRepository[SysJobType]):
         )
         return ConcurrentStableList(rows), total
 
-    async def create_declaration(self, **values: object) -> SysJobType:
-        """插入一条目录行。
+    async def create_declaration(self, **values: object) -> SysJobType | None:
+        """原子插入一条目录行（同 `job_type` 已存在则跳过，不产生重复行）。
+
+        为什么不用 ORM `add`：`uq_sys_job_type(job_type)` **不含** `deleted_at`，两个 worker 同时
+        启动各插一行时数据库直接报 `UNIQUE constraint failed: sys_job_type.job_type`；而 ORM 的
+        「先查无、再插」是两步，中间必然有竞争窗口。
 
         Args:
-            **values: 目录字段。
+            **values: 目录字段（ORM 属性名）。
 
         Returns:
-            SysJobType: 新行。
+            SysJobType | None: 插入后的行；同键已存在（并发方先插）时为 None。
         """
-        record = SysJobType(**values)
-        self._session.add(record)
-        await self._session.flush()
-        return record
+        job_type = str(values["job_type"])
+        inserted = await self.insert_if_absent(
+            ConcurrentStableDict(values),
+            match=self.type_match(job_type),
+        )
+        if not inserted:
+            return None
+        return await self.get_by_type(job_type)
+
+    def type_match(self, job_type: str) -> ConcurrentStableList[ColumnElement[bool]]:
+        """按作业类型构造原子写定位条件。
+
+        Args:
+            job_type: 作业类型。
+
+        Returns:
+            ConcurrentStableList[ColumnElement[bool]]: 定位条件（未删过滤由基座方法追加）。
+        """
+        return ConcurrentStableList((self._column("job_type") == job_type,))
 
     async def update_declaration(self, job_type: str, *, now: datetime, **values: object) -> bool:
         """更新目录行（按作业类型）。

@@ -632,9 +632,12 @@ def resolve_sqlite_dir(url: str, sqlite_dir: str) -> str:
 class DatabaseSettings(BaseSettings):
     """三库目标（平台 / 租户 / 归档；dev 默认多 SQLite 文件）。"""
 
-    auto_create: bool = True
+    auto_create: bool = False
     """**启动期建表总开关**（四库方言：SQLite / MySQL / PostgreSQL / 达梦；幂等 `create_all(checkfirst=True)`）。
-    开发 / 测试默认开；**生产建议置 false**，改经 ops 显式建表入口（`ops.init_schema`）在部署链上先建表后起服务。"""
+
+    **默认关闭**：正式环境不在应用启动时建表，由部署链的 ops 显式建表入口（`ops.init_schema`）
+    先建表、后起服务。开发环境在 `config.dev.toml` 显式开启（单进程、无并发，图方便）；
+    测试期由测试基座 `[app].skip_db_init=true` 跳过每例启动建表，结构由初始化独立阶段一次建好。"""
     name_prefix: str = "bms"
     """库名前缀（env `BMS_DATABASE__NAME_PREFIX`）——平台库 `{prefix}_{service}`、服务租户库
     `{prefix}_{service}_{code}`、归档库 `{prefix}_archive` 的统一来源（`db/keys.py` 派生）。

@@ -26,7 +26,7 @@ from typing import Any
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.gate import db_access_gate
-from bms_core.testing import diagnostics
+from bms_core.testing import diagnostics, lock_probe
 from bms_core.testing.rwlock import DEFAULT_TIMEOUT, GATE_LABEL, DbGate, gate_path
 
 PLATFORM_GATE = "platform"
@@ -111,7 +111,11 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             wait_read = time.monotonic() - read_started
         if read_only:
             stage = "hold"
-            yield
+            lock_probe.note("gate+", f"{name} ro")
+            try:
+                yield
+            finally:
+                lock_probe.note("gate-", f"{name} ro")
             return
         stage = "write"
         try:
@@ -130,7 +134,11 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             finally:
                 wait_write = time.monotonic() - write_wait_start
             stage = "hold"
-            yield
+            lock_probe.note("gate+", f"{name} rw")
+            try:
+                yield
+            finally:
+                lock_probe.note("gate-", f"{name} rw")
         finally:
             # 无论是否报错都释放写门；没拿到（取写门就失败）时只记日志。
             # **同步释放**：用例 / 夹具被取消时 finally 里的 await 会立刻再抛 CancelledError，
@@ -145,6 +153,7 @@ async def gate_scope(name: str, *, read_only: bool, wait: float | None = None) -
             outcome = "hold-error"
         else:
             outcome = f"{stage}-{'timeout' if isinstance(exc, TimeoutError) else 'error'}"
+        lock_probe.note("error", f"{name} stage={stage} {type(exc).__name__} {str(exc)[:160]}")
         raise
     finally:
         # 读门等待超时时 `token` 从未赋值：此时只落一行记录，不做释放。
