@@ -193,6 +193,12 @@ label = "护栏：测试库隔离（全量）"
 cmd = ["{python}", "scripts/tools/base_check/check_test_db_isolation.py", "{root}"]
 
 [[preflight.steps]]
+label = "护栏：测试状态前提（全量）"
+# 13_10：断言前提必须与真实运行形态一致——空库前提断言 / 逐例重装 / 无分类独占库 / 全局状态独占锁。
+# 存量以 `deploy/boundaries/test_premises_baseline.json` 登记，只减不增。
+cmd = ["{python}", "scripts/tools/base_check/check_test_premises.py", "{root}"]
+
+[[preflight.steps]]
 label = "护栏：pragma 理由（全量；存量基线只减不增）"
 # 覆盖率豁免必须写明不可达原因；无理由的分支缺口会永远补不上（口径见《AI开发规范》「覆盖率要求」）
 cmd = ["{python}", "scripts/tools/preflight/check_pragma_reason.py", "{root}"]
@@ -649,6 +655,29 @@ base_modules = ["backend/tests_support/shared_db.py", "backend/tests_support/sha
 # 直连不取读写门，长读事务会在 SQLite 层挡住走门的写者（表现为「有人持写门很久」）。
 # 统一走 `gated_session` / `write_window`，或收进 base_modules 声明的共享访问入口。
 gate_bypass_targets = ["backend/tests_support"]
+
+[rules.test_premises]
+# 测试状态前提静态护栏（任务 13_10，2026-11-23 拍板）：断言前提必须与真实运行形态一致——
+# 共享库长期累积他人数据、进程长驻（装配只发生一次）。规则码 P1~P4 见《测试规范》§2.1 / §4。
+scan_targets = ["backend/libs/bms_core/tests", "backend/services", "backend/tests_support"]
+# P1 空库前提断言：整表口径字段与「空值」比较即命中（须注 `# premise: own-data <说明>` 才放行）
+aggregate_keys = ["total", "count"]
+list_keys = ["list", "items", "rows"]
+# P2 逐例重装：装配夹具必须常驻（module / session / package）
+fixture_names = ["service_app"]
+resident_scopes = ["module", "session", "package"]
+premise_marker = "premise:"
+# P3 独占库分类：own_db 必须带 scope，取值限这六类；external 须同时带 integration 标记
+own_marker = "own_db"
+own_scopes = ["ddl", "create", "seed", "topology", "memory", "external"]
+external_scope = "external"
+integration_marker = "integration"
+# P4 全局状态独占锁：真实系统里没有「整段全局状态只有我一个」的窗口
+lock_calls = ["file_lock"]
+lock_targets = ["platform-global-state"]
+baseline = "deploy/boundaries/test_premises_baseline.json"
+baseline_version = 1
+exclude_parts = ["__pycache__", ".venv", "node_modules", ".git"]
 
 [rules.system_fields]
 table_dir = "bms文档/设计/数据库设计/数据表设计"

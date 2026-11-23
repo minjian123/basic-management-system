@@ -115,6 +115,7 @@ RUNNABLE_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "engkit eol",
         "check_ci_config.py",
         "check_test_db_isolation.py",
+        "check_test_premises.py",
         "check_bare_collections.py",
         "check_snowflake_ids.py",
         "check_pragma_reason.py",
@@ -212,6 +213,7 @@ STEP_SCOPES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = 
         # CI 自检只判 CI / 编排配置本身：未改这些文件时不该跑（其中含一次 GitLab Lint 网络调用）
         "check_ci_config.py": ConcurrentStableFrozenList((".gitlab-ci.yml", "deploy/ci/", "deploy/compose/")),
         "check_test_db_isolation.py": ConcurrentStableFrozenList(),
+        "check_test_premises.py": ConcurrentStableFrozenList(),
         "check_bare_collections.py": ConcurrentStableFrozenList(),
         # i18n 附表台账：只有模型层附表 / 台账模块 / 台账文档 / 脚本本身变化时才可能漂移
         "check_i18n_attachments.py": ConcurrentStableFrozenList(
