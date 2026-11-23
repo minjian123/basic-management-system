@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
@@ -169,7 +170,10 @@ async def test_unload_keeps_tenant_articles(shared_tenant_engine: AsyncEngine, t
 
 async def test_target_conflicts(shared_tenant_engine: AsyncEngine, tmp_path: Path, ns: Namespace) -> None:
     """产品包遇平台内建同目标跳过；跨产品同优先级跳过。"""
-    builtin = write_package(tmp_path / "builtin", product_key="platform", prefix=ns.prefix)
+    # 平台内建包与产品包同目标验证「跳过」：包版本取**单调递增**的会话派生值，
+    # 否则复用共享库时会与上一轮同产品包比出「降级」或「同版本不同校验和」。
+    builtin_version = f"1.0.{int(time.time() * 1000)}"
+    builtin = write_package(tmp_path / "builtin", product_key="platform", version=builtin_version, prefix=ns.prefix)
     product_a = write_package(tmp_path / "a", product_key=ns.prefix, prefix=ns.prefix)
     anchors = anchor_map(ns.prefix)
     async with write_session(shared_tenant_engine) as session:

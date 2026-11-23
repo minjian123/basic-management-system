@@ -33,6 +33,7 @@ from bms_core.core.concurrent import (
 )
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import CatalogError, ConflictError, NotFoundError, ParamError
+from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.models.platform.tenant_topology import (
@@ -45,6 +46,9 @@ from bms_core.services.module_registry import domain_service_view
 from bms_platform.domains.platform_registry.repositories.tenant_topology import (
     TenantTopologyRepository,
 )
+
+_LOGGER = get_logger("bms.platform.tenant_topology")
+"""平台拓扑日志器（自举时历史域剔除告警）。"""
 
 __all__ = ["TenantTopologyService", "TopologyRow"]
 
@@ -220,11 +224,21 @@ class TenantTopologyService(BaseFrameworkObject):
             raise CatalogError("业务域登记为空，无法自举默认拓扑（请检查清单第九类 [[domains]] 装载）")
         if version > 0:
             existing = await self._repo.list_current(DEFAULT_TOPOLOGY_TENANT)
-            known = ConcurrentStableSet(row.domain_key for row in existing)
+            # 历史域容忍：库里可能有「已从登记表移除」的域（例如测试声明残留、产品下线）。
+            # 严格拒启会让一条历史残留拖垮整个实例（实测：一个测试域导致整批用例 setup 失败），
+            # 故这里剔除并告警，再按当前登记表补齐缺失域（写新版本，一步收敛）。
+            stale = ConcurrentStableList(row for row in existing if row.domain_key not in domains)
+            kept = ConcurrentStableList(row for row in existing if row.domain_key in domains)
+            if stale:
+                _LOGGER.warning(
+                    "tenant_topology_pruned_unknown_domains",
+                    domains=[row.domain_key for row in stale],
+                )
+            known = ConcurrentStableSet(row.domain_key for row in kept)
             missing = ConcurrentStableList(domain for domain in domains if domain not in known)
-            if missing:
+            if missing or stale:
                 merged = ConcurrentStableList(
-                    TopologyRow(domain_key=row.domain_key, unit_key=row.unit_key, status=row.status) for row in existing
+                    TopologyRow(domain_key=row.domain_key, unit_key=row.unit_key, status=row.status) for row in kept
                 )
                 for domain in missing:
                     merged.add(TopologyRow(domain_key=domain, unit_key=domains[domain], note=_DEFAULT_NOTE))

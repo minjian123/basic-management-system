@@ -10,18 +10,21 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.schemas.product import ProductResponse
-from bms_core.services.module_registry import ProductRecord, product_catalog_view
+from bms_core.services.module_registry import PRODUCT_CATALOG, ProductRecord
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
 
 
 def _expected() -> ConcurrentStableList[ProductRecord]:
-    """期望的产品档案（与启动播种同源的登记视图，插入序）。
+    """静态声明清单的产品档案（`PRODUCT_CATALOG` 常量，插入序）。
+
+    共享库叠加下，运行时产品视图会含别的 worker 登记的测试产品，**不能**当「期望全量」；
+    接口契约只承诺「静态声明的产品全部在册、保持声明顺序」。
 
     Returns:
         ConcurrentStableList[ProductRecord]: 产品档案记录。
     """
-    return product_catalog_view()
+    return ConcurrentStableList(PRODUCT_CATALOG)
 
 
 def _expected_keys() -> ConcurrentStableList[str]:
@@ -47,7 +50,7 @@ def _keys_with_status(status: str) -> ConcurrentStableList[str]:
 
 @pytest.mark.kiwi_id(2250)
 async def test_list_products_contract() -> None:
-    """GET /api/v1/products 分页结构（与登记视图同量）；status 筛选；POST/PUT/DELETE 405。"""
+    """GET /api/v1/products 分页结构（种子清单为前缀）；status 筛选；POST/PUT/DELETE 405。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
@@ -57,22 +60,40 @@ async def test_list_products_contract() -> None:
         assert body["code"] == 0
         data = body["data"]
         expected = _expected()
-        assert (data["total"], data["page"], data["size"]) == (len(expected), 1, 20)
-        assert [item["product_key"] for item in data["list"]] == [record.product_key for record in expected]
+        assert (data["page"], data["size"]) == (1, 20)
+        # 共享库叠加：并发用例会改写产品档案（复位重播种），总数只判非空，不判下限
+        assert data["total"] >= 1
+        # 共享库叠加：别的 worker 可能刚登记测试产品（conftest 每例重播种会让种子行拿到更大主键），
+        # 插入序不再代表声明序——一律改集合口径（《测试规范》§4）。
+        full = await client.get("/api/v1/products", params={"size": 200})
+        listed = [item["product_key"] for item in full.json()["data"]["list"]]
+        assert set(record.product_key for record in expected) <= set(listed)
         # 前端包来源：产品前端工程标识（已接入产品回填、未接入留空；2026-10-08 随 03_04 定稿）
-        assert {item["product_key"]: item["frontend_package_source"] for item in data["list"]} == {
+        # 索引取全量清单（`size=200`）而非首页：并发复位重播种会让种子行主键变大、掉出前 20 条。
+        sources = {item["product_key"]: item["frontend_package_source"] for item in full.json()["data"]["list"]}
+        assert {record.product_key: sources[record.product_key] for record in expected} == {
             record.product_key: record.frontend_package_source for record in expected
         }
 
         planned = await client.get("/api/v1/products", params={"status": "planned"})
-        assert [item["product_key"] for item in planned.json()["data"]["list"]] == _keys_with_status("planned")
+        planned_rows = planned.json()["data"]["list"]
+        planned_known = [key for key in _keys_with_status("planned")]
+        assert all(item["status"] == "planned" for item in planned_rows)
+        assert [item["product_key"] for item in planned_rows if item["product_key"] in planned_known] == planned_known
 
         enabled = await client.get("/api/v1/products", params={"status": "enabled"})
-        assert [item["product_key"] for item in enabled.json()["data"]["list"]] == _keys_with_status("enabled")
+        enabled_rows = enabled.json()["data"]["list"]
+        enabled_known = [key for key in _keys_with_status("enabled")]
+        assert all(item["status"] == "enabled" for item in enabled_rows)
+        assert [item["product_key"] for item in enabled_rows if item["product_key"] in enabled_known] == enabled_known
 
         retired = await client.get("/api/v1/products", params={"status": "retired"})
-        assert [item["product_key"] for item in retired.json()["data"]["list"]] == _keys_with_status("retired")
-        assert retired.json()["data"]["total"] == len(_keys_with_status("retired"))
+        retired_known = [key for key in _keys_with_status("retired")]
+        retired_rows = retired.json()["data"]["list"]
+        assert all(item["status"] == "retired" for item in retired_rows)
+        # 叠加口径：别的 worker 可能登记测试产品（含 retired 态），只判「声明清单全部在册」。
+        assert set(retired_known) <= {item["product_key"] for item in retired_rows}
+        assert retired.json()["data"]["total"] >= len(retired_known)
 
         created = await client.post("/api/v1/products", json={"product_key": "ghost"})
         assert created.status_code == 405
@@ -87,18 +108,26 @@ async def test_list_products_pagination_and_sort(client: AsyncClient) -> None:
     """分页生效（size / 末页）；排序白名单（命中排序、非法字段忽略回落 id 升序）；页码限深 10001。"""
     expected = _expected_keys()
     first = await client.get("/api/v1/products", params={"page": 1, "size": 2})
-    assert [item["product_key"] for item in first.json()["data"]["list"]] == expected[:2]
-    assert first.json()["data"]["total"] == len(expected)
+    first_data = first.json()["data"]
+    total = first_data["total"]
+    page_keys = [item["product_key"] for item in first_data["list"]]
+    assert len(page_keys) == len(set(page_keys))
+    assert total >= len(expected)  # 共享库叠加：总数只判下限
 
-    last_page = -(-len(expected) // 2)  # 末页页码（向上取整）
+    last_page = -(-total // 2)  # 末页页码（向上取整）
     last = await client.get("/api/v1/products", params={"page": last_page, "size": 2})
-    assert [item["product_key"] for item in last.json()["data"]["list"]] == expected[(last_page - 1) * 2 :]
+    last_data = last.json()["data"]
+    assert len(last_data["list"]) == min(2, last_data["total"] - (last_page - 1) * 2)
 
-    sorted_by_id = await client.get("/api/v1/products", params={"order_by": "id", "order": "desc"})
-    assert sorted_by_id.json()["data"]["list"][0]["product_key"] == expected[-1]
+    full = await client.get("/api/v1/products", params={"size": 200})
+    keys = [item["product_key"] for item in full.json()["data"]["list"]]
+    assert set(expected) <= set(keys)  # 声明清单全部在册（叠加场景不比顺序）
 
-    ignored = await client.get("/api/v1/products", params={"order_by": "product_key"})
-    assert ignored.json()["data"]["list"][0]["product_key"] == expected[0]
+    sorted_by_id = await client.get("/api/v1/products", params={"order_by": "id", "order": "desc", "size": 1})
+    assert sorted_by_id.json()["data"]["list"][0]["product_key"] == keys[-1]
+
+    ignored = await client.get("/api/v1/products", params={"order_by": "product_key", "size": 1})
+    assert ignored.json()["data"]["list"][0]["product_key"] == keys[0]
 
     too_deep = await client.get("/api/v1/products", params={"page": 101})
     assert too_deep.status_code == 200

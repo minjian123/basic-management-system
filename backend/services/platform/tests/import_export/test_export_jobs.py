@@ -30,6 +30,7 @@ from bms_core.print.exporter import StoragePrintExporter
 from bms_core.print.templates import BuiltinPrintTemplateProvider
 from bms_core.storage.local import LocalObjectStorage
 from bms_core.testing.locks import file_lock
+from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import GatedSessionMaker, gated_sessionmaker
 from bms_core.transfer.artifacts import ExportArtifactStore, ObjectStorageExportArtifactStore
@@ -194,10 +195,12 @@ async def test_execute_job_unknown_biz(env: _Env) -> None:
         await _job(env).run(_context(env, _payload(biz="not-exists")))
 
 
-async def test_cleanup_job_deletes_expired_artifact_only(env: _Env) -> None:
+async def test_cleanup_job_deletes_expired_artifact_only(env: _Env, ns: Namespace) -> None:
     """清理：过期作业产物被删且 result 写 expired_at；未过期不动。"""
-    await env.storage.put("demo/exports/users/old.xlsx", b"PK-old", content_type="application/octet-stream")
-    await env.storage.put("demo/exports/users/new.xlsx", b"PK-new", content_type="application/octet-stream")
+    old_key = f"demo/exports/users/{ns.prefix}-old.xlsx"
+    new_key = f"demo/exports/users/{ns.prefix}-new.xlsx"
+    await env.storage.put(old_key, b"PK-old", content_type="application/octet-stream")
+    await env.storage.put(new_key, b"PK-new", content_type="application/octet-stream")
     expired_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=30)
     async with env.factory() as session:
         session.add_all(
@@ -208,7 +211,7 @@ async def test_cleanup_job_deletes_expired_artifact_only(env: _Env) -> None:
                     domain_key="import_export",
                     status=JOB_STATUS_SUCCEEDED,
                     payload="{}",
-                    result='{"object_key": "demo/exports/users/old.xlsx", "file_name": "old.xlsx"}',
+                    result=f'{{"object_key": "{old_key}", "file_name": "old.xlsx"}}',
                     finished_at=expired_at,
                 ),
                 SysJob(
@@ -217,7 +220,7 @@ async def test_cleanup_job_deletes_expired_artifact_only(env: _Env) -> None:
                     domain_key="import_export",
                     status=JOB_STATUS_SUCCEEDED,
                     payload="{}",
-                    result='{"object_key": "demo/exports/users/new.xlsx", "file_name": "new.xlsx"}',
+                    result=f'{{"object_key": "{new_key}", "file_name": "new.xlsx"}}',
                     finished_at=datetime.now(UTC).replace(tzinfo=None),
                 ),
             ]
@@ -229,13 +232,13 @@ async def test_cleanup_job_deletes_expired_artifact_only(env: _Env) -> None:
     output = cast("ConcurrentStableDict[str, object]", result.output)
     assert int(cast("int", output["scanned"])) >= 1
     assert int(cast("int", output["cleaned"])) >= 1
-    assert not await env.storage.exists("demo/exports/users/old.xlsx")
-    assert await env.storage.exists("demo/exports/users/new.xlsx")
+    assert not await env.storage.exists(old_key)
+    assert await env.storage.exists(new_key)
 
     async with env.factory() as session:
         jobs = (await session.execute(SysJob.__table__.select())).all()
     # 共享库带其他用例的作业：只判本用例两条的标记结果
-    own = [row for row in jobs if row.result and ("old.xlsx" in row.result or "new.xlsx" in row.result)]
+    own = [row for row in jobs if row.result and (old_key in row.result or new_key in row.result)]
     assert len([row for row in own if "expired_at" in row.result]) == 1
     assert len([row for row in own if "expired_at" not in row.result]) == 1
 

@@ -11,13 +11,14 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy import Table, select, update
+from sqlalchemy import Table, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.i18n.seed import seed_i18n_in_session
 from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import write_session
 from tests_support.locks import file_lock
 from tests_support.permission_admin import assign_system_admin
 
@@ -104,8 +105,14 @@ async def test_update_optional_fields_and_filters(client: AsyncClient) -> None:
     assert with_deleted["list"][0]["deleted_at"] is not None
 
 
-async def test_create_default_requires_enabled(client: AsyncClient) -> None:
+async def test_create_default_requires_enabled(client: AsyncClient, shared_tenant_engine: AsyncEngine) -> None:
     """新增即为默认语言时必须启用（否则 44003）。"""
+    # 固定语言码（`zz-BB`）不能按命名空间派生：先清掉本用例上一轮可能留下的同名行，
+    # 否则复用共享库时会先撞「编码已存在」，拿不到 44003。
+    # 清行走基座写会话（autocommit + 操作级门）：裸会话会绕过排队，与并行 worker 抢锁后
+    # 拿不到 `busy_timeout`（测试口径 0.1s），用例表现为 `database is locked` 而非 44003。
+    async with write_session(shared_tenant_engine) as db:
+        await db.execute(text("DELETE FROM sys_i18n_locale WHERE code = :code"), {"code": "zz-BB"})
     resp = await client.post(
         "/api/v1/i18n/locales",
         json={"code": "zz-BB", "name": "测试", "is_default": True, "status": "disabled"},
@@ -125,8 +132,7 @@ async def test_update_default_requires_enabled(client: AsyncClient) -> None:
 async def test_delete_last_enabled_language(client: AsyncClient, shared_tenant_engine: AsyncEngine) -> None:
     """删除最后一种启用语言 → 44004（构造无默认语言的脏状态）。"""
     await client.post("/api/v1/i18n/locales", json={"code": "zz-DD", "name": "测试"})
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as db:
+    async with write_session(shared_tenant_engine) as db:
         await db.execute(
             update(SysI18nLocale)
             .where(SysI18nLocale.code.in_(("zh-CN", "en-US")))
@@ -135,14 +141,13 @@ async def test_delete_last_enabled_language(client: AsyncClient, shared_tenant_e
         await db.commit()
     resp = await client.delete("/api/v1/i18n/locales/zz-DD")
     assert resp.json()["code"] == 44004
-    async with factory() as db:
+    async with write_session(shared_tenant_engine) as db:
         await db.execute(
             update(SysI18nLocale)
             .where(SysI18nLocale.code.in_(("zh-CN", "en-US")))
             .values(status="enabled", is_default=False)
         )
         await db.execute(update(SysI18nLocale).where(SysI18nLocale.code == "zh-CN").values(is_default=True))
-        await db.commit()
 
 
 async def test_message_adds_unchanged_keeps_zero_update(client: AsyncClient, ns: Any) -> None:  # pyright: ignore[reportAny]

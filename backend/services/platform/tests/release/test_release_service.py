@@ -27,6 +27,7 @@ from bms_core.models.platform.release_manifest import (
 )
 from bms_core.services.module_registry import domain_service_view, service_catalog_view
 from bms_core.testing.locks import file_lock
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.platform_registry.dto import ReleaseDomainEntry
 from bms_platform.domains.platform_registry.repositories.release_manifest import (
     ReleaseManifestDomainRepository,
@@ -38,6 +39,21 @@ from bms_platform.domains.platform_registry.services.release import ReleaseServi
 
 UNIT = "platform"
 """默认拓扑里平台自身承载的部署单元（域 → 承载服务键自举）。"""
+
+
+def _scope(ns: Namespace) -> int:
+    """本用例专属作用范围（按命名空间前缀派生）。
+
+    共享测试库叠加复用时，固定作用范围会把上一轮的发布批次带走（批次号从 2 起、回滚目标
+    突然变为合法），故作用范围与业务编码同口径按会话派生：同一用例跨会话不同、会话内不同用例不同。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        int: 作用范围（非 0；无对应拓扑时服务按全局拓扑回退，与既有测试口径一致）。
+    """
+    return int(ns.prefix[2:], 16)
 
 
 @pytest.fixture(autouse=True)
@@ -176,9 +192,11 @@ def _declared(contract_version: str | None = None) -> ConcurrentStableList[Relea
     )
 
 
-async def test_precheck_passes_and_record_writes_manifest(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_precheck_passes_and_record_writes_manifest(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """用例 1、2：单单元多域发布——六条校验全过，主表一行 + 明细逐域一行，版本快照正确。"""
-    scope = 9101
+    scope = _scope(ns)
     del client
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -208,9 +226,9 @@ async def test_precheck_passes_and_record_writes_manifest(client: AsyncClient, s
     assert {entry.schema_revision for entry in snapshot.domains} == {"0001_init"}
 
 
-async def test_manifest_version_must_increase(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_manifest_version_must_increase(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """用例 8：批次号回退被拒（清单版本校验）。"""
-    scope = 9102
+    scope = _scope(ns)
     del client
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -226,9 +244,9 @@ async def test_manifest_version_must_increase(client: AsyncClient, service_app: 
             await service.record(unit_key=UNIT, tenant_scope=scope, manifest_version=1)
 
 
-async def test_unit_complete_rejects_missing_domain(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_unit_complete_rejects_missing_domain(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """用例 3：声明域集与拓扑不符——拒绝并列出缺失域。"""
-    scope = 9103
+    scope = _scope(ns)
     del client
     domains = _platform_domains()
     async with session_scope(
@@ -252,9 +270,11 @@ async def test_unit_complete_rejects_missing_domain(client: AsyncClient, service
     assert domains[0] in failure.detail
 
 
-async def test_version_consistent_reports_per_domain_diff(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_version_consistent_reports_per_domain_diff(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """用例 4：三代版本不一致——逐域列出「声明 / 登记」差异。"""
-    scope = 9104
+    scope = _scope(ns)
     del client
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -278,9 +298,9 @@ async def test_version_consistent_reports_per_domain_diff(client: AsyncClient, s
     assert "结构 revision 声明 9999_ghost" in failure.detail
 
 
-async def test_topology_version_must_match(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_topology_version_must_match(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """用例 5：拓扑版本过期——拒绝。"""
-    scope = 9105
+    scope = _scope(ns)
     del client
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -291,9 +311,9 @@ async def test_topology_version_must_match(client: AsyncClient, service_app: Fas
     assert [item.key for item in result.failures()] == ["topology_current"]
 
 
-async def test_structure_not_ready_rejects(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_structure_not_ready_rejects(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """用例 6：某域结构记录表未初始化——拒绝并提示先执行清单。"""
-    scope = 9106
+    scope = _scope(ns)
     del client
     domain = next(domain for domain in _platform_domains() if any(series.tables for series in domain_series(domain)))
     async with session_scope(
@@ -306,9 +326,11 @@ async def test_structure_not_ready_rejects(client: AsyncClient, service_app: Fas
     assert domain in failure.detail
 
 
-async def test_contract_breaking_rejected_unless_allowed(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_contract_breaking_rejected_unless_allowed(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """用例 7：上一发布记录的契约主版本与当前不同——拒绝；显式放行后可通过。"""
-    scope = 9107
+    scope = _scope(ns)
     del client
     domains = _platform_domains()
     async with session_scope(
@@ -356,9 +378,9 @@ async def test_contract_breaking_rejected_unless_allowed(client: AsyncClient, se
     assert "已显式放行" in {item.key: item for item in allowed.items}["contract_compatible"].detail
 
 
-async def test_failure_row_has_no_domains(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_failure_row_has_no_domains(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """用例 9：执行阶段失败——只写主表行（`failed`），不写明细。"""
-    scope = 9108
+    scope = _scope(ns)
     del client
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -374,9 +396,9 @@ async def test_failure_row_has_no_domains(client: AsyncClient, service_app: Fast
     assert snapshot.note == "结构清单第 3 步失败"
 
 
-async def test_unknown_unit_is_rejected(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_unknown_unit_is_rejected(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """拓扑里不存在的单元——参数错误（不做静默放过）。"""
-    scope = 9109
+    scope = _scope(ns)
     del client
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -386,9 +408,11 @@ async def test_unknown_unit_is_rejected(client: AsyncClient, service_app: FastAP
             await service.precheck(unit_key="no-such-unit", tenant_scope=scope)
 
 
-async def test_rollback_requires_confirmation_and_appends_row(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_rollback_requires_confirmation_and_appends_row(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """用例 10、11：回滚新增 `rolled_back` 行（原行不变）；结构回退需显式确认。"""
-    scope = 9110
+    scope = _scope(ns)
     del client
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -417,9 +441,9 @@ async def test_rollback_requires_confirmation_and_appends_row(client: AsyncClien
     assert {entry.schema_revision for entry in rolled.domains} == {"0001_init"}
 
 
-async def test_rollback_without_history_is_not_found(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_rollback_without_history_is_not_found(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """用例 12：没有可回滚的发布——明确报错（不做部分回滚）。"""
-    scope = 9111
+    scope = _scope(ns)
     del client
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -429,9 +453,11 @@ async def test_rollback_without_history_is_not_found(client: AsyncClient, servic
             await service.plan_rollback(unit_key=UNIT, tenant_scope=scope)
 
 
-async def test_rollback_blocked_when_target_lacks_domain(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_rollback_blocked_when_target_lacks_domain(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """回滚目标缺少某域记录——阻断（明细漏一行就有一个域回不去）。"""
-    scope = 9112
+    scope = _scope(ns)
     del client
     domains = _platform_domains()
     async with session_scope(
@@ -503,9 +529,9 @@ async def test_rollback_blocked_when_target_lacks_domain(client: AsyncClient, se
             await service.rollback(unit_key="mixed-unit", tenant_scope=scope, confirmed=True)
 
 
-async def test_release_api_recent_and_detail(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_release_api_recent_and_detail(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """用例 14：管理面按单元查最近发布与单条明细。"""
-    scope = 9113
+    scope = _scope(ns)
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
@@ -536,10 +562,10 @@ async def test_release_api_recent_and_detail(client: AsyncClient, service_app: F
     assert int(missing.json()["code"]) != 0
 
 
-async def test_unit_complete_reports_extra_domain(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_unit_complete_reports_extra_domain(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """用例 3（反例）：清单多出拓扑里没有的域——同样拒绝并列出。"""
     del client
-    scope = 9114
+    scope = _scope(ns)
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
@@ -567,10 +593,10 @@ async def test_precheck_requires_revisions_port(client: AsyncClient, service_app
             await service.precheck(unit_key=UNIT, tenant_scope=9115)
 
 
-async def test_contract_breaches_reader_path(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_contract_breaches_reader_path(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """契约读面注入时：以外部结论为准（服务 → 破坏性变更摘要），不再看版本主版本。"""
     del client
-    scope = 9116
+    scope = _scope(ns)
 
     async def _breaches(service_key: str) -> ConcurrentStableList[str]:
         """契约读面替身：对平台服务报一条破坏性变更。
@@ -618,10 +644,12 @@ async def test_contract_breaches_reader_path(client: AsyncClient, service_app: F
     assert {item.key: item for item in clean.items}["contract_compatible"].passed
 
 
-async def test_rollback_explicit_target_and_order_guard(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_rollback_explicit_target_and_order_guard(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """回滚目标可按批次号指定；目标不早于当前发布即拒绝。"""
     del client
-    scope = 9117
+    scope = _scope(ns)
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
@@ -639,10 +667,12 @@ async def test_rollback_explicit_target_and_order_guard(client: AsyncClient, ser
             await service.plan_rollback(unit_key=UNIT, tenant_scope=scope, target_version=2)
 
 
-async def test_rollback_without_earlier_release_is_not_found(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_rollback_without_earlier_release_is_not_found(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """只有一次发布时没有回退目标——明确报错（不做「回滚到自身」）。"""
     del client
-    scope = 9118
+    scope = _scope(ns)
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
@@ -652,10 +682,10 @@ async def test_rollback_without_earlier_release_is_not_found(client: AsyncClient
             await ReleaseService(session, revisions=_Revisions()).plan_rollback(unit_key=UNIT, tenant_scope=scope)
 
 
-async def test_audit_capture_records_release(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_audit_capture_records_release(client: AsyncClient, service_app: FastAPI, ns: Namespace) -> None:
     """发布留一条审计（单元 / 批次号 / 域数），不逐域记。"""
     del client
-    scope = 9119
+    scope = _scope(ns)
     captured: ConcurrentStableList[object] = ConcurrentStableList()
     spy = _AuditSpy(captured)
     async with session_scope(
@@ -678,10 +708,12 @@ def test_major_version_helper() -> None:
     assert release_service._major("") == ""  # pyright: ignore[reportPrivateUsage]
 
 
-async def test_contract_check_skips_domain_missing_in_previous(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_contract_check_skips_domain_missing_in_previous(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """上一发布缺某域记录：该域跳过对比，其余域按同版本判兼容（不误报）。"""
     del client
-    scope = 9120
+    scope = _scope(ns)
     domains = _platform_domains()
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
@@ -724,10 +756,12 @@ async def test_contract_check_skips_domain_missing_in_previous(client: AsyncClie
     assert "无破坏性变更" in contract.detail
 
 
-async def test_rollback_unknown_target_version_is_not_found(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_rollback_unknown_target_version_is_not_found(
+    client: AsyncClient, service_app: FastAPI, ns: Namespace
+) -> None:
     """指定了不存在的目标批次——明确报错（不静默回退到上一条）。"""
     del client
-    scope = 9121
+    scope = _scope(ns)
     async with session_scope(
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:

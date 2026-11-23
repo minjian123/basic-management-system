@@ -128,8 +128,14 @@ async def _seed_article(session: AsyncSession, title: str, *, deleted: bool) -> 
     return article
 
 
-async def test_authenticated_without_permission_is_forbidden(client: AsyncClient) -> None:
-    """未授予 recycle:* 的已登录用户：403。"""
+async def test_authenticated_without_permission_is_forbidden(isolated_tenant: str, client: AsyncClient) -> None:
+    """未授予 recycle:* 的已登录用户：403。
+
+    `isolated_tenant` 排在 `client` 前：本用例判「无授权即拒」，依赖「库里没有给测试用户
+    授予系统管理员角色」这一前提；共享租户库上别的用例会授权（系统管理员豁免层级判定），
+    会让该断言在复用第二轮偶发变 200（实测第 7 批）。独占库让它与执行顺序无关。
+    """
+    _ = isolated_tenant
     response = await client.get("/api/v1/recycle/modules")
     assert response.status_code == 403
 

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import secrets
 from collections.abc import Callable, Mapping
 from typing import cast
+
+from sqlalchemy.exc import InvalidRequestError, OperationalError
 
 from bms_core.audit.base import AuditCapturer
 from bms_core.cache.base import CacheRegion
@@ -67,6 +70,12 @@ JOB_TYPE = "platform.import.execute"
 
 _SYNC_ERROR_LIMIT = 200
 """同步响应 / 幂等首次结果携带的错误条数上限。"""
+
+_INLINE_MAX_ATTEMPTS = 3
+"""同步内联遇到写锁竞争的整批重试上限（首轮 + 2 次重试）。"""
+
+_CONTENTION_HINTS = ("database is locked", "closed transaction", "already begun")
+"""判定「写锁竞争」的异常文案特征（SQLite 锁等待 / 驱动层关闭事务）。"""
 
 _LOGGER = get_logger("bms")
 
@@ -446,12 +455,31 @@ class ImportService(BaseFrameworkObject):
             idempotency_key=idem_scope,
             max_attempts=1,
         )
+        record: SysJob | None = None
+        job_result: JobResult | None = None
         try:
-            async with uow.begin():
-                session = cast("DbSession", uow.session)
-                record, job_result = await _runner(self._runner_factory).run_inline(
-                    session, submission, db_key=db_key, tenant_id=tenant_id
-                )
+            # 整批重试：sqlite 下并发写锁等待失败会让驱动层关闭当前事务（后续终态写入报
+            # 「closed transaction」）。同步内联是幂等的（`idem_scope` + 事务内作业记录），
+            # 故撞锁时整批重来，避免把并发争用误报成导入失败（生产 MySQL 的死锁同理）。
+            for attempt in range(1, _INLINE_MAX_ATTEMPTS + 1):
+                try:
+                    async with uow.begin():
+                        session = cast("DbSession", uow.session)
+                        record, job_result = await _runner(self._runner_factory).run_inline(
+                            session, submission, db_key=db_key, tenant_id=tenant_id
+                        )
+                    break
+                except (OperationalError, InvalidRequestError) as exc:
+                    if attempt >= _INLINE_MAX_ATTEMPTS or not _is_write_contention(exc):
+                        raise
+                    _LOGGER.warning(
+                        "导入同步执行遇到写锁竞争，整批重试",
+                        attempt=attempt,
+                        error=str(exc),
+                    )
+                    with contextlib.suppress(Exception):
+                        await uow.rollback()
+            assert record is not None and job_result is not None
             session = cast("DbSession", uow.session)
             repository = ImportJobRepository(session)
             errors_count = await repository.count_errors(int(record.id))
@@ -668,6 +696,19 @@ def _idem_scope(biz: str, idem_key: str) -> str:
 def _tenant_str(tenant_id: int | None) -> str | None:
     """租户主键转字符串。"""
     return None if tenant_id is None else str(tenant_id)
+
+
+def _is_write_contention(exc: Exception) -> bool:
+    """是否属于「写锁竞争导致的事务失效」（可整批重试）。
+
+    Args:
+        exc: 捕获到的异常。
+
+    Returns:
+        bool: True 表示锁竞争 / 驱动层关闭事务，可重试。
+    """
+    message = str(exc).lower()
+    return any(hint in message for hint in _CONTENTION_HINTS)
 
 
 def _summary_of(result: JobResult, total: int, error_rows: int) -> ImportSummary:

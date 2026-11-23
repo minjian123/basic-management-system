@@ -199,13 +199,14 @@ async def test_create_duplicate_code_and_name(client: AsyncClient, ns: Namespace
 async def test_update_task_recomputes_schedule(client: AsyncClient, ns: Namespace) -> None:
     """修改成功：名称与 cron 更新并重算下次到期。"""
     data = await _create(client, ns)
+    new_name = ns.code("updated")
     resp = await client.put(
         f"/api/v1/tasks/{data['id']}",
-        json={"name": "改过的名字", "cron": "0 5 * * *", "version": data["version"]},
+        json={"name": new_name, "cron": "0 5 * * *", "version": data["version"]},
     )
     assert resp.status_code == 200, resp.text
     updated = resp.json()["data"]
-    assert updated["name"] == "改过的名字"
+    assert updated["name"] == new_name
     assert updated["cron"] == "0 5 * * *"
     assert updated["version"] == data["version"] + 1
 

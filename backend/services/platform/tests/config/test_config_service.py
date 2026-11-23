@@ -13,7 +13,7 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.config.cache import MemoryConfigCacheRegion
@@ -30,6 +30,7 @@ from bms_core.dict.invalidate import DictInvalidator
 from bms_core.events.base import EventEnvelope
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.platform_config.repositories.config import ConfigRepository
 from bms_platform.domains.platform_config.schemas.config import ConfigCreateRequest, ConfigUpdateRequest
 from bms_platform.domains.platform_config.services.config import ConfigAdminService
@@ -143,8 +144,9 @@ async def session(shared_tenant_engine: AsyncEngine) -> AsyncIterator[AsyncSessi
         AsyncSession: 用例会话。
     """
     await ensure_tables(shared_tenant_engine, _TABLES)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    async with factory() as db:
+    # 统一走读写门：用基座写会话（autocommit + 操作级门、每条 SQL 立即提交），
+    # 裸 `async_sessionmaker` 会绕过排队、绑定工作单元时被门禁拒绝。
+    async with write_session(shared_tenant_engine) as db:
         yield db
 
 

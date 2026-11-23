@@ -241,6 +241,9 @@ async def test_bootstrap_is_idempotent(service_app: FastAPI) -> None:
         service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
     ) as session:
         service = TenantTopologyService(session)
+        # 先收敛一次：共享库上可能残留历史未登记域（声明残留 / 产品下线），
+        # 自举会剔除它们并写下一版本——这属预期，幂等性判的是「收敛之后再跑不再变版本」。
+        await service.ensure_default()
         before = await service.export(0)
         version = await service.ensure_default()
     assert version == before[0]
@@ -367,6 +370,71 @@ async def test_bootstrap_appends_registered_domains_missing_from_default(
             assert merged[domain] == "legacy"
         else:
             assert merged[domain] == service
+
+
+@pytest.mark.kiwi_id(2550)
+async def test_bootstrap_prunes_unknown_domains_without_refusing(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """历史域容忍：默认拓扑含「已不在登记表」的域时剔除并告警、写新版本，不拒启。
+
+    历史残留（产品下线域 / 测试声明残留）不应拖垮整个实例启动——实测一个测试域即可让
+    整批用例 setup 失败。告警走 `StdoutLogger`（标准输出），此处只断言行为与写出版本。
+    """
+    domains = domain_service_view()
+    existing_domain = next(iter(domains))
+    written: ConcurrentStableList[ConcurrentStableList[SysTenantTopology]] = ConcurrentStableList()
+
+    async def _version(self: object, tenant_id: int) -> int:
+        del self, tenant_id
+        return 1
+
+    async def _current(self: object, tenant_id: int) -> ConcurrentStableList[SysTenantTopology]:
+        del self
+        return ConcurrentStableList(
+            [
+                SysTenantTopology(
+                    tenant_id=tenant_id,
+                    domain_key=existing_domain,
+                    unit_key="legacy",
+                    topology_version=1,
+                    status="enabled",
+                ),
+                SysTenantTopology(
+                    tenant_id=tenant_id,
+                    domain_key="ghost_domain",
+                    unit_key="legacy",
+                    topology_version=1,
+                    status="enabled",
+                ),
+            ]
+        )
+
+    async def _replace(
+        self: object,
+        tenant_id: int,
+        *,
+        version: int,
+        rows: object,
+        now: object = None,
+    ) -> int:
+        del self, tenant_id, version, now
+        items = ConcurrentStableList(cast("ConcurrentStableList[SysTenantTopology]", rows))
+        written.add(items)
+        return len(items)
+
+    monkeypatch.setattr(TenantTopologyRepository, "current_version", _version)
+    monkeypatch.setattr(TenantTopologyRepository, "list_current", _current)
+    monkeypatch.setattr(TenantTopologyRepository, "replace", _replace)
+    async with session_scope(
+        service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
+    ) as session:
+        await TenantTopologyService(session).ensure_default()
+    assert len(written) == 1
+    merged = ConcurrentStableDict((row.domain_key, row.unit_key) for row in written[0])
+    assert "ghost_domain" not in merged
+    for domain, service in domains.items():
+        assert merged[domain] == ("legacy" if domain == existing_domain else service)
 
 
 @pytest.mark.kiwi_id(2511)

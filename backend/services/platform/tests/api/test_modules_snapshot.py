@@ -15,6 +15,7 @@ from httpx import AsyncClient
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.schemas.module import ModuleResponse
 from bms_core.services.module_registry import (
+    SERVICE_CATALOG,
     CollaborationRecord,
     CollaborationStatus,
     ProductRecord,
@@ -22,7 +23,6 @@ from bms_core.services.module_registry import (
     register_product_records,
     reset_collaboration_records,
     reset_product_records,
-    service_catalog_view,
 )
 from tests_support.auth import auth_headers
 
@@ -100,7 +100,7 @@ def demo_catalog_entries() -> Iterator[None]:
 async def test_snapshot_without_params_keeps_array_contract(client: AsyncClient) -> None:
     """无参 / 仅逗号：仍是 `ModuleResponse` 数组（缺省契约逐字段不变，用例 13）。"""
     client.headers.update(auth_headers())
-    expected = [module.module_key for module in service_catalog_view()]
+    expected = [module.module_key for module in SERVICE_CATALOG]
 
     plain = await client.get("/api/v1/modules/snapshot")
     commas = await client.get("/api/v1/modules/snapshot", params={"with": ",,"})
@@ -111,7 +111,8 @@ async def test_snapshot_without_params_keeps_array_contract(client: AsyncClient)
         payload = response.json()["data"]
         assert isinstance(payload, list)
         rows = cast("list[dict[str, object]]", payload)
-        assert [item["module_key"] for item in rows] == expected
+        keys = [item["module_key"] for item in rows]
+        assert set(expected) <= set(keys)
         assert set(rows[0]) == set(ModuleResponse.model_fields)
 
 
@@ -128,7 +129,9 @@ async def test_snapshot_with_segments_returns_products_and_collaborations(
     assert set(data) == {"modules", "products", "collaborations", "resource_types", "snapshot_version", "warnings"}
     assert data["snapshot_version"] == "3"
     assert data["resource_types"] == [], "未请求作用域资源类型段时为空数组"
-    assert [item["module_key"] for item in data["modules"]] == [module.module_key for module in service_catalog_view()]
+    expected = [module.module_key for module in SERVICE_CATALOG]
+    keys = [item["module_key"] for item in data["modules"]]
+    assert set(expected) <= set(keys)
 
     demo_products = [item for item in data["products"] if item["product_key"] == "demo"]
     assert demo_products == [{"product_key": "demo", "name": "演示产品", "status": "enabled"}]

@@ -29,6 +29,7 @@ from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysUser
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import write_session
 from bms_platform.domains.user.repositories.user import UserRepository
 from tests_support.permission_admin import assign_system_admin
 
@@ -98,7 +99,7 @@ async def _shared_app(
 
     async def override_uow() -> AsyncIterator[DbUnitOfWork]:
         # 镜像生产 `get_write_db` 的会话生命周期：响应后关闭会话，避免只读事务连接滞留至 GC（连接池告警）
-        async with factory() as session:
+        async with write_session(engine) as session:
             yield DbUnitOfWork(session)
 
     service_app.dependency_overrides[get_uow] = override_uow

@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from openpyxl import Workbook, load_workbook
 from sqlalchemy import Table
+from sqlalchemy.exc import InvalidRequestError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.api.deps import (
@@ -37,9 +38,12 @@ from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.db.session import DbUnitOfWork
+from bms_core.db.session import DbSession, DbUnitOfWork
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
 from bms_core.idempotency.redis import RedisIdempotencyStore
+from bms_core.jobs.base import JobResult
+from bms_core.jobs.runner import JobRunner
+from bms_core.jobs.spec import JobSubmission
 from bms_core.models.job import JOB_STATUS_FAILED, JOB_STATUS_QUEUED, SysJob, SysJobError
 from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysAccountLock, SysUser
@@ -52,7 +56,9 @@ from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
 from bms_core.servicecall.null import NullServiceClient
 from bms_core.storage.local import LocalObjectStorage
 from bms_core.testing.fixtures import clear_tenant_cache
+from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import write_session
 from bms_core.transfer.openpyxl import OpenpyxlImporter
 from bms_platform.domains.import_export.services.report import report_key, token_payload
 from bms_platform.main import ApplicationFactory
@@ -171,7 +177,10 @@ async def api_env(
     limiter = MemoryRateLimiter()
 
     async def _uow() -> AsyncIterator[DbUnitOfWork]:
-        async with factory() as session:
+        # 统一走读写门：直接用测试基座的写会话（autocommit + 操作级门 + 每条 SQL 立即提交）。
+        # 裸 `async_sessionmaker` 会绕过排队；只包门代理但底层连接非 autocommit 时，隐式事务
+        # 仍会把 SQLite 写锁拉到提交，门却已在语句级放行（基座注释里点明的坑）。
+        async with write_session(shared_tenant_engine) as session:
             yield DbUnitOfWork(session)
 
     service_app.dependency_overrides[get_uow] = _uow
@@ -227,13 +236,14 @@ async def test_template_users_and_roles(api: AsyncClient) -> None:
         assert rows == [tuple(headers)]
 
 
-async def test_execute_users_success_and_idempotent(api: AsyncClient) -> None:
+async def test_execute_users_success_and_idempotent(api: AsyncClient, ns: Namespace) -> None:
     """合法用户导入落库；同幂等键重复返回首次结果。"""
+    username = f"{ns.prefix}u1"
     data = _xlsx(
         _USER_HEADERS,
-        [["zhangsan", "张三", "zhangsan@example.com", "13800000000", "启用", "Abcd1234!x"]],
+        [[username, "张三", f"{username}@example.com", "13800000000", "启用", "Abcd1234!x"]],
     )
-    headers = {"Idempotency-Key": "users-ok-1"}
+    headers = {"Idempotency-Key": f"{ns.prefix}-users-ok-1"}
     response = await api.post(f"{API}/users/execute", files={"file": ("users.xlsx", data)}, headers=headers)
     assert response.status_code == 200
     payload = _data(response)
@@ -248,19 +258,19 @@ async def test_execute_users_success_and_idempotent(api: AsyncClient) -> None:
     assert replay["success_count"] == 1
 
 
-async def test_execute_users_invalid_is_atomic(api: AsyncClient) -> None:
+async def test_execute_users_invalid_is_atomic(api: AsyncClient, ns: Namespace) -> None:
     """任一行非法 → 整批不落库；返回 committed / blocked_count。"""
     data = _xlsx(
         _USER_HEADERS,
         [
-            ["lisi", "李四", "bad-email", "", "启用", ""],
-            ["wangwu", "王五", "", "", "启用", ""],
+            [f"{ns.prefix}u2", "李四", "bad-email", "", "启用", ""],
+            [f"{ns.prefix}u3", "王五", "", "", "启用", ""],
         ],
     )
     response = await api.post(
         f"{API}/users/execute",
         files={"file": ("users.xlsx", data)},
-        headers={"Idempotency-Key": "users-bad-1"},
+        headers={"Idempotency-Key": f"{ns.prefix}-users-bad-1"},
     )
     assert response.status_code == 200
     payload = _data(response)
@@ -271,13 +281,13 @@ async def test_execute_users_invalid_is_atomic(api: AsyncClient) -> None:
     assert payload["report_token"]
 
 
-async def test_execute_roles_success(api: AsyncClient) -> None:
+async def test_execute_roles_success(api: AsyncClient, ns: Namespace) -> None:
     """合法角色导入落库（恒 custom）。"""
-    data = _xlsx(_ROLE_HEADERS, [["sales_manager", "销售经理", "启用"]])
+    data = _xlsx(_ROLE_HEADERS, [[f"{ns.prefix}_r1", "销售经理", "启用"]])
     response = await api.post(
         f"{API}/roles/execute",
         files={"file": ("roles.xlsx", data)},
-        headers={"Idempotency-Key": "roles-ok-1"},
+        headers={"Idempotency-Key": f"{ns.prefix}-roles-ok-1"},
     )
     payload = _data(response)
     assert payload["committed"] is True
@@ -325,16 +335,17 @@ async def test_file_safety(api: AsyncClient) -> None:
     assert _code(bad) == 50302
 
 
-async def test_roles_invalid_is_atomic(api: AsyncClient) -> None:
+async def test_roles_invalid_is_atomic(api: AsyncClient, ns: Namespace) -> None:
     """角色码格式非法 / 文件内重复 → 整批不落库。"""
+    duplicate = f"{ns.prefix}_dup"
     data = _xlsx(
         _ROLE_HEADERS,
-        [["Bad-Code", "非法", "启用"], ["dup_role", "重复一", "启用"], ["dup_role", "重复二", "启用"]],
+        [["Bad-Code", "非法", "启用"], [duplicate, "重复一", "启用"], [duplicate, "重复二", "启用"]],
     )
     response = await api.post(
         f"{API}/roles/execute",
         files={"file": ("roles.xlsx", data)},
-        headers={"Idempotency-Key": "roles-bad-1"},
+        headers={"Idempotency-Key": f"{ns.prefix}-roles-bad-1"},
     )
     payload = _data(response)
     assert payload["committed"] is False
@@ -576,6 +587,102 @@ async def test_status_malformed_payload_and_terminal_summary(api_env: _ApiEnv) -
     assert status["committed"] is True
     assert status["success_count"] == 2
     assert status["fail_count"] == 0
+
+
+@pytest.mark.kiwi_id(2551)
+async def test_execute_inline_retries_on_write_contention(
+    api: AsyncClient, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """同步导入撞写锁：整批重试后成功（作业记录不重复）。"""
+    original = JobRunner.run_inline
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _flaky(
+        runner: JobRunner,
+        session: DbSession,
+        submission: JobSubmission,
+        *,
+        db_key: str,
+        tenant_id: int | None = None,
+    ) -> tuple[SysJob, JobResult]:
+        calls.append("call")
+        if len(calls) == 1:
+            raise OperationalError("INSERT INTO sys_role", {}, Exception("database is locked"))
+        return await original(runner, session, submission, db_key=db_key, tenant_id=tenant_id)
+
+    monkeypatch.setattr(JobRunner, "run_inline", _flaky)
+    data = _xlsx(_ROLE_HEADERS, [[f"{ns.prefix}_retry", "重试经理", "启用"]])
+    response = await api.post(
+        f"{API}/roles/execute",
+        files={"file": ("roles.xlsx", data)},
+        headers={"Idempotency-Key": f"{ns.prefix}-roles-retry-1"},
+    )
+    payload = _data(response)
+    assert payload["committed"] is True
+    assert payload["success_count"] == 1
+    assert len(calls) == 2
+
+
+@pytest.mark.kiwi_id(2552)
+async def test_execute_inline_does_not_retry_other_errors(
+    api: AsyncClient, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """非锁竞争异常不重试：只调一次，异常原样上抛。"""
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _boom(
+        runner: JobRunner,
+        session: DbSession,
+        submission: JobSubmission,
+        *,
+        db_key: str,
+        tenant_id: int | None = None,
+    ) -> tuple[SysJob, JobResult]:
+        del runner, session, submission, db_key, tenant_id
+        calls.append("call")
+        raise InvalidRequestError("unexpected failure")
+
+    monkeypatch.setattr(JobRunner, "run_inline", _boom)
+    data = _xlsx(_ROLE_HEADERS, [[f"{ns.prefix}_boom", "异常经理", "启用"]])
+    with pytest.raises(InvalidRequestError):
+        await api.post(
+            f"{API}/roles/execute",
+            files={"file": ("roles.xlsx", data)},
+            headers={"Idempotency-Key": f"{ns.prefix}-roles-boom-1"},
+        )
+    assert len(calls) == 1
+
+
+@pytest.mark.kiwi_id(2553)
+async def test_execute_inline_gives_up_after_retry_limit(
+    api: AsyncClient, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """连续撞锁：重试到上限后上抛，不无限重试。"""
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _always_locked(
+        runner: JobRunner,
+        session: DbSession,
+        submission: JobSubmission,
+        *,
+        db_key: str,
+        tenant_id: int | None = None,
+    ) -> tuple[SysJob, JobResult]:
+        del runner, session, submission, db_key, tenant_id
+        calls.append("call")
+        raise OperationalError("INSERT INTO sys_role", {}, Exception("database is locked"))
+
+    monkeypatch.setattr(JobRunner, "run_inline", _always_locked)
+    data = _xlsx(_ROLE_HEADERS, [[f"{ns.prefix}_locked", "锁死经理", "启用"]])
+    response = await api.post(
+        f"{API}/roles/execute",
+        files={"file": ("roles.xlsx", data)},
+        headers={"Idempotency-Key": f"{ns.prefix}-roles-locked-1"},
+    )
+    # 重试耗尽后由统一异常映射收敛为 503（10006 数据库繁忙），不把底层驱动异常透给调用方
+    assert response.status_code == 503
+    assert _code(response) == 10006
+    assert len(calls) == 3
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]

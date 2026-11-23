@@ -49,7 +49,12 @@ async def _shared_sessions(engine: AsyncEngine) -> tuple[AsyncSession, AsyncSess
     async with engine.begin() as conn:
         await conn.run_sync(SysUser.metadata.create_all)
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    return factory(), factory()
+    session_a, session_b = factory(), factory()
+    # 显式豁免读写门：本用例要两个会话**同时持有旧 version** 才能触发乐观锁冲突，
+    # 操作级门会把两次写串行化、冲突不再发生（业主口径：统一走门，例外须显式标注理由）。
+    for session in (session_a, session_b):
+        session.info["bms.gate.exempt"] = "并发乐观锁用例：需两个会话同时持有旧 version"
+    return session_a, session_b
 
 
 def _service(session: AsyncSession) -> AccountLockService:

@@ -91,6 +91,8 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
 
     **已存在则复用**（按 `code` 读现有行，不删不改）：固定资源维度的业务码（如 `role`）
     不能按命名空间派生，共享库复用上一轮数据时插第二次会撞 `UNIQUE(sys_business.code)`。
+    复用口径取**主键最小**的一行——与业务码台账 `list_all()`（主键升序）同序，保证调用方与
+    「数据驱动校验」读到同一行（否则历史重复行的存在会让两处指向不同业务）。
 
     Args:
         code: 业务码。
@@ -101,7 +103,9 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
     """
     url = platform_url()
     async with shared_session(url, read_only=False) as session:
-        existing = await session.scalar(select(SysBusiness.id).where(SysBusiness.code == code))
+        existing = await session.scalar(
+            select(SysBusiness.id).where(SysBusiness.code == code).order_by(SysBusiness.id).limit(1)
+        )
         if existing is not None:
             return int(existing)
         row = SysBusiness(code=code, name=name, status="enabled")

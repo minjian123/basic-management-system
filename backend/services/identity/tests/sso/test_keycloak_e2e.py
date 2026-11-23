@@ -18,7 +18,7 @@ from bms_identity.domains.identity_federation.api import sso as sso_api
 from bms_identity.domains.identity_federation.services.provider_registry import ProviderRegistry
 
 from .conftest import SsoHarness
-from .helpers import IDP_KEY, TENANT_HEADERS
+from .helpers import TENANT_HEADERS
 
 pytestmark = [
     pytest.mark.integration,
@@ -265,8 +265,9 @@ async def test_keycloak_end_to_end_login(
     monkeypatch.setattr(sso_api, "ProviderRegistry", ProviderRegistry)
 
     sso.platform_client.set_user(_USER_ID, username=_USERNAME)
+    # `idp_key` 一律取夹具的命名空间派生值：写死 `IDP_KEY` 会在共享库复用第二轮留下同名提供方行，
+    # 按 key 取单行即 `MultipleResultsFound`（实测复用第二轮失败）。
     await sso.seed_provider(
-        idp_key=IDP_KEY,
         config=sso.provider_config(
             issuer=f"{_BASE}/realms/bms",
             client_secret_ref="env:KEYCLOAK_CLIENT_SECRET",
@@ -278,9 +279,9 @@ async def test_keycloak_end_to_end_login(
         admin_token = await _admin_token(realm)
         await _ensure_redirect_uris(realm, admin_token)
         subject = await _ensure_user(realm, admin_token)
-        await sso.seed_mapping(idp_key=IDP_KEY, external_id=subject, user_id=_USER_ID)
+        await sso.seed_mapping(idp_key=sso.idp_key, external_id=subject, user_id=_USER_ID)
 
-        state, location, _ = await sso.start_flow(client, idp_key=IDP_KEY)
+        state, location, _ = await sso.start_flow(client)
         assert location.startswith(f"{_BASE}/realms/bms/protocol/openid-connect/auth")
         page = await realm.get(location)
         assert page.status_code == 200, page.text
@@ -293,7 +294,7 @@ async def test_keycloak_end_to_end_login(
         assert code, posted.headers["location"]
 
     response = await client.get(
-        f"/api/v1/auth/sso/{IDP_KEY}/callback?state={state}&code={code}",
+        f"/api/v1/auth/sso/{sso.idp_key}/callback?state={state}&code={code}",
         headers=TENANT_HEADERS,
     )
     assert response.status_code == 200, response.text

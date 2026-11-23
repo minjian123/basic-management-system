@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator, Iterator
 from dataclasses import replace
 
 import pytest
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.collaboration.usage import CapabilityUsage
@@ -94,6 +94,9 @@ async def _purge_demo(engine: AsyncEngine) -> None:
         await session.execute(delete(SysProduct).where(SysProduct.product_key == _DEMO_PRODUCT))
         for model in _DECLARATION_MODELS:
             await session.execute(delete(model).where(model.product_key == _DEMO_PRODUCT))
+        # 声明里的域会被后续任一实例的启动自举并进**默认拓扑**；拓扑行不随声明表复位清掉，
+        # 留下就是「拓扑引用了未登记的业务域」（复用第二轮整批拒启）。拓扑行也是本文件造的，一并清。
+        await session.execute(text("DELETE FROM sys_tenant_topology WHERE domain_key IN ('demo', 'demo_op')"))
 
 
 @pytest.fixture(autouse=True)

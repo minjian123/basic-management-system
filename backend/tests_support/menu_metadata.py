@@ -33,7 +33,12 @@ def platform_url() -> str:
 
 
 async def seed_business(code: str, name: str = "测试业务") -> int:
-    """直插业务权限码。
+    """直插业务权限码（**已存在则复用**，取主键最小的一行）。
+
+    固定资源维度的业务码（如 `role`）不能按命名空间派生，共享库复用上一轮数据时无脑插入会
+    累积重复行：业务码台账 `list_all()` 主键升序只认第一行，而本次新建的权限码挂在最后一行，
+    「数据驱动校验」就看不到它（实测 `role` 业务授予被漏判为合法）。故按 code 复用主键最小行，
+    与 `list_all()` 同序，不删不改他人行。
 
     Args:
         code: 业务码。
@@ -43,6 +48,11 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
         int: 业务码主键。
     """
     async with shared_session(platform_url(), read_only=False) as session:
+        existing = await session.scalar(
+            select(SysBusiness.id).where(SysBusiness.code == code).order_by(SysBusiness.id).limit(1)
+        )
+        if existing is not None:
+            return int(existing)
         row = SysBusiness(code=code, name=name, status="enabled")
         session.add(row)
         await session.flush()

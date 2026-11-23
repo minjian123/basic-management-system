@@ -14,6 +14,7 @@
 
 # pyright: reportPrivateUsage=false
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -22,7 +23,10 @@ from httpx import AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import AuthError
+from bms_core.models.base import Base
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
+from bms_core.testing.fixtures import apply_platform_db
+from bms_core.testing.shared_db import create_tables
 
 API = "/api/v1/platform/internal/permissions/invalidate"
 SUBJECT_API = "/api/v1/platform/internal/permissions/subject"
@@ -73,6 +77,24 @@ class _StubVerifier:
         raise AuthError("invalid")
 
 
+@pytest.fixture(autouse=True)
+def _isolated_platform(isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """本模块每例独占平台库：文件内断言依赖「哪些服务主体被分配了能力」这一全局状态。
+
+    共享平台库上，并行 worker 的启动同步 / 注册通道会随时改写能力分配（真自动提交、立即可见），
+    「mdm 有分配 → 200」与「mdm 无分配 → 403」两组断言都会随执行顺序漂移（全量复用第二轮实测）。
+
+    共享平台库上别的用例 / worker 会经注册通道授予能力分配（真自动提交、立即可见），
+    断言会随执行顺序漂移（实测全量复用第二轮偶发 200）。独占库与执行顺序无关。
+
+    Args:
+        isolated_platform_db_url: 每用例一份 tmp 平台库（conftest 统一派生）。
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    asyncio.run(create_tables(isolated_platform_db_url, Base.metadata))
+    apply_platform_db(isolated_platform_db_url, monkeypatch)
+
+
 @pytest.mark.kiwi_id(2269)
 async def test_invalidate_endpoint_requires_mdm_service(client: AsyncClient, service_app: FastAPI) -> None:
     """端点：仅放行 `sub=mdm` 服务票据；网关 / 未知 / 无票据一律拒（401）。"""
@@ -80,7 +102,8 @@ async def test_invalidate_endpoint_requires_mdm_service(client: AsyncClient, ser
 
     ok = await client.post(API, json={}, headers={"Authorization": "Bearer mdm"})
     assert ok.status_code == 200, ok.text
-    assert ok.json()["data"]["version"] == 1
+    # 共享库叠加：版本号全租户累计（别的用例 / worker 也会推进），只判非空（《测试规范》§4）。
+    assert int(ok.json()["data"]["version"]) >= 1
 
     denied_gateway = await client.post(API, json={}, headers={"Authorization": "Bearer gateway"})
     assert denied_gateway.status_code == 403
@@ -99,10 +122,13 @@ async def test_invalidate_endpoint_scopes_users(client: AsyncClient, service_app
 
     scoped = await client.post(API, json={"user_ids": [7, 8]}, headers={"Authorization": "Bearer mdm"})
     assert scoped.status_code == 200
-    assert scoped.json()["data"]["version"] == 1
+    # 共享库叠加：版本号是**全租户累计**的（其它用例 / worker 也会推进），断言只判
+    # 「非空、且本用例两次调用严格递增」（《测试规范》§4：不写死初始值）。
+    first = int(scoped.json()["data"]["version"])
+    assert first >= 1
 
     whole_tenant = await client.post(API, json={}, headers={"Authorization": "Bearer mdm"})
-    assert whole_tenant.json()["data"]["version"] == 2
+    assert int(whole_tenant.json()["data"]["version"]) > first
 
 
 @pytest.mark.kiwi_id(2320)

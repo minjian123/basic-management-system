@@ -72,6 +72,39 @@ def set_gate_hook(hook: GateHook | None) -> None:
     _hook = hook
 
 
+GateRequirement = Callable[[object], bool]
+"""判定「该会话是否必须经过门」的钩子签名：True 表示必须（测试基座注入，仅共享库为 True）。"""
+
+_requirement: GateRequirement | None = None
+"""当前的门要求判定；None 表示不检查（生产默认）。"""
+
+
+def set_gate_requirement(check: GateRequirement | None) -> None:
+    """注入或清除「是否需要门」的判定（测试基座在启动时调用）。
+
+    为什么要这个判定：独占库（`own_db` / `tmp_path` 建的一次性库）与其它 worker 没有共享状态，
+    不取门也不会与谁抢锁；共享库（平台 / 租户）才必须排队。判定放在测试基座，产品侧只留钩子。
+
+    Args:
+        check: 判定函数（会话 → 是否必须经门）；None 清除。
+    """
+    global _requirement
+    _requirement = check
+
+
+def requires_gate(session: object) -> bool:
+    """该会话是否必须经过门（未注入判定时为 False）。
+
+    Args:
+        session: 会话对象。
+
+    Returns:
+        bool: True 表示绑工作单元前必须已过门。
+    """
+    check = _requirement
+    return bool(check is not None and check(session))
+
+
 def current_gate_hook() -> GateHook | None:
     """取当前门钩子（诊断与自测用）。
 
@@ -442,6 +475,20 @@ class LazyGatedSession(BaseFrameworkObject):
         挡在 `busy_timeout` 里，表现为「写门等超 5 秒」。测试口径是不考虑事务、写完立即提交，
         故这里不开事务；但 `begin()` 的语义是「退出即提交」，所以退出时仍 flush + commit，
         否则 `session.add` 之后的改动会丢在会话里。
+
+        Returns:
+            AbstractAsyncContextManager[object]: 退出即提交的空事务上下文。
+        """
+        return _null_transaction(self)
+
+    def begin_nested(self) -> AbstractAsyncContextManager[object]:
+        """**不开启真实 savepoint**，退出时提交（与 `begin()` 同口径）。
+
+        为什么要覆盖：`AsyncSession.begin_nested()` 会先确保外层事务（AUTOCOMMIT 连接上
+        即隐式 `BEGIN`），savepoint 于是把 SQLite 库级写锁重新拉到「到提交才释放」——
+        门在语句级已经放行，锁却还在，别的写者拿到门后撞 `busy_timeout`，表现为
+        `database is locked`（与 `begin()` 同一处坑）。测试口径不验证事务原子性
+        （原子性由生产真库保证、由预检阶段的全量校验覆盖），故这里同样降级为空事务。
 
         Returns:
             AbstractAsyncContextManager[object]: 退出即提交的空事务上下文。

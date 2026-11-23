@@ -51,6 +51,7 @@ from bms_core.testing.fixtures import clear_tenant_cache
 from bms_core.testing.gates import write_window
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
+from bms_core.testing.transaction import write_session
 from bms_core.transfer.openpyxl_exporter import OpenpyxlExporter
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
@@ -193,7 +194,10 @@ async def env(
     storage = LocalObjectStorage(root=tmp_path / "storage")
 
     async def _uow() -> AsyncIterator[DbUnitOfWork]:
-        async with factory() as session:
+        # 统一走读写门：直接用测试基座的写会话（autocommit + 操作级门 + 每条 SQL 立即提交）。
+        # 裸 `async_sessionmaker` 会绕过排队；只包门代理但底层连接非 autocommit 时，隐式事务
+        # 仍会把 SQLite 写锁拉到提交，门却已在语句级放行（基座注释里点明的坑）。
+        async with write_session(shared_tenant_engine) as session:
             yield DbUnitOfWork(session)
 
     service_app.dependency_overrides[get_uow] = _uow

@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.schema import CreateTable
 
 from bms_core.core.id import MAX_ID
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.models.base import SQLITE_PADDED_WIDTH, SnowflakeId
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import write_session
 
 
 def _dialect(name: str) -> Dialect:
@@ -92,13 +94,20 @@ async def test_sqlite_roundtrip_and_ordering(shared_platform_engine: AsyncEngine
     """SQLite 真库：38 位补零往返不丢精度；字典序 = 数值序；范围比较正确。
 
     单库叠加口径：探针表建在共享平台库上（幂等），行按命名空间前缀写入并限定查询，
-    断言只看本用例自己的行。
+    断言只看本用例自己的行。写入走 `write_session`（共享引擎的写门代理）——直连引擎
+    写属于「门外写」，24 路并行下会与门内写抢锁（实测复用第二轮偶发 `database is locked`）。
     """
     table = _probe()
     values = [0, 2**63 + 1, MAX_ID, MAX_ID - 1]
     prefix = ns.code("snow")
-    async with shared_platform_engine.begin() as connection:
+    async with write_session(shared_platform_engine, wait=GATE_CRITICAL_WAIT) as session:
+        connection = await session.connection()
         await connection.run_sync(lambda sync_conn: table.create(sync_conn, checkfirst=True))
+        # 探针行的主键就是被测值（0 / 2^63+1 / MAX_ID / MAX_ID−1），无法按命名空间派生；
+        # 复用共享库时先按**这四个主键**删掉本用例上一轮的行（表只由本用例写），否则撞唯一键。
+        await connection.execute(
+            table.delete().where(table.c.id.in_([str(value).zfill(SQLITE_PADDED_WIDTH) for value in values]))
+        )
         await connection.execute(table.delete().where(table.c.name.like(f"{prefix}-%")))
         for index, value in enumerate(values):
             await connection.execute(table.insert().values(id=value, parent_id=None, name=f"{prefix}-{index}"))

@@ -6,13 +6,21 @@
 测试库：共享平台库 + 回滚会话；产品键按命名空间生成，全量上报的退役只在本用例事务内可见。
 """
 
+import asyncio
+from collections.abc import Iterator
+
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import AuthError
+from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import write_session
 
 API = "/api/v1/platform/internal/declarations"
 SNAPSHOT_API = f"{API}/snapshot"
@@ -97,6 +105,80 @@ def _stub_verifier(service_app: FastAPI) -> None:
         service_app: 平台应用实例。
     """
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+
+
+_TOUCHED_PREFIXES: ConcurrentStableList[str] = ConcurrentStableList()
+"""本模块各用例用过的命名空间前缀（模块收尾按前缀清声明残留）。"""
+
+_ENGINES: ConcurrentStableList[AsyncEngine] = ConcurrentStableList()
+"""本模块首个用例拿到的共享平台库引擎（模块级清理复用它，不另建引擎——G1 护栏禁止自建）。"""
+
+_RESIDUE_PRODUCT_TABLES = (
+    "sys_collaboration",
+    "sys_collaboration_usage",
+    "sys_data_source",
+    "sys_domain",
+    "sys_errcode",
+    "sys_module",
+    "sys_product_route",
+    "sys_scope_resource_type",
+    "sys_seed",
+)
+"""按产品键清理的声明表（与 `registry/test_declaration_repository.py` 同一口径）。
+
+只删 `sys_domain` 会留下 `sys_collaboration` 等仍声明该域的行：启动自举按声明聚合域、再按
+`sys_domain` 判「已登记」，两处不一致就拒启「拓扑引用了未登记的业务域」。
+"""
+
+
+@pytest.fixture(autouse=True)
+def _track_namespace(ns: Namespace, shared_platform_engine: AsyncEngine) -> Iterator[None]:
+    """记录本用例命名空间前缀与共享引擎（供模块级清理定位自造行）。
+
+    Args:
+        ns: 本用例命名空间。
+        shared_platform_engine: 共享平台库引擎。
+
+    Yields:
+        None: 用例运行期。
+    """
+    _TOUCHED_PREFIXES.append(ns.prefix)
+    if not _ENGINES:
+        _ENGINES.append(shared_platform_engine)
+    yield
+
+
+async def _purge_residue(engine: AsyncEngine) -> None:
+    """按命名空间前缀清掉声明残留（复用夹具给的共享引擎，写入走读写门）。
+
+    Args:
+        engine: 共享平台库引擎。
+    """
+    async with write_session(engine, wait=GATE_CRITICAL_WAIT) as session:
+        for prefix in _TOUCHED_PREFIXES:
+            for table in _RESIDUE_PRODUCT_TABLES:
+                await session.execute(text(f"DELETE FROM {table} WHERE product_key = :key"), {"key": prefix})
+            await session.execute(text("DELETE FROM sys_product WHERE code = :key"), {"key": prefix})
+            await session.execute(
+                text("DELETE FROM sys_tenant_topology WHERE domain_key LIKE :pattern"), {"pattern": f"{prefix}%"}
+            )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _clean_declaration_residue() -> Iterator[None]:
+    """模块收尾清掉本模块写进共享库的声明残留（声明行 + 默认拓扑行）。
+
+    声明通道是产品侧真实写路径：`[[domains]]` 先落 `sys_domain`，随后**任一实例启动自举**都会把
+    这些域并进默认拓扑。声明表由平台 conftest 按会话级清单复位、拓扑表不会——残留域会让后续会话
+    启动时拒启「拓扑引用了未登记的业务域」，一个域即可拖垮整批用例（实测复用第二轮 271 条 setup 失败）。
+    只按本模块用过的命名空间前缀删除，不动他人数据。
+
+    Yields:
+        None: 模块运行期。
+    """
+    yield
+    if _ENGINES:
+        asyncio.run(_purge_residue(_ENGINES[0]))
 
 
 async def _submit(

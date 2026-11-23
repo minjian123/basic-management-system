@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator, Iterator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import text
@@ -19,6 +19,8 @@ from bms_core.db import bootstrap
 from bms_core.db import gate as gate_module
 from bms_core.db import session as session_module
 from bms_core.db.gate import LazyGatedSession
+from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.testing import fixtures
 
 pytestmark = pytest.mark.kiwi_id(2533)
 
@@ -598,3 +600,68 @@ async def test_apply_unit_schema_enters_gate_with_url() -> None:
     """建表入口在门内执行，并把目标 URL 传给门（私有库据此拿到自己的门）。"""
     outcome = await bootstrap.apply_unit_schema("platform", "platform", _sqlite_url(":memory:"))
     assert outcome.total > 0 and outcome.created > 0
+
+
+def _require_all(session: object) -> bool:
+    """判定替身：所有会话都要求经门。
+
+    Args:
+        session: 会话对象（忽略）。
+
+    Returns:
+        bool: 恒 True。
+    """
+    del session
+    return True
+
+
+def _require_none(session: object) -> bool:
+    """判定替身：所有会话都不要求经门（模拟独占库）。
+
+    Args:
+        session: 会话对象（忽略）。
+
+    Returns:
+        bool: 恒 False。
+    """
+    del session
+    return False
+
+
+@pytest.mark.kiwi_id(2554)
+def test_unit_of_work_rejects_ungated_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """测试期（要求经门）绑定裸会话：业务工作单元立即报错并点名旁路。"""
+    monkeypatch.setattr(gate_module, "_requirement", _require_all)
+
+    with pytest.raises(RuntimeError, match="未经读写门"):
+        DbUnitOfWork(cast("Any", _FakeSession()))
+
+
+@pytest.mark.kiwi_id(2554)
+def test_unit_of_work_accepts_gated_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """绑定门代理会话：正常构造，不误报。"""
+    monkeypatch.setattr(gate_module, "_requirement", _require_all)
+    gated = LazyGatedSession(lambda: _recording_hook("tenant", False), _FakeSession(), bind=None)
+
+    assert DbUnitOfWork(cast("Any", gated)).session is gated
+
+
+@pytest.mark.kiwi_id(2554)
+def test_unit_of_work_allows_exempt_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """独占库会话（判定为不需要门）：裸会话也放行。"""
+    monkeypatch.setattr(gate_module, "_requirement", _require_none)
+
+    session = _FakeSession()
+    assert DbUnitOfWork(cast("Any", session)).session is session
+
+
+@pytest.mark.kiwi_id(2554)
+def test_gate_required_only_for_shared_db() -> None:
+    """门要求判定：指向共享库的会话为 True；独占库 / 无绑定为 False。"""
+    from bms_core.testing import plugin as plugin_module  # pyright: ignore[reportPrivateUsage]
+
+    shared_url = fixtures.shared_db_url("platform")
+    assert plugin_module._gate_required(SimpleNamespace(bind=SimpleNamespace(url=shared_url))) is True  # pyright: ignore[reportPrivateUsage]
+    own = SimpleNamespace(bind=SimpleNamespace(url="own-db://isolated"))
+    assert plugin_module._gate_required(own) is False  # pyright: ignore[reportPrivateUsage]
+    assert plugin_module._gate_required(SimpleNamespace(bind=None)) is False  # pyright: ignore[reportPrivateUsage]

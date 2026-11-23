@@ -29,11 +29,14 @@ _PUBLIC_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
 @pytest.mark.kiwi_id(2359)
 @pytest.mark.parametrize("module_name", list(_PUBLIC_MODULES))
 def test_domain_public_module_importable(module_name: str) -> None:
-    """公共出口模块可导入；`__all__` 为空 `list` 且不导出任何名字（空占位形态一致）。"""
+    """公共出口模块可导入；`__all__` 为 `list`，且模块公开名字与 `__all__` 完全一致。
+
+    空占位域 `__all__` 为空、不导出任何名字；已声明出口的域（通知域 07_02 / 07_03 复用请求契约）
+    允许导出，但**不得**出现未登记在 `__all__` 的公开名字（形态仍是「显式出口」）。
+    """
     module: Any = importlib.import_module(module_name)
     exports = cast("list[str]", module.__all__)
     names = cast("dict[str, Any]", vars(module))
 
     assert isinstance(exports, list)
-    assert exports == []
-    assert [name for name in names if not name.startswith("_")] == []
+    assert sorted(name for name in names if not name.startswith("_")) == sorted(exports)

@@ -28,6 +28,7 @@ from bms_core.core.exceptions import (
     UserProtectedError,
     UserReferencedError,
 )
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.events.base import EventEnvelope
@@ -351,9 +352,16 @@ async def _harness(engine: AsyncEngine, service_app: FastAPI) -> _Harness:
     harness = _Harness(engine, factory)
 
     async def override_uow() -> AsyncIterator[DbUnitOfWork]:
-        # 镜像生产 `get_write_db` 的会话生命周期：响应后关闭会话，避免只读事务连接滞留至 GC（连接池告警）
+        # 镜像生产 `get_write_db` 的会话生命周期：响应后关闭会话，避免只读事务连接滞留至 GC（连接池告警）。
+        # 统一走读写门（操作级）：每次数据库方法调用取写门、写完即放；不使用裸会话绕过排队。
         async with factory() as session:
-            yield DbUnitOfWork(session)
+            gated = LazyGatedSession(
+                lambda: db_access_gate("platform", read_only=False, url=str(engine.url)), session, bind=engine
+            )
+            try:
+                yield DbUnitOfWork(cast("DbSession", gated))
+            finally:
+                await gated.aclose()
 
     service_app.dependency_overrides[get_uow] = override_uow
     service_app.dependency_overrides[get_outbox_store] = lambda: harness.outbox

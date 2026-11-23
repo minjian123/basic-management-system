@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -71,6 +72,8 @@ async def test_package_path_outside_root_rejected(
     client: AsyncClient, ns: Namespace, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """绝对路径 / 越界 / 不存在一律 40021。"""
+    # 设置对象是进程级缓存：先清缓存再改本次实例，避免别的用例 cache_clear 后读到默认 root
+    get_settings.cache_clear()
     monkeypatch.setattr(get_settings().help_package, "root", str(tmp_path))
     absolute = _body(await client.post(f"{_PACKAGES}/load", json={"package_path": str(tmp_path / "pkg")}))
     assert absolute["code"] == 40021
@@ -85,8 +88,12 @@ async def test_package_load_and_unload(
     client: AsyncClient, ns: Namespace, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """dry-run 不写；实跑计数一致；卸载下线来源文章。"""
+    # 设置对象是进程级缓存：先清缓存再改本次实例，避免别的用例 cache_clear 后读到默认 root
+    get_settings.cache_clear()
     monkeypatch.setattr(get_settings().help_package, "root", str(tmp_path))
-    product_key = ns.prefix
+    # 产品键按当前秒派生：共享库里同 `product_key` 会残留上一轮的包记录（`unload` 只下线来源文章、
+    # 不删包行），固定键会让第二轮 `package_action` 从 `created` 变 `unchanged`（实测第 7 批复用第二轮）。
+    product_key = f"{ns.prefix}{int(time.time()) % 100000}"
     action_code = f"{ns.prefix}_pkg_anchor"
     await seed_platform_action(platform_url(), code=action_code, help_key=f"platform::::{action_code}")
     try:

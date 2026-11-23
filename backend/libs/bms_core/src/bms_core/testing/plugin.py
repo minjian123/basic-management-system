@@ -25,7 +25,7 @@ from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.db.gate import set_gate_hook
+from bms_core.db.gate import set_gate_hook, set_gate_requirement
 from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.testing import ddl, fixtures
 from bms_core.testing.fixtures import (
@@ -146,6 +146,25 @@ def _gate_hook(
     return gate_scope(gate_name_for(db_key, url), read_only=read_only, wait=wait)
 
 
+def _gate_required(session: object) -> bool:
+    """判定该会话是否必须经过门：只有指向**共享库**的会话才必须。
+
+    独占库（`own_db` / `tmp_path` 的一次性库）与其它 worker 无共享状态，不取门也不会抢锁；
+    共享库（平台 / 租户）必须排队，否则绕过写门直接与 `write_session` 抢 SQLite 写锁。
+
+    Args:
+        session: 会话对象（需有 `bind` 属性）。
+
+    Returns:
+        bool: True 表示绑工作单元前必须已过门。
+    """
+    bind = getattr(session, "bind", None)
+    raw_url = getattr(bind, "url", None)
+    if raw_url is None:
+        return False
+    return gate_name_for(PLATFORM_DB_KEY, str(raw_url)) in (PLATFORM_GATE, TENANT_GATE)
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """把 pytest basetemp 交给测试基座（并行执行按 worker 派生独立 SQLite 目录；13_02）。
 
@@ -168,6 +187,7 @@ def pytest_configure(config: pytest.Config) -> None:
     assert_entrypoint(config)
     # 13_08：把会话入口的数据库访问接到跨进程读写门（生产侧是直通钩子，只在测试会话注入）
     set_gate_hook(_gate_hook)
+    set_gate_requirement(_gate_required)
     # 2026-11-21 业主拍板：**测试里的读写全部按操作、autocommit**。应用请求会话的生产工厂是
     # 「一个请求一个事务」，事务未提交前会一直持有 SQLite 写锁，24 路并行下别的写者只能排队；
     # 测试会话统一换成 autocommit，每条 SQL 立即落库、立即释放数据库锁。
@@ -424,6 +444,7 @@ def pytest_unconfigure(config: pytest.Config) -> None:
     """
     del config
     set_gate_hook(None)
+    set_gate_requirement(None)  # pragma: no cover - pytest 退出钩子，覆盖率采集已停止
     _restore_session_factory()
     _restore_sqlite_connections()
     close_gates()
