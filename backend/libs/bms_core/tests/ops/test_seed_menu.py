@@ -1,5 +1,6 @@
 """平台种子去产品化用例（07B `03_03`；Kiwi 2254 改造）：平台种子不含产品条目、动作码字典不变。"""
 
+import uuid
 from collections.abc import AsyncIterator
 from functools import partial
 
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
-from bms_core.models.platform.permission_meta import SysAction, SysBusiness
+from bms_core.models.platform.permission_meta import SysAction, SysActionI18n, SysBusiness
 from bms_core.tenant.seed import menu as seed_menu
 from bms_core.testing.transaction import write_session
 
@@ -150,3 +151,36 @@ async def test_platform_seed_applies_help_key_declarations(
     action = (await seed_session.execute(select(SysAction).where(SysAction.code == "create"))).scalars().first()
     assert action is not None
     assert action.help_key == "platform::::create"
+
+
+@pytest.mark.kiwi_id(2555)
+async def test_seed_syncs_default_name_from_i18n(seed_session: AsyncSession) -> None:
+    """主表旧文案 + 附表新文案：装载前按派生结果回填快照，一致行不动。"""
+    suffix = uuid.uuid4().hex[:8]
+    stale = SysAction(code=f"sync_{suffix}_stale", name="旧文案", status="enabled")
+    aligned = SysAction(code=f"sync_{suffix}_aligned", name="一致文案", status="enabled")
+    seed_session.add_all((stale, aligned))
+    await seed_session.flush()
+    seed_session.add_all(
+        (
+            SysActionI18n(action_id=stale.id, locale="zh-CN", name="新文案"),
+            SysActionI18n(action_id=aligned.id, locale="zh-CN", name="一致文案"),
+        )
+    )
+    await seed_session.flush()
+
+    fixed = await seed_menu._sync_default_names(seed_session)  # pyright: ignore[reportPrivateUsage]
+
+    assert fixed >= 1, "应至少回填本次构造的失配行"
+    assert stale.name == "新文案", "主表快照应跟随附表默认语言"
+    assert aligned.name == "一致文案", "本就一致的行不应被改写"
+
+    # 清理本次探针数据：共享平台库不留每次运行累积的行（按对象删除，不做整表 / 批量清理）
+    ids = (stale.id, aligned.id)
+    rows = (await seed_session.execute(select(SysActionI18n).where(SysActionI18n.action_id.in_(ids)))).scalars().all()
+    for row in rows:
+        await seed_session.delete(row)
+    await seed_session.delete(stale)
+    await seed_session.delete(aligned)
+    # 写会话是 autocommit：需 flush 才把 DELETE 发出去，否则探针行留在共享库
+    await seed_session.flush()
