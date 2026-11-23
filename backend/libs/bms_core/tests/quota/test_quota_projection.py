@@ -154,6 +154,8 @@ class _StubClient(BaseServiceClient):
     """固定返回预置响应的服务间调用桩。"""
 
     plugin_name: str = "stub"
+    auto_register: bool = False
+    """测试替身不进默认插件注册表（避免污染 `/api/v1/plugins` 分组清单）。"""
 
     def __init__(self, response: ServiceResponse | Exception) -> None:
         """初始化。

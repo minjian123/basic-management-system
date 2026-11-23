@@ -29,6 +29,15 @@ async def test_list_contract(client: AsyncClient) -> None:
     assert keys, "分组清单为空（注册表构建可能失败）"
     assert len(keys) == len(set(keys)), "plugin_key 重复"
     assert keys == sorted(keys)
+    # 护栏：进程级默认注册表只装产品实现。测试替身（`_StubXxx`）继承真实基类才能验证基线方法，
+    # 必须声明 `auto_register = False`；漏标会污染下面的精确清单，且失败与否取决于同 worker
+    # 是否 import 过该替身（与执行顺序相关，实测推送环定向选测才暴露）。
+    all_names = [
+        str(item["plugin_name"])
+        for group in groups
+        for item in cast("list[dict[str, object]]", group["implementations"])
+    ]
+    assert "stub" not in all_names, all_names
     by_key = {str(group["plugin_key"]): group for group in groups}
     # 审计捕获在平台装配期显式启用 DB 实现（`DbAuditCapturer`，06_01 / 06_02）；任务执行体仍为 null 占位。
     audit = by_key["audit"]

@@ -199,17 +199,25 @@ class BasePluggable(BaseCapability, BaseAsyncResource):
     plugin_name: str = ""
     """实现名（如 `local` / `minio`）；`NullXxx` 未显式声明时登记为 `null`。"""
 
+    auto_register: bool = True
+    """是否参与默认插件注册表的自动收集；测试替身置 False（避免污染 `/api/v1/plugins` 清单）。"""
+
     contract_version: str = DEFAULT_CONTRACT_VERSION
     """契约版本（`X.Y.Z`；装配期按主版本兼容校验）。"""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """子类创建钩子：把子类收集进默认插件注册表候选（抽象判定与校验统一在构建期）。
 
+        测试替身（`_StubXxx`）继承真实基类才能验证基线方法，但**不进产品注册表**：注册表是
+        进程级默认实例，收集即污染 `/api/v1/plugins` 的精确清单（实测 `audit` 分组多出 `stub`，
+        且与执行顺序相关）。需要隔离时在类上声明 `auto_register = False`。
+
         Args:
             **kwargs: 透传父类的类关键字参数。
         """
         super().__init_subclass__(**kwargs)
-        _DEFAULT_REGISTRY.collect(cls)
+        if cls.auto_register:
+            _DEFAULT_REGISTRY.collect(cls)
 
     async def setup(self) -> None:
         """生命周期钩子（默认空实现；装配期由装配入口统一调用）。"""

@@ -83,6 +83,8 @@ class _StubGuard(BaseTenantGuard):
     """占位守卫：固定返回上下文或固定抛错（不取数）。"""
 
     plugin_name: str = "stub"
+    auto_register: bool = False
+    """测试替身不进默认插件注册表（避免污染 `/api/v1/plugins` 分组清单）。"""
 
     def __init__(self, *, context: TenantContext | None = None, error: Exception | None = None) -> None:
         """初始化。

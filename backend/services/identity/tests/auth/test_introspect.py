@@ -51,6 +51,8 @@ class _StubVerifier(BaseTokenVerifier):
     """占位校验器：按注入结果返回声明或抛错（隔离外部 IdP）。"""
 
     plugin_name = "stub"
+    auto_register: bool = False
+    """测试替身不进默认插件注册表（避免污染 `/api/v1/plugins` 分组清单）。"""
 
     def __init__(self, *, result: VerifiedToken | None = None, error: Exception | None = None) -> None:
         self._result = result

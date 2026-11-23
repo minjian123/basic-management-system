@@ -34,6 +34,8 @@ class _StubCapturer(AuditCapturer):
     """最小审计捕获桩（旧签名，验证基线方法不改既有实现）。"""
 
     plugin_name: str = "stub"
+    auto_register: bool = False
+    """测试替身不进默认插件注册表（避免污染 `/api/v1/plugins` 分组清单）。"""
 
     def is_audited(self, table: str) -> bool:
         """恒不纳入。

@@ -418,6 +418,8 @@ class StubTokenIssuer(BaseServiceTokenIssuer):
     """记录签发请求并固定返回占位服务 JWT 的替身。"""
 
     plugin_name = "stub"
+    auto_register: bool = False
+    """测试替身不进默认插件注册表（避免污染 `/api/v1/plugins` 分组清单）。"""
 
     def __init__(self) -> None:
         self.specs: ConcurrentStableList[ServiceTokenSpec] = ConcurrentStableList()

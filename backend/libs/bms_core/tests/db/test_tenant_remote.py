@@ -28,6 +28,8 @@ class _StubClient(BaseServiceClient):
     """服务客户端替身：按预设响应 / 异常返回，并记录调用。"""
 
     plugin_name: str = "stub"
+    auto_register: bool = False
+    """测试替身不进默认插件注册表（避免污染 `/api/v1/plugins` 分组清单）。"""
 
     def __init__(self, responses: ConcurrentStableList[ServiceResponse | Exception]) -> None:
         """初始化预设响应序列。"""
