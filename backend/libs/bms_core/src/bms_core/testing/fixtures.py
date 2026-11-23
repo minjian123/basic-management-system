@@ -998,16 +998,21 @@ def _shared_db_ready(name: str, version: str) -> bool:
 
 
 async def _build_shared_db_under_gate(name: str, prepare: Callable[[str], None], version: str) -> None:
-    """在写门内建一个共享库（初始化阶段唯一入口）。
+    """在**该库自己的**写门内建一个共享库（初始化阶段唯一入口）。
+
+    门必须按库取（「按库一把门」，门粒度是实际库文件）：建租户库若取平台门，并发的租户库写者
+    不受该门约束，会在 0.1s 忙等后报 `database is locked`——实测末批 24 路会话起始数秒内成片
+    失败、全部落在租户库表；探针显示 `rebuild tenant` 整段落在 `platform rw` 区间内、租户门为空。
 
     Args:
-        name: 逻辑数据源名。
+        name: 逻辑数据源名（`platform` / `tenant`）。
         prepare: 建库与播种回调（同步实现，内部自开事件循环）。
         version: 版本戳。
     """
     # 初始化阶段只有控制器一个进程，取门只为守住「所有数据库读写都走门」的口径；
     # 真正的互斥价值在测试期：worker 侧不会再有第二个建库者。
-    async with db_access_gate(PLATFORM_GATE, read_only=False, wait=_INIT_TIMEOUT):
+    gate_name = TENANT_GATE if name == TENANT_GATE else PLATFORM_GATE
+    async with db_access_gate(gate_name, read_only=False, wait=_INIT_TIMEOUT):
         await asyncio.to_thread(ensure_shared_db, name, prepare, version=version)
 
 

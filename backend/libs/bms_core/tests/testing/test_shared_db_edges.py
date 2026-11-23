@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import fixtures
+from bms_core.testing.gates import PLATFORM_GATE, TENANT_GATE
 
 pytestmark = [
     pytest.mark.kiwi_id(2399),
@@ -229,6 +231,71 @@ def test_prepare_shared_databases_builds_when_not_ready(tmp_path: Path, monkeypa
 
     assert list(built) == ["platform"]
     assert list(calls) == ["platform"]
+
+
+@pytest.mark.kiwi_id(2548)
+def test_build_shared_db_takes_gate_of_its_own_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """初始化阶段建库**按库取门**：平台库取平台门、租户库取租户门（一门一库文件）。
+
+    建租户库若取平台门，并发的租户库写者不受该门约束，会在 0.1s 忙等后报
+    `database is locked`——实测末批会话起始数秒内成片失败、全部落在租户库表，
+    探针显示 `rebuild tenant` 整段落在 `platform rw` 区间内、租户门为空。
+    """
+    monkeypatch.chdir(tmp_path)
+    acquired: ConcurrentStableList[str] = ConcurrentStableList()
+
+    class _Gate:
+        """最小门替身（只记录取门名）。"""
+
+        async def __aenter__(self) -> None:
+            """进入门区间（无操作）。"""
+            return None
+
+        async def __aexit__(self, *exc: object) -> None:
+            """退出门区间（无操作）。"""
+            del exc
+            return None
+
+    def _gate(name: str, *, read_only: bool, wait: float | None = None) -> _Gate:
+        """门替身：记录门名。
+
+        Args:
+            name: 门名。
+            read_only: 只读标记（忽略）。
+            wait: 等待上限（忽略）。
+
+        Returns:
+            _Gate: 门上下文替身。
+        """
+        del read_only, wait
+        acquired.add(name)
+        return _Gate()
+
+    def _prepare(url: str) -> None:
+        """假准备回调（本用例不建库）。
+
+        Args:
+            url: 库连接串。
+        """
+        del url
+
+    def _ensure(name: str, prepare_callback: object, *, version: str) -> None:
+        """假建库实现（本用例只验取门）。
+
+        Args:
+            name: 数据源名。
+            prepare_callback: 准备回调。
+            version: 版本戳。
+        """
+        del name, prepare_callback, version
+
+    monkeypatch.setattr(fixtures, "db_access_gate", _gate)
+    monkeypatch.setattr(fixtures, "ensure_shared_db", _ensure)
+
+    asyncio.run(fixtures._build_shared_db_under_gate("platform", _prepare, "v1"))  # pyright: ignore[reportPrivateUsage]
+    asyncio.run(fixtures._build_shared_db_under_gate("tenant", _prepare, "v1"))  # pyright: ignore[reportPrivateUsage]
+
+    assert list(acquired) == [PLATFORM_GATE, TENANT_GATE]
 
 
 def test_prepare_shared_databases_skips_when_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
