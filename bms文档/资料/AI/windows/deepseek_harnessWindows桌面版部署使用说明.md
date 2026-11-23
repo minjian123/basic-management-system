@@ -240,7 +240,7 @@ CodeArts、CodeBuddy、WorkBuddy、Qoder、TRAE、Cline 等账号渠道，并提
 
 | 项 | 值 |
 | --- | --- |
-| 包名 / 版本 | `dsh-our-free-model`，当前 2.8.3（2026-11-14 由 2.8.0 升级） |
+| 包名 / 版本 | `dsh-our-free-model`，当前 2.9.0（2026-11-23 由 2.8.3 手工脚本升级，步骤见 4.4.3） |
 | 仓库 | <https://github.com/Ebony-Vinyl/dsh-our-free-model>（MIT） |
 | 安装形态 | **本地链接**：`profiles\desktop\vendor\dsh-our-free-model`，`dependencies` 记 `link:vendor/dsh-our-free-model` |
 | 界面入口 | 设置页分区「Our Free Model」（`settings.section` id `our-free-model`），含「插件升级」小节 |
@@ -279,9 +279,100 @@ flowchart LR
 
 | 字段 | 含义 |
 | --- | --- |
-| `installedVersion` | 磁盘上已安装的版本 |
+| `installedVersion` | 磁盘上已安装的版本。**实测只在热重载激活成功时写入**：普通启动与手工替换都不会刷新（2026-11-23 装到 2.9.0 后仍停在 2.5.7）。判断版本以 `vendor\dsh-our-free-model\package.json` 与设置页显示为准 |
 | `updateNotifiedFor` | 已提示过的新版本（不代表已安装） |
 | `catalogSyncedAt` | 模型清单上次同步时间（与插件版本无关） |
+
+#### 4.4.3 手工升级（可脚本执行） <a id="plugins-ofm-manual"></a>
+
+设置页「检查更新」反复报 `staging failed: … aborted due to timeout` 时改走本节：**不点界面按钮**，由脚本按官方签名清单
+直接把文件装进去。全程不碰 pnpm 与锁文件（4.4.1），失败可用 `rollback\` 回滚。
+
+```mermaid
+flowchart LR
+  A["完全退出 DSH"] --> B["拉 feed/manifest.json<br/>Ed25519 验签并钉到完整提交"]
+  B --> C["备齐 80 个文件<br/>镜像逐文件或 git 浅克隆"]
+  C --> D["逐个比对清单 size 与 SHA-256"]
+  D -->|不符| X["丢弃重下"]
+  D -->|全部通过| E["整体暂存校验"]
+  E --> F["备份当前版本到 rollback/"]
+  F --> G["逐文件改名替换"]
+  G --> H["回读校验"]
+  H --> I["写 upgrade-state.json / updates.json"]
+  I --> J["重开 DSH 装载新代码"]
+```
+
+**一、下载源实测（2026-11-23，mjpc）**
+
+| 源 | 实测 | 结论 |
+| --- | --- | --- |
+| `raw.githubusercontent.com` | 约 8 KB/s（2.2 MB 用 252 秒） | 插件每文件 30 秒超时，**必失败** |
+| `cdn.jsdelivr.net` / `gcore.jsdelivr.net` | 约 0.3 MB/s | 逐文件下载可用（本次 48 MB 约 6 分钟） |
+| `ghfast.top` 前缀 | 403（raw 与 git 均被拒） | 当下不可用，别照旧口诀硬套 |
+| `gh-proxy.com` 前缀 | `git ls-remote` 2.5 秒 | 整仓浅克隆首选 |
+| `ghproxy.net` 前缀 | `git ls-remote` 23 秒 | 备用 |
+| `gitclone.com` / `kkgithub.com` | 504 / 连接超时 | 不用 |
+
+镜像只负责搬运：内容是否可信，一律由签名清单里的 `size` 与 `sha256` 判定，换源不改变安全口径。
+
+**二、取签名清单**
+
+清单地址 <https://raw.githubusercontent.com/Ebony-Vinyl/dsh-our-free-model/main/feed/manifest.json>。必须用插件内置函数取，
+它会先用固定公钥（`src/updater.js` 的 `PINNED_MANIFEST_PUBLIC_KEY`）验签，再把 `main` 解析成完整的 40 位提交——
+直接拿 `main` 的原文去下载，等于跳过「清单归属哪个提交」这一步。
+
+```js
+// 用 DSH 自带 node：<安装目录>\resources\runtime\primary-runtime\dependencies\node\bin\node.exe
+import { downloadManifest, DEFAULT_MANIFEST_SOURCES } from
+  'file:///C:/Users/<用户名>/.dsh/profiles/desktop/vendor/dsh-our-free-model/src/updater.js'
+const { manifest, source } = await downloadManifest(DEFAULT_MANIFEST_SOURCES, { timeoutMs: 60000 })
+// source 形如 .../<40 位提交>/feed/manifest.json，后续下载都钉在这个提交上
+```
+
+**三、备齐文件（二选一）**
+
+- **逐文件镜像下载**：把 `https://cdn.jsdelivr.net/gh/Ebony-Vinyl/dsh-our-free-model@<提交>/<清单路径>` 写入
+  `~\.dsh\our-free-model\upgrade-stage`（插件自己的暂存目录，插件也认）；建议 4 路并发、单文件 300 秒超时，
+  落盘前比对 `size` 与 `sha256`，已存在且哈希正确的文件直接复用（上次失败残留也能用）。
+- **git 整仓浅克隆**（网络好时更快）：
+
+```powershell
+$tmp = "$env:TEMP\ofm-src"
+git init $tmp; Set-Location $tmp
+git remote add origin https://gh-proxy.com/https://github.com/Ebony-Vinyl/dsh-our-free-model.git
+git fetch --depth 1 origin <清单里钉住的 40 位提交>
+git checkout FETCH_HEAD
+```
+
+**四、校验 → 备份 → 替换 → 回读**（全部用插件自带实现，别手写拷贝）
+
+```js
+import { verifyStaged, backupPackage, installStaged, verifyInstalled } from
+  'file:///C:/Users/<用户名>/.dsh/profiles/desktop/vendor/dsh-our-free-model/src/updater.js'
+verifyStaged(stageDir, manifest)                         // 缺文件、大小或哈希漂移都会抛
+const backedUp = await backupPackage(pkgDir, backupDir)  // 备份到 ~\.dsh\our-free-model\rollback
+await installStaged(stageDir, pkgDir, manifest.files.map(f => f.path)) // 覆盖新增，并删掉新版已移除的旧文件
+verifyInstalled(pkgDir, manifest)                        // 回读校验，漂移一个字节都会抛
+```
+
+`pkgDir` = `~\.dsh\profiles\desktop\vendor\dsh-our-free-model`；`backupDir` = `~\.dsh\our-free-model\rollback`
+（备份目录带 `.ofm-backup.json` 回执：路径 / 大小 / SHA-256，恢复时逐字节核对）。
+
+**五、写状态与历史**
+
+- `upgrade-state.json`：`{"from":"2.8.3","to":"2.9.0","at":<毫秒>,"phase":"complete","activated":false,"restartRequired":false}`
+- `updates.json`：向 `applied` 追加一条 `ok:true` 记录（`files`、`bytes`、`backedUp`、`reused` 与插件自己写的一致即可）。
+- 装完删掉 `upgrade-stage`（插件成功路径同样会删）。
+
+**六、生效与回滚**
+
+- 完全退出并重开 DSH（5.2），设置页「Our Free Model」显示 2.9.0；磁盘核对：
+  `(Get-Content "$env:USERPROFILE\.dsh\profiles\desktop\vendor\dsh-our-free-model\package.json" -Raw | ConvertFrom-Json).version`。
+- 回滚：设置页「恢复备份」；或退出 DSH 后按 `.ofm-backup.json` 把 `rollback\` 内容回拷，再对照旧清单回读校验。
+
+**实测记录（2026-11-23）**：2.8.3 → 2.9.0，80 个文件 / 48.0 MB；复用 25、下载 55（约 6 分钟，0.13 MB/s）；
+备份 80 文件；暂存、替换、回读三道校验全部通过；重开 DSH 后 `catalog.json` 与 `feed.json` 在启动瞬间被新代码刷新
+（21:05:53 / 21:06:05），日志目录无新的 `crash-*-web-boot.log`。
 
 ### 4.5 dsh-purge Community（宿主补丁） <a id="plugins-purge"></a>
 
@@ -450,7 +541,7 @@ Copy-Item "$res\runtime\cli\bin\dsh.cmd.dsh-purge.bak" "$res\runtime\cli\bin\dsh
 | 手工更新后版本号没变 / 插件没生效 | 未完全退出 DSH（5.2）；或只改了 `package.json` 没重装；或漏改 `dsh.profile.bundles`。 |
 | 装的是刚发布的新版本，pnpm 却回退了旧版 | 24 小时发布新鲜度门槛（4.3.3），加进 `minimumReleaseAgeExclude` 白名单。 |
 | 桌面版启动报 `web boot: N entries did not activate` | 有插件的 client 半身加载失败（本机 2026-10-18 实测：`@linxin666/dsh-remote-web-ui`、`dsh-context`、`dsh-better-sidebar` 三个）。看 `AppData\Roaming\@deepseek-ai\dsh-desktop\logs\crash-*-web-boot.log` 定位具体插件，多为插件版本与当前宿主不兼容，按 4.3 回滚或改版本。 |
-| Our Free Model 升级报 `staging failed: … aborted due to timeout` | 下载超时（4.4.1），重试；持续失败看 `~\.dsh\our-free-model\updates.json` 的 `error` 字段。 |
+| Our Free Model 升级报 `staging failed: … aborted due to timeout` | 下载超时（4.4.1）：raw 源实测约 8 KB/s，插件每文件 30 秒超时，重试往往无效；改走 4.4.3 手工脚本（镜像并发或 git 浅克隆）。失败明细看 `~\.dsh\our-free-model\updates.json` 的 `error` 字段。 |
 | 想确认某次安装到底跑了什么 | 看 `profiles\desktop\.plugin-manager\logs\operation-*\pnpm.log`（每次一个目录，含完整 pnpm 输出与退出码）。 |
 
 ## 6. 关联文档 <a id="related"></a>
@@ -462,4 +553,4 @@ Copy-Item "$res\runtime\cli\bin\dsh.cmd.dsh-purge.bak" "$res\runtime\cli\bin\dsh
 - 《[本地资源](../../../用户文档/本地资源.md)》：机器硬件与账号（已 gitignore，不入库）
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档遵循的规范
 
-> 依《文档生成规范》编写 · 桌面版实测基于 DSH 0.2.2-rc.3（Electron 44.7.0）；插件实测含插件市场、Our Free Model 与 dsh-purge 1.7.18
+> 依《文档生成规范》编写 · 桌面版实测基于 DSH 0.2.2-rc.3（Electron 44.7.0）；插件实测含插件市场、Our Free Model 2.9.0 与 dsh-purge 1.7.18
