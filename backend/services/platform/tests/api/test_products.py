@@ -11,6 +11,7 @@ from bms_core.application import service_lifespan as lifespan
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.schemas.product import ProductResponse
 from bms_core.services.module_registry import PRODUCT_CATALOG, ProductRecord
+from bms_core.testing.namespace import Namespace
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
 
@@ -173,13 +174,14 @@ async def test_products_response_fields_whitelist(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(2250)
-async def test_list_products_empty_catalog(client: AsyncClient) -> None:
-    """过滤不存在的产品键：分页 `total=0`（空库拒启由启动校验专项用例覆盖）。"""
-    response = await client.get("/api/v1/products", params={"product_key": "no-such-product"})
+async def test_list_products_empty_catalog(client: AsyncClient, ns: Namespace) -> None:
+    """按本用例唯一产品键过滤：分页 `total=0`（键由命名空间生成，库内无同键行）。"""
+    missing_key = ns.code("no-such-product")
+    response = await client.get("/api/v1/products", params={"product_key": missing_key})
     assert response.status_code == 200
     data = response.json()["data"]
-    assert data["total"] == 0
-    assert data["list"] == []
+    assert data["total"] == 0  # premise: own-data 过滤键带本用例命名空间前缀，他人不可能同键
+    assert data["list"] == []  # premise: own-data 同上，空列表只说明该唯一键无行
 
 
 @pytest.mark.kiwi_id(2250)

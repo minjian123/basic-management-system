@@ -11,6 +11,7 @@ from bms_core.oauth.token import TOKEN_AUDIENCE_SERVICE
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.schemas.module import ModuleResponse
 from bms_core.services.module_registry import SERVICE_CATALOG
+from bms_core.testing.namespace import Namespace
 from bms_platform import CONTRACT_VERSION
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
@@ -204,13 +205,14 @@ def test_module_response_tenant_base_from_loaded_manifest() -> None:
 
 
 @pytest.mark.kiwi_id(2164)
-async def test_list_modules_empty_catalog(client: AsyncClient) -> None:
-    """过滤不存在的服务键：分页 `total=0`（空库拒启由启动校验专项用例覆盖）。"""
-    response = await client.get("/api/v1/modules", params={"service_key": "no-such-service"})
+async def test_list_modules_empty_catalog(client: AsyncClient, ns: Namespace) -> None:
+    """按本用例唯一服务键过滤：分页 `total=0`（键由命名空间生成，库内无同键行）。"""
+    missing_key = ns.code("no-such-service")
+    response = await client.get("/api/v1/modules", params={"service_key": missing_key})
     assert response.status_code == 200
     data = response.json()["data"]
-    assert data["total"] == 0
-    assert data["list"] == []
+    assert data["total"] == 0  # premise: own-data 过滤键带本用例命名空间前缀，他人不可能同键
+    assert data["list"] == []  # premise: own-data 同上，空列表只说明该唯一键无行
 
 
 @pytest.mark.kiwi_id(2164)

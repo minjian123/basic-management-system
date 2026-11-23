@@ -422,16 +422,6 @@
       "count": 2
     },
     {
-      "file": "backend/services/platform/tests/api/test_modules.py",
-      "code": "P1",
-      "count": 2
-    },
-    {
-      "file": "backend/services/platform/tests/api/test_products.py",
-      "code": "P1",
-      "count": 2
-    },
-    {
       "file": "backend/services/platform/tests/api/test_role_api.py",
       "code": "P1",
       "count": 6
