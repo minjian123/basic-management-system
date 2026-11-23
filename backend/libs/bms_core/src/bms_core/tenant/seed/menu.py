@@ -23,9 +23,6 @@ uv run python -m ops.seed_menu --dry-run
 - **派生化口径（2026-10-10）**：主表默认文案列（`sys_menu.name` 等）是按**默认语言派生的快照**，
   由服务端按「系统默认语言 → 必填语言 → 首个有值语言」派生；种子同时写主表与附表默认语言行，
   写入后**断言两者一致**（不一致即视为双写漂移，直接失败）。
-- **快照回填（2026-11-23）**：历史库可能存在「主表旧文案 + 附表新文案」——某版种子改过文案后，
-  主表因「已存在跳过」保留旧值，附表却在缺失的那次装载里补入了新值。种子装载在断言前先
-  **按附表默认语言回填主表快照**（快照本就该跟随派生结果），回填后再断言；仍未一致才失败。
 """
 
 import argparse
@@ -39,7 +36,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenDict,
-    ConcurrentStableFrozenList,
     ConcurrentStableList,
     ConcurrentStableSet,
 )
@@ -653,49 +649,6 @@ async def _add_i18n(session: AsyncSession, model: Any, key: str, owner_id: int, 
     return created
 
 
-_DERIVED_PAIRS: ConcurrentStableFrozenList[tuple[Any, Any, str]] = ConcurrentStableFrozenList(
-    (
-        (SysBusiness, SysBusinessI18n, "business_id"),
-        (SysAction, SysActionI18n, "action_id"),
-        (SysMenu, SysMenuI18n, "menu_id"),
-        (SysField, SysFieldI18n, "field_id"),
-    )
-)
-"""主表与多语言附表的配对（主表模型 / 附表模型 / 附表外键列，默认语言为 `ZH`）。"""
-
-
-async def _sync_default_names(session: AsyncSession) -> int:
-    """按附表默认语言文案回填主表默认文案快照（幂等种子的历史库收敛）。
-
-    为什么需要：种子对已存在行是「跳过」，而多语言附表在缺失时才补插。某版种子改过文案后，
-    历史库会停在「主表旧文案 + 附表新文案」——快照与派生结果脱节，`_verify_derived_names`
-    随即拒启（生产升级与共享测试库同样命中）。主表列本就是派生快照，故以附表为准回填。
-
-    修正方向只取「附表已有默认语言行」的主表行；附表缺失的行由本次装载补插，不在此处处理。
-
-    Args:
-        session: 数据库会话。
-
-    Returns:
-        int: 被回填的主表行数。
-    """
-    fixed = 0
-    for model, i18n_model, key in _DERIVED_PAIRS:
-        statement = (
-            select(model, i18n_model.name)
-            .join(i18n_model, getattr(i18n_model, key) == model.id)
-            .where(model.deleted_at.is_(None), i18n_model.locale == ZH, i18n_model.deleted_at.is_(None))
-        )
-        for row, default_text in (await session.execute(statement)).all():
-            if str(row.name) == str(default_text):
-                continue
-            row.name = default_text
-            fixed += 1
-    if fixed:
-        await session.flush()
-    return fixed
-
-
 async def _verify_derived_names(session: AsyncSession) -> int:
     """断言「主表默认文案 ≡ 附表默认语言文案」（派生化口径一致性）。
 
@@ -711,7 +664,14 @@ async def _verify_derived_names(session: AsyncSession) -> int:
     Raises:
         RuntimeError: 存在主表默认文案与附表默认语言文案不一致的行。
     """
-    pairs = _DERIVED_PAIRS
+    pairs: ConcurrentStableList[tuple[Any, Any, str]] = ConcurrentStableList(
+        (
+            (SysBusiness, SysBusinessI18n, "business_id"),
+            (SysAction, SysActionI18n, "action_id"),
+            (SysMenu, SysMenuI18n, "menu_id"),
+            (SysField, SysFieldI18n, "field_id"),
+        )
+    )
     checked = 0
     problems: ConcurrentStableList[str] = ConcurrentStableList()
     for model, i18n_model, key in pairs:
@@ -926,8 +886,6 @@ async def _seed_menu_in_session(session: AsyncSession) -> tuple[int, int, int]:
         created += await _add_i18n(session, SysFieldI18n, "field_id", existing_field.id, zh, en)
 
     await _apply_help_keys(session)
-    # 先按派生结果回填主表快照（历史库文案演进留下的旧值），再断言一致性。
-    await _sync_default_names(session)
     checked = await _verify_derived_names(session)
     return created, skipped, checked
 
