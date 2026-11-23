@@ -115,72 +115,125 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         None: 用例运行期。
     """
     clear_isolated_env(monkeypatch)
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    _reset_isolated_runtime(_apply_isolated_env(monkeypatch.setenv))
+    yield
+    get_settings.cache_clear()
+    reset_permission_cache_store()
+
+
+def _apply_isolated_env(setenv: Callable[[str, str], None]) -> int:
+    """把测试隔离环境逐项写入给定 setter（函数级 `monkeypatch.setenv` / 模块级 `os.environ`）。
+
+    单一实现：函数级夹具与模块级夹具都经这里写入，避免两套环境清单漂移。
+
+    Args:
+        setenv: 环境变量写入函数。
+
+    Returns:
+        int: 按 worker 注入的雪花 WorkerId（供调用方重设生成器）。
+    """
     # 单库化（04-6-2）：库一律走共享测试库 / 白名单独占库的**显式 URL**，不再按 worker 派生 sqlite_dir；
     # 连接串模板同样固定关闭（dev 默认启用「每服务每租户」模板，会让显式 URL 失效）
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL_TEMPLATE", "")
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL_TEMPLATE", "")
-    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    setenv("BMS_DATABASE__PLATFORM__URL_TEMPLATE", "")
+    setenv("BMS_DATABASE__TENANTS__URL_TEMPLATE", "")
     # 可观测真实 provider 关闭：避免单元用例引入全局 TracerProvider / 导出线程与网络噪声
-    monkeypatch.setenv("BMS_METRICS__PROVIDER", "")
-    monkeypatch.setenv("BMS_TRACER__PROVIDER", "")
+    setenv("BMS_METRICS__PROVIDER", "")
+    setenv("BMS_TRACER__PROVIDER", "")
     # 跨服务调用 / 会话存储 / 限流真实实现关闭：单测不真实外呼、不连 Redis
-    monkeypatch.setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
-    monkeypatch.setenv("BMS_SESSION_STORE__PROVIDER", "")
-    monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "")
-    monkeypatch.setenv("BMS_REDIS__PROVIDER", "")
-    monkeypatch.setenv("BMS_REDIS__REQUIRED", "false")
-    monkeypatch.setenv("BMS_IDEMPOTENCY__PROVIDER", "")
-    monkeypatch.setenv("BMS_CONSISTENCY_BARRIER__PROVIDER", "")
+    setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
+    setenv("BMS_SESSION_STORE__PROVIDER", "")
+    setenv("BMS_RATE_LIMITER__PROVIDER", "")
+    setenv("BMS_REDIS__PROVIDER", "")
+    setenv("BMS_REDIS__REQUIRED", "false")
+    setenv("BMS_IDEMPOTENCY__PROVIDER", "")
+    setenv("BMS_CONSISTENCY_BARRIER__PROVIDER", "")
     # 事件消费运行时关闭（13_08）：dev 环境覆盖打开真实 msg 消费，单进程测试没有消息平台对端，
     # 装配期 `BaseEventConsumerGroup.setup()` 会按组发起连接，逐个消费组等 DNS 超时（本机实测
     # `http://msg:8000` 每次 2.7s × 8 次 ≈ 21.5s，占 `test_root_returns_app_info` setup 的 86%）。
     # 只关 `enabled`、不动 `provider`：配置分层读到的实现选择仍是真实值，真实消费由
     # `tests/integration/test_event_bus_msg.py` 等专项用例显式开启。
-    monkeypatch.setenv("BMS_EVENT_CONSUMER__ENABLED", "false")
-    monkeypatch.setenv("BMS_CACHE__PROVIDER", "memory")
-    monkeypatch.setenv("BMS_CAPTCHA__PROVIDER", "")
-    monkeypatch.setenv("BMS_MASKING__PROVIDER", "")
-    monkeypatch.setenv("BMS_DISTRIBUTED_LOCK__PROVIDER", "")
+    setenv("BMS_EVENT_CONSUMER__ENABLED", "false")
+    setenv("BMS_CACHE__PROVIDER", "memory")
+    setenv("BMS_CAPTCHA__PROVIDER", "")
+    setenv("BMS_MASKING__PROVIDER", "")
+    setenv("BMS_DISTRIBUTED_LOCK__PROVIDER", "")
     # 拓扑分发关闭（2026-11-16）：分发失败改拒启后，单测没有「平台已就绪」的对端，
     # 属「本来就该关」的配置而非降级；验证分发的用例直接构造 Settings(distribute=True)。
-    monkeypatch.setenv("BMS_TOPOLOGY__DISTRIBUTE", "false")
+    setenv("BMS_TOPOLOGY__DISTRIBUTE", "false")
     # 单进程测试没有平台对端：启动期目录校验显式关闭（不是容错，是「无对端」的环境配置）；
     # 校验本身由 `tests/core/test_service_catalog_startup.py` 显式开启覆盖。
-    monkeypatch.setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "false")
+    setenv("BMS_APP__VALIDATE_CATALOG_ON_STARTUP", "false")
     # 接库初始化只做一次（13_08 T7）：共享库结构 / 表归属登记由准备集建好，每个用例再重做一遍
     # 只会把跨进程写门排队时间翻倍（实测 1.4 秒/用例，24 路并行完全不提速）。需要验证这些启动
     # 步骤的用例显式把本开关置回 false（直接调用对应函数亦可）。
-    monkeypatch.setenv("BMS_APP__SKIP_DB_INIT", "true")
+    setenv("BMS_APP__SKIP_DB_INIT", "true")
     # 运行期改表结构在测试里一律关闭（13_08 T7）：结构只有「数据初始化」一次机会，请求路径只写
     # 元数据等初始化补建列。测试加载的 `config.dev.toml` 把这个开关置成了 true（开发态即时建列），
     # 必须在这里显式关回去；需要真跑建列的用例只在 `own_db` 独占临时库上单点置 true。
-    monkeypatch.setenv("BMS_APP__ALLOW_RUNTIME_DDL", "false")
+    setenv("BMS_APP__ALLOW_RUNTIME_DDL", "false")
     # 操作审计中间件（06_01）默认关闭：单测不因每个写请求额外写发件箱（审计专项用例显式开启）
-    monkeypatch.setenv("BMS_AUDIT_LOG__ENABLED", "false")
+    setenv("BMS_AUDIT_LOG__ENABLED", "false")
     # 权限 / 数据范围强制占位：`get_settings()` 是进程级单例，服务套件（platform / identity）会在
     # `prepare_settings` 里把它改成 `provider = rbac`；同进程跑其他套件（含基座自身不登记数据来源的
     # 测试应用）时若沿用该残留，装配期即按「`rbac` 却无取数实现」拒启（与用例意图无关）。
     # 置空后 `resolve_plugin` 回落到 `null` 占位实现，用例结果与套件执行顺序无关；
     # 真实 RBAC 的判定口径由各服务 `tests/permission/` 专项用例自建校验器 / 数据来源覆盖。
-    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "")
-    monkeypatch.setenv("BMS_DATA_SCOPE__PROVIDER", "")
-    # 三层权限缓存是**进程级单份**（`04-2`）：跨套件 / 跨用例共用会串味（同租户同用户同版本命中别处数据）
-    reset_permission_cache_store()
+    setenv("BMS_PERMISSION__PROVIDER", "")
+    setenv("BMS_DATA_SCOPE__PROVIDER", "")
     # 并行下 WorkerId 必须按 worker 错开（缺省 0 会让多进程同毫秒生成相同雪花 ID；见
     # `worker_id_for_snowflake`）。经配置注入，lifespan 的 `validate_startup` 会据此重设生成器；
     # **同时直接重设一次**——不启应用的用例（交易 2PC 真库用例直接构造协调器）没有 lifespan，
     # 只靠配置注入会一直用 WorkerId=0，多 worker 同毫秒仍生成相同雪花 ID（派生同一 XA `xid`，
     # MySQL 报 `XAER_DUPID`；bms#1629 实测）。
     worker_id = worker_id_for_snowflake()
-    monkeypatch.setenv("BMS_APP__WORKER_ID", str(worker_id))
-    id_generator.reconfigure(worker_id)
+    setenv("BMS_APP__WORKER_ID", str(worker_id))
     # WorkerId 动态注册（03_06）在单测里关闭：注册要连 Redis 并逐用例占号，会与上面的按 worker 注入
     # 冲突（每用例一套 fakeredis，占号无意义）；注册路径由 `tests/workerid/` 专项用例显式开启覆盖。
-    monkeypatch.setenv("BMS_WORKER_ID__ENABLED", "false")
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
+    setenv("BMS_WORKER_ID__ENABLED", "false")
+    return worker_id
+
+
+def _reset_isolated_runtime(worker_id: int) -> None:
+    """应用隔离环境的进程级副作用（权限缓存 / 雪花生成器 / 配置单例）。
+
+    Args:
+        worker_id: `_apply_isolated_env` 返回的 WorkerId。
+    """
+    # 三层权限缓存是**进程级单份**（`04-2`）：跨套件 / 跨用例共用会串味（同租户同用户同版本命中别处数据）
     reset_permission_cache_store()
+    id_generator.reconfigure(worker_id)
+    get_settings.cache_clear()
+
+
+@pytest.fixture(name="bms_isolated_env_module", scope="module")
+def isolated_env_module() -> Iterator[None]:
+    """模块级隔离环境：装配常驻（`service_app` 提 module 级）要求隔离先于装配就位。
+
+    为什么需要：pytest 先建高作用域夹具，模块级 `service_app` 会比函数级 `bms_isolate_settings`
+    先执行；若环境仍是真实配置，应用装配会按真实 Redis / 拓扑 / 令牌启动而拒启。
+
+    单一实现：环境清单复用 `_apply_isolated_env`；退出时把环境与配置模型整体还原，
+    不向其它模块泄漏。
+
+    Yields:
+        None: 模块运行期。
+    """
+    snapshot = dict(os.environ)
+    previous_env_file = Settings.model_config.get("env_file")
+    for key in [item for item in os.environ if item.startswith("BMS_") and not item.startswith("BMS_TEST_")]:
+        del os.environ[key]
+    Settings.model_config["env_file"] = None
+    _reset_isolated_runtime(_apply_isolated_env(lambda key, value: os.environ.__setitem__(key, value)))
+    try:
+        yield
+    finally:
+        for key in [item for item in os.environ if item not in snapshot]:
+            del os.environ[key]
+        os.environ.update(snapshot)
+        Settings.model_config["env_file"] = previous_env_file
+        get_settings.cache_clear()
+        reset_permission_cache_store()
 
 
 def resolve_fixture(request: pytest.FixtureRequest, name: str) -> Any | None:

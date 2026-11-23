@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from functools import lru_cache
 
 from joserfc import jwt
@@ -54,16 +55,28 @@ def _key_pems() -> tuple[str, str]:
     return key.as_pem(private=False).decode(), key.as_pem(private=True).decode()
 
 
-def configure_token_env(monkeypatch: MonkeyPatch) -> None:
+def configure_token_env(
+    monkeypatch: MonkeyPatch | None = None, *, set_env: Callable[[str, str], None] | None = None
+) -> None:
     """把测试密钥写入 `[security].keys` 环境变量（供应用装配真实校验器）。
+
+    函数级夹具传 `monkeypatch`（退出自动还原）；模块级夹具传 `set_env`（由调用方负责还原），
+    两者写的是同一份键值，避免模块装配另写一套密钥注入。
 
     Args:
         monkeypatch: pytest `monkeypatch` 夹具。
+        set_env: 环境变量写入函数（与 `monkeypatch.setenv` 同形）。
+
+    Raises:
+        ValueError: 两者都未提供。
     """
+    setter = set_env if set_env is not None else (monkeypatch.setenv if monkeypatch is not None else None)
+    if setter is None:
+        raise ValueError("configure_token_env 需要 monkeypatch 或 set_env 之一")
     public_key, private_key = _key_pems()
     keys = {TEST_KID: {"algorithm": "RS256", "public_key": public_key, "private_key": private_key}}
-    monkeypatch.setenv("BMS_SECURITY__KEYS", json.dumps(keys))
-    monkeypatch.setenv("BMS_SECURITY__ACTIVE_KID", TEST_KID)
+    setter("BMS_SECURITY__KEYS", json.dumps(keys))
+    setter("BMS_SECURITY__ACTIVE_KID", TEST_KID)
 
 
 def issue_access_token(

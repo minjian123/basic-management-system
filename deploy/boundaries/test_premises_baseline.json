@@ -382,11 +382,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/notification/tests/conftest.py",
-      "code": "P2",
-      "count": 1
-    },
-    {
       "file": "backend/services/notification/tests/notification/test_notification.py",
       "code": "P1",
       "count": 1

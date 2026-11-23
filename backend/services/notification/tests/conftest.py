@@ -5,9 +5,11 @@
 租户源替身与应用 / 客户端夹具。
 """
 
+import os
 from collections.abc import AsyncIterator, Callable, Iterator
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -21,11 +23,20 @@ from bms_core.testing.fixtures import (
 from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
+from bms_core.testing.fixtures import (
+    isolated_env_module as bms_isolated_env_module,
+)
 
-__all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
+__all__ = (
+    "bms_isolate_settings",
+    "bms_isolated_env_module",
+    "platform_db",
+    "reset_plugin_registry",
+    "reset_request_context",
+)
 from bms_notification.main import ApplicationFactory
 from tests_support.auth import auth_headers, configure_token_env
-from tests_support.tenant_source import install_fake_tenant_source
+from tests_support.tenant_source import install_fake_tenant_source, installed_fake_tenant_source
 
 
 @pytest.fixture(autouse=True)
@@ -106,9 +117,38 @@ def fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
     install_fake_tenant_source(monkeypatch)
 
 
-@pytest.fixture
-async def service_app() -> AsyncIterator[FastAPI]:
-    """服务应用实例（经 lifespan 装配）。
+@pytest.fixture(scope="module")
+def notification_module_env(bms_isolated_env_module: None) -> Iterator[None]:
+    """模块级服务环境：常驻装配的首个用例前就把 fakeredis / 令牌密钥 / 租户源替身就位。
+
+    为什么需要：pytest 先建高作用域夹具，模块级 `service_app` 会早于函数级 `isolate_settings`
+    执行；服务专属环境（假 Redis / 测试密钥 / 假租户源）必须同样按模块作用域先就位，
+    否则应用会按真实 Redis 与真实租户源装配。
+
+    Args:
+        bms_isolated_env_module: 基座模块级隔离环境（保证顺序）。
+
+    Yields:
+        None: 模块运行期。
+    """
+    from tests_support.redis import install_process_fake_redis_client
+
+    install_process_fake_redis_client()
+    configure_token_env(set_env=os.environ.__setitem__)
+    get_settings.cache_clear()
+    with installed_fake_tenant_source():
+        yield
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
+async def service_app(notification_module_env: None) -> AsyncIterator[FastAPI]:
+    """服务应用实例（经 lifespan 装配，**模块级常驻**）。
+
+    进程长驻是真实形态：同一文件的用例复用同一次装配，启动副作用（声明装载 / 拓扑分发等）
+    每模块只发生一次。跨用例存活的租户缓存由 `client` 在每例前后复位。
+
+    Args:
+        notification_module_env: 模块级服务环境（保证装配前环境就位）。
 
     Yields:
         FastAPI: 应用实例。
@@ -122,9 +162,9 @@ async def service_app() -> AsyncIterator[FastAPI]:
         clear_tenant_cache(app)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(loop_scope="module")
 async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
-    """ASGITransport 异步客户端（带认证头）。
+    """ASGITransport 异步客户端（带认证头；复用常驻 `service_app`）。
 
     Args:
         service_app: 应用实例。
@@ -132,6 +172,10 @@ async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
     Yields:
         AsyncClient: 测试客户端。
     """
-    async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
-        c.headers.update(auth_headers())
-        yield c
+    clear_tenant_cache(service_app)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
+            c.headers.update(auth_headers())
+            yield c
+    finally:
+        clear_tenant_cache(service_app)

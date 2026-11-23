@@ -6,6 +6,8 @@ from httpx import AsyncClient
 
 from bms_notification import SERVICE_NAME, SERVICE_TITLE
 
+pytestmark = pytest.mark.asyncio(loop_scope="module")
+
 
 @pytest.mark.kiwi_id(1206)
 async def test_service_boots_and_exposes_probes(service_app: FastAPI, client: AsyncClient) -> None:

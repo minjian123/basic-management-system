@@ -11,6 +11,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+from contextlib import contextmanager
+
 import pytest
 
 from bms_core.cache.base import CacheRegion
@@ -119,6 +122,32 @@ class FakeTenantSource:
         raise MultipleActiveTenantsError("测试替身：多个启用租户")
 
 
+def _fake_lookup(*_args: object, **_kwargs: object) -> FakeTenantSource:
+    """替身装配入口（忽略实参，恒返回进程内假租户源）。
+
+    Returns:
+        FakeTenantSource: 假租户源。
+    """
+    return FakeTenantSource()
+
+
+@contextmanager
+def installed_fake_tenant_source() -> Generator[None]:
+    """在上下文内替换装配入口 `build_tenant_lookup`，退出还原（模块级装配用）。
+
+    Yields:
+        None: 替换生效期。
+    """
+    from bms_core import application
+
+    original = application.build_tenant_lookup
+    application.build_tenant_lookup = _fake_lookup
+    try:
+        yield
+    finally:
+        application.build_tenant_lookup = original
+
+
 def install_fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
     """把应用装配入口 `build_tenant_lookup` 替换为返回 `FakeTenantSource`（进程内单测用）。
 
@@ -129,13 +158,5 @@ def install_fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch: pytest `monkeypatch` 夹具（仅用其 `setattr`）。
     """
     from bms_core import application
-
-    def _fake_lookup(*_args: object, **_kwargs: object) -> FakeTenantSource:
-        """替身装配入口（忽略实参，恒返回进程内假租户源）。
-
-        Returns:
-            FakeTenantSource: 假租户源。
-        """
-        return FakeTenantSource()
 
     monkeypatch.setattr(application, "build_tenant_lookup", _fake_lookup)

@@ -12,7 +12,7 @@ from bms_core.testing.transaction import write_session
 from bms_notification.domains.notification.api.notification import internal_router, internal_unread_count
 from notification._support import add_notification
 
-pytestmark = pytest.mark.kiwi_id(2528)
+pytestmark = [pytest.mark.kiwi_id(2528), pytest.mark.asyncio(loop_scope="module")]
 
 
 async def test_internal_unread_count_for_explicit_user(shared_tenant_engine: AsyncEngine, uid: int) -> None:
