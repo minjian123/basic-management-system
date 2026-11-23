@@ -21,7 +21,9 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import uuid
 from pathlib import Path
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -61,6 +63,9 @@ def main() -> int:
     Returns:
         int: 退出码（与 engkit push 一致）。
     """
+    # 一次推送预检 = 一次测试运行：各批（各 pytest 会话）共用同一运行标识，
+    # 只有第一批在数据初始化之前删库重建，其余批叠加复用（2026-11-01 拍板原意）。
+    os.environ.setdefault("BMS_TEST_RUN_ID", f"push-{uuid.uuid4().hex}")
     return forward(build_argv(ConcurrentStableList(sys.argv[1:])))
 
 

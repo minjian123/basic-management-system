@@ -24,6 +24,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.gate import set_gate_hook
 from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.testing import ddl, fixtures
@@ -214,16 +215,24 @@ def _busy_timeout_from_env() -> float:
 
 
 def _prepare_test_dir() -> None:
-    """会话入口的测试目录准备：重建共享库 → 清残留锁与临时产物。
+    """会话入口的测试目录准备：**一次测试运行只在开始时删库重建**，同运行内的会话叠加复用。
 
-    为什么在这里做：必须在**所有 worker 起来之前**（控制器 / 单进程）完成，否则删库会撞上
-    正在跑用例的 worker。残留 `.lock` 直接失败——带锁开跑会把「一行启动错误」拖成一堆假超时
-    （bms#1659 续修实测：8 worker × 300s）。
+    口径（2026-11-01 拍板原意）：「整个测试运行开始、数据初始化之前」可以删库重建；**同一次运行
+    的后续会话必须叠加运行**，不得再删。判定靠 `BMS_TEST_RUN_ID`：与 `.cache/test/run.id` 一致即
+    同一次运行（复用），否则视为新运行（删库重建并记下新 id）。未设该变量时（手工窄跑）每次
+    pytest 调用自成一次运行。
+
+    为什么必须在**所有 worker 起来之前**（控制器 / 单进程）做：否则删库会撞上正在跑用例的 worker。
+    残留 `.lock` 直接失败——带锁开跑会把「一行启动错误」拖成一堆假超时（bms#1659 续修实测：
+    8 worker × 300s）。
 
     Raises:
         RuntimeError: 残留 `.lock` 清不掉（有进程占着）。
     """
-    failed = fixtures.reset_shared_databases()
+    failed: ConcurrentStableList[str] = ConcurrentStableList()
+    if not _same_run():
+        failed = fixtures.reset_shared_databases()
+        _remember_run()
     failed.extend(fixtures.clear_shared_db_files(include_databases=False))
     stuck_locks = [name for name in failed if name.endswith(".lock")]
     if stuck_locks:
@@ -234,6 +243,39 @@ def _prepare_test_dir() -> None:
     if failed:
         # 库文件删不掉只告警（《测试规范》：残留锁才阻断）：本轮会在新建库上继续跑。
         print(f"[bms_testing_plugin] 共享测试库清理失败（Windows 句柄占用）：{failed}；本轮改用新建库继续")
+
+
+_RUN_ID_ENV = "BMS_TEST_RUN_ID"
+"""测试运行标识：同一次运行（如一次推送预检的多批）由入口脚本写入同一值。"""
+
+_RUN_MARKER = "run.id"
+"""运行标识落点（`<测试库目录>/run.id`）：与当前 `BMS_TEST_RUN_ID` 一致即同一次运行。"""
+
+
+def _same_run() -> bool:
+    """本次会话是否与上一次建库属于同一次测试运行。
+
+    Returns:
+        bool: 运行标识非空且与标记一致返回 True（复用共享库）。
+    """
+    run_id = os.environ.get(_RUN_ID_ENV, "").strip()
+    if not run_id:
+        return False
+    try:
+        return (fixtures.test_db_dir() / _RUN_MARKER).read_text(encoding="utf-8").strip() == run_id
+    except OSError:
+        return False
+
+
+def _remember_run() -> None:
+    """把本次运行的标识写入标记（未设 `BMS_TEST_RUN_ID` 时清掉旧标记）。"""
+    marker = fixtures.test_db_dir() / _RUN_MARKER
+    run_id = os.environ.get(_RUN_ID_ENV, "").strip()
+    with suppress(OSError):
+        if run_id:
+            marker.write_text(run_id, encoding="utf-8")
+        else:
+            marker.unlink(missing_ok=True)
 
 
 def _maybe_install_lock_probe() -> None:  # pragma: no cover - 仅诊断期按环境变量开启，默认关闭

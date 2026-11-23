@@ -89,6 +89,9 @@ async def ensure_form_design_tables() -> None:
 async def seed_business(code: str, name: str = "测试业务") -> int:
     """直插业务码（平台库；`code` 即表单标识，调用方按命名空间派生保证唯一）。
 
+    **已存在则复用**（按 `code` 读现有行，不删不改）：固定资源维度的业务码（如 `role`）
+    不能按命名空间派生，共享库复用上一轮数据时插第二次会撞 `UNIQUE(sys_business.code)`。
+
     Args:
         code: 业务码。
         name: 名称。
@@ -98,6 +101,9 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
     """
     url = platform_url()
     async with shared_session(url, read_only=False) as session:
+        existing = await session.scalar(select(SysBusiness.id).where(SysBusiness.code == code))
+        if existing is not None:
+            return int(existing)
         row = SysBusiness(code=code, name=name, status="enabled")
         session.add(row)
         await session.flush()

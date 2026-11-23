@@ -583,6 +583,31 @@ def _adapt_lint(
     return adapted
 
 
+def changed_test_files(files: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
+    """取本次改动的**测试文件**（相对 `backend/`，供隔离自检使用）。
+
+    只收「改动本身就是用例」的文件；源码改动映射出的测试不在此列（那不是本次改的用例）。
+
+    Args:
+        files: 改动文件（仓根相对）。
+
+    Returns:
+        ConcurrentStableList[str]: 测试文件（去重保序；相对 `backend/`）。
+    """
+    picked: ConcurrentStableList[str] = ConcurrentStableList()
+    for rel in files:
+        if not rel.endswith(".py") or not rel.startswith("backend/"):
+            continue
+        relative = rel[len("backend/") :]
+        name = Path(relative).name
+        # 只收真正的用例模块：`tests/` 下还有 conftest / helpers / 夹具模块，交给 pytest 会「no tests ran」
+        if not (name.startswith("test_") or name.endswith("_test.py")):
+            continue
+        if relative not in picked:
+            picked.add(relative)
+    return picked
+
+
 def test_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """从改动文件直接推出要跑的测试文件（不做依赖推导、不扩圈、不退全量）。
 
@@ -881,6 +906,23 @@ def plan_steps(
 
     planned.extend(slow)
 
+    # 用例隔离自检（《测试规范》§4，强制）：本次改动含测试文件时，必须过一次「同一次运行连跑两轮」，
+    # 第二轮出现任何失败即判用例违规（依赖空库 / 固定键 / 整表口径 / 动他人数据）。
+    changed_tests = changed_test_files(files)
+    if changed_tests and not only_lint:
+        planned.add(
+            PlannedStep(
+                label=(f"用例隔离自检：{len(changed_tests)} 个改动测试文件连跑两轮（同一次运行，第二轮不得新增失败）"),
+                cmd=ConcurrentStableList(
+                    (python, "scripts/tools/preflight/check_isolation_reuse.py", "--files-from", "-")
+                ),
+                cwd=".",
+                stdin_text=list_text(changed_tests),
+            )
+        )
+    elif changed_tests:
+        skipped.add("用例隔离自检（--only-lint）")
+
     for self_test in cfg.preflight.self_tests:
         if any(rel.startswith(tuple(self_test.deps)) for rel in files) and self_test.deps:
             self_cmd = _render(
@@ -958,6 +1000,10 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         help="放行「只能全仓判定」的步骤（默认遇到即报错，要求改造为文件级判据）",
     )
     args = parser.parse_args(None if argv is None else list(argv))
+
+    # 一次提交前预检 = 一次测试运行：各步骤（含选测与改动行覆盖率的多次 pytest）共用同一运行标识，
+    # 只有第一次会话在数据初始化之前删库重建，其余会话叠加复用（2026-11-01 拍板原意）。
+    os.environ.setdefault("BMS_TEST_RUN_ID", f"commit-{os.getpid()}-{int(time.time())}")
 
     root = Path(args.root).resolve()
     all_files = staged_files(root, str(args.changed_from))

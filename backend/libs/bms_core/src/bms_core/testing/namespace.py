@@ -6,7 +6,8 @@
 
 口径（《测试规范》「测试数据」节）：
 
-- 前缀由 `nodeid` 稳定派生（同用例跨会话一致），并带 worker 位，保证并行进程互不相交；
+- 前缀由 `nodeid` 派生（同会话内稳定），叠加**会话随机盐**与 worker 位：并行进程互不相交，
+  且同一用例在不同会话派生不同前缀——共享库复用上一轮数据时不会撞自己上一轮留下的主键；
 - 断言只认本命名空间内的数据；无法按前缀过滤的全局统计改用 `assert_delta` 做相对增量；
 - 禁止用固定编码 / 固定哨兵当业务键，禁止对全表做条数断言。
 """
@@ -32,6 +33,14 @@ _SUFFIX_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 
 _PREFIX_RE = re.compile(r"^w[0-9][0-9a-f]{8}$")
 """前缀形态：`w{worker}{nodeid 摘要 8 位}`。"""
+
+_SESSION_SALT = int.from_bytes(os.urandom(4), "big")
+"""本会话的随机盐（进程内固定，`nodeid` 摘要按位异或）。
+
+为什么要它：前缀原先「同用例跨会话一致」，于是同一用例在**复用共享库**的第二轮会与自己上一轮
+留下的主键 / 业务键相撞（实测 `UNIQUE constraint failed: sys_session.id`）。异或是双射，
+会话内「不同用例必不同前缀」的性质不变，只让跨会话不同——依赖空库的用例因此无法再靠删库掩盖。
+"""
 
 
 class Namespace:
@@ -113,7 +122,7 @@ def worker_tag() -> str:
 
 
 def prefix_for(nodeid: str) -> str:
-    """按用例 nodeid 派生稳定前缀。
+    """按用例 nodeid 派生前缀（同会话稳定、跨会话不同）。
 
     Args:
         nodeid: pytest 用例标识（`路径::类::函数`）。
@@ -121,8 +130,8 @@ def prefix_for(nodeid: str) -> str:
     Returns:
         str: `w{worker}{nodeid 摘要 8 位}`。
     """
-    digest = hashlib.sha1(nodeid.encode("utf-8")).hexdigest()[:8]
-    return f"w{worker_tag()}{digest}"
+    digest = int.from_bytes(hashlib.sha1(nodeid.encode("utf-8")).digest()[:4], "big") ^ _SESSION_SALT
+    return f"w{worker_tag()}{digest:08x}"
 
 
 def for_test(request: pytest.FixtureRequest) -> Namespace:

@@ -548,8 +548,12 @@ def test_busy_timeout_from_env_parses_and_falls_back(monkeypatch: pytest.MonkeyP
     assert plugin._busy_timeout_from_env() == 0.1  # pyright: ignore[reportPrivateUsage]
 
 
-def test_prepare_test_dir_resets_and_warns(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    """会话入口准备：先重建共享库，再清临时产物；非锁文件清理失败只告警。"""
+@pytest.mark.kiwi_id(2549)
+@pytest.mark.kiwi_id(2549)
+def test_prepare_test_dir_resets_on_new_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """新的一次测试运行：数据初始化之前删库重建，并记下本次运行标识；非锁文件清理失败只告警。"""
     calls: ConcurrentStableList[str] = ConcurrentStableList()
 
     def _clear_warn(*, include_databases: bool) -> ConcurrentStableList[str]:
@@ -565,7 +569,7 @@ def test_prepare_test_dir_resets_and_warns(monkeypatch: pytest.MonkeyPatch, caps
         return ConcurrentStableList(["x.tmp"])
 
     def _reset_ok() -> ConcurrentStableList[str]:
-        """记录一次清场并返回空失败清单。
+        """记录一次清场。
 
         Returns:
             ConcurrentStableList[str]: 空清单（共享库已删净）。
@@ -573,11 +577,118 @@ def test_prepare_test_dir_resets_and_warns(monkeypatch: pytest.MonkeyPatch, caps
         calls.add("reset")
         return ConcurrentStableList()
 
+    monkeypatch.setattr(fixtures, "test_db_dir", lambda: tmp_path)
     monkeypatch.setattr(fixtures, "reset_shared_databases", _reset_ok)
     monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_warn)
+    monkeypatch.setenv("BMS_TEST_RUN_ID", "run-1")
+
     plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]
+
     assert list(calls) == ["reset"]
+    assert (tmp_path / "run.id").read_text(encoding="utf-8") == "run-1"
     assert "共享测试库清理失败" in capsys.readouterr().out
+
+
+@pytest.mark.kiwi_id(2549)
+def test_prepare_test_dir_reuses_within_same_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """同一次测试运行的后续会话：**不删库**，叠加复用上一会话的数据。"""
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+    (tmp_path / "run.id").write_text("run-1", encoding="utf-8")
+
+    def _reset_should_not_run() -> ConcurrentStableList[str]:
+        """删库路径不应被调用。
+
+        Returns:
+            ConcurrentStableList[str]: 不会被返回（调用即记为一次错误清场）。
+        """
+        calls.add("reset")
+        return ConcurrentStableList()
+
+    def _clear_ok(*, include_databases: bool) -> ConcurrentStableList[str]:
+        """清理成功（无失败项）。
+
+        Args:
+            include_databases: 未使用（与真函数同形）。
+
+        Returns:
+            ConcurrentStableList[str]: 空清单。
+        """
+        del include_databases
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(fixtures, "test_db_dir", lambda: tmp_path)
+    monkeypatch.setattr(fixtures, "reset_shared_databases", _reset_should_not_run)
+    monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_ok)
+    monkeypatch.setenv("BMS_TEST_RUN_ID", "run-1")
+
+    plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]
+
+    assert list(calls) == []
+    assert (tmp_path / "run.id").read_text(encoding="utf-8") == "run-1"
+
+
+@pytest.mark.kiwi_id(2549)
+def test_prepare_test_dir_writes_marker_when_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """运行标识存在但标记缺失（首次会话 / 换机）：判定为新运行 → 删库并补写标记。"""
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _reset_ok() -> ConcurrentStableList[str]:
+        """记录一次清场。
+
+        Returns:
+            ConcurrentStableList[str]: 空清单。
+        """
+        calls.add("reset")
+        return ConcurrentStableList()
+
+    def _clear_ok(*, include_databases: bool) -> ConcurrentStableList[str]:
+        """清理成功（无失败项）。
+
+        Args:
+            include_databases: 未使用（与真函数同形）。
+
+        Returns:
+            ConcurrentStableList[str]: 空清单。
+        """
+        del include_databases
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(fixtures, "test_db_dir", lambda: tmp_path)
+    monkeypatch.setattr(fixtures, "reset_shared_databases", _reset_ok)
+    monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_ok)
+    monkeypatch.setenv("BMS_TEST_RUN_ID", "run-2")
+
+    plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]
+
+    assert list(calls) == ["reset"]
+    assert (tmp_path / "run.id").read_text(encoding="utf-8") == "run-2"
+
+
+@pytest.mark.kiwi_id(2549)
+def test_prepare_test_dir_clears_marker_without_run_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """未设运行标识（手工窄跑）：自成一次运行，删库并清掉上一轮的标记。"""
+    (tmp_path / "run.id").write_text("old-run", encoding="utf-8")
+
+    def _clear_ok(*, include_databases: bool) -> ConcurrentStableList[str]:
+        """清理成功（无失败项）。
+
+        Args:
+            include_databases: 未使用（与真函数同形）。
+
+        Returns:
+            ConcurrentStableList[str]: 空清单。
+        """
+        del include_databases
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(fixtures, "test_db_dir", lambda: tmp_path)
+    monkeypatch.setattr(fixtures, "reset_shared_databases", lambda: ConcurrentStableList())
+    monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_ok)
+    monkeypatch.delenv("BMS_TEST_RUN_ID", raising=False)
+
+    plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]
+
+    assert not (tmp_path / "run.id").exists()
 
 
 def test_prepare_test_dir_fails_on_stuck_lock(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -595,7 +706,6 @@ def test_prepare_test_dir_fails_on_stuck_lock(monkeypatch: pytest.MonkeyPatch) -
         del include_databases
         return ConcurrentStableList(["a.lock"])
 
-    monkeypatch.setattr(fixtures, "reset_shared_databases", lambda: ConcurrentStableList())
     monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_lock)
     with pytest.raises(RuntimeError, match="残留测试锁清理失败"):
         plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]

@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
 from httpx import AsyncClient, Response
+from sqlalchemy import delete
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.session import DbSession, session_scope
@@ -167,6 +168,9 @@ async def seed_session(
     `session_id` / `user_id` 必须来自本用例命名空间（`sid()` / `uid()`）：共享租户库上固定值
     会与他人用例撞主键或串行断言。
 
+    **先删同键行再插**：键由本用例派生，删的就是「自己上一次留下的行」（只删自造行）。共享库
+    复用上一轮数据时（隔离自检 / `BMS_TEST_REUSE_SHARED_DB=1`），不先删会撞 `UNIQUE(sys_session.id)`。
+
     Args:
         app: 应用实例。
         session_id: 会话 id（十进制字符串，须可转 int；取 `sid(ns, n)`）。
@@ -181,6 +185,7 @@ async def seed_session(
     """
     now = utc_now()
     async with tenant_scope(app) as session:
+        await session.execute(delete(SysSession).where(SysSession.id == int(session_id)))
         session.add(
             SysSession(
                 id=int(session_id),
