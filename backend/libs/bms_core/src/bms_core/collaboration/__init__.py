@@ -68,6 +68,7 @@ from bms_core.collaboration.topology import (
     TopologyResolver,
     TopologyResolverResource,
     TopologySnapshot,
+    TopologyState,
     instance_units,
     register_instance_context,
     register_topology_resolver,
@@ -77,8 +78,10 @@ from bms_core.collaboration.topology import (
     reset_topology_snapshots,
     resolve_for,
     resolve_topology,
+    restore_topology_state,
     snapshots_from_payload,
     topology_snapshot,
+    topology_state,
 )
 from bms_core.collaboration.topology_templates import (
     DEFAULT_UNIT_KEY,
@@ -154,6 +157,7 @@ __all__ = [
     "TopologyResolver",
     "TopologyResolverResource",
     "TopologySnapshot",
+    "TopologyState",
     "bootstrap_remote_capability_grants",
     "bootstrap_remote_topologies",
     "build_capability_request",
@@ -188,9 +192,11 @@ __all__ = [
     "resolve_capability",
     "resolve_for",
     "resolve_topology",
+    "restore_topology_state",
     "scope_action_of",
     "snapshots_from_payload",
     "topology_snapshot",
+    "topology_state",
     "validate_capability_usages",
     "warm_capability_grant_views",
 ]

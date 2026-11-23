@@ -9,8 +9,10 @@
 """
 
 import asyncio
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -19,7 +21,12 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from sqlalchemy import select, text
 
-from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import AuthError
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import DbSession, session_scope
@@ -405,50 +412,159 @@ async def test_revoke_is_soft_and_idempotent(client: AsyncClient) -> None:
     assert missing.json()["code"] == 10002
 
 
-@pytest.mark.own_db("声明同步是全局口径：用独占平台库，避免并行 worker 的启动同步把本用例造的能力行判为「声明移除」")
+class _MemoryGrantRepo:
+    """内存仓储替身：只实现 `sync_declared()` 用到的几个方法（不连库）。
+
+    行对象用 `SimpleNamespace` 承载——`_to_grant()` 只读六个字段，真 ORM 行的其余列
+    在这条路径上不参与判定。`pair_where()` 用二元组表达谓词，替身的写方法认得它。
+    """
+
+    def __init__(self) -> None:
+        """初始化空仓储与自增主键。"""
+        self._rows: ConcurrentStableDict[tuple[str, str], SimpleNamespace] = ConcurrentStableDict()
+        self._next_id = 1
+
+    def pair_where(self, capability: str, consumer: str) -> tuple[str, str]:
+        """按「能力 × 消费方」构造谓词。
+
+        Args:
+            capability: 能力名。
+            consumer: 消费方标识。
+
+        Returns:
+            tuple[str, str]: 替身内部使用的键。
+        """
+        return (capability, consumer)
+
+    async def insert_if_absent(self, values: ConcurrentStableDict[str, Any], *, match: tuple[str, str]) -> bool:
+        """不存在才插入（与真仓储同语义）。
+
+        Args:
+            values: 待写入字段。
+            match: 唯一键（`pair_where()` 的产物）。
+
+        Returns:
+            bool: 真正插入为 True，已存在为 False。
+        """
+        if match in self._rows:
+            return False
+        row = SimpleNamespace(
+            id=self._next_id,
+            capability_name=match[0],
+            consumer_key=match[1],
+            source=values["source"],
+            status=values["status"],
+            expire_at=None,
+            note=values.get("note"),
+            granted_at=values.get("granted_at"),
+            revoked_at=None,
+        )
+        self._next_id += 1
+        self._rows.set(match, row)
+        return True
+
+    async def update_where(self, where: tuple[str, str], *, values: ConcurrentStableDict[str, Any]) -> bool:
+        """按谓词覆盖字段（行不存在返回 False）。
+
+        Args:
+            where: 唯一键（`pair_where()` 的产物）。
+            values: 待覆盖字段。
+
+        Returns:
+            bool: 命中并更新为 True。
+        """
+        row = self._rows.get(where)
+        if row is None:
+            return False
+        for key, value in values.items():
+            setattr(row, key, value)
+        return True
+
+    async def get_by_pair(self, capability: str, consumer: str) -> SimpleNamespace | None:
+        """按「能力 × 消费方」取行。
+
+        Args:
+            capability: 能力名。
+            consumer: 消费方标识。
+
+        Returns:
+            SimpleNamespace | None: 行；不存在为 None。
+        """
+        return self._rows.get((capability, consumer))
+
+    async def list_all(self) -> ConcurrentStableList[SimpleNamespace]:
+        """取全部行。
+
+        Returns:
+            ConcurrentStableList[SimpleNamespace]: 全部行（插入序）。
+        """
+        return ConcurrentStableList(self._rows.values())
+
+
+class _NullSession:
+    """会话替身：`_write_scope()` 只调 `rollback()` 清自动事务，替身无事可做。"""
+
+    async def rollback(self) -> None:
+        """空实现（无真实事务）。"""
+
+
+class _NullUow:
+    """工作单元替身：`begin()` 只提供事务上下文，不连库。"""
+
+    @asynccontextmanager
+    async def begin(self) -> AsyncGenerator[None]:
+        """事务上下文（无真实提交）。
+
+        Yields:
+            None: 作用域运行期。
+        """
+        yield
+
+
 @pytest.mark.anyio
-async def test_declared_sync_create_disable_restore_with_audit(_isolated_service_app: FastAPI) -> None:
+async def test_declared_sync_create_disable_restore_with_audit(monkeypatch: pytest.MonkeyPatch) -> None:
     """声明同步：新建 → 声明移除置撤销 → 声明回归恢复；状态变更逐次经审计捕获。
 
-    独占平台库（`own_db`）：`sync_declared()` 会把「库内存在、当前声明没有」的行判为声明移除，
-    而别的 worker 的启动装配用的是真实目录（不含本用例的 `demo.mdm.user-roles`）——共享库上
-    本用例造的行会被并发启动同步改成 disabled（2026-11-23 末批实测：1/3 轮次复现）。
+    服务层单测（内存仓储替身，不连共享库）：`sync_declared()` 断的是**库的全局状态**，
+    而共享库上其它 worker 的启动装配会把本用例造的 `demo.*` 行判为「声明移除」改成
+    disabled（2026-11-23 末批实测：每 3 轮复现 1 次，窗口在同步提交与本用例重查之间）。
+    三段语义与审计序列用替身完全覆盖；真库装配路径由
+    `test_bootstrap_registers_source_and_warms_views`（独占库）继续覆盖。
     """
     audit = _RecordingAudit()
-    service_app = _isolated_service_app  # 独占库应用：与共享库的 service_app 同装配，仅库不同
-    async with session_scope(
-        service_app.state.engine_registry,
-        db_key=PLATFORM_DB_KEY,
-        factory=service_app.state.session_factory,
-    ) as session:
-        service = CapabilityGrantService(
-            session,
-            audit=audit,  # pyright: ignore[reportArgumentType]  # 结构化替身
-            uow=DbUnitOfWork(session),
-        )
-        await service.sync_declared()
-        row = await _grant_of(session, CAPABILITY, CONSUMER)
-        assert row is not None
-        assert (row.source, row.status) == (GRANT_SOURCE_DECLARED, GRANT_STATUS_ENABLED)
+    repo = _MemoryGrantRepo()
+    monkeypatch.setattr(CapabilityGrantService, "_repo", property(lambda _self: repo))
+    service = CapabilityGrantService(
+        cast("DbSession", _NullSession()),
+        audit=audit,  # pyright: ignore[reportArgumentType]  # 结构化替身
+        uow=cast("DbUnitOfWork", _NullUow()),
+    )
 
-        reset_collaboration_records()
-        register_collaboration_records((_record(consumers=ConcurrentStableFrozenList()),))
-        await service.sync_declared()
-        row = await _grant_of(session, CAPABILITY, CONSUMER)
-        assert row is not None
-        assert (row.status, row.note) == (GRANT_STATUS_DISABLED, GRANT_NOTE_REMOVED)
+    first = await service.sync_declared()
+    assert (first.created, first.revoked, first.restored) == (1, 0, 0)
+    row = await repo.get_by_pair(CAPABILITY, CONSUMER)
+    assert row is not None
+    assert (row.source, row.status) == (GRANT_SOURCE_DECLARED, GRANT_STATUS_ENABLED)
 
-        reset_collaboration_records()
-        register_collaboration_records((_record(),))
-        await service.sync_declared()
-        row = await _grant_of(session, CAPABILITY, CONSUMER)
-        assert row is not None
-        assert (row.status, row.note) == (GRANT_STATUS_ENABLED, GRANT_NOTE_DECLARED)
+    reset_collaboration_records()
+    register_collaboration_records((_record(consumers=ConcurrentStableFrozenList()),))
+    second = await service.sync_declared()
+    assert (second.created, second.revoked, second.restored) == (0, 1, 0)
+    row = await repo.get_by_pair(CAPABILITY, CONSUMER)
+    assert row is not None
+    assert (row.status, row.note) == (GRANT_STATUS_DISABLED, GRANT_NOTE_REMOVED)
+
+    reset_collaboration_records()
+    register_collaboration_records((_record(),))
+    third = await service.sync_declared()
+    assert (third.created, third.revoked, third.restored) == (0, 0, 1)
+    row = await repo.get_by_pair(CAPABILITY, CONSUMER)
+    assert row is not None
+    assert (row.status, row.note) == (GRANT_STATUS_ENABLED, GRANT_NOTE_DECLARED)
 
     changes = [change for _table, _id, change, _actor in audit.calls]
-    # 独占库上仍有平台自身的声明行：只断言本用例能力的变更序列存在，不依赖全表计数。
-    assert GRANT_STATUS_DISABLED in changes
-    assert changes.count(GRANT_STATUS_ENABLED) >= 2
+    # 仓储是替身、声明只有本用例一条：变更序列完全确定，不依赖全表计数。
+    assert changes == [GRANT_STATUS_ENABLED, GRANT_STATUS_DISABLED, GRANT_STATUS_ENABLED]
 
 
 @pytest.mark.anyio

@@ -45,6 +45,7 @@ __all__ = [
     "TopologyResolver",
     "TopologyResolverResource",
     "TopologySnapshot",
+    "TopologyState",
     "instance_units",
     "register_instance_context",
     "register_topology_resolver",
@@ -54,8 +55,10 @@ __all__ = [
     "reset_topology_snapshots",
     "resolve_for",
     "resolve_topology",
+    "restore_topology_state",
     "snapshots_from_payload",
     "topology_snapshot",
+    "topology_state",
 ]
 
 DEFAULT_TOPOLOGY_TENANT = 0
@@ -221,6 +224,69 @@ def reset_topology_snapshots() -> None:
     """清空全部快照（测试隔离用；生产路径不调用）。"""
     _SNAPSHOTS.clear()
     _CURRENT_VERSIONS.clear()
+
+
+@dataclass(frozen=True)
+class TopologyState(BaseValueObject):
+    """进程内拓扑状态的整份留存（测试隔离用：保存 → 用例内可随意改写 → 恢复）。"""
+
+    snapshots: ConcurrentStableFrozenList[TopologySnapshot] = dataclass_field(
+        default_factory=lambda: ConcurrentStableFrozenList[TopologySnapshot]()
+    )
+    """已登记的全部快照（`(租户, 版本)` 全量，含历史版本）。"""
+
+    current_versions: ConcurrentStableFrozenDict[int, int] = dataclass_field(
+        default_factory=lambda: ConcurrentStableFrozenDict[int, int]()
+    )
+    """各租户当前生效版本（`{租户: 版本}`）。"""
+
+    instance_service: str = ""
+    """本实例服务标识（空串表示未登记）。"""
+
+    instance_units: ConcurrentStableFrozenList[str] | None = None
+    """本实例承载单元集合（`None` 表示未声明 → 取默认拓扑全部单元）。"""
+
+
+def topology_state() -> TopologyState:
+    """留存当前进程内拓扑状态（快照 / 当前版本 / 实例上下文）。
+
+    为什么需要留存而不是只复位：拓扑快照与实例上下文都是**进程级可变全局**，用例改写后
+    会泄漏给同 worker 的后继用例（域归属判定读 `instance_domains()` → 本模块快照），
+    表现为「业务域未在本实例启用」的 403。保存-恢复比「清空后依赖重载」更稳——
+    不经装配直接调用解析函数的用例仍能看到与用例开始前一致的状态。
+
+    Returns:
+        TopologyState: 当前状态的可恢复副本。
+    """
+    snapshots: ConcurrentStableList[TopologySnapshot] = ConcurrentStableList()
+    for snapshot in _SNAPSHOTS.values():
+        snapshots.add(snapshot)
+    versions: ConcurrentStableDict[int, int] = ConcurrentStableDict()
+    for tenant_id, version in _CURRENT_VERSIONS.to_list():
+        versions.set(tenant_id, version)
+    return TopologyState(
+        snapshots=ConcurrentStableFrozenList(snapshots),
+        current_versions=ConcurrentStableFrozenDict(versions.to_list()),
+        instance_service=_instance_service,
+        instance_units=_instance_units,
+    )
+
+
+def restore_topology_state(state: TopologyState) -> None:
+    """把进程内拓扑状态恢复为 `topology_state()` 留存的副本（测试隔离用）。
+
+    Args:
+        state: `topology_state()` 的返回值。
+    """
+    global _instance_service, _instance_units
+    _SNAPSHOTS.clear()
+    _CURRENT_VERSIONS.clear()
+    for snapshot in state.snapshots:
+        _SNAPSHOTS.set((snapshot.tenant_id, snapshot.version), snapshot)
+    for tenant_id, version in state.current_versions.items():
+        _CURRENT_VERSIONS.set(tenant_id, version)
+    _instance_service = state.instance_service
+    _instance_units = state.instance_units
 
 
 def topology_snapshot(tenant_id: int) -> TopologySnapshot | None:

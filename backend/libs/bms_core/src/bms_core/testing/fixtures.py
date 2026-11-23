@@ -49,6 +49,7 @@ __all__ = (
     "clear_tenant_cache",
     "configure_project_root",
     "ensure_shared_db",
+    "isolated_topology",
     "isolation_enabled",
     "isolation_notice",
     "needed_shared_databases",
@@ -294,6 +295,26 @@ def reset_plugin_registry() -> Iterator[None]:
     default_plugin_registry().reset()
     yield
     default_plugin_registry().reset()
+
+
+@pytest.fixture
+def isolated_topology() -> Iterator[None]:
+    """用例隔离：保存并恢复进程级拓扑状态（快照 / 当前版本 / 实例上下文）。
+
+    拓扑快照与实例上下文是**进程级可变全局**：能力入站的域归属判定（`instance_domains()`）
+    与单元寻址直接读它们，不经数据库。用例改写后不恢复，同 worker 的后继用例会看到被改过的
+    域集合，表现为「业务域未在本实例启用」的 403——这与「本用例的库是否干净」无关，
+    靠独占库无法隔离。范式与 `isolate_catalog_records` 的其余进程级表一致：用例前留存、
+    用例后恢复（留存而非清空，使不经装配直调解析函数的用例仍看到与用例开始前一致的状态）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    from bms_core.collaboration.topology import restore_topology_state, topology_state
+
+    state = topology_state()
+    yield
+    restore_topology_state(state)
 
 
 def clear_tenant_cache(app: object) -> None:
