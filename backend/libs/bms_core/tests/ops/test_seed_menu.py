@@ -2,16 +2,16 @@
 
 from collections.abc import AsyncIterator
 from functools import partial
+from pathlib import Path
 
 import pytest
 from sqlalchemy import Connection, Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.models.platform.menu_form import SysButton, SysField, SysForm, SysMenu
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness
 from bms_core.tenant.seed import menu as seed_menu
-from bms_core.testing.transaction import write_session
 
 # 07B `03_03` 改造前的清单规模（凭据：设计 §2.1 实测 44 / 110 / 31）。
 # 2026-10-31 起基线记「含平台后续新增条目」：08-02_02 补 `config:manage`（110 → 111）、
@@ -20,6 +20,11 @@ from bms_core.testing.transaction import write_session
 # 08_04 补 `help:manage`（123 → 124，当时未同步本基线，2026-11-18 一并校正）、
 # 10_02 补 `formdesign:manage`（124 → 125）、11_01 补 `dashboard:manage`（125 → 126）、
 # 12_01 补 `help:package`（126 → 127；动作码字典新增 `package` → 32 → 33）。
+pytestmark = pytest.mark.own_db(
+    "菜单元数据种子装载：建表 + 播种 + 全库派生一致性校验，需空库起步；"
+    "共享库上他人写入的不一致行会让断言必红（与执行顺序无关），断言的是「本次装载的结果」而非库的当前状态"
+)
+
 _BUSINESS_BEFORE = 45
 _PERMISSIONS_BEFORE = 127
 _ACTIONS_BEFORE = 33
@@ -72,20 +77,29 @@ def _create_table(table: Table, connection: Connection) -> None:
 
 
 @pytest.fixture
-async def seed_session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """菜单元数据表已建的回滚会话。
+async def seed_session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
+    """独占平台库的会话（本文件的装载用例要在空库起步）。
+
+    为什么不用共享平台库：用例断言「装载后主表默认文案 ≡ 附表默认语言」，而共享库会被
+    其它用例 / worker 写入互不一致的行（实测 `sys_action#manage` 主表旧文案），断言与执行
+    顺序绑定；独占库让「本次装载的结果」成为唯一变量。
 
     Args:
-        shared_platform_engine: 共享平台库引擎。
+        tmp_path: 每例一份临时目录（建一份一次性菜单元数据库）。
 
     Yields:
-        AsyncSession: 写会话（不提交，退出即回滚）。
+        AsyncSession: 该库的会话。
     """
-    async with shared_platform_engine.begin() as connection:
-        for table in seed_menu._MENU_TABLES:  # pyright: ignore[reportPrivateUsage]
-            await connection.run_sync(partial(_create_table, table))
-    async with write_session(shared_platform_engine) as session:
-        yield session
+    url = f"sqlite+aiosqlite:///{tmp_path / 'menu.db'}"
+    engine = create_async_engine(url)
+    try:
+        async with engine.begin() as connection:
+            for table in seed_menu._MENU_TABLES:  # pyright: ignore[reportPrivateUsage]
+                await connection.run_sync(partial(_create_table, table))
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            yield session
+    finally:
+        await engine.dispose()
 
 
 @pytest.mark.kiwi_id(2520)
