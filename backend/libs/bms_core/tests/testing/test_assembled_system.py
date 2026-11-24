@@ -140,3 +140,18 @@ def test_process_singleton() -> None:
     reset_assembled_system()
     with pytest.raises(RuntimeError, match="尚未装配"):
         get_assembled_system()
+
+
+async def test_before_start_hook_runs_before_lifespan() -> None:
+    """每个应用在进入 lifespan 之前先执行准备回调（对端声明装载等）。"""
+    log: ConcurrentStableList[str] = ConcurrentStableList()
+    prepared: ConcurrentStableList[str] = ConcurrentStableList()
+    system = AssembledSystem(
+        ConcurrentStableDict({"a": _factory(log, "a")}),
+        before_start=lambda key, app: prepared.add(f"prepare:{key}"),
+    )
+
+    await system.assemble()
+    assert list(prepared) == ["prepare:a"]
+    assert list(log) == ["enter:a"]
+    await system.aclose()

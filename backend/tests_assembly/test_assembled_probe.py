@@ -11,6 +11,7 @@ import pytest
 
 from bms_core.services.module_registry import SERVICE_CATALOG
 from bms_core.testing.system import AssembledSystem
+from tests_support.assembled_services import PLATFORM_HOSTED_SERVICES
 
 pytestmark = [
     pytest.mark.kiwi_id(2556),
@@ -22,8 +23,14 @@ pytestmark = [
 async def test_assembles_all_services_once(assembled_system: AssembledSystem | None) -> None:
     """全部服务一次装配完成，且可按服务键访问已装配实例。"""
     assert assembled_system is not None
-    expected = {record.service_key for record in SERVICE_CATALOG if record.service_key}
+    expected = {
+        record.service_key
+        for record in SERVICE_CATALOG
+        if record.service_key and record.service_key not in PLATFORM_HOSTED_SERVICES
+    }
     assert set(assembled_system.apps) == expected
+    with pytest.raises(RuntimeError, match="只允许装配一次"):
+        await assembled_system.assemble()
 
     async with assembled_system.client("platform") as client:
         response = await client.get("/healthz")

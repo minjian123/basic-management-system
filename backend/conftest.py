@@ -98,9 +98,10 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
         return
 
     from bms_core.core.config import Settings, get_settings
+    from bms_core.registry.products import load_product_manifests
     from bms_core.testing import fixtures as base_fixtures
     from bms_core.testing.system import AssembledSystem, reset_assembled_system, set_assembled_system
-    from tests_support.assembled_services import service_factories
+    from tests_support.assembled_services import peer_manifest_paths, service_factories
     from tests_support.auth import configure_token_env
     from tests_support.redis import install_process_fake_redis_client
     from tests_support.tenant_source import installed_fake_tenant_source
@@ -118,8 +119,15 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
     install_process_fake_redis_client()
     configure_token_env(set_env=os.environ.__setitem__)
     get_settings.cache_clear()
+    load_product_manifests(peer_manifest_paths())
 
-    system = AssembledSystem(service_factories())
+    peer_paths = peer_manifest_paths()
+
+    def _prepare(key: str, app: object) -> None:
+        del key, app
+        load_product_manifests(peer_paths)
+
+    system = AssembledSystem(service_factories(), before_start=_prepare)
     try:
         with installed_fake_tenant_source():
             await system.assemble()

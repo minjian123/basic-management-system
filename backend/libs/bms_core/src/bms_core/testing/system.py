@@ -42,15 +42,22 @@ class AssembledSystem:
         apps: 已装配应用（`service_key` → `FastAPI`，插入序）。
     """
 
-    def __init__(self, factories: ConcurrentStableDict[str, Callable[[], FastAPI]]) -> None:
+    def __init__(
+        self,
+        factories: ConcurrentStableDict[str, Callable[[], FastAPI]],
+        *,
+        before_start: Callable[[str, FastAPI], None] | None = None,
+    ) -> None:
         """初始化（尚未装配）。
 
         Args:
             factories: 服务键 → 应用工厂（零参，返回未进入 lifespan 的应用）。
+            before_start: 每个应用进入 lifespan 前的准备回调（服务键, 应用）；用于装载对端声明等。
         """
         self._factories: ConcurrentStableDict[str, Callable[[], FastAPI]] = ConcurrentStableDict(factories)
         self.apps: ConcurrentStableDict[str, FastAPI] = ConcurrentStableDict()
         self._stack: AsyncExitStack | None = None
+        self._before_start = before_start
 
     async def assemble(self) -> AssembledSystem:
         """按清单顺序创建并启动全部应用（只允许一次）。
@@ -67,6 +74,8 @@ class AssembledSystem:
         try:
             for service_key, factory in self._factories.items():
                 app = factory()
+                if self._before_start is not None:
+                    self._before_start(service_key, app)
                 await stack.enter_async_context(app.router.lifespan_context(app))
                 self.apps[service_key] = app
         except BaseException:
