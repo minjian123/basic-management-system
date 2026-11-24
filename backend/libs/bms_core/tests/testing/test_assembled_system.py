@@ -9,6 +9,7 @@ from collections.abc import AsyncGenerator, Callable, Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from fastapi import FastAPI
 
@@ -16,6 +17,7 @@ from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.testing.system import (
     AssembledSystem,
+    AssembledTransport,
     get_assembled_system,
     reset_assembled_system,
     set_assembled_system,
@@ -155,3 +157,20 @@ async def test_before_start_hook_runs_before_lifespan() -> None:
     assert list(prepared) == ["prepare:a"]
     assert list(log) == ["enter:a"]
     await system.aclose()
+
+
+async def test_assembled_transport_routes_by_service_key() -> None:
+    """服务间调用传输按主机名（服务键）路由到对应已装配应用，未装配即报错。"""
+    log: ConcurrentStableList[str] = ConcurrentStableList()
+    system = AssembledSystem(ConcurrentStableDict({"a": _factory(log, "a"), "b": _factory(log, "b")}))
+    await system.assemble()
+    transport = AssembledTransport(system)
+    try:
+        async with httpx.AsyncClient(transport=transport) as client:
+            assert (await client.get("http://b/ping")).json() == {"service": "b"}
+            with pytest.raises(RuntimeError, match="可用：a、b"):
+                await client.get("http://missing/ping")
+    finally:
+        await transport.aclose()
+        await system.aclose()
+    assert list(transport.transports) == []

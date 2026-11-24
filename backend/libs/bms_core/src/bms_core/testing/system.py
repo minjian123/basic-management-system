@@ -26,6 +26,7 @@ from bms_core.testing.fixtures import clear_tenant_cache
 
 __all__ = (
     "AssembledSystem",
+    "AssembledTransport",
     "get_assembled_system",
     "reset_assembled_system",
     "set_assembled_system",
@@ -169,3 +170,48 @@ def reset_assembled_system() -> None:
     """清空进程级登记（测试隔离 / 会话结束调用）。"""
     global _system
     _system = None
+
+
+class AssembledTransport(httpx.AsyncBaseTransport):
+    """按主机名（服务键）路由到已装配应用的 ASGI 传输。
+
+    供服务间调用使用：`base_url_template = "http://{service}"` 时，主机名就是服务键；
+    请求直接进入对应已装配应用的 ASGI 栈，不经过网络。
+
+    Attributes:
+        transports: 服务键 → ASGI 传输（惰性创建、按模块复用）。
+    """
+
+    def __init__(self, system: AssembledSystem) -> None:
+        """初始化。
+
+        Args:
+            system: 已装配系统。
+        """
+        self._system = system
+        self.transports: ConcurrentStableDict[str, httpx.ASGITransport] = ConcurrentStableDict()
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        """按请求主机名路由到已装配应用。
+
+        Args:
+            request: httpx 请求（主机名 = 服务键）。
+
+        Returns:
+            httpx.Response: 目标应用返回的响应。
+
+        Raises:
+            RuntimeError: 服务未装配（不静默回落网络）。
+        """
+        service_key = request.url.host
+        transport = self.transports.get(service_key)
+        if transport is None:
+            transport = httpx.ASGITransport(app=self._system.app(service_key))
+            self.transports[service_key] = transport
+        return await transport.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        """释放全部 ASGI 传输（幂等）。"""
+        for transport in self.transports.values():
+            await transport.aclose()
+        self.transports.clear()
