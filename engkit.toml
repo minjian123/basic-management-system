@@ -669,7 +669,7 @@ resident_scopes = ["module", "session", "package"]
 premise_marker = "premise:"
 # P3 独占库分类：own_db 必须带 scope，取值限这六类；external 须同时带 integration 标记
 own_marker = "own_db"
-own_scopes = ["ddl", "create", "seed", "topology", "memory", "external"]
+own_scopes = ["ddl", "create", "seed", "topology", "memory", "external", "destructive"]
 external_scope = "external"
 integration_marker = "integration"
 # P4 全局状态独占锁：真实系统里没有「整段全局状态只有我一个」的窗口

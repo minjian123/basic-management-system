@@ -129,7 +129,7 @@ async def test_enforce_max_active_no_overflow(service_app: FastAPI, ns: Namespac
 
 
 @pytest.mark.kiwi_id(2325)
-@pytest.mark.own_db("按租户批量撤销是全库口径：用独占租户库，避免撤销并行用例的会话")
+@pytest.mark.own_db("按租户批量撤销是破坏性全局操作：独占库避免波及他人会话", scope="destructive")
 async def test_revoke_tenant_sessions_revokes_all_active(
     isolated_tenant: None, isolated_service_app: FastAPI, ns: Namespace
 ) -> None:
@@ -157,7 +157,7 @@ async def test_revoke_tenant_sessions_revokes_all_active(
 
 
 @pytest.mark.kiwi_id(2325)
-@pytest.mark.own_db("按租户批量撤销是全库口径：用独占租户库，避免撤销并行用例的会话")
+@pytest.mark.own_db("按租户批量撤销是破坏性全局操作：独占库避免波及他人会话", scope="destructive")
 async def test_revoke_tenant_sessions_cleanup_failure_tolerated(
     isolated_tenant: None, isolated_service_app: FastAPI, ns: Namespace
 ) -> None:
