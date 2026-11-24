@@ -7,14 +7,17 @@
 
 import os
 from collections.abc import AsyncIterator, Callable, Iterator
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.testing.fixtures import (
+    apply_module_loop_scope,
     clear_tenant_cache,
     platform_db,
     reset_plugin_registry,
@@ -160,6 +163,11 @@ async def service_app(notification_module_env: None) -> AsyncIterator[FastAPI]:
             yield app
     finally:
         clear_tenant_cache(app)
+
+
+def pytest_collection_modifyitems(items: ConcurrentStableList[pytest.Item]) -> None:
+    """通知服务异步用例统一使用模块级事件循环（装配常驻 B1）。"""
+    apply_module_loop_scope(items, Path(__file__).parent)
 
 
 @pytest_asyncio.fixture(loop_scope="module")

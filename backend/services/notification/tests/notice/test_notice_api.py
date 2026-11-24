@@ -30,7 +30,7 @@ from bms_notification.domains.notification.schemas.notice import NoticeExpireReq
 from bms_notification.domains.notification.services.notice_audience import NoticeAudienceReader
 from notice._support import FakeAudience, FakeOptionSets, add_notice, reset_user, use_user, utc_now
 
-pytestmark = [pytest.mark.kiwi_id(2518), pytest.mark.asyncio(loop_scope="module")]
+pytestmark = pytest.mark.kiwi_id(2518)
 
 API = "/api/v1/notices"
 

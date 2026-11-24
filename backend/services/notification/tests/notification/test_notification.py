@@ -22,8 +22,6 @@ from bms_notification.domains.notification.center import DatabaseNotificationCen
 from bms_notification.main import ApplicationFactory
 from tests_support.auth import auth_headers
 
-pytestmark = pytest.mark.asyncio(loop_scope="module")
-
 API = "/api/v1/notifications"
 
 

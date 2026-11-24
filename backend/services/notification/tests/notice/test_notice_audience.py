@@ -12,7 +12,7 @@ from bms_core.core.exceptions import NoticeAudienceUnavailableError, ServiceUnav
 from bms_notification.domains.notification.services.notice_audience import NoticeAudienceReader
 from notice._support import reset_user, use_user
 
-pytestmark = [pytest.mark.kiwi_id(2518), pytest.mark.asyncio(loop_scope="module")]
+pytestmark = pytest.mark.kiwi_id(2518)
 
 
 class _Response:

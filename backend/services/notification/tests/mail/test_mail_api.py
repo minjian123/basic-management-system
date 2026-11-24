@@ -15,7 +15,7 @@ from bms_core.db.gate import GATE_CRITICAL_WAIT
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 
-pytestmark = [pytest.mark.kiwi_id(2519), pytest.mark.asyncio(loop_scope="module")]
+pytestmark = pytest.mark.kiwi_id(2519)
 
 MAIL = "/api/v1/mail"
 SMS = "/api/v1/sms"

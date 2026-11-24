@@ -206,6 +206,25 @@ def _reset_isolated_runtime(worker_id: int) -> None:
     get_settings.cache_clear()
 
 
+def apply_module_loop_scope(items: Iterable[Any], directory: Path) -> None:
+    """把 `directory` 下异步用例的事件循环作用域设为模块级（装配常驻 B1 的配套）。
+
+    为什么需要：模块级 `service_app` 让整份文件共用一个 app，异步用例必须跑在同一个循环里；
+    只给 async 用例加标记，同步用例不标记，避免 pytest-asyncio 的「非 async 却带 asyncio 标记」告警。
+
+    Args:
+        items: 收集到的用例（`pytest.Item` 列表）。
+        directory: 套件目录（只处理其下的用例）。
+    """
+    root = directory.resolve()
+    for item in items:
+        path = Path(str(item.path)).resolve()
+        if path != root and root not in path.parents:
+            continue
+        if inspect.iscoroutinefunction(getattr(item, "function", None)):
+            item.add_marker(pytest.mark.asyncio(loop_scope="module"))
+
+
 @pytest.fixture(name="bms_isolated_env_module", scope="module")
 def isolated_env_module() -> Iterator[None]:
     """模块级隔离环境：装配常驻（`service_app` 提 module 级）要求隔离先于装配就位。

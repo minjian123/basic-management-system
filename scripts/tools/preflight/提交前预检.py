@@ -614,7 +614,7 @@ def test_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStab
     """从改动文件直接推出要跑的测试文件（不做依赖推导、不扩圈、不退全量）。
 
     规则只有三条：
-    1. 改动本身就是测试文件（路径含 `tests/`）→ 直接跑；
+    1. 改动本身就是测试文件（路径含 `tests/` 且文件名以 `test_` 开头）→ 直接跑；
     2. 改动是 `.../src/<包>/<路径>/<模块>.py` → 映射到同工程 `tests/<路径>/test_<模块>.py`，存在才跑；
     3. `backend/ops/<模块>.py` → `backend/libs/bms_core/tests/ops/test_<模块>.py`，存在才跑。
 
@@ -632,7 +632,8 @@ def test_targets(root: Path, files: ConcurrentStableList[str]) -> ConcurrentStab
         if not rel.endswith(".py") or not rel.startswith("backend/"):
             continue
         relative = rel[len("backend/") :]
-        if "/tests/" in relative or relative.startswith("tests/"):
+        name = Path(relative).name
+        if ("/tests/" in relative or relative.startswith("tests/")) and name.startswith("test_"):
             if relative not in picked:
                 picked.add(relative)
             continue

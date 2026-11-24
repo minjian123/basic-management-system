@@ -337,11 +337,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/file/tests/conftest.py",
-      "code": "P2",
-      "count": 1
-    },
-    {
       "file": "backend/services/file/tests/test_file_failures.py",
       "code": "P1",
       "count": 1
