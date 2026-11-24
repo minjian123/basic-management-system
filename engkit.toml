@@ -675,6 +675,14 @@ integration_marker = "integration"
 # P4 全局状态独占锁：真实系统里没有「整段全局状态只有我一个」的窗口
 lock_calls = ["file_lock"]
 lock_targets = ["platform-global-state"]
+# P5 全局装配状态写入：全系统装配一次后，用例不得改装配结果（dependency_overrides / app.state /
+# 全局 Settings）；含整体赋值、.clear/.update/.pop 与 monkeypatch.setattr。存量只减不增，不留行内豁免。
+state_attr_names = ["state"]
+override_attrs = ["dependency_overrides"]
+state_methods = ["update", "clear", "pop", "setdefault"]
+setattr_calls = ["setattr", "delattr"]
+settings_getters = ["get_settings"]
+settings_names = ["settings"]
 baseline = "deploy/boundaries/test_premises_baseline.json"
 baseline_version = 1
 exclude_parts = ["__pycache__", ".venv", "node_modules", ".git"]

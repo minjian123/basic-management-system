@@ -12,9 +12,49 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/alembic/test_auto_create_tables.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
       "file": "backend/libs/bms_core/tests/alembic/test_migration_edges.py",
       "code": "P3",
       "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/tests/alembic/test_migration_edges.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
+      "file": "backend/libs/bms_core/tests/api/test_audit_middleware.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
+      "file": "backend/libs/bms_core/tests/api/test_metrics_endpoint.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/api/test_middleware.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/tests/api/test_request_domain_labels.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/tests/api/test_require_auth.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/tests/api/test_require_auth_or_service.py",
+      "code": "P5",
+      "count": 2
     },
     {
       "file": "backend/libs/bms_core/tests/audit/test_audit_shards.py",
@@ -22,8 +62,23 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/collaboration/test_capability_grant_bootstrap.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/tests/collaboration/test_topology_distribute.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
       "file": "backend/libs/bms_core/tests/config/test_config_real.py",
       "code": "P3",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/config/test_config_runtime.py",
+      "code": "P5",
       "count": 1
     },
     {
@@ -32,13 +87,58 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/consistency/test_barrier.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/core/test_application_factory.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/core/test_assembly_factories.py",
+      "code": "P5",
+      "count": 8
+    },
+    {
+      "file": "backend/libs/bms_core/tests/core/test_config.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/core/test_http2_runtime.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/core/test_product_service_assembly.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/core/test_run.py",
+      "code": "P5",
+      "count": 14
+    },
+    {
       "file": "backend/libs/bms_core/tests/core/test_service_catalog_startup.py",
       "code": "P3",
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/core/test_service_runtime.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
       "file": "backend/libs/bms_core/tests/datasource/test_base.py",
       "code": "P3",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/datasource/test_data_source_startup.py",
+      "code": "P5",
       "count": 1
     },
     {
@@ -47,14 +147,44 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/db/test_data_access.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
       "file": "backend/libs/bms_core/tests/db/test_db_admin.py",
       "code": "P3",
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/db/test_db_inventory.py",
+      "code": "P5",
+      "count": 5
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_degradation.py",
+      "code": "P5",
+      "count": 8
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_dm_ssl.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_engine_registry.py",
+      "code": "P5",
+      "count": 7
+    },
+    {
       "file": "backend/libs/bms_core/tests/db/test_engine_routing.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_engine_routing.py",
+      "code": "P5",
+      "count": 12
     },
     {
       "file": "backend/libs/bms_core/tests/db/test_gate.py",
@@ -67,9 +197,29 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/db/test_keys.py",
+      "code": "P5",
+      "count": 5
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_pool_config.py",
+      "code": "P5",
+      "count": 15
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_session_scope.py",
+      "code": "P5",
+      "count": 9
+    },
+    {
       "file": "backend/libs/bms_core/tests/db/test_sqlite_dir.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_sqlite_dir.py",
+      "code": "P5",
+      "count": 7
     },
     {
       "file": "backend/libs/bms_core/tests/db/test_sqlite_engine.py",
@@ -82,9 +232,24 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/db/test_sync_facade.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_tenant_middleware.py",
+      "code": "P5",
+      "count": 5
+    },
+    {
       "file": "backend/libs/bms_core/tests/db/test_tenant_routing.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/db/test_tenant_routing.py",
+      "code": "P5",
+      "count": 14
     },
     {
       "file": "backend/libs/bms_core/tests/dict/test_table_i18n_fallback.py",
@@ -95,6 +260,16 @@
       "file": "backend/libs/bms_core/tests/dict/test_table_i18n_scope.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/events/test_event_null.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/health/test_catalog_check.py",
+      "code": "P5",
+      "count": 15
     },
     {
       "file": "backend/libs/bms_core/tests/i18n/test_i18n_edge_cases.py",
@@ -117,14 +292,64 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/integration/test_db_connectivity_integration.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/libs/bms_core/tests/integration/test_dm8_dialect_measure.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/tests/integration/test_dm_xa_integration.py",
       "code": "P3",
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/integration/test_dm_xa_integration.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/integration/test_dm_xa_recover_integration.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/integration/test_event_bus_msg.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/integration/test_three_db_integration.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/masking/test_masking.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/adapter/test_assembly.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/msgclient/instances/test_instance_provider.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
       "file": "backend/libs/bms_core/tests/ops/test_baseline_series.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/ops/test_check_budget.py",
+      "code": "P5",
+      "count": 14
     },
     {
       "file": "backend/libs/bms_core/tests/ops/test_check_modules.py",
@@ -202,9 +427,49 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/optionset/test_option_set_manifest.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/outbox/test_msg_outbox_switch.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/outbox/test_outbox_dispatcher.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/permission/test_permission.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/permission/test_sources.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/tests/recycle/test_recycle_engine.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/libs/bms_core/tests/resource_scope/test_scope_audit.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/tests/resource_scope/test_scope_resolver.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/tasks/test_builtin_cleanup.py",
+      "code": "P5",
+      "count": 4
     },
     {
       "file": "backend/libs/bms_core/tests/tenant/seed/test_branches.py",
@@ -292,6 +557,26 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/tenant/test_guard.py",
+      "code": "P5",
+      "count": 9
+    },
+    {
+      "file": "backend/libs/bms_core/tests/tenant/test_lifecycle.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/tests/tenant_module/test_gate.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/testing/test_assembled_system.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/tests/testing/test_case_layers.py",
       "code": "P2",
       "count": 1
@@ -322,6 +607,11 @@
       "count": 3
     },
     {
+      "file": "backend/libs/bms_core/tests/testing/test_shared_db_edges.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
       "file": "backend/libs/bms_core/tests/testing/test_shared_db_prepare.py",
       "code": "P3",
       "count": 1
@@ -332,8 +622,78 @@
       "count": 1
     },
     {
+      "file": "backend/libs/bms_core/tests/tracing/test_tracing_setup.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/libs/bms_core/tests/transaction/test_transaction_xa.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/libs/bms_core/tests/workerid/test_integration.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/services/ai/tests/chat/test_chat.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/services/file/tests/conftest.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
+      "file": "backend/services/file/tests/storage/test_multipart_session.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
       "file": "backend/services/file/tests/test_file_failures.py",
       "code": "P1",
+      "count": 1
+    },
+    {
+      "file": "backend/services/file/tests/test_file_failures.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/file/tests/test_file_multipart_api.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/tests/auth/test_change_password.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/tests/auth/test_introspect.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/services/identity/tests/auth/test_login.py",
+      "code": "P5",
+      "count": 5
+    },
+    {
+      "file": "backend/services/identity/tests/auth/test_password_reset.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/tests/auth/test_refresh.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/tests/auth/test_session_kick.py",
+      "code": "P5",
       "count": 1
     },
     {
@@ -342,13 +702,63 @@
       "count": 1
     },
     {
+      "file": "backend/services/identity/tests/auth/test_sessions.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/tests/conftest.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/tests/idp/conftest.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
       "file": "backend/services/identity/tests/idp/test_manage.py",
       "code": "P1",
       "count": 1
     },
     {
+      "file": "backend/services/identity/tests/internal/test_revoke_tenant_sessions.py",
+      "code": "P5",
+      "count": 8
+    },
+    {
+      "file": "backend/services/identity/tests/internal/test_revoke_user_sessions.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/services/identity/tests/oauth/test_wellknown_jwks.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
+      "file": "backend/services/identity/tests/oidc/conftest.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
       "file": "backend/services/identity/tests/oidc/test_clients.py",
       "code": "P1",
+      "count": 1
+    },
+    {
+      "file": "backend/services/identity/tests/permission/test_identity_checker.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/identity/tests/sso/conftest.py",
+      "code": "P5",
+      "count": 8
+    },
+    {
+      "file": "backend/services/identity/tests/sso/test_jit.py",
+      "code": "P5",
       "count": 1
     },
     {
@@ -362,8 +772,33 @@
       "count": 1
     },
     {
+      "file": "backend/services/notification/tests/notice/test_notice_api.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
       "file": "backend/services/notification/tests/notification/test_notification.py",
       "code": "P1",
+      "count": 1
+    },
+    {
+      "file": "backend/services/notification/tests/notification/test_notification.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/notification/tests/notification/test_notification_api.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/services/platform/tests/account_lock/test_endpoint.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/platform/tests/account_lock/test_endpoints.py",
+      "code": "P5",
       "count": 1
     },
     {
@@ -382,9 +817,24 @@
       "count": 1
     },
     {
+      "file": "backend/services/platform/tests/api/test_capability_grants.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
       "file": "backend/services/platform/tests/api/test_dev_contract_endpoints.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/services/platform/tests/api/test_form_keys_api.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/tests/api/test_help_context_api.py",
+      "code": "P5",
+      "count": 2
     },
     {
       "file": "backend/services/platform/tests/api/test_help_coverage_api.py",
@@ -392,14 +842,39 @@
       "count": 3
     },
     {
+      "file": "backend/services/platform/tests/api/test_internal_declarations.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/tests/api/test_internal_permission.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/services/platform/tests/api/test_internal_tenant_topologies.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
       "file": "backend/services/platform/tests/api/test_menu_metadata.py",
       "code": "P1",
+      "count": 2
+    },
+    {
+      "file": "backend/services/platform/tests/api/test_modules.py",
+      "code": "P5",
       "count": 2
     },
     {
       "file": "backend/services/platform/tests/api/test_role_api.py",
       "code": "P1",
       "count": 6
+    },
+    {
+      "file": "backend/services/platform/tests/api/test_role_api.py",
+      "code": "P5",
+      "count": 1
     },
     {
       "file": "backend/services/platform/tests/api/test_tasks_api.py",
@@ -422,6 +897,21 @@
       "count": 2
     },
     {
+      "file": "backend/services/platform/tests/audit/test_audit_wiring.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/platform/tests/audit/test_field_capture.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/tests/codecheck/test_code_validator.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
       "file": "backend/services/platform/tests/config/test_config_admin_api.py",
       "code": "P1",
       "count": 4
@@ -437,9 +927,29 @@
       "count": 1
     },
     {
+      "file": "backend/services/platform/tests/config/test_internal_config.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
       "file": "backend/services/platform/tests/conftest.py",
       "code": "P2",
       "count": 1
+    },
+    {
+      "file": "backend/services/platform/tests/core/test_capability.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/tests/credentials/test_credentials.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/platform/tests/crosscut/test_plugin_assembly.py",
+      "code": "P5",
+      "count": 5
     },
     {
       "file": "backend/services/platform/tests/form_design/test_build_ext_columns.py",
@@ -477,13 +987,33 @@
       "count": 2
     },
     {
+      "file": "backend/services/platform/tests/icon/test_icon_registry.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
       "file": "backend/services/platform/tests/import_export/test_export_jobs.py",
       "code": "P4",
       "count": 1
     },
     {
+      "file": "backend/services/platform/tests/import_export/test_exports_api.py",
+      "code": "P5",
+      "count": 11
+    },
+    {
+      "file": "backend/services/platform/tests/import_export/test_import_api.py",
+      "code": "P5",
+      "count": 21
+    },
+    {
       "file": "backend/services/platform/tests/import_export/test_import_job.py",
       "code": "P3",
+      "count": 1
+    },
+    {
+      "file": "backend/services/platform/tests/listing/test_listing.py",
+      "code": "P5",
       "count": 1
     },
     {
@@ -500,6 +1030,11 @@
       "file": "backend/services/platform/tests/models/test_base_model.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/services/platform/tests/permission/test_source.py",
+      "code": "P5",
+      "count": 20
     },
     {
       "file": "backend/services/platform/tests/recycle/test_recycle_api.py",
@@ -542,6 +1077,16 @@
       "count": 1
     },
     {
+      "file": "backend/services/platform/tests/role/test_role_assignments.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/platform/tests/seed/test_seed_endpoint_call.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
       "file": "backend/services/platform/tests/seed/test_seed_menu_consistency.py",
       "code": "P3",
       "count": 1
@@ -557,6 +1102,41 @@
       "count": 1
     },
     {
+      "file": "backend/services/platform/tests/users/test_admin_api.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/services/platform/tests/users/test_create.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/platform/tests/users/test_create_membership.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/services/platform/tests/users/test_internal_query.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/services/platform/tests/users/test_profile.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/platform/tests/users/test_reset_target.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/platform/tests/users/test_user_assignments_writer.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
       "file": "backend/services/report/tests/print/test_print_artifact_cleanup.py",
       "code": "P4",
       "count": 1
@@ -567,14 +1147,39 @@
       "count": 1
     },
     {
+      "file": "backend/services/report/tests/print/test_print_batch_job.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
+      "file": "backend/services/report/tests/print/test_print_exporter.py",
+      "code": "P5",
+      "count": 24
+    },
+    {
       "file": "backend/services/search/tests/globalsearch/test_global_search.py",
       "code": "P1",
       "count": 1
     },
     {
+      "file": "backend/services/search/tests/globalsearch/test_global_search.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
       "file": "backend/services/tenant/tests/sources/test_tenant_routing_integration.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/services/tenant/tests/sources/test_tenant_routing_integration.py",
+      "code": "P5",
+      "count": 4
+    },
+    {
+      "file": "backend/services/tenant/tests/sources/test_tenant_source.py",
+      "code": "P5",
+      "count": 3
     },
     {
       "file": "backend/services/tenant/tests/tenant/test_platform_tenant.py",
@@ -587,14 +1192,74 @@
       "count": 2
     },
     {
+      "file": "backend/services/tenant/tests/tenant/test_tenant_admin.py",
+      "code": "P5",
+      "count": 7
+    },
+    {
+      "file": "backend/services/tenant/tests/tenant/test_tenant_delete_lifecycle.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/tenant/tests/tenant/test_tenant_extra_branches.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
+      "file": "backend/services/tenant/tests/tenant/test_tenant_membership.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
+      "file": "backend/services/tenant/tests/tenant/test_tenant_quota_internal.py",
+      "code": "P5",
+      "count": 3
+    },
+    {
       "file": "backend/services/tenant/tests/tenant/test_tenant_registry.py",
       "code": "P3",
       "count": 1
     },
     {
+      "file": "backend/services/tenant/tests/tenant/test_tenant_registry.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/tenant/tests/tenant/test_tenant_self_service.py",
+      "code": "P5",
+      "count": 2
+    },
+    {
       "file": "backend/services/txn/tests/integration/test_end_to_end_2pc.py",
       "code": "P3",
       "count": 1
+    },
+    {
+      "file": "backend/services/txn/tests/integration/test_end_to_end_2pc.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/txn/tests/test_coordinator.py",
+      "code": "P5",
+      "count": 6
+    },
+    {
+      "file": "backend/services/txn/tests/test_recovery_poll.py",
+      "code": "P5",
+      "count": 7
+    },
+    {
+      "file": "backend/services/txn/tests/test_service_boot.py",
+      "code": "P5",
+      "count": 1
+    },
+    {
+      "file": "backend/services/txn/tests/test_txn_api.py",
+      "code": "P5",
+      "count": 3
     }
   ]
 }
