@@ -13,6 +13,7 @@
 from collections.abc import Callable, Iterator
 
 import pytest
+import pytest_asyncio
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -74,3 +75,61 @@ def tenant_db_prepare() -> Callable[[str], None]:
     from tests_support.shared_db import prepare_tenant
 
     return prepare_tenant
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: str):
+    """全系统装配（13_10）：初始化之后、用例之前，把本仓全部后端服务装配一次。
+
+    默认关闭（`BMS_TEST_ASSEMBLED != "1"` 时返回 `None`），避免影响存量用例；
+    探针与迁移期用例显式请求本夹具即可。
+
+    Args:
+        shared_platform_db_url: 会话级共享平台库连接串（保证初始化先完成）。
+        shared_tenant_db_url: 会话级共享租户库连接串。
+
+    Yields:
+        object: `AssembledSystem` 或 `None`（未启用）。
+    """
+    import os
+
+    if os.environ.get("BMS_TEST_ASSEMBLED") != "1":
+        yield None
+        return
+
+    from bms_core.core.config import Settings, get_settings
+    from bms_core.testing import fixtures as base_fixtures
+    from bms_core.testing.system import AssembledSystem, reset_assembled_system, set_assembled_system
+    from tests_support.assembled_services import service_factories
+    from tests_support.auth import configure_token_env
+    from tests_support.redis import install_process_fake_redis_client
+    from tests_support.tenant_source import installed_fake_tenant_source
+
+    snapshot = dict(os.environ)
+    previous_env_file = Settings.model_config.get("env_file")
+    for key in [item for item in os.environ if item.startswith("BMS_") and not item.startswith("BMS_TEST_")]:
+        del os.environ[key]
+    Settings.model_config["env_file"] = None
+    os.environ["BMS_DATABASE__PLATFORM__URL"] = shared_platform_db_url
+    os.environ["BMS_DATABASE__TENANTS__URL"] = shared_tenant_db_url
+    os.environ["BMS_IDP_STATE_STORE__PROVIDER"] = ""
+    os.environ["BMS_PLATFORM_TENANT__AUTO_BOOTSTRAP"] = "false"
+    base_fixtures._reset_isolated_runtime(base_fixtures._apply_isolated_env(os.environ.__setitem__))  # pyright: ignore[reportPrivateUsage]
+    install_process_fake_redis_client()
+    configure_token_env(set_env=os.environ.__setitem__)
+    get_settings.cache_clear()
+
+    system = AssembledSystem(service_factories())
+    try:
+        with installed_fake_tenant_source():
+            await system.assemble()
+            set_assembled_system(system)
+            yield system
+    finally:
+        reset_assembled_system()
+        await system.aclose()
+        for key in [item for item in os.environ if item not in snapshot]:
+            del os.environ[key]
+        os.environ.update(snapshot)
+        Settings.model_config["env_file"] = previous_env_file
+        get_settings.cache_clear()
