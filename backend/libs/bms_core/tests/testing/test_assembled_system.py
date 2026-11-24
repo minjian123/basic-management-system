@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator, Callable, Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
+from typing import Any
 
 import httpx
 import pytest
@@ -18,6 +19,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFroze
 from bms_core.testing.system import (
     AssembledSystem,
     AssembledTransport,
+    ServiceContextMiddleware,
     get_assembled_system,
     reset_assembled_system,
     set_assembled_system,
@@ -58,16 +60,26 @@ def _factory(log: ConcurrentStableList[str], key: str, *, fail_on_enter: bool = 
 
 @pytest.fixture(autouse=True)
 def _clean_singleton() -> Iterator[None]:
-    """每个用例前后清空进程单例，避免相互污染。"""
+    """每例前后隔离进程单例，并保留会话级真实装配的登记。
+
+    全系统装配在会话开始时已登记；本文件只测容器契约，故先清空、结束后原样恢复，
+    否则同目录的会话装配护栏用例会取不到系统。
+    """
+    try:
+        previous = get_assembled_system()
+    except RuntimeError:
+        previous = None
     reset_assembled_system()
     yield
     reset_assembled_system()
+    if previous is not None:
+        set_assembled_system(previous)
 
 
 async def test_assemble_once_and_serve() -> None:
     """装配只发生一次；客户端按服务键取用；关闭按逆序退出 lifespan。"""
     log: ConcurrentStableList[str] = ConcurrentStableList()
-    system = AssembledSystem(ConcurrentStableDict({"a": _factory(log, "a"), "b": _factory(log, "b")}))
+    system = AssembledSystem(ConcurrentStableDict({"a": _factory(log, "a"), "b": _factory(log, "b")}), counted=False)
 
     await system.assemble()
     assert list(log) == ["enter:a", "enter:b"]
@@ -90,7 +102,8 @@ async def test_assemble_failure_rolls_back() -> None:
     """任一服务装配失败：已进入的 lifespan 全部退出，容器保持未装配。"""
     log: ConcurrentStableList[str] = ConcurrentStableList()
     system = AssembledSystem(
-        ConcurrentStableDict({"ok": _factory(log, "ok"), "bad": _factory(log, "bad", fail_on_enter=True)})
+        ConcurrentStableDict({"ok": _factory(log, "ok"), "bad": _factory(log, "bad", fail_on_enter=True)}),
+        counted=False,
     )
 
     with pytest.raises(RuntimeError, match="assembly failed: bad"):
@@ -103,7 +116,7 @@ async def test_assemble_failure_rolls_back() -> None:
 
 def test_app_lookup_errors() -> None:
     """取未装配服务 / 空系统时给出可用清单，不静默返回空。"""
-    system = AssembledSystem(ConcurrentStableDict({"a": _factory(ConcurrentStableList(), "a")}))
+    system = AssembledSystem(ConcurrentStableDict({"a": _factory(ConcurrentStableList(), "a")}), counted=False)
     with pytest.raises(RuntimeError, match="可用：无"):
         system.app("a")
 
@@ -120,7 +133,7 @@ async def test_reset_per_test_clears_tenant_cache() -> None:
     cache.set("k", 1)
     cached.state.tenant_source = SimpleNamespace(cache=cache)
     plain = _factory(log, "plain")()
-    system = AssembledSystem(ConcurrentStableDict({"cached": lambda: cached, "plain": lambda: plain}))
+    system = AssembledSystem(ConcurrentStableDict({"cached": lambda: cached, "plain": lambda: plain}), counted=False)
 
     await system.assemble()
     system.reset_per_test()
@@ -135,7 +148,7 @@ def test_process_singleton() -> None:
     with pytest.raises(RuntimeError, match="尚未装配"):
         get_assembled_system()
 
-    system = AssembledSystem(ConcurrentStableDict())
+    system = AssembledSystem(ConcurrentStableDict(), counted=False)
     set_assembled_system(system)
     assert get_assembled_system() is system
 
@@ -151,6 +164,7 @@ async def test_before_start_hook_runs_before_lifespan() -> None:
     system = AssembledSystem(
         ConcurrentStableDict({"a": _factory(log, "a")}),
         before_start=lambda key, app: prepared.add(f"prepare:{key}"),
+        counted=False,
     )
 
     await system.assemble()
@@ -159,10 +173,23 @@ async def test_before_start_hook_runs_before_lifespan() -> None:
     await system.aclose()
 
 
+async def test_service_context_middleware_passes_non_http() -> None:
+    """非 HTTP 作用域（lifespan / websocket 握手）直通，不切配置分槽。"""
+    seen: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def inner(scope: Any, receive: Any, send: Any) -> None:
+        del receive, send
+        seen.add(str(scope["type"]))
+
+    middleware = ServiceContextMiddleware(inner)
+    await middleware({"type": "lifespan"}, None, None)
+    assert list(seen) == ["lifespan"]
+
+
 async def test_assembled_transport_routes_by_service_key() -> None:
     """服务间调用传输按主机名（服务键）路由到对应已装配应用，未装配即报错。"""
     log: ConcurrentStableList[str] = ConcurrentStableList()
-    system = AssembledSystem(ConcurrentStableDict({"a": _factory(log, "a"), "b": _factory(log, "b")}))
+    system = AssembledSystem(ConcurrentStableDict({"a": _factory(log, "a"), "b": _factory(log, "b")}), counted=False)
     await system.assemble()
     transport = AssembledTransport(system)
     try:

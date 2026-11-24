@@ -23,14 +23,27 @@ pytestmark = pytest.mark.kiwi_id(2407)
 _EVENTS: list[EventEnvelope] = []  # bare-collections:allow（测试断言容器）
 
 
-class _FakeEmitter:
-    """记录型发射器替身。"""
+class _FakeEmitter(middleware_module.AuditEventEmitter):
+    """记录型发射器替身（由 `_app` 注入中间件，不改模块属性）。
+
+    为什么不 monkeypatch 模块类：全系统装配常驻后，已装配应用的后台排空任务会在用例期间
+    构造发射器，替换模块属性会把它们的事件也记进本用例的 `_EVENTS`（13_10 实测 3 条 vs 1 条）。
+    """
 
     def __init__(self, **kwargs: object) -> None:
         del kwargs
 
-    async def emit(self, event: EventEnvelope) -> bool:
-        """记录事件并返回成功。"""
+    async def emit(self, event: EventEnvelope, *, required: bool = False) -> bool:
+        """记录事件并返回成功。
+
+        Args:
+            event: 审计事件信封。
+            required: 是否为强审计（替身不区分，恒成功）。
+
+        Returns:
+            bool: 恒 True。
+        """
+        del required
         _EVENTS.append(event)
         return True
 
@@ -102,6 +115,7 @@ def _app(settings: AuditLogSettings) -> FastAPI:
         middleware_module.OperationAuditMiddleware,
         settings=settings,
         app_settings=get_settings(),
+        emitter=_FakeEmitter(),
     )
     app.state.engine_registry = object()
     app.state.session_factory = object()
@@ -109,10 +123,9 @@ def _app(settings: AuditLogSettings) -> FastAPI:
 
 
 @pytest.fixture(autouse=True)
-def _patch_emitter(monkeypatch: pytest.MonkeyPatch) -> None:
-    """替换发射器（不落库）并清空记录。"""
+def _patch_emitter() -> None:
+    """清空事件记录（发射器替身由 `_app` 注入，不改模块属性）。"""
     _EVENTS.clear()
-    monkeypatch.setattr(middleware_module, "AuditEventEmitter", _FakeEmitter)
 
 
 async def _post(

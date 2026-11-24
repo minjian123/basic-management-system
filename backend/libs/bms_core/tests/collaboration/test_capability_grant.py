@@ -39,6 +39,13 @@ from bms_core.collaboration.grant import (
     prime_grant_views,
     warm_grant_views,
 )
+from bms_core.collaboration.topology import (
+    TopologyEntry,
+    TopologySnapshot,
+    register_topology_snapshot,
+    restore_topology_state,
+    topology_state,
+)
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenDict,
@@ -57,6 +64,7 @@ from bms_core.servicecall.base import ServiceResponse
 from bms_core.services.module_registry import (
     CollaborationRecord,
     register_collaboration_records,
+    register_domain_services,
     reset_collaboration_records,
     reset_domain_services,
 )
@@ -200,18 +208,33 @@ def _grant(
 
 @pytest.fixture(autouse=True)
 def _isolate_state() -> Iterator[None]:
-    """每例前后复位能力记录与授权视图状态。
+    """每例复位能力记录 / 授权视图 / 域映射，并显式构造本文件需要的拓扑前置。
+
+    装配装载对端声明后全局拓扑已非空（且只含本仓域）；需要解析 `mdm` 域的用例自己登记
+    一份只含该域的快照，结束后恢复装配期状态。
 
     Yields:
         None: 用例运行期。
     """
+    previous = topology_state()
     reset_collaboration_records()
     reset_capability_grants()
     reset_domain_services()
-    yield
-    reset_collaboration_records()
-    reset_capability_grants()
-    reset_domain_services()
+    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
+    register_topology_snapshot(
+        TopologySnapshot(
+            tenant_id=0,
+            version=1,
+            entries=ConcurrentStableFrozenDict({"mdm": TopologyEntry(unit_key="mdm")}),
+        )
+    )
+    try:
+        yield
+    finally:
+        restore_topology_state(previous)
+        reset_collaboration_records()
+        reset_capability_grants()
+        reset_domain_services()
 
 
 def test_declare_grants_follows_manifest_default_consumers() -> None:

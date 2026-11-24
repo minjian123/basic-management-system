@@ -14,6 +14,7 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -45,8 +46,8 @@ from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
 from bms_core.testing.shared_db import seed_table_ownership
+from bms_core.testing.system import AssembledSystem
 from bms_platform.domains.permission_meta.permission.checker import register_platform_permission
-from bms_platform.main import ApplicationFactory
 from ops.seed_module import seed_modules
 from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
@@ -438,21 +439,25 @@ def fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
     install_fake_tenant_source(monkeypatch)
 
 
-@pytest.fixture
-async def service_app(archive_db: str) -> AsyncIterator[FastAPI]:
-    """平台服务应用实例夹具（经 lifespan 装配；供探针 / 应用级断言与 `client` 共用）。
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def service_app(assembled_system: AssembledSystem | None) -> AsyncIterator[FastAPI]:
+    """平台服务应用实例（取全系统装配的实例，**不再重建**）。
 
     Args:
-        archive_db: 归档库连接串（确保应用装配读到独立归档库）。
+        assembled_system: 会话级全系统装配（autouse）。
 
     Yields:
-        FastAPI: 应用实例。
+        FastAPI: 已装配的平台应用实例（每例前后清租户缓存）。
+
+    Raises:
+        RuntimeError: 全系统未装配（`BMS_TEST_ASSEMBLED=0`）。
     """
-    app = ApplicationFactory().create(None)
+    if assembled_system is None:
+        raise RuntimeError("全系统未装配（BMS_TEST_ASSEMBLED=0）：用例不得自建 app")
+    app = assembled_system.app("platform")
     clear_tenant_cache(app)
     try:
-        async with app.router.lifespan_context(app):
-            yield app
+        yield app
     finally:
         clear_tenant_cache(app)
 

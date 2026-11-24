@@ -474,7 +474,9 @@ async def test_outbound_attaches_service_token_when_enabled() -> None:
     assert response.status_code == 200
     headers = cast("dict[str, str]", captured["headers"])
     assert headers.get("authorization") == "Bearer service-jwt"
-    assert issuer.specs == [ServiceTokenSpec(service="identity", scopes=ConcurrentStableFrozenList(("user:read",)))]
+    (spec,) = issuer.specs
+    assert spec.service == "identity"
+    assert list(spec.scopes) == ["user:read"]
 
 
 @pytest.mark.kiwi_id(2194)
@@ -488,9 +490,10 @@ async def test_outbound_service_token_carries_tenant() -> None:
     client = _client(handler, token_issuer=issuer, attach_service_token=True)
     await client.call(_request(method="POST", tenant_id="1001"))
     await client.aclose()
-    assert issuer.specs == [
-        ServiceTokenSpec(service="identity", scopes=ConcurrentStableFrozenList(()), tenant_id="1001")
-    ]
+    (spec,) = issuer.specs
+    assert spec.service == "identity"
+    assert spec.tenant_id == "1001"
+    assert list(spec.scopes) == []
 
 
 @pytest.mark.kiwi_id(2180)

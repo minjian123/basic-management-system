@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import AsyncGenerator, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
@@ -28,6 +29,8 @@ from bms_core.testing.fixtures import clear_tenant_cache
 __all__ = (
     "AssembledSystem",
     "AssembledTransport",
+    "assemble_count",
+    "assembled_at",
     "get_assembled_system",
     "in_process_service_calls",
     "reset_assembled_system",
@@ -36,6 +39,66 @@ __all__ = (
 
 _system: AssembledSystem | None = None
 """进程级已装配系统（每个 pytest 进程 / worker 一份）。"""
+
+_assemble_count = 0
+"""本进程已完成的装配次数（取证：一轮会话应为 1）。"""
+
+_assembled_at: float | None = None
+"""本进程首次装配完成时刻（`time.time()`；未装配为 None）。"""
+
+
+def assemble_count() -> int:
+    """本进程已完成的装配次数。
+
+    Returns:
+        int: 装配次数（一轮会话应为 1）。
+    """
+    return _assemble_count
+
+
+def assembled_at() -> float | None:
+    """本进程首次装配完成时刻。
+
+    Returns:
+        float | None: `time.time()` 时刻；未装配返回 None。
+    """
+    return _assembled_at
+
+
+class ServiceContextMiddleware:
+    """按已装配应用的服务身份切换配置分槽键（测试同进程多服务必需）。
+
+    生产每服务独立进程，`get_settings()` 天然只对应一个服务；测试同进程装配全部服务时，
+    请求期内必须切到该请求所属服务的配置，否则读到的会是最后装配那个服务的配置。
+    """
+
+    def __init__(self, app: Any) -> None:
+        """初始化。
+
+        Args:
+            app: 内层 ASGI 应用。
+        """
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        """按 `scope["app"]` 上的服务身份设置配置分槽键。
+
+        Args:
+            scope: ASGI 作用域。
+            receive: ASGI 接收通道。
+            send: ASGI 发送通道。
+        """
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        from bms_core.core.config import reset_current_service, set_current_service
+
+        identity = getattr(getattr(scope.get("app"), "state", None), "service_identity", None)
+        token = set_current_service(identity.name if identity is not None else "")
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            reset_current_service(token)
 
 
 class AssembledSystem:
@@ -49,18 +112,24 @@ class AssembledSystem:
         self,
         factories: ConcurrentStableDict[str, Callable[[], FastAPI]],
         *,
+        before_create: Callable[[str], None] | None = None,
         before_start: Callable[[str, FastAPI], None] | None = None,
+        counted: bool = True,
     ) -> None:
         """初始化（尚未装配）。
 
         Args:
             factories: 服务键 → 应用工厂（零参，返回未进入 lifespan 的应用）。
+            before_create: 每个应用**创建前**的切换回调（服务键）；用于取该服务独有的配置实例。
             before_start: 每个应用进入 lifespan 前的准备回调（服务键, 应用）；用于装载对端声明等。
+            counted: 是否计入进程装配次数（组件自测传 False，避免污染「一轮只装配一次」的取证）。
         """
         self._factories: ConcurrentStableDict[str, Callable[[], FastAPI]] = ConcurrentStableDict(factories)
         self.apps: ConcurrentStableDict[str, FastAPI] = ConcurrentStableDict()
         self._stack: AsyncExitStack | None = None
+        self._before_create = before_create
         self._before_start = before_start
+        self._counted = counted
 
     async def assemble(self) -> AssembledSystem:
         """按清单顺序创建并启动全部应用（只允许一次）。
@@ -76,9 +145,12 @@ class AssembledSystem:
         stack = AsyncExitStack()
         try:
             for service_key, factory in self._factories.items():
+                if self._before_create is not None:
+                    self._before_create(service_key)
                 app = factory()
                 if self._before_start is not None:
                     self._before_start(service_key, app)
+                app.add_middleware(ServiceContextMiddleware)
                 await stack.enter_async_context(app.router.lifespan_context(app))
                 self.apps[service_key] = app
         except BaseException:
@@ -86,6 +158,11 @@ class AssembledSystem:
             self.apps.clear()
             raise
         self._stack = stack
+        if self._counted:
+            global _assemble_count, _assembled_at
+            _assemble_count += 1
+            if _assembled_at is None:
+                _assembled_at = time.time()
         return self
 
     async def aclose(self) -> None:

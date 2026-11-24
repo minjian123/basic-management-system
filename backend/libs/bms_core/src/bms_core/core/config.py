@@ -11,6 +11,7 @@
 import os
 import re
 import tomllib
+from contextvars import ContextVar, Token
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
@@ -2194,13 +2195,126 @@ def load_settings() -> Settings:
 
 
 @lru_cache(maxsize=1)
-def get_settings() -> Settings:
-    """取应用配置单例（首次取用即读取 + 校验）。
+def _cached_settings() -> Settings:
+    """取默认配置单例（未指定服务键时的唯一实例）。
 
     Returns:
         Settings: 应用配置单例。
     """
     return load_settings()
+
+
+_current_service: ContextVar[str] = ContextVar("bms_current_service", default="")
+"""当前服务键（装配期由装配容器设置，请求期由服务上下文中间件设置；空表示未指定）。"""
+
+_service_settings: ConcurrentStableDict[str, Settings] = ConcurrentStableDict()
+"""按服务键缓存的配置实例。
+
+生产形态是「每服务独立进程、各自读配置」；测试同进程装配全部服务时，按服务键分槽才能与
+生产等价（否则首个服务的 `[app].service` 会回写全局单例，后续服务身份与配置全部串味）。
+"""
+
+
+def set_current_service(service: str) -> Token[str]:
+    """设置当前服务键（用于装配期 / 请求期切换）。
+
+    Args:
+        service: 服务键（如 `platform`）。
+
+    Returns:
+        Token[str]: 恢复凭据（`reset_current_service` 用）。
+    """
+    return _current_service.set(service)
+
+
+def reset_current_service(token: Token[str]) -> None:
+    """恢复上一个服务键。
+
+    Args:
+        token: `set_current_service` 返回的恢复凭据。
+    """
+    _current_service.reset(token)
+
+
+def current_service() -> str:
+    """取当前服务键。
+
+    Returns:
+        str: 服务键；未指定为空串。
+    """
+    return _current_service.get()
+
+
+def _settings_for_service(service: str) -> Settings:
+    """按服务键构造独立配置实例（等价该服务独立进程读到的配置）。
+
+    Args:
+        service: 服务键。
+
+    Returns:
+        Settings: 该服务的配置实例。
+
+    Raises:
+        ConfigError: 校验失败。
+    """
+    data = load_settings().model_dump()
+    data["app"]["service"] = service
+    try:
+        return Settings.model_validate(data)
+    except ValidationError as exc:  # pragma: no cover - 数据源是已校验配置，重建不会再失败
+        raise ConfigError(_summarize(exc)) from exc
+
+
+def _resolve_settings() -> Settings:
+    """按当前服务键取配置（未指定服务键时取默认单例）。
+
+    Returns:
+        Settings: 应用配置。
+    """
+    service = _current_service.get()
+    if not service:
+        return _cached_settings()
+    cached = _service_settings.get(service)
+    if cached is None:
+        cached = _settings_for_service(service)
+        _service_settings[service] = cached
+    return cached
+
+
+def _clear_settings_cache() -> None:
+    """清空配置缓存（测试隔离用；与原先 `lru_cache` 的 `cache_clear` 同义）。"""
+    _cached_settings.cache_clear()
+    _service_settings.clear()
+
+
+class _SettingsProvider:
+    """配置取值入口：可调用取配置，并保留 `cache_clear`（既有测试隔离调用点不变）。
+
+    为什么不用函数：`get_settings.cache_clear()` 在测试基座与各服务夹具里被大量调用；
+    改成普通函数后该属性不存在，改成按服务分槽的 `lru_cache` 又无法按服务区分缓存。
+
+    `__name__` 必须显式给：FastAPI 的 `Depends(get_settings)` 取 `call.__name__` 做依赖标识，
+    实例缺该属性会在构依赖时 `AttributeError`（表现为接口 500）。
+    """
+
+    __name__ = "get_settings"
+    __qualname__ = "get_settings"
+    __module__ = __name__
+
+    def __call__(self) -> Settings:
+        """取应用配置。
+
+        Returns:
+            Settings: 应用配置。
+        """
+        return _resolve_settings()
+
+    def cache_clear(self) -> None:
+        """清空全部配置缓存（含默认单例与各服务分槽）。"""
+        _clear_settings_cache()
+
+
+get_settings = _SettingsProvider()
 
 
 def validate_startup(settings: Settings) -> None:

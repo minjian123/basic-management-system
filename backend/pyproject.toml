@@ -92,6 +92,10 @@ stubPath = "typings"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# 13_10 终态（2026-11-24 拍板）：装配与全部用例同一会话循环——装配在会话首例前完成，
+# 用例在会话循环内并发访问已装配系统；不采用「只给依赖装配的用例加 session loop」的双语义。
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
 # importlib 模式：多个同名 `tests` 目录（每服务一套）互不冲突，测试模块按路径唯一命名
 # -p bms_testing_plugin：启动插件（13_02）——**最早**启动覆盖率采集（导入期行可采），
 #   再注册测试公共基座夹具（13_04；pytest 7+ 禁止非顶层 conftest 写 pytest_plugins）；

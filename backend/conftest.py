@@ -7,14 +7,15 @@
 各服务子工程自成 rootdir 时（`services/*/pyproject.toml`）本文件不参与，由该套件 conftest
 的同名薄壳兜底（同一实现，见 `tests_support.shared_db`，不复制逻辑）。
 
+全系统装配夹具（13_10）**不在本文件**：它已下沉到 `bms_core.testing.fixtures.assembled_system`
+并由测试插件注册，任何套件（含自成 rootdir 的服务套件）都能取到同一份实现。
+
 准备集内容与口径见《[测试规范]「测试数据」节》与任务 04-6-2 详细设计 §4。
 """
 
 from collections.abc import Callable, Iterator
-from typing import Any
 
 import pytest
-import pytest_asyncio
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -76,81 +77,3 @@ def tenant_db_prepare() -> Callable[[str], None]:
     from tests_support.shared_db import prepare_tenant
 
     return prepare_tenant
-
-
-@pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: str):
-    """全系统装配（13_10）：初始化之后、用例之前，把本仓全部后端服务装配一次。
-
-    默认关闭（`BMS_TEST_ASSEMBLED != "1"` 时返回 `None`），避免影响存量用例；
-    探针与迁移期用例显式请求本夹具即可。
-
-    Args:
-        shared_platform_db_url: 会话级共享平台库连接串（保证初始化先完成）。
-        shared_tenant_db_url: 会话级共享租户库连接串。
-
-    Yields:
-        object: `AssembledSystem` 或 `None`（未启用）。
-    """
-    import os
-
-    if os.environ.get("BMS_TEST_ASSEMBLED") != "1":
-        yield None
-        return
-
-    from bms_core.core.config import Settings, get_settings
-    from bms_core.registry.products import load_product_manifests
-    from bms_core.testing import fixtures as base_fixtures
-    from bms_core.testing.system import AssembledSystem, reset_assembled_system, set_assembled_system
-    from tests_support.assembled_services import peer_manifest_paths, service_factories
-    from tests_support.auth import configure_token_env
-    from tests_support.redis import install_process_fake_redis_client
-    from tests_support.tenant_source import installed_fake_tenant_source
-
-    snapshot = dict(os.environ)
-    previous_env_file = Settings.model_config.get("env_file")
-    for key in [item for item in os.environ if item.startswith("BMS_") and not item.startswith("BMS_TEST_")]:
-        del os.environ[key]
-    Settings.model_config["env_file"] = None
-    os.environ["BMS_DATABASE__PLATFORM__URL"] = shared_platform_db_url
-    os.environ["BMS_DATABASE__TENANTS__URL"] = shared_tenant_db_url
-    os.environ["BMS_IDP_STATE_STORE__PROVIDER"] = ""
-    os.environ["BMS_PLATFORM_TENANT__AUTO_BOOTSTRAP"] = "false"
-    base_fixtures._reset_isolated_runtime(base_fixtures._apply_isolated_env(os.environ.__setitem__))  # pyright: ignore[reportPrivateUsage]
-    install_process_fake_redis_client()
-    configure_token_env(set_env=os.environ.__setitem__)
-    from ops.contract_smoke import smoke_service_token_keys
-
-    service_keys, service_kid = smoke_service_token_keys()
-    os.environ["BMS_SERVICE_TOKEN__KEYS"] = service_keys
-    os.environ["BMS_SERVICE_TOKEN__ACTIVE_KID"] = service_kid
-    os.environ["BMS_SERVICE_CLIENT__OPTIONS"] = '{"attach_service_token": true}'
-    os.environ["BMS_SERVICE_CLIENT__PROVIDER"] = "http"
-    get_settings.cache_clear()
-
-    peer_paths = peer_manifest_paths()
-
-    def _prepare(key: str, app: Any) -> None:
-        client = getattr(app.state, "service_client", None)
-        if client is not None:
-            client._caller = key  # pyright: ignore[reportPrivateUsage,reportAttributeAccessIssue]
-        load_product_manifests(peer_paths)
-
-    system = AssembledSystem(service_factories(), before_start=_prepare)
-    from bms_core.testing.system import in_process_service_calls
-
-    calls = in_process_service_calls(system)
-    try:
-        with installed_fake_tenant_source():
-            async with calls:
-                await system.assemble()
-                set_assembled_system(system)
-                yield system
-    finally:
-        reset_assembled_system()
-        await system.aclose()
-        for key in [item for item in os.environ if item not in snapshot]:
-            del os.environ[key]
-        os.environ.update(snapshot)
-        Settings.model_config["env_file"] = previous_env_file
-        get_settings.cache_clear()

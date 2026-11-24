@@ -12,7 +12,7 @@ import inspect
 import os
 import shutil
 import time
-from collections.abc import AsyncIterator, Callable, Generator, Iterable, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator, Iterable, Iterator
 from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any, Final, cast
@@ -45,6 +45,7 @@ from bms_core.testing.paths import configure_project_root, project_root
 __all__ = (
     "TEST_DB_DIRNAME",
     "apply_platform_db",
+    "assembled_system",
     "clear_shared_db_files",
     "clear_tenant_cache",
     "configure_project_root",
@@ -1240,3 +1241,102 @@ def ns(request: pytest.FixtureRequest) -> Iterator[Namespace]:
         Namespace: 用例命名空间。
     """
     yield namespace_module.for_test(request)
+
+
+async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: str) -> AsyncGenerator[Any]:
+    """全系统装配（13_10）：初始化之后、用例之前，把本仓全部后端服务装配一次。
+
+    真实运行形态只有「已装配系统」一种，故本夹具 **autouse + 默认开启**：任何会话都先完成
+    「初始化（共享库准备集）→ 装配一次」再跑用例。`BMS_TEST_ASSEMBLED=0` 是反向关闭开关，
+    仅切换期排障使用，不作日常口径。
+
+    本模块不依赖 `tests_support`（产品仓可直接复用）：仓库侧的服务工厂与对端声明按需延迟导入。
+
+    Args:
+        shared_platform_db_url: 会话级共享平台库连接串（保证初始化先完成）。
+        shared_tenant_db_url: 会话级共享租户库连接串。
+
+    Yields:
+        Any: `AssembledSystem` 或 `None`（被 `BMS_TEST_ASSEMBLED=0` 关闭）。
+
+    Raises:
+        pytest.UsageError: 仓库未提供 `tests_support.assembled_services`（装配清单缺失）。
+    """
+    if os.environ.get("BMS_TEST_ASSEMBLED") == "0":  # pragma: no cover - 排障开关，门禁内不启用
+        yield None
+        return
+
+    try:
+        from tests_support.assembled_services import peer_manifest_paths, service_factories
+    except ImportError as exc:  # pragma: no cover - 仓库漏配装配清单时的显式报错
+        raise pytest.UsageError(f"未找到 tests_support.assembled_services：{exc}") from exc
+
+    from bms_core.core.config import reset_current_service, set_current_service
+    from bms_core.registry.products import load_product_manifests
+    from bms_core.testing.system import (
+        AssembledSystem,
+        in_process_service_calls,
+        reset_assembled_system,
+        set_assembled_system,
+    )
+    from ops.contract_smoke import smoke_service_token_keys
+    from tests_support.auth import configure_token_env
+    from tests_support.redis import install_process_fake_redis_client
+    from tests_support.tenant_source import installed_fake_tenant_source
+
+    snapshot = dict(os.environ)
+    previous_env_file = Settings.model_config.get("env_file")
+    for key in [item for item in os.environ if item.startswith("BMS_") and not item.startswith("BMS_TEST_")]:
+        del os.environ[key]
+    Settings.model_config["env_file"] = None
+    os.environ["BMS_DATABASE__PLATFORM__URL"] = shared_platform_db_url
+    os.environ["BMS_DATABASE__TENANTS__URL"] = shared_tenant_db_url
+    os.environ["BMS_IDP_STATE_STORE__PROVIDER"] = ""
+    os.environ["BMS_PLATFORM_TENANT__AUTO_BOOTSTRAP"] = "false"
+    _reset_isolated_runtime(_apply_isolated_env(os.environ.__setitem__))
+    install_process_fake_redis_client()
+    configure_token_env(set_env=os.environ.__setitem__)
+    service_keys, service_kid = smoke_service_token_keys()
+    os.environ["BMS_SERVICE_TOKEN__KEYS"] = service_keys
+    os.environ["BMS_SERVICE_TOKEN__ACTIVE_KID"] = service_kid
+    os.environ["BMS_SERVICE_CLIENT__OPTIONS"] = '{"attach_service_token": true}'
+    os.environ["BMS_SERVICE_CLIENT__PROVIDER"] = "http"
+    get_settings.cache_clear()
+
+    peer_paths = peer_manifest_paths()
+    # 对端声明只装载一次：逐应用重复装载会重复注册，且后装的清单会顶掉先前注册的记录
+    load_product_manifests(peer_paths)
+
+    def _prepare(key: str, app: Any) -> None:
+        client = getattr(app.state, "service_client", None)
+        if client is not None:
+            client._caller = key  # pyright: ignore[reportPrivateUsage,reportAttributeAccessIssue]
+
+    def _before_create(key: str) -> None:
+        set_current_service(key)
+
+    system = AssembledSystem(service_factories(), before_create=_before_create, before_start=_prepare)
+    service_token = set_current_service("")
+    restored = False
+    calls = in_process_service_calls(system)
+    try:
+        with installed_fake_tenant_source():
+            async with calls:
+                await system.assemble()
+                set_assembled_system(system)
+                # 装配期逐个服务切过配置分槽键，装配完成后必须恢复为空：否则非装配路径
+                # （自建 app / 后台任务 / 声明校验）会一直读最后一个服务的配置。
+                reset_current_service(service_token)
+                restored = True
+                get_settings.cache_clear()
+                yield system
+    finally:
+        reset_assembled_system()
+        if not restored:  # pragma: no cover - 装配抛错才走（yield 前异常）
+            reset_current_service(service_token)
+        await system.aclose()
+        for key in [item for item in os.environ if item not in snapshot]:
+            del os.environ[key]
+        os.environ.update(snapshot)
+        Settings.model_config["env_file"] = previous_env_file
+        get_settings.cache_clear()

@@ -37,7 +37,7 @@ __all__ = (
     "reset_plugin_registry",
     "reset_request_context",
 )
-from bms_notification.main import ApplicationFactory
+from bms_core.testing.system import AssembledSystem
 from tests_support.auth import auth_headers, configure_token_env
 from tests_support.tenant_source import install_fake_tenant_source, installed_fake_tenant_source
 
@@ -143,24 +143,25 @@ def notification_module_env(bms_isolated_env_module: None) -> Iterator[None]:
         yield
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="module")
-async def service_app(notification_module_env: None) -> AsyncIterator[FastAPI]:
-    """服务应用实例（经 lifespan 装配，**模块级常驻**）。
-
-    进程长驻是真实形态：同一文件的用例复用同一次装配，启动副作用（声明装载 / 拓扑分发等）
-    每模块只发生一次。跨用例存活的租户缓存由 `client` 在每例前后复位。
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def service_app(assembled_system: AssembledSystem | None) -> AsyncIterator[FastAPI]:
+    """本服务应用实例（取全系统装配的实例，**不再重建**）。
 
     Args:
-        notification_module_env: 模块级服务环境（保证装配前环境就位）。
+        assembled_system: 会话级全系统装配（autouse）。
 
     Yields:
-        FastAPI: 应用实例。
+        FastAPI: 已装配的应用实例（每例前后清租户缓存）。
+
+    Raises:
+        RuntimeError: 全系统未装配（`BMS_TEST_ASSEMBLED=0`）。
     """
-    app = ApplicationFactory().create(None)
+    if assembled_system is None:
+        raise RuntimeError("全系统未装配（BMS_TEST_ASSEMBLED=0）：用例不得自建 app")
+    app = assembled_system.app("notification")
     clear_tenant_cache(app)
     try:
-        async with app.router.lifespan_context(app):
-            yield app
+        yield app
     finally:
         clear_tenant_cache(app)
 

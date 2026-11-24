@@ -134,18 +134,26 @@ def _mask_body(content_type: str, body: bytes) -> str | None:
 class OperationAuditMiddleware(BaseMiddleware):
     """操作审计中间件：响应结束后把一条审计事件写入发件箱。"""
 
-    def __init__(self, app: ASGIApp, *, settings: AuditLogSettings, app_settings: Settings) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        settings: AuditLogSettings,
+        app_settings: Settings,
+        emitter: AuditEventEmitter | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             app: 下游 ASGI 应用。
             settings: 审计日志参数（`[audit_log]`）。
             app_settings: 应用配置（中间件构造发件箱时取实现选择）。
+            emitter: 预置发射器（测试注入替身用）；为空时按应用 state 懒建真实实现。
         """
         self.app = app
         self._settings = settings
         self._app_settings = app_settings
-        self._emitter: AuditEventEmitter | None = None
+        self._emitter: AuditEventEmitter | None = emitter
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """处理请求（非 HTTP / 关闭 / 排除路径直通）。

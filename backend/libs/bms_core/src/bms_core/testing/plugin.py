@@ -16,10 +16,12 @@
 
 import hashlib
 import os
+from collections.abc import AsyncIterator, Iterator
 from contextlib import AbstractAsyncContextManager, suppress
 from typing import Any, cast
 
 import pytest
+import pytest_asyncio
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -167,6 +169,68 @@ def _gate_required(session: object) -> bool:
     return gate_name_for(PLATFORM_DB_KEY, str(raw_url)) in (PLATFORM_GATE, TENANT_GATE)
 
 
+@pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True, name="assembled_system")
+async def _assembled_system_fixture(shared_platform_db_url: str, shared_tenant_db_url: str) -> AsyncIterator[Any]:
+    """全系统装配（13_10）：初始化之后、用例之前，把本仓全部后端服务装配一次。
+
+    实现在 `fixtures.assembled_system`；本夹具只负责绑定为 pytest 夹具（autouse session 级），
+    这样各服务套件自成 rootdir 时也能取到同一份装配，不依赖根 conftest。
+
+    Args:
+        shared_platform_db_url: 会话级共享平台库连接串（保证初始化先完成）。
+        shared_tenant_db_url: 会话级共享租户库连接串。
+
+    Yields:
+        Any: `AssembledSystem` 或 `None`（被 `BMS_TEST_ASSEMBLED=0` 关闭）。
+    """
+    generator = fixtures.assembled_system(shared_platform_db_url, shared_tenant_db_url)
+    try:
+        yield await anext(generator)
+    finally:
+        await generator.aclose()
+
+
+@pytest.fixture(autouse=True)
+def _reset_audit_staging() -> Iterator[None]:
+    """每例清空审计事件暂存区（13_10：装配常驻后的每例复位项）。
+
+    装配的系统在后台运行时也会 `stage_event`；暂存区是 ContextVar，与用例同 context 时
+    会在用例请求收尾被一并 drain，表现为「本用例多出不属于它的事件」。
+
+    Yields:
+        None: 用例运行期。
+    """
+    from bms_core.audit.staging import reset_staged
+
+    reset_staged()
+    yield
+    reset_staged()
+
+
+@pytest.fixture(autouse=True)
+def _reset_assembled_per_test() -> Iterator[None]:
+    """每例复位已装配系统里跨用例存活的缓存（不重建应用；13_10）。
+
+    装配常驻后 `service_app` 是会话级的「取实例」夹具，原先挂在它上面的每例清理没有执行点，
+    统一收到这里：前后各复位一次，保证用例之间不串租户缓存。
+
+    Yields:
+        None: 用例运行期。
+    """
+    from bms_core.testing.system import get_assembled_system
+
+    def _reset() -> None:
+        try:
+            system = get_assembled_system()
+        except RuntimeError:  # pragma: no cover - 未装配时直通（装配由会话夹具保证）
+            return
+        system.reset_per_test()
+
+    _reset()
+    yield
+    _reset()
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """把 pytest basetemp 交给测试基座（并行执行按 worker 派生独立 SQLite 目录；13_02）。
 
@@ -212,6 +276,11 @@ def pytest_configure(config: pytest.Config) -> None:
     if basetemp:
         # `abspath` 结果必然含父目录，无需再判空
         os.makedirs(os.path.dirname(os.path.abspath(os.fspath(basetemp))), exist_ok=True)
+    # 13_10：全系统装配夹具（autouse session 级）随基座插件注册。服务套件自成 rootdir 时只加载
+    # 本模块，根 conftest 不可见；实现在 `fixtures.assembled_system`，此处只做夹具绑定。
+    manager = getattr(config, "pluginmanager", None)
+    if manager is not None and manager.get_plugin("bms_testing_assembled_system") is None:
+        manager.register(_assembled_system_fixture, "bms_testing_assembled_system")
     notice = fixtures.isolation_notice()
     if notice:
         print(notice)

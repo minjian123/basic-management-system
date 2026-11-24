@@ -37,7 +37,7 @@ __all__ = (
     "reset_plugin_registry",
     "reset_request_context",
 )
-from bms_ai.main import ApplicationFactory
+from bms_core.testing.system import AssembledSystem
 from tests_support.auth import auth_headers, configure_token_env
 from tests_support.tenant_source import install_fake_tenant_source, installed_fake_tenant_source
 
@@ -150,21 +150,25 @@ def pytest_collection_modifyitems(items: ConcurrentStableList[pytest.Item]) -> N
     apply_module_loop_scope(items, Path(__file__).parent)
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="module")
-async def service_app(ai_module_env: None) -> AsyncIterator[FastAPI]:
-    """服务应用实例（经 lifespan 装配，**模块级常驻**）。
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def service_app(assembled_system: AssembledSystem | None) -> AsyncIterator[FastAPI]:
+    """本服务应用实例（取全系统装配的实例，**不再重建**）。
 
     Args:
-        ai_module_env: 模块级服务环境（保证装配前环境就位）。
+        assembled_system: 会话级全系统装配（autouse）。
 
     Yields:
-        FastAPI: 应用实例。
+        FastAPI: 已装配的应用实例（每例前后清租户缓存）。
+
+    Raises:
+        RuntimeError: 全系统未装配（`BMS_TEST_ASSEMBLED=0`）。
     """
-    app = ApplicationFactory().create(None)
+    if assembled_system is None:
+        raise RuntimeError("全系统未装配（BMS_TEST_ASSEMBLED=0）：用例不得自建 app")
+    app = assembled_system.app("ai")
     clear_tenant_cache(app)
     try:
-        async with app.router.lifespan_context(app):
-            yield app
+        yield app
     finally:
         clear_tenant_cache(app)
 

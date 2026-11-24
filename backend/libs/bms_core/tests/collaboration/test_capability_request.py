@@ -10,6 +10,13 @@ from collections.abc import Iterator
 import pytest
 
 from bms_core.collaboration import build_capability_request, resolve_capability
+from bms_core.collaboration.topology import (
+    TopologyEntry,
+    TopologySnapshot,
+    register_topology_snapshot,
+    restore_topology_state,
+    topology_state,
+)
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList
 from bms_core.core.exceptions import ParamError
 from bms_core.servicecall.base import ServiceCallPolicy
@@ -52,17 +59,31 @@ def _record(
 
 @pytest.fixture(autouse=True)
 def _isolate_state() -> Iterator[None]:
-    """每例前后复位能力记录与域→服务键映射。
+    """每例复位能力记录 / 域→服务键映射，并显式构造本文件需要的拓扑前置。
+
+    装配装载对端声明后全局拓扑已非空（且只含本仓域）；本文件验证的是「按能力键构造调用
+    请求」，故自己登记一份只含 `mdm` 域的快照，结束后恢复装配期状态。
 
     Yields:
         None: 用例运行期。
     """
+    previous = topology_state()
     reset_collaboration_records()
     reset_domain_services()
     register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
-    yield
-    reset_collaboration_records()
-    reset_domain_services()
+    register_topology_snapshot(
+        TopologySnapshot(
+            tenant_id=0,
+            version=1,
+            entries=ConcurrentStableFrozenDict({"mdm": TopologyEntry(unit_key="mdm")}),
+        )
+    )
+    try:
+        yield
+    finally:
+        restore_topology_state(previous)
+        reset_collaboration_records()
+        reset_domain_services()
 
 
 def test_build_request_fills_service_and_path() -> None:

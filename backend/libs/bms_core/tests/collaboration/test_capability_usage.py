@@ -27,6 +27,13 @@ from bms_core.collaboration import (
     validate_capability_usages,
 )
 from bms_core.collaboration import usage as usage_module
+from bms_core.collaboration.topology import (
+    TopologyEntry,
+    TopologySnapshot,
+    register_topology_snapshot,
+    restore_topology_state,
+    topology_state,
+)
 from bms_core.core.concurrent import (
     ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
@@ -136,20 +143,34 @@ def _write_record(*, name: str = "demo.mdm.user-posts.assign") -> CollaborationR
 
 @pytest.fixture(autouse=True)
 def _isolate_state() -> Iterator[None]:
-    """每例前后复位能力记录、使用声明与域→服务键映射（均为进程级状态）。
+    """每例复位能力记录 / 使用声明 / 域映射，并显式构造本文件需要的拓扑前置。
+
+    装配装载对端声明后全局拓扑已非空（且只含本仓域）；本文件验证的是能力调用与降级，
+    故自己登记一份只含 `mdm` 域的快照，结束后恢复装配期状态。
 
     Yields:
         None: 用例运行期。
     """
+    previous = topology_state()
     reset_collaboration_records()
     reset_capability_usages()
     reset_domain_services()
     register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
+    register_topology_snapshot(
+        TopologySnapshot(
+            tenant_id=0,
+            version=1,
+            entries=ConcurrentStableFrozenDict({"mdm": TopologyEntry(unit_key="mdm")}),
+        )
+    )
     register_collaboration_records((_read_record(), _write_record()))
-    yield
-    reset_collaboration_records()
-    reset_capability_usages()
-    reset_domain_services()
+    try:
+        yield
+    finally:
+        restore_topology_state(previous)
+        reset_collaboration_records()
+        reset_capability_usages()
+        reset_domain_services()
 
 
 def test_usage_registry_register_view_find_and_reset() -> None:
