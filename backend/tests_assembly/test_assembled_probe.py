@@ -9,8 +9,9 @@ import os
 
 import pytest
 
+from bms_core.servicecall.http import HttpServiceClient
 from bms_core.services.module_registry import SERVICE_CATALOG
-from bms_core.testing.system import AssembledSystem
+from bms_core.testing.system import AssembledSystem, AssembledTransport
 from tests_support.assembled_services import PLATFORM_HOSTED_SERVICES
 
 pytestmark = [
@@ -38,3 +39,7 @@ async def test_assembles_all_services_once(assembled_system: AssembledSystem | N
     async with assembled_system.client("notification") as client:
         response = await client.get("/healthz")
         assert response.status_code == 200
+
+    service_client = assembled_system.app("identity").state.service_client
+    assert isinstance(service_client, HttpServiceClient)
+    assert isinstance(service_client._transport, AssembledTransport)  # pyright: ignore[reportPrivateUsage]

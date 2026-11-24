@@ -118,8 +118,8 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
     base_fixtures._reset_isolated_runtime(base_fixtures._apply_isolated_env(os.environ.__setitem__))  # pyright: ignore[reportPrivateUsage]
     install_process_fake_redis_client()
     configure_token_env(set_env=os.environ.__setitem__)
+    os.environ["BMS_SERVICE_CLIENT__PROVIDER"] = "http"
     get_settings.cache_clear()
-    load_product_manifests(peer_manifest_paths())
 
     peer_paths = peer_manifest_paths()
 
@@ -128,11 +128,15 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
         load_product_manifests(peer_paths)
 
     system = AssembledSystem(service_factories(), before_start=_prepare)
+    from bms_core.testing.system import in_process_service_calls
+
+    calls = in_process_service_calls(system)
     try:
         with installed_fake_tenant_source():
-            await system.assemble()
-            set_assembled_system(system)
-            yield system
+            async with calls:
+                await system.assemble()
+                set_assembled_system(system)
+                yield system
     finally:
         reset_assembled_system()
         await system.aclose()

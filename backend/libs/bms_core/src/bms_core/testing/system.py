@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
+from typing import Any
 
 import httpx
 from fastapi import FastAPI
@@ -28,6 +29,7 @@ __all__ = (
     "AssembledSystem",
     "AssembledTransport",
     "get_assembled_system",
+    "in_process_service_calls",
     "reset_assembled_system",
     "set_assembled_system",
 )
@@ -215,3 +217,35 @@ class AssembledTransport(httpx.AsyncBaseTransport):
         for transport in self.transports.values():
             await transport.aclose()
         self.transports.clear()
+
+
+@asynccontextmanager
+async def in_process_service_calls(system: AssembledSystem) -> AsyncGenerator[AssembledTransport]:
+    """让装配期构造的服务间客户端改用进程内路由传输（测试专用）。
+
+    为什么不用插件登记覆盖：应用装配每次都按真实工厂重新登记 `(service_client, http)`，
+    覆盖会被后登记者顶掉；这里直接包裹真实工厂的 `create`，保证每个应用拿到的客户端都带
+    进程内传输，且熔断 / 降级 / 限流 / 服务 JWT 语义仍由真实工厂构造。
+
+    Args:
+        system: 已装配（或正在装配）的系统。
+
+    Yields:
+        AssembledTransport: 共用的进程内传输（退出时释放）。
+    """
+    from bms_core.core.assembly import HttpServiceClientFactory
+
+    transport = AssembledTransport(system)
+    original = HttpServiceClientFactory.create
+
+    def patched(self: HttpServiceClientFactory, options: Any = None) -> Any:
+        client = original(self, options)
+        client._transport = transport  # pyright: ignore[reportPrivateUsage]
+        return client
+
+    HttpServiceClientFactory.create = patched  # type: ignore[method-assign]
+    try:
+        yield transport
+    finally:
+        HttpServiceClientFactory.create = original  # type: ignore[method-assign]
+        await transport.aclose()
