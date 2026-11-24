@@ -2,15 +2,22 @@
 
 与 `test_assembled_system.py` 的分工：那里用假应用验证容器契约（不计入装配次数），
 这里验证**真实会话的装配**——会话开始时 autouse 夹具已完成装配，故直接断言进程状态。
+
+最后两条（进程内直连 / 真实内部契约调用）原先是 `backend/tests_assembly/` 的独立探针：
+探针靠 `BMS_TEST_ASSEMBLED=1` 才跑，装配默认开启后它恒跳过、且不在 `testpaths` 内，
+等于假覆盖，故并入本文件随会话默认运行。
 """
 
 from __future__ import annotations
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableFrozenDict
 from bms_core.core.config import current_service, get_settings, reset_current_service, set_current_service
+from bms_core.servicecall.base import ServiceRequest
+from bms_core.servicecall.http import HttpServiceClient
 from bms_core.services.module_registry import SERVICE_CATALOG
-from bms_core.testing.system import assemble_count, assembled_at, get_assembled_system
+from bms_core.testing.system import AssembledTransport, assemble_count, assembled_at, get_assembled_system
 
 pytestmark = pytest.mark.kiwi_id(2556)
 
@@ -50,3 +57,24 @@ def test_settings_are_slotted_per_service() -> None:
         assert get_settings().app.service == "platform"
     finally:
         reset_current_service(token)
+
+
+def test_cross_service_client_routes_in_process() -> None:
+    """跨服务客户端走进程内传输：装配期构造的 `HttpServiceClient` 带 `AssembledTransport`。"""
+    service_client = get_assembled_system().app("identity").state.service_client
+    assert isinstance(service_client, HttpServiceClient)
+    assert isinstance(service_client._transport, AssembledTransport)  # pyright: ignore[reportPrivateUsage]
+
+
+async def test_internal_contract_call_reaches_peer_service() -> None:
+    """真实内部契约调用可达：identity → tenant 的成员关系出口返回 200（不外连网络）。"""
+    service_client = get_assembled_system().app("identity").state.service_client
+    response = await service_client.call(
+        ServiceRequest(
+            service="tenant",
+            method="GET",
+            path="/api/v1/tenant/internal/memberships",
+            query=ConcurrentStableFrozenDict({"owner_tenant_id": "1001", "user_id": "1"}),
+        )
+    )
+    assert response.status_code == 200, response.content

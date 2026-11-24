@@ -17,6 +17,7 @@ class RecordingMetrics(BaseMetrics):
         """初始化。"""
         self.counters: ConcurrentStableList[tuple[str, float, MetricLabels | None]] = ConcurrentStableList()
         self.gauges: ConcurrentStableList[tuple[str, float]] = ConcurrentStableList()
+        self.gauges_labeled: ConcurrentStableList[tuple[str, float, MetricLabels | None]] = ConcurrentStableList()
 
     async def counter(self, name: str, *, value: float = 1.0, labels: MetricLabels | None = None) -> None:
         """记录计数器。
@@ -31,13 +32,16 @@ class RecordingMetrics(BaseMetrics):
     async def gauge(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
         """记录瞬时值。
 
+        `gauges` 保持「指标名 + 值」的旧形态（既有用例按二元组解包）；带标签的调用同序
+        追加到 `gauges_labeled`，供需要按标签区分同一指标多个序列的用例使用。
+
         Args:
             name: 指标名。
             value: 当前值。
-            labels: 标签集（本替身不记录）。
+            labels: 标签集。
         """
-        del labels
         self.gauges.add((name, value))
+        self.gauges_labeled.add((name, value, labels))
 
     async def histogram(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
         """记录直方图（本域未使用）。

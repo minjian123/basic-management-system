@@ -13,6 +13,7 @@ from httpx import AsyncClient
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.session import DbSession
+from bms_core.testing.fixtures import service_settings
 from bms_core.testing.namespace import Namespace
 from bms_platform.domains.help.repositories.maintenance import HelpArticleMaintenanceRepository
 from tests_support.auth import auth_headers
@@ -72,9 +73,9 @@ async def test_package_path_outside_root_rejected(
     client: AsyncClient, ns: Namespace, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """绝对路径 / 越界 / 不存在一律 40021。"""
-    # 设置对象是进程级缓存：先清缓存再改本次实例，避免别的用例 cache_clear 后读到默认 root
+    # 装配常驻后应用按服务键读配置槽：改默认单例不影响请求，须改平台槽实例（`service_settings`）。
     get_settings.cache_clear()
-    monkeypatch.setattr(get_settings().help_package, "root", str(tmp_path))
+    monkeypatch.setattr(service_settings("platform").help_package, "root", str(tmp_path))
     absolute = _body(await client.post(f"{_PACKAGES}/load", json={"package_path": str(tmp_path / "pkg")}))
     assert absolute["code"] == 40021
     outside = _body(await client.post(f"{_PACKAGES}/load", json={"package_path": "../outside"}))
@@ -88,9 +89,9 @@ async def test_package_load_and_unload(
     client: AsyncClient, ns: Namespace, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """dry-run 不写；实跑计数一致；卸载下线来源文章。"""
-    # 设置对象是进程级缓存：先清缓存再改本次实例，避免别的用例 cache_clear 后读到默认 root
+    # 装配常驻后应用按服务键读配置槽：改默认单例不影响请求，须改平台槽实例（`service_settings`）。
     get_settings.cache_clear()
-    monkeypatch.setattr(get_settings().help_package, "root", str(tmp_path))
+    monkeypatch.setattr(service_settings("platform").help_package, "root", str(tmp_path))
     # 产品键按当前秒派生：共享库里同 `product_key` 会残留上一轮的包记录（`unload` 只下线来源文章、
     # 不删包行），固定键会让第二轮 `package_action` 从 `created` 变 `unchanged`（实测第 7 批复用第二轮）。
     product_key = f"{ns.prefix}{int(time.time()) % 100000}"

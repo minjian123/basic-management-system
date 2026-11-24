@@ -18,7 +18,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.collaboration.usage import reset_capability_usages
+from bms_core.collaboration.usage import register_capability_usages
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.datasource.registry import reset_data_source_records
@@ -101,6 +101,33 @@ def pinned_product_manifests() -> ConcurrentStableList[str]:
     return ConcurrentStableList()
 
 
+def _reload_catalog_views(pinned_product_manifests: ConcurrentStableList[str]) -> None:
+    """按会话级清单重建进程内视图族（八类记录 + 业务域映射）并补登记消费方使用声明。
+
+    **使用声明不能靠「复位 + 清单重载」恢复**：`platform` 的 `[[usages]]`（如
+    `mdm.mdm.user-roles` 的 `degrade = "empty"`）在生产由注册表投影（`project_registry`）
+    登记，而 `load_product_manifests` 只登记八类记录（`register_manifest` 的既定范围，不含使用
+    声明）。装配常驻后声明只在装配期登记一次；每例把它复位掉，`call_capability` 就找不到消费方
+    声明、于是不降级而是把取用失败原样上抛——平台主体链解析 `mdm` 角色时能力取用失败（40003）
+    直接变成 500，帮助域等整片用例变红（2026-11-24 实测）。故这里按清单**补登记**（同值幂等），
+    而非复位后放弃。
+
+    Args:
+        pinned_product_manifests: 会话级固定的清单路径（空清单表示只取本仓 `deploy/registry/*.toml`）。
+    """
+    reset_product_records()
+    reset_service_records()
+    reset_product_routes()
+    reset_data_source_records()
+    reset_collaboration_records()
+    reset_seed_records()
+    reset_error_code_records()
+    reset_domain_services()
+    for manifest in load_product_manifests(pinned_product_manifests):
+        if manifest.usages:
+            register_capability_usages(manifest.product_key, manifest.usages)
+
+
 @pytest.fixture(autouse=True)
 def isolate_catalog_records(
     pinned_product_manifests: ConcurrentStableList[str],
@@ -123,6 +150,9 @@ def isolate_catalog_records(
     直接读这些全局，用例改写后不恢复会让同 worker 后继用例报「业务域未在本实例启用」（403），
     且该状态不在库内，独占库隔离无效（2026-11-23 末批实测）。
 
+    **消费方使用声明不在复位面内**：它是装配期由注册表投影登记的声明，清单重载补不回来，
+    具体口径与踩坑见 `_reload_catalog_views`。
+
     Args:
         pinned_product_manifests: 会话级固定的清单路径。
         isolate_settings: 配置隔离夹具（保证环境变量覆盖先完成）。
@@ -133,34 +163,18 @@ def isolate_catalog_records(
         None: 用例运行期。
     """
     get_settings.cache_clear()
-    reset_product_records()
-    reset_service_records()
-    reset_product_routes()
-    reset_data_source_records()
-    reset_collaboration_records()
-    reset_seed_records()
-    reset_error_code_records()
-    reset_capability_usages()
-    load_product_manifests(pinned_product_manifests)
+    _reload_catalog_views(pinned_product_manifests)
     yield
     # 用例结束同样复位：投影类用例写入的是「无来源」记录，留在进程里会让同一 worker 内
     # 后建的会话级装配快照与清单装载撞「同键异值」。
-    reset_product_records()
-    reset_service_records()
-    reset_product_routes()
-    reset_data_source_records()
-    reset_collaboration_records()
-    reset_seed_records()
-    reset_error_code_records()
-    reset_capability_usages()
+    #
     # 业务域承载映射同样是进程级全局表：用例装载的临时清单（如声明注册用例的 `[[domains]]`）
     # 若留在进程里，后续用例的启动自举会把临时域写进共享库默认拓扑（测试库为真自动提交，写完即生效）。
     # 这里**按会话级清单重载**而不是「恢复用例开始前的值」：后者会把上一例留下的残值当成基线，
     # 一旦某例把映射改成只含少数域且自身不复位（如本目录 `_isolate_grant_state` 的 `mdm` /
     # `platform_registry` 两项），残值就被当成基线逐例传播，后继用例的域归属判定报
     # 「业务域未在本实例启用」（403，2026-11-23 末批实测）。
-    reset_domain_services()
-    load_product_manifests(pinned_product_manifests)
+    _reload_catalog_views(pinned_product_manifests)
 
 
 _MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(

@@ -42,21 +42,67 @@ from bms_core.models.platform.capability_grant import (
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.services.module_registry import (
     CollaborationRecord,
+    collaboration_catalog_view,
+    domain_service_view,
     register_collaboration_records,
     register_domain_services,
     reset_collaboration_records,
     reset_domain_services,
 )
 from bms_core.testing.locks import file_lock
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.platform_registry.repositories.capability_grant import CapabilityGrantRepository
 from bms_platform.domains.platform_registry.services.capability_grant import CapabilityGrantService
 from tests_support.metrics import RecordingMetrics
+from tests_support.permission_admin import setup_min_tenant
 
 API = "/api/v1/capability-grants"
 INTERNAL_API = "/api/v1/platform/internal/capability-grants"
 
-CAPABILITY = "demo.mdm.user-roles"
 CONSUMER = "platform"
+"""消费方取真实服务键：授权表唯一键是「能力 × 消费方」，能力名带命名空间即已唯一，
+消费方若也命名空间化就不再是已登记服务键（授予前校验直接 10001）。"""
+
+
+def _grant_domain(ns: Namespace) -> str:
+    """本用例能力所属业务域（带命名空间前缀）。
+
+    域键形态是小写字母开头、仅小写字母 / 数字 / 下划线，故用 `grant_<前缀>`。
+    命名空间化是为了让「按 provider 维度取授权视图」只命中本用例写入的行——
+    真实域 `mdm` 在共享库里有装配期落库的声明行，固定域会让断言随库里数据漂移。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        str: 业务域标识。
+    """
+    return f"grant_{ns.prefix}"
+
+
+def _capability_of(ns: Namespace) -> str:
+    """本用例的能力名（`demo.<命名空间域>.user-roles`）。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        str: 能力名（跨 worker / 跨轮次不相交）。
+    """
+    return f"demo.{_grant_domain(ns)}.user-roles"
+
+
+@pytest.fixture
+def capability(ns: Namespace) -> str:
+    """本用例的能力名（带命名空间，替代原先的固定键 `demo.mdm.user-roles`）。
+
+    Args:
+        ns: 用例命名空间。
+
+    Returns:
+        str: 能力名。
+    """
+    return _capability_of(ns)
 
 
 async def _grant_of(session: DbSession, capability: str, consumer: str) -> SysCapabilityGrant | None:
@@ -147,18 +193,19 @@ class _StubVerifier:
         raise AuthError("invalid")
 
 
-def _record(*, consumers: ConcurrentStableFrozenList[str] | None = None) -> CollaborationRecord:
-    """构造能力记录（读出口，缺省默认消费方为 platform）。
+def _record(ns: Namespace, *, consumers: ConcurrentStableFrozenList[str] | None = None) -> CollaborationRecord:
+    """构造本用例的能力记录（读出口，缺省默认消费方为 platform）。
 
     Args:
+        ns: 用例命名空间（能力名与业务域都带前缀）。
         consumers: 默认消费方（空表示声明里没有消费方）。
 
     Returns:
         CollaborationRecord: 能力记录。
     """
     return CollaborationRecord(
-        name=CAPABILITY,
-        domain="mdm",
+        name=_capability_of(ns),
+        domain=_grant_domain(ns),
         kind="read",
         contract_version="0.1.0",
         path="/api/v1/demo/user-roles",
@@ -171,24 +218,19 @@ def _record(*, consumers: ConcurrentStableFrozenList[str] | None = None) -> Coll
 
 
 @pytest.fixture(autouse=True)
-def _null_permission(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """权限校验改用占位实现（恒放行）。
+async def _admin_subject(tenant_db: str) -> None:
+    """把测试主体置为内置系统管理员（**真实授权**，不换检查器）。
 
     管理面 / 内部视图的**权限码挂载**属路由契约，权限码级判定由权限引擎专项用例覆盖；
-    本套用例只验端点语义，故显式设 `[permission].provider = null`（服务装配尊重显式配置）。
+    本套用例只验端点语义。装配常驻后不能再靠 `BMS_PERMISSION__PROVIDER=null` 切实现——
+    权限检查器在装配期就建好，逐例改环境变量读不到；改为像真实运行一样准备授权数据
+    （主体命中内置管理员豁免层级，13_10 口径）。
 
     Args:
-        monkeypatch: 环境变量覆盖夹具。
-
-    Yields:
-        None: 用例运行期。
+        tenant_db: 共享测试租户库连接串（授权数据落这里）。
     """
-    from bms_core.core.config import get_settings
-
-    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "null")
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
+    assert tenant_db
+    await setup_min_tenant(tenant_db)
 
 
 @pytest.fixture(autouse=True)
@@ -206,37 +248,54 @@ def _grant_global_serial() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_grant_state(_grant_global_serial: None) -> Iterator[None]:
-    """每例复位能力记录 / 域映射 / 授权视图，并登记夹具能力。
+def _isolate_grant_state(ns: Namespace, _grant_global_serial: None) -> Iterator[None]:
+    """在**装配态目录之上**追加本用例的能力与业务域，用例结束原样恢复。
+
+    为什么不再「清空目录 + 只装一条」：装配常驻后能力目录是装配期产物，清空会连带
+    `platform` 自身的声明与对端声明一起消失；此时若用例跑到启动装配
+    （`bootstrap_capability_grants`），同步会把共享库里所有真实声明判成「声明移除」并置撤销，
+    污染其它 worker。改为「追加 + 恢复」：本用例仍拿到唯一命名空间，装配态不受损。
+
+    Args:
+        ns: 用例命名空间。
+        _grant_global_serial: 整段全局状态的独占开关（依赖顺序）。
 
     Yields:
         None: 用例运行期。
     """
-    reset_collaboration_records()
-    reset_domain_services()
-    register_collaboration_records((_record(),))
-    register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm", "platform_registry": "platform"}))
-    yield
-    reset_collaboration_records()
-    reset_domain_services()
+    previous_collaborations = collaboration_catalog_view()
+    previous_domains = domain_service_view()
+    register_collaboration_records((_record(ns),))
+    register_domain_services(ConcurrentStableFrozenDict({_grant_domain(ns): "platform"}))
+    try:
+        yield
+    finally:
+        reset_collaboration_records()
+        register_collaboration_records(previous_collaborations)
+        reset_domain_services()
+        register_domain_services(ConcurrentStableFrozenDict(previous_domains.to_list()))
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def _clean_grants(
-    _grant_global_serial: None, _null_permission: None, service_app: FastAPI
+    ns: Namespace, _grant_global_serial: None, _admin_subject: None, service_app: FastAPI
 ) -> AsyncIterator[None]:
-    """只清**本用例夹具能力**的授权行（进入 / 退出各一次），并复位进程内授权缓存。
+    """只清**本用例能力**的授权行（进入 / 退出各一次），并复位进程内授权缓存。
 
     不再删全局声明行（那会让别的 worker 重新同步并与本用例竞争）；也不再用整条用例回滚。
 
     Args:
+        ns: 用例命名空间（本用例能力名唯一，删行不会波及他人）。
         service_app: 应用实例（启动钩子已执行）。
-        _null_permission: 保证权限实现先于应用装配生效（依赖顺序）。
+        _admin_subject: 保证授权主体先就位（依赖顺序；装配常驻后权限检查器不再逐例替换）。
+        _grant_global_serial: 整段全局状态的独占开关（依赖顺序）。
 
     Yields:
         None: 用例运行期。
     """
     from bms_core.collaboration import reset_capability_grants
+
+    name = _capability_of(ns)
 
     async def _purge() -> None:
         """删除本用例能力的授权行（Core 删除，不做 ORM 行数校验）。"""
@@ -247,7 +306,7 @@ async def _clean_grants(
         ) as session:
             await session.execute(
                 text("DELETE FROM sys_capability_grant WHERE capability_name = :capability"),
-                {"capability": CAPABILITY},
+                {"capability": name},
             )
 
     await _purge()
@@ -258,60 +317,62 @@ async def _clean_grants(
 
 
 @pytest.mark.anyio
-async def test_grant_is_idempotent_and_listed(client: AsyncClient) -> None:
+async def test_grant_is_idempotent_and_listed(client: AsyncClient, capability: str) -> None:
     """人工授予：首次新建、重复授予复用同一行；清单按能力筛选命中。"""
-    first = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": CONSUMER})
+    first = await client.post(API, json={"capability_name": capability, "consumer_key": CONSUMER})
     assert first.status_code == 200
     granted = first.json()["data"]
     assert granted["source"] == GRANT_SOURCE_MANUAL
     assert granted["status"] == GRANT_STATUS_ENABLED
     assert granted["revoked_at"] is None
 
-    second = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": CONSUMER})
+    second = await client.post(API, json={"capability_name": capability, "consumer_key": CONSUMER})
     assert second.json()["data"]["id"] == granted["id"]
 
-    listed = await client.get(API, params={"capability_name": CAPABILITY})
+    listed = await client.get(API, params={"capability_name": capability})
     rows = listed.json()["data"]["list"]
     assert [row["id"] for row in rows] == [granted["id"]]
 
 
 @pytest.mark.anyio
-async def test_grant_rejects_unregistered_capability_and_consumer(client: AsyncClient) -> None:
+async def test_grant_rejects_unregistered_capability_and_consumer(client: AsyncClient, capability: str) -> None:
     """入库前校验：能力未登记 / 消费方未登记均按参数非法拒绝（10001）。"""
     unknown_capability = await client.post(API, json={"capability_name": "demo.mdm.ghost", "consumer_key": CONSUMER})
     assert unknown_capability.json()["code"] == 10001
 
-    unknown_consumer = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": "ghost"})
+    unknown_consumer = await client.post(API, json={"capability_name": capability, "consumer_key": "ghost"})
     assert unknown_consumer.json()["code"] == 10001
 
 
 @pytest.mark.anyio
-async def test_temporary_grant_requires_expire_and_note(client: AsyncClient) -> None:
+async def test_temporary_grant_requires_expire_and_note(client: AsyncClient, capability: str) -> None:
     """临时授权：有效期与理由成对；过期时间必须晚于当前时间。"""
     future = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
     past = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
 
     missing_note = await client.post(
-        API, json={"capability_name": CAPABILITY, "consumer_key": CONSUMER, "expire_at": future}
+        API, json={"capability_name": capability, "consumer_key": CONSUMER, "expire_at": future}
     )
     assert missing_note.json()["code"] == 10001
 
     past_expire = await client.post(
         API,
-        json={"capability_name": CAPABILITY, "consumer_key": CONSUMER, "expire_at": past, "note": "排障"},
+        json={"capability_name": capability, "consumer_key": CONSUMER, "expire_at": past, "note": "排障"},
     )
     assert past_expire.json()["code"] == 10001
 
     ok = await client.post(
         API,
-        json={"capability_name": CAPABILITY, "consumer_key": CONSUMER, "expire_at": future, "note": "排障"},
+        json={"capability_name": capability, "consumer_key": CONSUMER, "expire_at": future, "note": "排障"},
     )
     assert ok.status_code == 200
     assert ok.json()["data"]["note"] == "排障"
 
 
 @pytest.mark.anyio
-async def test_temporary_grant_expire_at_read_back_is_utc(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_temporary_grant_expire_at_read_back_is_utc(
+    client: AsyncClient, service_app: FastAPI, capability: str
+) -> None:
     """临时授权从库读回：naive datetime 补齐 UTC（`_to_grant` 的时区归一分支）。
 
     为什么要「读回」：授予响应由同一会话的 ORM 对象序列化，`expire_at` 仍带写入时的 tzinfo，
@@ -325,7 +386,7 @@ async def test_temporary_grant_expire_at_read_back_is_utc(client: AsyncClient, s
     created = await client.post(
         API,
         json={
-            "capability_name": CAPABILITY,
+            "capability_name": capability,
             "consumer_key": CONSUMER,
             "expire_at": future.isoformat(),
             "note": "排障",
@@ -343,7 +404,7 @@ async def test_temporary_grant_expire_at_read_back_is_utc(client: AsyncClient, s
     target = [
         grant
         for grant in grants
-        if grant.capability_name == CAPABILITY and grant.consumer_key == CONSUMER and grant.expire_at is not None
+        if grant.capability_name == capability and grant.consumer_key == CONSUMER and grant.expire_at is not None
     ]
     assert len(target) == 1
     assert target[0].expire_at is not None
@@ -351,9 +412,9 @@ async def test_temporary_grant_expire_at_read_back_is_utc(client: AsyncClient, s
 
 
 @pytest.mark.anyio
-async def test_revoke_is_soft_and_idempotent(client: AsyncClient) -> None:
+async def test_revoke_is_soft_and_idempotent(client: AsyncClient, capability: str) -> None:
     """撤销：软撤销保留行（`disabled` + `revoked_at`）、重复撤销幂等、不存在 10002。"""
-    created = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": CONSUMER})
+    created = await client.post(API, json={"capability_name": capability, "consumer_key": CONSUMER})
     grant_id = created.json()["data"]["id"]
 
     revoked = await client.delete(f"{API}/{grant_id}")
@@ -480,15 +541,20 @@ class _NullUow:
 
 
 @pytest.mark.anyio
-async def test_declared_sync_create_disable_restore_with_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_declared_sync_create_disable_restore_with_audit(ns: Namespace, monkeypatch: pytest.MonkeyPatch) -> None:
     """声明同步：新建 → 声明移除置撤销 → 声明回归恢复；状态变更逐次经审计捕获。
 
     服务层单测（内存仓储替身，不连共享库）：`sync_declared()` 断的是**库的全局状态**，
     而共享库上其它 worker 的启动装配会把本用例造的 `demo.*` 行判为「声明移除」改成
     disabled（2026-11-23 末批实测：每 3 轮复现 1 次，窗口在同步提交与本用例重查之间）。
     三段语义与审计序列用替身完全覆盖；真库装配路径由
-    `test_bootstrap_registers_source_and_warms_views`（独占库）继续覆盖。
+    `test_bootstrap_registers_source_and_warms_views`（共享库）继续覆盖。
     """
+    capability = _capability_of(ns)
+    # 本用例断的是「声明 → 计划」的**全序列**，需要一个只装本用例能力的目录：这里临时收窄成一条
+    # （仓储是内存替身、不触共享库；用例结束由 `_isolate_grant_state` 恢复装配态目录）。
+    reset_collaboration_records()
+    register_collaboration_records((_record(ns),))
     audit = _RecordingAudit()
     repo = _MemoryGrantRepo()
     monkeypatch.setattr(CapabilityGrantService, "_repo", property(lambda _self: repo))
@@ -500,23 +566,23 @@ async def test_declared_sync_create_disable_restore_with_audit(monkeypatch: pyte
 
     first = await service.sync_declared()
     assert (first.created, first.revoked, first.restored) == (1, 0, 0)
-    row = await repo.get_by_pair(CAPABILITY, CONSUMER)
+    row = await repo.get_by_pair(capability, CONSUMER)
     assert row is not None
     assert (row.source, row.status) == (GRANT_SOURCE_DECLARED, GRANT_STATUS_ENABLED)
 
     reset_collaboration_records()
-    register_collaboration_records((_record(consumers=ConcurrentStableFrozenList()),))
+    register_collaboration_records((_record(ns, consumers=ConcurrentStableFrozenList()),))
     second = await service.sync_declared()
     assert (second.created, second.revoked, second.restored) == (0, 1, 0)
-    row = await repo.get_by_pair(CAPABILITY, CONSUMER)
+    row = await repo.get_by_pair(capability, CONSUMER)
     assert row is not None
     assert (row.status, row.note) == (GRANT_STATUS_DISABLED, GRANT_NOTE_REMOVED)
 
     reset_collaboration_records()
-    register_collaboration_records((_record(),))
+    register_collaboration_records((_record(ns),))
     third = await service.sync_declared()
     assert (third.created, third.revoked, third.restored) == (0, 0, 1)
-    row = await repo.get_by_pair(CAPABILITY, CONSUMER)
+    row = await repo.get_by_pair(capability, CONSUMER)
     assert row is not None
     assert (row.status, row.note) == (GRANT_STATUS_ENABLED, GRANT_NOTE_DECLARED)
 
@@ -527,7 +593,7 @@ async def test_declared_sync_create_disable_restore_with_audit(monkeypatch: pyte
 
 @pytest.mark.anyio
 async def test_declared_sync_skips_insert_when_row_appears(
-    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+    service_app: FastAPI, capability: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """并发启动收敛：计划判「需新增」而库里已有同键行时，原子插入跳过（不产生重复行）。"""
 
@@ -557,7 +623,7 @@ async def test_declared_sync_skips_insert_when_row_appears(
             (
                 await session.execute(
                     select(SysCapabilityGrant).where(
-                        SysCapabilityGrant.capability_name == CAPABILITY,
+                        SysCapabilityGrant.capability_name == capability,
                         SysCapabilityGrant.consumer_key == CONSUMER,
                         SysCapabilityGrant.deleted_at.is_(None),
                     )
@@ -570,7 +636,7 @@ async def test_declared_sync_skips_insert_when_row_appears(
 
 
 @pytest.mark.anyio
-async def test_grant_refreshes_active_gauge(service_app: FastAPI) -> None:
+async def test_grant_refreshes_active_gauge(service_app: FastAPI, capability: str) -> None:
     """人工授予后按能力刷新有效授权数（gauge 带 `capability` 标签）。"""
     from bms_core.collaboration import METRIC_CAPABILITY_GRANT_ACTIVE
 
@@ -586,27 +652,45 @@ async def test_grant_refreshes_active_gauge(service_app: FastAPI) -> None:
             metrics=metrics,
             uow=DbUnitOfWork(session),
         )
-        await service.grant(capability_name=CAPABILITY, consumer_key=CONSUMER, note="用例")
+        await service.grant(capability_name=capability, consumer_key=CONSUMER, note="用例")
         await service.sync_declared()
 
-    gauges = [value for name, value in metrics.gauges if name == METRIC_CAPABILITY_GRANT_ACTIVE]
+    # 目录里还有装配期声明的真实能力，`sync_declared()` 会逐个能力刷 gauge：
+    # 只按「本用例能力」标签取本次写入的那一条，不对全表序列下断言。
+    gauges = [
+        value
+        for name, value, labels in metrics.gauges_labeled
+        if name == METRIC_CAPABILITY_GRANT_ACTIVE and labels is not None and labels.get("capability") == capability
+    ]
     assert gauges and gauges[-1] == 1.0
 
 
 @pytest.mark.anyio
-async def test_internal_view_provider_and_consumer_dimensions(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_internal_view_provider_and_consumer_dimensions(
+    client: AsyncClient,
+    service_app: FastAPI,
+    ns: Namespace,
+    capability: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """内部视图：登录态按 provider 维度取；服务身份只能读自身消费方或自身承载域。"""
-    created = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": CONSUMER})
+    created = await client.post(API, json={"capability_name": capability, "consumer_key": CONSUMER})
     assert created.status_code == 200
 
-    by_provider = await client.get(INTERNAL_API, params={"provider": "mdm"})
+    # provider 取本用例的命名空间域：真实域（如 mdm）在共享库里有装配期落库的声明行，
+    # 用固定域断言「恰好一条」会随库里既有数据漂移。
+    by_provider = await client.get(INTERNAL_API, params={"provider": _grant_domain(ns)})
     assert by_provider.status_code == 200
-    assert [item["capability_name"] for item in by_provider.json()["data"]["grants"]] == [CAPABILITY]
+    assert [item["capability_name"] for item in by_provider.json()["data"]["grants"]] == [capability]
 
-    service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+    # 令牌校验替身用 `monkeypatch` 装、用例结束自动卸：装配常驻后 `dependency_overrides`
+    # 挂在会话级应用上，直接赋值会泄漏给同 worker 的后续用例。
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
     own = await client.get(INTERNAL_API, params={"consumer": CONSUMER}, headers={"Authorization": "Bearer platform"})
     assert own.status_code == 200
-    assert [item["consumer_key"] for item in own.json()["data"]["grants"]] == [CONSUMER]
+    # 出站维度是全局视图（平台还有装配期声明的其它能力）：只断言「返回的都是本消费方的记录」。
+    assert {item["consumer_key"] for item in own.json()["data"]["grants"]} == {CONSUMER}
+    assert capability in [item["capability_name"] for item in own.json()["data"]["grants"]]
 
     foreign_consumer = await client.get(
         INTERNAL_API, params={"consumer": "mdm"}, headers={"Authorization": "Bearer platform"}
@@ -635,24 +719,31 @@ async def test_internal_view_requires_single_dimension(client: AsyncClient) -> N
 
 
 @pytest.mark.anyio
-async def test_list_filters_by_consumer_status_and_source(client: AsyncClient) -> None:
+async def test_list_filters_by_consumer_status_and_source(client: AsyncClient, capability: str) -> None:
     """清单筛选：消费方 / 状态 / 来源三个筛选条件均可组合（无匹配返回空清单）。"""
-    created = await client.post(API, json={"capability_name": CAPABILITY, "consumer_key": CONSUMER})
+    created = await client.post(API, json={"capability_name": capability, "consumer_key": CONSUMER})
     grant_id = created.json()["data"]["id"]
     await client.delete(f"{API}/{grant_id}")
 
-    by_status = await client.get(API, params={"status": GRANT_STATUS_DISABLED, "source": GRANT_SOURCE_MANUAL})
+    by_status = await client.get(
+        API,
+        params={
+            "status": GRANT_STATUS_DISABLED,
+            "source": GRANT_SOURCE_MANUAL,
+            "capability_name": capability,
+        },
+    )
     assert [row["id"] for row in by_status.json()["data"]["list"]] == [grant_id]
 
-    by_consumer = await client.get(API, params={"consumer_key": CONSUMER, "capability_name": CAPABILITY})
+    by_consumer = await client.get(API, params={"consumer_key": CONSUMER, "capability_name": capability})
     assert by_consumer.json()["data"]["total"] == 1
 
-    no_match = await client.get(API, params={"consumer_key": "mdm", "capability_name": CAPABILITY})
+    no_match = await client.get(API, params={"consumer_key": "mdm", "capability_name": capability})
     assert no_match.json()["data"]["list"] == []
 
 
 @pytest.mark.anyio
-async def test_service_rejects_invalid_view_dimension_and_missing_uow(service_app: FastAPI) -> None:
+async def test_service_rejects_invalid_view_dimension_and_missing_uow(service_app: FastAPI, capability: str) -> None:
     """服务层防御：视图维度未二选一（10001）/ 无工作单元写（配置错误）/ 无审计器时不写审计。"""
     from bms_core.core.exceptions import ConfigError, ParamError
 
@@ -667,15 +758,15 @@ async def test_service_rejects_invalid_view_dimension_and_missing_uow(service_ap
         with pytest.raises(ParamError):
             await read_only.view(provider="mdm", consumer=CONSUMER)
         with pytest.raises(ConfigError):
-            await read_only.grant(capability_name=CAPABILITY, consumer_key=CONSUMER)
+            await read_only.grant(capability_name=capability, consumer_key=CONSUMER)
 
         writable = CapabilityGrantService(session, uow=DbUnitOfWork(session))
-        row = await writable.grant(capability_name=CAPABILITY, consumer_key=CONSUMER)
+        row = await writable.grant(capability_name=capability, consumer_key=CONSUMER)
         assert row.status == GRANT_STATUS_ENABLED
 
 
 @pytest.mark.anyio
-async def test_sync_keeps_manual_revocation_and_warns(service_app: FastAPI) -> None:
+async def test_sync_keeps_manual_revocation_and_warns(service_app: FastAPI, capability: str) -> None:
     """人工撤销后再装载声明：记录保持撤销（不覆盖），同步报告含不一致警示。"""
     audit = _RecordingAudit()
     async with session_scope(
@@ -688,11 +779,11 @@ async def test_sync_keeps_manual_revocation_and_warns(service_app: FastAPI) -> N
             audit=audit,  # pyright: ignore[reportArgumentType]  # 结构化替身
             uow=DbUnitOfWork(session),
         )
-        granted = await service.grant(capability_name=CAPABILITY, consumer_key=CONSUMER)
+        granted = await service.grant(capability_name=capability, consumer_key=CONSUMER)
         await service.revoke(granted.id)
 
         report = await service.sync_declared()
-        row = await _grant_of(session, CAPABILITY, CONSUMER)
+        row = await _grant_of(session, capability, CONSUMER)
 
     # 共享库上还有平台声明行：只断言「本用例这条人工撤销没有被声明覆盖」。
     assert report.created == 0
@@ -702,7 +793,7 @@ async def test_sync_keeps_manual_revocation_and_warns(service_app: FastAPI) -> N
 
 
 @pytest.mark.anyio
-async def test_bootstrap_registers_source_and_warms_views(service_app: FastAPI) -> None:
+async def test_bootstrap_registers_source_and_warms_views(service_app: FastAPI, capability: str) -> None:
     """启动装配：重复执行幂等（登记来源 + 预热本服务承载域与自身消费方视图）。
 
     共享平台库：`_clean_grants` 在用例前后只清本用例夹具能力的授权行，装配会把它重新落库；
@@ -721,8 +812,8 @@ async def test_bootstrap_registers_source_and_warms_views(service_app: FastAPI) 
     rows = capability_grant_pairs(consumer=CONSUMER)
     # 只断言本用例登记的能力：进程内可能还带着平台内置能力（如 notification.read）的声明，
     # 它们同样会被启动装配落库，不属于本用例的判定范围。
-    mine = [(row.capability_name, row.source) for row in rows if row.capability_name == CAPABILITY]
-    assert mine == [(CAPABILITY, GRANT_SOURCE_DECLARED)]
+    mine = [(row.capability_name, row.source) for row in rows if row.capability_name == capability]
+    assert mine == [(capability, GRANT_SOURCE_DECLARED)]
 
 
 @pytest.mark.anyio
@@ -748,7 +839,7 @@ async def test_bootstrap_grants_opens_two_scopes(service_app: FastAPI, monkeypat
 
 
 @pytest.mark.anyio
-async def test_revoke_tolerates_capability_removed_from_catalog(service_app: FastAPI) -> None:
+async def test_revoke_tolerates_capability_removed_from_catalog(service_app: FastAPI, capability: str) -> None:
     """能力已从目录卸载时撤销仍可完成：快照失效按「未命中能力」跳过，不抛错。"""
     audit = _RecordingAudit()
     async with session_scope(
@@ -761,7 +852,7 @@ async def test_revoke_tolerates_capability_removed_from_catalog(service_app: Fas
             audit=audit,  # pyright: ignore[reportArgumentType]  # 结构化替身
             uow=DbUnitOfWork(session),
         )
-        granted = await service.grant(capability_name=CAPABILITY, consumer_key=CONSUMER)
+        granted = await service.grant(capability_name=capability, consumer_key=CONSUMER)
         reset_collaboration_records()
         register_collaboration_records(
             (
@@ -830,7 +921,7 @@ async def test_bootstrap_rejects_when_storage_unavailable(
 
 
 @pytest.mark.anyio
-async def test_bootstrap_reports_declaration_conflicts(service_app: FastAPI) -> None:
+async def test_bootstrap_reports_declaration_conflicts(service_app: FastAPI, capability: str) -> None:
     """启动装配：人工撤销与声明不一致时只告警（记录保持撤销，不覆盖人工判断）。"""
     from bms_platform.domains.platform_registry.services.capability_grant_bootstrap import (
         bootstrap_capability_grants,
@@ -846,7 +937,7 @@ async def test_bootstrap_reports_declaration_conflicts(service_app: FastAPI) -> 
             audit=_RecordingAudit(),  # pyright: ignore[reportArgumentType]  # 结构化替身
             uow=DbUnitOfWork(session),
         )
-        revoked = await service.grant(capability_name=CAPABILITY, consumer_key=CONSUMER)
+        revoked = await service.grant(capability_name=capability, consumer_key=CONSUMER)
         await service.revoke(revoked.id)
 
     await bootstrap_capability_grants(service_app)
@@ -856,7 +947,7 @@ async def test_bootstrap_reports_declaration_conflicts(service_app: FastAPI) -> 
         db_key=PLATFORM_DB_KEY,
         factory=service_app.state.session_factory,
     ) as session:
-        row = await _grant_of(session, CAPABILITY, CONSUMER)
+        row = await _grant_of(session, capability, CONSUMER)
     assert row is not None
     assert (row.status, row.source) == (GRANT_STATUS_DISABLED, GRANT_SOURCE_MANUAL)
 

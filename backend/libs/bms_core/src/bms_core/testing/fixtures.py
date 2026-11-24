@@ -63,6 +63,7 @@ __all__ = (
     "reset_request_context",
     "resolve_fixture",
     "resolve_prepare",
+    "service_settings",
     "shared_db_url",
     "shared_platform_db_url",
     "shared_platform_engine",
@@ -402,6 +403,29 @@ def clear_tenant_cache(app: object) -> None:
     cache = getattr(source, "cache", None)
     if isinstance(cache, MemoryCacheRegion):
         cache.clear()
+
+
+def service_settings(service: str) -> Settings:
+    """取某服务键对应的配置实例（与全系统装配里该服务应用读到的是**同一个对象**）。
+
+    为什么需要它：`get_settings()` 按当前服务键分槽（13_10）。用例在请求之外调用
+    `get_settings()` 时服务键为空、拿到的是**默认单例**；而装配常驻的应用在请求期由
+    服务上下文中间件把服务键切到自身，读的是该服务槽里的实例。两者不是同一个对象，
+    在默认单例上改配置不会影响应用（表现为「改了配置但端点行为没变」）。
+
+    Args:
+        service: 服务键（如 `platform`）。
+
+    Returns:
+        Settings: 该服务的配置实例（调用方改它才会被该服务的请求读到）。
+    """
+    from bms_core.core.config import reset_current_service, set_current_service
+
+    token = set_current_service(service)
+    try:
+        return get_settings()
+    finally:
+        reset_current_service(token)
 
 
 TEST_DB_DIRNAME = "test"

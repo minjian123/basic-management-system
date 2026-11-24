@@ -762,11 +762,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/identity/tests/sso/test_keycloak_e2e.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
       "file": "backend/services/identity/tests/sso/test_providers.py",
       "code": "P1",
       "count": 1
@@ -808,22 +803,7 @@
     },
     {
       "file": "backend/services/platform/tests/api/test_capability_grants.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/api/test_capability_grants.py",
       "code": "P4",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/api/test_capability_grants.py",
-      "code": "P5",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/api/test_dev_contract_endpoints.py",
-      "code": "P3",
       "count": 1
     },
     {
@@ -932,11 +912,6 @@
       "count": 2
     },
     {
-      "file": "backend/services/platform/tests/conftest.py",
-      "code": "P2",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/core/test_capability.py",
       "code": "P5",
       "count": 1
@@ -950,21 +925,6 @@
       "file": "backend/services/platform/tests/crosscut/test_plugin_assembly.py",
       "code": "P5",
       "count": 5
-    },
-    {
-      "file": "backend/services/platform/tests/form_design/test_build_ext_columns.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/form_design/test_field_ext_api.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/form_design/test_runtime_paths.py",
-      "code": "P3",
-      "count": 1
     },
     {
       "file": "backend/services/platform/tests/help/test_help_feedback_stats.py",
@@ -997,28 +957,8 @@
       "count": 1
     },
     {
-      "file": "backend/services/platform/tests/import_export/test_import_job.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/listing/test_listing.py",
       "code": "P5",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/log/test_log_write.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/log/test_log_write_batch.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/models/test_base_model.py",
-      "code": "P3",
       "count": 1
     },
     {
@@ -1027,28 +967,8 @@
       "count": 20
     },
     {
-      "file": "backend/services/platform/tests/recycle/test_recycle_api.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/recycle/test_recycle_job.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/recycle/test_recycle_restore_service.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/registry/test_declaration_bootstrap.py",
       "code": "P4",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/registry/test_declaration_repository.py",
-      "code": "P3",
       "count": 1
     },
     {
@@ -1075,21 +995,6 @@
       "file": "backend/services/platform/tests/seed/test_seed_endpoint_call.py",
       "code": "P5",
       "count": 4
-    },
-    {
-      "file": "backend/services/platform/tests/seed/test_seed_menu_consistency.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/services/test_i18n_fallback_cleanup.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/services/test_menu_metadata_service.py",
-      "code": "P3",
-      "count": 1
     },
     {
       "file": "backend/services/platform/tests/users/test_admin_api.py",
@@ -1158,11 +1063,6 @@
     },
     {
       "file": "backend/services/tenant/tests/sources/test_tenant_routing_integration.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/tenant/tests/sources/test_tenant_routing_integration.py",
       "code": "P5",
       "count": 4
     },
@@ -1170,11 +1070,6 @@
       "file": "backend/services/tenant/tests/sources/test_tenant_source.py",
       "code": "P5",
       "count": 3
-    },
-    {
-      "file": "backend/services/tenant/tests/tenant/test_platform_tenant.py",
-      "code": "P3",
-      "count": 1
     },
     {
       "file": "backend/services/tenant/tests/tenant/test_tenant_admin.py",
@@ -1208,11 +1103,6 @@
     },
     {
       "file": "backend/services/tenant/tests/tenant/test_tenant_registry.py",
-      "code": "P3",
-      "count": 1
-    },
-    {
-      "file": "backend/services/tenant/tests/tenant/test_tenant_registry.py",
       "code": "P5",
       "count": 1
     },
@@ -1220,11 +1110,6 @@
       "file": "backend/services/tenant/tests/tenant/test_tenant_self_service.py",
       "code": "P5",
       "count": 2
-    },
-    {
-      "file": "backend/services/txn/tests/integration/test_end_to_end_2pc.py",
-      "code": "P3",
-      "count": 1
     },
     {
       "file": "backend/services/txn/tests/integration/test_end_to_end_2pc.py",
