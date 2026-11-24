@@ -332,11 +332,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/ai/tests/conftest.py",
-      "code": "P2",
-      "count": 1
-    },
-    {
       "file": "backend/services/file/tests/test_file_failures.py",
       "code": "P1",
       "count": 1
@@ -572,11 +567,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/report/tests/conftest.py",
-      "code": "P2",
-      "count": 1
-    },
-    {
       "file": "backend/services/report/tests/print/test_print_artifact_cleanup.py",
       "code": "P4",
       "count": 1
@@ -587,18 +577,8 @@
       "count": 1
     },
     {
-      "file": "backend/services/search/tests/conftest.py",
-      "code": "P2",
-      "count": 1
-    },
-    {
       "file": "backend/services/search/tests/globalsearch/test_global_search.py",
       "code": "P1",
-      "count": 1
-    },
-    {
-      "file": "backend/services/tenant/tests/conftest.py",
-      "code": "P2",
       "count": 1
     },
     {

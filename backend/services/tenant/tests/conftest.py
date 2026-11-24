@@ -1,13 +1,18 @@
 """pytest 公共夹具：ASGI 内存客户端（免启服务器）+ 配置环境隔离 + 平台库租户种子。"""
 
+import os
 from collections.abc import AsyncIterator, Callable, Iterator
+from pathlib import Path
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.testing.fixtures import (
+    apply_module_loop_scope,
     clear_tenant_cache,
     platform_db,
     reset_plugin_registry,
@@ -16,12 +21,21 @@ from bms_core.testing.fixtures import (
 from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
+from bms_core.testing.fixtures import (
+    isolated_env_module as bms_isolated_env_module,
+)
 
-__all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
+__all__ = (
+    "bms_isolate_settings",
+    "bms_isolated_env_module",
+    "platform_db",
+    "reset_plugin_registry",
+    "reset_request_context",
+)
 from bms_tenant.main import ApplicationFactory
 from tests_support.auth import auth_headers, configure_token_env
 from tests_support.tenant_base import tenant_base as tenant_base  # pytest 夹具须在本模块命名空间可见
-from tests_support.tenant_source import install_fake_tenant_source
+from tests_support.tenant_source import install_fake_tenant_source, installed_fake_tenant_source
 
 
 @pytest.fixture(autouse=True)
@@ -115,9 +129,43 @@ def fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
     install_fake_tenant_source(monkeypatch)
 
 
-@pytest.fixture
-async def service_app() -> AsyncIterator[FastAPI]:
-    """本服务应用实例夹具（经 lifespan 装配；供探针 / 应用级断言与 `client` 共用）。
+@pytest.fixture(scope="module")
+def tenant_module_env(
+    bms_isolated_env_module: None, shared_platform_db_url: str, shared_tenant_db_url: str
+) -> Iterator[None]:
+    """模块级服务环境：常驻装配前就位库 URL / fakeredis / 令牌 / 租户源 / 自举开关。
+
+    Args:
+        bms_isolated_env_module: 基座模块级隔离环境（保证顺序）。
+        shared_platform_db_url: 会话级共享平台库连接串。
+        shared_tenant_db_url: 会话级共享租户库连接串。
+
+    Yields:
+        None: 模块运行期。
+    """
+    from tests_support.redis import install_process_fake_redis_client
+
+    os.environ["BMS_DATABASE__PLATFORM__URL"] = shared_platform_db_url
+    os.environ["BMS_DATABASE__TENANTS__URL"] = shared_tenant_db_url
+    os.environ["BMS_PLATFORM_TENANT__AUTO_BOOTSTRAP"] = "false"
+    install_process_fake_redis_client()
+    configure_token_env(set_env=os.environ.__setitem__)
+    get_settings.cache_clear()
+    with installed_fake_tenant_source():
+        yield
+
+
+def pytest_collection_modifyitems(items: ConcurrentStableList[pytest.Item]) -> None:
+    """租户服务异步用例统一使用模块级事件循环（装配常驻 B1）。"""
+    apply_module_loop_scope(items, Path(__file__).parent)
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
+async def service_app(tenant_module_env: None) -> AsyncIterator[FastAPI]:
+    """本服务应用实例夹具（经 lifespan 装配，**模块级常驻**）。
+
+    Args:
+        tenant_module_env: 模块级服务环境（保证装配前环境就位）。
 
     Yields:
         object: FastAPI 应用实例。
@@ -131,12 +179,16 @@ async def service_app() -> AsyncIterator[FastAPI]:
         clear_tenant_cache(app)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(loop_scope="module")
 async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
-    """ASGITransport 异步客户端夹具（复用 `service_app`）。
+    """ASGITransport 异步客户端夹具（复用常驻 `service_app`）。
 
     平台库与租户种子由 autouse 的 `platform_db` 夹具提供；租户缓存用例前后清空。
     """
-    async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
-        c.headers.update(auth_headers())
-        yield c
+    clear_tenant_cache(service_app)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
+            c.headers.update(auth_headers())
+            yield c
+    finally:
+        clear_tenant_cache(service_app)
