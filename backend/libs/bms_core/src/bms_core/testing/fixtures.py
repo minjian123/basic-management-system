@@ -67,6 +67,7 @@ __all__ = (
     "shared_platform_engine",
     "shared_tenant_db_url",
     "shared_tenant_engine",
+    "shared_tenant_writable_db_url",
     "tenant_db",
     "test_db_dir",
     "version_for",
@@ -1003,6 +1004,8 @@ def needed_shared_databases(items: Iterable[Any]) -> ConcurrentStableList[str]:
         needed.add("platform")
     if {"shared_tenant_db_url", "shared_tenant_engine", "tenant_db", "tenant_db_url"} & closure:
         needed.add("tenant")
+    if {"shared_tenant_writable_db_url"} & closure:
+        needed.add("tenant_writable")
     return needed
 
 
@@ -1151,6 +1154,24 @@ def shared_tenant_db_url(request: pytest.FixtureRequest) -> str:
     """
     prepare = resolve_prepare(request, "tenant") or module_prepare("tenant")
     return require_shared_db("tenant", version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
+
+
+@pytest.fixture(scope="session")
+def shared_tenant_writable_db_url(request: pytest.FixtureRequest) -> str:
+    """破坏性操作用例专用租户库（`tenant_writable`，每轮一份；worker 只校验）。
+
+    为什么单列：按租户批量撤销会话这类操作会撤销**本租户库全部在线会话**。生产上一个租户
+    一个库，这类操作撤销的就是该租户自己的库；测试里主测试租户库被所有用例共用，必须按同一
+    生产拓扑派生第二个租户库，只归破坏性用例使用，避免波及其他用例。
+
+    Args:
+        request: pytest 夹具请求（取套件自定义建库回调，仅用于派生版本戳）。
+
+    Returns:
+        str: 专用租户库连接串。
+    """
+    prepare = resolve_prepare(request, "tenant_writable") or module_prepare("tenant_writable")
+    return require_shared_db("tenant_writable", version=version_for(prepare, packages=_SCHEMA_SOURCE_PACKAGES))
 
 
 @pytest.fixture

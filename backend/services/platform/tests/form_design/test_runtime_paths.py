@@ -12,6 +12,7 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import update
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -35,25 +36,22 @@ from bms_platform.domains.form_design.repositories.layout import (
 )
 from bms_platform.domains.form_design.services.assemble import LevelSnapshot, assemble_layout
 from bms_platform.wiring import build_local_form_validator
-from tests_support.form_design import run_statement, tenant_session
+from tests_support.form_design import tenant_session
 from tests_support.permission_admin import TEST_SUBJECT, grant_system_admin, setup_min_tenant
 
 from .helpers import (
-    create_probe_table,
-    drop_probe_table,
     register_form_key,
     seed_business,
     seed_form_with_fields,
-    tenant_url,
 )
 
 pytestmark = [
     pytest.mark.kiwi_id(2526),
     pytest.mark.xdist_group("form-design"),
-    pytest.mark.own_db(
-        "自建字段运行期路径要真跑建列 / 造探针表与视图：运行期改结构只允许在独占临时库，共享库结构由数据初始化建好"
-    ),
 ]
+
+_PROBE = "biz_ext_probe"
+"""共享库探针表 / 视图（初始化阶段建好）。"""
 
 _LAYOUTS = "/api/v1/form-design/layouts"
 _ATTRS = "/api/v1/form-design/attrs"
@@ -115,32 +113,16 @@ def _permission_registry() -> Callable[[Any, Any], BaseFieldPermissionProvider]:
     return _permission_factory
 
 
-@pytest.fixture
-def tenant_db(isolated_tenant: str) -> str:
-    """本文件已迁独占库（`own_db`）：把 `tenant_db` 指向同一份独占库。
-
-    13_08 T7：文件级 `own_db` 后应用与直连会话必须读**同一份**库（否则直连读到共享库的空布局）。
-    保留本夹具名，既有用例签名与 `tenant_session(tenant_db)` 写法零改动。
-
-    Args:
-        isolated_tenant: 独占租户库连接串（同时打开运行期 DDL）。
-
-    Returns:
-        str: 独占租户库连接串。
-    """
-    return isolated_tenant
-
-
 @pytest_asyncio.fixture(autouse=True)
-async def prepared(isolated_tenant: str) -> None:
-    """独占租户库 + 系统管理员主体 + 四表存在性（不清表，隔离靠命名空间）。
+async def prepared(tenant_db: str) -> None:
+    """共享租户库 + 系统管理员主体（不清表，隔离靠命名空间）。
 
-    13_08 T7：本文件含真跑建列与造视图的用例，故整文件走 `own_db` 独占库，并只在该库打开运行期 DDL。
+    运行期 DDL 关闭：建列与视图由初始化阶段完成，用例只读写。
 
     Args:
-        isolated_tenant: 独占租户库连接串（同时打开运行期 DDL）。
+        tenant_db: 共享租户库连接串。
     """
-    await setup_min_tenant(isolated_tenant)
+    await setup_min_tenant(tenant_db)
 
 
 def _data(response: Any, label: str) -> Any:
@@ -176,9 +158,23 @@ async def _form(ns: Namespace, suffix: str, *, app: Any, table: bool = False, wi
         fields.add(("tags", "标签", "option_multi", 3))
     await seed_form_with_fields(business_id, fields)
     if table:
-        await create_probe_table(tenant_url(), f"biz_{code}")
-        register_form_key(app, code, f"biz_{code}")
+        register_form_key(app, code, _PROBE)
     return code
+
+
+async def _mark_active(tenant_db: str, code: str, field_key: str) -> None:
+    """把本用例自建字段置 `active`（模拟初始化阶段已补列；不建结构）。
+
+    运行期 DDL 关闭后，新建字段只落 `pending`；「生效布局 / 校验 / 选项集合并」需要
+    `active` 字段，因此用例把状态置位（列本身由初始化声明负责，不在此处建）。
+    """
+    async with tenant_session(tenant_db) as session:
+        await session.execute(
+            update(SysFieldExt)
+            .where(SysFieldExt.form_code == code, SysFieldExt.field_key == field_key)
+            .values(ddl_status="active")
+        )
+        await session.commit()
 
 
 async def _save_layout(client: AsyncClient, code: str, layout_config: Any, *, scope: str = "tenant") -> None:
@@ -197,7 +193,9 @@ async def _save_layout(client: AsyncClient, code: str, layout_config: Any, *, sc
     assert saved.json()["code"] == 0, saved.text
 
 
-async def test_effective_ships_option_set_snapshot(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
+async def test_effective_ships_option_set_snapshot(
+    client: AsyncClient, service_app: Any, ns: Namespace, tenant_db: str
+) -> None:
     """枚举字段的选项集快照随生效布局一次下发（平台字段按属性、自建字段按字段行两条来源）。"""
     code = await _form(ns, "optset", app=service_app, table=True)
     await _save_layout(client, code, {"main": {"sections": [{"key": "s", "fields": ["name", "status"]}]}})
@@ -223,6 +221,7 @@ async def test_effective_ships_option_set_snapshot(client: AsyncClient, service_
         },
     )
     assert created.json()["code"] == 0, created.text
+    await _mark_active(tenant_db, code, "stage")
 
     data = _data(await client.get(_EFFECTIVE.format(code=code)), "生效布局")
     keys = [item["option_set_key"] for item in data["option_sets"]]
@@ -289,7 +288,7 @@ async def test_strip_invisible_keeps_advanced_with_scheme(
     assert advanced == {"scheme": "advanced"}
 
 
-async def test_effective_merges_ext_field(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
+async def test_effective_merges_ext_field(client: AsyncClient, service_app: Any, ns: Namespace, tenant_db: str) -> None:
     """自建字段并入字段清单（`group=tenant`、按 `sort` 参与排序）。"""
     code = await _form(ns, "extmerge", app=service_app, table=True)
     created = await client.post(
@@ -297,6 +296,7 @@ async def test_effective_merges_ext_field(client: AsyncClient, service_app: Any,
         json={"form_code": code, "field_key": "extra", "name": "补充", "type": "text", "sort": 0},
     )
     assert created.json()["code"] == 0, created.text
+    await _mark_active(tenant_db, code, "extra")
     data = _data(await client.get(_EFFECTIVE.format(code=code)), "生效布局")
     merged = next(item for item in data["fields"] if item["key"] == "extra")
     assert merged["group"] == "tenant"
@@ -330,6 +330,7 @@ async def test_layout_columns_of_reads_layout_and_ext_fields(
     await _save_layout(client, code, {"main": {"sections": [{"key": "s", "fields": ["status", "name"]}]}})
     created = await client.post(_FIELDS, json={"form_code": code, "field_key": "extra", "name": "补充", "type": "text"})
     assert created.json()["code"] == 0, created.text
+    await _mark_active(tenant_db, code, "extra")
 
     async with tenant_session(tenant_db) as session:
         keys, specs = await layout_columns_of(
@@ -573,7 +574,7 @@ async def test_field_update_branches(client: AsyncClient, service_app: Any, ns: 
 
 
 async def test_field_recreate_after_disable(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
-    """停用后同键重建 → 复用同一行（走更新分支）并重新建列。"""
+    """停用后同键重建 → 复用同一行（走更新分支）；运行期只落 pending。"""
     code = await _form(ns, "reuse", app=service_app, table=True)
     first = _data(
         await client.post(_FIELDS, json={"form_code": code, "field_key": "reuse_col", "name": "复用", "type": "text"}),
@@ -584,35 +585,31 @@ async def test_field_recreate_after_disable(client: AsyncClient, service_app: An
     payload = {"form_code": code, "field_key": "reuse_col", "name": "复用二", "type": "text"}
     again = _data(await client.post(_FIELDS, json=payload), "重建")
     assert again["id"] == first["id"]
-    assert again["ddl_status"] == "active"
+    assert again["ddl_status"] == "pending"
 
 
-async def test_ddl_idempotent_when_column_present(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
-    """列已存在时重试按幂等命中（不重复加列）。"""
+async def test_retry_keeps_pending(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
+    """重试：运行期不改结构，重试后仍 pending（建列由初始化阶段）。"""
     code = await _form(ns, "idem", app=service_app, table=True)
     created = _data(
         await client.post(_FIELDS, json={"form_code": code, "field_key": "idem_col", "name": "幂等", "type": "text"}),
         "新建",
     )
     retried = _data(await client.post(f"{_FIELDS}/{created['id']}/retry"), "重试")
-    assert retried["ddl_status"] == "active"
+    assert retried["ddl_status"] == "pending"
 
 
-async def test_ddl_failure_on_non_table_target(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
-    """目标对象不是可加列的实表（视图）时 DDL 失败 → `failed` 且不抛给调用方。"""
+async def test_view_target_still_pending(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
+    """目标对象不是实表（视图）也只落 pending：运行期不执行任何 DDL。"""
     code = f"{ns.prefix}_view"
     business_id = await seed_business(code)
     await seed_form_with_fields(business_id, ConcurrentStableList((("name", "名称", "text", 1),)))
-    table = f"biz_{code}"
-    await drop_probe_table(tenant_url(), table)
-    await run_statement(tenant_url(), f"DROP VIEW IF EXISTS {table}")
-    await run_statement(tenant_url(), f"CREATE VIEW {table} AS SELECT 1 AS id")
-    register_form_key(service_app, code, table)
+    register_form_key(service_app, code, _PROBE)
     created = _data(
         await client.post(_FIELDS, json={"form_code": code, "field_key": "view_col", "name": "视图", "type": "text"}),
-        "新建（预期建列失败）",
+        "新建",
     )
-    assert created["ddl_status"] == "failed"
+    assert created["ddl_status"] == "pending"
 
 
 async def test_purge_level_without_rows_returns_false(tenant_db: str, ns: Namespace) -> None:
@@ -635,7 +632,11 @@ async def test_metadata_returns_none_when_form_row_missing(client: AsyncClient, 
 
 
 async def test_validate_applies_permissions_and_ext_fields(
-    client: AsyncClient, service_app: Any, ns: Namespace, monkeypatch: pytest.MonkeyPatch
+    client: AsyncClient,
+    service_app: Any,
+    ns: Namespace,
+    tenant_db: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """校验同源权限：不可见字段不参与校验、不可编辑字段跳必填但仍校验值域；自建字段一并校验。"""
     monkeypatch.setattr(wiring_module, "current_field_permission_provider_factory", _permission_registry)
@@ -665,6 +666,7 @@ async def test_validate_applies_permissions_and_ext_fields(
         },
     )
     assert created.json()["code"] == 0, created.text
+    await _mark_active(tenant_db, code, "stage")
 
     result = _data(
         await client.post(
@@ -821,7 +823,7 @@ async def test_save_attrs_rejects_unknown_form_and_bad_scope(
 
 
 async def test_option_snapshot_merges_attr_and_ext_sources(
-    client: AsyncClient, service_app: Any, ns: Namespace
+    client: AsyncClient, service_app: Any, ns: Namespace, tenant_db: str
 ) -> None:
     """选项集快照两条来源都计入（属性行一条、自建字段一条，同键去重）。"""
     code = await _form(ns, "optset2", app=service_app, table=True)
@@ -853,6 +855,7 @@ async def test_option_snapshot_merges_attr_and_ext_sources(
         },
     )
     assert created.json()["code"] == 0, created.text
+    await _mark_active(tenant_db, code, "stage")
     data = _data(await client.get(_EFFECTIVE.format(code=code)), "生效布局")
     assert sorted(item["option_set_key"] for item in data["option_sets"]) == [
         "bms.tenant.module_status",

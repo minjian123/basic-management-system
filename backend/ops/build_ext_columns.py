@@ -24,29 +24,34 @@ uv run python -m ops.build_ext_columns --url "sqlite+aiosqlite:///./bms_platform
 
 import argparse
 from dataclasses import dataclass
-from typing import cast
+from typing import Any
 
-from sqlalchemy import select, update
-from sqlalchemy.engine import make_url
+from sqlalchemy import inspect, select, text, update
+from sqlalchemy.engine import Dialect, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
-from bms_core.db.session import DbSession
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
-from bms_core.lock.null import NullDistributedLock
+from bms_core.fieldtype.mapping import ext_column_type
+from bms_core.formdesign.identifier import validate_column_name, validate_table_name
 from bms_core.models.platform.form_design import (
     DDL_STATUS_ACTIVE,
     DDL_STATUS_FAILED,
     DDL_STATUS_PENDING,
     SysFieldExt,
 )
-from bms_platform.domains.form_design.services.ddl import FormDdlExecutor
+from bms_platform.domains.form_design.services.ddl import compile_add_column
 from ops._worker import run_with_worker_id
 from ops.migrate_tenants import tenant_refs
 
@@ -98,6 +103,197 @@ class BuildResult(BaseValueObject):
             int: 失败条数。
         """
         return sum(len(item.failed) for item in self.libraries)
+
+
+@dataclass(frozen=True)
+class ScriptEntry(BaseValueObject):
+    """迁移脚本的一条条目（`skipped=True` 表示列已存在、无需执行）。"""
+
+    field_id: int
+    """`sys_field_ext` 主键（执行段回写状态用）。"""
+
+    label: str
+    """字段标识（`form_code.field_key`，日志与失败明细用）。"""
+
+    table_name: str
+    """物理表名（已过白名单）。"""
+
+    column_name: str
+    """物理列名（已过白名单）。"""
+
+    sql: str
+    """迁移语句（`skipped=True` 时为空串）。"""
+
+    skipped: bool
+    """列已存在，无需执行。"""
+
+
+def build_script(
+    fields: ConcurrentStableList[SysFieldExt],
+    existing: ConcurrentStableDict[str, ConcurrentStableFrozenList[str]],
+    *,
+    dialect: Dialect,
+) -> ConcurrentStableList[ScriptEntry]:
+    """生成「补建列」迁移脚本内容（**纯逻辑**：不连库、不执行 DDL）。
+
+    Args:
+        fields: 待建列字段（`pending`）。
+        existing: 目标表现有列（表名 → 小写列名）。
+        dialect: 目标方言（决定 `VARCHAR2` 等方言落点）。
+
+    Returns:
+        ConcurrentStableList[ScriptEntry]: 每条字段的迁移语句或「已存在」标记。
+    """
+    entries: ConcurrentStableList[ScriptEntry] = ConcurrentStableList()
+    for field in fields:
+        table_name = validate_table_name(field.table_name)
+        column_name = validate_column_name(field.column_name)
+        label = f"{field.form_code}.{field.field_key}"
+        present = existing.get(table_name, ConcurrentStableFrozenList())
+        if column_name.lower() in present:
+            entries.add(ScriptEntry(int(field.id or 0), label, table_name, column_name, "", True))
+            continue
+        sql = compile_add_column(dialect, table_name, column_name, ext_column_type(field.type), field.name)
+        entries.add(ScriptEntry(int(field.id or 0), label, table_name, column_name, sql, False))
+    return entries
+
+
+async def _existing_columns(
+    session: AsyncSession, tables: ConcurrentStableSet[str]
+) -> ConcurrentStableDict[str, ConcurrentStableFrozenList[str]]:
+    """探测目标表现有列（只读库，不执行 DDL）。
+
+    Args:
+        session: 异步会话。
+        tables: 目标表名集合。
+
+    Returns:
+        ConcurrentStableDict[str, ConcurrentStableFrozenList[str]]: 表名 → 小写列名。
+    """
+
+    def _collect(sync_session: Any) -> ConcurrentStableDict[str, ConcurrentStableFrozenList[str]]:
+        inspector = inspect(sync_session.get_bind())
+        result: ConcurrentStableDict[str, ConcurrentStableFrozenList[str]] = ConcurrentStableDict()
+        for table in tables:
+            columns: ConcurrentStableList[str]
+            try:
+                columns = ConcurrentStableList(str(item["name"]).lower() for item in inspector.get_columns(table))
+            except Exception:
+                columns = ConcurrentStableList()
+            result.set(table, ConcurrentStableFrozenList(columns))
+        return result
+
+    return await session.run_sync(_collect)
+
+
+async def apply_script(session: AsyncSession, entries: ConcurrentStableList[ScriptEntry]) -> AppliedScript:
+    """执行迁移脚本并回写字段状态（单条失败置 `failed`、不中断其它字段）。
+
+    只接受生成段产出的 `ScriptEntry`（单一来源），并返回实际执行的语句清单，
+    供调用方与生成脚本逐条比对。
+
+    Args:
+        session: 异步会话。
+        entries: 迁移脚本条目。
+
+    Returns:
+        AppliedScript: 执行回执（执行清单 + 计数 + 失败明细）。
+    """
+    executed: ConcurrentStableList[str] = ConcurrentStableList()
+    built = 0
+    skipped = 0
+    failed: ConcurrentStableList[str] = ConcurrentStableList()
+    for entry in entries:
+        if entry.skipped:
+            skipped += 1
+            continue
+        executed.add(entry.sql)
+        try:
+            await session.execute(text(entry.sql))
+        except Exception as exc:
+            await session.rollback()
+            await session.execute(
+                update(SysFieldExt).where(SysFieldExt.id == entry.field_id).values(ddl_status=DDL_STATUS_FAILED)
+            )
+            await session.commit()
+            failed.add(f"{entry.label}：{type(exc).__name__}: {exc}")
+            print(f"[build_ext_columns] 建列失败 {entry.label}：{type(exc).__name__}: {exc}")
+            continue
+        await session.execute(
+            update(SysFieldExt).where(SysFieldExt.id == entry.field_id).values(ddl_status=DDL_STATUS_ACTIVE)
+        )
+        await session.commit()
+        built += 1
+        print(f"[build_ext_columns] 建列 {entry.label} → {entry.column_name}")
+    return AppliedScript(executed=executed, built=built, skipped=skipped, failed=failed)
+
+
+@dataclass(frozen=True)
+class AppliedScript(BaseValueObject):
+    """执行回执：实际执行的语句清单与结果计数。"""
+
+    executed: ConcurrentStableList[str]
+    """实际执行的语句（与生成脚本中非跳过项逐条对应）。"""
+
+    built: int
+    """建出列数。"""
+
+    skipped: int
+    """列已存在跳过数。"""
+
+    failed: ConcurrentStableList[str]
+    """失败明细。"""
+
+
+def script_statements(script: ConcurrentStableList[ScriptEntry]) -> ConcurrentStableList[str]:
+    """生成脚本中**要执行**的语句（非跳过项，保持顺序）。
+
+    Args:
+        script: 生成段产出的脚本条目。
+
+    Returns:
+        ConcurrentStableList[str]: 语句清单（用于与执行回执比对）。
+    """
+    return ConcurrentStableList(entry.sql for entry in script if not entry.skipped)
+
+
+async def existing_columns(
+    session: AsyncSession, tables: ConcurrentStableSet[str]
+) -> ConcurrentStableDict[str, ConcurrentStableFrozenList[str]]:
+    """探测目标表现有列（公开入口；供初始化阶段生成脚本用）。
+
+    Args:
+        session: 异步会话。
+        tables: 目标表名集合。
+
+    Returns:
+        ConcurrentStableDict[str, ConcurrentStableFrozenList[str]]: 表名 → 小写列名。
+    """
+    return await _existing_columns(session, tables)
+
+
+async def verify_applied(session: AsyncSession, script: ConcurrentStableList[ScriptEntry]) -> ConcurrentStableList[str]:
+    """回读库结构，返回脚本声明但**未生效**的列（空表示已全部生效）。
+
+    Args:
+        session: 异步会话。
+        script: 生成段产出的脚本条目。
+
+    Returns:
+        ConcurrentStableList[str]: 未生效的「表.列」清单。
+    """
+    tables: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for entry in script:
+        if not entry.skipped:
+            tables.add(entry.table_name)
+    existing = await _existing_columns(session, tables)
+    missing: ConcurrentStableList[str] = ConcurrentStableList()
+    for entry in script:
+        if entry.skipped:
+            continue
+        if entry.column_name.lower() not in existing.get(entry.table_name, ConcurrentStableFrozenList()):
+            missing.add(f"{entry.table_name}.{entry.column_name}")
+    return missing
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -221,56 +417,49 @@ async def _pending_fields(session: AsyncSession) -> ConcurrentStableList[SysFiel
     return ConcurrentStableList(rows)
 
 
+async def build_in_session(session: AsyncSession, *, dry_run: bool) -> tuple[int, int, int, ConcurrentStableList[str]]:
+    """在给定会话上生成并执行补建列脚本（供 CLI 与用例共用）。
+
+    Args:
+        session: 异步会话。
+        dry_run: 只生成脚本并打印，不执行 DDL。
+
+    Returns:
+        tuple: (扫描数, 建出列数, 已存在跳过数, 失败明细)。
+    """
+    fields = await _pending_fields(session)
+    tables: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for field in fields:
+        tables.add(validate_table_name(field.table_name))
+    existing = await _existing_columns(session, tables)
+    script = build_script(fields, existing, dialect=session.get_bind().dialect)
+    if dry_run:
+        for entry in script:
+            if entry.skipped:
+                print(f"[build_ext_columns] 已存在 {entry.label} → {entry.table_name}.{entry.column_name}")
+            else:
+                print(f"[build_ext_columns] 待建列 {entry.label} → {entry.sql}")
+        return len(fields), 0, len([entry for entry in script if entry.skipped]), ConcurrentStableList()
+    applied = await apply_script(session, script)
+    return len(fields), applied.built, applied.skipped, applied.failed
+
+
 async def build_library(url: str, *, dry_run: bool) -> LibraryResult:
-    """对单个租户库补建列（幂等；单条失败不中断）。
+    """对单个租户库生成并执行补建列脚本（生成与执行分段；单条失败不中断）。
 
     Args:
         url: 租户库连接串。
-        dry_run: 只扫描不执行 DDL。
+        dry_run: 只扫描并输出脚本内容，不执行 DDL。
 
     Returns:
         LibraryResult: 本库结果。
     """
     engine = create_async_engine(url, poolclass=NullPool)
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    built = 0
-    skipped = 0
-    failed: ConcurrentStableList[str] = ConcurrentStableList()
     try:
         async with factory() as session:
-            fields = await _pending_fields(session)
-            if dry_run:
-                for field in fields:
-                    print(
-                        f"[build_ext_columns] 待建列 {field.form_code}.{field.field_key} → "
-                        f"{field.table_name}.{field.column_name}（{field.type}）"
-                    )
-                return LibraryResult(url=_masked(url), scanned=len(fields), built=0, skipped=0, failed=failed)
-            executor = FormDdlExecutor(cast("DbSession", session), lock=NullDistributedLock(), tenant=None)
-            for field in fields:
-                field_id = int(field.id)
-                label = f"{field.form_code}.{field.field_key}"
-                try:
-                    outcome = await executor.add_column(field, comment=field.name)
-                except Exception as exc:
-                    await session.rollback()
-                    await session.execute(
-                        update(SysFieldExt).where(SysFieldExt.id == field_id).values(ddl_status=DDL_STATUS_FAILED)
-                    )
-                    await session.commit()
-                    failed.add(f"{label}：{type(exc).__name__}: {exc}")
-                    print(f"[build_ext_columns] 建列失败 {label}：{type(exc).__name__}: {exc}")
-                    continue
-                await session.execute(
-                    update(SysFieldExt).where(SysFieldExt.id == field_id).values(ddl_status=DDL_STATUS_ACTIVE)
-                )
-                await session.commit()
-                if outcome.created:
-                    built += 1
-                    print(f"[build_ext_columns] 建列 {label} → {outcome.column_name}")
-                else:
-                    skipped += 1
-            return LibraryResult(url=_masked(url), scanned=len(fields), built=built, skipped=skipped, failed=failed)
+            scanned, built, skipped, failed = await build_in_session(session, dry_run=dry_run)
+            return LibraryResult(url=_masked(url), scanned=scanned, built=built, skipped=skipped, failed=failed)
     finally:
         await engine.dispose()
 

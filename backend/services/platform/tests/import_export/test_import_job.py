@@ -11,9 +11,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from openpyxl import Workbook
-from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.config.base import BaseConfigSource
@@ -28,15 +26,11 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
 from bms_core.jobs.base import JobContext
 from bms_core.jobs.runner import JobRunner
-from bms_core.models.platform.role import SysRole, SysUserRole
-from bms_core.models.platform.user import SysAccountLock, SysUser
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_core.servicecall.null import NullServiceClient
-from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import write_session
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.definition import (
     BaseImportDefinition,
@@ -52,10 +46,10 @@ from bms_platform.domains.import_export.services.imports import ImportExecutor, 
 from bms_platform.domains.user.imports import UserImportDefinition
 from bms_platform.domains.user.services.users_admin import UserAdminService
 from bms_platform.imports import build_import_definitions
+from tests_support.shared_access import shared_engine, shared_write
 
 pytestmark = [
     pytest.mark.kiwi_id(2401),
-    pytest.mark.own_db("导入作业是整批写：用每用例独占租户库，避免与并行用例争 SQLite 写锁"),
     pytest.mark.xdist_group("import-job"),
 ]
 
@@ -133,28 +127,17 @@ def _unused(*_args: object, **_kwargs: object) -> UserAdminService:
 
 
 @pytest_asyncio.fixture
-async def job_env(isolated_tenant: str) -> AsyncIterator[JobEnv]:
-    """作业执行环境（独占租户库 / 会话 / 源文件）。
+async def job_env(tenant_db: str) -> AsyncIterator[JobEnv]:
+    """作业执行环境（共享租户库 / 会话 / 源文件）。
 
-    作业是「整批写」：与并行用例同用一个 SQLite 库时，批量 INSERT 与别处的写会互相
-    `database is locked`（写入已改为立即提交，不再靠回滚兜底）。按业主「全局扫描作业整组独占」
-    口径，本文件用每用例独占租户库，作业写入不受其它 worker 干扰。
+    作业是「整批写」：与并行用例共用同一租户库，写入走共享写门；断言按作业输出与本次
+    造数收敛，不依赖库空。表由数据初始化一次建好，本夹具不再建表。
 
     Args:
-        isolated_tenant: 独占租户库连接串（每用例一份，表集与共享库同源）。
+        tenant_db: 共享租户库连接串。
     """
-    engine = create_async_engine(isolated_tenant, poolclass=NullPool)
+    engine = shared_engine(tenant_db)
     try:
-        tables: list[Table] = cast(  # bare-collections:allow（SQLAlchemy 表清单）
-            "list[Table]",
-            [
-                SysUser.__table__,
-                SysRole.__table__,
-                SysUserRole.__table__,
-                SysAccountLock.__table__,
-            ],
-        )
-        await ensure_tables(engine, tables)
         config = _Config()
         hasher = Pbkdf2PasswordHasher(iterations=100000)
         policy = DefaultPasswordPolicy(config=config, hasher=hasher)
@@ -170,8 +153,7 @@ async def job_env(isolated_tenant: str) -> AsyncIterator[JobEnv]:
 
         @asynccontextmanager
         async def session_context() -> AsyncGenerator[AsyncSession]:
-            # 独占库上不取共享门（`gate_for_engine` 判定为临时库）；autocommit 由测试会话统一套。
-            async with write_session(engine) as session:
+            async with shared_write(engine) as session:
                 yield session
 
         def make_job(

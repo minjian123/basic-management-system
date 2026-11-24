@@ -19,7 +19,8 @@ from bms_tenant.domains.tenant.repositories.tenant_registry import TenantRegistr
 
 pytestmark = pytest.mark.own_db(
     "被测对象是 `active-single` 唯一启用租户三态（恰 1 / ≥2 → 80004 / 0 → 404）与注册读写仓储，"
-    "判定是**整表口径**，必须构造受控租户集合；共享平台库恒有种子租户"
+    "判定是**整表口径**，必须构造受控租户集合；共享平台库恒有种子租户",
+    scope="destructive",
 )
 
 API = "/api/v1/tenant-registry/active-single"

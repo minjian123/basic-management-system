@@ -23,37 +23,9 @@ from .helpers import TENANT_HEADERS
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.kiwi_id(2197),
-    pytest.mark.own_db(
-        "真机 Keycloak 联调：提供方标识与回调地址须与真实 Keycloak 客户端注册值一致（固定 keycloak），"
-        "不能按用例命名空间派生；租户开通还会写各租户派生库（不在回滚会话覆盖范围），故保留独占库"
-    ),
 ]
 
 _ENV_FILE = Path(__file__).resolve().parents[5] / "deploy" / ".env"
-
-
-@pytest.fixture(autouse=True)
-def isolated_dbs(
-    tenant_db: None,
-    isolated_platform_db_url: str,
-    isolated_tenant_db_url: str,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """本文件（`own_db`）的独占库接线：平台库 + 租户库各一份 tmp 库。
-
-    真机联调需要「库里只有本用例的提供方与映射」这一确定起点，共享库上做不到。
-
-    Args:
-        tenant_db: 共享租户库接线（保证顺序：先公共、后独占）。
-        isolated_platform_db_url: 独占平台库连接串（每用例一份 tmp 库 + 播种）。
-        isolated_tenant_db_url: 独占租户库连接串（每用例一份 tmp 库 + 参数种子）。
-        monkeypatch: pytest monkeypatch 夹具。
-    """
-    from bms_core.core.config import get_settings
-
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", isolated_platform_db_url)
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
-    get_settings.cache_clear()
 
 
 _USERNAME = "bms-sso-e2e"

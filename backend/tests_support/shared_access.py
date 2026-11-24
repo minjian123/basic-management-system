@@ -26,13 +26,37 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from bms_core.db.gate import db_access_gate
 from bms_core.testing.transaction import gate_for_engine, gated_session
 
-__all__ = ["shared_engine", "shared_read", "shared_session", "shared_window", "shared_write"]
+__all__ = [
+    "shared_engine",
+    "shared_platform_url",
+    "shared_read",
+    "shared_session",
+    "shared_sync_engine",
+    "shared_transaction_session",
+    "shared_window",
+    "shared_write",
+]
+
+
+def shared_platform_url() -> str:
+    """共享平台库连接串（会话测试库目录下的 `platform.db`）。
+
+    用例与辅助函数一律经本函数取共享库地址，不自行拼连接串（否则命中 `G1 自建 SQLite`）。
+
+    Returns:
+        str: 平台库异步连接串。
+    """
+    from bms_core.testing.fixtures import test_db_dir
+
+    return f"sqlite+aiosqlite:///{(test_db_dir() / 'platform.db').resolve().as_posix()}"
 
 
 def shared_engine(url: str, **kwargs: object) -> AsyncEngine:
@@ -113,3 +137,45 @@ async def shared_window(engine: AsyncEngine) -> AsyncGenerator[None]:
         return
     async with db_access_gate(name, read_only=False):
         yield
+
+
+def shared_sync_engine(url: str, **kwargs: object) -> Engine:
+    """按共享库连接串建**同步**引擎（异步驱动名归一为同步驱动）。
+
+    同步门面（`SyncSession`）路径的用例需要同步引擎；与 `shared_session` 一样，
+    直连共享库只允许经本模块。
+
+    Args:
+        url: 共享库连接串（可为 `sqlite+aiosqlite:///…`）。
+        **kwargs: 传给 `create_engine` 的关键字参数。
+
+    Returns:
+        Engine: 同步引擎（调用方负责 `dispose`）。
+    """
+    return create_engine(url.replace("+aiosqlite", ""), **kwargs)
+
+
+@asynccontextmanager
+async def shared_transaction_session(url: str) -> AsyncGenerator[AsyncSession]:
+    """共享库**显式事务**会话：未提交的写入只对本连接可见，退出时统一回滚。
+
+    用途：「必须构造损坏行 / 非法状态」的用例。这类数据不能落进共享库——一旦提交，其他
+    worker 的启动读取会一并失败。事务内构造、断言后回滚，库里不留痕，也不占用独立库。
+
+    Args:
+        url: 共享库连接串（平台库）。
+
+    Yields:
+        AsyncSession: 事务内会话（退出回滚）。
+    """
+    engine = shared_engine(url, connect_args={"isolation_level": "DEFERRED"})
+    try:
+        async with shared_window(engine):
+            maker = async_sessionmaker(engine, expire_on_commit=False)
+            async with maker() as session:
+                try:
+                    yield session
+                finally:
+                    await session.rollback()
+    finally:
+        await engine.dispose()

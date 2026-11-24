@@ -15,8 +15,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import Connection, Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
@@ -30,27 +29,25 @@ from bms_core.core.exceptions import (
     MenuPermissionExistsError,
     MenuReferencedError,
 )
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.dict.base import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE
-from bms_core.models.base import Base, BaseModel
+from bms_core.models.base import BaseModel
 from bms_core.models.platform.menu_form import (
     SysButton,
     SysField,
-    SysFieldI18n,
     SysForm,
     SysMenu,
     SysMenuForm,
-    SysMenuI18n,
 )
 from bms_core.models.platform.permission_meta import (
     SysAction,
-    SysActionI18n,
     SysBusiness,
-    SysBusinessI18n,
     SysPermission,
 )
+from bms_core.testing.gates import PLATFORM_GATE
 from bms_platform.domains.menu_form.repositories.menu import (
     ButtonRepository,
     FieldRepository,
@@ -82,24 +79,9 @@ from bms_platform.domains.permission_meta.schemas.permission_meta import (
     PermissionGenerateRequest,
 )
 from bms_platform.domains.permission_meta.services.permission_meta import PermissionMetadataService
+from tests_support.shared_access import shared_engine, shared_platform_url
 
-pytestmark = pytest.mark.own_db("内存库自建菜单十二表：目录装载需空库基线，不触共享库")
-
-_MENU_TABLES = (
-    SysBusiness.__table__,
-    SysBusinessI18n.__table__,
-    SysAction.__table__,
-    SysActionI18n.__table__,
-    SysPermission.__table__,
-    SysMenu.__table__,
-    SysMenuI18n.__table__,
-    SysForm.__table__,
-    SysMenuForm.__table__,
-    SysButton.__table__,
-    SysField.__table__,
-    SysFieldI18n.__table__,
-)
-"""菜单元数据十二表（用例内存库建表集合）。"""
+pytestmark = pytest.mark.kiwi_id(2242)
 
 
 class _OutboxSpy:
@@ -210,26 +192,19 @@ def _names(text: str) -> ConcurrentStableDict[str, str]:
     return ConcurrentStableDict({"zh-CN": text})
 
 
-def _create_menu_tables(connection: Connection) -> None:
-    """建菜单元数据十二表（依赖序由元数据排序）。
-
-    Args:
-        connection: 同步连接（`run_sync` 回调）。
-    """
-    Base.metadata.create_all(connection, tables=cast("list[Table]", list(_MENU_TABLES)))
-
-
 async def _engine() -> tuple[AsyncSession, AsyncEngine]:
-    """建临时内存 SQLite 会话（仅菜单元数据十二表）。
+    """共享平台库会话 + 引擎（表由数据初始化建好；会话经门代理逐操作走写门）。
 
     Returns:
-        tuple[AsyncSession, AsyncEngine]: (会话, 引擎)。
+        tuple[AsyncSession, AsyncEngine]: (门代理会话, 底层引擎)。
     """
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as connection:
-        await connection.run_sync(_create_menu_tables)
+    engine = shared_engine(shared_platform_url())
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    return factory(), engine
+    session = cast(
+        "AsyncSession",
+        LazyGatedSession(lambda: db_access_gate(PLATFORM_GATE, read_only=False), factory(), bind=engine),
+    )
+    return session, engine
 
 
 def _service(
@@ -467,18 +442,22 @@ async def test_load_snapshot_skips_disabled_and_broken_rows() -> None:
         snapshot = await service.load_snapshot(locale=DEFAULT_LOCALE, tenant_id=None, ttl=300)
 
         assert snapshot.version == 0
-        assert list(snapshot.permission_codes) == ["biz1:act1", "biz1:act2", "biz1:act3"]
+        assert {"biz1:act1", "biz1:act2", "biz1:act3"} <= set(snapshot.permission_codes)
+        assert not any(code.startswith("biz2:") for code in snapshot.permission_codes)
         menus = list(snapshot.menus)
-        assert len(menus) == 1
-        forms = list(menus[0].forms)
+        mine = next(menu for menu in menus if menu.path == "/snap")
+        forms = list(mine.forms)
         assert len(forms) == 2
         assert forms[0].business_code == "biz1"
         assert [button.name for button in forms[0].buttons] == ["按钮一", "按钮二"]
         assert [field.field_key for field in forms[0].fields] == ["ka", "kb"]
 
         permissions = await _permission_service(session, cache=MemoryCacheRegion()).list_permissions(None)
-        assert [item.code for item in permissions.items] == ["biz1:act1", "biz1:act2", "biz1:act3", "biz3:act1"]
+        codes = [item.code for item in permissions.items]
+        assert {"biz1:act1", "biz1:act2", "biz1:act3", "biz3:act1"} <= set(codes)
+        assert not any(code.startswith("biz2:") for code in codes)
     finally:
+        await session.close()
         await engine.dispose()
 
 
@@ -614,6 +593,7 @@ async def test_business_action_permission_write_paths() -> None:
         assert generated_all.created >= 0
         await session.rollback()
     finally:
+        await session.close()
         await engine.dispose()
 
 
@@ -652,6 +632,7 @@ async def test_menu_write_paths() -> None:
         with pytest.raises(MenuNotFoundError):
             await service.delete_menu(parent_id)
     finally:
+        await session.close()
         await engine.dispose()
 
 
@@ -736,6 +717,7 @@ async def test_form_write_paths() -> None:
         with pytest.raises(MenuNotFoundError):
             await service.delete_form(987654321)
     finally:
+        await session.close()
         await engine.dispose()
 
 
@@ -846,6 +828,7 @@ async def test_button_write_paths() -> None:
         with pytest.raises(MenuNotFoundError):
             await service.delete_button(second_button_id)
     finally:
+        await session.close()
         await engine.dispose()
 
 
@@ -897,4 +880,5 @@ async def test_field_write_paths() -> None:
         with pytest.raises(MenuNotFoundError):
             await service.delete_field(field_id)
     finally:
+        await session.close()
         await engine.dispose()

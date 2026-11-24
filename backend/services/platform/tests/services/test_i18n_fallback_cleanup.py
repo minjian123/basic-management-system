@@ -9,26 +9,26 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import Connection, Table, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+import pytest_asyncio
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.i18n.base import current_default_locale
-from bms_core.models.base import Base
 from bms_core.models.platform.menu_form import (
-    SysButton,
     SysField,
     SysFieldI18n,
     SysForm,
     SysMenu,
-    SysMenuForm,
     SysMenuI18n,
 )
 from bms_core.models.platform.permission_meta import (
@@ -36,9 +36,9 @@ from bms_core.models.platform.permission_meta import (
     SysActionI18n,
     SysBusiness,
     SysBusinessI18n,
-    SysPermission,
 )
 from bms_core.outbox.base import BaseOutboxStore
+from bms_core.testing.gates import PLATFORM_GATE
 from bms_platform.domains.menu_form.repositories.menu import (
     ButtonRepository,
     FieldRepository,
@@ -53,26 +53,9 @@ from bms_platform.domains.permission_meta.repositories.business import (
     PermissionRepository,
 )
 from bms_platform.domains.permission_meta.services.permission_meta import PermissionMetadataService
+from tests_support.shared_access import shared_engine, shared_platform_url
 
-pytestmark = [
-    pytest.mark.kiwi_id(2405),
-    pytest.mark.own_db("内存库自建十二张目录表：全量目录统计需空库基线，不触共享库"),
-]
-
-_TABLES = (
-    SysBusiness.__table__,
-    SysBusinessI18n.__table__,
-    SysAction.__table__,
-    SysActionI18n.__table__,
-    SysPermission.__table__,
-    SysMenu.__table__,
-    SysMenuI18n.__table__,
-    SysForm.__table__,
-    SysMenuForm.__table__,
-    SysButton.__table__,
-    SysField.__table__,
-    SysFieldI18n.__table__,
-)
+pytestmark = pytest.mark.kiwi_id(2405)
 
 
 class _OutboxSpy:
@@ -92,26 +75,21 @@ class _OutboxSpy:
         self.events.add(envelope)
 
 
-def _create_tables(connection: Connection) -> None:
-    """建用例所需十二表。
+@pytest_asyncio.fixture
+async def session() -> AsyncIterator[AsyncSession]:
+    """共享平台库会话（表由数据初始化建好；经 `LazyGatedSession` 逐操作走写门）。
 
-    Args:
-        connection: 同步连接（`run_sync` 回调）。
+    Yields:
+        AsyncSession: 共享平台库写会话（门代理）。
     """
-    Base.metadata.create_all(connection, tables=cast("list[Table]", list(_TABLES)))
-
-
-async def _session() -> AsyncSession:
-    """建临时内存 SQLite 会话。
-
-    Returns:
-        AsyncSession: 会话。
-    """
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as connection:
-        await connection.run_sync(_create_tables)
+    engine = shared_engine(shared_platform_url())
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    return factory()
+    proxy = LazyGatedSession(lambda: db_access_gate(PLATFORM_GATE, read_only=False), factory(), bind=engine)
+    try:
+        yield cast("AsyncSession", proxy)
+    finally:
+        await proxy.close()
+        await engine.dispose()
 
 
 def _menu_service(session: AsyncSession, cache: CacheRegion) -> MenuFormService:
@@ -193,9 +171,8 @@ async def _live_i18n_count(session: AsyncSession, model: Any, key_column: str, o
     return len((await session.execute(statement)).scalars().all())
 
 
-async def test_menu_i18n_falls_back_to_default_locale() -> None:
+async def test_menu_i18n_falls_back_to_default_locale(session: AsyncSession) -> None:
     """请求语言缺文案时回退系统默认语言（而非主表列）。"""
-    session = await _session()
     menu = await _seed(
         session,
         SysMenu(path="/m", name="主表名", status="enabled", icon=None, sort=0),
@@ -206,9 +183,8 @@ async def test_menu_i18n_falls_back_to_default_locale() -> None:
     assert texts.get(int(menu.id)) == "中文名"
 
 
-async def test_menu_i18n_default_locale_follows_registry_context() -> None:
+async def test_menu_i18n_default_locale_follows_registry_context(session: AsyncSession) -> None:
     """回退目标随语言清单默认语言变化（不是写死 zh-CN）。"""
-    session = await _session()
     menu = await _seed(
         session,
         SysMenu(path="/m", name="主表名", status="enabled", icon=None, sort=0),
@@ -224,9 +200,8 @@ async def test_menu_i18n_default_locale_follows_registry_context() -> None:
     assert texts.get(int(menu.id)) == "English Name"
 
 
-async def test_menu_i18n_locale_case_insensitive() -> None:
+async def test_menu_i18n_locale_case_insensitive(session: AsyncSession) -> None:
     """存量大小写混杂的 locale 行可被标准形态请求命中。"""
-    session = await _session()
     menu = await _seed(
         session,
         SysMenu(path="/m", name="主表名", status="enabled", icon=None, sort=0),
@@ -236,9 +211,8 @@ async def test_menu_i18n_locale_case_insensitive() -> None:
     assert texts.get(int(menu.id)) == "大小写存量"
 
 
-async def test_business_i18n_falls_back_to_default_locale() -> None:
+async def test_business_i18n_falls_back_to_default_locale(session: AsyncSession) -> None:
     """业务码附表同样两级回退（同一助手口径）。"""
-    session = await _session()
     business = await _seed(session, SysBusiness(code="sys_test", name="业务名", status="enabled"))
     await _seed(session, SysBusinessI18n(business_id=business.id, locale="zh-CN", name="业务中文"))
     texts = await BusinessRepository(cast("DbSession", session)).list_i18n(
@@ -247,9 +221,8 @@ async def test_business_i18n_falls_back_to_default_locale() -> None:
     assert texts.get(int(business.id)) == "业务中文"
 
 
-async def test_delete_menu_cleans_i18n() -> None:
+async def test_delete_menu_cleans_i18n(session: AsyncSession) -> None:
     """删除菜单时附表同行软删（无孤儿行）。"""
-    session = await _session()
     cache = MemoryCacheRegion()
     menu = await _seed(
         session,
@@ -260,9 +233,8 @@ async def test_delete_menu_cleans_i18n() -> None:
     assert await _live_i18n_count(session, SysMenuI18n, "menu_id", int(menu.id)) == 0
 
 
-async def test_delete_field_cleans_i18n() -> None:
+async def test_delete_field_cleans_i18n(session: AsyncSession) -> None:
     """删除字段时附表同行软删。"""
-    session = await _session()
     business = await _seed(session, SysBusiness(code="sys_test", name="业务名", status="enabled"))
     form = await _seed(session, SysForm(business_id=business.id, component=None, status="enabled"))
     field = await _seed(
@@ -274,25 +246,23 @@ async def test_delete_field_cleans_i18n() -> None:
     assert await _live_i18n_count(session, SysFieldI18n, "field_id", int(field.id)) == 0
 
 
-async def test_delete_business_cleans_i18n() -> None:
+async def test_delete_business_cleans_i18n(session: AsyncSession) -> None:
     """删除业务码时附表同行软删。"""
-    session = await _session()
     business = await _seed(session, SysBusiness(code="sys_test", name="业务名", status="enabled"))
     await _seed(session, SysBusinessI18n(business_id=business.id, locale="zh-CN", name="业务中文"))
     await _permission_service(session, MemoryCacheRegion()).delete_business(int(business.id))
     assert await _live_i18n_count(session, SysBusinessI18n, "business_id", int(business.id)) == 0
 
 
-async def test_delete_action_cleans_i18n() -> None:
+async def test_delete_action_cleans_i18n(session: AsyncSession) -> None:
     """删除动作码时附表同行软删。"""
-    session = await _session()
     action = await _seed(session, SysAction(code="sys_act", name="动作名", status="enabled"))
     await _seed(session, SysActionI18n(action_id=action.id, locale="zh-CN", name="动作中文"))
     await _permission_service(session, MemoryCacheRegion()).delete_action(int(action.id))
     assert await _live_i18n_count(session, SysActionI18n, "action_id", int(action.id)) == 0
 
 
-async def test_i18n_text_helpers_follow_default_context() -> None:
+async def test_i18n_text_helpers_follow_default_context(session: AsyncSession) -> None:
     """入参 / 出参助手：必填语言取请求语言，默认文案派生按清单默认语言。"""
     from bms_platform.services.i18n_text import (
         clean_i18n,

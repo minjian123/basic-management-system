@@ -58,7 +58,8 @@ pytestmark = [
     pytest.mark.kiwi_id(2271),
     pytest.mark.own_db(
         "被测对象是**跨库两阶段提交**（MySQL / PG 真库分支 + 内存账本），需要按真库连接串建引擎与探针表；"
-        "与批 1 `integration/*` 族同口径（真库拓扑即被测）"
+        "与批 1 `integration/*` 族同口径（真库拓扑即被测）",
+        scope="create",
     ),
 ]
 

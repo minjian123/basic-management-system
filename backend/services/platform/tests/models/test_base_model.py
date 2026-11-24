@@ -1,47 +1,38 @@
-"""ORM 模型基类测试（Kiwi 19）：SQLite 临时库验证字段 / 审计 / 软删除 / 乐观锁。
+"""ORM 模型基类测试（Kiwi 19）：共享库验证字段 / 审计 / 软删除 / 乐观锁。
 
-`own_db` 白名单（04-6-2 决策 D）：被测对象是 **ORM 基类在真实表结构上的行为**——
-测试专用模型 `Widget` 的建表（`(name, deleted_at)` 复合唯一）、软删释放唯一键、
-乐观锁 `version` 条件更新与 `StaleDataError`，都需要同步 `Engine` / `Session` 与自建测试专用表；
-共享平台库为异步引擎且不承载测试专用模型，故保留独立库并写明理由。
+测试专用表 `widget` 由初始化阶段建好（`tests_support.widget_model`），用例只读写；
+每个用例用随机名称，互不干扰，也不依赖库空。
 """
 
 import types
+import uuid
 from collections.abc import Iterator
 from datetime import datetime
-from pathlib import Path
 
 import pytest
-from sqlalchemy import Engine, String, UniqueConstraint, create_engine
-from sqlalchemy.orm import Mapped, Session, mapped_column
+from sqlalchemy import Engine
+from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
 from bms_core.core.base import BaseObject
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.id import MAX_WORKER_ID, SnowflakeGenerator, id_generator
-from bms_core.models.base import Base, BaseModel
+from bms_core.models.base import BaseModel
 from bms_core.models.platform.demo import Demo
-
-pytestmark = pytest.mark.own_db(
-    "被测对象是 ORM 基类在真实表结构上的行为：测试专用表 widget 的建表与软删唯一释放、"
-    "乐观锁 version 条件更新需同步引擎与自建表"
-)
+from tests_support.shared_access import shared_sync_engine
+from tests_support.widget_model import Widget
 
 
-class Widget(BaseModel):
-    """测试模型：带 `(name, deleted_at)` 复合唯一。"""
-
-    __tablename__ = "widget"
-    __table_args__ = (UniqueConstraint("name", "deleted_at", name="uq_widget_name_deleted_at"),)
-
-    name: Mapped[str] = mapped_column(String(16))
+def _name(suffix: str) -> str:
+    """本用例专属的 widget 名称（共享库上不与他人行相撞）。"""
+    return f"{suffix}-{uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture
-def engine(tmp_path: Path) -> Iterator[Engine]:
-    eng = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
-    Base.metadata.create_all(eng)
+def engine(shared_platform_db_url: str) -> Iterator[Engine]:
+    """共享平台库同步引擎（表由数据初始化一次建好）。"""
+    eng = shared_sync_engine(shared_platform_db_url)
     yield eng
     eng.dispose()
 
@@ -55,7 +46,7 @@ def session(engine: Engine) -> Iterator[Session]:
 @pytest.mark.kiwi_id(30)
 def test_fields_and_snowflake_id(session: Session) -> None:
     """字段齐备；id 为雪花值；审计 / 软删除 / 版本默认正确；to_dict 排除内部状态。"""
-    widget = Widget(name="a")
+    widget = Widget(name=_name("a"))
     session.add(widget)
     session.commit()
     assert widget.id > 0
@@ -72,7 +63,7 @@ def test_audit_context_and_update(session: Session) -> None:
     """审计从上下文填充；更新刷新 updated_at / updated_by，保留 created_at。"""
     token = current_user_id.set(7)
     try:
-        widget = Widget(name="a")
+        widget = Widget(name=_name("a"))
         session.add(widget)
         session.commit()
     finally:
@@ -95,7 +86,7 @@ def test_audit_context_and_update(session: Session) -> None:
 def test_optimistic_lock_and_stale(engine: Engine) -> None:
     """version 自动 +1；并发旧版本更新抛 StaleDataError。"""
     with Session(engine) as s1, Session(engine) as s2:
-        widget = Widget(name="x")
+        widget = Widget(name=_name("x"))
         s1.add(widget)
         s1.commit()
         widget_id = widget.id
@@ -115,18 +106,19 @@ def test_optimistic_lock_and_stale(engine: Engine) -> None:
 @pytest.mark.kiwi_id(30)
 def test_soft_delete_frees_unique(session: Session) -> None:
     """软删除写 deleted_at 释放复合唯一键；删除行同键可共存。"""
-    first = Widget(name="a")
+    name = _name("a")
+    first = Widget(name=name)
     session.add(first)
     session.commit()
     first.deleted_at = datetime(2026, 1, 1)
     session.commit()
 
-    second = Widget(name="a")
+    second = Widget(name=name)
     session.add(second)
     session.commit()
     assert second.id != first.id
 
-    third = Widget(name="a", deleted_at=datetime(2026, 1, 2))
+    third = Widget(name=name, deleted_at=datetime(2026, 1, 2))
     session.add(third)
     session.commit()
     assert third.id not in {first.id, second.id}
@@ -216,7 +208,7 @@ def test_demo_model_and_generator_inherit_base_object() -> None:
 @pytest.mark.kiwi_id(30)
 def test_soft_delete_and_restore(session: Session) -> None:
     """软删除辅助：`soft_delete` 置 deleted_at、`restore` 清空。"""
-    widget = Widget(name="a")
+    widget = Widget(name=_name("a"))
     session.add(widget)
     session.commit()
     assert widget.deleted_at is None

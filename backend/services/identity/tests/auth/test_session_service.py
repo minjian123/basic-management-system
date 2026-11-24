@@ -1,16 +1,16 @@
 """会话管理服务单元测试（Kiwi 2195）：统一撤销原语三态、过期踢出、多端上限无溢出。
 
 单库叠加口径（04-6-2）：会话行落共享租户库，会话 / 用户主键按用例命名空间派生。
-按租户批量撤销的语义是「本租户库全部在线会话」（全局口径），两个相关用例用 `isolated_tenant`
-（`own_db`）拿**独占租户库**：共享库上跑会把并行 worker 的在线会话一并撤销；测试库为真自动
-提交（13_08），不能再靠「未提交事务回滚」隔离。
+按租户批量撤销会波及同库其他会话，两个相关用例用**专用租户库**（`tenant_writable`，每轮一份，
+`own_db(scope="destructive")`）并在文件内串行；测试库为真自动提交（13_08），不能靠「未提交
+事务回滚」隔离。
 """
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Iterator
 from datetime import timedelta
+from typing import cast
 
 import pytest
-import pytest_asyncio
 from fastapi import FastAPI
 
 from bms_core.core.exceptions import SessionExpiredError
@@ -18,38 +18,25 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
-from bms_core.testing.fixtures import clear_tenant_cache
+from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_identity.domains.auth.repositories.session import SessionRepository
 from bms_identity.domains.auth.services.session import REASON_KICK, REASON_TENANT_SUSPENDED, SessionService
+from tests_support.shared_access import shared_session
 
 from .helpers import RecordingRealtimePublisher
-from .session_helpers import seed_session, sid, tenant_scope, uid, utc_now
+from .session_helpers import insert_session, seed_session, sid, tenant_scope, uid, utc_now
 
 
-@pytest_asyncio.fixture(loop_scope="module")
-async def isolated_service_app(
-    identity_app_factory: Callable[[], FastAPI], isolated_tenant: None
-) -> AsyncIterator[FastAPI]:
-    """破坏性全局操作专用 app：在 `isolated_tenant` 切到独占库之后自行装配。
-
-    为什么不能复用常驻 `service_app`：按租户批量撤销的语义就是「本租户库全部在线会话」，
-    必须在独占库上执行；常驻 app 的库连接在模块装配时已固化，逐例切库对它无效。
-
-    Args:
-        identity_app_factory: 应用工厂（注入租户源替身）。
-        isolated_tenant: 独占租户库接线（保证先切库、后装配）。
+@pytest.fixture(autouse=True)
+def _revoke_session_serial() -> Iterator[None]:
+    """按租户批量撤销是破坏性全局操作：同库用例串行，避免互相撤销对方播种的会话。
 
     Yields:
-        FastAPI: 独占库上的应用实例。
+        None: 用例运行期。
     """
-    app = identity_app_factory()
-    clear_tenant_cache(app)
-    try:
-        async with app.router.lifespan_context(app):
-            yield app
-    finally:
-        clear_tenant_cache(app)
+    with file_lock("identity-session-revoke", timeout=180.0):
+        yield
 
 
 def _service(session: DbSession, store: MemorySessionStore, recorder: RecordingRealtimePublisher) -> SessionService:
@@ -129,41 +116,46 @@ async def test_enforce_max_active_no_overflow(service_app: FastAPI, ns: Namespac
 
 
 @pytest.mark.kiwi_id(2325)
-@pytest.mark.own_db("按租户批量撤销是破坏性全局操作：独占库避免波及他人会话", scope="destructive")
-async def test_revoke_tenant_sessions_revokes_all_active(
-    isolated_tenant: None, isolated_service_app: FastAPI, ns: Namespace
-) -> None:
+@pytest.mark.own_db(
+    "按租户批量撤销是破坏性全局操作：在专用租户库上执行（生产形态一租户一库），避免波及主测试租户库",
+    scope="destructive",
+)
+async def test_revoke_tenant_sessions_revokes_all_active(shared_tenant_writable_db_url: str, ns: Namespace) -> None:
     """按租户撤销：只涉及在线会话（已撤销 / 过期不动），返回会话清单并广播。
 
-    独占租户库（`own_db`）：本用例库内只有本用例播种的会话，故「本租户库全部在线会话」的
-    全局断言成立，且不会撤销并行 worker 的会话；应用在本用例切库后自行装配。
+    专用租户库（`tenant_writable`，每轮一份）跨 worker 共用：断言收敛到本用例播种的两个
+    用户，不依赖「库内只有本用例数据」。
     """
     active = [sid(ns, 11), sid(ns, 12)]
-    await seed_session(isolated_service_app, session_id=active[0], user_id=uid(ns, 1))
-    await seed_session(isolated_service_app, session_id=active[1], user_id=uid(ns, 2))
-    already = sid(ns, 13)
-    await seed_session(isolated_service_app, session_id=already, user_id=uid(ns, 2), revoked_at=utc_now())
-    store, recorder = MemorySessionStore(), RecordingRealtimePublisher()
-    async with tenant_scope(isolated_service_app) as session:
+    async with shared_session(shared_tenant_writable_db_url, read_only=False) as raw:
+        session = cast("DbSession", raw)
+        await insert_session(session, session_id=active[0], user_id=uid(ns, 1))
+        await insert_session(session, session_id=active[1], user_id=uid(ns, 2))
+        already = sid(ns, 13)
+        await insert_session(session, session_id=already, user_id=uid(ns, 2), revoked_at=utc_now())
+        store, recorder = MemorySessionStore(), RecordingRealtimePublisher()
         service = _service(session, store, recorder)
         revoked = await service.revoke_tenant_sessions(tenant="1", reason=REASON_TENANT_SUSPENDED)
         await session.commit()
     assert set(active) <= set(revoked)
     assert already not in revoked
     assert len(recorder.events) >= 2
-    async with tenant_scope(isolated_service_app) as session:
-        repo = SessionRepository(session)
-        assert await repo.count_active(now=utc_now()) == 0
+    async with shared_session(shared_tenant_writable_db_url, read_only=True) as raw:
+        repo = SessionRepository(cast("DbSession", raw))
+        assert await repo.count_active(now=utc_now(), user_id=uid(ns, 1)) == 0
+        assert await repo.count_active(now=utc_now(), user_id=uid(ns, 2)) == 0
 
 
 @pytest.mark.kiwi_id(2325)
-@pytest.mark.own_db("按租户批量撤销是破坏性全局操作：独占库避免波及他人会话", scope="destructive")
+@pytest.mark.own_db(
+    "按租户批量撤销是破坏性全局操作：在专用租户库上执行（生产形态一租户一库），避免波及主测试租户库",
+    scope="destructive",
+)
 async def test_revoke_tenant_sessions_cleanup_failure_tolerated(
-    isolated_tenant: None, isolated_service_app: FastAPI, ns: Namespace
+    shared_tenant_writable_db_url: str, ns: Namespace
 ) -> None:
     """运行时清理失败不阻断 DB 撤销（逐会话尽力而为）。"""
     session_id = sid(ns, 14)
-    await seed_session(isolated_service_app, session_id=session_id, user_id=uid(ns, 1))
 
     class _FailingStore(MemorySessionStore):
         async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
@@ -172,10 +164,14 @@ async def test_revoke_tenant_sessions_cleanup_failure_tolerated(
 
     _store = _FailingStore()
     recorder = RecordingRealtimePublisher()
-    async with tenant_scope(isolated_service_app) as session:
+    async with shared_session(shared_tenant_writable_db_url, read_only=False) as raw:
+        session = cast("DbSession", raw)
+        await insert_session(session, session_id=session_id, user_id=uid(ns, 1))
         service = _service(session, _store, recorder)
         revoked = await service.revoke_tenant_sessions(tenant="1", reason=REASON_TENANT_SUSPENDED)
         await session.commit()
     assert session_id in revoked
-    async with tenant_scope(isolated_service_app) as session:
-        assert await SessionRepository(session).count_active(now=utc_now()) == 0
+    async with shared_session(shared_tenant_writable_db_url, read_only=True) as raw:
+        # 专用租户库跨 worker 共用：只断言本用例造的用户没有活跃会话，不断言全表为 0
+        active = await SessionRepository(cast("DbSession", raw)).count_active(now=utc_now(), user_id=uid(ns, 1))
+        assert active == 0

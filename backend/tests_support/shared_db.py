@@ -34,6 +34,8 @@ __all__ = [
     "prepare_platform_async",
     "prepare_tenant",
     "prepare_tenant_async",
+    "prepare_tenant_writable",
+    "prepare_tenant_writable_async",
     "tenant_metadata",
 ]
 
@@ -41,10 +43,35 @@ __all__ = [
 def prepare_platform(url: str) -> None:
     """准备平台库：建表 → 种子租户 → 主键对齐 → 服务目录与产品档案（幂等）。
 
+    额外内容：
+    - 测试专用表（`widget` / 自建字段探针表 `biz_ext_probe`），生产不建；
+    - **结构变更声明**（`tests_support.form_design_changes`）：初始化阶段生成补列脚本并执行，
+      执行语句与生成脚本逐条比对、执行后回读校验（不一致直接失败）。
+
     Args:
         url: 共享平台库连接串。
     """
     base_shared_db.prepare_platform(url, seed_catalog=True)
+    from tests_support.widget_model import ensure_widget_table
+
+    ensure_widget_table(url)
+    _ensure_ext_probe_table(url)
+
+
+def _ensure_ext_probe_table(url: str) -> None:
+    """建自建字段补列用例的探针表（只存在于测试库；生产不建）。
+
+    Args:
+        url: 共享平台库连接串。
+    """
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(url.replace("+aiosqlite", ""))
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE IF NOT EXISTS biz_ext_probe (id INTEGER PRIMARY KEY)"))
+    finally:
+        engine.dispose()
 
 
 async def prepare_platform_async(url: str) -> None:
@@ -59,10 +86,21 @@ async def prepare_platform_async(url: str) -> None:
 def prepare_tenant(url: str) -> None:
     """准备租户库：租户侧建表集（各业务域并集 + 基础设施表）→ 系统参数种子。
 
+    额外内容：
+    - 测试专用探针表 `biz_ext_probe`（生产不建）；
+    - **结构变更声明**（`tests_support.form_design_changes`）：初始化阶段生成补列脚本并执行，
+      执行语句与生成脚本逐条比对、执行后回读校验（不一致直接失败），并把实际脚本落盘。
+
     Args:
         url: 共享租户库连接串。
     """
     base_shared_db.prepare_tenant(url)
+    _ensure_ext_probe_table(url)
+    import asyncio
+
+    from tests_support.form_design_changes import apply_changes
+
+    asyncio.run(apply_changes(url))
 
 
 async def prepare_tenant_async(url: str) -> None:
@@ -70,5 +108,27 @@ async def prepare_tenant_async(url: str) -> None:
 
     Args:
         url: 共享租户库连接串。
+    """
+    await base_shared_db.prepare_tenant_async(url)
+
+
+def prepare_tenant_writable(url: str) -> None:
+    """准备**破坏性操作用例专用**租户库（每轮一份；建表集与主测试租户库同源）。
+
+    为什么要单独一份：按租户批量撤销会话这类操作会撤销本租户库全部在线会话，
+    在主测试租户库上会波及其他用例。生产上一个租户一个库，这里按同一生产拓扑派生
+    第二个租户库，只归破坏性用例使用。
+
+    Args:
+        url: 专用租户库连接串。
+    """
+    base_shared_db.prepare_tenant(url)
+
+
+async def prepare_tenant_writable_async(url: str) -> None:
+    """专用租户库准备集的异步入口（供异步夹具调用）。
+
+    Args:
+        url: 专用租户库连接串。
     """
     await base_shared_db.prepare_tenant_async(url)

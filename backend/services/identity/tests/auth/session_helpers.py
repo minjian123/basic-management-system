@@ -150,6 +150,54 @@ def tenant_scope(app: FastAPI) -> AbstractAsyncContextManager[DbSession]:
     return session_scope(app.state.engine_registry, db_key=DEMO_TENANT.db_key, factory=app.state.session_factory)
 
 
+async def insert_session(
+    session: DbSession,
+    *,
+    session_id: str,
+    user_id: int,
+    expires_at: datetime | None = None,
+    revoked_at: datetime | None = None,
+    device: str | None = None,
+    ip: str | None = None,
+    login_at: datetime | None = None,
+    refresh_token_hash: str = "hash",
+    remember_me: bool | None = None,
+) -> None:
+    """在给定租户库会话上插入一条会话记录（先删同键行，再插）。
+
+    供「专用租户库」用例直插：库由调用方提供，本函数不解析库键。
+
+    Args:
+        session: 目标租户库会话。
+        session_id: 会话 id（十进制字符串，须可转 int）。
+        user_id: 用户 ID。
+        expires_at: 过期时间（None 取 14 天后）。
+        revoked_at: 撤销时间（None 表示有效）。
+        device: 设备标识。
+        ip: 登录 IP。
+        login_at: 登录时间（None 取当前）。
+        refresh_token_hash: refresh 哈希。
+        remember_me: 是否记住我。
+    """
+    now = utc_now()
+    await session.execute(delete(SysSession).where(SysSession.id == int(session_id)))
+    session.add(
+        SysSession(
+            id=int(session_id),
+            session_id=session_id,
+            user_id=user_id,
+            refresh_token_hash=refresh_token_hash,
+            device=device,
+            ip=ip,
+            login_at=login_at or now,
+            expires_at=expires_at or (now + timedelta(days=14)),
+            remember_me=remember_me,
+            revoked_at=revoked_at,
+        )
+    )
+    await session.commit()
+
+
 async def seed_session(
     app: FastAPI,
     *,
@@ -183,21 +231,16 @@ async def seed_session(
         refresh_token_hash: refresh 哈希（轮换比对用；缺省占位 `hash`）。
         remember_me: 是否记住我（None=历史行）。
     """
-    now = utc_now()
     async with tenant_scope(app) as session:
-        await session.execute(delete(SysSession).where(SysSession.id == int(session_id)))
-        session.add(
-            SysSession(
-                id=int(session_id),
-                session_id=session_id,
-                user_id=user_id,
-                refresh_token_hash=refresh_token_hash,
-                device=device,
-                ip=ip,
-                login_at=login_at or now,
-                expires_at=expires_at or (now + timedelta(days=14)),
-                remember_me=remember_me,
-                revoked_at=revoked_at,
-            )
+        await insert_session(
+            session,
+            session_id=session_id,
+            user_id=user_id,
+            expires_at=expires_at,
+            revoked_at=revoked_at,
+            device=device,
+            ip=ip,
+            login_at=login_at,
+            refresh_token_hash=refresh_token_hash,
+            remember_me=remember_me,
         )
-        await session.commit()

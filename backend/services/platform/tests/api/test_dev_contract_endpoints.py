@@ -29,6 +29,11 @@ from bms_platform.main import ApplicationFactory
 SMOKE_BASE_URL = "http://127.0.0.1:8000"
 """与 CI 契约冒烟一致的服务地址（Host 为 IP 字面量，正是本回归要覆盖的解析条件）。"""
 
+pytestmark = pytest.mark.own_db(
+    "被测对象是「每服务每租户」库名派生（dev 环境 URL 模板）：需按库键派生的独立多库拓扑，共享平台库无法复现该取址条件",
+    scope="topology",
+)
+
 TENANT_PROBE_PATH = "/api/v1/outbox/dead-letters"
 """租户库只读端点（需租户上下文；dev 环境解析异常时即报 5xx 的典型端点）。"""
 
@@ -37,12 +42,6 @@ EXCLUDED_PATHS = ("/healthz", "/readyz", "/metrics")
 
 PATH_PARAM_VALUE = "smoke1"
 """路径参数占位值（只求命中路由，不求命中业务数据；4xx 视为可达通过）。"""
-
-
-pytestmark = pytest.mark.own_db(
-    "被测对象是 dev 环境「每服务每租户」URL 模板下的库名派生与 IP Host 租户解析：需把模板库目录指到临时目录，"
-    "共享库是固定单文件、无法表达派生库拓扑"
-)
 
 
 def _contract_spec(service: str = "platform") -> ConcurrentStableDict[str, Any]:

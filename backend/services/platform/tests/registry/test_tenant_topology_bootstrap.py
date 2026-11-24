@@ -48,7 +48,13 @@ from bms_platform.domains.platform_registry.services import tenant_topology_boot
 from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
 from bms_platform.main import ApplicationFactory
 
-pytestmark = pytest.mark.kiwi_id(2366)
+pytestmark = [
+    pytest.mark.kiwi_id(2366),
+    pytest.mark.own_db(
+        "被测对象是租户拓扑引导本身：需要「拓扑尚未建立 / 版本冲突」的起点，共享平台库恒为已收敛拓扑",
+        scope="topology",
+    ),
+]
 
 
 @pytest.fixture(autouse=True)

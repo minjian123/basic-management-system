@@ -1,11 +1,11 @@
 """审计日志链写入护栏（06_01）：幂等 / 链尾衔接 / 跨月 / 两类日志独立 / 毒消息。"""
 
 from datetime import datetime
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.pool import StaticPool
 
 from bms_core.audit.events import LOGIN_LOG_EVENT, OPERATION_LOG_EVENT
 from bms_core.audit.hashchain import GENESIS_HASH
@@ -17,14 +17,17 @@ from bms_core.events.base import EventEnvelope
 from bms_platform.domains.log.repositories.shard import LogShardRepository
 from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION, canonical_record
 from bms_platform.domains.log.services.writer import AuditLogWriter
+from tests_support.shared_access import shared_sync_engine
 
-pytestmark = [
-    pytest.mark.kiwi_id(2407),
-    pytest.mark.own_db("内存库自建分片表：同步门面（SyncSession）路径即被测，不触共享库"),
-]
+pytestmark = pytest.mark.kiwi_id(2407)
 
 _NOV = datetime(2026, 11, 15, 10, 0, 0)
 _DEC = datetime(2026, 12, 1, 9, 30, 0)
+
+
+def _tid() -> str:
+    """本用例专属租户（分片表上的链按租户隔离，不与他人串链）。"""
+    return str(900_000_000 + uuid4().int % 99_999_999)
 
 
 def _operation(
@@ -91,22 +94,27 @@ def _login(
     )
 
 
-async def _rows(session: AsyncSession, log_type: str, month: str):
-    """按分片取全部行（按 id 升序）。"""
+async def _rows(session: AsyncSession, log_type: str, month: str, *, tenant_id: str | None = None):
+    """按分片取行（按 id 升序；给了 `tenant_id` 只取该租户的链）。"""
     table = LogShardRepository.table_for(log_type, month)
-    result = await session.execute(select(table).order_by(table.c.id))
+    statement = select(table).order_by(table.c.id)
+    if tenant_id is not None:
+        statement = statement.where(table.c.tenant_id == tenant_id)
+    result = await session.execute(statement)
     return result.mappings().all()
 
 
 async def test_operation_chain_idempotency_and_ledger(log_session: AsyncSession) -> None:
     """首条链头 / 次条衔接 / 重复事件跳过 / 台账幂等。"""
+    tid = _tid()
+    tag = uuid4().hex[:8]
     chain = Sha256HashChain()
     writer = AuditLogWriter(log_session, chain, clock=lambda: _NOV)
-    assert await writer.write(_operation("e1")) is True
-    assert await writer.write(_operation("e2")) is True
-    assert await writer.write(_operation("e1")) is False
+    assert await writer.write(_operation(f"{tag}-e1", tenant_id=tid)) is True
+    assert await writer.write(_operation(f"{tag}-e2", tenant_id=tid)) is True
+    assert await writer.write(_operation(f"{tag}-e1", tenant_id=tid)) is False
 
-    rows = await _rows(log_session, LOG_TYPE_OPERATION, "202611")
+    rows = await _rows(log_session, LOG_TYPE_OPERATION, "202611", tenant_id=tid)
     assert len(rows) == 2
     assert rows[0]["prev_hash"] == GENESIS_HASH
     assert rows[1]["prev_hash"] == rows[0]["record_hash"]
@@ -115,36 +123,40 @@ async def test_operation_chain_idempotency_and_ledger(log_session: AsyncSession)
     assert rows[1]["record_hash"] == expected
 
     repo = LogShardRepository(log_session)
-    assert list(await repo.months(LOG_TYPE_OPERATION)) == ["202611"]
+    before = list(await repo.months(LOG_TYPE_OPERATION))
+    assert "202611" in before
     await repo.ensure_shard(LOG_TYPE_OPERATION, "202611")
-    assert list(await repo.months(LOG_TYPE_OPERATION)) == ["202611"]
+    assert list(await repo.months(LOG_TYPE_OPERATION)) == before
 
 
 async def test_cross_month_links_last_hash_per_tenant(log_session: AsyncSession) -> None:
     """跨月：次月首条 prev = 上月同租户末条；不同租户 / 类型链独立。"""
+    tag = uuid4().hex[:8]
+    tid1, tid2, tid3 = _tid(), _tid(), _tid()
     chain = Sha256HashChain()
     november = AuditLogWriter(log_session, chain, clock=lambda: _NOV)
-    assert await november.write(_operation("e1", tenant_id="1001")) is True
-    assert await november.write(_operation("e2", tenant_id="1001")) is True
-    assert await november.write(_operation("e3", tenant_id="2002")) is True
-    assert await november.write(_login("l1", tenant_id="1001")) is True
+    assert await november.write(_operation(f"{tag}-e1", tenant_id=tid1)) is True
+    assert await november.write(_operation(f"{tag}-e2", tenant_id=tid1)) is True
+    assert await november.write(_operation(f"{tag}-e3", tenant_id=tid2)) is True
+    assert await november.write(_login(f"{tag}-l1", tenant_id=tid1)) is True
 
     december = AuditLogWriter(log_session, chain, clock=lambda: _DEC)
-    assert await december.write(_operation("e4", tenant_id="1001")) is True
-    assert await december.write(_operation("e5", tenant_id="2002")) is True
-    assert await december.write(_login("l2", tenant_id="1001")) is True
-    assert await december.write(_operation("e6", tenant_id="3003")) is True
+    assert await december.write(_operation(f"{tag}-e4", tenant_id=tid1)) is True
+    assert await december.write(_operation(f"{tag}-e5", tenant_id=tid2)) is True
+    assert await december.write(_login(f"{tag}-l2", tenant_id=tid1)) is True
+    assert await december.write(_operation(f"{tag}-e6", tenant_id=tid3)) is True
 
-    nov_rows = await _rows(log_session, LOG_TYPE_OPERATION, "202611")
-    dec_rows = await _rows(log_session, LOG_TYPE_OPERATION, "202612")
-    nov_last = {int(row["tenant_id"]): row["record_hash"] for row in nov_rows}
-    dec_first = {int(row["tenant_id"]): row["prev_hash"] for row in dec_rows}
-    assert dec_first[1001] == nov_last[1001]
-    assert dec_first[2002] == nov_last[2002]
-    assert dec_first[3003] == GENESIS_HASH
+    nov1 = await _rows(log_session, LOG_TYPE_OPERATION, "202611", tenant_id=tid1)
+    nov2 = await _rows(log_session, LOG_TYPE_OPERATION, "202611", tenant_id=tid2)
+    dec1 = await _rows(log_session, LOG_TYPE_OPERATION, "202612", tenant_id=tid1)
+    dec2 = await _rows(log_session, LOG_TYPE_OPERATION, "202612", tenant_id=tid2)
+    dec3 = await _rows(log_session, LOG_TYPE_OPERATION, "202612", tenant_id=tid3)
+    assert dec1[0]["prev_hash"] == nov1[-1]["record_hash"]
+    assert dec2[0]["prev_hash"] == nov2[-1]["record_hash"]
+    assert dec3[0]["prev_hash"] == GENESIS_HASH
 
-    login_dec = await _rows(log_session, LOG_TYPE_LOGIN, "202612")
-    login_nov = await _rows(log_session, LOG_TYPE_LOGIN, "202611")
+    login_dec = await _rows(log_session, LOG_TYPE_LOGIN, "202612", tenant_id=tid1)
+    login_nov = await _rows(log_session, LOG_TYPE_LOGIN, "202611", tenant_id=tid1)
     assert login_dec[0]["prev_hash"] == login_nov[0]["record_hash"]
 
 
@@ -195,21 +207,20 @@ async def test_unknown_and_malformed_events_raise(log_session: AsyncSession) -> 
     assert await writer.write(no_time) is True
 
 
-async def test_sync_session_path_writes_shard() -> None:
-    """达梦同步方言路径：同步门面建表 + 台账 + 写入（SQLite 同步引擎模拟）。"""
-    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
-    from bms_core.models.base import Base
-    from bms_core.models.platform.log import SysAuditShard
+async def test_sync_session_path_writes_shard(shared_platform_db_url: str) -> None:
+    """同步门面路径：同步引擎取台账 + 写入（共享平台库，SQLite 同步引擎模拟）。
 
-    Base.metadata.create_all(engine, tables=[SysAuditShard.__table__])  # pyright: ignore[reportArgumentType]
+    分片表由 `ensure_shard` 幂等创建（生产上日志分片就是运行时按需建表）。
+    """
+    engine = shared_sync_engine(shared_platform_db_url)
     session = SyncSession(engine)
     try:
         repo = LogShardRepository(session)
         assert await repo.ensure_shard(LOG_TYPE_OPERATION, "202611") == "sys_operation_log_202611"
         writer = AuditLogWriter(session, Sha256HashChain(), clock=lambda: _NOV)
-        assert await writer.write(_operation("sync-1")) is True
+        assert await writer.write(_operation(f"{uuid4().hex[:8]}-sync-1", tenant_id=_tid())) is True
         await session.commit()
-        assert list(await repo.months(LOG_TYPE_OPERATION)) == ["202611"]
+        assert "202611" in list(await repo.months(LOG_TYPE_OPERATION))
     finally:
         await session.close()
         engine.dispose()

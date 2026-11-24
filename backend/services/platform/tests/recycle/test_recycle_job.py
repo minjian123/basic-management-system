@@ -2,87 +2,48 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
-from sqlalchemy import Table, func, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import RecycleSettings
 from bms_core.jobs.base import JobContext
-from bms_core.models.outbox import SysOutbox
-from bms_core.models.platform.dashboard import SysDashboardCard, SysDashboardCardI18n, SysDashboardTemplate
-from bms_core.models.platform.form_design import SysFieldExt, SysFieldExtI18n, SysFormFieldAttr, SysFormLayout
-from bms_core.models.platform.help import (
-    SysHelpArticle,
-    SysHelpArticleI18n,
-    SysHelpArticleTarget,
-    SysHelpCategory,
-    SysHelpFeedback,
-    SysHelpPackage,
-)
-from bms_core.models.platform.icon import SysIcon, SysIconI18n
+from bms_core.models.platform.help import SysHelpArticle, SysHelpCategory
 from bms_core.models.platform.recycle import SysRecycleLog
-from bms_core.models.platform.role import SysRole
-from bms_core.models.platform.user import SysUser, SysUserExtension
 from bms_core.recycle.engine import RecycleEngine
 from bms_platform.domains.recycle.jobs import RecyclePurgeJob
 from bms_platform.domains.recycle.services.purge import RecyclePurgeService
+from tests_support.shared_access import shared_session
 
 pytestmark = [
     pytest.mark.kiwi_id(2530),
-    pytest.mark.own_db("回收站清理作业需按纳管表子集独立建表，验证逐表批删与批次记录，不污染共享库"),
+    pytest.mark.xdist_group("recycle-purge"),
 ]
+"""回收站清理是**全库破坏性操作**，同组串行，避免并行用例互删对方刚造的超期数据。"""
 
 _NOW = datetime(2026, 11, 18, 12, 0, 0)
-_TABLES = (
-    SysUser.__table__,
-    SysUserExtension.__table__,
-    SysRole.__table__,
-    SysIcon.__table__,
-    SysIconI18n.__table__,
-    SysHelpCategory.__table__,
-    SysHelpArticle.__table__,
-    SysHelpArticleI18n.__table__,
-    SysHelpArticleTarget.__table__,
-    SysHelpFeedback.__table__,
-    SysHelpPackage.__table__,
-    SysDashboardCard.__table__,
-    SysDashboardCardI18n.__table__,
-    SysDashboardTemplate.__table__,
-    SysFormLayout.__table__,
-    SysFormFieldAttr.__table__,
-    SysFieldExt.__table__,
-    SysFieldExtI18n.__table__,
-    SysRecycleLog.__table__,
-    SysOutbox.__table__,
-)
 
 
 @pytest.fixture
-async def session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
-    """独立 SQLite 库（回收站纳管表 + 清理批次表）。"""
-    engine: AsyncEngine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'recycle_job.db'}")
-    async with engine.begin() as connection:
-        for table in _TABLES:
-            await connection.run_sync(cast("Table", table).create, checkfirst=True)
-    maker = async_sessionmaker(engine, expire_on_commit=False)
-    async with maker() as db_session:
+async def session(tenant_db: str) -> AsyncIterator[AsyncSession]:
+    """共享租户库会话（表由数据初始化一次建好；断言按本批次收敛）。"""
+    async with shared_session(tenant_db, read_only=False) as db_session:
         yield db_session
-    await engine.dispose()
 
 
 async def _seed_old_article(session: AsyncSession) -> SysHelpArticle:
-    """造一篇超期软删文章。"""
-    category = SysHelpCategory(parent_id=0, name="清理分类", sort=1)
+    """造一篇超期软删文章（标题带随机后缀，避免与共享库他人数据混淆）。"""
+    category = SysHelpCategory(parent_id=0, name=f"清理分类-{uuid.uuid4().hex[:8]}", sort=1)
     session.add(category)
     await session.flush()
-    article = SysHelpArticle(category_id=int(category.id), title="待清理文章")
+    article = SysHelpArticle(category_id=int(category.id), title=f"待清理文章-{uuid.uuid4().hex[:8]}")
     session.add(article)
     await session.flush()
     article.deleted_at = _NOW - timedelta(days=40)
@@ -90,35 +51,36 @@ async def _seed_old_article(session: AsyncSession) -> SysHelpArticle:
     return article
 
 
-async def _logs(session: AsyncSession) -> ConcurrentStableList[SysRecycleLog]:
-    """取清理批次记录（按开始时间升序）。"""
-    statement = select(SysRecycleLog).order_by(SysRecycleLog.started_at, SysRecycleLog.id)
-    return ConcurrentStableList((await session.execute(statement)).scalars().all())
+async def _logs(session: AsyncSession, *, limit: int = 18) -> ConcurrentStableList[SysRecycleLog]:
+    """取最近一批清理记录（本文件同组串行，最近 `limit` 条即本次批次）。"""
+    statement = select(SysRecycleLog).order_by(SysRecycleLog.id.desc()).limit(limit)
+    rows = (await session.execute(statement)).scalars().all()
+    return ConcurrentStableList(reversed(rows))
 
 
 async def test_purge_service_writes_per_table_logs(session: AsyncSession) -> None:
     """逐表写清理记录；超期数据删除、保留期内数据保留。"""
-    await _seed_old_article(session)
+    article = await _seed_old_article(session)
     service = RecyclePurgeService(session, RecycleSettings(), clock=lambda: _NOW)
     summary = await service.run()
     assert summary["tables"] == 18
-    assert summary["deleted"] == 1
+    assert int(str(summary["deleted"])) >= 1
     assert summary["failed"] == 0
     logs = await _logs(session)
     assert len(logs) == 18
     article_log = next(log for log in logs if log.table_name == "sys_help_article")
     assert article_log.status == "success"
-    assert article_log.deleted_count == 1
+    assert article_log.deleted_count >= 1
     assert article_log.retention_days == 30
     assert article_log.finished_at is not None
-    remaining = int(
+    gone = int(
         (
             await session.execute(
-                select(func.count()).select_from(SysHelpArticle).where(SysHelpArticle.deleted_at.is_not(None))
+                select(func.count()).select_from(SysHelpArticle).where(SysHelpArticle.id == article.id)
             )
         ).scalar_one()
     )
-    assert remaining == 0
+    assert gone == 0
 
 
 async def test_purge_service_continues_after_table_failure(
@@ -183,7 +145,7 @@ async def test_purge_job_returns_success_summary(session: AsyncSession) -> None:
     assert result.status == "succeeded"
     assert result.output is not None
     assert result.output["tables"] == 18
-    assert result.output["deleted"] == 1
+    assert int(str(result.output["deleted"])) >= 1
 
 
 async def test_purge_job_returns_failed_when_any_table_fails(

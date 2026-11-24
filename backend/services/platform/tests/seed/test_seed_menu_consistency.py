@@ -18,7 +18,8 @@ from bms_core.models.platform.menu_form import SysMenu
 from ops.seed_menu import ACTION_SEEDS, BUSINESS_SEEDS, FIELD_SEEDS, MENU_SEEDS, seed_menu
 
 pytestmark = pytest.mark.own_db(
-    "被测对象是菜单元数据播种编排：建表 + 播种 + 派生一致性校验行数 + 重跑幂等 + 改写主表后拒绝漂移，均需空库起步"
+    "被测对象是菜单元数据播种编排：建表 + 播种 + 派生一致性校验行数 + 重跑幂等 + 改写主表后拒绝漂移，均需空库起步",
+    scope="seed",
 )
 
 

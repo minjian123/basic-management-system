@@ -17,13 +17,12 @@ from dataclasses import replace
 
 import pytest
 from sqlalchemy import delete, or_, select, text, update
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.collaboration.usage import CapabilityUsage
 from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import CatalogError
 from bms_core.db.gate import GATE_CRITICAL_WAIT
-from bms_core.models.base import Base
 from bms_core.models.platform.catalog import SysModule, SysProduct
 from bms_core.models.platform.declaration import (
     SysCollaboration,
@@ -52,10 +51,9 @@ from bms_core.testing.transaction import write_session
 from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.services.declaration_bootstrap import with_platform_services
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
+from tests_support.shared_access import shared_transaction_session
 
-pytestmark = pytest.mark.own_db(
-    "声明表 JSON 防御分支需在独立库构造损坏行；共享库损坏会波及其它 worker 的启动读取（其余用例走共享库）"
-)
+# 声明表用例：损坏行用事务内构造 + 回滚（不落共享库），其余数据按 `demo` 产品键前后清理。
 
 _DEMO_PRODUCT = "demo"
 """本文件占用的产品键（清理与断言都以此为准）。"""
@@ -142,24 +140,6 @@ async def session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSes
     """
     async with write_session(shared_platform_engine) as db:
         yield db
-
-
-@pytest.fixture
-async def private_session() -> AsyncIterator[AsyncSession]:
-    """独立内存库会话（仅供「损坏 JSON」用例构造坏行，不碰共享声明表）。
-
-    Yields:
-        AsyncSession: 独立库会话（仅含声明相关表）。
-    """
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
-        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as db:
-            yield db
-    finally:
-        await engine.dispose()
 
 
 _MANIFEST = """
@@ -344,22 +324,23 @@ async def test_apply_updates_changed_content(session: AsyncSession) -> None:
     assert snapshot.hash_of("collaborations", "demo.demo_op.roles") == content_hash_of("collaborations", record)
 
 
-async def test_corrupt_json_raises(private_session: AsyncSession) -> None:
+async def test_corrupt_json_raises(shared_platform_db_url: str) -> None:
     """库内 JSON 字段损坏：抛 `CatalogError`（不静默退化为空）。
 
-    独立内存库：损坏行若落在共享声明表上，会让并行 worker 的启动读取一并失败。
+    事务内构造损坏行：库里不留痕，其他 worker 的启动读取不会看到坏行。
     """
-    repository = DeclarationRepository(private_session)
-    await _apply(repository, _payload())
-    await private_session.execute(
-        update(SysCollaboration)
-        .where(SysCollaboration.product_key == _DEMO_PRODUCT)
-        .values(default_consumers="not-json")
-    )
-    await private_session.flush()
+    async with shared_transaction_session(shared_platform_db_url) as session:
+        repository = DeclarationRepository(session)
+        await _apply(repository, _payload())
+        await session.execute(
+            update(SysCollaboration)
+            .where(SysCollaboration.product_key == _DEMO_PRODUCT)
+            .values(default_consumers="not-json")
+        )
+        await session.flush()
 
-    with pytest.raises(CatalogError, match="JSON 字段损坏"):
-        await repository.load_snapshot()
+        with pytest.raises(CatalogError, match="JSON 字段损坏"):
+            await repository.load_snapshot()
 
 
 async def test_maps_from_round_trips_as_int_list(session: AsyncSession) -> None:
@@ -374,20 +355,21 @@ async def test_maps_from_round_trips_as_int_list(session: AsyncSession) -> None:
     assert list(errcode.maps_from) == [80002, 80001]
 
 
-async def test_corrupt_maps_from_json_raises(private_session: AsyncSession) -> None:
+async def test_corrupt_maps_from_json_raises(shared_platform_db_url: str) -> None:
     """`maps_from` 库内损坏：抛 `CatalogError`（不静默退化为「不做映射」）。
 
-    独立内存库（同上：坏行不能落在共享声明表）。
+    事务内构造损坏行，断言后回滚，不落共享库。
     """
-    repository = DeclarationRepository(private_session)
-    await _apply(repository, _payload())
-    await private_session.execute(
-        update(SysErrcode).where(SysErrcode.product_key == _DEMO_PRODUCT).values(maps_from="not-json")
-    )
-    await private_session.flush()
+    async with shared_transaction_session(shared_platform_db_url) as session:
+        repository = DeclarationRepository(session)
+        await _apply(repository, _payload())
+        await session.execute(
+            update(SysErrcode).where(SysErrcode.product_key == _DEMO_PRODUCT).values(maps_from="not-json")
+        )
+        await session.flush()
 
-    with pytest.raises(CatalogError, match="整数数组"):
-        await repository.load_snapshot()
+        with pytest.raises(CatalogError, match="整数数组"):
+            await repository.load_snapshot()
 
 
 async def test_service_register_and_snapshot(session: AsyncSession) -> None:
@@ -599,19 +581,19 @@ async def test_apply_skips_retire_when_row_missing(session: AsyncSession) -> Non
     assert snapshot.owner_of("collaborations", "demo.demo_op.roles") is None
 
 
-async def test_corrupt_mapping_json_raises(private_session: AsyncSession) -> None:
+async def test_corrupt_mapping_json_raises(shared_platform_db_url: str) -> None:
     """映射型 JSON 字段损坏：同样抛 `CatalogError`。
 
-    独立内存库：此前这里对 `sys_seed` 做**全表更新**，写入立即落库后会永久污染共享库并
-    连带上百条用例失败（13_08 修订的直接动因）。
+    事务内构造损坏行，断言后回滚：早先这里是全表更新，写入落库后会永久污染共享库。
     """
-    repository = DeclarationRepository(private_session)
-    await _apply(repository, _payload())
-    await private_session.execute(update(SysSeed).where(SysSeed.product_key == _DEMO_PRODUCT).values(tables="not-json"))
-    await private_session.flush()
+    async with shared_transaction_session(shared_platform_db_url) as session:
+        repository = DeclarationRepository(session)
+        await _apply(repository, _payload())
+        await session.execute(update(SysSeed).where(SysSeed.product_key == _DEMO_PRODUCT).values(tables="not-json"))
+        await session.flush()
 
-    with pytest.raises(CatalogError, match="JSON 字段损坏"):
-        await repository.load_snapshot()
+        with pytest.raises(CatalogError, match="JSON 字段损坏"):
+            await repository.load_snapshot()
 
 
 async def test_reapply_updates_product_and_service_rows(session: AsyncSession) -> None:

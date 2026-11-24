@@ -46,6 +46,7 @@ from bms_core.testing.fixtures import (
     shared_platform_engine,
     shared_tenant_db_url,
     shared_tenant_engine,
+    shared_tenant_writable_db_url,
     tenant_db,
     test_db_dir,
 )
@@ -71,6 +72,7 @@ __all__ = (
     "shared_platform_engine",
     "shared_tenant_db_url",
     "shared_tenant_engine",
+    "shared_tenant_writable_db_url",
     "tenant_db",
     "tenant_db_write",
     "test_db_dir",

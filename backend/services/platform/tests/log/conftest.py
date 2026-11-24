@@ -1,28 +1,22 @@
-"""审计日志域用例夹具：进程内 SQLite 库（分片表 / 台账）。"""
+"""审计日志域用例夹具：共享平台库会话（分片台账表 / 分片表）。"""
 
 from collections.abc import AsyncIterator
-from typing import cast
 
 import pytest_asyncio
-from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from bms_core.models.base import Base
-from bms_core.models.platform.log import SysAuditShard
+from tests_support.shared_access import shared_write
 
 
 @pytest_asyncio.fixture
-async def log_session() -> AsyncIterator[AsyncSession]:
-    """进程内 SQLite 会话（仅建分片台账表；分片表由仓储运行期创建）。
+async def log_session(shared_platform_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    """共享平台库写会话（分片台账表由数据初始化建好；分片表由仓储运行期创建）。
+
+    Args:
+        shared_platform_engine: 共享平台库门代理引擎。
 
     Yields:
-        AsyncSession: 平台库会话（静态连接池，保证内存库跨会话可见）。
+        AsyncSession: 共享平台库写会话。
     """
-    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all, tables=[cast("Table", SysAuditShard.__table__)])
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
+    async with shared_write(shared_platform_engine) as session:
         yield session
-    await engine.dispose()

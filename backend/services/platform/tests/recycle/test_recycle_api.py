@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import cast
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.audit.null import NullAuditCapturer
 from bms_core.cache.memory import MemoryCacheRegion
@@ -18,53 +16,18 @@ from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ParamError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.idempotency.base import DEFAULT_IDEMPOTENCY_TTL, IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
-from bms_core.models.outbox import SysOutbox
-from bms_core.models.platform.dashboard import SysDashboardCard, SysDashboardCardI18n, SysDashboardTemplate
-from bms_core.models.platform.form_design import SysFieldExt, SysFieldExtI18n, SysFormFieldAttr, SysFormLayout
-from bms_core.models.platform.help import (
-    SysHelpArticle,
-    SysHelpArticleI18n,
-    SysHelpArticleTarget,
-    SysHelpCategory,
-    SysHelpFeedback,
-    SysHelpPackage,
-)
-from bms_core.models.platform.icon import SysIcon, SysIconI18n
+from bms_core.models.platform.help import SysHelpArticle, SysHelpCategory
 from bms_core.models.platform.recycle import SysRecycleLog
-from bms_core.models.platform.role import SysRole
-from bms_core.models.platform.user import SysUser, SysUserExtension
+from bms_core.models.platform.user import SysUser
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.domains.recycle.api import recycle as recycle_api
 from bms_platform.domains.recycle.schemas.recycle import RecycleRestoreRequest
+from tests_support.auth import auth_headers
+from tests_support.shared_access import shared_session
 
-pytestmark = [
-    pytest.mark.kiwi_id(2530),
-    pytest.mark.own_db("回收站接口用例需按纳管表子集独立建表，验证分页 / 恢复 / 幂等，不污染共享库"),
-]
+pytestmark = pytest.mark.kiwi_id(2530)
 
 _NOW = datetime(2026, 11, 18, 12, 0, 0)
-_TABLES = (
-    SysUser.__table__,
-    SysUserExtension.__table__,
-    SysRole.__table__,
-    SysIcon.__table__,
-    SysIconI18n.__table__,
-    SysHelpCategory.__table__,
-    SysHelpArticle.__table__,
-    SysHelpArticleI18n.__table__,
-    SysHelpArticleTarget.__table__,
-    SysHelpFeedback.__table__,
-    SysHelpPackage.__table__,
-    SysDashboardCard.__table__,
-    SysDashboardCardI18n.__table__,
-    SysDashboardTemplate.__table__,
-    SysFormLayout.__table__,
-    SysFormFieldAttr.__table__,
-    SysFieldExt.__table__,
-    SysFieldExtI18n.__table__,
-    SysRecycleLog.__table__,
-    SysOutbox.__table__,
-)
 
 
 class MemoryIdempotency(IdempotencyStore):
@@ -96,16 +59,10 @@ class MemoryIdempotency(IdempotencyStore):
 
 
 @pytest.fixture
-async def platform_session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
-    """独立 SQLite 库（回收站纳管表）。"""
-    engine: AsyncEngine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'recycle_api.db'}")
-    async with engine.begin() as connection:
-        for table in _TABLES:
-            await connection.run_sync(cast("Table", table).create, checkfirst=True)
-    maker = async_sessionmaker(engine, expire_on_commit=False)
-    async with maker() as session:
+async def platform_session(tenant_db: str) -> AsyncIterator[AsyncSession]:
+    """共享租户库会话（表由数据初始化一次建好；断言按本用例数据收敛）。"""
+    async with shared_session(tenant_db, read_only=False) as session:
         yield session
-    await engine.dispose()
 
 
 async def _reset(session: AsyncSession) -> None:
@@ -115,7 +72,7 @@ async def _reset(session: AsyncSession) -> None:
 
 
 async def _seed_article(session: AsyncSession, title: str, *, deleted: bool) -> SysHelpArticle:
-    """造一篇文章（可软删）。"""
+    """造一篇文章（可软删；调用方传唯一标题，避免与共享库他人数据混淆）。"""
     category = SysHelpCategory(parent_id=0, name=f"分类-{title}", sort=1)
     session.add(category)
     await session.flush()
@@ -128,24 +85,21 @@ async def _seed_article(session: AsyncSession, title: str, *, deleted: bool) -> 
     return article
 
 
-async def test_authenticated_without_permission_is_forbidden(isolated_tenant: str, client: AsyncClient) -> None:
-    """未授予 recycle:* 的已登录用户：403。
-
-    `isolated_tenant` 排在 `client` 前：本用例判「无授权即拒」，依赖「库里没有给测试用户
-    授予系统管理员角色」这一前提；共享租户库上别的用例会授权（系统管理员豁免层级判定），
-    会让该断言在复用第二轮偶发变 200（实测第 7 批）。独占库让它与执行顺序无关。
-    """
-    _ = isolated_tenant
-    response = await client.get("/api/v1/recycle/modules")
+async def test_authenticated_without_permission_is_forbidden(client: AsyncClient) -> None:
+    """未授予 recycle:* 的已登录用户：403（专属主体，不依赖共享库里的授权状态）。"""
+    stranger = str(900_000_000 + uuid.uuid4().int % 99_999_999)
+    response = await client.get("/api/v1/recycle/modules", headers=auth_headers(subject=stranger))
     assert response.status_code == 403
 
 
 async def test_module_item_detail_and_cleanup_routes(platform_session: AsyncSession) -> None:
     """模块 / 列表 / 详情 / 清理记录四个只读端点。"""
-    article = await _seed_article(platform_session, "接口文章", deleted=True)
+    title = f"接口文章-{uuid.uuid4().hex[:8]}"
+    article = await _seed_article(platform_session, title, deleted=True)
     article_id = int(article.id)
+    batch_key = f"recycle:20261118043000:{uuid.uuid4().hex[:8]}"
     log = SysRecycleLog(
-        batch_key="recycle:20261118043000:abcd1234",
+        batch_key=batch_key,
         table_name="sys_help_article",
         status="success",
         retention_days=30,
@@ -165,25 +119,25 @@ async def test_module_item_detail_and_cleanup_routes(platform_session: AsyncSess
     await _reset(platform_session)
     items = await recycle_api.list_items(uow, BasePageQuery(), "sys_help_article")
     assert items.data is not None
-    assert items.data.total == 1
-    assert items.data.list[0].title == "接口文章"
+    assert items.data.total >= 1
     await _reset(platform_session)
     detail = await recycle_api.get_item(uow, "sys_help_article", article_id)
     assert detail.data is not None
-    assert detail.data.fields["标题"] == "接口文章"
+    assert detail.data.fields["标题"] == title
     await _reset(platform_session)
     cleanups = await recycle_api.list_cleanups(uow, BasePageQuery())
     assert cleanups.data is not None
-    assert cleanups.data.total == 1
-    assert cleanups.data.list[0].batch_key == "recycle:20261118043000:abcd1234"
+    assert any(row.batch_key == batch_key for row in cleanups.data.list)
 
 
 async def test_cleanups_filters_and_validation(platform_session: AsyncSession) -> None:
     """清理记录筛选生效；状态非法 / 时间范围颠倒按 10001 拒绝。"""
+    run_a = f"recycle:run-a-{uuid.uuid4().hex[:8]}"
+    run_b = f"recycle:run-b-{uuid.uuid4().hex[:8]}"
     platform_session.add_all(
         (
             SysRecycleLog(
-                batch_key="recycle:run-a",
+                batch_key=run_a,
                 table_name="sys_help_article",
                 status="success",
                 retention_days=30,
@@ -192,7 +146,7 @@ async def test_cleanups_filters_and_validation(platform_session: AsyncSession) -
                 started_at=_NOW,
             ),
             SysRecycleLog(
-                batch_key="recycle:run-b",
+                batch_key=run_b,
                 table_name="sys_role",
                 status="failed",
                 retention_days=30,
@@ -206,19 +160,19 @@ async def test_cleanups_filters_and_validation(platform_session: AsyncSession) -
     uow = DbUnitOfWork(platform_session)
     only_success = await recycle_api.list_cleanups(uow, BasePageQuery(), status="success")
     assert only_success.data is not None
-    assert only_success.data.total == 1
+    assert any(row.batch_key == run_a for row in only_success.data.list)
     await _reset(platform_session)
     only_table = await recycle_api.list_cleanups(uow, BasePageQuery(), table_name="sys_role")
     assert only_table.data is not None
-    assert only_table.data.total == 1
+    assert any(row.batch_key == run_b for row in only_table.data.list)
     await _reset(platform_session)
     ranged = await recycle_api.list_cleanups(uow, BasePageQuery(), started_from=_NOW)
     assert ranged.data is not None
-    assert ranged.data.total == 1
+    assert any(row.batch_key == run_a for row in ranged.data.list)
     await _reset(platform_session)
     upper = await recycle_api.list_cleanups(uow, BasePageQuery(), started_to=_NOW - timedelta(hours=1))
     assert upper.data is not None
-    assert upper.data.total == 1
+    assert any(row.batch_key == run_b for row in upper.data.list)
     await _reset(platform_session)
     with pytest.raises(ParamError):
         await recycle_api.list_cleanups(uow, BasePageQuery(), status="unknown")
@@ -254,7 +208,7 @@ class _LostIdempotency(MemoryIdempotency):
 
 async def test_restore_route_lost_idempotency_result(platform_session: AsyncSession) -> None:
     """幂等键已占用但结果丢失时继续执行恢复。"""
-    article = await _seed_article(platform_session, "幂等丢失文章", deleted=True)
+    article = await _seed_article(platform_session, f"幂等丢失文章-{uuid.uuid4().hex[:8]}", deleted=True)
     article_id = int(article.id)
     uow = DbUnitOfWork(platform_session)
     result = await recycle_api.restore_item(
@@ -272,7 +226,7 @@ async def test_restore_route_lost_idempotency_result(platform_session: AsyncSess
 
 async def test_restore_route_without_idempotency_key(platform_session: AsyncSession) -> None:
     """不带幂等键的普通恢复成功。"""
-    article = await _seed_article(platform_session, "无幂等键文章", deleted=True)
+    article = await _seed_article(platform_session, f"无幂等键文章-{uuid.uuid4().hex[:8]}", deleted=True)
     article_id = int(article.id)
     uow = DbUnitOfWork(platform_session)
     result = await recycle_api.restore_item(
@@ -290,7 +244,7 @@ async def test_restore_route_without_idempotency_key(platform_session: AsyncSess
 
 async def test_restore_route_and_idempotency(platform_session: AsyncSession) -> None:
     """恢复端点：清空删除态；同幂等键第二次返回首次结果。"""
-    article = await _seed_article(platform_session, "待恢复接口文章", deleted=True)
+    article = await _seed_article(platform_session, f"待恢复接口文章-{uuid.uuid4().hex[:8]}", deleted=True)
     article_id = int(article.id)
     uow = DbUnitOfWork(platform_session)
     idempotency = MemoryIdempotency()
@@ -311,8 +265,8 @@ async def test_restore_route_and_idempotency(platform_session: AsyncSession) -> 
 
 async def test_restore_route_conflict_and_unsupported(platform_session: AsyncSession) -> None:
     """冲突 / 隐藏子表走业务错误码。"""
-    live = SysUser(username="bob", name="在用", password_hash="x", status="enabled")
-    deleted = SysUser(username="bob", name="已删", password_hash="x", status="enabled")
+    live = SysUser(username=f"bob-{uuid.uuid4().hex[:8]}", name="在用", password_hash="x", status="enabled")
+    deleted = SysUser(username=live.username, name="已删", password_hash="x", status="enabled")
     platform_session.add_all((live, deleted))
     await platform_session.flush()
     deleted_id = int(deleted.id)

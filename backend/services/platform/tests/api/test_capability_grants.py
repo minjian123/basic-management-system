@@ -8,7 +8,6 @@
 - 内部授权视图：`provider` / `consumer` 二选一、维度越界即拒（403）、登录态按权限码放行。
 """
 
-import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -31,7 +30,6 @@ from bms_core.core.exceptions import AuthError
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_core.models.base import Base
 from bms_core.models.platform.capability_grant import (
     GRANT_NOTE_DECLARED,
     GRANT_NOTE_REMOVED,
@@ -49,12 +47,9 @@ from bms_core.services.module_registry import (
     reset_collaboration_records,
     reset_domain_services,
 )
-from bms_core.testing.fixtures import apply_platform_db, clear_tenant_cache
 from bms_core.testing.locks import file_lock
-from bms_core.testing.shared_db import create_tables
 from bms_platform.domains.platform_registry.repositories.capability_grant import CapabilityGrantRepository
 from bms_platform.domains.platform_registry.services.capability_grant import CapabilityGrantService
-from bms_platform.main import ApplicationFactory
 from tests_support.metrics import RecordingMetrics
 
 API = "/api/v1/capability-grants"
@@ -173,43 +168,6 @@ def _record(*, consumers: ConcurrentStableFrozenList[str] | None = None) -> Coll
             ConcurrentStableFrozenList((CONSUMER,)) if consumers is None else ConcurrentStableFrozenList(consumers)
         ),
     )
-
-
-@pytest.fixture
-def _grant_isolated_db(isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    """本用例独占平台库：启动装配会全量同步能力授权，共享库上会被并行装配 / 清场干扰。
-
-    测试库为真自动提交（13_08）：别的 worker 的启动同步立即可见，原来的「未提交事务」
-    隔离已不成立；本用例断言的是**全局**授权视图，故用 `own_db` 独占库保证确定性。
-    只补建全量表、不跑准备集的清单装载——装载会改写进程内协作登记，反而影响断言。
-
-    Args:
-        isolated_platform_db_url: 每用例一份 tmp 平台库（conftest 统一派生）。
-        monkeypatch: pytest monkeypatch 夹具。
-    """
-    asyncio.run(create_tables(isolated_platform_db_url, Base.metadata))
-    apply_platform_db(isolated_platform_db_url, monkeypatch)
-
-
-@pytest.fixture
-async def _isolated_service_app(_grant_isolated_db: None) -> AsyncIterator[FastAPI]:
-    """独占平台库上的应用实例（**不跑启动钩子**，由用例显式调被测装配函数）。
-
-    不跑 lifespan：启动钩子会先校验「能力使用登记」与库内目录一致，而独占库只有本用例的
-    最小目录；本用例只验证装配函数自身（登记来源 + 预热视图 + 幂等），不需要整条启动链。
-
-    Yields:
-        FastAPI: 应用实例。
-    """
-    app = ApplicationFactory().create(None)
-    clear_tenant_cache(app)
-    try:
-        yield app
-    finally:
-        registry = getattr(app.state, "engine_registry", None)
-        if registry is not None:
-            await registry.aclose()
-        clear_tenant_cache(app)
 
 
 @pytest.fixture(autouse=True)
@@ -744,21 +702,20 @@ async def test_sync_keeps_manual_revocation_and_warns(service_app: FastAPI) -> N
 
 
 @pytest.mark.anyio
-@pytest.mark.own_db("启动装配同步全局授权：用独占平台库，避免并行 worker 的同步 / 清场干扰")
-async def test_bootstrap_registers_source_and_warms_views(_isolated_service_app: FastAPI) -> None:
+async def test_bootstrap_registers_source_and_warms_views(service_app: FastAPI) -> None:
     """启动装配：重复执行幂等（登记来源 + 预热本服务承载域与自身消费方视图）。
 
-    独占平台库（`own_db`）：断言「本消费方的授权对」是全局口径，共享库上会被并行 worker 的
-    启动同步 / 清场改掉（测试库为自动提交，写入立即可见）。
+    共享平台库：`_clean_grants` 在用例前后只清本用例夹具能力的授权行，装配会把它重新落库；
+    并行 worker 的其他能力不在本用例断言范围内。
     """
     from bms_core.collaboration import capability_grant_pairs
     from bms_platform.domains.platform_registry.services.capability_grant_bootstrap import (
         bootstrap_capability_grants,
     )
 
-    await bootstrap_capability_grants(_isolated_service_app)
+    await bootstrap_capability_grants(service_app)
     # 再跑一次：登记来源幂等、视图预热不重复、授权行不重复
-    await bootstrap_capability_grants(_isolated_service_app)
+    await bootstrap_capability_grants(service_app)
 
     assert list(capability_grant_pairs(provider="platform_registry")) == []
     rows = capability_grant_pairs(consumer=CONSUMER)

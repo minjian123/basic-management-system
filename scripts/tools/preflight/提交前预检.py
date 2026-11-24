@@ -909,22 +909,9 @@ def plan_steps(
 
     planned.extend(slow)
 
-    # 用例隔离自检（《测试规范》§4，强制）：本次改动含测试文件时，必须过一次「同一次运行连跑两轮」，
-    # 第二轮出现任何失败即判用例违规（依赖空库 / 固定键 / 整表口径 / 动他人数据）。
-    changed_tests = changed_test_files(files)
-    if changed_tests and not only_lint:
-        planned.add(
-            PlannedStep(
-                label=(f"用例隔离自检：{len(changed_tests)} 个改动测试文件连跑两轮（同一次运行，第二轮不得新增失败）"),
-                cmd=ConcurrentStableList(
-                    (python, "scripts/tools/preflight/check_isolation_reuse.py", "--files-from", "-")
-                ),
-                cwd=".",
-                stdin_text=list_text(changed_tests),
-            )
-        )
-    elif changed_tests:
-        skipped.add("用例隔离自检（--only-lint）")
+    # 用例隔离自检（连跑两轮）已于 2026-11-24 取消门禁（业主口径）：用例必须在共享库上
+    # **单轮**成立，不靠多跑一轮来发现问题；真实环境的数据比「第二轮」更不确定。
+    # 需要时手工执行 `scripts/tools/preflight/check_isolation_reuse.py`。
 
     for self_test in cfg.preflight.self_tests:
         if any(rel.startswith(tuple(self_test.deps)) for rel in files) and self_test.deps:

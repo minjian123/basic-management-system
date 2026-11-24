@@ -66,6 +66,29 @@ class DdlOutcome(BaseValueObject):
     """是否本次新建（False 表示列已存在且元数据一致，幂等命中）。"""
 
 
+def compile_add_column(
+    dialect: Dialect,
+    table_name: str,
+    column_name: str,
+    column_type: TypeEngine[Any],
+    comment: str,
+) -> str:
+    """按方言编译 `ALTER TABLE ... ADD COLUMN`（**纯函数**：不连库、不执行）。
+
+    Args:
+        dialect: 目标方言（决定 `VARCHAR2` 等方言落点）。
+        table_name: 表名（已过白名单）。
+        column_name: 列名（已过白名单）。
+        column_type: 类型实例（来自四库映射）。
+        comment: 列注释。
+
+    Returns:
+        str: 迁移脚本的一条语句文本。
+    """
+    column = Column(column_name, column_type, nullable=True, comment=comment)
+    return str(AddColumn(table_name, column).compile(dialect=dialect))
+
+
 class FormDdlExecutor(BaseFrameworkObject):
     """自建字段 DDL 执行器（无状态：会话 / 锁 / 租户标识按次注入）。"""
 
@@ -204,8 +227,7 @@ class FormDdlExecutor(BaseFrameworkObject):
             str: 供 `text()` 执行的 DDL 文本（标识符与类型均来自白名单 / 映射，非用户输入拼接）。
         """
         dialect = self._dialect()
-        column = Column(column_name, column_type, nullable=True, comment=comment)
-        return str(AddColumn(table_name, column).compile(dialect=dialect))
+        return compile_add_column(dialect, table_name, column_name, column_type, comment)
 
     def _dialect(self) -> Dialect:
         """取当前会话绑定的方言（决定 `VARCHAR2` 等方言落点）。

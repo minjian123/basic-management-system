@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
-from pathlib import Path
-from typing import cast
 
 import pytest
-from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.cache.memory import MemoryCacheRegion
@@ -18,32 +16,16 @@ from bms_core.core.config import RecycleSettings
 from bms_core.events.base import EventEnvelope
 from bms_core.help.cache import content_version
 from bms_core.menu import menu_version_key
-from bms_core.models.outbox import SysOutbox
-from bms_core.models.platform.dashboard import SysDashboardCard, SysDashboardCardI18n
-from bms_core.models.platform.help import SysHelpArticle, SysHelpArticleI18n, SysHelpArticleTarget, SysHelpCategory
-from bms_core.models.platform.icon import SysIcon, SysIconI18n
-from bms_core.models.platform.user import SysUser, SysUserExtension
+from bms_core.models.platform.dashboard import SysDashboardCard
+from bms_core.models.platform.help import SysHelpArticle, SysHelpCategory
+from bms_core.models.platform.icon import SysIcon
+from bms_core.models.platform.user import SysUser
 from bms_platform.domains.recycle.services.restore import RecycleRestoreService
+from tests_support.shared_access import shared_session
 
-pytestmark = [
-    pytest.mark.kiwi_id(2530),
-    pytest.mark.own_db("恢复服务需按表族独立建表，分别验证审计 / 缓存失效 / 失败降级，不污染共享库"),
-]
+pytestmark = pytest.mark.kiwi_id(2530)
 
 _NOW = datetime(2026, 11, 18, 12, 0, 0)
-_TABLES = (
-    SysHelpCategory.__table__,
-    SysHelpArticle.__table__,
-    SysHelpArticleI18n.__table__,
-    SysHelpArticleTarget.__table__,
-    SysIcon.__table__,
-    SysIconI18n.__table__,
-    SysDashboardCard.__table__,
-    SysDashboardCardI18n.__table__,
-    SysUser.__table__,
-    SysUserExtension.__table__,
-    SysOutbox.__table__,
-)
 
 
 class RecordingAudit(AuditCapturer):
@@ -103,24 +85,18 @@ class BrokenCache(MemoryCacheRegion):
 
 
 @pytest.fixture
-async def session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
-    """独立 SQLite 库（恢复服务涉及的表）。"""
-    engine: AsyncEngine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'recycle_restore.db'}")
-    async with engine.begin() as connection:
-        for table in _TABLES:
-            await connection.run_sync(cast("Table", table).create, checkfirst=True)
-    maker = async_sessionmaker(engine, expire_on_commit=False)
-    async with maker() as db_session:
+async def session(tenant_db: str) -> AsyncIterator[AsyncSession]:
+    """共享租户库会话（表由数据初始化一次建好；每个用例造自己的数据）。"""
+    async with shared_session(tenant_db, read_only=False) as db_session:
         yield db_session
-    await engine.dispose()
 
 
 async def _deleted_article(session: AsyncSession) -> SysHelpArticle:
-    """造一篇软删文章。"""
-    category = SysHelpCategory(parent_id=0, name="恢复分类", sort=1)
+    """造一篇软删文章（标题带随机后缀，避免与共享库他人数据混淆）。"""
+    category = SysHelpCategory(parent_id=0, name=f"恢复分类-{uuid.uuid4().hex[:8]}", sort=1)
     session.add(category)
     await session.flush()
-    article = SysHelpArticle(category_id=int(category.id), title="恢复文章")
+    article = SysHelpArticle(category_id=int(category.id), title=f"恢复文章-{uuid.uuid4().hex[:8]}")
     session.add(article)
     await session.flush()
     article.deleted_at = _NOW
@@ -130,7 +106,7 @@ async def _deleted_article(session: AsyncSession) -> SysHelpArticle:
 
 async def _deleted_category(session: AsyncSession) -> SysHelpCategory:
     """造一个软删分类（非字段级审计白名单表）。"""
-    category = SysHelpCategory(parent_id=0, name="待恢复分类", sort=1)
+    category = SysHelpCategory(parent_id=0, name=f"待恢复分类-{uuid.uuid4().hex[:8]}", sort=1)
     session.add(category)
     await session.flush()
     category.deleted_at = _NOW
@@ -152,7 +128,13 @@ async def test_restore_service_audits_non_whitelisted_and_bumps_help_cache(sessi
 
 async def test_restore_service_skips_whitelisted_table(session: AsyncSession) -> None:
     """白名单表由 ORM 捕获，不再显式留痕；用户恢复不递增缓存。"""
-    user = SysUser(username="carol", name="恢复用户", password_hash="x", status="enabled")
+    user = SysUser(
+        username=f"carol-{uuid.uuid4().hex[:8]}",
+        form_key=f"carol_{uuid.uuid4().hex[:8]}",
+        name="恢复用户",
+        password_hash="x",
+        status="enabled",
+    )
     session.add(user)
     await session.flush()
     user.deleted_at = _NOW
@@ -167,8 +149,8 @@ async def test_restore_service_skips_whitelisted_table(session: AsyncSession) ->
 
 async def test_restore_service_bumps_metadata_and_dashboard_versions(session: AsyncSession) -> None:
     """图标恢复递增元数据版本；工作台卡片恢复递增工作台版本。"""
-    icon = SysIcon(code="recycle_icon", name="图标", category="test", svg="<svg/>")
-    card = SysDashboardCard(code="recycle_card", name="卡片", card_type="dataset")
+    icon = SysIcon(code=f"recycle_icon_{uuid.uuid4().hex[:8]}", name="图标", category="test", svg="<svg/>")
+    card = SysDashboardCard(code=f"recycle_card_{uuid.uuid4().hex[:8]}", name="卡片", card_type="dataset")
     session.add_all((icon, card))
     await session.flush()
     icon.deleted_at = _NOW
