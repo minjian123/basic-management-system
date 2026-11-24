@@ -9,6 +9,8 @@ import os
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableFrozenDict
+from bms_core.servicecall.base import ServiceRequest
 from bms_core.servicecall.http import HttpServiceClient
 from bms_core.services.module_registry import SERVICE_CATALOG
 from bms_core.testing.system import AssembledSystem, AssembledTransport
@@ -43,3 +45,13 @@ async def test_assembles_all_services_once(assembled_system: AssembledSystem | N
     service_client = assembled_system.app("identity").state.service_client
     assert isinstance(service_client, HttpServiceClient)
     assert isinstance(service_client._transport, AssembledTransport)  # pyright: ignore[reportPrivateUsage]
+
+    response = await service_client.call(
+        ServiceRequest(
+            service="tenant",
+            method="GET",
+            path="/api/v1/tenant/internal/memberships",
+            query=ConcurrentStableFrozenDict({"owner_tenant_id": "1001", "user_id": "1"}),
+        )
+    )
+    assert response.status_code == 200, response.content

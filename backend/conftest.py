@@ -11,6 +11,7 @@
 """
 
 from collections.abc import Callable, Iterator
+from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -118,13 +119,21 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
     base_fixtures._reset_isolated_runtime(base_fixtures._apply_isolated_env(os.environ.__setitem__))  # pyright: ignore[reportPrivateUsage]
     install_process_fake_redis_client()
     configure_token_env(set_env=os.environ.__setitem__)
+    from ops.contract_smoke import smoke_service_token_keys
+
+    service_keys, service_kid = smoke_service_token_keys()
+    os.environ["BMS_SERVICE_TOKEN__KEYS"] = service_keys
+    os.environ["BMS_SERVICE_TOKEN__ACTIVE_KID"] = service_kid
+    os.environ["BMS_SERVICE_CLIENT__OPTIONS"] = '{"attach_service_token": true}'
     os.environ["BMS_SERVICE_CLIENT__PROVIDER"] = "http"
     get_settings.cache_clear()
 
     peer_paths = peer_manifest_paths()
 
-    def _prepare(key: str, app: object) -> None:
-        del key, app
+    def _prepare(key: str, app: Any) -> None:
+        client = getattr(app.state, "service_client", None)
+        if client is not None:
+            client._caller = key  # pyright: ignore[reportPrivateUsage,reportAttributeAccessIssue]
         load_product_manifests(peer_paths)
 
     system = AssembledSystem(service_factories(), before_start=_prepare)
