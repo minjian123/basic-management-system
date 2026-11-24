@@ -1,17 +1,21 @@
 """pytest 公共夹具：ASGI 内存客户端（免启服务器）+ 配置环境隔离 + 平台库租户种子。"""
 
-from collections.abc import AsyncIterator, Callable, Iterator
+import os
+from collections.abc import AsyncIterator, Callable, Generator, Iterator
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import MultipleActiveTenantsError
 from bms_core.db.tenant import DEMO_TENANT, TenantContext, TenantNotFoundError
 from bms_core.testing.fixtures import (
+    apply_module_loop_scope,
     clear_tenant_cache,
     ns,
     platform_db,
@@ -21,8 +25,18 @@ from bms_core.testing.fixtures import (
 from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
+from bms_core.testing.fixtures import (
+    isolated_env_module as bms_isolated_env_module,
+)
 
-__all__ = ("bms_isolate_settings", "ns", "platform_db", "reset_plugin_registry", "reset_request_context")
+__all__ = (
+    "bms_isolate_settings",
+    "bms_isolated_env_module",
+    "ns",
+    "platform_db",
+    "reset_plugin_registry",
+    "reset_request_context",
+)
 from bms_identity.main import ApplicationFactory
 from tests_support.auth import auth_headers, configure_token_env
 
@@ -182,6 +196,44 @@ async def _build_exempt_source(request: object) -> _ExemptPermissionSource:
     return _ExemptPermissionSource()
 
 
+@contextmanager
+def _patched_exempt_source() -> Generator[None]:
+    """模块装配期把权限数据来源替换为豁免替身（`tests/permission/` 不启用）。
+
+    Yields:
+        None: 替换生效期。
+    """
+    from bms_identity import permission as identity_permission
+
+    original = identity_permission.build_identity_source
+    identity_permission.build_identity_source = _build_exempt_source
+    try:
+        yield
+    finally:
+        identity_permission.build_identity_source = original
+
+
+def _new_app() -> FastAPI:
+    """构造本服务应用并注入租户源替身（模块常驻与用例自带 app 共用）。
+
+    Returns:
+        FastAPI: 应用实例（未进入 lifespan）。
+    """
+    app = ApplicationFactory().create(None)
+    app.state.tenant_source = _SeedTenantSource()
+    return app
+
+
+@pytest.fixture
+def identity_app_factory() -> Callable[[], FastAPI]:
+    """应用工厂：供「必须自带 app」的用例（破坏性全局操作）在切库后自行装配。
+
+    Returns:
+        Callable[[], FastAPI]: 无参构造应用。
+    """
+    return _new_app
+
+
 @pytest.fixture(autouse=True)
 def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """服务专属隔离：在公共隔离之后追加 SSO 状态存储关闭、fakeredis 与测试令牌密钥。
@@ -327,15 +379,55 @@ def isolated_tenant(tenant_db: None, isolated_tenant_db_url: str, monkeypatch: p
     get_settings.cache_clear()
 
 
-@pytest.fixture
-async def service_app() -> AsyncIterator[FastAPI]:
-    """本服务应用实例夹具（经 lifespan 装配；供探针 / 应用级断言与 `client` 共用）。
+@pytest.fixture(scope="module")
+def identity_module_env(
+    request: pytest.FixtureRequest,
+    bms_isolated_env_module: None,
+    shared_platform_db_url: str,
+    shared_tenant_db_url: str,
+) -> Iterator[None]:
+    """模块级服务环境：常驻装配前就位库 URL / fakeredis / 令牌 / SSO 状态存储开关。
+
+    非 `tests/permission/` 目录额外把权限数据来源换成豁免替身（装配期注册，必须在 app 创建前生效）。
+
+    Args:
+        request: 模块夹具请求（判定是否权限专项目录）。
+        bms_isolated_env_module: 基座模块级隔离环境（保证顺序）。
+        shared_platform_db_url: 会话级共享平台库连接串。
+        shared_tenant_db_url: 会话级共享租户库连接串。
+
+    Yields:
+        None: 模块运行期。
+    """
+    from tests_support.redis import install_process_fake_redis_client
+
+    os.environ["BMS_DATABASE__PLATFORM__URL"] = shared_platform_db_url
+    os.environ["BMS_DATABASE__TENANTS__URL"] = shared_tenant_db_url
+    os.environ["BMS_IDP_STATE_STORE__PROVIDER"] = ""
+    install_process_fake_redis_client()
+    configure_token_env(set_env=os.environ.__setitem__)
+    get_settings.cache_clear()
+    exempt = "permission" not in str(request.node.path)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+    with _patched_exempt_source() if exempt else nullcontext():
+        yield
+
+
+def pytest_collection_modifyitems(items: ConcurrentStableList[pytest.Item]) -> None:
+    """身份服务异步用例统一使用模块级事件循环（装配常驻 B1）。"""
+    apply_module_loop_scope(items, Path(__file__).parent)
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
+async def service_app(identity_module_env: None) -> AsyncIterator[FastAPI]:
+    """本服务应用实例夹具（经 lifespan 装配，**模块级常驻**）。
+
+    Args:
+        identity_module_env: 模块级服务环境（保证装配前环境就位）。
 
     Yields:
         object: FastAPI 应用实例。
     """
-    app = ApplicationFactory().create(None)
-    app.state.tenant_source = _SeedTenantSource()
+    app = _new_app()
     clear_tenant_cache(app)
     try:
         async with app.router.lifespan_context(app):
@@ -344,12 +436,16 @@ async def service_app() -> AsyncIterator[FastAPI]:
         clear_tenant_cache(app)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(loop_scope="module")
 async def client(service_app: FastAPI) -> AsyncIterator[AsyncClient]:
-    """ASGITransport 异步客户端夹具（复用 `service_app`）。
+    """ASGITransport 异步客户端夹具（复用常驻 `service_app`）。
 
     平台库与租户种子由 autouse 的 `platform_db` 夹具提供；租户缓存用例前后清空。
     """
-    async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
-        c.headers.update(auth_headers(tenant=DEMO_TENANT_ID))
-        yield c
+    clear_tenant_cache(service_app)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as c:
+            c.headers.update(auth_headers(tenant=DEMO_TENANT_ID))
+            yield c
+    finally:
+        clear_tenant_cache(service_app)

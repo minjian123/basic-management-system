@@ -4,6 +4,8 @@
 筛选，不再依赖「整表 total」。
 """
 
+from collections.abc import Iterator
+
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
@@ -12,6 +14,21 @@ from bms_core.security.session import DefaultSessionSecurity
 from bms_core.testing.namespace import Namespace
 
 from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, uid, wire_login
+
+
+@pytest.fixture(autouse=True)
+def _restore_max_active(service_app: FastAPI) -> Iterator[None]:
+    """每例复位进程级 `max_active` 配置（模块常驻 app 的 settings 是同一对象）。
+
+    `wire_login(max_active=…)` 直接改 `app.state.settings`；装配常驻后同一模块复用同一
+    Settings 实例，不复位会让「默认上限 5」用例读到上一例写的 2 / 3。
+
+    Args:
+        service_app: 模块级常驻应用（取共享 Settings 实例）。
+    """
+    original = service_app.state.settings.session.max_active
+    yield
+    service_app.state.settings.session.max_active = original
 
 
 def _blacklist_key(session_id: str) -> str:

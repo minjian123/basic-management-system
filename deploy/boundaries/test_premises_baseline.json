@@ -347,11 +347,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/identity/tests/conftest.py",
-      "code": "P2",
-      "count": 1
-    },
-    {
       "file": "backend/services/identity/tests/idp/test_manage.py",
       "code": "P1",
       "count": 1
