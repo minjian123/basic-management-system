@@ -1468,8 +1468,17 @@ class SqlConfigSourceFactory(BasePluginFactory[SqlConfigSource]):
             SqlConfigSource: 取数实例。
         """
         engines = cast("EngineRegistry", self._app.state.engine_registry)
-        cache = cast("ConfigCacheRegion | None", getattr(self._app.state, "config_cache_region", None))
         settings = cast("Settings", self._app.state.settings)
+        # 缓存域按插件解析（与 `RemoteTenantModuleGateFactory` 同口径）：装配期 `app.state` 槽位可能
+        # 尚未就绪，直接读槽位会拿到 None 并回退到本工厂私有的内存缓存，使参数写入后无法按版本失效。
+        cache = cast(
+            "ConfigCacheRegion",
+            resolve_plugin(
+                "config_cache_region",
+                settings.config_cache_region.provider,
+                expected_version=ConfigCacheRegion.contract_version,
+            ),
+        )
         return SqlConfigSource(engines=engines, cache=cache, options=settings.config_options)
 
 

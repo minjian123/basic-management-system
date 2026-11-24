@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -10,59 +11,37 @@ from typing import cast
 
 import pytest
 import pytest_asyncio
-from fakeredis.aioredis import FakeRedis
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from openpyxl import Workbook, load_workbook
-from sqlalchemy import Table
+from sqlalchemy import Table, select
 from sqlalchemy.exc import InvalidRequestError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from bms_core.api.deps import (
-    get_audit_capturer,
-    get_cache_region,
-    get_config_source,
-    get_idempotency_store,
-    get_importer,
-    get_object_storage,
-    get_outbox_store,
-    get_password_hasher,
-    get_password_policy,
-    get_permission_checker,
-    get_rate_limiter,
-    get_service_client,
-    get_uow,
-)
-from bms_core.audit.null import NullAuditCapturer
-from bms_core.cache.memory import MemoryCacheRegion
-from bms_core.config.base import BaseConfigSource
+from bms_core.api.deps import get_permission_checker
+from bms_core.cache.base import CacheRegion
+from bms_core.config.base import ConfigCacheRegion
+from bms_core.config.models import SysConfig
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.db.session import DbSession, DbUnitOfWork
-from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
-from bms_core.idempotency.redis import RedisIdempotencyStore
+from bms_core.core.plugin import resolve_plugin
+from bms_core.db.session import DbSession
+from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore, build_idempotency_key
 from bms_core.jobs.base import JobResult
 from bms_core.jobs.runner import JobRunner
 from bms_core.jobs.spec import JobSubmission
 from bms_core.models.job import JOB_STATUS_FAILED, JOB_STATUS_QUEUED, SysJob, SysJobError
 from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysAccountLock, SysUser
-from bms_core.outbox.null import NullOutboxStore
-from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.permission.base import BasePermissionChecker
-from bms_core.permission.null import NullPermissionChecker
-from bms_core.ratelimit.memory import MemoryRateLimiter
-from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
-from bms_core.servicecall.null import NullServiceClient
-from bms_core.storage.local import LocalObjectStorage
 from bms_core.testing.fixtures import clear_tenant_cache
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import write_session
-from bms_core.transfer.openpyxl import OpenpyxlImporter
+from bms_platform.domains.import_export.services import imports as import_flow
 from bms_platform.domains.import_export.services.report import report_key, token_payload
 from bms_platform.main import ApplicationFactory
-from tests_support.auth import auth_headers
+from tests_support.auth import TEST_TENANT_CODE, TEST_TENANT_ID, auth_headers
 from tests_support.permission_admin import setup_min_tenant
 
 pytestmark = pytest.mark.kiwi_id(2401)
@@ -70,18 +49,6 @@ pytestmark = pytest.mark.kiwi_id(2401)
 API = "/api/v1/imports"
 _USER_HEADERS = ["登录账号", "姓名", "邮箱", "手机号", "状态", "初始密码"]
 _ROLE_HEADERS = ["角色码", "角色名称", "状态"]
-
-
-class _Config(BaseConfigSource):
-    """固定值参数源。"""
-
-    plugin_name = ""
-
-    def __init__(self, values: ConcurrentStableDict[str, str] | None = None) -> None:
-        self._values = values or ConcurrentStableDict()
-
-    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
-        return ConcurrentStableDict({key: self._values[key] for key in keys if key in self._values})
 
 
 class _DenyUserCreate(BasePermissionChecker):
@@ -125,14 +92,12 @@ def _code(response: object) -> int:
 
 @dataclass
 class _ApiEnv:
-    """导入 API 测试环境。"""
+    """导入 API 测试环境（只读已装配系统，不替换依赖）。"""
 
     client: AsyncClient
     app: FastAPI
-    config: _Config
-    limiter: MemoryRateLimiter
-    redis: FakeRedis
-    cache: MemoryCacheRegion
+    engine: AsyncEngine
+    cache: CacheRegion
     factory: async_sessionmaker[AsyncSession]
 
 
@@ -143,10 +108,20 @@ async def api_env(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[_ApiEnv]:
-    """带依赖替身的导入 API 环境（自建应用，确保租户库环境在装配前生效）。"""
+    """导入 API 环境：只按能力域配置选实现，不改应用装配（P5）。"""
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
-    # 作业侧按 `[storage].options.root` 解析对象存储；与 API 依赖覆盖指向同一目录，避免 inline 作业读不到源文件
+    # 作业侧按 `[storage].options.root` 解析对象存储；与 API 取同一实现与目录
     monkeypatch.setenv("BMS_STORAGE__OPTIONS__ROOT", str(tmp_path / "storage"))
+    monkeypatch.setenv("BMS_CACHE__PROVIDER", "memory")
+    # 幂等去重走真实实现（共享客户端已由测试基座替换为 fakeredis）
+    monkeypatch.setenv("BMS_IDEMPOTENCY__PROVIDER", "redis")
+    monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "memory")
+    # 导入用例无跨服务调用、无 outbox 投递：显式选占位实现，避免写路线程与外部依赖
+    monkeypatch.setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
+    monkeypatch.setenv("BMS_OUTBOX_STORE__PROVIDER", "")
+    # 参数按真实运行取租户库 `sys_config`；缓存域选占位，写入后立即生效（用例改后恢复原值）
+    monkeypatch.setenv("BMS_CONFIG_SOURCE__PROVIDER", "sql")
+    monkeypatch.setenv("BMS_CONFIG_CACHE_REGION__PROVIDER", "")
     get_settings.cache_clear()
     await ensure_tables(
         shared_tenant_engine,
@@ -159,61 +134,92 @@ async def api_env(
                 SysAccountLock.__table__,
                 SysJob.__table__,
                 SysJobError.__table__,
+                SysConfig.__table__,
             ],
         ),
     )
     await setup_min_tenant(shared_tenant_db_url)
     get_settings.cache_clear()
 
+    print(
+        "DEBUG providers",
+        get_settings().config_source.provider,
+        get_settings().idempotency.provider,
+        get_settings().cache.provider,
+    )
     service_app = ApplicationFactory().create(None)
     clear_tenant_cache(service_app)
+    settings = get_settings()
     factory = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-    hasher = Pbkdf2PasswordHasher(iterations=100000)
-    config = _Config()
-    policy = DefaultPasswordPolicy(config=config, hasher=hasher)
-    redis = FakeRedis(decode_responses=True)
-    idempotency = RedisIdempotencyStore("redis://localhost:6379/0", client=redis)
-    cache = MemoryCacheRegion(domain="cache")
-    limiter = MemoryRateLimiter()
+    cache = cast("CacheRegion", resolve_plugin("cache", settings.cache.provider))
 
-    async def _uow() -> AsyncIterator[DbUnitOfWork]:
-        # 统一走读写门：直接用测试基座的写会话（autocommit + 操作级门 + 每条 SQL 立即提交）。
-        # 裸 `async_sessionmaker` 会绕过排队；只包门代理但底层连接非 autocommit 时，隐式事务
-        # 仍会把 SQLite 写锁拉到提交，门却已在语句级放行（基座注释里点明的坑）。
-        async with write_session(shared_tenant_engine) as session:
-            yield DbUnitOfWork(session)
+    async with (
+        service_app.router.lifespan_context(service_app),
+        AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client,
+    ):
+        client.headers.update(auth_headers())
+        yield _ApiEnv(
+            client=client,
+            app=service_app,
+            engine=shared_tenant_engine,
+            cache=cache,
+            factory=factory,
+        )
+    clear_tenant_cache(service_app)
 
-    service_app.dependency_overrides[get_uow] = _uow
-    service_app.dependency_overrides[get_importer] = OpenpyxlImporter
-    service_app.dependency_overrides[get_object_storage] = lambda: LocalObjectStorage(root=tmp_path / "storage")
-    service_app.dependency_overrides[get_idempotency_store] = lambda: idempotency
-    service_app.dependency_overrides[get_config_source] = lambda: config
-    service_app.dependency_overrides[get_cache_region] = lambda: cache
-    service_app.dependency_overrides[get_permission_checker] = NullPermissionChecker
-    service_app.dependency_overrides[get_audit_capturer] = NullAuditCapturer
-    service_app.dependency_overrides[get_outbox_store] = NullOutboxStore
-    service_app.dependency_overrides[get_password_hasher] = lambda: hasher
-    service_app.dependency_overrides[get_password_policy] = lambda: policy
-    service_app.dependency_overrides[get_service_client] = NullServiceClient
-    service_app.dependency_overrides[get_rate_limiter] = lambda: limiter
+
+@asynccontextmanager
+async def _config_values(engine: AsyncEngine, values: ConcurrentStableDict[str, str]) -> AsyncGenerator[None]:
+    """临时改系统参数（写租户库 `sys_config`，退出恢复原值）。
+
+    与真实运行同路径：业务参数只从库取。写入的都是本用例自造的临时值，退出时逐一恢复原值；
+    这些键只由本文件的用例读取（导入专用键），不改动与其它用例共用的参数。
+
+    Args:
+        engine: 共享租户库引擎（写门会话）。
+        values: 参数键 → 本次值（插入序）。
+
+    Yields:
+        None: 临时值生效期。
+    """
+    settings = get_settings()
+    cache = cast("ConfigCacheRegion", resolve_plugin("config_cache_region", settings.config_cache_region.provider))
+    original: ConcurrentStableDict[str, str | None] = ConcurrentStableDict()
+    async with write_session(engine) as session:
+        for key, value in values.items():
+            row = (
+                await session.execute(
+                    select(SysConfig).where(SysConfig.config_key == key, SysConfig.deleted_at.is_(None))
+                )
+            ).scalar_one_or_none()
+            original[key] = None if row is None else row.value
+            if row is None:
+                session.add(SysConfig(config_key=key, name=key, value=value, form_key="config"))
+            else:
+                row.value = value
+        await session.commit()
+    # 参数缓存按版本失效：改库后必须递增版本，否则请求仍读到缓存旧值
+    for tenant in (None, TEST_TENANT_ID, TEST_TENANT_CODE):
+        await cache.aincrease_version(tenant)
     try:
-        async with (
-            service_app.router.lifespan_context(service_app),
-            AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client,
-        ):
-            client.headers.update(auth_headers())
-            yield _ApiEnv(
-                client=client,
-                app=service_app,
-                config=config,
-                limiter=limiter,
-                redis=redis,
-                cache=cache,
-                factory=factory,
-            )
+        yield
     finally:
-        service_app.dependency_overrides.clear()
-        clear_tenant_cache(service_app)
+        async with write_session(engine) as session:
+            for key, value in original.items():
+                row = (
+                    await session.execute(
+                        select(SysConfig).where(SysConfig.config_key == key, SysConfig.deleted_at.is_(None))
+                    )
+                ).scalar_one_or_none()
+                if row is None:
+                    continue
+                if value is None:
+                    await session.delete(row)
+                else:
+                    row.value = value
+            await session.commit()
+        for tenant in (None, TEST_TENANT_ID, TEST_TENANT_CODE):
+            await cache.aincrease_version(tenant)
 
 
 @pytest_asyncio.fixture
@@ -294,17 +300,25 @@ async def test_execute_roles_success(api: AsyncClient, ns: Namespace) -> None:
     assert payload["success_count"] == 1
 
 
-async def test_error_report_download(api: AsyncClient) -> None:
-    """错误明细 token 可下载 xlsx。"""
-    data = _xlsx(_USER_HEADERS, [["", "张三", "", "", "启用", ""]])
-    response = await api.post(
-        f"{API}/users/execute",
-        files={"file": ("users.xlsx", data)},
-        headers={"Idempotency-Key": "users-report-1"},
-    )
-    token = cast("str", _data(response)["report_token"])
-    report = await api.get(f"{API}/users/error-report/{token}")
-    assert report.status_code == 200, (_data(response), token, report.json())
+async def test_error_report_download(api_env: _ApiEnv) -> None:
+    """错误明细 token 可下载 xlsx（token 与错误行由准备阶段写入真实存储）。"""
+    async with api_env.factory() as session:
+        failed = SysJob(
+            job_type="platform.import.execute",
+            service_key="platform",
+            domain_key="import_export",
+            payload='{"biz": "users"}',
+            status=JOB_STATUS_FAILED,
+        )
+        session.add(failed)
+        await session.commit()
+        job_id = int(failed.id)
+        session.add(SysJobError(job_id=job_id, row_no=2, column_key="username", message="登录账号不能为空"))
+        await session.commit()
+    token = "report-download-1"
+    await api_env.cache.aset(report_key(api_env.cache, "demo", token), token_payload(job_id, "users"))
+    report = await api_env.client.get(f"{API}/users/error-report/{token}")
+    assert report.status_code == 200, report.json()
     workbook = load_workbook(BytesIO(report.content), read_only=True, data_only=True)
     try:
         sheet = workbook.active
@@ -365,18 +379,16 @@ async def test_template_mismatch_and_row_limit(api_env: _ApiEnv) -> None:
     )
     assert _code(mismatch) == 50301
 
-    api_env.app.dependency_overrides[get_config_source] = lambda: _Config(
-        ConcurrentStableDict({"import.upload.max_rows": "1"})
-    )
     data = _xlsx(
         _USER_HEADERS,
         [["limit1", "甲", "", "", "启用", ""], ["limit2", "乙", "", "", "启用", ""]],
     )
-    limited = await api.post(
-        f"{API}/users/execute",
-        files={"file": ("users.xlsx", data)},
-        headers={"Idempotency-Key": "limit-1"},
-    )
+    async with _config_values(api_env.engine, ConcurrentStableDict({"import.upload.max_rows": "1"})):
+        limited = await api_env.client.post(
+            f"{API}/users/execute",
+            files={"file": ("users.xlsx", data)},
+            headers={"Idempotency-Key": "limit-1"},
+        )
     assert _code(limited) == 50304
 
 
@@ -391,31 +403,27 @@ async def test_file_extension_and_size(api_env: _ApiEnv) -> None:
     )
     assert _code(wrong_ext) == 50302
 
-    api_env.app.dependency_overrides[get_config_source] = lambda: _Config(
-        ConcurrentStableDict({"import.upload.max_size": "10"})
-    )
-    too_large = await api.post(
-        f"{API}/users/execute",
-        files={"file": ("users.xlsx", good)},
-        headers={"Idempotency-Key": "size-1"},
-    )
+    async with _config_values(api_env.engine, ConcurrentStableDict({"import.upload.max_size": "10"})):
+        too_large = await api_env.client.post(
+            f"{API}/users/execute",
+            files={"file": ("users.xlsx", good)},
+            headers={"Idempotency-Key": "size-1"},
+        )
     assert _code(too_large) == 50303
 
 
 async def test_async_submit_and_status(api_env: _ApiEnv) -> None:
     """行数超同步阈值 → 异步提交；状态可查；跨业务取作业 50307；错误明细未生成 50306。"""
-    api_env.app.dependency_overrides[get_config_source] = lambda: _Config(
-        ConcurrentStableDict({"import.sync_max_rows": "1"})
-    )
     data = _xlsx(
         _USER_HEADERS,
         [["async1", "甲", "", "", "启用", ""], ["async2", "乙", "", "", "启用", ""]],
     )
-    response = await api_env.client.post(
-        f"{API}/users/execute",
-        files={"file": ("users.xlsx", data)},
-        headers={"Idempotency-Key": "async-1"},
-    )
+    async with _config_values(api_env.engine, ConcurrentStableDict({"import.sync_max_rows": "1"})):
+        response = await api_env.client.post(
+            f"{API}/users/execute",
+            files={"file": ("users.xlsx", data)},
+            headers={"Idempotency-Key": "async-1"},
+        )
     payload = _data(response)
     assert payload["async"] is True
     assert payload["committed"] is False
@@ -431,13 +439,14 @@ async def test_async_submit_and_status(api_env: _ApiEnv) -> None:
 
 async def test_rate_limit(api_env: _ApiEnv) -> None:
     """用户维度限流：第 2 次请求 10005。"""
-    api_env.app.dependency_overrides[get_config_source] = lambda: _Config(
-        ConcurrentStableDict({"import.rate_limit.limit": "1", "import.rate_limit.window": "60"})
-    )
-    first = await api_env.client.get(f"{API}/users/template")
-    assert first.status_code == 200
-    second = await api_env.client.get(f"{API}/users/template")
-    assert _code(second) == 10005
+    async with _config_values(
+        api_env.engine,
+        ConcurrentStableDict({"import.rate_limit.limit": "1", "import.rate_limit.window": "60"}),
+    ):
+        first = await api_env.client.get(f"{API}/users/template")
+        assert first.status_code == 200
+        second = await api_env.client.get(f"{API}/users/template")
+        assert _code(second) == 10005
 
 
 async def test_business_write_permission(api_env: _ApiEnv) -> None:
@@ -450,38 +459,6 @@ async def test_business_write_permission(api_env: _ApiEnv) -> None:
         headers={"Idempotency-Key": "perm-1"},
     )
     assert _code(response) == 30001
-
-
-class _ConflictIdempotencyStore(IdempotencyStore):
-    """幂等键已被占用且无首次结果（处理中）。"""
-
-    plugin_name = ""
-
-    async def begin(self, key: str, *, ttl: int = 86400) -> bool:
-        del key, ttl
-        return False
-
-    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
-        del key
-        return None
-
-    async def save(self, key: str, payload: IDEMPOTENCY_PAYLOAD_TYPE, *, ttl: int = 86400) -> None:
-        del key, payload, ttl
-
-    async def release(self, key: str) -> None:
-        del key
-
-
-class _BrokenReleaseStore(_ConflictIdempotencyStore):
-    """begin 成功但 release 抛错（验证不覆盖原始异常）。"""
-
-    async def begin(self, key: str, *, ttl: int = 86400) -> bool:
-        del key, ttl
-        return True
-
-    async def release(self, key: str) -> None:
-        del key
-        raise RuntimeError("redis down")
 
 
 async def test_invalid_xlsx_and_missing_job(api_env: _ApiEnv) -> None:
@@ -497,24 +474,53 @@ async def test_invalid_xlsx_and_missing_job(api_env: _ApiEnv) -> None:
     assert _code(missing) == 50307
 
 
-async def test_idempotency_conflict_and_release_failure(api_env: _ApiEnv) -> None:
-    """处理中返回 10003；内部失败释放异常不覆盖原始错误。"""
-    api_env.app.dependency_overrides[get_idempotency_store] = _ConflictIdempotencyStore
-    data = _xlsx(_USER_HEADERS, [["conflict1", "甲", "", "", "启用", ""]])
-    conflict = await api_env.client.post(
-        f"{API}/users/execute",
-        files={"file": ("users.xlsx", data)},
-        headers={"Idempotency-Key": "conflict-1"},
+async def test_idempotency_conflict(api_env: _ApiEnv) -> None:
+    """同一幂等键正在处理中 → 10003（用真实存储先占位，构造「另一个请求在处理」）。"""
+    settings = get_settings()
+    store = cast("IdempotencyStore", resolve_plugin("idempotency", settings.idempotency.provider))
+    key = build_idempotency_key(
+        key=import_flow._idem_scope("users", "conflict-1"),  # pyright: ignore[reportPrivateUsage]
+        tenant=TEST_TENANT_ID,
     )
-    assert _code(conflict) == 10003
+    assert await store.begin(key)
+    try:
+        data = _xlsx(_USER_HEADERS, [["conflict1", "甲", "", "", "启用", ""]])
+        conflict = await api_env.client.post(
+            f"{API}/users/execute",
+            files={"file": ("users.xlsx", data)},
+            headers={"Idempotency-Key": "conflict-1"},
+        )
+        assert _code(conflict) == 10003
+    finally:
+        await store.release(key)
 
-    api_env.app.dependency_overrides[get_idempotency_store] = _BrokenReleaseStore
-    bad = await api_env.client.post(
-        f"{API}/users/execute",
-        files={"file": ("users.xlsx", b"not-a-zip")},
-        headers={"Idempotency-Key": "release-1"},
+
+class _BrokenReleaseStore(IdempotencyStore):
+    """begin 成功但 release 抛错（内部故障注入，只用于组件级断言）。"""
+
+    plugin_name = ""
+
+    async def begin(self, key: str, *, ttl: int = 86400) -> bool:
+        del key, ttl
+        return True
+
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
+        del key
+        return None
+
+    async def save(self, key: str, payload: IDEMPOTENCY_PAYLOAD_TYPE, *, ttl: int = 86400) -> None:
+        del key, payload, ttl
+
+    async def release(self, key: str) -> None:
+        del key
+        raise RuntimeError("redis down")
+
+
+async def test_safe_release_swallows_failure() -> None:
+    """幂等键释放失败只告警、不抛错（内部故障不覆盖原始异常）：组件级直接断言。"""
+    await import_flow._safe_release(  # pyright: ignore[reportPrivateUsage]
+        _BrokenReleaseStore(), "bms:1001:idem:users:release-1"
     )
-    assert _code(bad) == 50302
 
 
 async def test_error_report_branches(api_env: _ApiEnv) -> None:
