@@ -997,16 +997,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/platform/tests/import_export/test_exports_api.py",
-      "code": "P5",
-      "count": 11
-    },
-    {
-      "file": "backend/services/platform/tests/import_export/test_import_api.py",
-      "code": "P5",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/import_export/test_import_job.py",
       "code": "P3",
       "count": 1

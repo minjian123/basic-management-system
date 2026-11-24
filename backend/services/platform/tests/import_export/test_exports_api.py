@@ -1,4 +1,10 @@
-"""导出 API 用例：同步 Excel / 脱敏与明文 / 选中导出 / 排序 / 异步受理 / 列表 PDF / 边界码位。"""
+"""导出 API 用例：同步 Excel / 脱敏与明文 / 选中导出 / 排序 / 异步受理 / 列表 PDF / 边界码位。
+
+P5 口径（13_10）：本文件不写应用装配状态（`dependency_overrides` / `app.state`），能力域一律按
+`BMS_<域>__PROVIDER` 选真实实现；导出参数写共享租户库 `sys_config`；掩码两态用**真实授权**构造
+——一个主体只持「导出下载」（非豁免层级，明文判定为无权限 → 掩码），另一个主体另授「明文查看」
+（→ 明文）。
+"""
 
 from __future__ import annotations
 
@@ -16,19 +22,6 @@ from openpyxl import load_workbook
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from bms_core.api.deps import (
-    get_audit_capturer,
-    get_config_source,
-    get_exporter,
-    get_masker,
-    get_object_storage,
-    get_permission_checker,
-    get_print_exporter,
-    get_rate_limiter,
-    get_uow,
-)
-from bms_core.audit.null import NullAuditCapturer
-from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenList,
@@ -36,60 +29,38 @@ from bms_core.core.concurrent import (
     ConcurrentStableSet,
 )
 from bms_core.core.config import get_settings
-from bms_core.db.session import DbUnitOfWork
-from bms_core.masking.default import DefaultMasker
+from bms_core.core.plugin import resolve_plugin
 from bms_core.models.job import SysJob
 from bms_core.models.platform.role import SysRole
 from bms_core.models.platform.user import SysUser
-from bms_core.permission.base import BasePermissionChecker
-from bms_core.permission.null import NullPermissionChecker
-from bms_core.print.exporter import StoragePrintExporter
-from bms_core.print.templates import BuiltinPrintTemplateProvider
 from bms_core.ratelimit.memory import MemoryRateLimiter
-from bms_core.storage.local import LocalObjectStorage
 from bms_core.testing.fixtures import clear_tenant_cache
 from bms_core.testing.gates import write_window
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import write_session
-from bms_core.transfer.openpyxl_exporter import OpenpyxlExporter
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
+from tests_support.config_values import temporary_config_values
 from tests_support.permission_admin import setup_min_tenant
+from tests_support.permission_grants import (
+    DATA_PLAIN,
+    EXPORT_DOWNLOAD,
+    grant_permissions,
+    reset_permission_state,
+)
 
 pytestmark = pytest.mark.kiwi_id(2402)
 
 API = "/api/v1/exports"
 
+_MASKED_SUBJECT = "900101"
+"""仅持「导出下载」权限的主体（自定义角色，非豁免层级 → 无明文查看权限）。"""
 
-class _Config(BaseConfigSource):
-    """固定值参数源。"""
+_PLAIN_SUBJECT = "900102"
+"""另持「明文查看」权限的主体（自定义角色）。"""
 
-    plugin_name = ""
-
-    def __init__(self, values: ConcurrentStableDict[str, str] | None = None) -> None:
-        self._values = values or ConcurrentStableDict()
-
-    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
-        return ConcurrentStableDict({key: self._values[key] for key in keys if key in self._values})
-
-    def override(self, key: str, value: str) -> None:
-        """覆盖一个参数值（测试用）。
-
-        Args:
-            key: 参数键。
-            value: 参数值。
-        """
-        self._values.set(key, value)
-
-
-class _PlainAllowed(BasePermissionChecker):
-    """放行全部权限码（含 `data:plain`；非占位实现，`check_plain` 不 fail-closed）。"""
-
-    plugin_name = ""
-
-    def check(self, code: str) -> bool:
-        return True
+_MASKED_ROLE_CODE = "__test_export_masked"
+_PLAIN_ROLE_CODE = "__test_export_plain"
 
 
 def _data(response: object) -> ConcurrentStableDict[str, object]:
@@ -117,13 +88,28 @@ def _sheet_rows(content: bytes) -> ConcurrentStableList[ConcurrentStableFrozenLi
         workbook.close()
 
 
+def _subject_client(app: FastAPI, subject: str) -> AsyncClient:
+    """构造指定主体身份的客户端（带真实签名令牌）。
+
+    Args:
+        app: 已装配应用。
+        subject: 用户主体（令牌 `sub`）。
+
+    Returns:
+        AsyncClient: 异步客户端（调用方负责关闭）。
+    """
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    client.headers.update(auth_headers(subject=subject))
+    return client
+
+
 @dataclass
 class _Env:
-    """导出 API 测试环境。"""
+    """导出 API 测试环境（只读已装配系统，不替换依赖）。"""
 
     client: AsyncClient
     app: FastAPI
-    config: _Config
+    engine: AsyncEngine
     limiter: MemoryRateLimiter
     factory: async_sessionmaker[AsyncSession]
     seed: str
@@ -161,11 +147,6 @@ def _first_id(response: object) -> str:
     return str(items[0]["id"])
 
 
-def _masker(allow_plain: bool) -> DefaultMasker:
-    """构造掩码器（按需放行明文）。"""
-    return DefaultMasker(checker=_PlainAllowed() if allow_plain else NullPermissionChecker())
-
-
 @pytest_asyncio.fixture
 async def env(
     shared_tenant_engine: AsyncEngine,
@@ -174,9 +155,16 @@ async def env(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[_Env]:
-    """带依赖替身的导出 API 环境。"""
+    """导出 API 环境：只按能力域配置选实现，不改应用装配（P5）。"""
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     monkeypatch.setenv("BMS_STORAGE__OPTIONS__ROOT", str(tmp_path / "storage"))
+    # 限流走进程内实现（断言 429，不依赖 Redis）；掩码走默认实现；权限走真实 RBAC
+    monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "memory")
+    monkeypatch.setenv("BMS_MASKING__PROVIDER", "default")
+    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "rbac")
+    # 参数按真实运行取租户库 `sys_config`（用例改后恢复原值）
+    monkeypatch.setenv("BMS_CONFIG_SOURCE__PROVIDER", "sql")
+    monkeypatch.setenv("BMS_CONFIG_CACHE_REGION__PROVIDER", "memory")
     get_settings.cache_clear()
     await ensure_tables(
         shared_tenant_engine,
@@ -189,28 +177,10 @@ async def env(
     clear_tenant_cache(service_app)
     factory = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
     seed = ns.code("export")
-    config = _Config()
-    limiter = MemoryRateLimiter()
-    storage = LocalObjectStorage(root=tmp_path / "storage")
+    limiter = cast("MemoryRateLimiter", resolve_plugin("rate_limiter", get_settings().rate_limiter.provider))
+    # 限流计数是插件级实例（跨用例复用）：先清空，避免上一用例的窗口残留把首次请求判成超限
+    limiter.clear()
 
-    async def _uow() -> AsyncIterator[DbUnitOfWork]:
-        # 统一走读写门：直接用测试基座的写会话（autocommit + 操作级门 + 每条 SQL 立即提交）。
-        # 裸 `async_sessionmaker` 会绕过排队；只包门代理但底层连接非 autocommit 时，隐式事务
-        # 仍会把 SQLite 写锁拉到提交，门却已在语句级放行（基座注释里点明的坑）。
-        async with write_session(shared_tenant_engine) as session:
-            yield DbUnitOfWork(session)
-
-    service_app.dependency_overrides[get_uow] = _uow
-    service_app.dependency_overrides[get_config_source] = lambda: config
-    service_app.dependency_overrides[get_object_storage] = lambda: storage
-    service_app.dependency_overrides[get_exporter] = OpenpyxlExporter
-    service_app.dependency_overrides[get_permission_checker] = NullPermissionChecker
-    service_app.dependency_overrides[get_audit_capturer] = NullAuditCapturer
-    service_app.dependency_overrides[get_rate_limiter] = lambda: limiter
-    service_app.dependency_overrides[get_masker] = lambda: _masker(False)
-    service_app.dependency_overrides[get_print_exporter] = lambda: StoragePrintExporter(
-        storage=storage, templates=BuiltinPrintTemplateProvider()
-    )
     try:
         async with (
             service_app.router.lifespan_context(service_app),
@@ -243,9 +213,28 @@ async def env(
                     )
                 )
                 await session.commit()
-            yield _Env(client=client, app=service_app, config=config, limiter=limiter, factory=factory, seed=seed)
+            # 授权数据：只持导出下载 / 另授明文查看（真实 RBAC 判定，非豁免层级）
+            await grant_permissions(
+                int(_MASKED_SUBJECT),
+                ConcurrentStableList([EXPORT_DOWNLOAD]),
+                role_code=_MASKED_ROLE_CODE,
+            )
+            await grant_permissions(
+                int(_PLAIN_SUBJECT),
+                ConcurrentStableList([EXPORT_DOWNLOAD, DATA_PLAIN]),
+                role_code=_PLAIN_ROLE_CODE,
+            )
+            # 写授权数据后清装配级缓存与进程级快照（首次请求前）
+            await reset_permission_state(service_app)
+            yield _Env(
+                client=client,
+                app=service_app,
+                engine=shared_tenant_engine,
+                limiter=limiter,
+                factory=factory,
+                seed=seed,
+            )
     finally:
-        service_app.dependency_overrides.clear()
         clear_tenant_cache(service_app)
 
 
@@ -272,7 +261,8 @@ async def test_export_excel_stream_and_rows(env: _Env) -> None:
 
 async def test_export_masks_sensitive_columns(env: _Env) -> None:
     """无 `data:plain`：手机号 / 邮箱掩码，其余列原样。"""
-    response = await env.client.get(f"{API}/users")
+    async with _subject_client(env.app, _MASKED_SUBJECT) as client:
+        response = await client.get(f"{API}/users")
     rows = _sheet_rows(response.content)
     body = _body_rows(rows)
     masked = [row for row in body if isinstance(row[2], str) and row[2]]
@@ -284,8 +274,8 @@ async def test_export_masks_sensitive_columns(env: _Env) -> None:
 
 async def test_export_plain_with_data_plain(env: _Env) -> None:
     """持 `data:plain`：明文导出。"""
-    env.app.dependency_overrides[get_masker] = lambda: _masker(True)
-    response = await env.client.get(f"{API}/users")
+    async with _subject_client(env.app, _PLAIN_SUBJECT) as client:
+        response = await client.get(f"{API}/users")
     rows = _sheet_rows(response.content)
     body = _body_rows(rows)
     phones = [row[2] for row in body if isinstance(row[2], str) and row[2]]
@@ -336,8 +326,8 @@ async def test_export_ids_invalid(env: _Env) -> None:
 
 async def test_export_async_over_threshold(env: _Env) -> None:
     """超同步阈值：回异步受理 + 建作业。"""
-    env.config.override("export.sync_max_rows", "1")
-    response = await env.client.get(f"{API}/users")
+    async with temporary_config_values(env.engine, ConcurrentStableDict({"export.sync_max_rows": "1"})):
+        response = await env.client.get(f"{API}/users")
     assert response.status_code == 200
     data = _data(response)
     assert data["async"] is True
@@ -351,8 +341,8 @@ async def test_export_async_over_threshold(env: _Env) -> None:
 
 async def test_export_over_max_rows(env: _Env) -> None:
     """超过单次行数上限：50404。"""
-    env.config.override("export.max_rows", "2")
-    response = await env.client.get(f"{API}/users")
+    async with temporary_config_values(env.engine, ConcurrentStableDict({"export.max_rows": "2"})):
+        response = await env.client.get(f"{API}/users")
     assert response.status_code == 400
     assert _code(response) == 50404
 
@@ -396,7 +386,8 @@ async def test_export_list_pdf_bad_paper_without_rows(env: _Env) -> None:
 
 async def test_export_roles_no_masking(env: _Env) -> None:
     """roles 无敏感列：无 `data:plain` 也原样。"""
-    response = await env.client.get(f"{API}/roles")
+    async with _subject_client(env.app, _MASKED_SUBJECT) as client:
+        response = await client.get(f"{API}/roles")
     rows = _sheet_rows(response.content)
     assert tuple(rows[0]) == ("角色编码", "角色名称", "角色类型", "状态", "创建时间")
     body = _body_rows(rows)
@@ -415,10 +406,12 @@ async def test_export_requires_auth(env: _Env) -> None:
 
 async def test_export_rate_limited(env: _Env) -> None:
     """超限流阈值：429。"""
-    env.config.override("export.rate_limit.limit", "1")
-    first = await env.client.get(f"{API}/users")
-    assert first.status_code == 200
-    second = await env.client.get(f"{API}/users")
+    async with temporary_config_values(
+        env.engine, ConcurrentStableDict({"export.rate_limit.limit": "1", "export.rate_limit.window": "60"})
+    ):
+        first = await env.client.get(f"{API}/users")
+        assert first.status_code == 200
+        second = await env.client.get(f"{API}/users")
     assert second.status_code == 429
 
 
@@ -443,8 +436,8 @@ async def test_export_roles_ids_selection(env: _Env) -> None:
 
 async def test_export_job_status_success(env: _Env) -> None:
     """异步导出后查状态：回作业状态与进度（产物未生成时 artifact 为空）。"""
-    env.config.override("export.sync_max_rows", "1")
-    accepted = await env.client.get(f"{API}/users")
+    async with temporary_config_values(env.engine, ConcurrentStableDict({"export.sync_max_rows": "1"})):
+        accepted = await env.client.get(f"{API}/users")
     job_id = int(cast("int", _data(accepted)["job_id"]))
     response = await env.client.get(f"{API}/jobs/{job_id}")
     assert response.status_code == 200, response.text
@@ -464,8 +457,8 @@ async def test_export_list_pdf_empty(env: _Env) -> None:
 
 async def test_export_list_pdf_async(env: _Env) -> None:
     """列表 PDF 超同步上限：转后台作业并回受理。"""
-    env.config.override("export.pdf.sync_max_docs", "1")
-    response = await env.client.get(f"{API}/users/pdf")
+    async with temporary_config_values(env.engine, ConcurrentStableDict({"export.pdf.sync_max_docs": "1"})):
+        response = await env.client.get(f"{API}/users/pdf")
     assert response.status_code == 200, response.text
     data = _data(response)
     assert data["async"] is True

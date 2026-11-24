@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -14,13 +13,11 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from openpyxl import Workbook, load_workbook
-from sqlalchemy import Table, select
+from sqlalchemy import Table
 from sqlalchemy.exc import InvalidRequestError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from bms_core.api.deps import get_permission_checker
 from bms_core.cache.base import CacheRegion
-from bms_core.config.base import ConfigCacheRegion
 from bms_core.config.models import SysConfig
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
@@ -33,31 +30,27 @@ from bms_core.jobs.spec import JobSubmission
 from bms_core.models.job import JOB_STATUS_FAILED, JOB_STATUS_QUEUED, SysJob, SysJobError
 from bms_core.models.platform.role import SysRole, SysUserRole
 from bms_core.models.platform.user import SysAccountLock, SysUser
-from bms_core.permission.base import BasePermissionChecker
 from bms_core.testing.fixtures import clear_tenant_cache
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
-from bms_core.testing.transaction import write_session
 from bms_platform.domains.import_export.services import imports as import_flow
 from bms_platform.domains.import_export.services.report import report_key, token_payload
 from bms_platform.main import ApplicationFactory
-from tests_support.auth import TEST_TENANT_CODE, TEST_TENANT_ID, auth_headers
+from tests_support.auth import TEST_TENANT_ID, auth_headers
+from tests_support.config_values import temporary_config_values
 from tests_support.permission_admin import setup_min_tenant
+from tests_support.permission_grants import IMPORT_EXECUTE, grant_permissions, reset_permission_state
 
 pytestmark = pytest.mark.kiwi_id(2401)
 
 API = "/api/v1/imports"
+
+_NO_WRITE_SUBJECT = "900103"
+"""只持「导入执行」入口权限、不持「创建用户」权限的主体。"""
+
+_NO_WRITE_ROLE_CODE = "__test_import_no_write"
 _USER_HEADERS = ["登录账号", "姓名", "邮箱", "手机号", "状态", "初始密码"]
 _ROLE_HEADERS = ["角色码", "角色名称", "状态"]
-
-
-class _DenyUserCreate(BasePermissionChecker):
-    """仅拒绝 `user:create`（验证业务写权限二次校验）。"""
-
-    plugin_name = ""
-
-    def check(self, code: str) -> bool:
-        return code != "user:create"
 
 
 def _xlsx(  # bare-collections:allow
@@ -122,6 +115,8 @@ async def api_env(
     # 参数按真实运行取租户库 `sys_config`；缓存域选占位，写入后立即生效（用例改后恢复原值）
     monkeypatch.setenv("BMS_CONFIG_SOURCE__PROVIDER", "sql")
     monkeypatch.setenv("BMS_CONFIG_CACHE_REGION__PROVIDER", "")
+    # 权限走真实 RBAC：业务写权限用例按真实授权数据断言；其余用例主体是内置系统管理员（命中豁免）
+    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "rbac")
     get_settings.cache_clear()
     await ensure_tables(
         shared_tenant_engine,
@@ -141,12 +136,6 @@ async def api_env(
     await setup_min_tenant(shared_tenant_db_url)
     get_settings.cache_clear()
 
-    print(
-        "DEBUG providers",
-        get_settings().config_source.provider,
-        get_settings().idempotency.provider,
-        get_settings().cache.provider,
-    )
     service_app = ApplicationFactory().create(None)
     clear_tenant_cache(service_app)
     settings = get_settings()
@@ -166,60 +155,6 @@ async def api_env(
             factory=factory,
         )
     clear_tenant_cache(service_app)
-
-
-@asynccontextmanager
-async def _config_values(engine: AsyncEngine, values: ConcurrentStableDict[str, str]) -> AsyncGenerator[None]:
-    """临时改系统参数（写租户库 `sys_config`，退出恢复原值）。
-
-    与真实运行同路径：业务参数只从库取。写入的都是本用例自造的临时值，退出时逐一恢复原值；
-    这些键只由本文件的用例读取（导入专用键），不改动与其它用例共用的参数。
-
-    Args:
-        engine: 共享租户库引擎（写门会话）。
-        values: 参数键 → 本次值（插入序）。
-
-    Yields:
-        None: 临时值生效期。
-    """
-    settings = get_settings()
-    cache = cast("ConfigCacheRegion", resolve_plugin("config_cache_region", settings.config_cache_region.provider))
-    original: ConcurrentStableDict[str, str | None] = ConcurrentStableDict()
-    async with write_session(engine) as session:
-        for key, value in values.items():
-            row = (
-                await session.execute(
-                    select(SysConfig).where(SysConfig.config_key == key, SysConfig.deleted_at.is_(None))
-                )
-            ).scalar_one_or_none()
-            original[key] = None if row is None else row.value
-            if row is None:
-                session.add(SysConfig(config_key=key, name=key, value=value, form_key="config"))
-            else:
-                row.value = value
-        await session.commit()
-    # 参数缓存按版本失效：改库后必须递增版本，否则请求仍读到缓存旧值
-    for tenant in (None, TEST_TENANT_ID, TEST_TENANT_CODE):
-        await cache.aincrease_version(tenant)
-    try:
-        yield
-    finally:
-        async with write_session(engine) as session:
-            for key, value in original.items():
-                row = (
-                    await session.execute(
-                        select(SysConfig).where(SysConfig.config_key == key, SysConfig.deleted_at.is_(None))
-                    )
-                ).scalar_one_or_none()
-                if row is None:
-                    continue
-                if value is None:
-                    await session.delete(row)
-                else:
-                    row.value = value
-            await session.commit()
-        for tenant in (None, TEST_TENANT_ID, TEST_TENANT_CODE):
-            await cache.aincrease_version(tenant)
 
 
 @pytest_asyncio.fixture
@@ -383,7 +318,7 @@ async def test_template_mismatch_and_row_limit(api_env: _ApiEnv) -> None:
         _USER_HEADERS,
         [["limit1", "甲", "", "", "启用", ""], ["limit2", "乙", "", "", "启用", ""]],
     )
-    async with _config_values(api_env.engine, ConcurrentStableDict({"import.upload.max_rows": "1"})):
+    async with temporary_config_values(api_env.engine, ConcurrentStableDict({"import.upload.max_rows": "1"})):
         limited = await api_env.client.post(
             f"{API}/users/execute",
             files={"file": ("users.xlsx", data)},
@@ -403,7 +338,7 @@ async def test_file_extension_and_size(api_env: _ApiEnv) -> None:
     )
     assert _code(wrong_ext) == 50302
 
-    async with _config_values(api_env.engine, ConcurrentStableDict({"import.upload.max_size": "10"})):
+    async with temporary_config_values(api_env.engine, ConcurrentStableDict({"import.upload.max_size": "10"})):
         too_large = await api_env.client.post(
             f"{API}/users/execute",
             files={"file": ("users.xlsx", good)},
@@ -418,7 +353,7 @@ async def test_async_submit_and_status(api_env: _ApiEnv) -> None:
         _USER_HEADERS,
         [["async1", "甲", "", "", "启用", ""], ["async2", "乙", "", "", "启用", ""]],
     )
-    async with _config_values(api_env.engine, ConcurrentStableDict({"import.sync_max_rows": "1"})):
+    async with temporary_config_values(api_env.engine, ConcurrentStableDict({"import.sync_max_rows": "1"})):
         response = await api_env.client.post(
             f"{API}/users/execute",
             files={"file": ("users.xlsx", data)},
@@ -439,7 +374,7 @@ async def test_async_submit_and_status(api_env: _ApiEnv) -> None:
 
 async def test_rate_limit(api_env: _ApiEnv) -> None:
     """用户维度限流：第 2 次请求 10005。"""
-    async with _config_values(
+    async with temporary_config_values(
         api_env.engine,
         ConcurrentStableDict({"import.rate_limit.limit": "1", "import.rate_limit.window": "60"}),
     ):
@@ -450,14 +385,22 @@ async def test_rate_limit(api_env: _ApiEnv) -> None:
 
 
 async def test_business_write_permission(api_env: _ApiEnv) -> None:
-    """持入口权限但缺业务写权限 → 30001。"""
-    api_env.app.dependency_overrides[get_permission_checker] = _DenyUserCreate
-    data = _xlsx(_USER_HEADERS, [["perm1", "甲", "", "", "启用", ""]])
-    response = await api_env.client.post(
-        f"{API}/users/execute",
-        files={"file": ("users.xlsx", data)},
-        headers={"Idempotency-Key": "perm-1"},
+    """持入口权限但缺业务写权限 → 30001（真实授权：只授导入执行，不授创建用户）。"""
+    await grant_permissions(
+        int(_NO_WRITE_SUBJECT),
+        ConcurrentStableList([IMPORT_EXECUTE]),
+        role_code=_NO_WRITE_ROLE_CODE,
     )
+    await reset_permission_state(api_env.app)
+    data = _xlsx(_USER_HEADERS, [["perm1", "甲", "", "", "启用", ""]])
+    client = AsyncClient(transport=ASGITransport(app=api_env.app), base_url="http://test")
+    client.headers.update(auth_headers(subject=_NO_WRITE_SUBJECT))
+    async with client:
+        response = await client.post(
+            f"{API}/users/execute",
+            files={"file": ("users.xlsx", data)},
+            headers={"Idempotency-Key": "perm-1"},
+        )
     assert _code(response) == 30001
 
 
