@@ -472,6 +472,7 @@ help-coverage:
       allow_failure: true
   script:
     - cd backend
+    - mkdir -p ../tmp
     - uv sync --frozen
     - rm -f ../tmp/ci-help-coverage.db
     - uv run python -m ops.seed_module --write --url "sqlite+aiosqlite:///../tmp/ci-help-coverage.db"

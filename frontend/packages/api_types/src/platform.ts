@@ -4026,7 +4026,7 @@ export interface paths {
          * @description 扫描并锁定长期未登录账号（幂等；含从未登录账号）。
          *
          *     Args:
-         *         req: 扫描请求（空体）。
+         *         req: 扫描请求（`user_ids` 缺省为空 = 全量扫描）。
          *         uow: 请求级工作单元。
          *         config: 系统参数取数（读 `account.inactive_lock_days`）。
          *
@@ -13708,9 +13708,18 @@ export interface components {
         };
         /**
          * InactiveScanRequest
-         * @description 不活跃账号扫描请求（空体；租户经服务 JWT `tenant` claim 解析）。
+         * @description 不活跃账号扫描请求（租户经服务 JWT `tenant` claim 解析）。
+         *
+         *     `user_ids` 为可选**扫描范围**：账号量大时按片传入，避免单次全表扫描长时间占用写事务；
+         *     缺省为空表示全量扫描。
          */
-        InactiveScanRequest: Record<string, never>;
+        InactiveScanRequest: {
+            /**
+             * User Ids
+             * @description 限定扫描的用户主键（缺省全量）
+             */
+            user_ids?: number[];
+        };
         /**
          * InactiveScanResult
          * @description 不活跃账号扫描结果。

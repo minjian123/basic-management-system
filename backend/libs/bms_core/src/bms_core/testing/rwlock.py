@@ -208,8 +208,10 @@ class _WindowsHeld:  # pragma: no cover - 仅 Windows 可达（CI 与覆盖率�
         _, unlock = _win_functions()
         overlapped = _Overlapped()
         released = unlock(self._handle, 0, 1, 0, ctypes.byref(overlapped))  # pyright: ignore[reportCallIssue]
-        if not released and ctypes.get_last_error() != _ERROR_NOT_LOCKED:
-            _LOGGER.warning("windows_unlock_failed", extra={"error": ctypes.get_last_error()})
+        if not released:
+            last_error = cast("Any", ctypes).get_last_error()
+            if last_error != _ERROR_NOT_LOCKED:
+                _LOGGER.warning("windows_unlock_failed", extra={"error": last_error})
         with contextlib.suppress(OSError):
             os.close(self._fd)
 
@@ -241,14 +243,15 @@ class _WindowsLock:  # pragma: no cover - 仅 Windows 可达（CI 与覆盖率�
 
         fd = os.open(self._path, os.O_RDWR | os.O_CREAT, 0o644)
         try:
-            handle = int(msvcrt.get_osfhandle(fd))
+            handle = int(cast("Any", msvcrt).get_osfhandle(fd))
             lock, _ = _win_functions()
             flags = _LOCKFILE_EXCLUSIVE_LOCK if write else 0
             overlapped = _Overlapped()
             # 不带 `LOCKFILE_FAIL_IMMEDIATELY`：系统调用阻塞到锁被授予为止。
             acquired = lock(handle, flags, 0, 1, 0, ctypes.byref(overlapped))  # pyright: ignore[reportCallIssue]
             if not acquired:
-                raise ctypes.WinError(ctypes.get_last_error())
+                last_error = cast("Any", ctypes).get_last_error()
+                raise cast("Any", ctypes).WinError(last_error)
         except BaseException:
             with contextlib.suppress(OSError):
                 os.close(fd)
