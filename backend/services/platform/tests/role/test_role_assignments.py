@@ -394,7 +394,7 @@ async def _seed(target: AsyncSession) -> tuple[int, int, int, int]:
     Returns:
         tuple[int, int, int, int]: (角色 ID, 用户 A, 用户 B, 停用用户 C)。
     """
-    role = await RoleRepository(target).create(code="ops", name="运维角色")
+    role = await RoleRepository(target).create(code=helpers.uniq("ops"), name=helpers.uniq("运维角色"))
     users = UserRepository(target)
     user_a = await users.create(username="alice", password_hash="x", name="爱丽丝")
     user_b = await users.create(username="bob", password_hash="x", name="鲍勃")
@@ -541,7 +541,7 @@ async def test_writer_rejects_missing_role_and_dedupes_user_ids() -> None:
 async def test_writer_profile_status_and_code_guards() -> None:
     """角色本体分段：状态非法（10001）、状态切换、角色码格式非法（10001）与占用（30042）。"""
     target, engine = await helpers.session()
-    role = await RoleRepository(target).create(code="ops", name="运维角色")
+    role = await RoleRepository(target).create(code=helpers.uniq("ops"), name=helpers.uniq("运维角色"))
     other = await RoleRepository(target).create(code="other", name="其它")
     role_id, other_id = role.id, other.id
     await target.commit()
@@ -574,13 +574,13 @@ async def test_writer_profile_status_and_code_guards() -> None:
     await helpers.commit(target)
 
     await _writer(target).write(
-        role_id=role_id, profile=RoleAssignmentProfile(code="ops", version=version), user_ids=None
+        role_id=role_id, profile=RoleAssignmentProfile(code=helpers.uniq("ops"), version=version), user_ids=None
     )
     await helpers.commit(target)
 
     with pytest.raises(RoleCodeExistsError):
         await _writer(target).write(
-            role_id=other_id, profile=RoleAssignmentProfile(code="ops", version=1), user_ids=None
+            role_id=other_id, profile=RoleAssignmentProfile(code=helpers.uniq("ops"), version=1), user_ids=None
         )
     await helpers.commit(target)
 

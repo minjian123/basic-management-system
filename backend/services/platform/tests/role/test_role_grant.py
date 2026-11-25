@@ -32,7 +32,7 @@ from bms_core.scope.extensions import (
     reset_data_scope_extensions,
 )
 from bms_core.scope.limits import OPTION_MAX_IN_VALUES
-from bms_platform.domains.permission_meta.repositories.business import BusinessRepository, PermissionRepository
+from bms_platform.domains.permission_meta.repositories.business import PermissionRepository
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.domains.role.services.role_grant import (
     DataScopeGrantEntry,
@@ -77,12 +77,19 @@ async def test_permissions_rejects_role_business_for_non_security() -> None:
     """`role` 业务归属（`30048`）：`role` 业务权限码授予系统管理员角色 → 拒绝且未写入、版本未 +1。"""
     target, engine = await helpers.session()
     menu_id, business_id, form_id, action_id = await helpers.seed_metadata(target)
-    role_business = await BusinessRepository(target).create(code="role", name="角色管理", status="enabled")
-    role_permission = await PermissionRepository(target).create(
-        business_id=role_business.id, action_id=action_id, status="enabled"
+    # 业务码 / 权限码属平台库；角色属租户库（生产上「同服务跨库」，测试同样分两库写）
+    meta = helpers.meta_session()
+    role_business = await helpers.business_id("role")
+    role_permission = await PermissionRepository(meta).create(
+        business_id=role_business, action_id=action_id, status="enabled"
     )
-    system = await RoleRepository(target).create(code="system_admin", name="系统管理员", role_type="system")
-    security = await RoleRepository(target).create(code="security_admin", name="安全管理员", role_type="security")
+    system = await RoleRepository(target).create(
+        code=helpers.uniq("system_admin"), name="系统管理员", role_type="system"
+    )
+    security = await RoleRepository(target).create(
+        code=helpers.uniq("security_admin"), name="安全管理员", role_type="security"
+    )
+    await meta.commit()
     await target.commit()
     system_id, security_id, role_permission_id = system.id, security.id, role_permission.id
     assert business_id and form_id and menu_id

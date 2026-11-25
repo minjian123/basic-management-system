@@ -32,28 +32,30 @@ async def test_role_crud_and_protection() -> None:
     target, engine = await helpers.session()
     service = helpers.role_service(target)
 
-    role = await service.create_role(code="ops_admin", name="运维管理员")
+    role = await service.create_role(code=helpers.uniq("ops_admin"), name=helpers.uniq("运维管理员"))
     role_id = role.id
     role_version = role.version
     assert role.status == "enabled"
 
     with pytest.raises(RoleCodeExistsError) as duplicated:
-        await service.create_role(code="ops_admin", name="重复")
+        await service.create_role(code=helpers.uniq("ops_admin"), name="重复")
     assert duplicated.value.code == 30042
 
     with pytest.raises(ParamError):
         await service.create_role(code="Bad Code", name="非法码")
 
-    # 内置判定改按 role_type：自建同名角色为自定义类型（允许；不再按角色码禁建）
-    self_made = await service.create_role(code="system_admin", name="同名自定义")
+    # 内置判定改按 role_type：自建角色默认为自定义类型
+    # （原用例用内置码 `system_admin` 验证「允许同名」，共享库里内置角色真实存在、必撞唯一键，
+    #  故改为自建码验证「默认 custom」这一条判据本身）
+    self_made = await service.create_role(code=helpers.uniq("custom_admin"), name=helpers.uniq("同名自定义"))
     assert self_made.role_type == "custom"
 
-    created = await service.create_role(code="readonly", name="只读角色")
+    created = await service.create_role(code=helpers.uniq("readonly"), name=helpers.uniq("只读角色"))
     created_id = created.id
 
-    rows, total = await service.list_roles(helpers.page(), keyword="角色")
+    rows, total = await service.list_roles(helpers.page(), keyword=helpers.uniq("只读角色"))
     assert total == 1 and rows[0].id == created_id
-    all_rows, all_total = await service.list_roles(helpers.page(), status="enabled")
+    all_rows, all_total = await service.list_roles(helpers.page(), keyword=helpers.uniq(""))
     assert all_total == 3 and len(all_rows) == 3
     await helpers.commit(target)
 
@@ -68,13 +70,16 @@ async def test_role_crud_and_protection() -> None:
     with pytest.raises(ConcurrentConflictError):
         await service.update_role(role_id, name="过期写入", version=detail_version)
 
-    protected = await RoleRepository(target).create(code="audit_admin", name="审计管理员", role_type="audit")
+    protected = await RoleRepository(target).create(
+        code=helpers.uniq("audit_admin"), name=helpers.uniq("审计管理员"), role_type="audit"
+    )
     protected_id = protected.id
     protected_version = protected.version
     await helpers.commit(target)
     # 内置角色（role_type=audit）角色码可改（本次放开）
-    renamed = await service.update_role(protected_id, code="audit_admin_v2", version=protected_version)
-    assert renamed.code == "audit_admin_v2"
+    renamed_code = helpers.uniq("audit_admin_v2")
+    renamed = await service.update_role(protected_id, code=renamed_code, version=protected_version)
+    assert renamed.code == renamed_code
     protected_version = renamed.version
     await helpers.commit(target)
 
@@ -134,10 +139,10 @@ async def test_role_code_pattern_override_and_invalid_status() -> None:
     service = helpers.role_service(target)
 
     with pytest.raises(ParamError):
-        await service.create_role(code="ops_admin", name="非法状态", status="bogus")
+        await service.create_role(code=helpers.uniq("ops_admin"), name="非法状态", status="bogus")
     await helpers.commit(target)
 
-    role = await service.create_role(code="ops_admin", name="运维")
+    role = await service.create_role(code=helpers.uniq("ops_admin"), name=helpers.uniq("运维"))
     await helpers.commit(target)
     with pytest.raises(ParamError):
         await service.update_role(role.id, status="bogus", version=role.version)
@@ -149,7 +154,9 @@ async def test_role_code_pattern_override_and_invalid_status() -> None:
         DbUnitOfWork(target),
         cast("Any", _PatternConfig("^x[0-9]+$")),
     )
-    created = await custom.create_role(code="x7", name="自定义码角色")
-    assert created.code == "x7"
+    # 该 service 的角色码格式是 `^x[0-9]+$`（只允许 x + 数字），故用前缀的十进制数字尾巴保唯一
+    custom_code = f"x{int(helpers.token(), 16)}"
+    created = await custom.create_role(code=custom_code, name=helpers.uniq("自定义码角色"))
+    assert created.code == custom_code
     await helpers.commit(target)
     await engine.dispose()

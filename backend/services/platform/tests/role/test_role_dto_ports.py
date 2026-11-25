@@ -104,20 +104,23 @@ async def test_role_ports_read_paths() -> None:
     """端口读面：查询 / 引用 / 授权读面各自取数，空集合返回空清单。"""
     session, engine = await helpers.session()
     try:
-        role = _role()
+        base = int(helpers.token(), 16)
+        code = helpers.uniq("ops")
+        role = _role(role_id=base + 1, code=code)
         session.add(role)
         await session.commit()
 
         query = RoleQueryService(cast("Any", session))
         assert (await query.get(role.id)) is not None
-        assert (await query.get(999)) is None
-        assert [item.code for item in await query.list_by_ids(ConcurrentStableList([role.id]))] == ["ops"]
-        found = await query.list_by_code("ops")
+        assert (await query.get(base + 999)) is None
+        assert [item.code for item in await query.list_by_ids(ConcurrentStableList([role.id]))] == [code]
+        found = await query.list_by_code(code)
         assert found is not None and found.name == "运维"
-        assert (await query.list_by_code("missing")) is None
+        assert (await query.list_by_code(helpers.uniq("missing"))) is None
 
         reference = RoleReferenceService(cast("Any", session))
-        assert [item.id for item in await reference.list_options()] == [role.id]
+        # 选项是整表口径（共享库里还有他人角色），只断言本次造的角色在内
+        assert role.id in [item.id for item in await reference.list_options()]
 
         grants = RoleGrantReader(cast("Any", session))
         types = await grants.list_role_types(ConcurrentStableList([role.id]))
@@ -132,29 +135,32 @@ async def test_role_assignment_port_writes_and_guard() -> None:
     """分配端口：读绑定 / 全量覆盖写 / 守卫拒绝 / 角色缺失。"""
     session, engine = await helpers.session()
     try:
-        role = _role()
-        other = _role(role_id=8, code="audit")
+        # 主键与用户 id 都用本用例前缀派生：共享库里已有真实角色 / 绑定，固定 id 会互相干扰
+        base = int(helpers.token(), 16)
+        ops_code = helpers.uniq("ops")
+        role = _role(role_id=base + 1, code=ops_code)
+        other = _role(role_id=base + 2, code=helpers.uniq("audit"))
         session.add_all([role, other])
         await session.commit()
 
         service = RoleAssignmentService(cast("Any", session))
-        assert await service.list_role_ids_of_user(1) == []
-        assert await service.list_roles_of_user(1) == []
-        assert await service.count_by_user(1) == 0
+        assert await service.list_role_ids_of_user(base) == []
+        assert await service.list_roles_of_user(base) == []
+        assert await service.count_by_user(base) == 0
 
-        applied = await service.set_user_roles(1, ConcurrentStableList([role.id, role.id]))
-        assert [item.code for item in applied] == ["ops"]
-        assert [item.code for item in await service.list_roles_of_user(1)] == ["ops"]
+        applied = await service.set_user_roles(base, ConcurrentStableList([role.id, role.id]))
+        assert [item.code for item in applied] == [ops_code]
+        assert [item.code for item in await service.list_roles_of_user(base)] == [ops_code]
         await helpers.commit(cast("Any", session))
-        assert list(await service.list_role_ids_of_user(1)) == [role.id]
-        assert await service.count_by_user(1) == 1
+        assert list(await service.list_role_ids_of_user(base)) == [role.id]
+        assert await service.count_by_user(base) == 1
 
-        await service.set_user_roles(1, ConcurrentStableList([other.id]))
+        await service.set_user_roles(base, ConcurrentStableList([other.id]))
         await helpers.commit(cast("Any", session))
-        assert list(await service.list_role_ids_of_user(1)) == [other.id]
+        assert list(await service.list_role_ids_of_user(base)) == [other.id]
 
         with pytest.raises(Exception, match="角色不存在"):
-            await service.set_user_roles(1, ConcurrentStableList([987654]))
+            await service.set_user_roles(base, ConcurrentStableList([base + 999]))
 
         class _Guard:
             """守卫替身：直接拒绝（验证 set_user_roles 在写前调用守卫）。"""

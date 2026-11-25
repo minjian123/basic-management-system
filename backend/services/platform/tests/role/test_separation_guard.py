@@ -134,7 +134,8 @@ def _guard(
     return SeparationGuard(
         roles=RoleRepository(target),
         user_roles=UserRoleRepository(target),
-        business_permissions=RoleBusinessPermissions(target) if with_business else None,
+        # 业务码 / 权限码在平台库：业务归属读取器绑平台库会话（与生产注入一致）
+        business_permissions=RoleBusinessPermissions(helpers.meta_session()) if with_business else None,
         audit=audit,
     )
 
@@ -185,24 +186,27 @@ async def _bind(target: AsyncSession, *, role_id: int, user_id: int) -> None:
 @pytest.mark.kiwi_id(2314)
 async def test_role_business_permissions_hit_and_empty(session: tuple[AsyncSession, AsyncEngine]) -> None:
     """`role` 业务权限码：命中业务码取其权限码；业务码缺失返回空集。"""
-    target, _engine = session
-    reader = RoleBusinessPermissions(target)
-    assert await reader.permission_ids() == ConcurrentStableSet()
+    _target, _engine = session
+    # 业务码 / 权限码属平台库；用唯一业务码，两分支（缺失 → 空集、命中 → 该业务全部权限码）都可测
+    meta = helpers.meta_session()
+    biz_code = helpers.uniq("biz")
+    reader = RoleBusinessPermissions(meta)
+    assert await reader.permission_ids_of(biz_code) == ConcurrentStableSet()
 
-    business = await BusinessRepository(target).create(code="role", name="角色管理", status="enabled")
-    action = await ActionRepository(target).create(code="grant", name="授权", status="enabled")
-    permission = await PermissionRepository(target).create(
-        business_id=business.id, action_id=action.id, status="enabled"
-    )
-    await target.commit()
+    business = await BusinessRepository(meta).create(code=biz_code, name="角色管理", status="enabled")
+    action = await ActionRepository(meta).create(code=helpers.uniq("grant"), name="授权", status="enabled")
+    permission = await PermissionRepository(meta).create(business_id=business.id, action_id=action.id, status="enabled")
+    await meta.commit()
 
-    assert await reader.permission_ids() == ConcurrentStableSet({permission.id})
+    assert await reader.permission_ids_of(biz_code) == ConcurrentStableSet({permission.id})
 
 
 @pytest.mark.kiwi_id(2314)
 async def test_operator_guard_allows_and_rejects(session: tuple[AsyncSession, AsyncEngine]) -> None:
     """操作人侧护栏：无操作人 / 自定义 / 安全管理员放行；系统与审计管理员拒绝（`30048`）。"""
     target, _engine = session
+    # 操作人主键按用例派生：共享库里已有真实绑定，固定值会互相干扰
+    actor = int(helpers.token(), 16)
     audit = _RecordingCapturer()
     guard = _guard(target, audit=audit)
 
@@ -210,31 +214,31 @@ async def test_operator_guard_allows_and_rejects(session: tuple[AsyncSession, As
     set_current_user_id(None)
     await guard.ensure_role_domain_operator()
     assert audit.events == []
-    set_current_user_id(_ACTOR)
+    set_current_user_id(actor)
 
     # 无任何内置角色（自定义）放行
-    custom = await _role(target, code="ops")
-    await _bind(target, role_id=custom.id, user_id=_ACTOR)
+    custom = await _role(target, code=helpers.uniq("ops"))
+    await _bind(target, role_id=custom.id, user_id=actor)
     await guard.ensure_role_domain_operator()
     assert audit.events == []
 
     # 系统管理员拒绝
-    system = await _role(target, code="system_admin", role_type=ROLE_TYPE_SYSTEM)
-    await _bind(target, role_id=system.id, user_id=_ACTOR)
+    system = await _role(target, code=helpers.uniq("system_admin"), role_type=ROLE_TYPE_SYSTEM)
+    await _bind(target, role_id=system.id, user_id=actor)
     with pytest.raises(RoleSeparationConflictError) as system_rejected:
         await guard.ensure_role_domain_operator()
     assert system_rejected.value.code == 30048
     assert len(audit.events) == 1
 
     # 系统 + 安全（测试装配口径）放行
-    security = await _role(target, code="security_admin", role_type=ROLE_TYPE_SECURITY)
-    await _bind(target, role_id=security.id, user_id=_ACTOR)
+    security = await _role(target, code=helpers.uniq("security_admin"), role_type=ROLE_TYPE_SECURITY)
+    await _bind(target, role_id=security.id, user_id=actor)
     await guard.ensure_role_domain_operator()
     assert len(audit.events) == 1
 
     # 审计管理员拒绝（换一名操作人）
     auditor = await _user(target, "auditor")
-    audit_role = await _role(target, code="audit_admin", role_type=ROLE_TYPE_AUDIT)
+    audit_role = await _role(target, code=helpers.uniq("audit_admin"), role_type=ROLE_TYPE_AUDIT)
     await _bind(target, role_id=audit_role.id, user_id=auditor)
     set_current_user_id(auditor)
     with pytest.raises(RoleSeparationConflictError):
@@ -311,14 +315,13 @@ async def test_grant_scope_role_business_ownership(session: tuple[AsyncSession, 
     audit = _RecordingCapturer()
     guard = _guard(target, audit=audit, with_business=True)
 
-    business = await BusinessRepository(target).create(code="role", name="角色管理", status="enabled")
-    action = await ActionRepository(target).create(code="grant", name="授权", status="enabled")
-    permission = await PermissionRepository(target).create(
-        business_id=business.id, action_id=action.id, status="enabled"
-    )
-    other_business = await BusinessRepository(target).create(code="user", name="用户管理", status="enabled")
-    other_permission = await PermissionRepository(target).create(
-        business_id=other_business.id, action_id=action.id, status="enabled"
+    meta = helpers.meta_session()
+    business = await helpers.business_id("role")
+    action = await ActionRepository(meta).create(code=helpers.uniq("grant"), name="授权", status="enabled")
+    permission = await PermissionRepository(meta).create(business_id=business, action_id=action.id, status="enabled")
+    other_business = await helpers.business_id("user")
+    other_permission = await PermissionRepository(meta).create(
+        business_id=other_business, action_id=action.id, status="enabled"
     )
     await target.commit()
     role_permissions = ConcurrentStableSet({permission.id})
@@ -382,15 +385,16 @@ async def test_audit_admin_readonly_invariant(session: tuple[AsyncSession, Async
     audit = _RecordingCapturer()
     guard = _guard(target, audit=audit, with_business=True)
 
-    log_business = await BusinessRepository(target).create(code="log", name="日志审计", status="enabled")
-    log_action = await ActionRepository(target).create(code="query", name="查询", status="enabled")
-    log_permission = await PermissionRepository(target).create(
-        business_id=log_business.id, action_id=log_action.id, status="enabled"
+    meta = helpers.meta_session()
+    log_business = await helpers.business_id("log")
+    log_action = await ActionRepository(meta).create(code=helpers.uniq("query"), name="查询", status="enabled")
+    log_permission = await PermissionRepository(meta).create(
+        business_id=log_business, action_id=log_action.id, status="enabled"
     )
-    user_business = await BusinessRepository(target).create(code="user", name="用户管理", status="enabled")
-    user_action = await ActionRepository(target).create(code="create", name="新增", status="enabled")
-    user_permission = await PermissionRepository(target).create(
-        business_id=user_business.id, action_id=user_action.id, status="enabled"
+    user_business = await helpers.business_id("user")
+    user_action = await ActionRepository(meta).create(code=helpers.uniq("create"), name="新增", status="enabled")
+    user_permission = await PermissionRepository(meta).create(
+        business_id=user_business, action_id=user_action.id, status="enabled"
     )
     await target.commit()
 
