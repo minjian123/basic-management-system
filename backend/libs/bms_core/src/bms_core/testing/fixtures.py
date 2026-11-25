@@ -1324,6 +1324,10 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
     os.environ["BMS_SERVICE_TOKEN__ACTIVE_KID"] = service_kid
     os.environ["BMS_SERVICE_CLIENT__OPTIONS"] = '{"attach_service_token": true}'
     os.environ["BMS_SERVICE_CLIENT__PROVIDER"] = "http"
+    # 每例的配置隔离夹具会清空 `BMS_*`；用例期签服务令牌要读密钥，另存一份 `BMS_TEST_` 前缀的
+    # 副本（隔离夹具不清该前缀），供 `tests_support.service_token.issue_service_token` 使用。
+    os.environ["BMS_TEST_SERVICE_TOKEN__KEYS"] = service_keys
+    os.environ["BMS_TEST_SERVICE_TOKEN__ACTIVE_KID"] = service_kid
     get_settings.cache_clear()
 
     # 装配**不装载对端声明**：总体架构是「产品自持、装载注册」——产品声明由产品仓自持、经注册

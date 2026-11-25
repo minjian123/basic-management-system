@@ -229,7 +229,13 @@ class UserRepository(BaseDbRepository[SysUser]):
             conditions.add(self._column("id").in_(tuple(ids)))
         return conditions
 
-    async def list_inactive(self, threshold: datetime, *, now: datetime) -> ConcurrentStableList[SysUser]:
+    async def list_inactive(
+        self,
+        threshold: datetime,
+        *,
+        now: datetime,
+        user_ids: ConcurrentStableList[int] | None = None,
+    ) -> ConcurrentStableList[SysUser]:
         """列出不活跃待锁定候选：启用、未锁定、最近登录（或建号）早于阈值。
 
         - 未软删除、`status = enabled`、`locked_until` 为 NULL 或已到期；
@@ -238,6 +244,7 @@ class UserRepository(BaseDbRepository[SysUser]):
         Args:
             threshold: 不活跃阈值时间（UTC naive）。
             now: 当前时间（UTC naive；判定锁定是否仍生效）。
+            user_ids: 限定扫描范围的用户主键（None 为全量；分批扫描时按片传入）。
 
         Returns:
             ConcurrentStableList[SysUser]: 候选用户列表。
@@ -250,10 +257,13 @@ class UserRepository(BaseDbRepository[SysUser]):
             self._column("last_login_at").is_not(None),
             self._column("last_login_at") < threshold,
         )
-        statement = self._select().where(
+        conditions = [
             self._column("deleted_at").is_(None),
             self._column("status") == "enabled",
             or_(self._column("locked_until").is_(None), self._column("locked_until") <= now),
             or_(never_logged_in, stale_login),
-        )
+        ]
+        if user_ids:
+            conditions.append(self._column("id").in_(list(user_ids)))
+        statement = self._select().where(*conditions)
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())

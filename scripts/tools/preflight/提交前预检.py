@@ -179,6 +179,9 @@ PUSH_ONLY_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
         "check_backend_base.py",
         "check_snowflake_ids.py",
         "check_i18n_attachments.py",
+        # —— 前端链：本仓无前端工作区（frontend/ 或 packages/），归推送环与 CI ——
+        "check_frontend_types.py",
+        "check_frontend_tests.py",
         # —— CI 配置自检（含一次 GitLab Lint 网络调用）与文档状态台账 ——
         "check_ci_config.py",
         "check_status.py",
@@ -224,17 +227,13 @@ SCRIPT_INCREMENTAL: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
 )
 """仅提交环追加清单的脚本（不在 `[[devloop.steps]]` 里，无法被自动识别）。"""
 
-FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
-    (
-        # 前端类型：`tsc` / `vue-tsc` 的检查单元是**整个工程**，且改了某包类型源还会按依赖闭包
-        # 把未改动的下游工程一起验——执行范围必然覆盖未改动文件，与「只判改动文件」不相容。
-        # 因此不进提交前门禁：本次改动不触及则不跑；触及则立即报错，需 `--allow-full-steps` 放行。
-        "check_frontend_types.py",
-        # 前端用例：`vitest` 的覆盖率判定单元同样是整个工程（分支/行阈值按工程汇总），
-        # 只跑改动文件会得出与 CI 不一致的假缺口；与「前端类型」同口径，归推送环执行。
-        "check_frontend_tests.py",
-    )
-)
+FULL_SCAN_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(())
+"""当前无成员：前端两步（`tsc` / `vitest` 的检查单元是整个工程）已迁到 `PUSH_ONLY_STEPS`——
+本仓无前端工作区（`frontend/` 或 `packages/`），前端链归推送环与 CI。
+
+机制保留：将来新增「只能全仓判定」的步骤时登记到本集合，提交环会 fail-closed 拒绝并提示
+改造为文件级判据（`--allow-full-steps` 可显式放行）。
+"""
 """语义为「全仓口径一致 / 零漂移」的步骤：默认命令只能全仓判定，无法只判改动文件。
 
 这类步骤**不会被跳过**：本次改动触及它时必须执行；若执行前校验发现命令无法限定到改动文件，

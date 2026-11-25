@@ -77,11 +77,15 @@ class AccountLockService(BaseFrameworkObject):
         self._uow = uow
         self._config = config
 
-    async def scan_inactive(self, *, now: datetime | None = None) -> InactiveScanResult:
+    async def scan_inactive(
+        self, *, now: datetime | None = None, user_ids: ConcurrentStableList[int] | None = None
+    ) -> InactiveScanResult:
         """扫描并锁定长期未登录账号（含从未登录账号；幂等）。
 
         Args:
             now: 当前时间（UTC naive）；None 取当前 UTC（便于测试注入）。
+            user_ids: 限定扫描范围的用户主键（None 为全量）。账号量大时按片分批调用，
+                避免单次全表扫描长时间占用写事务。
 
         Returns:
             InactiveScanResult: 扫描概要（`scanned` 候选数 / `locked` 本次锁定数）。
@@ -90,7 +94,7 @@ class AccountLockService(BaseFrameworkObject):
         current = now or _utc_now()
         threshold = current - timedelta(days=days)
         async with self._uow.begin():
-            candidates = await self._users.list_inactive(threshold, now=current)
+            candidates = await self._users.list_inactive(threshold, now=current, user_ids=user_ids)
             locked = 0
             for user in candidates:
                 if await self._locks.get_active_by_user(user.id, now=current) is not None:

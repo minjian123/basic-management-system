@@ -12159,8 +12159,17 @@
       },
       "InactiveScanRequest": {
         "additionalProperties": false,
-        "description": "不活跃账号扫描请求（空体；租户经服务 JWT `tenant` claim 解析）。",
-        "properties": {},
+        "description": "不活跃账号扫描请求（租户经服务 JWT `tenant` claim 解析）。\n\n`user_ids` 为可选**扫描范围**：账号量大时按片传入，避免单次全表扫描长时间占用写事务；\n缺省为空表示全量扫描。",
+        "properties": {
+          "user_ids": {
+            "description": "限定扫描的用户主键（缺省全量）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "User Ids",
+            "type": "array"
+          }
+        },
         "title": "InactiveScanRequest",
         "type": "object"
       },
@@ -36366,7 +36375,7 @@
     },
     "/api/v1/platform/internal/account-locks/scan-inactive": {
       "post": {
-        "description": "扫描并锁定长期未登录账号（幂等；含从未登录账号）。\n\nArgs:\n    req: 扫描请求（空体）。\n    uow: 请求级工作单元。\n    config: 系统参数取数（读 `account.inactive_lock_days`）。\n\nReturns:\n    ApiResponse: 统一响应，data 为扫描概要（`InactiveScanResult`）。",
+        "description": "扫描并锁定长期未登录账号（幂等；含从未登录账号）。\n\nArgs:\n    req: 扫描请求（`user_ids` 缺省为空 = 全量扫描）。\n    uow: 请求级工作单元。\n    config: 系统参数取数（读 `account.inactive_lock_days`）。\n\nReturns:\n    ApiResponse: 统一响应，data 为扫描概要（`InactiveScanResult`）。",
         "operationId": "scan_inactive_api_v1_platform_internal_account_locks_scan_inactive_post",
         "parameters": [
           {

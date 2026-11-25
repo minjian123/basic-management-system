@@ -38,7 +38,7 @@ async def scan_inactive(req: InactiveScanRequest, uow: UowDep, config: ConfigDep
     """扫描并锁定长期未登录账号（幂等；含从未登录账号）。
 
     Args:
-        req: 扫描请求（空体）。
+        req: 扫描请求（`user_ids` 缺省为空 = 全量扫描）。
         uow: 请求级工作单元。
         config: 系统参数取数（读 `account.inactive_lock_days`）。
 
@@ -47,4 +47,4 @@ async def scan_inactive(req: InactiveScanRequest, uow: UowDep, config: ConfigDep
     """
     session = cast("DbSession", uow.session)
     service = AccountLockService(UserRepository(session), AccountLockRepository(session), uow, config)
-    return ApiResponse.ok(await service.scan_inactive())
+    return ApiResponse.ok(await service.scan_inactive(user_ids=req.user_ids or None))

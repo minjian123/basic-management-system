@@ -1,14 +1,24 @@
 """平台服务 schemas 层：账号锁定相关契约（内部扫描 + 管理面）。"""
 
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema, SnowflakeIdStr
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, SnowflakeIdStr
 
 
 class InactiveScanRequest(BaseSchema):
-    """不活跃账号扫描请求（空体；租户经服务 JWT `tenant` claim 解析）。"""
+    """不活跃账号扫描请求（租户经服务 JWT `tenant` claim 解析）。
+
+    `user_ids` 为可选**扫描范围**：账号量大时按片传入，避免单次全表扫描长时间占用写事务；
+    缺省为空表示全量扫描。
+    """
+
+    user_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="限定扫描的用户主键（缺省全量）"
+    )
 
 
 class InactiveScanResult(BaseSchema):
