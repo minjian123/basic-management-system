@@ -1,10 +1,11 @@
 """找回密码服务层测试（Kiwi 2210）：分支与降级（免 IP / 可选验证码 / 存储与通知失败 / 载荷脏值 / 清理异常）。"""
 
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import PasswordResetSettings
@@ -14,6 +15,7 @@ from bms_core.core.exceptions import (
     PasswordReusedError,
     ServiceUnavailableError,
 )
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.idp.state.memory import MemoryIdpStateStore
@@ -21,9 +23,11 @@ from bms_core.models.identity.session import SysSession
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
+from bms_core.testing.transaction import _sqlite_autocommit, gate_for_engine  # pyright: ignore[reportPrivateUsage]
 from bms_identity.domains.auth.services.password_reset import PASSWORD_RESET_NAMESPACE, PasswordResetService
 from bms_identity.domains.auth.services.session import SessionService
 from bms_identity.services.platform_client import PlatformCredentialClient
+from tests_support.shared_access import shared_engine, shared_platform_url
 
 from .helpers import TENANT, TENANT_ID, FakeCaptcha, FakePlatformClient, RecordingNotifier, RecordingRealtimePublisher
 
@@ -84,16 +88,21 @@ class _ExplodingStore(MemorySessionStore):
 
 
 async def _session() -> tuple[AsyncSession, AsyncEngine]:
-    """建临时 SQLite 会话（含 `sys_session` 表）。
+    """共享平台库上的门代理会话（`sys_session` 属平台库）。
+
+    引擎是本次调用自建的独立实例（`NullPool`），用例结束 `engine.dispose()` 只关自己的连接池。
 
     Returns:
         tuple[AsyncSession, AsyncEngine]: (会话, 引擎)。
     """
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as conn:
-        await conn.run_sync(SysSession.metadata.create_all)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    return factory(), engine
+    engine = shared_engine(shared_platform_url())
+    gate_name = gate_for_engine(engine)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    raw = factory()
+    if gate_name is None:  # pragma: no cover - 共享平台库必然命中门名
+        return raw, engine
+    proxy = LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), raw, bind=engine)
+    return cast("AsyncSession", proxy), engine
 
 
 def _service(

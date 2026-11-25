@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import cast
+from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
@@ -19,15 +20,17 @@ from bms_core.core.exceptions import (
     SsoIdentityUnmatchedError,
     SsoProviderUnavailableError,
 )
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.events.contracts import resolve_event_contract
 from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.lock.base import build_lock_key
 from bms_core.lock.memory import MemoryDistributedLock
 from bms_core.models.identity.user_identity import SysUserIdentity
-from bms_core.models.outbox import SysEventDeadLetter, SysOutbox
+from bms_core.models.outbox import SysOutbox
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.outbox.store import SqlOutboxStore
+from bms_core.testing.transaction import _sqlite_autocommit, gate_for_engine  # pyright: ignore[reportPrivateUsage]
 from bms_identity.domains.identity_federation.repositories.user_identity import UserIdentityRepository
 from bms_identity.domains.identity_federation.services.jit import (
     JIT_EVENT_TYPE,
@@ -39,32 +42,48 @@ from bms_identity.domains.identity_federation.services.jit import (
     jit_enabled_for,
 )
 from bms_identity.services.platform_client import PlatformCredentialClient
+from tests_support.shared_access import shared_engine, shared_platform_url
 
 from .conftest import SsoHarness
 from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID, FakeSsoPlatformClient
 
-IDENTITY = ExternalIdentity(
-    subject="sub-1",
-    username="Alice.Admin",
-    name="爱丽丝",
-    email="alice@corp.com",
-    locale="zh-cn",
-    timezone="Asia/Shanghai",
-)
+
+@pytest.fixture
+def ident() -> ExternalIdentity:
+    """每例一个唯一外部身份。
+
+    `sys_user_identity` 的唯一键是 `(idp_key, external_id)`：共享库里固定 `sub-1` 会让第二条
+    用例命中前一条的映射（`created=False`），故按用例派生。
+
+    Returns:
+        ExternalIdentity: 外部身份。
+    """
+    return ExternalIdentity(
+        subject=f"sub-{uuid4().hex[:10]}",
+        username="Alice.Admin",
+        name="爱丽丝",
+        email="alice@corp.com",
+        locale="zh-cn",
+        timezone="Asia/Shanghai",
+    )
 
 
 async def _platform_session() -> tuple[AsyncSession, object]:
-    """建临时平台库会话（含身份映射与发件箱表）。
+    """共享平台库上的门代理会话（身份映射 / 发件箱 / 死信都在平台库）。
+
+    引擎是本次调用自建的独立实例（`NullPool`），用例结束 `engine.dispose()` 只关自己的连接池。
 
     Returns:
         tuple[AsyncSession, object]: (会话, 引擎)。
     """
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as conn:
-        await conn.run_sync(SysUserIdentity.metadata.create_all)
-        await conn.run_sync(SysOutbox.metadata.create_all)
-        await conn.run_sync(SysEventDeadLetter.metadata.create_all)
-    return async_sessionmaker(engine, expire_on_commit=False)(), engine
+    engine = shared_engine(shared_platform_url())
+    gate_name = gate_for_engine(engine)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    raw = factory()
+    if gate_name is None:  # pragma: no cover - 共享平台库必然命中门名
+        return raw, engine
+    proxy = LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), raw, bind=engine)
+    return cast("AsyncSession", proxy), engine
 
 
 def _service(
@@ -132,7 +151,7 @@ def test_enforce_whitelist_accepts_matching_domain() -> None:
 
 @pytest.mark.kiwi_id(2198)
 @pytest.mark.kiwi_id(2217)
-async def test_provision_creates_user_mapping_and_event() -> None:
+async def test_provision_creates_user_mapping_and_event(ident: ExternalIdentity) -> None:
     """首登：建号 + 写映射 + 同事务入发件箱（事件契约校验通过）。"""
     register_platform_event_contracts()
     session, engine = await _platform_session()
@@ -145,19 +164,31 @@ async def test_provision_creates_user_mapping_and_event() -> None:
         tenant_code=TENANT,
         idp_key=IDP_KEY,
         config='{"jit_enabled": true}',
-        identity=IDENTITY,
+        identity=ident,
         platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
     )
     assert result.created is True
     assert platform_client.users[result.user_id]["username"] == "alice.admin"
 
-    rows = (await session.execute(select(SysUserIdentity))).scalars().all()
+    # 共享库里还有他人映射：按本用例的外部身份收口
+    rows = (
+        (await session.execute(select(SysUserIdentity).where(SysUserIdentity.external_id == ident.subject)))
+        .scalars()
+        .all()
+    )
     assert len(rows) == 1
     assert rows[0].idp_key == f"{TENANT_ID}:{IDP_KEY}"
-    assert rows[0].external_id == "sub-1"
+    assert rows[0].external_id == ident.subject
     assert rows[0].user_id == result.user_id
 
-    events = (await session.execute(select(SysOutbox))).scalars().all()
+    # 事件按「本用例的用户」收口：映射键不含 subject，payload 里有 user_id
+    events = [
+        item
+        for item in (await session.execute(select(SysOutbox).where(SysOutbox.event_type == JIT_EVENT_TYPE)))
+        .scalars()
+        .all()
+        if item.payload.get("user_id") == str(result.user_id)
+    ]
     assert len(events) == 1
     event = events[0]
     assert event.event_type == JIT_EVENT_TYPE
@@ -168,11 +199,13 @@ async def test_provision_creates_user_mapping_and_event() -> None:
 
 
 @pytest.mark.kiwi_id(2198)
-async def test_provision_reuses_existing_mapping() -> None:
+async def test_provision_reuses_existing_mapping(ident: ExternalIdentity) -> None:
     """二次登录：锁内二次查命中映射直接复用，不再建号 / 不发事件。"""
     session, engine = await _platform_session()
     session.add(
-        SysUserIdentity(idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id=int(TENANT_ID), user_id=88)
+        SysUserIdentity(
+            idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id=ident.subject, tenant_id=int(TENANT_ID), user_id=88
+        )
     )
     await session.commit()
     platform_client = FakeSsoPlatformClient()
@@ -183,7 +216,7 @@ async def test_provision_reuses_existing_mapping() -> None:
         tenant_code=TENANT,
         idp_key=IDP_KEY,
         config='{"jit_enabled": true}',
-        identity=IDENTITY,
+        identity=ident,
         platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
     )
     assert result.user_id == 88 and result.created is False
@@ -192,7 +225,7 @@ async def test_provision_reuses_existing_mapping() -> None:
 
 
 @pytest.mark.kiwi_id(2198)
-async def test_provision_disabled_and_whitelist() -> None:
+async def test_provision_disabled_and_whitelist(ident: ExternalIdentity) -> None:
     """开关关闭 20054；租户 / 域名白名单外 20054。"""
     session, engine = await _platform_session()
     platform_client = FakeSsoPlatformClient()
@@ -203,7 +236,7 @@ async def test_provision_disabled_and_whitelist() -> None:
             tenant_code=TENANT,
             idp_key=IDP_KEY,
             config="{}",
-            identity=IDENTITY,
+            identity=ident,
             platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
         )
 
@@ -215,7 +248,7 @@ async def test_provision_disabled_and_whitelist() -> None:
             tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
-            identity=IDENTITY,
+            identity=ident,
             platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
         )
 
@@ -241,7 +274,7 @@ async def test_provision_disabled_and_whitelist() -> None:
 
 
 @pytest.mark.kiwi_id(2198)
-async def test_provision_username_suffix_and_exhaustion() -> None:
+async def test_provision_username_suffix_and_exhaustion(ident: ExternalIdentity) -> None:
     """撞名换后缀 `_2.._5`；用尽仍冲突 → 20054。"""
     session, engine = await _platform_session()
     platform_client = FakeSsoPlatformClient()
@@ -288,20 +321,20 @@ async def test_provision_username_suffix_and_exhaustion() -> None:
 
 
 @pytest.mark.kiwi_id(2198)
-async def test_provision_lock_conflict_and_org_unavailable() -> None:
+async def test_provision_lock_conflict_and_org_unavailable(ident: ExternalIdentity) -> None:
     """锁未取到 → 20055；platform 建号不可达 → 20053。"""
     session, engine = await _platform_session()
     lock = MemoryDistributedLock()
     settings = Settings()
     settings.sso.jit_lock_wait_seconds = 0
-    await lock.acquire(build_lock_key(tenant=TENANT_ID, resource=f"jit:{IDP_KEY}:sub-1"))
+    await lock.acquire(build_lock_key(tenant=TENANT_ID, resource=f"jit:{IDP_KEY}:{ident.subject}"))
     with pytest.raises(SsoIdentityConflictError):
         await _service(FakeSsoPlatformClient(), lock=lock, settings=settings).provision(
             tenant_id=TENANT_ID,
             tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
-            identity=IDENTITY,
+            identity=ident,
             platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
         )
 
@@ -313,7 +346,7 @@ async def test_provision_lock_conflict_and_org_unavailable() -> None:
             tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
-            identity=IDENTITY,
+            identity=ident,
             platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
         )
     await engine.dispose()  # type: ignore[attr-defined]
@@ -322,6 +355,7 @@ async def test_provision_lock_conflict_and_org_unavailable() -> None:
 @pytest.mark.kiwi_id(2198)
 async def test_provision_mapping_integrity_conflict(
     monkeypatch: pytest.MonkeyPatch,
+    ident: ExternalIdentity,
 ) -> None:
     """映射唯一冲突：回读命中复用（不再建号）；回读未命中 → 20055。"""
     session, engine = await _platform_session()
@@ -342,7 +376,7 @@ async def test_provision_mapping_integrity_conflict(
         tenant_code=TENANT,
         idp_key=IDP_KEY,
         config='{"jit_enabled": true}',
-        identity=IDENTITY,
+        identity=ident,
         platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
     )
     assert result.user_id == 777 and result.created is False
@@ -359,14 +393,14 @@ async def test_provision_mapping_integrity_conflict(
             tenant_code=TENANT,
             idp_key=IDP_KEY,
             config='{"jit_enabled": true}',
-            identity=IDENTITY,
+            identity=ident,
             platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
         )
     await engine.dispose()  # type: ignore[attr-defined]
 
 
 @pytest.mark.kiwi_id(2198)
-async def test_jit_endpoint_end_to_end(client: AsyncClient, sso: SsoHarness) -> None:
+async def test_jit_endpoint_end_to_end(client: AsyncClient, sso: SsoHarness, ident: ExternalIdentity) -> None:
     """端点 E2E：首登自动建号 + 写映射 + 发事件；二次登录复用不重复建号。"""
     await sso.seed_provider(config=sso.provider_config(jit_enabled=True))
 
