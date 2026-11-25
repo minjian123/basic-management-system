@@ -977,11 +977,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/platform/tests/registry/test_tenant_topology_bootstrap.py",
-      "code": "P4",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/release/test_release_service.py",
       "code": "P4",
       "count": 1

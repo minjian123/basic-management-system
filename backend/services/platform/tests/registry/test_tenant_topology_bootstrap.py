@@ -2,10 +2,12 @@
 
 启动钩子在每次 `service_app` 装配时执行；本套用例另测「幂等二次自举」「域登记为空拒启」
 「既有版本但读不到行」与「装配失败转拒启」四条分支。
+
+全部用例跑共享平台库：`ensure_default` 在「已有版本且无缺失域、无历史残留域」时只读返回
+（`tenant_topology.py`），收敛态的重复自举与冲突重跑都不写库，故不需要独占库。
 """
 
-import asyncio
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import Iterator
 from typing import cast
 
 import pytest
@@ -28,7 +30,6 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFroze
 from bms_core.core.exceptions import CatalogError
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
-from bms_core.models.base import Base
 from bms_core.models.platform.tenant_topology import (
     TOPOLOGY_STATUS_ENABLED,
     SysTenantTopology,
@@ -38,36 +39,15 @@ from bms_core.services.module_registry import (
     register_domain_services,
     reset_domain_services,
 )
-from bms_core.testing.fixtures import apply_platform_db, clear_tenant_cache
-from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
-from bms_core.testing.shared_db import create_tables
 from bms_core.testing.transaction import write_session
 from bms_platform.domains.platform_registry.repositories.tenant_topology import (
     TenantTopologyRepository,
 )
 from bms_platform.domains.platform_registry.services import tenant_topology_bootstrap
 from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
-from bms_platform.main import ApplicationFactory
 
-pytestmark = [
-    pytest.mark.kiwi_id(2366),
-    pytest.mark.own_db(
-        "被测对象是租户拓扑引导本身：需要「拓扑尚未建立 / 版本冲突」的起点，共享平台库恒为已收敛拓扑",
-        scope="topology",
-    ),
-]
-
-
-@pytest.fixture(autouse=True)
-def _topology_global_serial() -> Iterator[None]:
-    """拓扑是共享库上的全局状态：整份文件用专用文件锁串行（操作级门只管单次读写）。
-
-    Yields:
-        None: 用例运行期。
-    """
-    with file_lock("platform-global-state", timeout=180.0):
-        yield
+pytestmark = pytest.mark.kiwi_id(2366)
 
 
 @pytest.fixture(autouse=True)
@@ -88,42 +68,6 @@ def _isolate_topology_state() -> Iterator[None]:
         # 解析器是独立全局（`topology_state` 不含它）：恢复成装配期实现的同一类型，
         # 避免本文件「复位为过渡默认实现」的用例把残值留给同 worker 的后继用例。
         register_topology_resolver(TenantTopologyResolver())
-
-
-@pytest.fixture
-def _isolated_platform(isolated_platform_db_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    """本文件需要写默认拓扑的用例用**独占平台库**（`own_db`）。
-
-    默认拓扑是全局口径；共享库上写入会改掉并行用例解析到的域集合（真自动提交后立即可见）。
-    只补建全量表，不跑准备集的清单装载（避免改写入例断言依赖的进程内登记）。
-
-    Args:
-        isolated_platform_db_url: 每用例一份 tmp 平台库（conftest 统一派生）。
-        monkeypatch: pytest monkeypatch 夹具。
-    """
-    asyncio.run(create_tables(isolated_platform_db_url, Base.metadata))
-    apply_platform_db(isolated_platform_db_url, monkeypatch)
-
-
-@pytest.fixture
-async def _isolated_service_app(_isolated_platform: None) -> AsyncIterator[FastAPI]:
-    """独占平台库上的应用实例（**不跑启动钩子**，由用例显式调被测装配函数）。
-
-    Args:
-        _isolated_platform: 切库（必须先于应用创建）。
-
-    Yields:
-        FastAPI: 应用实例。
-    """
-    app = ApplicationFactory().create(None)
-    clear_tenant_cache(app)
-    try:
-        yield app
-    finally:
-        registry = getattr(app.state, "engine_registry", None)
-        if registry is not None:
-            await registry.aclose()
-        clear_tenant_cache(app)
 
 
 async def test_replace_cleans_coexisting_old_versions(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
@@ -227,12 +171,12 @@ async def test_startup_registers_resolver_and_snapshot(service_app: FastAPI) -> 
 
 
 async def test_bootstrap_converges_on_concurrent_version_conflict(
-    _isolated_service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """并发启动：首个 `ensure_default` 撞版本冲突 → 换新事务重跑并成功（幂等收敛，不拒启）。
 
-    独占平台库（`own_db`）：本用例强制走一次真实的 `replace`，会把默认拓扑写成**本进程当下
-    登记的域集合**；共享库上会覆盖并行用例依赖的默认拓扑（测试库为自动提交，写入立即生效）。
+    跑共享平台库：冲突重跑走的是「已有版本且无缺失域」的只读返回，不写库；本用例验证的是
+    「撞冲突后换新事务再跑一次」这条分支，不依赖库处于空拓扑。
     """
     from bms_core.core.exceptions import ConflictError
 
@@ -247,7 +191,7 @@ async def test_bootstrap_converges_on_concurrent_version_conflict(
 
     monkeypatch.setattr(TenantTopologyService, "default_status", _not_bootstrapped)
     monkeypatch.setattr(TenantTopologyService, "ensure_default", _conflict_once)
-    await tenant_topology_bootstrap.bootstrap_tenant_topologies(_isolated_service_app)
+    await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
 
     assert calls["count"] == 2
     assert isinstance(resolve_topology(), TenantTopologyResolver)

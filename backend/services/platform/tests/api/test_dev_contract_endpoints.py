@@ -1,38 +1,31 @@
 """dev 环境公开契约端点零 5xx 回归（Kiwi 2187，任务 06_04）。
 
-复现 CI 契约冒烟的被测条件：服务以 `BMS_ENV=dev` 起容器（`config.dev.toml` 启用「每服务每租户」
-URL 模板 ⇒ 库名由库键派生）、Schemathesis 经 `http://127.0.0.1:8000` 打真实服务——**Host 为 IP
-字面量**。守护的缺陷（GitLab Issue #47）：租户解析曾把 IP 主机名（恰好四段）当带子域名的租户
-域名，并在租户注册契约不可达时把该值原样当租户编码，派生库名 `bms_platform_127.0.0.1` 形态非法
-→ `ConfigError` 冒泡 500，使 dev 环境 7 个只读端点全数报 5xx、契约冒烟只能保持非阻断。
+复现 CI 契约冒烟的被测条件：请求 Host 为 IP 字面量（Schemathesis 经 `http://127.0.0.1:8000`
+打真实服务）。守护的缺陷（GitLab Issue #47）：租户解析曾把 IP 主机名（恰好四段）当带子域名的
+租户域名，并在租户注册契约不可达时把该值原样当租户编码，派生库名 `bms_platform_127.0.0.1`
+形态非法 → `ConfigError` 冒泡 500，使 dev 环境 7 个只读端点全数报 5xx、契约冒烟只能保持非阻断。
+
+用例跑在**已装配系统**上：Host 由 `base_url` 指定，属请求级条件，不需要为复现它另建应用或
+另起库；租户解析与库名派生是纯逻辑，直接调用断言。
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
-from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.tenant import resolve_request_tenant
 from bms_core.services.service_contract import CONTRACTS_DIR, contract_file_name
-from bms_platform.main import ApplicationFactory
+from bms_core.testing.fixtures import service_settings
 
 SMOKE_BASE_URL = "http://127.0.0.1:8000"
 """与 CI 契约冒烟一致的服务地址（Host 为 IP 字面量，正是本回归要覆盖的解析条件）。"""
-
-pytestmark = pytest.mark.own_db(
-    "被测对象是「每服务每租户」库名派生（dev 环境 URL 模板）：需按库键派生的独立多库拓扑，共享平台库无法复现该取址条件",
-    scope="topology",
-)
 
 TENANT_PROBE_PATH = "/api/v1/outbox/dead-letters"
 """租户库只读端点（需租户上下文；dev 环境解析异常时即报 5xx 的典型端点）。"""
@@ -119,52 +112,13 @@ def _read_operations(spec: ConcurrentStableDict[str, Any]) -> ConcurrentStableLi
     return ConcurrentStableList(sorted(targets))
 
 
-def _clear_tenant_cache(app: FastAPI) -> None:
-    """清空应用租户源的进程内缓存（防跨用例残留）。
-
-    Args:
-        app: 应用实例。
-    """
-    cached = getattr(getattr(app.state, "tenant_source", None), "cache", None)
-    if isinstance(cached, MemoryCacheRegion):
-        cached.clear()
-
-
-@pytest.fixture
-async def dev_template_app(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterator[FastAPI]:
-    """启用「每服务每租户」模板后的平台应用（复现 CI 镜像内 `config.dev.toml` 的库名派生条件）。
-
-    Args:
-        monkeypatch: pytest monkeypatch 夹具。
-        tmp_path: 临时目录（模板落库位置）。
-
-    Yields:
-        FastAPI: 经 lifespan 装配的应用实例。
-    """
-    base = tmp_path / "dev"
-    base.mkdir()
-    monkeypatch.setenv(
-        "BMS_DATABASE__TENANTS__URL_TEMPLATE", f"sqlite+aiosqlite:///{base}/bms_{{service}}_{{tenant}}.db"
-    )
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL_TEMPLATE", "")
-    get_settings.cache_clear()
-    app = ApplicationFactory().create(None)
-    _clear_tenant_cache(app)
-    try:
-        async with app.router.lifespan_context(app):
-            yield app
-    finally:
-        _clear_tenant_cache(app)
-        get_settings.cache_clear()
-
-
 @pytest.mark.kiwi_id(2187)
-async def test_dev_contract_get_endpoints_have_no_server_error(dev_template_app: FastAPI) -> None:
+async def test_dev_contract_get_endpoints_have_no_server_error(service_app: FastAPI) -> None:
     """Host 为 IP 字面量时，公开契约全 GET 端点不得出现 5xx（dev 环境契约冒烟口径）。"""
     targets = _read_operations(_contract_spec())
     assert targets, "契约快照未解析到任何 GET 操作"
 
-    transport = ASGITransport(app=dev_template_app)
+    transport = ASGITransport(app=service_app)
     async with AsyncClient(transport=transport, base_url=SMOKE_BASE_URL) as client:
         failures: ConcurrentStableList[str] = ConcurrentStableList()
         for target in targets:
@@ -175,13 +129,13 @@ async def test_dev_contract_get_endpoints_have_no_server_error(dev_template_app:
 
 
 @pytest.mark.kiwi_id(2187)
-async def test_ip_host_resolves_to_demo_tenant(dev_template_app: FastAPI) -> None:
+async def test_ip_host_resolves_to_demo_tenant(service_app: FastAPI) -> None:
     """Host 为 IP 字面量时不进子域名解析：租户回落演示租户，且其库键可派生合法库名。"""
-    settings = get_settings()
+    settings = service_settings("platform")
     tenant = await resolve_request_tenant(
         path=TENANT_PROBE_PATH,
         host="127.0.0.1:8000",
-        source=dev_template_app.state.tenant_source,
+        source=service_app.state.tenant_source,
         exempt_paths=settings.tenant.exempt_paths,
         allow_demo_fallback=settings.tenant.allow_demo_fallback,
     )

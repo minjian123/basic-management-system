@@ -9,7 +9,6 @@
 - `fake_tenant_source` / `service_app` / `client`：服务专属（平台应用工厂 + 认证头）。
 """
 
-import asyncio
 from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
@@ -42,11 +41,8 @@ from bms_core.testing.fixtures import (
 from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
-from bms_core.testing.shared_db import seed_table_ownership
 from bms_core.testing.system import AssembledSystem
 from bms_platform.domains.permission_meta.permission.checker import register_platform_permission
-from ops.seed_module import seed_modules
-from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
 from tests_support.tenant_source import install_fake_tenant_source
 
@@ -251,52 +247,6 @@ def tenant_db(shared_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch) -> str
 
 
 @pytest.fixture
-def isolated_tenant_db_url(tmp_path: Path, tenant_db_prepare: Callable[[str], None]) -> str:
-    """白名单（`own_db`）用例专用**独占**租户库：每用例一份 tmp 库 + 参数种子。
-
-    用于「运行期要改表结构」的用例（造探针表 / 造视图 / 真跑建列）：共享租户库上改结构会与
-    并行 worker 的断言互相破坏，且结构只有「数据初始化」一次机会（13_08 T7）。每用例独立 tmp 库，
-    与 `bms_core.testing.shared_db.prepare_tenant` 同一套建表与参数种子，语义与共享库一致。
-
-    Args:
-        tmp_path: 用例级临时目录。
-        tenant_db_prepare: 共享租户库准备集（保证表集与种子同源）。
-
-    Returns:
-        str: 独占租户库连接串。
-    """
-    url = f"sqlite+aiosqlite:///{tmp_path / 'tenant_isolated.db'}"
-    tenant_db_prepare(url)
-    return url
-
-
-@pytest.fixture
-def isolated_tenant(
-    isolated_tenant_db_url: str,
-    isolate_settings: None,
-    monkeypatch: pytest.MonkeyPatch,
-) -> str:
-    """`own_db` 用例的**独占**租户库接线：切库 + 只对本库打开运行期 DDL。
-
-    用法：在用例签名里**排在 `client` / `service_app` 之前**声明（保证应用装配前环境已切库）。
-    只切租户库、平台库仍走共享库（业务码 / 表单按命名空间唯一，互不干扰）。
-
-    Args:
-        isolated_tenant_db_url: 独占租户库连接串（每用例一份 tmp 库 + 参数种子）。
-        isolate_settings: 配置隔离夹具（保证顺序：先清环境、后设库）。
-        monkeypatch: pytest monkeypatch 夹具。
-
-    Returns:
-        str: 独占租户库连接串。
-    """
-    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
-    # 运行期 DDL 只在本独占库放行（测试基座缺省关闭）；共享库结构仍只由准备集建好。
-    monkeypatch.setenv("BMS_APP__ALLOW_RUNTIME_DDL", "true")
-    get_settings.cache_clear()
-    return isolated_tenant_db_url
-
-
-@pytest.fixture
 def archive_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     """归档库：每用例一份独立 SQLite 文件（只建归档行表），并指向应用配置。
 
@@ -325,33 +275,6 @@ def archive_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     from bms_platform.domains.archive.jobs import reset_archive_registry
 
     reset_archive_registry()
-    return url
-
-
-@pytest.fixture
-def isolated_platform_db_url(
-    tmp_path: Path,
-    pinned_product_manifests: ConcurrentStableList[str],
-) -> str:
-    """白名单（`own_db`）文件专用**独占**平台库：**每用例**一份 tmp 库 + 播种。
-
-    单库化后 `platform_db_url` 指向全 worker 共用的共享库；会**整表清场**（菜单元数据十二表 /
-    授权表）的 `own_db` 文件在共享库上会破坏并行中他人数据，故给它们一条独占通道：
-    每用例独立 tmp 库 + 同一套播种（种子租户 / 服务目录 / 产品档案），语义与单库化前一致。
-
-    按用例（而非会话 / worker）隔离：xdist 下同文件多用例可能落在同一 worker，会话级仍会互相清场。
-
-    Args:
-        tmp_path: 用例级临时目录。
-        pinned_product_manifests: 会话级固定的产品清单路径（保证播种与断言同源）。
-
-    Returns:
-        str: 独占平台库连接串。
-    """
-    url = f"sqlite+aiosqlite:///{tmp_path / 'platform_isolated.db'}"
-    asyncio.run(seed_tenants(url))
-    asyncio.run(seed_modules(url))
-    asyncio.run(seed_table_ownership(url))
     return url
 
 

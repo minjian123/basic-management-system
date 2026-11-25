@@ -158,6 +158,41 @@ MODULE_INCREMENTAL: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
 `--files-from`，门禁只负责把清单传进去。
 """
 
+PUSH_ONLY_STEPS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
+    (
+        # —— 契约 / 生成物零漂移：判定单元是「整份契约或整份生成物」，与改动文件无因果关系 ——
+        "ops.contract_snapshot",
+        "ops.check_contracts",
+        "ops.event_contracts",
+        "api-types",
+        "ops.gateway_config",
+        "ops.check_modules",
+        # —— 越界 / 度量 / 平台禁入面：全仓口径统计，只为「零漂移」出结论 ——
+        "check_service_boundaries.py",
+        "boundary_metrics.py",
+        "check_product_literals.py",
+        # —— 基座台账类：建表归属、系统字段、环境变量模板、基类体系、雪花 ID、i18n 附表台账 ——
+        "check_base.py",
+        "check_system_fields.py",
+        "check_env_example.py",
+        "check_backend_base.py",
+        "check_snowflake_ids.py",
+        "check_i18n_attachments.py",
+        # —— CI 配置自检（含一次 GitLab Lint 网络调用）与文档状态台账 ——
+        "check_ci_config.py",
+        "check_status.py",
+    )
+)
+"""只在**推送环 / CI** 执行的步骤：零漂移与全仓度量类，提交环跳过。
+
+为什么拆：这些步骤的判定单元是「整份契约 / 整份生成物 / 全仓统计」，改一个测试文件在因果上
+不可能让它们漂移，却每次提交都要付 15~30s（实测契约三项约 15s、边界与字面量约 14s）。提交环
+只保留「改动文件能判定」的步骤——ruff / pyright / 定向选测 + 改动行覆盖率 / 三项护栏 / 文档
+排期 / 工作区卫生 / 行尾，与《AI开发规范》「能增量就增量」的口径一致。完整复判由推送环承担。
+
+`--all-steps` / `--allow-full-steps` 仍可强制在提交环执行（排障用）。
+"""
+
 STEP_EXCLUDED_SUFFIXES: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenDict(
     {
         # 前端类型检查的对象是 `.ts/.vue` 源码，不是生成脚本 / 构建脚本
@@ -808,6 +843,9 @@ def plan_steps(
             key = "run_selected"
         else:
             key = _step_key(ConcurrentStableFrozenList(step.cmd), step.label) if step.cmd else step.label
+        if key in PUSH_ONLY_STEPS and not (all_steps or allow_full):
+            skipped.add(f"{step.label}（零漂移 / 全仓口径，推送环执行）")
+            continue
         if not _step_applies(key, files, force_all=all_steps):
             skipped.add(f"{step.label}（本次改动不触及）")
             continue

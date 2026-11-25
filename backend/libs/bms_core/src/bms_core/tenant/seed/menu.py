@@ -649,6 +649,26 @@ async def _add_i18n(session: AsyncSession, model: Any, key: str, owner_id: int, 
     return created
 
 
+def _name_mismatch(table: str, owner_id: object, name: object, default_text: object) -> str | None:
+    """比对「主表默认文案」与「附表默认语言文案」，不一致时给出可定位的描述。
+
+    **纯函数**：只做字符串比对，不连库、不写库——用例可直接喂构造数据验证漂移判定，
+    不需要在共享库上造出真实的漂移行。
+
+    Args:
+        table: 主表名（用于定位）。
+        owner_id: 主表行主键。
+        name: 主表默认文案。
+        default_text: 附表默认语言文案。
+
+    Returns:
+        str | None: 不一致描述；一致返回 None。
+    """
+    if str(default_text) == str(name):
+        return None
+    return f"{table}#{owner_id}：主表 name={name!r} ≠ 附表 {ZH}={default_text!r}"
+
+
 async def _verify_derived_names(session: AsyncSession) -> int:
     """断言「主表默认文案 ≡ 附表默认语言文案」（派生化口径一致性）。
 
@@ -682,8 +702,9 @@ async def _verify_derived_names(session: AsyncSession) -> int:
         )
         for owner_id, name, default_text in (await session.execute(statement)).all():
             checked += 1
-            if str(default_text) != str(name):
-                problems.add(f"{model.__tablename__}#{owner_id}：主表 name={name!r} ≠ 附表 {ZH}={default_text!r}")
+            problem = _name_mismatch(model.__tablename__, owner_id, name, default_text)
+            if problem is not None:
+                problems.add(problem)
     if problems:
         raise RuntimeError("[seed_menu] 主表默认文案与派生结果不一致：" + "；".join(problems))
     return checked
