@@ -96,20 +96,30 @@ def get_i18n_invalidator(request: Request) -> I18nInvalidator:
         I18nInvalidator: 与取数共用同一缓存域与清单能力域的失效器。
     """
     settings = cast("Settings", request.app.state.settings)
-    cache = cast(
-        "I18nCacheRegion",
-        resolve_plugin(
-            "i18n_cache_region",
-            settings.i18n_cache_region.provider,
-            expected_version=I18nCacheRegion.contract_version,
-        ),
-    )
-    registry = cast(
-        "BaseLocaleRegistry",
-        resolve_plugin(
-            "locale_registry",
-            settings.locale_registry.provider,
-            expected_version=BaseLocaleRegistry.contract_version,
-        ),
-    )
+    cache: I18nCacheRegion
+    assembled_cache = getattr(request.app.state, "i18n_cache_region", None)
+    if isinstance(assembled_cache, I18nCacheRegion):
+        cache = assembled_cache
+    else:
+        cache = cast(
+            "I18nCacheRegion",
+            resolve_plugin(
+                "i18n_cache_region",
+                settings.i18n_cache_region.provider,
+                expected_version=I18nCacheRegion.contract_version,
+            ),
+        )
+    registry: BaseLocaleRegistry
+    assembled_registry = getattr(request.app.state, "locale_registry", None)
+    if isinstance(assembled_registry, BaseLocaleRegistry):
+        registry = assembled_registry
+    else:
+        registry = cast(
+            "BaseLocaleRegistry",
+            resolve_plugin(
+                "locale_registry",
+                settings.locale_registry.provider,
+                expected_version=BaseLocaleRegistry.contract_version,
+            ),
+        )
     return I18nInvalidator(cache, registry)

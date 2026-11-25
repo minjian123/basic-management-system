@@ -44,10 +44,13 @@ from bms_core.metrics.base import BaseMetrics, MetricLabels
 from bms_core.services.module_registry import (
     CollaborationRecord,
     CollaborationStatus,
+    ProductRecord,
     register_collaboration_records,
     register_domain_services,
+    register_product_records,
     reset_collaboration_records,
     reset_domain_services,
+    reset_product_records,
 )
 
 
@@ -155,6 +158,10 @@ def _isolate_state() -> Iterator[None]:
     reset_collaboration_records()
     reset_capability_usages()
     reset_domain_services()
+    reset_product_records()
+    # 「按已部署产品收敛」：demo 产品在场时，拼错 / 未装载的能力名仍须报错；
+    # 产品缺席的跳过分支由 `test_absent_provider_product_is_skipped` 单独覆盖。
+    register_product_records((ProductRecord(product_key="demo", name="演示产品"),))
     register_domain_services(ConcurrentStableFrozenDict({"mdm": "mdm"}))
     register_topology_snapshot(
         TopologySnapshot(
@@ -171,6 +178,7 @@ def _isolate_state() -> Iterator[None]:
         reset_collaboration_records()
         reset_capability_usages()
         reset_domain_services()
+        reset_product_records()
 
 
 def test_usage_registry_register_view_find_and_reset() -> None:
@@ -239,6 +247,18 @@ def test_inspection_reports_each_violation() -> None:
     assert "声明了未登记的能力" in joined
     assert "声明了已禁用的能力（status=disabled）" in joined
     assert "写 / 强一致能力不得声明降级（kind=txn-branch，" in joined
+
+
+def test_absent_provider_product_is_skipped() -> None:
+    """产品未部署：能力名产品段不在已登记产品集合 → 跳过校验并告警，不拒启。"""
+    reset_product_records()
+
+    errors = inspect_capability_usages(
+        "platform",
+        (CapabilityUsage(name="mdm.mdm.user-roles", degrade=DEGRADE_EMPTY, reason="对端产品未部署"),),
+    )
+
+    assert errors == []
 
 
 def test_validation_raises_catalog_error() -> None:

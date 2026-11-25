@@ -677,6 +677,9 @@ def get_i18n_cache_region(request: Request) -> I18nCacheRegion:
         I18nCacheRegion: 应用装配的国际化缓存域实例。
     """
     settings = cast("Settings", request.app.state.settings)
+    assembled = getattr(request.app.state, "i18n_cache_region", None)
+    if isinstance(assembled, I18nCacheRegion):
+        return assembled
     return cast(
         "I18nCacheRegion",
         resolve_plugin(

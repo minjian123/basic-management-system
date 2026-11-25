@@ -12,6 +12,7 @@ from collections.abc import Iterator
 
 import pytest
 
+from bms_core.collaboration.base import CapabilityEndpoint, CapabilityMode, CapabilityTarget
 from bms_core.collaboration.usage import (
     DEGRADE_EMPTY,
     CapabilityUsage,
@@ -26,6 +27,22 @@ from bms_core.permission.subject import PermissionSubjectService
 from bms_platform import SERVICE_NAME
 from bms_platform.capabilities import CAPABILITY_MDM_USER_ROLES
 from bms_platform.domains.role.services.permission_subject import DeptPostRoleResolver, DirectRoleResolver
+
+_MDM_USER_ROLES = CapabilityEndpoint(
+    name=CAPABILITY_MDM_USER_ROLES,
+    domain="mdm",
+    kind="read",
+    contract_version="0.1.0",
+    target=CapabilityTarget(
+        mode=CapabilityMode.REMOTE,
+        unit_key="mdm",
+        service_key="mdm",
+        base_url="http://mdm.test",
+    ),
+    path="/api/v1/mdm/user-roles",
+    product_key="mdm",
+)
+"""对端只读出口端点替身（用例直接构造；bms 不持有、装配也不装载 mdm 声明）。"""
 
 
 class _Response:
@@ -140,17 +157,17 @@ async def test_mdm_resolver_reads_role_ids_from_payload() -> None:
     inner.set("role_ids", [7, 8, "x", True])
     payload.set("data", dict(inner))
     resolver = DeptPostRoleResolver(_Client(response=_Response(200, dict(payload))))  # type: ignore[arg-type]
-    assert sorted(await resolver.resolve(user_id=5)) == [7, 8]
+    assert sorted(await resolver._fetch(_MDM_USER_ROLES, user_id=5)) == [7, 8]  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2320)
 async def test_mdm_resolver_payload_shape_fallbacks() -> None:
     """出口解析回落：`data` 非对象 / `role_ids` 非序列 → 空集。"""
     bad_data = DeptPostRoleResolver(_Client(response=_Response(200, {"data": "x"})))  # type: ignore[arg-type]
-    assert list(await bad_data.resolve(user_id=1)) == []
+    assert list(await bad_data._fetch(_MDM_USER_ROLES, user_id=1)) == []  # pyright: ignore[reportPrivateUsage]
 
     bad_ids = DeptPostRoleResolver(_Client(response=_Response(200, {"data": {"role_ids": "x"}})))  # type: ignore[arg-type]
-    assert list(await bad_ids.resolve(user_id=1)) == []
+    assert list(await bad_ids._fetch(_MDM_USER_ROLES, user_id=1)) == []  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2320)

@@ -7,37 +7,51 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.audit.sha256 import Sha256HashChain
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.metrics.null import NullMetrics
 from bms_core.schemas.pagination import BasePageQuery
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.log.api import internal_audit
 from bms_platform.domains.log.api import logs as logs_api
 from bms_platform.domains.log.repositories.shard import LogShardRepository
-from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION
+from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION, month_key
 from bms_platform.domains.log.schemas.log import EnsureShardsRequest, VerifyRequest
 from bms_platform.domains.log.services.writer import AuditLogWriter
-from tests.log.helpers import login_event, operation_event
+from tests.log.helpers import log_months, log_tenant, login_event, operation_event
 
 pytestmark = pytest.mark.kiwi_id(2407)
 
 
-async def _seed(session: AsyncSession) -> None:
-    """按真实时钟写一条操作日志与一条登录日志（当前月分片）。"""
+async def _seed(session: AsyncSession, ns: Namespace) -> int:
+    """按真实时钟写一条操作日志与一条登录日志（当前月分片）。
+
+    事件 ID / 操作人 / 登录名均带命名空间派生：同月分片里有他人数据，断言只落本用例的行。
+
+    Args:
+        session: 共享平台库写会话。
+        ns: 用例命名空间。
+
+    Returns:
+        int: 本用例的操作人主键（列表筛选用它限定）。
+    """
     now = datetime.now(UTC).replace(tzinfo=None)
+    operator = log_tenant(ns)
     writer = AuditLogWriter(session, Sha256HashChain(), clock=lambda: now)
-    assert await writer.write(operation_event("e1", occurred_at=now)) is True
-    assert await writer.write(login_event("l1", occurred_at=now)) is True
+    assert await writer.write(operation_event(ns.code("e1"), user_id=str(operator), occurred_at=now)) is True
+    assert await writer.write(login_event(ns.code("l1"), username=ns.code("alice"), occurred_at=now)) is True
     await session.commit()
+    return operator
 
 
-async def test_query_and_detail_route_functions(log_session: AsyncSession) -> None:
+async def test_query_and_detail_route_functions(log_session: AsyncSession, ns: Namespace) -> None:
     """查询 / 详情：出参分页与详情字段完整；雪花 ID JSON 序列化为字符串。"""
-    await _seed(log_session)
+    operator = await _seed(log_session, ns)
     page = BasePageQuery()
     operations = await logs_api.list_operation_logs(
         session=log_session,
         page=page,
-        user_id=7,
+        user_id=operator,
         module=None,
         action=None,
         status=None,
@@ -58,7 +72,7 @@ async def test_query_and_detail_route_functions(log_session: AsyncSession) -> No
     logins = await logs_api.list_login_logs(
         session=log_session,
         page=page,
-        username="ali",
+        username=ns.prefix,
         status="success",
         ip=None,
         occurred_from=None,
@@ -67,35 +81,52 @@ async def test_query_and_detail_route_functions(log_session: AsyncSession) -> No
     assert logins.data is not None
     assert logins.data.total == 1
     login_item = logins.data.list[0]
-    assert login_item.username == "alice"
+    assert login_item.username == ns.code("alice")
     login_detail = await logs_api.get_login_log(session=log_session, record_id=login_item.id)
     assert login_detail.data is not None
     assert login_detail.data.status == "success"
 
 
-async def test_internal_verify_route(log_session: AsyncSession) -> None:
-    """内部校验端点：两类日志通过；未知类型 10001。"""
-    await _seed(log_session)
+async def test_internal_verify_route(log_session: AsyncSession, ns: Namespace) -> None:
+    """内部校验端点：两类日志通过；未知类型 10001。
+
+    端点按整类日志（全部月份）校验时会读到同会话其它 worker 的行，故请求里**指定本用例月份**
+    （`log_months(ns)` 派生的专属月份）——计数与「链完整」都只落在自己的分片上。
+    """
+    first, _second = log_months(ns)
+    month = month_key(first)
     chain = Sha256HashChain()
+    writer = AuditLogWriter(log_session, chain, clock=lambda: first)
+    assert await writer.write(operation_event(ns.code("v1"), tenant_id=str(log_tenant(ns)))) is True
+    assert await writer.write(login_event(ns.code("v2"), tenant_id=str(log_tenant(ns)))) is True
+    await log_session.commit()
+    months = ConcurrentStableList([month])
     operation = await internal_audit.verify_chain(
-        session=log_session, chain=chain, metrics=NullMetrics(), req=VerifyRequest(log_type=LOG_TYPE_OPERATION)
+        session=log_session,
+        chain=chain,
+        metrics=NullMetrics(),
+        req=VerifyRequest(log_type=LOG_TYPE_OPERATION, months=months),
     )
     assert operation.data is not None
     assert operation.data.valid is True
     assert operation.data.checked_records == 1
     login = await internal_audit.verify_chain(
-        session=log_session, chain=chain, metrics=NullMetrics(), req=VerifyRequest(log_type=LOG_TYPE_LOGIN)
+        session=log_session,
+        chain=chain,
+        metrics=NullMetrics(),
+        req=VerifyRequest(log_type=LOG_TYPE_LOGIN, months=months),
     )
     assert login.data is not None
     assert login.data.valid is True
+    assert login.data.checked_records == 1
     with pytest.raises(ParamError):
         await internal_audit.verify_chain(
             session=log_session, chain=chain, metrics=NullMetrics(), req=VerifyRequest(log_type="unknown")
         )
 
 
-async def test_internal_ensure_shards(log_session: AsyncSession) -> None:
-    """分片预创建端点：当月 + 未来 N 月三类日志分片齐备。"""
+async def test_internal_ensure_shards(log_session: AsyncSession, ns: Namespace) -> None:
+    """分片预创建端点：当月 + 未来 N 月三类日志分片齐备，新建分片不含本用例租户的行。"""
     result = await internal_audit.ensure_shards(
         session=log_session, metrics=NullMetrics(), req=EnsureShardsRequest(months_ahead=1)
     )
@@ -106,4 +137,5 @@ async def test_internal_ensure_shards(log_session: AsyncSession) -> None:
         assert month in await repo.months(LOG_TYPE_OPERATION)
         assert month in await repo.months(LOG_TYPE_LOGIN)
     table = repo.table_for(LOG_TYPE_OPERATION, next(iter(result.data.months)))
-    assert (await log_session.execute(select(table.c.id).limit(1))).first() is None
+    ours = await log_session.execute(select(table.c.id).where(table.c.tenant_id == str(log_tenant(ns))).limit(1))
+    assert ours.first() is None

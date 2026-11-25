@@ -8,9 +8,12 @@
 2. 第 2 轮：**同一次运行**的第二个会话（两轮共用一个 `BMS_TEST_RUN_ID`，叠加复用同一份库）；
 3. 判定：第 2 轮的失败集合必须为空——非空即「用例动了别人的数据 / 依赖空库 / 用了固定键」。
 
-用法：
-    python scripts/tools/preflight/check_isolation_reuse.py path/a.py path/b.py
-    git diff --name-only | python scripts/tools/preflight/check_isolation_reuse.py --files-from -
+用法（**本地禁止手工执行**）：
+    ENGKIT_ISOLATION_AUTHORIZED=1 python scripts/tools/preflight/check_isolation_reuse.py path/a.py
+    ENGKIT_ISOLATION_AUTHORIZED=1 git diff --name-only | python ... --files-from -
+
+本自检自 2026-11-24 起不在任何门禁内（用例必须在共享库上单轮成立），只由推送环 / 域验收
+判定时显式注入 `ENGKIT_ISOLATION_AUTHORIZED=1` 触发；无该标记时**直接拒绝、用例零执行**。
 
 判据只认 `FAILED` / `ERROR` 行，不解析耗时；两轮都失败且集合相同时仍然判失败（功能缺陷先修）。
 文件清单按字符预算拆成多条 pytest 命令在**同一轮内顺序执行**（同一次运行的多个会话，
@@ -49,6 +52,9 @@ _ARGV_BUDGET = 6000
 
 _LOG_DIR = _REPO_ROOT / ".cache" / "preflight"
 """逐批完整输出落点（排障只看这些文件，不靠终端截断）。"""
+
+_AUTHORIZE_ENV = "ENGKIT_ISOLATION_AUTHORIZED"
+"""放行标记：只有推送环 / 域验收显式注入（值为 `1`）才允许执行，本地手工调用一律拒绝。"""
 
 
 def _write_batch_log(run_id: str, label: str, index: int, output: str) -> Path:
@@ -183,8 +189,16 @@ def main(argv: list[str] | None = None) -> int:  # bare-collections:allow（与 
         argv: 命令行参数（缺省取 `sys.argv[1:]`）。
 
     Returns:
-        int: 0 通过；1 第二轮出现失败（用例违规）；2 用法 / 首轮失败（功能缺陷）。
+        int: 0 通过；1 第二轮出现失败（用例违规）；2 未授权调用 / 用法错误 / 首轮失败（功能缺陷）。
     """
+    if os.environ.get(_AUTHORIZE_ENV) != "1":
+        print(
+            "[isolation] 拒绝执行：隔离自检只由推送环 / 域验收判定，本地禁止手工执行"
+            f"（需由入口显式注入 {_AUTHORIZE_ENV}=1）",
+            file=sys.stderr,
+        )
+        return 2
+
     parser = argparse.ArgumentParser(description="隔离自检：复用共享库连跑两轮")
     parser.add_argument("files", nargs="*", help="测试文件（相对 backend）")
     parser.add_argument("--files-from", default="", help="从文件读清单（`-` 表示 stdin）")

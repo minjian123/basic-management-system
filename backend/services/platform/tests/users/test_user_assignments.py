@@ -13,9 +13,14 @@ from typing import Any, cast
 
 import pytest
 
-from bms_core.collaboration.resolver import resolve_capability
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.collaboration.base import CapabilityEndpoint, CapabilityMode, CapabilityTarget
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import ParamError
+from bms_core.db.keys import build_platform_db_key
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.null import NullTransactionManager, NullTransactionParticipant
 from bms_platform.capabilities import CAPABILITY_MDM_USER_DEPTS, CAPABILITY_MDM_USER_POSTS
@@ -29,7 +34,6 @@ from bms_platform.domains.user.services.user_assignments import (
     UserAssignmentsService,
     build_branch_ops,
     collect_segments,
-    resolve_branch_endpoints,
 )
 
 pytestmark = [pytest.mark.kiwi_id(2278)]
@@ -213,12 +217,84 @@ class _RolesSpy:
         return ConcurrentStableList([_Role()])
 
 
+_MDM_POSTS = CapabilityEndpoint(
+    name=CAPABILITY_MDM_USER_POSTS,
+    domain="mdm",
+    kind="txn-branch",
+    contract_version="0.1.0",
+    target=CapabilityTarget(
+        mode=CapabilityMode.REMOTE,
+        unit_key="mdm",
+        service_key="mdm",
+        base_url="http://mdm.test",
+        db_keys=ConcurrentStableFrozenList([build_platform_db_key("mdm")]),
+    ),
+    path="/api/v1/mdm/internal/user-posts/{user_id}",
+    branch_op="mdm.user-posts.assign",
+    branch_id="m",
+    product_key="mdm",
+    frontend_prefix="mdm",
+)
+"""岗位段端点替身（成功路径用例用；**不注册任何对端声明 / 拓扑**，仅直接给出取用结果）。
+
+值按消费侧契约锁定；库键取装配态平台库键（`platform_mdm`，产品域分支库键租户化见遗留，归口 06_01）。
+"""
+
+_MDM_DEPTS = CapabilityEndpoint(
+    name=CAPABILITY_MDM_USER_DEPTS,
+    domain="mdm",
+    kind="txn-branch",
+    contract_version="0.1.0",
+    target=CapabilityTarget(
+        mode=CapabilityMode.REMOTE,
+        unit_key="mdm",
+        service_key="mdm",
+        base_url="http://mdm.test",
+        db_keys=ConcurrentStableFrozenList([build_platform_db_key("mdm")]),
+    ),
+    path="/api/v1/mdm/internal/user-depts/{user_id}",
+    branch_op="mdm.user-depts.assign",
+    branch_id="m",
+    product_key="mdm",
+    frontend_prefix="mdm",
+)
+"""部门段端点替身（同岗位段口径）。"""
+
+_ENDPOINTS = ConcurrentStableDict({_MDM_POSTS.name: _MDM_POSTS, _MDM_DEPTS.name: _MDM_DEPTS})
+
+
+def _peer_endpoints(req: UserAssignmentsRequest) -> ConcurrentStableList[CapabilityEndpoint]:
+    """按分段返回预置端点（岗位在前、部门在后；不经过声明 / 拓扑解析）。"""
+    endpoints: ConcurrentStableList[CapabilityEndpoint] = ConcurrentStableList()
+    if req.user_posts is not None:
+        endpoints.add(_MDM_POSTS)
+    if req.user_depts is not None:
+        endpoints.add(_MDM_DEPTS)
+    return endpoints
+
+
+class _PeerReadyService(UserAssignmentsService):
+    """解析接缝替身：直接给出对端端点，不依赖 mdm 声明 / 拓扑 / 装配态。
+
+    只在**用例**里使用；生产实现（`UserAssignmentsService`）始终走 `resolve_capability`。
+    """
+
+    def _resolve_capability(self, name: str) -> CapabilityEndpoint:
+        """按能力名返回预置端点。"""
+        return _ENDPOINTS[name]
+
+    def _resolve_branch_endpoints(self, req: UserAssignmentsRequest) -> ConcurrentStableList[CapabilityEndpoint]:
+        """按分段返回预置端点（岗位在前、部门在后）。"""
+        return _peer_endpoints(req)
+
+
 def _service(
     manager: Any,
     participant: Any,
     client: _ClientSpy,
     *,
     user: _User | None = None,
+    peers: bool = True,
 ) -> tuple[UserAssignmentsService, _WriterSpy, _CacheSpy, _SessionsSpy]:
     """构造编排服务与替身。
 
@@ -227,6 +303,7 @@ def _service(
         participant: 事务参与方（替身或 Null 实现）。
         client: 服务间调用客户端替身。
         user: 用户记录替身（缺省启用态）。
+        peers: 是否使用解析接缝替身（成功路径默认 true；验证「缺对端」时置 false）。
 
     Returns:
         tuple[UserAssignmentsService, _WriterSpy, _CacheSpy, _SessionsSpy]: (服务, 写入器, 缓存, 会话)。
@@ -234,7 +311,8 @@ def _service(
     writer = _WriterSpy()
     cache = _CacheSpy()
     sessions = _SessionsSpy()
-    service = UserAssignmentsService(
+    service_type = _PeerReadyService if peers else UserAssignmentsService
+    service = service_type(
         writer=cast("Any", writer),
         user_roles=cast("Any", _UserRolesSpy(ConcurrentStableList([1]))),
         roles=cast("Any", _RolesSpy()),
@@ -310,9 +388,9 @@ async def test_sequential_path_orders_writes_and_bumps_permission_version() -> N
     assert [role.code for role in roles] == ["role_a"]
     assert list(applied) == ["profile", "role_ids", "user_posts", "user_depts"]
     assert len(writer.calls) == 1
-    posts = resolve_capability(CAPABILITY_MDM_USER_POSTS)
-    depts = resolve_capability(CAPABILITY_MDM_USER_DEPTS)
-    # 声明解析出的服务键与路径模板须与收编前的常量逐字一致（行为等价锁）
+    posts = _MDM_POSTS
+    depts = _MDM_DEPTS
+    # 请求面锁定服务键与路径模板（等价于原声明解析结果，不依赖对端声明 / 拓扑）
     assert posts.target.service_key == "mdm" and posts.path == "/api/v1/mdm/internal/user-posts/{user_id}"
     assert depts.target.service_key == "mdm" and depts.path == "/api/v1/mdm/internal/user-depts/{user_id}"
     assert [request.service for request in client.requests] == [posts.target.service_key, depts.target.service_key]
@@ -341,13 +419,33 @@ async def test_sequential_path_revokes_sessions_when_disabled() -> None:
     assert client.requests == []
 
 
+async def test_sequential_path_without_peer_declaration_writes_nothing() -> None:
+    """缺对端声明（如 cws 工作区没有 mdm）：顺序路径先解析后写，明确报错且本地零写入。"""
+    client = _ClientSpy()
+    service, writer, _cache, _sessions = _service(
+        NullTransactionManager(), NullTransactionParticipant(), client, peers=False
+    )
+
+    with pytest.raises(ParamError):
+        await service.apply(
+            user_id=7,
+            req=UserAssignmentsRequest(
+                user_posts=UserAssignmentPosts(post_ids=ConcurrentStableList([11]), primary_post_id=11)
+            ),
+            idempotency_key=None,
+        )
+
+    assert writer.calls == []
+    assert client.requests == []
+
+
 def test_mdm_branch_ops_share_one_branch_request() -> None:
     """跨产品域分支载荷：岗位 / 部门各一 op，同一分支（同一 `xid`）一次请求内按序执行。"""
     req = UserAssignmentsRequest(
         user_posts=UserAssignmentPosts(post_ids=ConcurrentStableList([11, 12]), primary_post_id=12),
         user_depts=UserAssignmentDepts(dept_ids=ConcurrentStableList([21]), primary_dept_id=21),
     )
-    ops = build_branch_ops(user_id=7, req=req, idempotency_key="k-1", endpoints=resolve_branch_endpoints(req))
+    ops = build_branch_ops(user_id=7, req=req, idempotency_key="k-1", endpoints=_peer_endpoints(req))
 
     assert [op for op, _args in ops] == ["mdm.user-posts.assign", "mdm.user-depts.assign"]
     posts_args = ops[0][1]

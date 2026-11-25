@@ -1,16 +1,15 @@
 """跨产品域分支换算用例（07B `03_01`）。
 
 覆盖 `bms_platform.services.user_role_branch` 的三个公开换算：分支三要素、分支动作名、内部写请求。
-端点取自**真实注册视图**（conftest 已登记 mdm 对端能力），错误分支用 `dataclasses.replace` 构造，
-避免手搓结构体与声明漂移。
+端点由**用例按消费侧契约直接构造**（bms 不持有、也不装载 mdm 声明；装配态无对端），错误分支用
+`dataclasses.replace` 构造，避免手搓结构体与声明漂移。
 """
 
 from dataclasses import replace
 
 import pytest
 
-from bms_core.collaboration.base import CapabilityEndpoint
-from bms_core.collaboration.resolver import resolve_capability
+from bms_core.collaboration.base import CapabilityEndpoint, CapabilityMode, CapabilityTarget
 from bms_core.core.concurrent import (
     ConcurrentStableFrozenDict,
     ConcurrentStableList,
@@ -23,14 +22,43 @@ _POSTS = "mdm.mdm.user-posts.assign"
 _DEPTS = "mdm.mdm.user-depts.assign"
 
 
+def _endpoint(name: str, *, path: str, branch_op_name: str) -> CapabilityEndpoint:
+    """按消费侧契约构造端点（库键留空集，走「按承载服务键派生」分支）。"""
+    return CapabilityEndpoint(
+        name=name,
+        domain="mdm",
+        kind="txn-branch",
+        contract_version="0.1.0",
+        target=CapabilityTarget(
+            mode=CapabilityMode.REMOTE,
+            unit_key="mdm",
+            service_key="mdm",
+            base_url="http://mdm.test",
+        ),
+        path=path,
+        branch_op=branch_op_name,
+        branch_id="m",
+        product_key="mdm",
+        frontend_prefix="mdm",
+    )
+
+
+_POSTS_ENDPOINT = _endpoint(
+    _POSTS, path="/api/v1/mdm/internal/user-posts/{user_id}", branch_op_name="mdm.user-posts.assign"
+)
+_DEPTS_ENDPOINT = _endpoint(
+    _DEPTS, path="/api/v1/mdm/internal/user-depts/{user_id}", branch_op_name="mdm.user-depts.assign"
+)
+
+
 @pytest.fixture
 def endpoints() -> tuple[CapabilityEndpoint, CapabilityEndpoint]:
-    """取跨产品域两段能力的真实取用结果（同一分支）。
+    """取跨产品域两段能力的端点替身（同一分支）。
 
     Returns:
         tuple[CapabilityEndpoint, CapabilityEndpoint]: 岗位段与部门段。
     """
-    return resolve_capability(_POSTS), resolve_capability(_DEPTS)
+    return _POSTS_ENDPOINT, _DEPTS_ENDPOINT
 
 
 def test_branch_target_returns_three_elements(endpoints: tuple[CapabilityEndpoint, CapabilityEndpoint]) -> None:

@@ -911,7 +911,8 @@ def plan_steps(
 
     # 用例隔离自检（连跑两轮）已于 2026-11-24 取消门禁（业主口径）：用例必须在共享库上
     # **单轮**成立，不靠多跑一轮来发现问题；真实环境的数据比「第二轮」更不确定。
-    # 需要时手工执行 `scripts/tools/preflight/check_isolation_reuse.py`。
+    # 本地禁止手工执行 `scripts/tools/preflight/check_isolation_reuse.py`：该自检只由推送环 /
+    # 域验收判定（脚本自身对本地调用直接拒绝，仅认显式注入 ENGKIT_ISOLATION_AUTHORIZED=1）。
 
     for self_test in cfg.preflight.self_tests:
         if any(rel.startswith(tuple(self_test.deps)) for rel in files) and self_test.deps:

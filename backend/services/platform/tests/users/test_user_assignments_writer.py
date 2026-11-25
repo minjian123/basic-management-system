@@ -20,8 +20,8 @@ from typing import Any, cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.collaboration.resolver import resolve_capability
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.collaboration.base import CapabilityEndpoint, CapabilityMode, CapabilityTarget
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import (
     ConcurrentConflictError,
@@ -34,11 +34,13 @@ from bms_core.core.exceptions import (
     UserProtectedError,
     UserSeparationConflictError,
 )
+from bms_core.db.keys import build_platform_db_key
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_core.models.platform.user import SysUser
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.base import BRANCH_PREPARED, BRANCH_REJECTED, BranchRef, GlobalTransaction
+from bms_platform.capabilities import CAPABILITY_MDM_USER_DEPTS, CAPABILITY_MDM_USER_POSTS
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.domains.role.services.role_assignment import dedupe as _dedupe
 from bms_platform.domains.role.services.separation import SeparationGuard
@@ -596,6 +598,77 @@ class _UserRolesSpy:
         return ConcurrentStableList()
 
 
+_MDM_POSTS = CapabilityEndpoint(
+    name=CAPABILITY_MDM_USER_POSTS,
+    domain="mdm",
+    kind="txn-branch",
+    contract_version="0.1.0",
+    target=CapabilityTarget(
+        mode=CapabilityMode.REMOTE,
+        unit_key="mdm",
+        service_key="mdm",
+        base_url="http://mdm.test",
+        db_keys=ConcurrentStableFrozenList([build_platform_db_key("mdm")]),
+    ),
+    path="/api/v1/mdm/internal/user-posts/{user_id}",
+    branch_op="mdm.user-posts.assign",
+    branch_id="m",
+    product_key="mdm",
+    frontend_prefix="mdm",
+)
+"""岗位段端点替身（成功路径用例用；**不注册任何对端声明 / 拓扑**，仅直接给出取用结果）。
+
+值按消费侧契约锁定；库键取装配态平台库键（`platform_mdm`，产品域分支库键租户化见遗留，归口 06_01）。
+"""
+
+_MDM_DEPTS = CapabilityEndpoint(
+    name=CAPABILITY_MDM_USER_DEPTS,
+    domain="mdm",
+    kind="txn-branch",
+    contract_version="0.1.0",
+    target=CapabilityTarget(
+        mode=CapabilityMode.REMOTE,
+        unit_key="mdm",
+        service_key="mdm",
+        base_url="http://mdm.test",
+        db_keys=ConcurrentStableFrozenList([build_platform_db_key("mdm")]),
+    ),
+    path="/api/v1/mdm/internal/user-depts/{user_id}",
+    branch_op="mdm.user-depts.assign",
+    branch_id="m",
+    product_key="mdm",
+    frontend_prefix="mdm",
+)
+"""部门段端点替身（同岗位段口径）。"""
+
+_ENDPOINTS = ConcurrentStableDict({_MDM_POSTS.name: _MDM_POSTS, _MDM_DEPTS.name: _MDM_DEPTS})
+
+
+def _peer_endpoints(req: UserAssignmentsRequest) -> ConcurrentStableList[CapabilityEndpoint]:
+    """按分段返回预置端点（岗位在前、部门在后；不经过声明 / 拓扑解析）。"""
+    endpoints: ConcurrentStableList[CapabilityEndpoint] = ConcurrentStableList()
+    if req.user_posts is not None:
+        endpoints.add(_MDM_POSTS)
+    if req.user_depts is not None:
+        endpoints.add(_MDM_DEPTS)
+    return endpoints
+
+
+class _PeerReadyService(UserAssignmentsService):
+    """解析接缝替身：直接给出对端端点，不依赖 mdm 声明 / 拓扑 / 装配态。
+
+    只在**用例**里使用；生产实现（`UserAssignmentsService`）始终走 `resolve_capability`。
+    """
+
+    def _resolve_capability(self, name: str) -> CapabilityEndpoint:
+        """按能力名返回预置端点。"""
+        return _ENDPOINTS[name]
+
+    def _resolve_branch_endpoints(self, req: UserAssignmentsRequest) -> ConcurrentStableList[CapabilityEndpoint]:
+        """按分段返回预置端点（岗位在前、部门在后）。"""
+        return _peer_endpoints(req)
+
+
 def _xa_service(
     manager: _ManagerSpy,
     participant: _ParticipantSpy,
@@ -605,6 +678,7 @@ def _xa_service(
     sessions: _SessionsSpy | None = None,
     writer: Any = None,
     users: Any = None,
+    peers: bool = True,
 ) -> UserAssignmentsService:
     """构造 XA 路径编排服务（全替身）。
 
@@ -616,11 +690,13 @@ def _xa_service(
         sessions: 会话失效替身。
         writer: 写入器替身（顺序提交路径用；缺省空对象）。
         users: 用户仓储替身（缺省返回固定用户）。
+        peers: 是否使用解析接缝替身（成功路径默认 true；验证「缺对端」时置 false）。
 
     Returns:
         UserAssignmentsService: 编排服务。
     """
-    return UserAssignmentsService(
+    service_type = _PeerReadyService if peers else UserAssignmentsService
+    return service_type(
         writer=cast("Any", writer if writer is not None else object()),
         user_roles=cast("Any", _UserRolesSpy()),
         roles=cast("Any", _RolesSpy()),
@@ -656,7 +732,7 @@ async def test_xa_path_declares_branches_and_commits() -> None:
     assert list(applied) == [SEGMENT_ROLES, "user_posts", "user_depts"]
     _caller, specs = manager.begun[0]
     # 分支标识 / 承载服务 / 库键均取自已解析的能力声明（历史值不变：m / mdm / txn 库键按服务键派生）
-    mdm = resolve_capability("mdm.mdm.user-posts.assign")
+    mdm = _MDM_POSTS
     assert [spec.branch_id for spec in specs] == [BRANCH_ID_PLATFORM, mdm.branch_id]
     assert specs[1].service == mdm.target.service_key
     xid, _db_key, ops = participant.calls[0]
@@ -921,6 +997,24 @@ async def test_sequential_path_without_idempotency_key_omits_header() -> None:
     assert client.requests[0].headers == {}
 
 
+async def test_sequential_path_without_peer_declaration_writes_nothing() -> None:
+    """缺对端声明（如 cws 工作区没有 mdm）：顺序路径先解析后写，明确报错且本地零写入。"""
+    manager = _ManagerSpy(enabled=False)
+    client = _ClientSpy()
+    writer = _WriterSpy()
+    service = _xa_service(manager, _ParticipantSpy(), client, writer=writer, peers=False)
+
+    with pytest.raises(ParamError):
+        await service.apply(
+            user_id=7,
+            req=UserAssignmentsRequest(user_posts=UserAssignmentPosts(post_ids=ConcurrentStableList([21]))),
+            idempotency_key=None,
+        )
+
+    assert writer.calls == []
+    assert client.requests == []
+
+
 async def test_after_commit_swallows_session_failure() -> None:
     """提交后会话失效失败被吞掉（不影响已提交结果）。"""
     manager = _ManagerSpy(enabled=False)
@@ -953,8 +1047,12 @@ class _UsersNoneSpy:
 class _WriterSpy:
     """写入器替身（不落库）。"""
 
+    def __init__(self) -> None:
+        """初始化调用记录。"""
+        self.calls: ConcurrentStableList[int] = ConcurrentStableList()
+
     async def write(self, *, user_id: int, profile: object, role_ids: object) -> Any:
-        """原样回用户替身。
+        """记录调用并原样回用户替身。
 
         Args:
             user_id: 用户主键。
@@ -964,6 +1062,7 @@ class _WriterSpy:
         Returns:
             object: 用户替身。
         """
+        self.calls.add(user_id)
 
         class _User:
             id = 7

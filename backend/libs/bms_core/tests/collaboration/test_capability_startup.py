@@ -23,10 +23,13 @@ from bms_core.core.exceptions import CatalogError
 from bms_core.core.plugin import default_plugin_registry
 from bms_core.services.module_registry import (
     CollaborationRecord,
+    ProductRecord,
     register_collaboration_records,
     register_domain_services,
+    register_product_records,
     reset_collaboration_records,
     reset_domain_services,
+    reset_product_records,
 )
 
 _RECORD = CollaborationRecord(
@@ -64,7 +67,10 @@ def _isolate_state() -> Iterator[None]:
     reset_collaboration_records()
     reset_capability_usages()
     reset_domain_services()
+    reset_product_records()
     reset_topology_resolver()
+    # 「按已部署产品收敛」：demo 产品在场，才能断言「声明了未登记的能力」拒启。
+    register_product_records((ProductRecord(product_key="demo", name="演示产品"),))
     # 插件注册表是进程级冻结态：同 worker 前序用例构建过注册表时，本用例的 `create()` 会在
     # `build_plugin_registry()` 之前的显式登记处提前抛 `PluginError`。前置复位保证顺序无关。
     default_plugin_registry().reset()
@@ -72,6 +78,7 @@ def _isolate_state() -> Iterator[None]:
     reset_collaboration_records()
     reset_capability_usages()
     reset_domain_services()
+    reset_product_records()
     reset_topology_resolver()
     default_plugin_registry().reset()
 

@@ -25,7 +25,7 @@ from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseValueObject
 from bms_core.metrics.base import BaseMetrics, MetricLabels
-from bms_core.services.module_registry import CollaborationStatus, collaboration_catalog_view
+from bms_core.services.module_registry import CollaborationStatus, collaboration_catalog_view, product_keys
 
 __all__ = [
     "DEGRADE_EMPTY",
@@ -154,6 +154,10 @@ def find_capability_usage(consumer: str, name: str) -> CapabilityUsage | None:
 def inspect_capability_usages(consumer: str, usages: Iterable[CapabilityUsage]) -> ConcurrentStableList[str]:
     """校验使用声明（不抛错；装配期与用例共用）。
 
+    **按已部署产品收敛**：能力名第一段是提供方产品键；该产品不在本进程已登记产品集合里时，
+    视为「该产品未部署」——跳过该校验并告警（单仓部署 / 未安装该产品的组合工作区不得拒启）。
+    产品已登记才 fail-fast：拼错能力名 / 未装载仍在这里拦住。
+
     Args:
         consumer: 消费方标识。
         usages: 使用声明。
@@ -163,6 +167,7 @@ def inspect_capability_usages(consumer: str, usages: Iterable[CapabilityUsage]) 
     """
     errors: ConcurrentStableList[str] = ConcurrentStableList()
     records = ConcurrentStableDict({record.name: record for record in collaboration_catalog_view()})
+    deployed = product_keys()
     seen: ConcurrentStableDict[str, CapabilityUsage] = ConcurrentStableDict()
     for usage in usages:
         prefix = f"{consumer}｜能力 {usage.name}"
@@ -177,6 +182,15 @@ def inspect_capability_usages(consumer: str, usages: Iterable[CapabilityUsage]) 
         seen.set(usage.name, usage)
         record = records.get(usage.name)
         if record is None:
+            provider = usage.name.split(".", 1)[0]
+            if provider and provider not in deployed:
+                get_logger(_LOGGER).warning(
+                    "capability_usage_provider_absent",
+                    consumer=consumer,
+                    capability=usage.name,
+                    provider=provider,
+                )
+                continue
             errors.add(f"{prefix}：声明了未登记的能力（请检查产品清单拼写与装载）")
             continue
         if record.status == CollaborationStatus.DISABLED:

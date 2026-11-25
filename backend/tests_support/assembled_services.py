@@ -4,7 +4,8 @@
 不复制清单内容。装配容器（`bms_core.testing.system.AssembledSystem`）由测试插件在
 初始化之后调用一次。
 
-对端声明不在这里发现：bms 不读别的仓，最小替身清单见 `tests_support.peer_registry`。
+对端声明不在这里发现：bms 不读别的仓，装配也不装载任何对端声明。需要跨产品前置的用例
+在用例内自造（按契约构造端点替身 / 拓扑快照，用完恢复），生产侧由产品装载时经注册通道登记。
 """
 
 from __future__ import annotations

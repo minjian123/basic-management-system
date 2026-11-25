@@ -273,6 +273,8 @@ async def test_metadata_write_also_invalidates_permission_snapshot(
     await seed_business(_business(ns, "perm_b"), "权限同步业务B")
     await _create_page(client, _path(ns, "perm-a"), "权限同步页A", "Perm A", _business(ns, "perm_a"))
 
+    # 装配常驻：取应用装配的实例（与翻译器 / 菜单服务同源），不重新解析；
+    # 未装配时（单测自建 app）才回退到插件解析。
     cache = service_app.state.cache
     before = cache.get(permission_version_key(TEST_TENANT_ID))
     store = current_permission_cache_store()

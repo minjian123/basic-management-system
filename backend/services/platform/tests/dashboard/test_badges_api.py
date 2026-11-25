@@ -71,13 +71,16 @@ async def prepared(tenant_db: str) -> None:
 
 
 async def test_badges_endpoint_returns_both_sources(client: AsyncClient) -> None:
-    """接口恒 200：待办占位不可用；未读在无通知服务时降级为不可用。"""
+    """接口恒 200：待办占位不可用；未读经装配态通知服务取数（本仓已装配 notification）。
+
+    降级分支（通知不可达 / 载荷非法）由下方适配器用例直接覆盖，这里只判装配态的聚合形态。
+    """
     body = (await client.get(_BADGES)).json()
     assert body["code"] == 0
     data = body["data"]
     assert data["todo"] == {"count": 0, "available": False, "reason": "workflow_unavailable"}
-    assert data["notification"]["available"] is False
-    assert data["notification"]["reason"] == "notification_unavailable"
+    assert data["notification"]["available"] is True
+    assert data["notification"]["reason"] is None
 
 
 async def test_notification_adapter_passes_user_and_parses_count() -> None:

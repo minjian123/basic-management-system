@@ -359,7 +359,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
             ServiceUnavailableError: 分支执行调用失败（10007）。
         """
         platform_db_key = current_tenant_context().db_key
-        endpoints = resolve_branch_endpoints(req)
+        endpoints = self._resolve_branch_endpoints(req)
         branch = branch_target(endpoints, platform_db_key=platform_db_key) if endpoints else None
         specs: ConcurrentStableList[BranchSpec] = ConcurrentStableList()
         specs.add(BranchSpec(branch_id=BRANCH_ID_PLATFORM, service=SERVICE_NAME, db_key=platform_db_key))
@@ -458,26 +458,61 @@ class RoleAssignmentsService(BaseFrameworkObject):
     ) -> None:
         """`provider=null`：顺序提交路径（platform 本地事务 → 跨产品域内部写通道；无补偿）。
 
+        **先解析、后写入**：参与本次的全部跨产品能力在落本库之前解析完毕。部署里没装对端
+        产品时在此直接报「能力未声明」，不留本地半成品。
+
         Args:
             role_id: 角色主键。
             req: 分段全量覆盖请求。
             idempotency_key: 业务幂等键。
         """
+        posts = self._resolve_capability(CAPABILITY_MDM_ROLE_POSTS) if req.role_posts is not None else None
+        depts = self._resolve_capability(CAPABILITY_MDM_ROLE_DEPTS) if req.role_depts is not None else None
         await self._writer.write(role_id=role_id, profile=req.role, user_ids=req.user_ids)
-        if req.role_posts is not None:
+        if posts is not None and req.role_posts is not None:
             await self._call_branch_internal(
-                resolve_capability(CAPABILITY_MDM_ROLE_POSTS),
+                posts,
                 params=ConcurrentStableFrozenDict({"role_id": str(role_id)}),
                 body=_posts_args(req.role_posts, idempotency_key=idempotency_key),
                 idempotency_key=idempotency_key,
             )
-        if req.role_depts is not None:
+        if depts is not None and req.role_depts is not None:
             await self._call_branch_internal(
-                resolve_capability(CAPABILITY_MDM_ROLE_DEPTS),
+                depts,
                 params=ConcurrentStableFrozenDict({"role_id": str(role_id)}),
                 body=_depts_args(req.role_depts, idempotency_key=idempotency_key),
                 idempotency_key=idempotency_key,
             )
+
+    def _resolve_capability(self, name: str) -> CapabilityEndpoint:
+        """解析单个跨产品域能力（生产走单点入口；测试替身覆写点）。
+
+        抽成受保护方法只为让用例在**不注册对端声明**的前提下覆盖成功路径；生产实现不做任何改写。
+
+        Args:
+            name: 能力名。
+
+        Returns:
+            CapabilityEndpoint: 取用结果。
+
+        Raises:
+            ParamError: 能力未声明或已禁用。
+        """
+        return resolve_capability(name)
+
+    def _resolve_branch_endpoints(self, req: RoleAssignmentsRequest) -> ConcurrentStableList[CapabilityEndpoint]:
+        """解析本次全部跨产品域能力（生产走模块函数；测试替身覆写点）。
+
+        Args:
+            req: 分段全量覆盖请求。
+
+        Returns:
+            ConcurrentStableList[CapabilityEndpoint]: 本段参与的能力取用结果（岗位在前、部门在后）。
+
+        Raises:
+            ParamError: 能力未声明或已禁用。
+        """
+        return resolve_branch_endpoints(req)
 
     async def _call_branch_internal(
         self,

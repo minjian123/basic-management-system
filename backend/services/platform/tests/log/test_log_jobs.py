@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -10,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bms_core.audit.sha256 import Sha256HashChain
 from bms_core.core.config import get_settings
 from bms_core.core.plugin import build_plugin_registry
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.log import jobs
 from bms_platform.domains.log.jobs import AUDIT_CHAIN_GROUP, AuditLogConsumer, event_consumer_records
 from bms_platform.domains.log.repositories.shard import LogShardRepository
-from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION
+from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION, month_key
 from tests.log.helpers import login_event, operation_event
 
 pytestmark = pytest.mark.kiwi_id(2407)
@@ -79,7 +81,9 @@ def test_registry_lazy_singleton(monkeypatch: pytest.MonkeyPatch) -> None:
     jobs.reset_audit_registry()
 
 
-async def test_consumer_writes_through_writer(log_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_consumer_writes_through_writer(
+    log_session: AsyncSession, monkeypatch: pytest.MonkeyPatch, ns: Namespace
+) -> None:
     """处理器：按事件类型写入对应分片表（会话作用域替换为进程内库）。"""
 
     @asynccontextmanager
@@ -90,10 +94,16 @@ async def test_consumer_writes_through_writer(log_session: AsyncSession, monkeyp
     monkeypatch.setattr(jobs, "session_scope", _scope)
     monkeypatch.setattr(jobs, "_hash_chain", lambda: Sha256HashChain())
 
-    await AuditLogConsumer("sys.operation.logged").consume(operation_event("e1"))
-    await AuditLogConsumer("sys.login.logged").consume(login_event("l1"))
+    operation_id = ns.code("e1")
+    login_id = ns.code("l1")
+    await AuditLogConsumer("sys.operation.logged").consume(operation_event(operation_id))
+    await AuditLogConsumer("sys.login.logged").consume(login_event(login_id))
     await log_session.commit()
 
+    # 消费器的写入时钟是真实时钟；分片表是共享的，故只断言「本用例的两个事件各自落到了对应分片」
+    month = month_key(datetime.now(UTC).replace(tzinfo=None))
     repo = LogShardRepository(log_session)
-    assert len(await repo.months(LOG_TYPE_OPERATION)) == 1
-    assert len(await repo.months(LOG_TYPE_LOGIN)) == 1
+    assert month in list(await repo.months(LOG_TYPE_OPERATION))
+    assert month in list(await repo.months(LOG_TYPE_LOGIN))
+    assert await repo.event_exists(LOG_TYPE_OPERATION, month, operation_id) is True
+    assert await repo.event_exists(LOG_TYPE_LOGIN, month, login_id) is True

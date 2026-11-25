@@ -17,10 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from bms_core.collaboration import (
     DomainLayoutTopologyResolver,
     TenantTopologyResolver,
+    register_topology_resolver,
     reset_topology_resolver,
-    reset_topology_snapshots,
     resolve_topology,
+    restore_topology_state,
     topology_snapshot,
+    topology_state,
 )
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.exceptions import CatalogError
@@ -70,16 +72,22 @@ def _topology_global_serial() -> Iterator[None]:
 
 @pytest.fixture(autouse=True)
 def _isolate_topology_state() -> Iterator[None]:
-    """每例复位进程内快照与解析器（启动钩子会重新登记），并保留域登记现状。
+    """每例留存并恢复进程内快照与解析器（装配常驻后启动钩子只跑一次，不清空装配态）。
+
+    改写快照的用例（显式调 `bootstrap_tenant_topologies`）结束后由 `restore_topology_state`
+    原样恢复；不再前置清空，否则同 worker 后续用例看不到会话装配期登记的默认拓扑。
 
     Yields:
         None: 用例运行期。
     """
-    reset_topology_snapshots()
-    reset_topology_resolver()
-    yield
-    reset_topology_snapshots()
-    reset_topology_resolver()
+    previous = topology_state()
+    try:
+        yield
+    finally:
+        restore_topology_state(previous)
+        # 解析器是独立全局（`topology_state` 不含它）：恢复成装配期实现的同一类型，
+        # 避免本文件「复位为过渡默认实现」的用例把残值留给同 worker 的后继用例。
+        register_topology_resolver(TenantTopologyResolver())
 
 
 @pytest.fixture
@@ -203,8 +211,12 @@ async def test_startup_registers_resolver_and_snapshot(service_app: FastAPI) -> 
 
     不变式是「**已登记域全部被默认拓扑覆盖**」；拓扑里允许存在历史域的手工行（生产语义
     只补不缺，不删除既有行），故这里判包含关系而不是集合相等。
+
+    xdist 多 worker 并发首启时，测试库为 autocommit，另一 worker 的批量插入对读者可见——
+    装配期快照可能落在中间态（少最后几行）。启动钩子本身幂等（已全覆盖则不写新版本），
+    这里显式重跑一次做收敛，再判不变式。
     """
-    del service_app
+    await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
     snapshot = topology_snapshot(0)
     assert snapshot is not None
     assert snapshot.version >= 1

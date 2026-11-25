@@ -143,6 +143,9 @@ def get_cache_region(request: Request) -> CacheRegion:
         CacheRegion: 应用装配的缓存 Region 实例。
     """
     settings = cast("Settings", request.app.state.settings)
+    assembled = getattr(request.app.state, "cache", None)
+    if isinstance(assembled, CacheRegion):
+        return assembled
     return cast(
         "CacheRegion",
         resolve_plugin(

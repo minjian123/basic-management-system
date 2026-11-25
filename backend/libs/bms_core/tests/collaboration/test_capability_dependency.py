@@ -15,12 +15,20 @@ from bms_core.collaboration import (
     METRIC_CAPABILITY_CALL,
     METRIC_CAPABILITY_DENIED,
     CapabilityGrant,
+    TopologyEntry,
+    TopologySnapshot,
     register_capability_grant_source,
+    register_topology_snapshot,
     reset_capability_grants,
+    reset_instance_context,
+    restore_topology_state,
+    topology_snapshot,
+    topology_state,
 )
 from bms_core.collaboration.grant import grant_view_key
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
@@ -122,13 +130,31 @@ def _dependency() -> Callable[..., Awaitable[VerifiedToken]]:
 
 @pytest.fixture(autouse=True)
 def _isolate_state() -> Iterator[None]:
-    """每例复位能力目录与授权视图，并登记夹具能力。
+    """每例复位能力目录与授权视图，并自造 mdm 域拓扑前置（用完恢复）。
+
+    装配常驻后本实例承载单元限定为 platform 自己的单元，而本文件要判 mdm 域的入站归属；
+    用例在作用域内把 mdm 补进默认拓扑并清掉实例单元声明（取全量单元），结束后原样恢复。
 
     Yields:
         None: 用例运行期。
     """
+    previous = topology_state()
     reset_collaboration_records()
     reset_capability_grants()
+    base = topology_snapshot(0)
+    entries: ConcurrentStableDict[str, TopologyEntry] = ConcurrentStableDict()
+    if base is not None:
+        for domain, entry in base.entries.items():
+            entries.set(domain, entry)
+    entries.set("mdm", TopologyEntry(unit_key="mdm"))
+    register_topology_snapshot(
+        TopologySnapshot(
+            tenant_id=0,
+            version=(base.version if base is not None else 0) + 1,
+            entries=ConcurrentStableFrozenDict(entries.to_list()),
+        )
+    )
+    reset_instance_context()
     register_collaboration_records(
         (
             CollaborationRecord(
@@ -143,6 +169,7 @@ def _isolate_state() -> Iterator[None]:
         )
     )
     yield
+    restore_topology_state(previous)
     reset_collaboration_records()
     reset_capability_grants()
 

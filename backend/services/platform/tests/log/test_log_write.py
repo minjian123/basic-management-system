@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.audit.events import LOGIN_LOG_EVENT, OPERATION_LOG_EVENT
@@ -14,6 +14,8 @@ from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import EventConsumeError
 from bms_core.db.sync import SyncSession
 from bms_core.events.base import EventEnvelope
+from bms_core.models.platform.log import SysAuditShard
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.log.repositories.shard import LogShardRepository
 from bms_platform.domains.log.schema import LOG_TYPE_LOGIN, LOG_TYPE_OPERATION, canonical_record
 from bms_platform.domains.log.services.writer import AuditLogWriter
@@ -123,10 +125,19 @@ async def test_operation_chain_idempotency_and_ledger(log_session: AsyncSession)
     assert rows[1]["record_hash"] == expected
 
     repo = LogShardRepository(log_session)
-    before = list(await repo.months(LOG_TYPE_OPERATION))
-    assert "202611" in before
+    assert "202611" in await repo.months(LOG_TYPE_OPERATION)
     await repo.ensure_shard(LOG_TYPE_OPERATION, "202611")
-    assert list(await repo.months(LOG_TYPE_OPERATION)) == before
+    # 分片台账全库共享，幂等只判「本类型本月仍只有一行台账」，不看全局月份清单
+    ledger = (
+        select(func.count())
+        .select_from(SysAuditShard)
+        .where(
+            SysAuditShard.log_type == LOG_TYPE_OPERATION,
+            SysAuditShard.shard_month == "202611",
+            SysAuditShard.deleted_at.is_(None),
+        )
+    )
+    assert int((await log_session.execute(ledger)).scalar_one()) == 1
 
 
 async def test_cross_month_links_last_hash_per_tenant(log_session: AsyncSession) -> None:
@@ -160,27 +171,28 @@ async def test_cross_month_links_last_hash_per_tenant(log_session: AsyncSession)
     assert login_dec[0]["prev_hash"] == login_nov[0]["record_hash"]
 
 
-async def test_unknown_and_malformed_events_raise(log_session: AsyncSession) -> None:
+async def test_unknown_and_malformed_events_raise(log_session: AsyncSession, ns: Namespace) -> None:
     """未知事件类型 / 缺字段 / 时间非法 / 字段类型非法 → EventConsumeError（毒消息）。"""
     writer = AuditLogWriter(log_session, Sha256HashChain(), clock=lambda: _NOV)
+    bad_id = ns.code("bad")
     unknown = EventEnvelope(event_type="sys.other.logged", payload=ConcurrentStableDict[str, object]())
     with pytest.raises(EventConsumeError):
         await writer.write(unknown)
 
-    no_event_id = _operation("x")
+    no_event_id = _operation(bad_id)
     with pytest.raises(EventConsumeError):
         await writer.write(EventEnvelope(event_type=OPERATION_LOG_EVENT, payload=no_event_id.payload))
 
     with pytest.raises(EventConsumeError):
-        await writer.write(_operation("x", module=None))
+        await writer.write(_operation(bad_id, module=None))
     with pytest.raises(EventConsumeError):
-        await writer.write(_operation("x", tenant_id="not-int"))
+        await writer.write(_operation(bad_id, tenant_id="not-int"))
     with pytest.raises(EventConsumeError):
-        await writer.write(_operation("x", status=None))
+        await writer.write(_operation(bad_id, status=None))
     with pytest.raises(EventConsumeError):
-        await writer.write(_operation("x", cost_time="bad"))
+        await writer.write(_operation(bad_id, cost_time="bad"))
 
-    login_no_id = _login("l")
+    login_no_id = _login(ns.code("l"))
     with pytest.raises(EventConsumeError):
         await writer.write(EventEnvelope(event_type=LOGIN_LOG_EVENT, payload=login_no_id.payload))
     with pytest.raises(EventConsumeError):
@@ -188,21 +200,22 @@ async def test_unknown_and_malformed_events_raise(log_session: AsyncSession) -> 
             EventEnvelope(
                 event_type=LOGIN_LOG_EVENT,
                 payload=ConcurrentStableDict[str, object]({"username": "a", "occurred_at": _NOV.isoformat()}),
-                event_id="l2",
+                event_id=ns.code("l2"),
             )
         )
     # 缺 occurred_at 时回落信封时间（不属毒消息）——显式断言可正常写入
+    fallback_id = ns.code("l3")
     fallback = EventEnvelope(
         event_type=LOGIN_LOG_EVENT,
         payload=ConcurrentStableDict[str, object]({"username": "a", "status": "success"}),
-        event_id="l3",
+        event_id=fallback_id,
         occurred_at=_NOV,
     )
     assert await writer.write(fallback) is True
     # 重复登录事件：幂等跳过
-    assert await writer.write(_login("l3")) is False
+    assert await writer.write(_login(fallback_id)) is False
     # 信封无发生时间：回落当前时刻（`_utc_now`）
-    no_time = _operation("no-time")
+    no_time = _operation(ns.code("no-time"))
     no_time.occurred_at = None
     assert await writer.write(no_time) is True
 
