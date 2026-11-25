@@ -9,15 +9,17 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ParamError, TransactionUnavailableError
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.testing.transaction import _sqlite_autocommit, gate_for_engine  # pyright: ignore[reportPrivateUsage]
 from bms_core.transaction.base import (
     BRANCH_COMMITTED,
     BRANCH_PREPARED,
@@ -51,6 +53,7 @@ from bms_txn.domains.txn.services.recovery import (
     TransactionRecovery,
 )
 from tests_support.metrics import RecordingMetrics
+from tests_support.shared_access import shared_engine, shared_platform_url
 
 pytestmark = [pytest.mark.kiwi_id(2271)]
 
@@ -86,6 +89,36 @@ class FakeDriver(BranchDriver):
         return "rolled_back"
 
 
+def _gated(engine: AsyncEngine) -> AsyncSession:
+    """把引擎包成操作级写门会话（每次写操作取写门、写完即放）。
+
+    Args:
+        engine: 目标库引擎。
+
+    Returns:
+        AsyncSession: 门代理会话。
+    """
+    gate_name = gate_for_engine(engine)
+    maker: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    raw = maker()
+    if gate_name is None:  # pragma: no cover - 共享平台库必然命中门名
+        return raw
+    return cast("AsyncSession", LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), raw, bind=engine))
+
+
+@pytest.fixture
+def caller() -> str:
+    """每例一个唯一发起方服务键。
+
+    恢复器的单轮对账是**全表扫描**语义；共享库上要按范围收口，才不至于去驱动别的用例（或别的
+    worker）造的事务。
+
+    Returns:
+        str: 发起方服务键。
+    """
+    return f"svc-{uuid4().hex[:10]}"
+
+
 @pytest.fixture
 async def uow() -> AsyncIterator[DbUnitOfWork]:
     """内存 SQLite 工作单元（建账本三表）。
@@ -93,9 +126,8 @@ async def uow() -> AsyncIterator[DbUnitOfWork]:
     Yields:
         DbUnitOfWork: 工作单元。
     """
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:", poolclass=StaticPool, connect_args={"check_same_thread": False}
-    )
+    # 账本三表归属登记在平台库：共用共享平台库（建表幂等，会话走门代理）
+    engine = shared_engine(shared_platform_url())
     async with engine.begin() as connection:
         tables: ConcurrentStableList[Table] = ConcurrentStableList(
             (
@@ -106,8 +138,7 @@ async def uow() -> AsyncIterator[DbUnitOfWork]:
         )
         for table in tables:
             await connection.run_sync(table.create, checkfirst=True)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    session = factory()
+    session = _gated(engine)
     try:
         yield DbUnitOfWork(session)
     finally:
@@ -136,19 +167,19 @@ def _specs() -> ConcurrentStableList[BranchSpec]:
     )
 
 
-async def test_begin_allocates_xids_and_activates(uow: DbUnitOfWork) -> None:
+async def test_begin_allocates_xids_and_activates(uow: DbUnitOfWork, caller: str) -> None:
     """开启：落账本 `active`、分配分支 `xid`（`gtrid|bqual`）、返回快照。"""
     coordinator = _coordinator(uow, FakeDriver())
-    snapshot = await coordinator.begin(caller_service="platform", branches=_specs())
+    snapshot = await coordinator.begin(caller_service=caller, branches=_specs())
 
     assert snapshot.state == TXN_ACTIVE
-    assert snapshot.caller_service == "platform"
+    assert snapshot.caller_service == caller
     assert [ref.branch_id for ref in snapshot.branches] == ["p1", "m1"]
     assert snapshot.branches[0].xid == build_branch_xid(snapshot.global_txn_id, "p1")
     assert snapshot.branches[0].state == "active"
 
 
-async def test_begin_rejects_duplicate_branch(uow: DbUnitOfWork) -> None:
+async def test_begin_rejects_duplicate_branch(uow: DbUnitOfWork, caller: str) -> None:
     """开启：分支标识重复即拒（`10001`）；空分支清单即拒。"""
     coordinator = _coordinator(uow, FakeDriver())
     duplicated = (
@@ -156,16 +187,16 @@ async def test_begin_rejects_duplicate_branch(uow: DbUnitOfWork) -> None:
         BranchSpec(branch_id="p1", service="org", db_key="tenant_demo"),
     )
     with pytest.raises(ParamError):
-        await coordinator.begin(caller_service="platform", branches=duplicated)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
+        await coordinator.begin(caller_service=caller, branches=duplicated)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     with pytest.raises(ParamError):
-        await coordinator.begin(caller_service="platform", branches=ConcurrentStableList(()))
+        await coordinator.begin(caller_service=caller, branches=ConcurrentStableList(()))
 
 
-async def test_commit_all_prepared_commits_every_branch(uow: DbUnitOfWork) -> None:
+async def test_commit_all_prepared_commits_every_branch(uow: DbUnitOfWork, caller: str) -> None:
     """决定点：全票 `prepared` ⇒ 落 `committing` 并逐分支提交至 `committed`。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
 
     result = await coordinator.commit(started.global_txn_id)
 
@@ -175,11 +206,11 @@ async def test_commit_all_prepared_commits_every_branch(uow: DbUnitOfWork) -> No
     assert driver.rolled_back == []
 
 
-async def test_commit_rejects_when_a_branch_not_prepared(uow: DbUnitOfWork) -> None:
+async def test_commit_rejects_when_a_branch_not_prepared(uow: DbUnitOfWork, caller: str) -> None:
     """决定点前：任一分支未 `prepared` ⇒ 全部分支回滚、**无任何提交**。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
     driver.states.set(started.branches[1].xid, "rejected")
 
     result = await coordinator.commit(started.global_txn_id)
@@ -190,11 +221,11 @@ async def test_commit_rejects_when_a_branch_not_prepared(uow: DbUnitOfWork) -> N
     assert sorted(driver.rolled_back) == sorted(ref.xid for ref in started.branches)
 
 
-async def test_rollback_before_decision_rolls_back(uow: DbUnitOfWork) -> None:
+async def test_rollback_before_decision_rolls_back(uow: DbUnitOfWork, caller: str) -> None:
     """决定点前主动回滚：全部分支回滚至 `rolled_back`。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
 
     result = await coordinator.rollback(started.global_txn_id)
 
@@ -203,11 +234,11 @@ async def test_rollback_before_decision_rolls_back(uow: DbUnitOfWork) -> None:
     assert driver.committed == []
 
 
-async def test_rollback_after_decision_is_absorbed(uow: DbUnitOfWork) -> None:
+async def test_rollback_after_decision_is_absorbed(uow: DbUnitOfWork, caller: str) -> None:
     """决定点之后回滚请求**被幂等吸收**：只提交、不再回滚。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
     await coordinator.commit(started.global_txn_id)
     driver.committed.clear()
 
@@ -217,11 +248,11 @@ async def test_rollback_after_decision_is_absorbed(uow: DbUnitOfWork) -> None:
     assert driver.rolled_back == []
 
 
-async def test_commit_and_rollback_are_idempotent(uow: DbUnitOfWork) -> None:
+async def test_commit_and_rollback_are_idempotent(uow: DbUnitOfWork, caller: str) -> None:
     """终态后重复驱动不改变终态、不重复提交。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
     await coordinator.commit(started.global_txn_id)
     driver.committed.clear()
 
@@ -231,14 +262,14 @@ async def test_commit_and_rollback_are_idempotent(uow: DbUnitOfWork) -> None:
     assert driver.committed == []
 
 
-async def test_status_unknown_transaction_rejected(uow: DbUnitOfWork) -> None:
+async def test_status_unknown_transaction_rejected(uow: DbUnitOfWork, caller: str) -> None:
     """未知全局事务查询即拒（`10001`）。"""
     coordinator = _coordinator(uow, FakeDriver())
     with pytest.raises(ParamError):
         await coordinator.status("not-exists")
 
 
-async def test_driver_failure_keeps_draft_and_marks_error(uow: DbUnitOfWork) -> None:
+async def test_driver_failure_keeps_draft_and_marks_error(uow: DbUnitOfWork, caller: str) -> None:
     """驱动失败：分支保持未确认并记录失败原因与重试次数（由恢复器重驱动）。"""
 
     class FailingDriver(FakeDriver):
@@ -251,7 +282,7 @@ async def test_driver_failure_keeps_draft_and_marks_error(uow: DbUnitOfWork) -> 
 
     driver = FailingDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
 
     result = await coordinator.commit(started.global_txn_id)
 
@@ -271,11 +302,11 @@ async def test_unavailable_driver_rejects_explicitly() -> None:
         await driver.commit(service="platform", db_key="platform", xid="x1")
 
 
-async def test_recovery_drives_committing_transaction(uow: DbUnitOfWork) -> None:
+async def test_recovery_drives_committing_transaction(uow: DbUnitOfWork, caller: str) -> None:
     """恢复器：`committing` 事务被驱动至 `committed`（决定点后只提交）。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
     # 人为把账本置为 committing（模拟「决定点已落、驱动中断」）
     txns = GlobalTxnRepository(uow.session)
     async with uow.begin():
@@ -286,21 +317,23 @@ async def test_recovery_drives_committing_transaction(uow: DbUnitOfWork) -> None
         await txns.flush()
 
     recovery = _recovery(uow, coordinator)
-    handled = await recovery.run_once()
+    handled = await recovery.run_once(caller_services=ConcurrentStableList([caller]))
 
     assert handled == 1
     assert (await coordinator.status(started.global_txn_id)).state == TXN_COMMITTED
     assert sorted(driver.committed) == sorted(ref.xid for ref in started.branches)
     async with uow.begin():
         logs = await GlobalTxnRecoveryRepository(uow.session).list_recent()
-    assert [log.action for log in logs] == ["drive_commit"]
+    # 共享库里还有他人的处置台账：按本用例的事务收口
+    mine = [log for log in logs if log.global_txn_id == started.global_txn_id]
+    assert [log.action for log in mine] == ["drive_commit"]
 
 
-async def test_recovery_rolls_back_expired_transaction(uow: DbUnitOfWork) -> None:
+async def test_recovery_rolls_back_expired_transaction(uow: DbUnitOfWork, caller: str) -> None:
     """恢复器：**到期未提交**的 `active` 事务 ⇒ 置回滚（详设 §6）。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
     txns = GlobalTxnRepository(uow.session)
     async with uow.begin():
         row = await txns.get_by_global_txn_id(started.global_txn_id)
@@ -309,15 +342,18 @@ async def test_recovery_rolls_back_expired_transaction(uow: DbUnitOfWork) -> Non
         await txns.flush()
 
     recovery = _recovery(uow, coordinator)
-    await recovery.run_once()
+    await recovery.run_once(caller_services=ConcurrentStableList([caller]))
 
     assert (await coordinator.status(started.global_txn_id)).state == TXN_ROLLED_BACK
     assert driver.committed == []
 
 
-async def test_recovery_ignores_non_unsettled_states(uow: DbUnitOfWork) -> None:
+async def test_recovery_ignores_non_unsettled_states(uow: DbUnitOfWork, caller: str) -> None:
     """恢复器单轮只处置在途状态：无在途事务时为 0（不误动终态 / 启发式终态）。"""
-    assert await _recovery(uow, _coordinator(uow, FakeDriver())).run_once() == 0
+    assert (
+        await _recovery(uow, _coordinator(uow, FakeDriver())).run_once(caller_services=ConcurrentStableList([caller]))
+        == 0
+    )
 
 
 class _FlakyDriver(FakeDriver):
@@ -338,7 +374,7 @@ class _FlakyDriver(FakeDriver):
         return await super().commit(service=service, db_key=db_key, xid=xid)
 
 
-async def test_drive_failure_keeps_non_terminal_and_recovery_resumes(uow: DbUnitOfWork) -> None:
+async def test_drive_failure_keeps_non_terminal_and_recovery_resumes(uow: DbUnitOfWork, caller: str) -> None:
     """决定点后分支驱动失败 ⇒ **不落终态**，由恢复器下轮重驱动至 `committed`（指标同批断言）。"""
     metrics = RecordingMetrics()
     driver = _FlakyDriver()
@@ -349,14 +385,16 @@ async def test_drive_failure_keeps_non_terminal_and_recovery_resumes(uow: DbUnit
         driver,
         metrics=metrics,
     )
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
 
     after_commit = await coordinator.commit(started.global_txn_id)
     assert after_commit.state == TXN_COMMITTING  # 未全确认 ⇒ 不落终态
     drive_results = list(metrics.labels_of(METRIC_BRANCH_DRIVE))
     assert drive_results[:2] == [{"result": DRIVE_ERROR}, {"result": DRIVE_OK}]
 
-    assert await _recovery(uow, coordinator, metrics=metrics).run_once() == 1
+    assert (
+        await _recovery(uow, coordinator, metrics=metrics).run_once(caller_services=ConcurrentStableList([caller])) == 1
+    )
     final = await coordinator.status(started.global_txn_id)
     assert final.state == TXN_COMMITTED
     assert all(ref.state == BRANCH_COMMITTED for ref in final.branches)
@@ -370,11 +408,11 @@ async def test_drive_failure_keeps_non_terminal_and_recovery_resumes(uow: DbUnit
     ]
 
 
-async def test_recovery_rolls_back_rolling_back_transaction(uow: DbUnitOfWork) -> None:
+async def test_recovery_rolls_back_rolling_back_transaction(uow: DbUnitOfWork, caller: str) -> None:
     """决定点前的 `rolling_back` 事务：未到期仍驱动回滚（续行至终态）。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
     txns = GlobalTxnRepository(uow.session)
     async with uow.begin():
         row = await txns.get_by_global_txn_id(started.global_txn_id)
@@ -385,20 +423,24 @@ async def test_recovery_rolls_back_rolling_back_transaction(uow: DbUnitOfWork) -
 
     recovery = _recovery(uow, coordinator)
 
-    assert await recovery.run_once() == 1
+    assert await recovery.run_once(caller_services=ConcurrentStableList([caller])) == 1
     assert (await coordinator.status(started.global_txn_id)).state == TXN_ROLLED_BACK
     assert driver.committed == []
 
 
-async def test_recovery_skips_unknown_state_row(uow: DbUnitOfWork, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_recovery_skips_unknown_state_row(
+    uow: DbUnitOfWork, monkeypatch: pytest.MonkeyPatch, caller: str
+) -> None:
     """非终态查询返回协议外状态行：跳过不驱动；已终态行亦被过滤。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    unknown = await coordinator.begin(caller_service="platform", branches=_specs())
-    terminal = await coordinator.begin(caller_service="platform", branches=_specs())
+    unknown = await coordinator.begin(caller_service=caller, branches=_specs())
+    terminal = await coordinator.begin(caller_service=caller, branches=_specs())
 
-    async def _rows(self: GlobalTxnRepository, *, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
-        del limit
+    async def _rows(
+        self: GlobalTxnRepository, *, limit: int = 200, caller_services: object = None
+    ) -> ConcurrentStableList[GlobalTxn]:
+        del limit, caller_services
         rows: ConcurrentStableList[GlobalTxn] = ConcurrentStableList()
         unknown_row = await self.get_by_global_txn_id(unknown.global_txn_id)
         assert unknown_row is not None
@@ -414,11 +456,11 @@ async def test_recovery_skips_unknown_state_row(uow: DbUnitOfWork, monkeypatch: 
     monkeypatch.setattr(GlobalTxnRepository, "list_unsettled", _rows)
     recovery = _recovery(uow, coordinator)
 
-    assert await recovery.run_once() == 0
+    assert await recovery.run_once(caller_services=ConcurrentStableList([caller])) == 0
     assert driver.committed == [] and driver.rolled_back == []
 
 
-async def test_recovery_record_tolerates_missing_transaction(uow: DbUnitOfWork) -> None:
+async def test_recovery_record_tolerates_missing_transaction(uow: DbUnitOfWork, caller: str) -> None:
     """处置台账落库：事务记录缺失时结论为「事务记录缺失」（不阻断台账写入）。"""
     recovery = _recovery(uow, _coordinator(uow, FakeDriver()))
 
@@ -438,11 +480,11 @@ class FailingVerifyDriver(FakeDriver):
         raise RuntimeError("核验不可达")
 
 
-async def test_verify_failure_rolls_back_and_records_error(uow: DbUnitOfWork) -> None:
+async def test_verify_failure_rolls_back_and_records_error(uow: DbUnitOfWork, caller: str) -> None:
     """决定点前核验失败：按否决处理（记失败原因）⇒ 全部分支回滚、无任何提交。"""
     driver = FailingVerifyDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
 
     result = await coordinator.commit(started.global_txn_id)
 
@@ -455,11 +497,11 @@ async def test_verify_failure_rolls_back_and_records_error(uow: DbUnitOfWork) ->
     assert all(row.last_error == "核验不可达" for row in rows)
 
 
-async def test_rollback_in_committing_state_is_absorbed(uow: DbUnitOfWork) -> None:
+async def test_rollback_in_committing_state_is_absorbed(uow: DbUnitOfWork, caller: str) -> None:
     """决定点已落（`committing`）时的回滚请求：只提交、不再回滚（幂等吸收）。"""
     driver = FakeDriver()
     coordinator = _coordinator(uow, driver)
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
     txns = GlobalTxnRepository(uow.session)
     async with uow.begin():
         row = await txns.get_by_global_txn_id(started.global_txn_id)
@@ -474,14 +516,14 @@ async def test_rollback_in_committing_state_is_absorbed(uow: DbUnitOfWork) -> No
     assert driver.rolled_back == []
 
 
-async def test_internal_helpers_edge_cases(uow: DbUnitOfWork) -> None:
+async def test_internal_helpers_edge_cases(uow: DbUnitOfWork, caller: str) -> None:
     """内部辅助：事务缺失即拒；终态不再决定；分支缺失 / 同态跳过；驱动跳过已终态分支。"""
     coordinator = _coordinator(uow, FakeDriver())
 
     with pytest.raises(ParamError):
         await coordinator.commit("not-exists")
 
-    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    started = await coordinator.begin(caller_service=caller, branches=_specs())
     gid = started.global_txn_id
     await coordinator.commit(gid)
 
@@ -495,11 +537,11 @@ async def test_internal_helpers_edge_cases(uow: DbUnitOfWork) -> None:
     assert (await coordinator.status(gid)).state == TXN_COMMITTED
 
 
-async def test_ledger_repository_queries(uow: DbUnitOfWork) -> None:
+async def test_ledger_repository_queries(uow: DbUnitOfWork, caller: str) -> None:
     """账本仓储：启发式终态 / 到期 `active` / 未确认分支 / 处置台账落库。"""
     coordinator = _coordinator(uow, FakeDriver())
-    heuristic = await coordinator.begin(caller_service="platform", branches=_specs())
-    expired = await coordinator.begin(caller_service="platform", branches=_specs())
+    heuristic = await coordinator.begin(caller_service=caller, branches=_specs())
+    expired = await coordinator.begin(caller_service=caller, branches=_specs())
 
     txns = GlobalTxnRepository(uow.session)
     branches = GlobalTxnBranchRepository(uow.session)
@@ -519,9 +561,11 @@ async def test_ledger_repository_queries(uow: DbUnitOfWork) -> None:
         heuristic_rows = await txns.list_heuristic()
         expired_rows = await txns.list_expired_active(now=datetime.now(UTC))
         unsettled = await branches.list_unsettled()
-    assert [item.global_txn_id for item in heuristic_rows] == [heuristic.global_txn_id]
-    assert [item.global_txn_id for item in expired_rows] == [expired.global_txn_id]
-    assert [item.branch_id for item in unsettled] == ["p1", "m1", "p1", "m1"]
+    # 共享库里还有他人的事务 / 分支：只断言本用例造的那几条
+    mine = ConcurrentStableSet((heuristic.global_txn_id, expired.global_txn_id))
+    assert [item.global_txn_id for item in heuristic_rows if item.global_txn_id in mine] == [heuristic.global_txn_id]
+    assert [item.global_txn_id for item in expired_rows if item.global_txn_id in mine] == [expired.global_txn_id]
+    assert [item.branch_id for item in unsettled if item.global_txn_id in mine] == ["p1", "m1", "p1", "m1"]
 
 
 def _recovery(uow: DbUnitOfWork, coordinator: TransactionCoordinator, *, metrics: Any = None) -> TransactionRecovery:

@@ -87,17 +87,21 @@ class TransactionRecovery(BaseFrameworkObject):
         self._batch_limit = batch_limit
         self._metrics = metrics
 
-    async def run_once(self, *, now: datetime | None = None) -> int:
+    async def run_once(
+        self, *, now: datetime | None = None, caller_services: ConcurrentStableList[str] | None = None
+    ) -> int:
         """单轮对账：扫描非终态事务并按**决定点**驱动至终态。
 
         Args:
             now: 当前时间（UTC；缺省取系统时钟；用例可注入）。
+            caller_services: 只处置这些发起方服务键的事务（`None` = 不限，即全表口径；
+                分批恢复 / 用例隔离用）。
 
         Returns:
             int: 本轮处置的事务数。
         """
         moment = now if now is not None else datetime.now(UTC)
-        unsettled = await self._unsettled()
+        unsettled = await self._unsettled(caller_services)
         await self._report_hung(len(unsettled))
         handled = 0
         for txn in unsettled:
@@ -113,15 +117,18 @@ class TransactionRecovery(BaseFrameworkObject):
             handled += 1
         return handled
 
-    async def _unsettled(self) -> ConcurrentStableList[GlobalTxn]:
+    async def _unsettled(self, caller_services: ConcurrentStableList[str] | None) -> ConcurrentStableList[GlobalTxn]:
         """读非终态事务（独立只读事务）。
+
+        Args:
+            caller_services: 发起方服务键范围（`None` = 不限）。
 
         Returns:
             ConcurrentStableList[GlobalTxn]: 非终态事务清单（已按状态二次过滤）。
         """
         result: ConcurrentStableList[GlobalTxn] = ConcurrentStableList()
         async with self._uow.begin():
-            rows = await self._txns.list_unsettled(limit=self._batch_limit)
+            rows = await self._txns.list_unsettled(limit=self._batch_limit, caller_services=caller_services)
             for row in rows:
                 if row.state not in TXN_TERMINAL_STATES:
                     result.add(row)

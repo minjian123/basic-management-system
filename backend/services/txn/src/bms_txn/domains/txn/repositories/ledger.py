@@ -38,25 +38,26 @@ class GlobalTxnRepository(BaseDbRepository[GlobalTxn]):
         statement = self._select().where(self._column("global_txn_id") == global_txn_id)
         return (await self._session.execute(statement)).scalars().first()
 
-    async def list_unsettled(self, *, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
+    async def list_unsettled(
+        self, *, limit: int = 200, caller_services: ConcurrentStableList[str] | None = None
+    ) -> ConcurrentStableList[GlobalTxn]:
         """取非终态全局事务（恢复器扫描对象；按截止时间升序）。
 
         Args:
             limit: 单轮上限。
+            caller_services: 只取这些发起方服务键的事务（`None` = 不限，即全表口径）。
 
         Returns:
             ConcurrentStableList[GlobalTxn]: 非终态事务清单。
         """
-        statement: Select[tuple[GlobalTxn]] = (
-            self._select()
-            .where(
-                self._column("state").not_in(
-                    ("committed", "rolled_back", "heuristic_commit", "heuristic_rollback", "heuristic_mixed")
-                )
+        statement: Select[tuple[GlobalTxn]] = self._select().where(
+            self._column("state").not_in(
+                ("committed", "rolled_back", "heuristic_commit", "heuristic_rollback", "heuristic_mixed")
             )
-            .order_by(self._column("deadline_at").asc(), self._column("id").asc())
-            .limit(limit)
         )
+        if caller_services:
+            statement = statement.where(self._column("caller_service").in_(tuple(caller_services)))
+        statement = statement.order_by(self._column("deadline_at").asc(), self._column("id").asc()).limit(limit)
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def list_terminal_before(self, *, cutoff: datetime, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
