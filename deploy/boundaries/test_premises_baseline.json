@@ -787,11 +787,6 @@
       "count": 3
     },
     {
-      "file": "backend/services/platform/tests/account_lock/test_endpoint.py",
-      "code": "P5",
-      "count": 2
-    },
-    {
       "file": "backend/services/platform/tests/account_lock/test_endpoints.py",
       "code": "P5",
       "count": 1
@@ -917,11 +912,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/platform/tests/credentials/test_credentials.py",
-      "code": "P5",
-      "count": 2
-    },
-    {
       "file": "backend/services/platform/tests/crosscut/test_plugin_assembly.py",
       "code": "P5",
       "count": 5
@@ -995,31 +985,6 @@
       "file": "backend/services/platform/tests/users/test_admin_api.py",
       "code": "P5",
       "count": 4
-    },
-    {
-      "file": "backend/services/platform/tests/users/test_create.py",
-      "code": "P5",
-      "count": 2
-    },
-    {
-      "file": "backend/services/platform/tests/users/test_create_membership.py",
-      "code": "P5",
-      "count": 4
-    },
-    {
-      "file": "backend/services/platform/tests/users/test_internal_query.py",
-      "code": "P5",
-      "count": 3
-    },
-    {
-      "file": "backend/services/platform/tests/users/test_profile.py",
-      "code": "P5",
-      "count": 2
-    },
-    {
-      "file": "backend/services/platform/tests/users/test_reset_target.py",
-      "code": "P5",
-      "count": 2
     },
     {
       "file": "backend/services/platform/tests/users/test_user_assignments_writer.py",
