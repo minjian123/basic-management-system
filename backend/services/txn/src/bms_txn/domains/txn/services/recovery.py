@@ -145,12 +145,15 @@ class TransactionRecovery(BaseFrameworkObject):
         """
         async with self._uow.begin():
             state = None
+            caller_service: str | None = None
             txn = await self._txns.get_by_global_txn_id(global_txn_id)
             if txn is not None:
                 state = txn.state
+                caller_service = txn.caller_service
             conclusion = f"驱动后状态={state}" if state is not None else "事务记录缺失"
             await self._recoveries.create(
                 global_txn_id=global_txn_id,
+                caller_service=caller_service,
                 branch_id=branch_id,
                 detected_at=moment,
                 hung_seconds=None,

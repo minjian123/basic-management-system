@@ -12,23 +12,25 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
 from typing import cast
+from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.plugin import PluginImpl
 from bms_core.db.engine import EngineFactory
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.lock.null import NullDistributedLock
+from bms_core.testing.transaction import _sqlite_autocommit, gate_for_engine  # pyright: ignore[reportPrivateUsage]
 from bms_core.transaction.base import BRANCH_PREPARED, TXN_COMMITTING, BranchSpec
 from bms_txn.domains.txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
 from bms_txn.domains.txn.repositories.ledger import GlobalTxnBranchRepository, GlobalTxnRepository
@@ -43,6 +45,7 @@ from bms_txn.domains.txn.services.recovery_poll import (
     register_transaction_recovery,
 )
 from tests_support.metrics import RecordingMetrics
+from tests_support.shared_access import shared_engine, shared_platform_url
 
 pytestmark = [pytest.mark.kiwi_id(2271)]
 
@@ -121,20 +124,49 @@ class FakeDriver(BranchDriver):
         return "rolled_back"
 
 
+def _gated(engine: AsyncEngine) -> AsyncSession:
+    """把引擎包成操作级写门会话（每次写操作取写门、写完即放）。
+
+    Args:
+        engine: 目标库引擎。
+
+    Returns:
+        AsyncSession: 门代理会话。
+    """
+    gate_name = gate_for_engine(engine)
+    maker: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    raw = maker()
+    if gate_name is None:  # pragma: no cover - 共享平台库必然命中门名
+        return raw
+    return cast("AsyncSession", LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), raw, bind=engine))
+
+
+@pytest.fixture
+def caller() -> str:
+    """每例一个唯一发起方服务键。
+
+    轮询单轮同时跑恢复与清理，两者都是全表批处理语义；共享库上按范围收口，才不至于驱动 / 清理
+    别的用例（或别的 worker）造的事务。
+
+    Returns:
+        str: 发起方服务键。
+    """
+    return f"svc-{uuid4().hex[:10]}"
+
+
 class _LedgerEngine:
     """内存 SQLite 账本（异步上下文管理器：进入建三表、退出释放引擎）。"""
 
     def __init__(self) -> None:
-        self.engine = create_async_engine(
-            "sqlite+aiosqlite:///:memory:", poolclass=StaticPool, connect_args={"check_same_thread": False}
-        )
+        # 账本三表归属登记在平台库：共用共享平台库（建表幂等）
+        self.engine = shared_engine(shared_platform_url())
 
-    async def __aenter__(self) -> SessionMaker:
-        """建表并返回会话工厂。"""
+    async def __aenter__(self) -> Callable[[], AsyncSession]:
+        """建表并返回会话工厂（每次调用开一个门代理会话）。"""
         async with self.engine.begin() as connection:
             for model in (GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery):
                 await connection.run_sync(cast("Table", model.__table__).create, checkfirst=True)
-        return async_sessionmaker(self.engine, expire_on_commit=False)
+        return lambda: _gated(self.engine)
 
     async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:
         """释放引擎。"""
@@ -167,13 +199,13 @@ def _opener(factory: SessionMaker) -> SessionOpener:
     return _open
 
 
-async def _seed_committing(factory: SessionMaker, driver: FakeDriver) -> None:
+async def _seed_committing(factory: SessionMaker, driver: FakeDriver, caller: str) -> None:
     """建一个 `committing` 在途事务（模拟「决定点已落、驱动中断」）。"""
     session = factory()
     uow = DbUnitOfWork(session)
     coordinator = TransactionCoordinator(GlobalTxnRepository(session), GlobalTxnBranchRepository(session), uow, driver)
     started = await coordinator.begin(
-        caller_service="platform",
+        caller_service=caller,
         branches=ConcurrentStableList((BranchSpec(branch_id="p1", service="platform", db_key="platform"),)),
     )
     txns = GlobalTxnRepository(session)
@@ -187,7 +219,7 @@ async def _seed_committing(factory: SessionMaker, driver: FakeDriver) -> None:
 
 
 @pytest.fixture
-async def ledger() -> AsyncIterator[SessionMaker]:
+async def ledger() -> AsyncIterator[Callable[[], AsyncSession]]:
     """账本会话工厂（内存 SQLite，三表）。"""
     async with _LedgerEngine() as factory:
         yield factory
@@ -203,11 +235,14 @@ async def drain() -> AsyncIterator[ConcurrentStableList[PollTransactionRecovery]
 
 
 async def test_setup_runs_startup_round_then_periodic(
-    ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery], monkeypatch: pytest.MonkeyPatch
+    ledger: SessionMaker,
+    drain: ConcurrentStableList[PollTransactionRecovery],
+    monkeypatch: pytest.MonkeyPatch,
+    caller: str,
 ) -> None:
     """`setup()`：先跑一轮（处置在途事务）再起周期循环；`aclose()` 停止循环。"""
     driver = FakeDriver()
-    await _seed_committing(ledger, driver)
+    await _seed_committing(ledger, driver, caller)
     plugin = PollTransactionRecovery(
         sessions=_opener(ledger), lock=FakeLock(), driver=driver, interval_seconds=0.01, metrics=RecordingMetrics()
     )
@@ -233,7 +268,7 @@ async def test_setup_runs_startup_round_then_periodic(
     assert len(calls) == settled  # 取消后不再推进
 
 
-async def test_run_once_skips_when_lock_taken(ledger: SessionMaker) -> None:
+async def test_run_once_skips_when_lock_taken(ledger: SessionMaker, caller: str) -> None:
     """非 leader（锁被他人持有）⇒ 跳过本轮，且**不开启账本会话**。"""
     opened: ConcurrentStableList[int] = ConcurrentStableList()
     opener = _opener(ledger)
@@ -244,58 +279,58 @@ async def test_run_once_skips_when_lock_taken(ledger: SessionMaker) -> None:
 
     plugin = PollTransactionRecovery(sessions=_counting_opener, lock=FakeLock(taken=True), driver=FakeDriver())
     assert plugin.enabled is True
-    assert await plugin.run_once() == 0
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0
     assert opened == []
 
 
-async def test_run_once_skips_when_lock_unavailable(ledger: SessionMaker) -> None:
+async def test_run_once_skips_when_lock_unavailable(ledger: SessionMaker, caller: str) -> None:
     """锁不可用（Redis 故障）⇒ 跳过本轮并告警，不抛错、不触碰账本。"""
     plugin = PollTransactionRecovery(sessions=_opener(ledger), lock=FakeLock(fail=True), driver=FakeDriver())
-    assert await plugin.run_once() == 0
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0
 
 
 async def test_leader_renewed_then_reacquired(
-    ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery]
+    ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery], caller: str
 ) -> None:
     """首轮取锁，次轮续租（不重新取）；续租失败则重新竞争并再次计数。"""
     lock = FakeLock()
     metrics = RecordingMetrics()
     plugin = PollTransactionRecovery(sessions=_opener(ledger), lock=lock, driver=FakeDriver(), metrics=metrics)
     drain.add(plugin)
-    assert await plugin.run_once() == 0
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0
     assert (lock.acquire_calls, lock.extend_calls) == (1, 0)
-    assert await plugin.run_once() == 0  # 续租成功：不再 acquire
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0  # 续租成功：不再 acquire
     assert (lock.acquire_calls, lock.extend_calls) == (1, 1)
     lock.extend_result = False
-    assert await plugin.run_once() == 0  # 续租失败：重新竞争
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0  # 续租失败：重新竞争
     assert (lock.acquire_calls, lock.extend_calls) == (2, 2)
     assert list(metrics.counter_values(METRIC_LEADER_SWITCH)) == [1.0, 1.0]  # 两次取得领导权
 
 
 async def test_extend_failure_swallows_lock_error(
-    ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery]
+    ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery], caller: str
 ) -> None:
     """续租抛错（锁不可用）⇒ 跳过本轮并清零 token，下轮重新竞争。"""
     lock = FakeLock()
     plugin = PollTransactionRecovery(sessions=_opener(ledger), lock=lock, driver=FakeDriver())
     drain.add(plugin)
-    assert await plugin.run_once() == 0
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0
     lock.fail = True
-    assert await plugin.run_once() == 0
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0
     assert lock.acquire_calls == 1  # 续租抛错当轮不再竞争
     lock.fail = False
-    assert await plugin.run_once() == 0
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0
     assert lock.acquire_calls == 2
 
 
 async def test_aclose_releases_leadership(
-    ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery]
+    ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery], caller: str
 ) -> None:
     """`aclose()`：释放 leader 锁且不重复释放（非 leader 时为空操作）。"""
     lock = FakeLock()
     plugin = PollTransactionRecovery(sessions=_opener(ledger), lock=lock, driver=FakeDriver())
     drain.add(plugin)
-    assert await plugin.run_once() == 0
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0
     await plugin.aclose()
     assert lock.release_calls == 1
     await plugin.aclose()  # 幂等：token 已清零，不再释放
@@ -318,10 +353,10 @@ async def test_round_guarded_swallows_errors(
     assert plugin._task is not None  # pyright: ignore[reportPrivateUsage]  # 后台任务已起
 
 
-async def test_run_once_drives_ledger_round(ledger: SessionMaker) -> None:
+async def test_run_once_drives_ledger_round(ledger: SessionMaker, caller: str) -> None:
     """单轮：构造真实仓储与会话驱动在途事务（计数 1，分支被提交）。"""
     driver = FakeDriver()
-    await _seed_committing(ledger, driver)
+    await _seed_committing(ledger, driver, caller)
     plugin = PollTransactionRecovery(
         sessions=_opener(ledger),
         lock=FakeLock(),
@@ -330,7 +365,7 @@ async def test_run_once_drives_ledger_round(ledger: SessionMaker) -> None:
         batch_limit=5,
         deadline_seconds=123.0,
     )
-    assert await plugin.run_once() == 1
+    assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 1
     assert len(driver.committed) == 1
 
 
@@ -352,7 +387,9 @@ async def test_factory_reads_app_state_and_falls_back() -> None:
     assert fallback._metrics is None  # pyright: ignore[reportPrivateUsage]
 
 
-async def test_session_opener_opens_registry_session(ledger: SessionMaker, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_session_opener_opens_registry_session(
+    ledger: SessionMaker, monkeypatch: pytest.MonkeyPatch, caller: str
+) -> None:
     """会话开启器：工厂装配后**按应用注册表开会话**（单轮真实构造与执行）。"""
     from bms_txn.domains.txn.services import recovery_poll as module
 
@@ -371,7 +408,7 @@ async def test_session_opener_opens_registry_session(ledger: SessionMaker, monke
     monkeypatch.setattr(module, "session_scope", _scope)
     plugin = PollTransactionRecoveryFactory(settings, app).create()
     try:
-        assert await plugin.run_once() == 0
+        assert await plugin.run_once(caller_services=ConcurrentStableList([caller])) == 0
     finally:
         await plugin.aclose()
     assert list(opened) == ["open"]
@@ -404,7 +441,10 @@ def test_register_transaction_recovery_skips_when_frozen(monkeypatch: pytest.Mon
 
 
 async def test_round_guarded_reraises_cancel(
-    ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery], monkeypatch: pytest.MonkeyPatch
+    ledger: SessionMaker,
+    drain: ConcurrentStableList[PollTransactionRecovery],
+    monkeypatch: pytest.MonkeyPatch,
+    caller: str,
 ) -> None:
     """单轮遇取消：照常向上抛出（不吞 `CancelledError`，保证收尾语义）。"""
     import asyncio

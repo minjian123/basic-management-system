@@ -172,11 +172,14 @@ class PollTransactionRecovery(BaseTransactionRecovery):
         with contextlib.suppress(Exception):  # 释放失败不影响退出（TTL 自行过期）
             await self._lock.release(self._leader_lock_key, token)
 
-    async def run_once(self, *, now: datetime | None = None) -> int:
+    async def run_once(
+        self, *, now: datetime | None = None, caller_services: ConcurrentStableList[str] | None = None
+    ) -> int:
         """单轮：非 leader / 锁不可用即跳过（返回 0）；leader 则执行一轮对账。
 
         Args:
             now: 当前时间（UTC；缺省取系统时钟；用例可注入）。
+            caller_services: 只处置 / 清理这些发起方服务键的事务与台账（`None` = 不限，即全表口径）。
 
         Returns:
             int: 本轮处置的事务数（跳过时为 0）。
@@ -185,8 +188,8 @@ class PollTransactionRecovery(BaseTransactionRecovery):
             return 0
         async with self._sessions() as session:
             recovery = self._build_recovery(session)
-            handled = await recovery.run_once(now=now)
-            cleaned = await self._build_cleanup(session).run_once(now=now)
+            handled = await recovery.run_once(now=now, caller_services=caller_services)
+            cleaned = await self._build_cleanup(session).run_once(now=now, caller_services=caller_services)
         _LOGGER.info("txn_recovery_round", handled=handled, cleaned=cleaned.total)
         return handled
 

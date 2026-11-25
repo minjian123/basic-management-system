@@ -97,12 +97,20 @@ class LedgerCleanup(BaseFrameworkObject):
         self._recovery_batch_limit = recovery_batch_limit
         self._metrics = metrics
 
-    async def run_once(self, *, now: datetime | None = None, dry_run: bool = False) -> CleanupStats:
+    async def run_once(
+        self,
+        *,
+        now: datetime | None = None,
+        dry_run: bool = False,
+        caller_services: ConcurrentStableList[str] | None = None,
+    ) -> CleanupStats:
         """单轮清理：终态超期主记录（含分支）→ 超期处置台账。
 
         Args:
             now: 当前时间（UTC；缺省取系统时钟；用例可注入）。
             dry_run: 只统计不删除（`ops txn_recovery cleanup --dry-run` 用）。
+            caller_services: 只清理这些发起方服务键的事务与台账（`None` = 不限，即全表口径；
+                分批清理 / 用例隔离用）。
 
         Returns:
             CleanupStats: 本轮删除（`dry_run` 下为**将删除**）的行数统计。
@@ -110,8 +118,12 @@ class LedgerCleanup(BaseFrameworkObject):
         moment = now if now is not None else datetime.now(UTC)
         cutoff = moment - timedelta(days=self._retention_days)
         async with self._uow.begin():
-            expired = await self._txns.list_terminal_before(cutoff=cutoff, limit=self._batch_limit)
-            expired_recoveries = await self._recoveries.list_before(cutoff=cutoff, limit=self._recovery_batch_limit)
+            expired = await self._txns.list_terminal_before(
+                cutoff=cutoff, limit=self._batch_limit, caller_services=caller_services
+            )
+            expired_recoveries = await self._recoveries.list_before(
+                cutoff=cutoff, limit=self._recovery_batch_limit, caller_services=caller_services
+            )
             if dry_run:
                 stats = CleanupStats(
                     globals=len(expired),

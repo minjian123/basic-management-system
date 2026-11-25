@@ -70,6 +70,9 @@ class GlobalTxnRecovery(BaseModel):
     )
 
     global_txn_id: Mapped[str] = mapped_column(String(64), comment="被处置的全局事务标识")
+    caller_service: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, comment="发起方服务键（从主表冗余：主表行被清理后仍可按服务分片清理）"
+    )
     branch_id: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="被处置分支（空 = 整事务级）")
     detected_at: Mapped[datetime] = mapped_column(DateTime, comment="发现时刻（UTC）")
     hung_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="悬挂时长（秒）")

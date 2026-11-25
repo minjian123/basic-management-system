@@ -60,7 +60,9 @@ class GlobalTxnRepository(BaseDbRepository[GlobalTxn]):
         statement = statement.order_by(self._column("deadline_at").asc(), self._column("id").asc()).limit(limit)
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
-    async def list_terminal_before(self, *, cutoff: datetime, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
+    async def list_terminal_before(
+        self, *, cutoff: datetime, limit: int = 200, caller_services: ConcurrentStableList[str] | None = None
+    ) -> ConcurrentStableList[GlobalTxn]:
         """取**终态且超期**的全局事务（账本清理对象；按更新时间升序）。
 
         终态＝`committed` / `rolled_back` / 启发式三态；在途事务（`active` / `preparing` /
@@ -69,21 +71,20 @@ class GlobalTxnRepository(BaseDbRepository[GlobalTxn]):
         Args:
             cutoff: 保留期截止时刻（`updated_at < cutoff` 才可清理）。
             limit: 单轮上限。
+            caller_services: 只取这些发起方服务键的事务（`None` = 不限，即全表口径）。
 
         Returns:
             ConcurrentStableList[GlobalTxn]: 可清理事务清单。
         """
-        statement: Select[tuple[GlobalTxn]] = (
-            self._select()
-            .where(
-                self._column("state").in_(
-                    ("committed", "rolled_back", "heuristic_commit", "heuristic_rollback", "heuristic_mixed")
-                )
+        statement: Select[tuple[GlobalTxn]] = self._select().where(
+            self._column("state").in_(
+                ("committed", "rolled_back", "heuristic_commit", "heuristic_rollback", "heuristic_mixed")
             )
-            .where(self._column("updated_at") < cutoff)
-            .order_by(self._column("updated_at").asc(), self._column("id").asc())
-            .limit(limit)
         )
+        statement = statement.where(self._column("updated_at") < cutoff)
+        if caller_services:
+            statement = statement.where(self._column("caller_service").in_(tuple(caller_services)))
+        statement = statement.order_by(self._column("updated_at").asc(), self._column("id").asc()).limit(limit)
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def delete_by_ids(self, ids: ConcurrentStableList[int]) -> int:
@@ -220,22 +221,23 @@ class GlobalTxnRecoveryRepository(BaseDbRepository[GlobalTxnRecovery]):
         """落库当前会话变更。"""
         await self._session.flush()
 
-    async def list_before(self, *, cutoff: datetime, limit: int = 500) -> ConcurrentStableList[GlobalTxnRecovery]:
+    async def list_before(
+        self, *, cutoff: datetime, limit: int = 500, caller_services: ConcurrentStableList[str] | None = None
+    ) -> ConcurrentStableList[GlobalTxnRecovery]:
         """取**超期**处置台账（`detected_at < cutoff`；最旧优先）。
 
         Args:
             cutoff: 保留期截止时刻。
             limit: 单轮上限。
+            caller_services: 只取这些发起方服务键的台账（`None` = 不限，即全表口径）。
 
         Returns:
             ConcurrentStableList[GlobalTxnRecovery]: 可清理台账清单。
         """
-        statement = (
-            self._select()
-            .where(self._column("detected_at") < cutoff)
-            .order_by(self._column("detected_at").asc(), self._column("id").asc())
-            .limit(limit)
-        )
+        statement = self._select().where(self._column("detected_at") < cutoff)
+        if caller_services:
+            statement = statement.where(self._column("caller_service").in_(tuple(caller_services)))
+        statement = statement.order_by(self._column("detected_at").asc(), self._column("id").asc()).limit(limit)
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def delete_by_ids(self, ids: ConcurrentStableList[int]) -> int:
