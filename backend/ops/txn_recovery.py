@@ -6,6 +6,7 @@
     uv run python -m ops.txn_recovery drive-commit --global-txn-id ID
     uv run python -m ops.txn_recovery drive-rollback --global-txn-id ID
     uv run python -m ops.txn_recovery cleanup [--retention-days N] [--limit N] [--dry-run]
+        [--caller-service SVC ...]
 
 - `list`：**直读 TM 账本**（平台侧独立基础设施库 `bms_txn`）——列出非终态（`hung`）或
   启发式完成（`heuristic`）事务及其分支，供人工对账；
@@ -114,7 +115,10 @@ async def _cleanup(args: argparse.Namespace) -> int:
                 retention_days=args.retention_days,
                 batch_limit=args.limit,
             )
-            stats = await cleanup.run_once(dry_run=args.dry_run)
+            stats = await cleanup.run_once(
+                dry_run=args.dry_run,
+                caller_services=(ConcurrentStableList(args.caller_service) if args.caller_service else None),
+            )
         scope = "将删除" if args.dry_run else "已删除"
         suffix = "，dry-run" if args.dry_run else ""
         print(
@@ -192,6 +196,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     cleanup.add_argument("--limit", type=int, default=200, help="单轮主记录上限")
     cleanup.add_argument("--dry-run", action="store_true", help="只统计不删除")
+    cleanup.add_argument(
+        "--caller-service",
+        action="append",
+        default=None,
+        metavar="SVC",
+        help="只清理该发起方服务键的事务与台账（可重复；缺省 = 全表）",
+    )
     cleanup.add_argument("--db-key", default=PLATFORM_DB_KEY, help="数据源键（缺省平台库 = 账本库）")
 
     drive_rollback = subparsers.add_parser("drive-rollback", help="驱动回滚（决定点后由 TM 幂等吸收）")
