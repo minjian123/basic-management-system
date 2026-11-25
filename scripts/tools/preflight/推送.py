@@ -3,10 +3,14 @@
 
 用法::
 
-    python3 scripts/tools/preflight/推送.py [bms 仓库根] [--full]
-                                          [--remote origin] [--branch main]
-                                          [--jobs auto|N|off]
-                                          [--budget-seconds N] [--step-seconds N]
+    backend/.venv/bin/python scripts/tools/preflight/推送.py [bms 仓库根] [--full]
+                                                          [--remote origin] [--branch main]
+                                                          [--jobs auto|N|off]
+                                                          [--budget-seconds N] [--step-seconds N]
+
+必须用**仓内 venv 解释器**启动（Windows：`backend\\.venv\\Scripts\\python.exe`）：预检步骤里的
+`{python}` 取启动解释器（`sys.executable`），用 PATH 上的 python 会把 pyright / 护栏指向缺依赖的
+系统解释器。`推送.bat` / `推送.sh` 两个入口已固定走仓内 venv。
 
 档位由**待推提交**自动选择（不再是人工选档）：全为文档 → 快速档（静态 + 护栏，秒级）；
 含代码 / 配置 → 定向档（静态 + 定向用例 + 覆盖率门禁）；`--full` 显式全量。
