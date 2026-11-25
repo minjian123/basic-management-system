@@ -40,6 +40,7 @@ __all__ = [
     "shared_read",
     "shared_session",
     "shared_sync_engine",
+    "shared_tenant_url",
     "shared_transaction_session",
     "shared_window",
     "shared_write",
@@ -57,6 +58,17 @@ def shared_platform_url() -> str:
     from bms_core.testing.fixtures import test_db_dir
 
     return f"sqlite+aiosqlite:///{(test_db_dir() / 'platform.db').resolve().as_posix()}"
+
+
+def shared_tenant_url() -> str:
+    """共享租户库连接串（会话测试库目录下的 `tenant.db`）。
+
+    Returns:
+        str: 租户库异步连接串。
+    """
+    from bms_core.testing.fixtures import test_db_dir
+
+    return f"sqlite+aiosqlite:///{(test_db_dir() / 'tenant.db').resolve().as_posix()}"
 
 
 def shared_engine(url: str, **kwargs: object) -> AsyncEngine:

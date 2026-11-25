@@ -19,6 +19,7 @@ from bms_core.scope.base import DataScope
 from bms_core.scope.null import NullDataScope
 from bms_core.sharding.base import ShardingRouter
 from bms_core.tasks.base import BaseTask
+from tests_support.shared_access import shared_platform_url
 
 
 class EmptyStub(BaseStub):
@@ -80,7 +81,7 @@ def test_event_worker_contract() -> None:
 async def test_async_resource_context() -> None:
     """异步资源：`async with` 进入并释放；`aclose` 幂等。"""
     settings = Settings()
-    settings.database.platform.url = "sqlite+aiosqlite:///:memory:"
+    settings.database.platform.url = shared_platform_url()
     async with EngineFactory(settings) as factory:
         assert isinstance(factory, BaseAsyncResource)
         factory.create("platform")

@@ -7,6 +7,7 @@ from httpx import ASGITransport, AsyncClient
 
 from bms_core.core.config import get_settings
 from bms_platform.main import ApplicationFactory
+from tests_support.shared_access import shared_platform_url, shared_tenant_url
 
 pytestmark = pytest.mark.integration
 
@@ -18,7 +19,10 @@ async def test_readyz_with_real_redis(monkeypatch: pytest.MonkeyPatch) -> None:
         pytest.skip("未配置 BMS_TEST_REDIS_URL，跳过真实 Redis 集成用例")
 
     monkeypatch.setenv("BMS_REDIS__URL", url)
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", "sqlite+aiosqlite:///:memory:")
+    # 真 Redis 必须在装配前注入，故本用例自建 app（外部联调场景）；数据库仍指向**共享库**，
+    # 不另建内存库——生产里也没有「用例专属库」这种形态。
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", shared_platform_url())
+    monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_url())
     get_settings.cache_clear()
 
     app = ApplicationFactory().create(None)

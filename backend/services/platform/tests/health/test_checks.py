@@ -3,7 +3,7 @@
 from typing import cast
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.db.registry import EngineRegistry
 from bms_core.fallback.base import DEPENDENCIES
@@ -98,14 +98,10 @@ async def test_redis_check_failure_maps_to_class_name(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.kiwi_id(65)
-async def test_database_check_success_with_memory_sqlite() -> None:
-    """database 检查项：平台引擎 `SELECT 1` 通过返回就绪（内存 SQLite）。"""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    try:
-        check = DatabaseHealthCheck(_as_registry(_StubEngineRegistry(engine=engine)))
-        result = await check.check()
-    finally:
-        await engine.dispose()
+async def test_database_check_success(shared_platform_engine: AsyncEngine) -> None:
+    """database 检查项：平台引擎 `SELECT 1` 通过返回就绪（共享平台库引擎）。"""
+    check = DatabaseHealthCheck(_as_registry(_StubEngineRegistry(engine=shared_platform_engine)))
+    result = await check.check()
 
     assert result.ok is True
     assert result.error is None
