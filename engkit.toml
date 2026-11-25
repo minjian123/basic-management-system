@@ -231,7 +231,7 @@ cmd = ["uv", "run", "ruff", "format", "--check", "../scripts/tools"]
 cwd = "backend"
 
 [[preflight.steps]]
-label = "后端测试：定向（选测 + 覆盖率门禁 + 扩圈）"
+label = "后端测试：定向（只跑改动文件本身 + 改动文件覆盖率）"
 type = "scoped_tests"
 preset = "scoped"
 
