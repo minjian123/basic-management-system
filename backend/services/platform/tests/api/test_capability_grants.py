@@ -49,7 +49,6 @@ from bms_core.services.module_registry import (
     reset_collaboration_records,
     reset_domain_services,
 )
-from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_platform.domains.platform_registry.repositories.capability_grant import CapabilityGrantRepository
 from bms_platform.domains.platform_registry.services.capability_grant import CapabilityGrantService
@@ -58,6 +57,10 @@ from tests_support.permission_admin import setup_min_tenant
 
 API = "/api/v1/capability-grants"
 INTERNAL_API = "/api/v1/platform/internal/capability-grants"
+
+pytestmark = pytest.mark.xdist_group("platform-global-state")
+"""能力目录与授权是进程 / 共享库上的全局状态（用例走启动同步时会按声明全集对账）：
+本文件用例固定在同一 worker 上串行，与其它改声明 / 拓扑 / 配置的用例同组。"""
 
 CONSUMER = "platform"
 """消费方取真实服务键：授权表唯一键是「能力 × 消费方」，能力名带命名空间即已唯一，
@@ -234,21 +237,7 @@ async def _admin_subject(tenant_db: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _grant_global_serial() -> Iterator[None]:
-    """能力授权是共享库上的**全局状态**：用专用文件锁串行，避免多 worker 同删同建。
-
-    数据库门只按单次读写取放，无法承担「整段全局状态」的独占；文件锁是本用例组专用的
-    串行开关（心跳兜底陈旧，等锁上限 120s 是排队预算，不是死锁等待）。
-
-    Yields:
-        None: 用例运行期。
-    """
-    with file_lock("platform-global-state", timeout=180.0):
-        yield
-
-
-@pytest.fixture(autouse=True)
-def _isolate_grant_state(ns: Namespace, _grant_global_serial: None) -> Iterator[None]:
+def _isolate_grant_state(ns: Namespace) -> Iterator[None]:
     """在**装配态目录之上**追加本用例的能力与业务域，用例结束原样恢复。
 
     为什么不再「清空目录 + 只装一条」：装配常驻后能力目录是装配期产物，清空会连带
@@ -258,7 +247,6 @@ def _isolate_grant_state(ns: Namespace, _grant_global_serial: None) -> Iterator[
 
     Args:
         ns: 用例命名空间。
-        _grant_global_serial: 整段全局状态的独占开关（依赖顺序）。
 
     Yields:
         None: 用例运行期。
@@ -277,9 +265,7 @@ def _isolate_grant_state(ns: Namespace, _grant_global_serial: None) -> Iterator[
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _clean_grants(
-    ns: Namespace, _grant_global_serial: None, _admin_subject: None, service_app: FastAPI
-) -> AsyncIterator[None]:
+async def _clean_grants(ns: Namespace, _admin_subject: None, service_app: FastAPI) -> AsyncIterator[None]:
     """只清**本用例能力**的授权行（进入 / 退出各一次），并复位进程内授权缓存。
 
     不再删全局声明行（那会让别的 worker 重新同步并与本用例竞争）；也不再用整条用例回滚。
@@ -288,7 +274,6 @@ async def _clean_grants(
         ns: 用例命名空间（本用例能力名唯一，删行不会波及他人）。
         service_app: 应用实例（启动钩子已执行）。
         _admin_subject: 保证授权主体先就位（依赖顺序；装配常驻后权限检查器不再逐例替换）。
-        _grant_global_serial: 整段全局状态的独占开关（依赖顺序）。
 
     Yields:
         None: 用例运行期。

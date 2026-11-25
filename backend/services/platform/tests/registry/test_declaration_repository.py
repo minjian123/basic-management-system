@@ -2,8 +2,7 @@
 
 单库叠加口径（04-6-2，13_08 修订）：库用共享平台库，**写入立即落库**（不再回滚）；用例只操作
 本文件固定的 `demo` 声明数据，并在用例前后按产品键清理自己的行。声明表是全进程共享的全局
-状态，故整份文件用专用文件锁串行；「损坏 JSON」用例另起独立内存库，避免波及并行 worker 的
-启动读取（`own_db` 白名单理由见模块级标记）。
+状态，故整份文件固定在同一 worker 上串行（`xdist_group`，13_10 T6 起替代专用文件锁）。
 
 覆盖：
 - 现状读取（未落库 / 八类回读 / 损坏 JSON 即抛）；
@@ -12,7 +11,7 @@
 - 平台自注册载荷合并（纯函数分支）。
 """
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from dataclasses import replace
 
 import pytest
@@ -46,12 +45,14 @@ from bms_core.services.module_registry import (
     CollaborationRecord,
     ModuleRecord,
 )
-from bms_core.testing.locks import file_lock
 from bms_core.testing.transaction import write_session
 from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.services.declaration_bootstrap import with_platform_services
 from bms_platform.domains.platform_registry.services.declaration_registry import DeclarationRegistryService
 from tests_support.shared_access import shared_transaction_session
+
+pytestmark = pytest.mark.xdist_group("platform-global-state")
+"""声明表是共享库上的全局状态：本文件用例固定在同一 worker 上串行，与其它改全局状态的用例同组。"""
 
 # 声明表用例：损坏行用事务内构造 + 回滚（不落共享库），其余数据按 `demo` 产品键前后清理。
 
@@ -98,24 +99,10 @@ async def _purge_demo(engine: AsyncEngine) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _declaration_global_serial() -> Iterator[None]:
-    """声明表是共享库上的全局状态：整份文件串行（数据库门只管单次读写）。
-
-    Yields:
-        None: 用例运行期。
-    """
-    with file_lock("platform-global-state", timeout=180.0):
-        yield
-
-
-@pytest.fixture(autouse=True)
-async def _clean_demo_declarations(
-    _declaration_global_serial: None, shared_platform_engine: AsyncEngine
-) -> AsyncIterator[None]:
+async def _clean_demo_declarations(shared_platform_engine: AsyncEngine) -> AsyncIterator[None]:
     """用例前后清理本文件的 `demo` 声明行（写入已立即落库，必须自己收尾）。
 
     Args:
-        _declaration_global_serial: 保证清理也在串行区间内。
         shared_platform_engine: 共享平台库引擎。
 
     Yields:

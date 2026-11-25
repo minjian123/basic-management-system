@@ -12,6 +12,7 @@
 from collections.abc import Iterator
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
 
@@ -21,28 +22,34 @@ from bms_core.models.platform.declaration import SysScopeResourceType
 from bms_core.resource_scope import SCOPE_RESOURCE_DISABLED, reset_scope_resource_types
 from bms_core.testing.namespace import Namespace
 from tests_support.auth import auth_headers
+from tests_support.permission_admin import setup_min_tenant
 
 API = "/api/v1/scope-resource-types"
 SNAPSHOT = "/api/v1/modules/snapshot"
 
 
-@pytest.fixture(autouse=True)
-def _null_permission(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """权限校验改用占位实现（恒放行）：权限码判定归权限引擎专项，本套只验端点语义。
+@pytest_asyncio.fixture(autouse=True)
+async def _admin_subject(tenant_db: str) -> None:
+    """把测试主体置为内置系统管理员（真实授权，命中豁免层级）。
+
+    装配常驻后权限检查器不再逐例替换（`BMS_PERMISSION__PROVIDER` 切实现读不到），本套用例
+    只能像真实运行一样准备授权数据：主体命中内置管理员豁免层级，端点语义才可单独验证。
 
     Args:
-        monkeypatch: 环境变量覆盖夹具。
+        tenant_db: 共享测试租户库连接串（授权数据落这里）。
+    """
+    await setup_min_tenant(tenant_db)
+
+
+@pytest.fixture(autouse=True)
+def _reset_scope_registry() -> Iterator[None]:
+    """复位进程内的作用域资源类型视图（用例写入不提交，视图需逐例重建）。
 
     Yields:
         None: 用例运行期。
     """
-    from bms_core.core.config import get_settings
-
-    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "null")
-    get_settings.cache_clear()
     reset_scope_resource_types()
     yield
-    get_settings.cache_clear()
     reset_scope_resource_types()
 
 

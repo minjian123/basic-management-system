@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncGenerator, AsyncIterator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -28,7 +28,6 @@ from bms_core.servicecall.base import BaseServiceClient
 from bms_core.servicecall.null import NullServiceClient
 from bms_core.storage.base import BaseObjectStorage
 from bms_core.storage.local import LocalObjectStorage
-from bms_core.testing.locks import file_lock
 from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import GatedSessionMaker, gated_sessionmaker
 from bms_report.domains.report.artifact_cleanup import (
@@ -43,18 +42,10 @@ from bms_report.domains.report.repositories.job import (
     with_expired,
 )
 
-pytestmark = [pytest.mark.kiwi_id(2403)]
-
-
-@pytest.fixture(autouse=True)
-def _platform_global_lock() -> Iterator[None]:
-    """全局扫描作业按过期时间扫全表：用专用文件锁串行（数据库门只管单次读写）。
-
-    Yields:
-        None: 用例运行期。
-    """
-    with file_lock("platform-global-state", timeout=180.0):
-        yield
+pytestmark = [pytest.mark.kiwi_id(2403), pytest.mark.xdist_group("platform-global-state")]
+"""清理作业按类型**全表**扫过期行（`scanned` / `cleaned` 是整表口径）：本文件用例固定在同一
+worker 上串行，避免自己前一条用例的行被后一条的扫描算进批次。全仓只有本文件造
+`print.batch.execute` 的过期行，故组外用例不会进入扫描面。"""
 
 
 _TTL = 600

@@ -4,17 +4,16 @@
 结构 revision 由替身读面给出——它跨库读（每域一张 `alembic_version_{domain}`），真库路径归 `ops.release`。
 """
 
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import cast
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
 
 from bms_core.audit.base import AuditCapturer
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError, ConflictError, NotFoundError, ParamError
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.migration import domain_series
@@ -26,7 +25,6 @@ from bms_core.models.platform.release_manifest import (
     SysReleaseManifestDomain,
 )
 from bms_core.services.module_registry import domain_service_view, service_catalog_view
-from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_platform.domains.platform_registry.dto import ReleaseDomainEntry
 from bms_platform.domains.platform_registry.repositories.release_manifest import (
@@ -36,9 +34,14 @@ from bms_platform.domains.platform_registry.repositories.release_manifest import
 from bms_platform.domains.platform_registry.repositories.tenant_topology import TenantTopologyRepository
 from bms_platform.domains.platform_registry.services import release as release_service
 from bms_platform.domains.platform_registry.services.release import ReleaseService
+from tests_support.permission_admin import setup_min_tenant
 
 UNIT = "platform"
 """默认拓扑里平台自身承载的部署单元（域 → 承载服务键自举）。"""
+
+pytestmark = pytest.mark.xdist_group("platform-global-state")
+"""发布清单与批次是共享库上的全局状态（按作用范围命名空间收口，但快照出口读全表）：
+本文件用例固定在同一 worker 上串行，与本仓其它改全局状态的用例同组。"""
 
 
 def _scope(ns: Namespace) -> int:
@@ -56,31 +59,18 @@ def _scope(ns: Namespace) -> int:
     return int(ns.prefix[2:], 16)
 
 
-@pytest.fixture(autouse=True)
-def _platform_global_lock() -> Iterator[None]:
-    """平台全局状态（拓扑 / 授权 / 默认参数）用专用文件锁串行，避免多 worker 同改。
+@pytest_asyncio.fixture(autouse=True)
+async def _admin_subject(tenant_db: str) -> None:
+    """把测试主体置为内置系统管理员（**真实授权**，不换检查器）。
 
-    Yields:
-        None: 用例运行期。
-    """
-    with file_lock("platform-global-state", timeout=180.0):
-        yield
-
-
-@pytest.fixture(autouse=True)
-def _null_permission(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """权限校验改用占位实现（恒放行）：本套用例只验端点语义。
+    装配常驻后权限检查器在装配期就建好，逐例改 `BMS_PERMISSION__PROVIDER` 读不到；管理面
+    读端点要求 `release-manifest:query`，故像真实运行一样准备授权数据（主体命中内置管理员
+    豁免层级，13_10 口径）。
 
     Args:
-        monkeypatch: 环境变量覆盖夹具。
-
-    Yields:
-        None: 用例运行期。
+        tenant_db: 共享测试租户库连接串（授权数据落这里）。
     """
-    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "null")
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
+    await setup_min_tenant(tenant_db)
 
 
 class _Revisions:

@@ -4,20 +4,21 @@
 平台未自举时返回空快照（不 500）。
 """
 
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Awaitable, Callable
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
 
 from bms_core.collaboration.bootstrap import TOPOLOGY_SNAPSHOT_PATH
 from bms_core.collaboration.topology import DEFAULT_TOPOLOGY_TENANT
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.core.exceptions import AuthError, PermissionError
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.services.module_registry import domain_service_view
 from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
+from tests_support.permission_admin import setup_min_tenant
 
 pytestmark = pytest.mark.kiwi_id(2367)
 
@@ -49,30 +50,29 @@ class _StubVerifier:
         raise AuthError("invalid")
 
 
-@pytest.fixture(autouse=True)
-def _null_permission(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """权限校验改用占位实现（恒放行）：本套用例只验端点语义。
+@pytest_asyncio.fixture(autouse=True)
+async def _admin_subject(tenant_db: str) -> None:
+    """把测试主体置为内置系统管理员（真实授权，命中豁免层级）。
+
+    装配常驻后权限检查器不再逐例替换（`BMS_PERMISSION__PROVIDER` 切实现读不到），管理面请求
+    只能像真实运行一样准备授权数据：主体命中内置管理员豁免层级，端点语义才可单独验证。
 
     Args:
-        monkeypatch: 环境变量覆盖夹具。
-
-    Yields:
-        None: 用例运行期。
+        tenant_db: 共享测试租户库连接串（授权数据落这里）。
     """
-    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "null")
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
+    await setup_min_tenant(tenant_db)
 
 
-async def test_service_identity_reads_full_snapshot(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_service_identity_reads_full_snapshot(
+    client: AsyncClient, service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """用例 19：服务身份读全量快照——含默认拓扑与已配置租户、行只回解析三列（无运营字段）。"""
     domain = next(iter(domain_service_view()))
     await client.put(
         f"/api/v1/tenant-topologies/{CONFIGURED_TENANT}",
         json={"rows": [{"domain_key": domain, "unit_key": "core", "status": "enabled"}]},
     )
-    service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
 
     resp = await client.get(INTERNAL_API, headers={"Authorization": "Bearer platform"})
 
@@ -128,7 +128,7 @@ async def test_empty_snapshot_when_platform_not_bootstrapped(
     client: AsyncClient, service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """用例 21：平台尚未自举——返回空快照与默认版本 0（调用方按「未装载」降级，不报 500）。"""
-    service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
 
     async def _empty(self: TenantTopologyService) -> ConcurrentStableList[object]:
         """恒返回空快照清单。

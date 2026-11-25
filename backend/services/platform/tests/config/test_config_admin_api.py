@@ -6,14 +6,12 @@
 单库叠加（04-6-2 §2.8，**真叠加**）：跑**共享租户库**（平台默认参数已由准备集播种），
 不再每用例建临时库。断言语义绑定平台默认键（重置回填 `_PLATFORM_DEFAULTS` / 依赖成对校验 /
 敏感标记）的用例，改为「用例前把这些键复位到平台默认态（值 / 未覆盖 / 未软删）→ 用例内读写 →
-用例后复位」，并用与 `test_config_platform_defaults.py` **同名**的跨进程文件锁串行
-（共享库里这些固定键是全局状态，SQLite 写锁不能拿来互斥）。
+用例后复位」，并固定在同一 worker 上串行（`xdist_group`，13_10 T6 起替代跨进程文件锁）。
 「全表总数 / 清单为空」类断言一律改为「按关键字限定本用例数据」——叠加下全表起点不存在。
 """
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
@@ -26,7 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bms_core.config.models import SysConfig
 from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
-from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import gated_session, gated_sessionmaker
@@ -132,11 +129,11 @@ async def config_admin_bootstrap(tenant_db: str, shared_tenant_engine: AsyncEngi
 
 @pytest_asyncio.fixture
 async def config_global_state(shared_tenant_engine: AsyncEngine) -> AsyncIterator[None]:
-    """全局默认键的独占区间：**专用跨进程锁**保独占，数据库门只在复位那一瞬取。
+    """全局默认键的独占区间：**同文件用例串行**保独占，数据库门只在复位那一瞬取。
 
-    为什么不再用 `write_window` 包住 yield：那是「整条用例持数据库写门」，24 路下会把
-    其它 worker 全堵在门口（门是全局一把）。这里换成文件锁独占全局键，用例主体照常
-    读写、读按操作取放，复位才短暂进写门。
+    为什么不用 `write_window` 包住 yield：那是「整条用例持数据库写门」，24 路下会把
+    其它 worker 全堵在门口（门是全局一把）。独占改由「本文件用例固定在同一 worker 上串行」
+    承担（`xdist_group`，13_10 T6 起替代跨进程文件锁）；用例主体照常读写、读按操作取放。
 
     Args:
         shared_tenant_engine: 共享租户库引擎。
@@ -145,17 +142,11 @@ async def config_global_state(shared_tenant_engine: AsyncEngine) -> AsyncIterato
         None: 用例运行期。
     """
     factory = gated_sessionmaker(shared_tenant_engine)
-    lock = file_lock("platform-global-state", timeout=180.0)
-    """专用文件锁：等的是「同组用例串行跑完」，不是死锁——死锁由锁的陈旧判据（心跳 30s）兜底。"""
-    await asyncio.to_thread(lock.__enter__)
-    try:
-        async with factory() as db:
-            await _reset(db)
-        yield
-        async with factory() as db:
-            await _reset(db)
-    finally:
-        await asyncio.to_thread(lock.__exit__, None, None, None)
+    async with factory() as db:
+        await _reset(db)
+    yield
+    async with factory() as db:
+        await _reset(db)
 
 
 @pytest_asyncio.fixture
@@ -411,4 +402,4 @@ async def test_delete_missing_returns_not_found(client: AsyncClient) -> None:
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
-pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-config")]  # pyright: ignore[reportUnknownVariableType]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-state")]  # pyright: ignore[reportUnknownVariableType]

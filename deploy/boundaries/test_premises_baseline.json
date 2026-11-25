@@ -797,11 +797,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/platform/tests/api/test_capability_grants.py",
-      "code": "P4",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/api/test_form_keys_api.py",
       "code": "P5",
       "count": 1
@@ -825,11 +820,6 @@
       "file": "backend/services/platform/tests/api/test_internal_permission.py",
       "code": "P5",
       "count": 4
-    },
-    {
-      "file": "backend/services/platform/tests/api/test_internal_tenant_topologies.py",
-      "code": "P5",
-      "count": 2
     },
     {
       "file": "backend/services/platform/tests/api/test_menu_metadata.py",
@@ -862,11 +852,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/platform/tests/api/test_tenant_topologies.py",
-      "code": "P4",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/api/test_user_extensions.py",
       "code": "P1",
       "count": 2
@@ -890,16 +875,6 @@
       "file": "backend/services/platform/tests/config/test_config_admin_api.py",
       "code": "P1",
       "count": 4
-    },
-    {
-      "file": "backend/services/platform/tests/config/test_config_admin_api.py",
-      "code": "P4",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/config/test_config_platform_defaults.py",
-      "code": "P4",
-      "count": 1
     },
     {
       "file": "backend/services/platform/tests/config/test_internal_config.py",
@@ -942,11 +917,6 @@
       "count": 4
     },
     {
-      "file": "backend/services/platform/tests/import_export/test_export_jobs.py",
-      "code": "P4",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/listing/test_listing.py",
       "code": "P5",
       "count": 1
@@ -955,21 +925,6 @@
       "file": "backend/services/platform/tests/permission/test_source.py",
       "code": "P5",
       "count": 20
-    },
-    {
-      "file": "backend/services/platform/tests/registry/test_declaration_bootstrap.py",
-      "code": "P4",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/registry/test_declaration_repository.py",
-      "code": "P4",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/release/test_release_service.py",
-      "code": "P4",
-      "count": 1
     },
     {
       "file": "backend/services/platform/tests/role/test_role_assignments.py",
@@ -989,11 +944,6 @@
     {
       "file": "backend/services/platform/tests/users/test_user_assignments_writer.py",
       "code": "P5",
-      "count": 1
-    },
-    {
-      "file": "backend/services/report/tests/print/test_print_artifact_cleanup.py",
-      "code": "P4",
       "count": 1
     },
     {

@@ -26,7 +26,6 @@ from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_core.testing.locks import file_lock
 from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import gated_session
 from bms_platform.domains.platform_config.repositories.config import ConfigRepository
@@ -63,10 +62,10 @@ async def _restore(db: AsyncSession) -> None:
 
 @pytest_asyncio.fixture
 async def session(tenant_db: str, shared_tenant_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """共享租户库会话（操作级写门 + autocommit；平台默认键用文件锁串行）。
+    """共享租户库会话（操作级写门 + autocommit；平台默认键由本文件串行收口）。
 
-    平台默认键是共享库上的**全局状态**：独占改由专用文件锁承担，数据库门只覆盖单次写入，
-    不再整条用例持门。
+    平台默认键是共享库上的**全局状态**：独占改由「同文件用例固定在同一 worker 上串行」
+    承担（`xdist_group`，13_10 T6 起替代专用文件锁），数据库门只覆盖单次写入。
 
     Args:
         tenant_db: 共享租户库连接串（套件夹具已注入 `BMS_DATABASE__TENANTS__URL`）。
@@ -76,12 +75,11 @@ async def session(tenant_db: str, shared_tenant_engine: AsyncEngine) -> AsyncIte
         AsyncSession: 操作级门代理会话。
     """
     del tenant_db
-    with file_lock("platform-global-state", timeout=180.0):
-        await ensure_tables(shared_tenant_engine, _TABLES)
-        async with gated_session(shared_tenant_engine, read_only=False) as db:
-            await _restore(db)
-            yield db
-            await _restore(db)
+    await ensure_tables(shared_tenant_engine, _TABLES)
+    async with gated_session(shared_tenant_engine, read_only=False) as db:
+        await _restore(db)
+        yield db
+        await _restore(db)
 
 
 def _service(session: AsyncSession) -> ConfigAdminService:
@@ -184,4 +182,4 @@ async def test_dependency_reverse_when_dependent_missing(session: AsyncSession) 
     assert updated.value == "false"
 
 
-pytestmark = pytest.mark.xdist_group("platform-config")
+pytestmark = pytest.mark.xdist_group("platform-global-state")

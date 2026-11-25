@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, AsyncIterator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -29,7 +29,6 @@ from bms_core.models.platform.user import SysUser
 from bms_core.print.exporter import StoragePrintExporter
 from bms_core.print.templates import BuiltinPrintTemplateProvider
 from bms_core.storage.local import LocalObjectStorage
-from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import GatedSessionMaker, gated_sessionmaker
@@ -40,8 +39,9 @@ from bms_platform.domains.import_export.export_jobs import ExportCleanupJob, Exp
 from bms_platform.domains.import_export.services.exports import JOB_TYPE, KIND_EXCEL, ExportPayload
 
 pytestmark = [pytest.mark.kiwi_id(2402)]
-"""导出作业含产物清理：清理作业按类型**全局扫描**，夹具准备阶段就会造过期行，
-锁必须覆盖准备 / 清理全程，否则并行下会把别的用例刚造的行当作自己的批次处理。"""
+"""导出作业含产物清理：清理作业按类型**全表**扫过期行，夹具准备阶段就会造过期行，
+故本文件用例固定在同一 worker 上串行（`xdist_group`），否则并行下会把同文件另一条用例
+刚造的行当作自己的批次处理。"""
 
 
 @dataclass
@@ -51,17 +51,6 @@ class _Env:
     factory: GatedSessionMaker
     storage: LocalObjectStorage
     artifacts: ObjectStorageExportArtifactStore
-
-
-@pytest.fixture(autouse=True)
-def _platform_global_lock() -> Iterator[None]:
-    """全局扫描作业按过期时间扫全表：用专用文件锁串行（数据库门只管单次读写）。
-
-    Yields:
-        None: 用例运行期。
-    """
-    with file_lock("platform-global-state", timeout=180.0):
-        yield
 
 
 @pytest_asyncio.fixture
@@ -463,4 +452,4 @@ async def test_mark_expired_skips_missing_job(env: _Env) -> None:
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
-pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-writes-core")]  # pyright: ignore[reportUnknownVariableType]
+pytestmark = [*_existing_marks, pytest.mark.xdist_group("platform-global-state")]  # pyright: ignore[reportUnknownVariableType]

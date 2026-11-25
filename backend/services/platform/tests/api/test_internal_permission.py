@@ -31,6 +31,9 @@ METADATA_API = "/api/v1/platform/internal/permissions/metadata"
 _DOMAINS = ConcurrentStableFrozenList(("permission_meta",))
 """服务票据声明的承载域（07C `04_03`：入站第一道按域归属判定）。"""
 
+_EMPTY_SUBJECT = 7_900_001
+"""断言「空主体」用的用户主键：任何用例都不给它授角色 / 授权，共享库里恒无数据。"""
+
 
 class _StubVerifier:
     """测试替身：按令牌串返回服务身份（无签名）。"""
@@ -114,7 +117,9 @@ async def test_subject_endpoint_requires_identity_capability(client: AsyncClient
     """`subject` 出口：仅放行持有该能力有效分配的 `identity`；mdm / 网关 / 无票据一律拒。"""
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
 
-    ok = await client.post(SUBJECT_API, json={"user_id": 1001}, headers={"Authorization": "Bearer identity"})
+    # 「空主体」前提用**库内没有授权数据的主键**：共享库叠加运行后，测试主体（1001）会被
+    # 其它用例的授权准备（内置管理员）授过角色，拿它断言空角色等于假设「库里只有我的数据」。
+    ok = await client.post(SUBJECT_API, json={"user_id": _EMPTY_SUBJECT}, headers={"Authorization": "Bearer identity"})
     assert ok.status_code == 200, ok.text
     body = ok.json()["data"]
     # 「无主体数据」统一返回**五个契约字段齐全的空主体**（不透 `null`，消费方无需特判分支）

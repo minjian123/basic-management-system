@@ -4,23 +4,21 @@
 """
 
 import sys
-from collections.abc import Iterator
 from typing import cast
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
 from sqlalchemy import func, select
 
 from bms_core.collaboration import resolve_for
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.core.exceptions import CatalogError, NotFoundError
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.models.platform.tenant_topology import SysTenantTopology
 from bms_core.services.module_registry import domain_service_view
-from bms_core.testing.locks import file_lock
 from bms_core.testing.namespace import Namespace
 from bms_platform.domains.platform_registry.repositories.tenant_topology import (
     TenantTopologyRepository,
@@ -29,8 +27,11 @@ from bms_platform.domains.platform_registry.services.tenant_topology import (
     TenantTopologyService,
     TopologyRow,
 )
+from tests_support.permission_admin import setup_min_tenant
 
-pytestmark = pytest.mark.kiwi_id(2366)
+pytestmark = [pytest.mark.kiwi_id(2366), pytest.mark.xdist_group("platform-global-state")]
+"""租户拓扑是共享库上的全局状态（默认拓扑由启动自举维护，本文件写入命名空间租户行）：
+本文件用例固定在同一 worker 上串行，与其它改全局状态的用例同组。"""
 
 API = "/api/v1/tenant-topologies"
 
@@ -48,17 +49,6 @@ DISABLED_TENANT = 9004
 
 FALLBACK_TENANT = 9500
 """导出回退用例的租户主键（同上）。"""
-
-
-@pytest.fixture(autouse=True)
-def _platform_global_lock() -> Iterator[None]:
-    """平台全局状态（拓扑 / 授权 / 默认参数）用专用文件锁串行，避免多 worker 同改。
-
-    Yields:
-        None: 用例运行期。
-    """
-    with file_lock("platform-global-state", timeout=180.0):
-        yield
 
 
 @pytest.fixture(autouse=True)
@@ -85,20 +75,17 @@ def _namespaced_tenants(ns: Namespace, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(module, name, base + slot)
 
 
-@pytest.fixture(autouse=True)
-def _null_permission(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """权限校验改用占位实现（恒放行）：本套用例只验端点语义，权限码级判定归权限引擎专项。
+@pytest_asyncio.fixture(autouse=True)
+async def _admin_subject(tenant_db: str) -> None:
+    """把测试主体置为内置系统管理员（**真实授权**，不换检查器）。
+
+    装配常驻后权限检查器在装配期就建好，逐例改 `BMS_PERMISSION__PROVIDER` 读不到；本套用例
+    只验端点语义，故像真实运行一样准备授权数据（主体命中内置管理员豁免层级，13_10 口径）。
 
     Args:
-        monkeypatch: 环境变量覆盖夹具。
-
-    Yields:
-        None: 用例运行期。
+        tenant_db: 共享测试租户库连接串（授权数据落这里）。
     """
-    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "null")
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
+    await setup_min_tenant(tenant_db)
 
 
 def _rows(*pairs: tuple[str, str], status: str = "enabled") -> object:
