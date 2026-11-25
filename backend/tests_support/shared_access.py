@@ -35,6 +35,7 @@ from bms_core.db.gate import db_access_gate
 from bms_core.testing.transaction import gate_for_engine, gated_session
 
 __all__ = [
+    "shared_archive_url",
     "shared_engine",
     "shared_platform_url",
     "shared_read",
@@ -69,6 +70,21 @@ def shared_tenant_url() -> str:
     from bms_core.testing.fixtures import test_db_dir
 
     return f"sqlite+aiosqlite:///{(test_db_dir() / 'tenant.db').resolve().as_posix()}"
+
+
+def shared_archive_url() -> str:
+    """共享归档库连接串（会话测试库目录下的 `archive.db`）。
+
+    归档库 `bms_archive` 是**独立库**（不服务化）：`sys_archive_record` 在它里，而
+    `sys_archive_policy` / `sys_archive_log` / `sys_archive_chain_tail` 在平台库——
+    这是设计口径的跨库，不是内存库模拟。
+
+    Returns:
+        str: 归档库异步连接串。
+    """
+    from bms_core.testing.fixtures import test_db_dir
+
+    return f"sqlite+aiosqlite:///{(test_db_dir() / 'archive.db').resolve().as_posix()}"
 
 
 def shared_engine(url: str, **kwargs: object) -> AsyncEngine:

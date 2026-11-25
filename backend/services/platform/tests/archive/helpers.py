@@ -16,6 +16,7 @@ from bms_core.audit.hashchain import BaseHashChain
 from bms_core.audit.sha256 import Sha256HashChain
 from bms_core.audit.shards import build_shard_table, canonical_record
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.models.job import SysJob
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.ownership import SysTableOwnership
@@ -27,8 +28,19 @@ from bms_core.models.platform.archive import (
 )
 from bms_core.models.platform.log import SysAuditShard
 from bms_core.storage.base import BaseObjectStorage, PresignedUrl, StoredObject
+from bms_core.testing.transaction import _sqlite_autocommit, gate_for_engine  # pyright: ignore[reportPrivateUsage]
+from tests_support.shared_access import shared_archive_url, shared_engine, shared_platform_url
+from tests_support.shared_db import prepare_archive_async
 
-__all__ = ["FakeStorage", "archive_session", "new_pair", "seed_chain_rows", "seed_ownership", "utc"]
+__all__ = [
+    "FakeStorage",
+    "archive_session",
+    "new_pair",
+    "new_shared_pair",
+    "seed_chain_rows",
+    "seed_ownership",
+    "utc",
+]
 
 
 def utc(year: int, month: int, day: int = 1) -> datetime:
@@ -87,6 +99,40 @@ async def new_pair(tmp_path: Path) -> tuple[AsyncSession, AsyncSession, AsyncEng
     platform_session = async_sessionmaker(platform_engine, expire_on_commit=False)()
     archive_session = async_sessionmaker(archive_engine, expire_on_commit=False)()
     return platform_session, archive_session, platform_engine, archive_engine
+
+
+def _gated(engine: AsyncEngine) -> AsyncSession:
+    """把引擎包成操作级写门会话（每次写操作取写门、写完即放）。
+
+    Args:
+        engine: 目标库引擎。
+
+    Returns:
+        AsyncSession: 门代理会话。
+    """
+    gate_name = gate_for_engine(engine)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    raw = factory()
+    if gate_name is None:  # pragma: no cover - 共享库必然命中门名
+        return raw
+    return cast("AsyncSession", LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), raw, bind=engine))
+
+
+async def new_shared_pair() -> tuple[AsyncSession, AsyncSession, AsyncEngine, AsyncEngine]:
+    """共享平台库 / 共享归档库各开一个门代理会话（单库化口径）。
+
+    归档域天然跨两库：`sys_archive_policy` / `sys_archive_log` / `sys_archive_chain_tail` 在平台库，
+    `sys_archive_record` 在独立归档库 `bms_archive`（不服务化）。表由共享库准备集建好，用例不再
+    各自 `create_all`；引擎由调用方 `dispose`。
+
+    Returns:
+        tuple[AsyncSession, AsyncSession, AsyncEngine, AsyncEngine]: (平台库会话, 归档库会话,
+        平台库引擎, 归档库引擎)。
+    """
+    await prepare_archive_async(shared_archive_url())
+    platform_engine = shared_engine(shared_platform_url())
+    archive_engine = shared_engine(shared_archive_url())
+    return _gated(platform_engine), _gated(archive_engine), platform_engine, archive_engine
 
 
 async def archive_session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:

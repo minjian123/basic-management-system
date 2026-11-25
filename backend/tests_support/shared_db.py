@@ -18,6 +18,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from bms_core.testing import shared_db as base_shared_db
 from bms_core.testing.shared_db import (
     SEED_TENANT_IDS,
@@ -81,6 +83,36 @@ async def prepare_platform_async(url: str) -> None:
         url: 共享平台库连接串。
     """
     await base_shared_db.prepare_platform_async(url, seed_catalog=True)
+
+
+def prepare_archive(url: str) -> None:
+    """准备归档库：只建归档数据行表（`sys_archive_record`）。
+
+    归档库 `bms_archive` 是独立库（不服务化），平台库的准备集不能替它建表；这里按**单表**
+    建，避免把平台库的表也建进归档库。
+
+    Args:
+        url: 共享归档库连接串。
+    """
+    asyncio.run(prepare_archive_async(url))
+
+
+async def prepare_archive_async(url: str) -> None:
+    """归档库准备集的异步实现（见 `prepare_archive`）。
+
+    Args:
+        url: 共享归档库连接串。
+    """
+    from sqlalchemy import MetaData
+
+    from bms_core.models.platform.archive import SysArchiveRecord
+    from bms_core.testing.shared_db import create_tables
+
+    metadata = MetaData()
+    # `to_metadata` 在 SQLAlchemy 类型桩里未声明（运行期可用）：只取归档数据行表，
+    # 避免把平台库的表也建进归档库。
+    SysArchiveRecord.__table__.to_metadata(metadata)  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType]
+    await create_tables(url, metadata)
 
 
 def prepare_tenant(url: str) -> None:
