@@ -288,6 +288,28 @@ def fake_tenant_source(monkeypatch: pytest.MonkeyPatch) -> None:
     install_fake_tenant_source(monkeypatch)
 
 
+@pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
+async def _bootstrap_capability_grants(assembled_system: AssembledSystem | None) -> None:
+    """补跑能力分配的启动钩子（装配态不跑 lifespan，声明默认授权无从落库）。
+
+    内部端点的鉴权有「按能力分配判定」这一路（`require_capability_or_service`），查的是库内
+    授权；声明基线来自 `deploy/registry/*.toml` 的 `default_consumers`，由 lifespan 的
+    `bootstrap_capability_grants` 落库。装配态为省时间不起 lifespan，故这里补一次
+    （钩子先做只读比对，无差异不开写事务）。
+
+    Args:
+        assembled_system: 会话级全系统装配（未装配时跳过）。
+    """
+    if assembled_system is None:
+        return
+    app = assembled_system.app("platform")
+    from bms_platform.domains.platform_registry.services.capability_grant_bootstrap import (
+        bootstrap_capability_grants,
+    )
+
+    await bootstrap_capability_grants(app)
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def service_app(assembled_system: AssembledSystem | None) -> AsyncIterator[FastAPI]:
     """平台服务应用实例（取全系统装配的实例，**不再重建**）。
