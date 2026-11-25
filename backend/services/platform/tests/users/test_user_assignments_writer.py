@@ -16,9 +16,10 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from typing import Any, cast
+from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.collaboration.base import CapabilityEndpoint, CapabilityMode, CapabilityTarget
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
@@ -34,11 +35,13 @@ from bms_core.core.exceptions import (
     UserProtectedError,
     UserSeparationConflictError,
 )
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.db.keys import build_platform_db_key
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_core.models.platform.user import SysUser
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
+from bms_core.testing.transaction import _sqlite_autocommit, gate_for_engine  # pyright: ignore[reportPrivateUsage]
 from bms_core.transaction.base import BRANCH_PREPARED, BRANCH_REJECTED, BranchRef, GlobalTransaction
 from bms_platform.capabilities import CAPABILITY_MDM_USER_DEPTS, CAPABILITY_MDM_USER_POSTS
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
@@ -62,21 +65,28 @@ from bms_platform.domains.user.services.user_assignments import (
     resolve_branch_endpoints,
 )
 from bms_platform.wiring import role_assignment, role_query
+from tests_support.shared_access import shared_engine, shared_tenant_url
 
 pytestmark = [pytest.mark.kiwi_id(2278)]
 
 
 async def _session() -> tuple[AsyncSession, AsyncEngine]:
-    """建临时内存 SQLite 会话（建全量平台元数据表）。
+    """共享租户库上的门代理会话（`sys_user` / `sys_role` / `sys_user_role` 都属租户库）。
+
+    引擎是本次调用自建的独立实例（`NullPool`），用例结束 `engine.dispose()` 只关自己的连接池；
+    每次写操作取写门、写完即放。
 
     Returns:
         tuple[AsyncSession, AsyncEngine]: (会话, 引擎)。
     """
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as conn:
-        await conn.run_sync(SysUser.metadata.create_all)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    return factory(), engine
+    engine = shared_engine(shared_tenant_url())
+    gate_name = gate_for_engine(engine)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    raw = factory()
+    if gate_name is None:  # pragma: no cover - 共享租户库必然命中门名
+        return raw, engine
+    proxy = LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), raw, bind=engine)
+    return cast("AsyncSession", proxy), engine
 
 
 async def _seed_user(session: AsyncSession, *, status: str = "enabled") -> SysUser:
@@ -89,7 +99,8 @@ async def _seed_user(session: AsyncSession, *, status: str = "enabled") -> SysUs
     Returns:
         SysUser: 持久化后的用户行。
     """
-    user = SysUser(username="u1", password_hash="hash", name="用户一", status=status)
+    # 账号名是唯一键：共享库里固定值会撞，按进程内唯一后缀派生
+    user = SysUser(username=f"u{uuid4().hex[:10]}", password_hash="hash", name="用户一", status=status)
     session.add(user)
     await session.commit()
     return user
@@ -106,7 +117,8 @@ async def _seed_role(session: AsyncSession, code: str, *, role_type: str = "cust
     Returns:
         SysRole: 持久化后的角色行。
     """
-    role = SysRole(code=code, name=code, role_type=role_type)
+    # 角色码是唯一键：加进程内唯一前缀（用例断言只用返回对象，不依赖字面量）
+    role = SysRole(code=f"r{uuid4().hex[:8]}_{code}", name=f"角色{code}", role_type=role_type)
     session.add(role)
     await session.commit()
     return role
