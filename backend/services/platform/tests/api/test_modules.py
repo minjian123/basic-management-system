@@ -259,9 +259,14 @@ class _DualVerifier:
 
 
 @pytest.fixture
-def _dual_verifier(service_app: FastAPI) -> None:  # pyright: ignore[reportUnusedFunction]
-    """以替身顶替统一校验器（按受众返回服务 / 用户身份，避免真实外呼依赖）。"""
-    service_app.dependency_overrides[get_token_verifier] = _DualVerifier
+def _dual_verifier(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """以替身顶替统一校验器（按受众返回服务 / 用户身份，避免真实外呼依赖）。
+
+    必须用 `monkeypatch.setitem` 而不是直接写 `dependency_overrides[...]`：装配常驻后该字典是
+    进程级共享状态，用例结束不卸载会让**后续文件**的所有请求都走替身校验器（只认字面量令牌），
+    实测 `test_modules_snapshot` 5 条形如「真实令牌 → 401」。`monkeypatch` 退出自动还原。
+    """
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, _DualVerifier)
 
 
 @pytest.mark.kiwi_id(2302)

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 from functools import partial
 from typing import cast
@@ -22,6 +23,24 @@ from bms_core.testing.namespace import Namespace
 from bms_core.testing.transaction import write_session
 
 _MODELS = (SysBusiness, SysAction, SysPermission, SysForm, SysMenu, SysMenuForm, SysButton, SysField, SysModule)
+
+_MODULE_KEY_STRIP = re.compile(r"[^a-z0-9]")
+
+
+def _module_key(prefix: str) -> str:
+    """把命名空间编码转成服务目录合法键（`[a-z][a-z0-9]*`，不含 `-` / `_`）。
+
+    `ns.code()` 产出的是 `{prefix}-{suffix}`，直接当模块键会被装配期目录校验判非法
+    （`module_key 非法`），而共享库上残留的非法行会让**后续会话装配直接拒启**——
+    这是「叠加运行」下最典型的跨会话污染，故此处显式转成合法形态。
+
+    Args:
+        prefix: 命名空间编码（形如 `w0a1b2c3d4-cov_off`）。
+
+    Returns:
+        str: 合法模块键（形如 `w0a1b2c3d4covoff`）。
+    """
+    return _MODULE_KEY_STRIP.sub("", prefix.lower())
 
 
 def _create_table(table: Table, connection: Connection) -> None:
@@ -111,14 +130,16 @@ async def _seed_metadata(session: AsyncSession, prefix: str) -> tuple[SysForm, S
             help_key=f"platform:{prefix}:{prefix}_biz:code:",
         )
     )
+    module_key = _module_key(prefix)
     session.add(
         SysModule(
-            module_key=prefix,
+            module_key=module_key,
             name="覆盖率模块",
-            table_prefix=f"{prefix}_",
+            table_prefix=f"{module_key}_",
             business_code=business.code,
-            event_domain=prefix,
-            product_key="biz",
+            event_domain=module_key,
+            service_group="product",
+            product_key="platform",
             status="enabled",
         )
     )
@@ -144,7 +165,7 @@ async def test_snapshot_reads_enabled_rows_and_joins(session: AsyncSession, ns: 
         row.business_code == f"{prefix}_biz" and row.kind == "field" and row.help_key for row in snapshot.reference_rows
     )
     module = next(row for row in snapshot.modules if row.business_code == f"{prefix}_biz")
-    assert (module.product_key, module.module_key) == ("biz", prefix)
+    assert (module.product_key, module.module_key) == ("platform", _module_key(prefix))
     assert any(anchor.model_id == int(covered.id) for anchor in snapshot.anchors)
     assert any(row.action_code == f"{prefix}_fallback" and row.help_key for row in snapshot.action_fallbacks)
     assert f"{prefix}_biz" in snapshot.business_codes_with_permission
