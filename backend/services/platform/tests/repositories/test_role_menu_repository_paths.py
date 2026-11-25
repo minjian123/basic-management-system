@@ -35,9 +35,11 @@ async def test_metadata_reference_counts_and_permission_restore_miss() -> None:
     target, engine = await helpers.session()
     try:
         references = MetadataReferenceRepository(target)
-        permissions = PermissionRepository(target)
+        # `sys_permission` 属平台库（角色字段权限 `sys_role_field` 属租户库）
+        permissions = PermissionRepository(helpers.meta_session())
 
-        assert await references.count_field_refs() == 0
+        # 全表口径：共享库里可能已有他人造的角色字段权限，只验「非负」，精确断言落在不存在的 id 上
+        assert await references.count_field_refs() >= 0
         assert await references.count_field_refs(form_id=123456789) == 0
         assert await references.count_field_refs(field_id=123456789) == 0
         assert await references.count_field_refs(form_id=123456789, field_id=123456789) == 0
@@ -55,10 +57,10 @@ async def test_role_repository_empty_lookup_and_assignment_paths() -> None:
 
     assert list(await roles.list_by_ids(ConcurrentStableSet())) == []
 
-    role_one = await roles.create(code="r1", name="角色一")
-    role_two = await roles.create(code="r2", name="角色二")
-    user_a = (await UserRepository(target).create(username="alice", password_hash="h", name="爱丽丝")).id
-    user_b = (await UserRepository(target).create(username="bob", password_hash="h", name="鲍勃")).id
+    role_one = await roles.create(code=helpers.uniq("r1"), name="角色一")
+    role_two = await roles.create(code=helpers.uniq("r2"), name="角色二")
+    user_a = (await UserRepository(target).create(username=helpers.uniq("alice"), password_hash="h", name="爱丽丝")).id
+    user_b = (await UserRepository(target).create(username=helpers.uniq("bob"), password_hash="h", name="鲍勃")).id
     await assignments.create(role_id=role_one.id, user_id=user_a)
     await assignments.create(role_id=role_two.id, user_id=user_a)
     await assignments.create(role_id=role_one.id, user_id=user_b)
@@ -85,10 +87,12 @@ async def test_role_repository_empty_lookup_and_assignment_paths() -> None:
 async def test_role_repository_assignment_filters_by_user_attributes() -> None:
     """分配行筛选：用户账号 / 姓名经同库子查询过滤（含状态）。"""
     target, engine = await helpers.session()
-    role = await RoleRepository(target).create(code="r2", name="角色二")
-    user_a = (await UserRepository(target).create(username="alice", password_hash="h", name="爱丽丝")).id
+    role = await RoleRepository(target).create(code=helpers.uniq("r2"), name="角色二")
+    user_a = (await UserRepository(target).create(username=helpers.uniq("alice"), password_hash="h", name="爱丽丝")).id
     disabled = (
-        await UserRepository(target).create(username="bob", password_hash="h", name="鲍勃", status="disabled")
+        await UserRepository(target).create(
+            username=helpers.uniq("bob"), password_hash="h", name="鲍勃", status="disabled"
+        )
     ).id
     assignments = UserRoleRepository(target)
     await assignments.create(role_id=role.id, user_id=user_a)
@@ -104,8 +108,8 @@ async def test_role_repository_assignment_filters_by_user_attributes() -> None:
 async def test_role_repository_empty_keep_and_unfiltered_paths() -> None:
     """角色域仓储：空保留集合（全量软删）与无筛选条件的列举 / 计数。"""
     target, engine = await helpers.session()
-    role = await RoleRepository(target).create(code="r3", name="角色三")
-    user_a = (await UserRepository(target).create(username="alice", password_hash="h", name="爱丽丝")).id
+    role = await RoleRepository(target).create(code=helpers.uniq("r3"), name="角色三")
+    user_a = (await UserRepository(target).create(username=helpers.uniq("alice"), password_hash="h", name="爱丽丝")).id
     assignments = UserRoleRepository(target)
     await assignments.create(role_id=role.id, user_id=user_a)
     await target.commit()
@@ -134,12 +138,20 @@ async def test_multi_role_repository_empty_lists() -> None:
 
 async def test_menu_repository_i18n_and_association_paths() -> None:
     """菜单域仓储：业务 / 动作多语言装载、菜单 × 表单关联读取与按菜单软删。"""
-    target, engine = await helpers.session()
+    # 菜单 / 业务码 / 动作码 / 表单全在平台库
+    target, engine = await helpers.platform_session()
     menu = await MenuRepository(target).create(
-        parent_id=0, name="页面", path="/p", component=None, icon=None, sort=1, hidden=False, status="enabled"
+        parent_id=0,
+        name=helpers.uniq("页面"),
+        path=f"/{helpers.uniq('p')}",
+        component=None,
+        icon=None,
+        sort=1,
+        hidden=False,
+        status="enabled",
     )
-    business = await BusinessRepository(target).create(code="b1", name="业务", status="enabled")
-    action = await ActionRepository(target).create(code="create", name="新建", status="enabled")
+    business = await BusinessRepository(target).create(code=helpers.uniq("b1"), name="业务", status="enabled")
+    action = await ActionRepository(target).create(code=helpers.uniq("create"), name="新建", status="enabled")
     form = await FormRepository(target).create(business_id=business.id, component=None, status="enabled")
     links = MenuFormRepository(target)
     await links.create(menu_id=menu.id, form_id=form.id)

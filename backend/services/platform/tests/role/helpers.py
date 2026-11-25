@@ -92,6 +92,18 @@ async def close_all() -> None:
         await cast("AsyncEngine", engine).dispose()
 
 
+async def platform_session() -> tuple[AsyncSession, AsyncEngine]:
+    """在共享平台库上开门代理会话（菜单 / 业务码 / 表单 / 字段等元数据）。
+
+    与 `session()`（租户库：角色 / 授权）成对使用；引擎由调用方 `dispose`。
+
+    Returns:
+        tuple[AsyncSession, AsyncEngine]: (会话, 引擎)。
+    """
+    engine = shared_engine(shared_platform_url())
+    return _gated(engine), engine
+
+
 def meta_session() -> AsyncSession:
     """`session()` 顺带建的**平台库**会话（造菜单 / 业务码 / 表单 / 字段时用）。
 
