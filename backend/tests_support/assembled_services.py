@@ -3,17 +3,18 @@
 服务键以 `SERVICE_CATALOG` 为唯一来源；本模块只负责「键 → 应用工厂」的接线，
 不复制清单内容。装配容器（`bms_core.testing.system.AssembledSystem`）由测试插件在
 初始化之后调用一次。
+
+对端声明不在这里发现：bms 不读别的仓，最小替身清单见 `tests_support.peer_registry`。
 """
 
 from __future__ import annotations
 
 import importlib
 from collections.abc import Callable
-from pathlib import Path
 
 from fastapi import FastAPI
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenSet, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenSet
 from bms_core.services.module_registry import SERVICE_CATALOG
 
 _MODULE_BY_SERVICE: ConcurrentStableDict[str, str] = ConcurrentStableDict(
@@ -51,30 +52,6 @@ def _factory(module_name: str) -> Callable[[], FastAPI]:
         return factory().create(None)
 
     return create
-
-
-def peer_manifest_paths() -> ConcurrentStableList[Path]:
-    """发现工作区对端产品仓的声明清单（装配阶段装载用）。
-
-    全系统装配不能只装本仓：真实启动时产品仓（mdm / msg 等）的声明已经就位。
-    本函数按工作区布局发现平级产品仓的 `deploy/registry/*.toml`；不存在的仓直接跳过
-    （CI 只 clone bms 时产品仓缺席，由调用方决定是否接受该退化）。
-
-    Returns:
-        ConcurrentStableList[Path]: 对端清单绝对路径（插入序）。
-    """
-    workspace = Path(__file__).resolve().parents[2].parent
-    repo_root = Path(__file__).resolve().parents[2]
-    found: ConcurrentStableList[Path] = ConcurrentStableList()
-    for candidate in sorted(workspace.iterdir()):
-        if not candidate.is_dir() or candidate == repo_root:
-            continue
-        registry = candidate / "deploy" / "registry"
-        if not registry.is_dir():
-            continue
-        for manifest in sorted(registry.glob("*.toml")):
-            found.add(manifest)
-    return found
 
 
 def service_factories() -> ConcurrentStableDict[str, Callable[[], FastAPI]]:

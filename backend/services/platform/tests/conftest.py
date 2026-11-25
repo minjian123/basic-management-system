@@ -19,15 +19,12 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.collaboration.usage import register_capability_usages
-from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.datasource.registry import reset_data_source_records
 from bms_core.permission.sources import reset_permission_data_sources
 from bms_core.registry.products import load_product_manifests
 from bms_core.services.module_registry import (
-    CollaborationRecord,
-    register_collaboration_records,
-    register_domain_services,
     reset_collaboration_records,
     reset_domain_services,
     reset_error_code_records,
@@ -171,94 +168,9 @@ def isolate_catalog_records(
     # 业务域承载映射同样是进程级全局表：用例装载的临时清单（如声明注册用例的 `[[domains]]`）
     # 若留在进程里，后续用例的启动自举会把临时域写进共享库默认拓扑（测试库为真自动提交，写完即生效）。
     # 这里**按会话级清单重载**而不是「恢复用例开始前的值」：后者会把上一例留下的残值当成基线，
-    # 一旦某例把映射改成只含少数域且自身不复位（如本目录 `_isolate_grant_state` 的 `mdm` /
-    # `platform_registry` 两项），残值就被当成基线逐例传播，后继用例的域归属判定报
+    # 一旦某例把映射改成只含少数域且自身不复位，残值就被当成基线逐例传播，后继用例的域归属判定报
     # 「业务域未在本实例启用」（403，2026-11-23 末批实测）。
     _reload_catalog_views(pinned_product_manifests)
-
-
-_MDM_PEER_CAPABILITIES: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(
-    (
-        CollaborationRecord(
-            name="mdm.mdm.user-roles",
-            domain="mdm",
-            kind="read",
-            contract_version="0.1.0",
-            path="/api/v1/mdm/user-roles",
-            product_key="mdm",
-            frontend_prefix="mdm",
-            default_consumers=ConcurrentStableFrozenList(("platform",)),
-        ),
-        CollaborationRecord(
-            name="mdm.mdm.user-posts.assign",
-            domain="mdm",
-            kind="txn-branch",
-            contract_version="0.1.0",
-            path="/api/v1/mdm/internal/user-posts/{user_id}",
-            product_key="mdm",
-            branch_id="m",
-            branch_op="mdm.user-posts.assign",
-            frontend_prefix="mdm",
-            default_consumers=ConcurrentStableFrozenList(("platform",)),
-        ),
-        CollaborationRecord(
-            name="mdm.mdm.user-depts.assign",
-            domain="mdm",
-            kind="txn-branch",
-            contract_version="0.1.0",
-            path="/api/v1/mdm/internal/user-depts/{user_id}",
-            product_key="mdm",
-            branch_id="m",
-            branch_op="mdm.user-depts.assign",
-            frontend_prefix="mdm",
-            default_consumers=ConcurrentStableFrozenList(("platform",)),
-        ),
-        CollaborationRecord(
-            name="mdm.mdm.role-posts.assign",
-            domain="mdm",
-            kind="txn-branch",
-            contract_version="0.1.0",
-            path="/api/v1/mdm/internal/role-posts/{role_id}",
-            product_key="mdm",
-            branch_id="m",
-            branch_op="mdm.role-posts.assign",
-            frontend_prefix="mdm",
-            default_consumers=ConcurrentStableFrozenList(("platform",)),
-        ),
-        CollaborationRecord(
-            name="mdm.mdm.role-depts.assign",
-            domain="mdm",
-            kind="txn-branch",
-            contract_version="0.1.0",
-            path="/api/v1/mdm/internal/role-depts/{role_id}",
-            product_key="mdm",
-            branch_id="m",
-            branch_op="mdm.role-depts.assign",
-            frontend_prefix="mdm",
-            default_consumers=ConcurrentStableFrozenList(("platform",)),
-        ),
-    )
-)
-"""对端（mdm）能力声明的**等价物**：平台用例以「对端声明已装载」为前提。
-
-CI 单仓没有产品仓清单（`product_manifests` 为空），而平台的跨产品取用（`resolve_capability`）
-依赖对端声明；此处给出与 mdm 仓 `deploy/registry/mdm.toml` 的 `[[collaborations]]` **逐字一致**的
-记录（工作区已装载时同值幂等；声明改动后异值会被 `register_collaboration_records` 拒，属预期提醒）。
-"""
-
-_MDM_PEER_DOMAINS: ConcurrentStableFrozenDict[str, str] = ConcurrentStableFrozenDict({"mdm": "mdm"})
-"""对端能力承载域（能力寻址第二段的域布局来源；工作区由 mdm 仓 `domain_layout.json` 提供）。"""
-
-
-@pytest.fixture(autouse=True)
-def install_peer_declarations(isolate_catalog_records: None) -> None:  # pyright: ignore[reportUnusedFunction]
-    """用例前提：装载对端能力声明与承载域（本仓清单装载之后执行，同值幂等）。
-
-    Args:
-        isolate_catalog_records: 本仓清单装载夹具（保证顺序：先装本仓、再补对端）。
-    """
-    register_collaboration_records(_MDM_PEER_CAPABILITIES)
-    register_domain_services(_MDM_PEER_DOMAINS)
 
 
 @pytest.fixture(autouse=True)

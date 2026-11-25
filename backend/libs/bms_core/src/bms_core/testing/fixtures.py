@@ -1291,12 +1291,11 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
         return
 
     try:
-        from tests_support.assembled_services import peer_manifest_paths, service_factories
+        from tests_support.assembled_services import service_factories
     except ImportError as exc:  # pragma: no cover - 仓库漏配装配清单时的显式报错
         raise pytest.UsageError(f"未找到 tests_support.assembled_services：{exc}") from exc
 
     from bms_core.core.config import reset_current_service, set_current_service
-    from bms_core.registry.products import load_product_manifests
     from bms_core.testing.system import (
         AssembledSystem,
         in_process_service_calls,
@@ -1327,9 +1326,10 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
     os.environ["BMS_SERVICE_CLIENT__PROVIDER"] = "http"
     get_settings.cache_clear()
 
-    peer_paths = peer_manifest_paths()
-    # 对端声明只装载一次：逐应用重复装载会重复注册，且后装的清单会顶掉先前注册的记录
-    load_product_manifests(peer_paths)
+    # 装配**不装载对端声明**：总体架构是「产品自持、装载注册」——产品声明由产品仓自持、经注册
+    # 通道落库，平台按注册表快照装载投影；bms 不读产品仓源码或清单文件（CI 只 clone bms 时那些
+    # 路径根本不存在，读不到就会分叉成两套装配）。需要跨产品前置的用例**自己造**（能力声明 +
+    # 拓扑快照，按模块夹具登记、用完复位），装配与本仓都不保留对端声明副本。
 
     def _prepare(key: str, app: Any) -> None:
         client = getattr(app.state, "service_client", None)
