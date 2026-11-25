@@ -13,14 +13,15 @@ from typing import Any, cast
 import pytest
 from fastapi import FastAPI
 from sqlalchemy import Table
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ServiceUnavailableError, TransactionUnavailableError
+from bms_core.db.gate import LazyGatedSession, db_access_gate
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
+from bms_core.testing.transaction import _sqlite_autocommit, gate_for_engine  # pyright: ignore[reportPrivateUsage]
 from bms_core.transaction.base import TXN_COMMITTED, TXN_ROLLING_BACK
 from bms_txn.domains.txn.api.ledger import (
     begin_global_txn,
@@ -37,6 +38,7 @@ from bms_txn.domains.txn.services.driver import (
     UnavailableBranchDriver,
     _branch_state,  # pyright: ignore[reportPrivateUsage]
 )
+from tests_support.shared_access import shared_engine, shared_platform_url
 
 pytestmark = [pytest.mark.kiwi_id(2271)]
 
@@ -94,6 +96,23 @@ class _TokenStub:
     service = "platform"
 
 
+def _gated(engine: AsyncEngine) -> AsyncSession:
+    """把引擎包成操作级写门会话（每次写操作取写门、写完即放）。
+
+    Args:
+        engine: 目标库引擎。
+
+    Returns:
+        AsyncSession: 门代理会话。
+    """
+    gate_name = gate_for_engine(engine)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(_sqlite_autocommit(engine), expire_on_commit=False)
+    raw = factory()
+    if gate_name is None:  # pragma: no cover - 共享平台库必然命中门名
+        return raw
+    return cast("AsyncSession", LazyGatedSession(lambda: db_access_gate(gate_name, read_only=False), raw, bind=engine))
+
+
 @pytest.fixture
 async def uow() -> AsyncIterator[DbUnitOfWork]:
     """内存 SQLite 工作单元（建账本三表）。
@@ -101,9 +120,8 @@ async def uow() -> AsyncIterator[DbUnitOfWork]:
     Yields:
         DbUnitOfWork: 工作单元。
     """
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:", poolclass=StaticPool, connect_args={"check_same_thread": False}
-    )
+    # 账本三表归属登记在平台库：共用共享平台库（建表幂等，会话走门代理）
+    engine = shared_engine(shared_platform_url())
     async with engine.begin() as connection:
         tables: ConcurrentStableList[Table] = ConcurrentStableList(
             (
@@ -114,8 +132,7 @@ async def uow() -> AsyncIterator[DbUnitOfWork]:
         )
         for table in tables:
             await connection.run_sync(table.create, checkfirst=True)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    session = factory()
+    session = _gated(engine)
     try:
         yield DbUnitOfWork(session)
     finally:

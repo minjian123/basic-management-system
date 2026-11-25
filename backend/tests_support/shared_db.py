@@ -48,12 +48,20 @@ def prepare_platform(url: str) -> None:
     额外内容：
     - 测试专用表（`widget` / 自建字段探针表 `biz_ext_probe`），生产不建；
     - **结构变更声明**（`tests_support.form_design_changes`）：初始化阶段生成补列脚本并执行，
-      执行语句与生成脚本逐条比对、执行后回读校验（不一致直接失败）。
+      执行语句与生成脚本逐条比对、执行后回读校验（不一致直接失败）；
+    - **服务自持模型**：跨服务事务账本三表（`txn_global` / `txn_global_branch` /
+      `txn_global_recovery`）归属登记写的是平台库，但模型在服务侧
+      （`bms_txn.domains.txn.models.ledger`，不在 `bms_core` 的默认模型集里），故显式补入，
+      否则平台库永远建不出这三张表。
 
     Args:
         url: 共享平台库连接串。
     """
-    base_shared_db.prepare_platform(url, seed_catalog=True)
+    base_shared_db.prepare_platform(
+        url,
+        seed_catalog=True,
+        model_modules=("bms_txn.domains.txn.models.ledger",),
+    )
     from tests_support.widget_model import ensure_widget_table
 
     ensure_widget_table(url)
