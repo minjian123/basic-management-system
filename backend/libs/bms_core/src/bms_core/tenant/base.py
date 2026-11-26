@@ -186,12 +186,19 @@ class BaseTenantSelfService(BasePluggable, ABC):
 def get_tenant_self_service(request: Request) -> BaseTenantSelfService:
     """取应用级租户自助服务（依赖注入提供者）。
 
+    **优先取应用装配实例**（13_10 §14.6）：插件注册表是进程级「最后登记者生效」，多服务同进程
+    装配时 `resolve_plugin` 会拿到别家应用绑定的实例（租户请求用到 txn 的关系数据源 → 远端
+    契约 401）。应用状态上没有时才回退插件解析（单测自带应用壳 / 未装配场景）。
+
     Args:
         request: 请求对象。
 
     Returns:
         BaseTenantSelfService: 应用装配的租户自助服务实例。
     """
+    assembled = getattr(request.app.state, "tenant_self_service", None)
+    if isinstance(assembled, BaseTenantSelfService):
+        return assembled
     settings = cast("Settings", request.app.state.settings)
     return cast(
         "BaseTenantSelfService",
