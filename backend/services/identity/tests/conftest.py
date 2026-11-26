@@ -1,8 +1,6 @@
 """pytest 公共夹具：ASGI 内存客户端（免启服务器）+ 配置环境隔离 + 平台库租户种子。"""
 
-import os
-from collections.abc import AsyncIterator, Callable, Generator, Iterator
-from contextlib import contextmanager, nullcontext
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -10,10 +8,8 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.core.exceptions import MultipleActiveTenantsError
-from bms_core.db.tenant import DEMO_TENANT, TenantContext, TenantNotFoundError
 from bms_core.testing.fixtures import (
     apply_module_loop_scope,
     clear_tenant_cache,
@@ -38,7 +34,6 @@ __all__ = (
     "reset_request_context",
 )
 from bms_core.testing.system import AssembledSystem
-from bms_identity.main import ApplicationFactory
 from tests_support.auth import auth_headers, configure_token_env
 
 DEMO_TENANT_ID = "1001"
@@ -48,58 +43,27 @@ ACME_TENANT_ID = "2002"
 """示例租户主键（雪花 id 字符串）。"""
 
 
-class _SeedTenantSource:
-    """身份服务单测租户源替身：返回带雪花主键的演示 / 示例租户上下文。
+@pytest.fixture(autouse=True)
+def _restore_app_overrides(  # pyright: ignore[reportUnusedFunction]
+    service_app: FastAPI,
+) -> Iterator[None]:
+    """每例恢复装配态：依赖覆盖与配置快照都回到用例开始前。
 
-    身份服务单测禁用真实跨服务调用（`service_client` 为 Null），远端租户契约不可达时
-    仅回落无主键的演示租户；而 `code → id` 边界解析要求租户上下文带主键，故用例统一注入本替身。
+    装配常驻（13_10）后 app 跨用例复用，历史用例里直接写 `app.dependency_overrides[...]` 或
+    就地改 `app.state.settings.<段>.<字段>` 的写法会把替身 / 改动留给后继用例（实测：
+    `sso/test_authorize.py` 之后 `sso/test_bind.py` 必红；`sso/test_callback.py` 的跳转配置
+    让后继所有回调用例从 JSON 变 302）。还原逻辑单源在 `tests_support.app_state`。
+
+    Args:
+        service_app: 已装配的应用实例（会话级）。
+
+    Yields:
+        None: 用例运行期。
     """
+    from tests_support.app_state import restore_assembled_app
 
-    async def by_code(self, code: str) -> TenantContext:
-        """按编码取租户（demo / acme）。"""
-        for tenant in self._tenants().values():
-            if tenant.code == code:
-                return tenant
-        raise TenantNotFoundError(f"未知租户：{code}")
-
-    async def by_domain(self, domain: str) -> TenantContext:
-        """按子域名取租户（demo / acme）。"""
-        for tenant in self._tenants().values():
-            if tenant.domain == domain:
-                return tenant
-        raise TenantNotFoundError(f"未知租户域名：{domain}")
-
-    async def by_id(self, tenant_id: str) -> TenantContext:
-        """按租户主键（雪花 id 字符串）取租户。"""
-        for tenant in self._tenants().values():
-            if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
-                return tenant
-        raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
-
-    async def single_active(self) -> TenantContext | None:
-        """唯一启用租户解析（本替身含 2 个租户 → 恒多启用）。"""
-        raise MultipleActiveTenantsError("测试替身：多个启用租户")
-
-    def _tenants(self) -> ConcurrentStableDict[str, TenantContext]:
-        """演示 / 示例租户上下文（带雪花主键与固定库键）。"""
-        return ConcurrentStableDict(
-            {
-                "demo": TenantContext(
-                    code="demo",
-                    db_key=DEMO_TENANT.db_key,
-                    name="演示租户",
-                    domain="demo.bms.example.com",
-                    tenant_id=int(DEMO_TENANT_ID),
-                ),
-                "acme": TenantContext(
-                    code="acme",
-                    db_key="tenant_acme",
-                    name="示例租户",
-                    domain="acme.bms.example.com",
-                    tenant_id=int(ACME_TENANT_ID),
-                ),
-            }
-        )
+    with restore_assembled_app(service_app):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -113,126 +77,27 @@ def _plugin_fixtures(  # pyright: ignore[reportUnusedFunction]
     """
 
 
-@pytest.fixture(autouse=True)
-def _exempt_permission_source(  # pyright: ignore[reportUnusedFunction]
-    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[None]:
-    """权限数据来源替身：把测试主体置为**豁免层级**（系统管理员），使业务用例免逐码授权。
+@pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
+async def _authorized_subject(shared_tenant_db_url: str) -> None:
+    """真实授权装配：把测试主体置为**内置系统管理员**（一次、幂等）。
 
-    `04_01` 下沉后 identity 接入了真实权限校验：`require_permission` 经 platform 内部契约取数并
-    在进程内判定。本套件绝大多数用例测的是 SSO / 会话 / IdP 的业务语义，不是授权链路——若走真实
-    契约取数，单测内 platform 不可达会 fail-closed（503），与用例意图无关。故按 platform 侧
-    `tests_support/permission_admin.py` 的既有惯例，在测试基座注入「豁免主体」数据来源替身；
-    **权限码级判定与 fail-closed 分支**由 `tests/permission/` 专项用例覆盖（该目录不注入替身，
-    走真实装配）。
+    `04_01` 下沉后 identity 的 5 个端点（`session:query` / `session:kick` / `open:manage` /
+    `idp:manage` / `sso:bind`）走真实 RBAC；本套件绝大多数用例测的是 SSO / 会话 / IdP 的业务
+    语义，不是授权链路。沿用 platform 侧 `tests_support/permission_admin.py` 的既有惯例，在会话
+    装配前把测试主体置为内置系统管理员（`role_type=system` 命中豁免层级），用例无需逐码授权。
 
-    Args:
-        request: 用例请求（按目录判定是否注入替身）。
-        monkeypatch: pytest monkeypatch 夹具（替换装配时的数据来源工厂）。
+    **为什么必须在装配前完成**：全系统装配在会话级只做一次，权限检查器与数据来源在装配期固化；
+    用例期再替换 `build_identity_source` 已读不到（注册表持有的是装配时的函数对象）。
 
-    Yields:
-        None: 用例运行期。
-    """
-    node_path = str(getattr(request.node, "fspath", ""))  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
-    if "permission" in node_path:
-        yield
-        return
-    from bms_identity import permission as identity_permission
-
-    monkeypatch.setattr(identity_permission, "build_identity_source", _build_exempt_source)
-    yield
-
-
-class _ExemptPermissionSource:
-    """豁免主体数据来源替身（系统管理员角色类型 → `check` 恒真）。"""
-
-    key: str = "test_exempt_permission_source"
-
-    async def load_subject(self, *, user_id: int) -> object:
-        """返回「系统管理员角色」聚合输入。
-
-        Args:
-            user_id: 用户主键（忽略）。
-
-        Returns:
-            object: 聚合输入（`PermissionSubjectData`）。
-        """
-        from bms_core.core.concurrent import ConcurrentStableSet
-        from bms_core.permission.sources import PermissionSubjectData
-
-        del user_id
-        data = PermissionSubjectData(role_ids=ConcurrentStableSet([_EXEMPT_ROLE_ID]))
-        data.role_types.set(_EXEMPT_ROLE_ID, "system")
-        return data
-
-    async def load_metadata(self, *, locale: str = "zh-CN") -> object:
-        """返回空元数据。
-
-        Args:
-            locale: 语言标识（忽略）。
-
-        Returns:
-            object: 空元数据（`PermissionMetadata`）。
-        """
-        from bms_core.permission.sources import PermissionMetadata
-
-        del locale
-        return PermissionMetadata()
-
-
-_EXEMPT_ROLE_ID = 1
-"""豁免主体角色主键（替身固定值）。"""
-
-
-async def _build_exempt_source(request: object) -> _ExemptPermissionSource:
-    """豁免主体数据来源工厂（请求级；与 identity 真实工厂同签名）。
+    权限码级判定与 fail-closed 分支由 `tests/permission/` 专项用例覆盖（该目录不依赖本夹具的
+    豁免效果，也不断言主体缺权）。
 
     Args:
-        request: 当前请求（忽略）。
-
-    Returns:
-        _ExemptPermissionSource: 替身来源。
+        shared_tenant_db_url: 会话级共享租户库连接串（授权行落该库）。
     """
-    del request
-    return _ExemptPermissionSource()
+    from tests_support.permission_admin import setup_min_tenant
 
-
-@contextmanager
-def _patched_exempt_source() -> Generator[None]:
-    """模块装配期把权限数据来源替换为豁免替身（`tests/permission/` 不启用）。
-
-    Yields:
-        None: 替换生效期。
-    """
-    from bms_identity import permission as identity_permission
-
-    original = identity_permission.build_identity_source
-    identity_permission.build_identity_source = _build_exempt_source
-    try:
-        yield
-    finally:
-        identity_permission.build_identity_source = original
-
-
-def _new_app() -> FastAPI:
-    """构造本服务应用并注入租户源替身（模块常驻与用例自带 app 共用）。
-
-    Returns:
-        FastAPI: 应用实例（未进入 lifespan）。
-    """
-    app = ApplicationFactory().create(None)
-    app.state.tenant_source = _SeedTenantSource()
-    return app
-
-
-@pytest.fixture
-def identity_app_factory() -> Callable[[], FastAPI]:
-    """应用工厂：供「必须自带 app」的用例（破坏性全局操作）在切库后自行装配。
-
-    Returns:
-        Callable[[], FastAPI]: 无参构造应用。
-    """
-    return _new_app
+    await setup_min_tenant(shared_tenant_db_url)
 
 
 @pytest.fixture(autouse=True)
@@ -378,39 +243,6 @@ def isolated_tenant(tenant_db: None, isolated_tenant_db_url: str, monkeypatch: p
     """
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", isolated_tenant_db_url)
     get_settings.cache_clear()
-
-
-@pytest.fixture(scope="module")
-def identity_module_env(
-    request: pytest.FixtureRequest,
-    bms_isolated_env_module: None,
-    shared_platform_db_url: str,
-    shared_tenant_db_url: str,
-) -> Iterator[None]:
-    """模块级服务环境：常驻装配前就位库 URL / fakeredis / 令牌 / SSO 状态存储开关。
-
-    非 `tests/permission/` 目录额外把权限数据来源换成豁免替身（装配期注册，必须在 app 创建前生效）。
-
-    Args:
-        request: 模块夹具请求（判定是否权限专项目录）。
-        bms_isolated_env_module: 基座模块级隔离环境（保证顺序）。
-        shared_platform_db_url: 会话级共享平台库连接串。
-        shared_tenant_db_url: 会话级共享租户库连接串。
-
-    Yields:
-        None: 模块运行期。
-    """
-    from tests_support.redis import install_process_fake_redis_client
-
-    os.environ["BMS_DATABASE__PLATFORM__URL"] = shared_platform_db_url
-    os.environ["BMS_DATABASE__TENANTS__URL"] = shared_tenant_db_url
-    os.environ["BMS_IDP_STATE_STORE__PROVIDER"] = ""
-    install_process_fake_redis_client()
-    configure_token_env(set_env=os.environ.__setitem__)
-    get_settings.cache_clear()
-    exempt = "permission" not in str(request.node.path)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
-    with _patched_exempt_source() if exempt else nullcontext():
-        yield
 
 
 def pytest_collection_modifyitems(items: ConcurrentStableList[pytest.Item]) -> None:

@@ -707,11 +707,6 @@
       "count": 2
     },
     {
-      "file": "backend/services/identity/tests/conftest.py",
-      "code": "P5",
-      "count": 1
-    },
-    {
       "file": "backend/services/identity/tests/idp/conftest.py",
       "code": "P5",
       "count": 1
@@ -812,16 +807,6 @@
       "count": 3
     },
     {
-      "file": "backend/services/platform/tests/api/test_internal_declarations.py",
-      "code": "P5",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/api/test_internal_permission.py",
-      "code": "P5",
-      "count": 4
-    },
-    {
       "file": "backend/services/platform/tests/api/test_menu_metadata.py",
       "code": "P1",
       "count": 2
@@ -829,7 +814,7 @@
     {
       "file": "backend/services/platform/tests/api/test_modules.py",
       "code": "P5",
-      "count": 2
+      "count": 1
     },
     {
       "file": "backend/services/platform/tests/api/test_role_api.py",
@@ -875,11 +860,6 @@
       "file": "backend/services/platform/tests/config/test_config_admin_api.py",
       "code": "P1",
       "count": 4
-    },
-    {
-      "file": "backend/services/platform/tests/config/test_internal_config.py",
-      "code": "P5",
-      "count": 2
     },
     {
       "file": "backend/services/platform/tests/core/test_capability.py",
