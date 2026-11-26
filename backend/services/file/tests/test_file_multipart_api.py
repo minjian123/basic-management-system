@@ -11,9 +11,9 @@ from httpx import AsyncClient
 
 from bms_core.api.deps import get_idempotency_store
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
+from bms_core.testing.fixtures import service_settings
 
 pytestmark = pytest.mark.kiwi_id(2374)
 
@@ -29,8 +29,12 @@ def _pdf_bytes(size: int = 25) -> bytes:
 
 @pytest.fixture(autouse=True)
 def _small_parts(monkeypatch: pytest.MonkeyPatch) -> None:
-    """把分片大小调到 10 字节（便于多片用例；生产缺省 5MB）。"""
-    monkeypatch.setattr(get_settings().file_options, "part_size", PART_SIZE)
+    """把分片大小调到 10 字节（便于多片用例；生产缺省 5MB）。
+
+    取 **file 服务槽**的配置实例：装配常驻后请求期读该槽，改默认单例对端点无效
+    （表现为分片数按 5MB 算成 1）。口径与 `test_file_failures.py` 一致。
+    """
+    monkeypatch.setattr(service_settings("file").file_options, "part_size", PART_SIZE)
 
 
 async def _initiate(client: AsyncClient, data: bytes) -> ConcurrentStableDict[str, Any]:

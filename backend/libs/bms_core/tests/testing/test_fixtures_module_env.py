@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 
 import bms_core.testing.fixtures as fixtures_module
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.core.config import get_settings
 from bms_core.testing.fixtures import (
     apply_module_loop_scope,
     isolated_env_module,
@@ -26,46 +26,25 @@ from bms_core.testing.fixtures import (
 pytestmark = pytest.mark.kiwi_id(2556)
 
 
-class _ScopeItem:
-    """收集项替身（只带 `path` / `function` / `fixturenames` / `add_marker`）。"""
+def _scope_item(path: Path, function: Any, fixturenames: ConcurrentStableList[str] | None = None) -> SimpleNamespace:
+    """构造收集项替身（`path` / `function` / `fixturenames` / `add_marker`）。
 
-    def __init__(self, path: Path, function: Any, fixturenames: ConcurrentStableList[str] | None = None) -> None:
-        """初始化。
+    Args:
+        path: 用例文件路径。
+        function: 用例函数（同步 / 异步）。
+        fixturenames: 该用例引用的夹具名（缺省空）。
 
-        Args:
-            path: 用例文件路径。
-            function: 用例函数（同步 / 异步）。
-            fixturenames: 该用例引用的夹具名（缺省空）。
-        """
-        self.path = path
-        self.function = function
-        self.fixturenames = fixturenames if fixturenames is not None else ConcurrentStableList[str]()
-        self.markers: ConcurrentStableList[Any] = ConcurrentStableList()
-
-    def add_marker(self, marker: Any) -> None:
-        """登记标记（记录到 `markers` 供断言）。
-
-        Args:
-            marker: pytest 标记。
-        """
-        self.markers.add(marker)
-
-
-def _no_prepare(request: object, key: str) -> None:
-    """准备集替身：未注册（返回 `None`）。"""
-    del request, key
-
-
-def _module_prepare(key: str) -> object:
-    """模块级准备集替身：返回占位对象。"""
-    del key
-    return object()
-
-
-def _version_for(prepare: object, packages: object) -> str:
-    """版本戳替身：固定值。"""
-    del prepare, packages
-    return "v1"
+    Returns:
+        SimpleNamespace: 收集项替身。
+    """
+    markers: ConcurrentStableList[Any] = ConcurrentStableList()
+    return SimpleNamespace(
+        path=path,
+        function=function,
+        fixturenames=fixturenames if fixturenames is not None else ConcurrentStableList[str](),
+        markers=markers,
+        add_marker=markers.add,
+    )
 
 
 def test_apply_module_loop_scope_only_marks_async_items_under_dir(tmp_path: Path) -> None:
@@ -75,9 +54,9 @@ def test_apply_module_loop_scope_only_marks_async_items_under_dir(tmp_path: Path
 
     def _sync() -> None: ...
 
-    inside = _ScopeItem(tmp_path / "pkg" / "test_a.py", _async)
-    outside = _ScopeItem(tmp_path.parent / "test_b.py", _async)
-    sync_item = _ScopeItem(tmp_path / "test_c.py", _sync)
+    inside = _scope_item(tmp_path / "pkg" / "test_a.py", _async)
+    outside = _scope_item(tmp_path.parent / "test_b.py", _async)
+    sync_item = _scope_item(tmp_path / "test_c.py", _sync)
 
     apply_module_loop_scope(ConcurrentStableList([inside, outside, sync_item]), tmp_path)
 
@@ -89,7 +68,7 @@ def test_apply_module_loop_scope_only_marks_async_items_under_dir(tmp_path: Path
 def test_needed_shared_databases_includes_writable_tenant() -> None:
     """收集期按夹具名推导建库清单：引用可写租户库即需 `tenant_writable`。"""
     items = ConcurrentStableList(
-        [_ScopeItem(Path("probe.py"), None, ConcurrentStableList(["shared_tenant_writable_db_url"]))]
+        [_scope_item(Path("probe.py"), None, ConcurrentStableList(["shared_tenant_writable_db_url"]))]
     )
     assert list(needed_shared_databases(items)) == ["tenant_writable"]
 
@@ -102,6 +81,20 @@ def test_shared_tenant_writable_db_url_targets_dedicated_db(monkeypatch: pytest.
         """建库结果替身：记录请求名并返回连接串。"""
         prepared.add(name)
         return f"url:{name}:{version}"
+
+    def _no_prepare(request: object, key: str) -> None:
+        """准备集替身：未注册（返回 `None`）。"""
+        del request, key
+
+    def _module_prepare(key: str) -> object:
+        """模块级准备集替身：返回占位对象。"""
+        del key
+        return object()
+
+    def _version_for(prepare: object, packages: object) -> str:
+        """版本戳替身：固定值。"""
+        del prepare, packages
+        return "v1"
 
     monkeypatch.setattr(fixtures_module, "resolve_prepare", cast("Any", _no_prepare))
     monkeypatch.setattr(fixtures_module, "module_prepare", cast("Any", _module_prepare))
@@ -120,8 +113,7 @@ def test_module_env_applies_isolated_values() -> None:
     generator = isolated_env_module._fixture_function()  # pyright: ignore[reportPrivateUsage]
     next(generator)
     try:
-        assert os.environ.get("BMS_LOG__LEVEL") == "INFO"
-        assert get_settings().log.level.lower() == "info"
+        assert os.environ.get("BMS_DATABASE__PLATFORM__URL_TEMPLATE") == ""
         # 夹具期间的**新增** `BMS_*` 变量须在退出时清掉（覆盖清理循环）
         os.environ["BMS_PROBE_EXTRA"] = "1"
     finally:

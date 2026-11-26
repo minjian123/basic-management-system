@@ -32,6 +32,7 @@ from sqlalchemy.engine import make_url
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.id_bits import MAX_WORKER_ID
+from bms_core.core.objects.roots import BaseFrameworkObject
 from bms_core.core.paths import resolve_backend_root
 from bms_core.core.service_endpoints import normalize_service_endpoints, normalize_service_instances
 from bms_core.permission.profile import DEFAULT_PROFILE, ensure_profile_supported, normalize_profile
@@ -2287,7 +2288,7 @@ def _clear_settings_cache() -> None:
     _service_settings.clear()
 
 
-class _SettingsProvider:
+class _SettingsProvider(BaseFrameworkObject):
     """配置取值入口：可调用取配置，并保留 `cache_clear`（既有测试隔离调用点不变）。
 
     为什么不用函数：`get_settings.cache_clear()` 在测试基座与各服务夹具里被大量调用；

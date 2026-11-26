@@ -161,11 +161,6 @@ def _apply_isolated_env(setenv: Callable[[str, str], None]) -> int:
     setenv("BMS_CAPTCHA__PROVIDER", "")
     setenv("BMS_MASKING__PROVIDER", "")
     setenv("BMS_DISTRIBUTED_LOCK__PROVIDER", "")
-    # 日志级别固定 INFO（13_10）：装配夹具会清掉全部 `BMS_*`（含 CI 注入的 `BMS_LOG__LEVEL`），
-    # 日志级别随之回落到 `config.dev.toml` 的 DEBUG，`aiosqlite` / SQLAlchemy 的逐语句 DEBUG 会把
-    # CI job 日志撑爆（实测超过 GitLab 16MB 上限被截断，失败明细整段丢失）。应用 INFO 事件仍可见，
-    # 依赖 `log_events` 的用例不受影响。
-    setenv("BMS_LOG__LEVEL", "INFO")
     # 拓扑分发关闭（2026-11-16）：分发失败改拒启后，单测没有「平台已就绪」的对端，
     # 属「本来就该关」的配置而非降级；验证分发的用例直接构造 Settings(distribute=True)。
     setenv("BMS_TOPOLOGY__DISTRIBUTE", "false")
@@ -1322,6 +1317,11 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
     os.environ["BMS_IDP_STATE_STORE__PROVIDER"] = ""
     os.environ["BMS_PLATFORM_TENANT__AUTO_BOOTSTRAP"] = "false"
     _reset_isolated_runtime(_apply_isolated_env(os.environ.__setitem__))
+    # 装配态日志级别固定 INFO（13_10）：装配夹具会清掉全部 `BMS_*`（含 CI 注入的 `BMS_LOG__LEVEL`），
+    # 级别随之回落到 `config.dev.toml` 的 DEBUG，`aiosqlite` / SQLAlchemy 的逐语句 DEBUG 会把 CI job
+    # 日志撑爆（实测超过 GitLab 16MB 上限被截断，失败明细整段丢失）。只在本夹具内设置（退出随
+    # snapshot 还原），不影响断言配置默认值的用例。应用 INFO 事件仍可见，`log_events` 用例不受影响。
+    os.environ["BMS_LOG__LEVEL"] = "INFO"
     install_process_fake_redis_client()
     configure_token_env(set_env=os.environ.__setitem__)
     service_keys, service_kid = smoke_service_token_keys()
