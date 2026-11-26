@@ -56,10 +56,10 @@ class _FakeConfigSource(BaseConfigSource):
 
 
 @pytest.fixture(autouse=True)
-def _override_deps(service_app: FastAPI) -> None:  # pyright: ignore[reportUnusedFunction]
-    """覆盖令牌校验器与参数取数（避免真实外呼 / 连库）。"""
-    service_app.dependency_overrides[get_token_verifier] = _StubVerifier
-    service_app.dependency_overrides[get_config_source] = _FakeConfigSource
+def _override_deps(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """覆盖令牌校验器与参数取数（避免真实外呼 / 连库；用例结束自动卸载）。"""
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, _StubVerifier)
+    monkeypatch.setitem(service_app.dependency_overrides, get_config_source, _FakeConfigSource)
 
 
 @pytest.mark.kiwi_id(2207)

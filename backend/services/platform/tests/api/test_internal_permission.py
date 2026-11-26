@@ -77,9 +77,11 @@ class _StubVerifier:
 
 
 @pytest.mark.kiwi_id(2269)
-async def test_invalidate_endpoint_requires_mdm_service(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_invalidate_endpoint_requires_mdm_service(
+    client: AsyncClient, service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """端点：仅放行 `sub=mdm` 服务票据；网关 / 未知 / 无票据一律拒（401）。"""
-    service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
 
     ok = await client.post(API, json={}, headers={"Authorization": "Bearer mdm"})
     assert ok.status_code == 200, ok.text
@@ -97,9 +99,11 @@ async def test_invalidate_endpoint_requires_mdm_service(client: AsyncClient, ser
 
 
 @pytest.mark.kiwi_id(2269)
-async def test_invalidate_endpoint_scopes_users(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_invalidate_endpoint_scopes_users(
+    client: AsyncClient, service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """端点：`user_ids` 非空按用户清理旧版本键、为空只做全租户版本 +1（均返回递增版本）。"""
-    service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
 
     scoped = await client.post(API, json={"user_ids": [7, 8]}, headers={"Authorization": "Bearer mdm"})
     assert scoped.status_code == 200
@@ -113,9 +117,11 @@ async def test_invalidate_endpoint_scopes_users(client: AsyncClient, service_app
 
 
 @pytest.mark.kiwi_id(2320)
-async def test_subject_endpoint_requires_identity_capability(client: AsyncClient, service_app: FastAPI) -> None:
+async def test_subject_endpoint_requires_identity_capability(
+    client: AsyncClient, service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """`subject` 出口：仅放行持有该能力有效分配的 `identity`；mdm / 网关 / 无票据一律拒。"""
-    service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
 
     # 「空主体」前提用**库内没有授权数据的主键**：共享库叠加运行后，测试主体（1001）会被
     # 其它用例的授权准备（内置管理员）授过角色，拿它断言空角色等于假设「库里只有我的数据」。
@@ -175,7 +181,7 @@ async def test_metadata_endpoint_requires_identity_capability(
         return _Builder()
 
     monkeypatch.setattr(source_module, "build_menu_metadata_service", _factory)
-    service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
 
     ok = await client.get(METADATA_API, headers={"Authorization": "Bearer identity"})
     assert ok.status_code == 200, ok.text

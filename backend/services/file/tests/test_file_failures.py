@@ -20,6 +20,7 @@ from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.error_codes import ErrorCode
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.redis.base import shared_redis_client
+from bms_core.testing.fixtures import service_settings
 from bms_core.testing.transaction import write_session
 from bms_file.domains.file.services import file as service_module
 
@@ -43,10 +44,13 @@ def _slice(data: bytes, part_no: int) -> bytes:
 
 @pytest.fixture(autouse=True)
 def _small_parts(monkeypatch: pytest.MonkeyPatch) -> None:
-    """把分片大小调到 10 字节（便于多片用例；生产缺省 5MB）。"""
-    from bms_core.core.config import get_settings
+    """把分片大小调到 10 字节（便于多片用例；生产缺省 5MB）。
 
-    monkeypatch.setattr(get_settings().file_options, "part_size", PART_SIZE)
+    必须取 **file 服务槽**的配置实例：装配常驻后请求期由服务上下文中间件把当前服务键切到
+    `file`，端点读的是该槽的 `Settings`；在默认单例上改（服务键为空时拿到的那个）对端点无效，
+    表现为「分片数仍是按 5MB 算出来的 1」→ 多片用例第 2 片即报 `50104 序号越界`。
+    """
+    monkeypatch.setattr(service_settings("file").file_options, "part_size", PART_SIZE)
 
 
 class _FailingOutbox:

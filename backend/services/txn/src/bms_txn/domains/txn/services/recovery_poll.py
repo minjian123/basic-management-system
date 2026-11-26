@@ -117,6 +117,7 @@ class PollTransactionRecovery(BaseTransactionRecovery):
         batch_limit: int = DEFAULT_BATCH_LIMIT,
         ledger_retention_days: int = DEFAULT_RETENTION_DAYS,
         metrics: BaseMetrics | None = None,
+        caller_services: ConcurrentStableList[str] | None = None,
     ) -> None:
         """初始化。
 
@@ -131,6 +132,8 @@ class PollTransactionRecovery(BaseTransactionRecovery):
             batch_limit: 单轮扫描上限。
             ledger_retention_days: 账本保留期（天；终态超期即清理，详设 §3.5）。
             metrics: 指标出口（None 不上报）。
+            caller_services: 只处置这些发起方服务键的事务与台账（None = 全表口径，生产缺省）。
+                测试在共享平台库上必须限定本用例的发起方，否则启动轮会处置他人的在途事务。
         """
         self._sessions = sessions
         self._lock = lock
@@ -142,6 +145,7 @@ class PollTransactionRecovery(BaseTransactionRecovery):
         self._batch_limit = batch_limit
         self._ledger_retention_days = ledger_retention_days
         self._metrics = metrics
+        self._caller_services = caller_services
         self._token: str | None = None
         self._task: asyncio.Task[None] | None = None
 
@@ -249,7 +253,7 @@ class PollTransactionRecovery(BaseTransactionRecovery):
     async def _round_guarded(self) -> None:
         """执行一轮并吸收异常（取消照常抛出）。"""
         try:
-            await self.run_once()
+            await self.run_once(caller_services=self._caller_services)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # 单轮异常不终止循环（下一轮重试）

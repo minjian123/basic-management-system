@@ -463,12 +463,15 @@ async def test_recovery_skips_unknown_state_row(
 async def test_recovery_record_tolerates_missing_transaction(uow: DbUnitOfWork, caller: str) -> None:
     """处置台账落库：事务记录缺失时结论为「事务记录缺失」（不阻断台账写入）。"""
     recovery = _recovery(uow, _coordinator(uow, FakeDriver()))
+    missing_id = f"missing-{uuid4().hex}"
 
-    await recovery._record("missing-txn", None, "drive_commit", datetime.now(UTC))  # pyright: ignore[reportPrivateUsage]
+    await recovery._record(missing_id, None, "drive_commit", datetime.now(UTC))  # pyright: ignore[reportPrivateUsage]
 
     async with uow.begin():
         logs = await GlobalTxnRecoveryRepository(uow.session).list_recent()
-    assert [log.conclusion for log in logs] == ["事务记录缺失"]
+    # 共享平台库叠加：台账里有别的用例 / 历史运行的记录，只断言**本次写入**那条。
+    row = next(log for log in logs if log.global_txn_id == missing_id)
+    assert row.conclusion == "事务记录缺失"
 
 
 class FailingVerifyDriver(FakeDriver):

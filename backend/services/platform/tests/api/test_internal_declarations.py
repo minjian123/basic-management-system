@@ -98,13 +98,9 @@ class _StubVerifier:
 
 
 @pytest.fixture(autouse=True)
-def _stub_verifier(service_app: FastAPI) -> None:
-    """注入令牌校验替身（用例内统一）。
-
-    Args:
-        service_app: 平台应用实例。
-    """
-    service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
+def _stub_verifier(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """注入令牌校验替身（用例内统一，用例结束自动卸载）。"""
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
 
 
 _TOUCHED_PREFIXES: ConcurrentStableList[str] = ConcurrentStableList()

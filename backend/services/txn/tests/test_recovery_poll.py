@@ -155,7 +155,7 @@ def caller() -> str:
 
 
 class _LedgerEngine:
-    """内存 SQLite 账本（异步上下文管理器：进入建三表、退出释放引擎）。"""
+    """共享平台库账本（异步上下文管理器：进入建三表、退出释放引擎）。"""
 
     def __init__(self) -> None:
         # 账本三表归属登记在平台库：共用共享平台库（建表幂等）
@@ -244,15 +244,23 @@ async def test_setup_runs_startup_round_then_periodic(
     driver = FakeDriver()
     await _seed_committing(ledger, driver, caller)
     plugin = PollTransactionRecovery(
-        sessions=_opener(ledger), lock=FakeLock(), driver=driver, interval_seconds=0.01, metrics=RecordingMetrics()
+        sessions=_opener(ledger),
+        lock=FakeLock(),
+        driver=driver,
+        interval_seconds=0.01,
+        metrics=RecordingMetrics(),
+        # 共享平台库里有他人 / 历史运行的在途事务：启动轮只处置本用例发起方，否则会驱动别人的事务。
+        caller_services=ConcurrentStableList([caller]),
     )
     drain.add(plugin)
     calls: ConcurrentStableList[int] = ConcurrentStableList()
     original = plugin.run_once
 
-    async def _counting(*, now: datetime | None = None) -> int:
+    async def _counting(
+        *, now: datetime | None = None, caller_services: ConcurrentStableList[str] | None = None
+    ) -> int:
         calls.add(1)
-        return await original(now=now)
+        return await original(now=now, caller_services=caller_services)
 
     monkeypatch.setattr(plugin, "run_once", _counting)
     await plugin.setup()
@@ -452,8 +460,8 @@ async def test_round_guarded_reraises_cancel(
     plugin = PollTransactionRecovery(sessions=_opener(ledger), lock=FakeLock(), driver=FakeDriver())
     drain.add(plugin)
 
-    async def _cancel(*, now: datetime | None = None) -> int:
-        del now
+    async def _cancel(*, now: datetime | None = None, caller_services: ConcurrentStableList[str] | None = None) -> int:
+        del now, caller_services
         raise asyncio.CancelledError
 
     monkeypatch.setattr(plugin, "run_once", _cancel)
