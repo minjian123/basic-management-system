@@ -308,12 +308,14 @@ async def test_bootstrap_table_ownership_skips_product_service() -> None:
 
 
 async def test_bootstrap_table_ownership_skips_seed_when_already_seeded(monkeypatch: pytest.MonkeyPatch) -> None:
-    """dev 环境且已播种：只做只读对账，不再进写门重复播种。"""
+    """dev 环境：门外探测判未播种、门内复核已播种 → 不再播种，直接走只读对账。"""
+    probes: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def _already_seeded(session: object) -> bool:
-        """只读探测：恒判已播种。"""
+        """只读探测：首次（门外）判未播种，门内复核判已播种。"""
         del session
-        return True
+        probes.add("probe")
+        return len(probes) > 1
 
     monkeypatch.setattr(app_module, "_table_ownership_seeded", _already_seeded)
     monkeypatch.setattr(app_module, "session_scope", _session_scope)
