@@ -108,6 +108,37 @@ def test_shared_tenant_writable_db_url_targets_dedicated_db(monkeypatch: pytest.
     assert list(prepared) == ["tenant_writable"]
 
 
+def test_get_token_verifier_prefers_assembled_instance() -> None:
+    """装配态：校验器取本应用装配的实例（不经进程级注册表，避免跨服务串味）。"""
+    from bms_core.core.config import Settings
+    from bms_core.oauth import verify as verify_module
+
+    assembled = object()
+    app = SimpleNamespace(state=SimpleNamespace(settings=Settings(), token_verifier=assembled))
+    request = SimpleNamespace(app=app)
+
+    assert verify_module.get_token_verifier(request) is assembled  # pyright: ignore[reportArgumentType]
+
+
+def test_get_token_verifier_falls_back_to_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """未装配（单测自带应用壳）：回退到插件注册表解析。"""
+    from bms_core.core.config import Settings
+    from bms_core.oauth import verify as verify_module
+
+    sentinel = object()
+
+    def _resolve(plugin_key: str, provider: str | None = None, *, expected_version: str | None = None) -> object:
+        """插件解析替身：固定返回哨兵对象。"""
+        del plugin_key, provider, expected_version
+        return sentinel
+
+    monkeypatch.setattr(verify_module, "resolve_plugin", cast("Any", _resolve))
+    app = SimpleNamespace(state=SimpleNamespace(settings=Settings(), token_verifier=None))
+    request = SimpleNamespace(app=app)
+
+    assert verify_module.get_token_verifier(request) is sentinel  # pyright: ignore[reportArgumentType]
+
+
 def test_module_env_applies_isolated_values() -> None:
     """模块级隔离环境在运行期生效（装配常驻 B1 要求隔离先于装配就位），退出还原。"""
     generator = isolated_env_module._fixture_function()  # pyright: ignore[reportPrivateUsage]

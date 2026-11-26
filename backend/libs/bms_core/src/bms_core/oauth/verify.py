@@ -247,8 +247,8 @@ def get_token_verifier(request: Request) -> BaseTokenVerifier:
         BaseTokenVerifier: 应用装配的校验器实例。
     """
     assembled = getattr(request.app.state, "token_verifier", None)
-    if isinstance(assembled, BaseTokenVerifier):
-        return assembled
+    if assembled is not None:
+        return cast("BaseTokenVerifier", assembled)
     settings = cast("Settings", request.app.state.settings)
     return cast(
         "BaseTokenVerifier",
