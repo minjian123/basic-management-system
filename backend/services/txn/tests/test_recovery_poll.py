@@ -170,9 +170,12 @@ class _LedgerEngine:
         return lambda: _gated(self.engine)
 
     async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:
-        """释放引擎。"""
+        """不释放引擎：它是**共享**平台库引擎（测试基座持有、跨用例复用）。
+
+        此处 `dispose()` 会拆掉同进程其它 worker 正在用的连接，表现为随后 UPDATE 匹配 0 行
+        （`StaleDataError`）——高负载并行时必现、单跑不复现，故由基座统一释放。
+        """
         del exc_type, exc, traceback
-        await self.engine.dispose()
 
 
 class _SessionScope:
