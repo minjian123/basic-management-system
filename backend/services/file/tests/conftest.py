@@ -63,6 +63,28 @@ def _plugin_fixtures(  # pyright: ignore[reportUnusedFunction]
 
 
 @pytest.fixture(autouse=True)
+def _restore_assembled_app(  # pyright: ignore[reportUnusedFunction]
+    service_app: FastAPI,
+) -> Iterator[None]:
+    """每例恢复装配态：依赖覆盖与配置快照都回到用例开始前。
+
+    装配常驻（13_10）后 app 跨用例复用，用例直接写 `app.dependency_overrides[...]` 或就地改
+    `app.state.settings.<段>.<字段>` 会把替身 / 改动留给后继用例。还原逻辑单源在
+    `tests_support.app_state`。
+
+    Args:
+        service_app: 已装配的应用实例（会话级）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    from tests_support.app_state import restore_assembled_app
+
+    with restore_assembled_app(service_app):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """服务专属隔离：在公共隔离之后追加 fakeredis 与测试令牌密钥。
 
