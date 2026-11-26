@@ -27,7 +27,7 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.i18n.cache import I18nCacheRegion, MemoryI18nCacheRegion, get_i18n_cache_region
 from bms_core.i18n.invalidate import I18nInvalidator, get_i18n_invalidator
-from bms_core.i18n.registry import BaseLocaleRegistry
+from bms_core.i18n.null import NullLocaleRegistry
 
 pytestmark = [pytest.mark.kiwi_id(2283)]
 
@@ -64,7 +64,18 @@ def test_prefers_assembled_instances() -> None:
     settings = Settings()
     cache = MemoryCacheRegion()
     i18n_cache = MemoryI18nCacheRegion()
-    app = _AppShell(SimpleNamespace(settings=settings, cache=cache, i18n_cache_region=i18n_cache))
+    # 已装配态要连语言清单实例一起给：不给就会走 `resolve_plugin` 回退，而进程级注册表可能留有
+    # 前序文件以其自带壳登记的工厂（`reset()` 只解冻不清登记）——那条回退会读到别人的 app 而报
+    # `engine_registry` 缺失（与用例意图无关的顺序耦合）。
+    locale_registry = NullLocaleRegistry()
+    app = _AppShell(
+        SimpleNamespace(
+            settings=settings,
+            cache=cache,
+            i18n_cache_region=i18n_cache,
+            locale_registry=locale_registry,
+        )
+    )
 
     request = _request(app)
 
@@ -73,7 +84,7 @@ def test_prefers_assembled_instances() -> None:
     invalidator = get_i18n_invalidator(request)
     assert isinstance(invalidator, I18nInvalidator)
     assert invalidator._cache is i18n_cache  # pyright: ignore[reportPrivateUsage]
-    assert isinstance(invalidator._registry, BaseLocaleRegistry)  # pyright: ignore[reportPrivateUsage]
+    assert invalidator._registry is locale_registry  # pyright: ignore[reportPrivateUsage]
 
 
 def test_falls_back_to_plugin_registry() -> None:
