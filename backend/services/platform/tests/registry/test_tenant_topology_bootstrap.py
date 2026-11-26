@@ -1,0 +1,416 @@
+"""租户拓扑启动装配：自举 / 幂等 / 拒启 / 解析器登记（07C `02_01`；Kiwi 2366 用例 1、4）。
+
+启动钩子在每次 `service_app` 装配时执行；本套用例另测「幂等二次自举」「域登记为空拒启」
+「既有版本但读不到行」与「装配失败转拒启」四条分支。
+
+全部用例跑共享平台库：`ensure_default` 在「已有版本且无缺失域、无历史残留域」时只读返回
+（`tenant_topology.py`），收敛态的重复自举与冲突重跑都不写库，故不需要独占库。
+"""
+
+from collections.abc import Iterator
+from typing import cast
+
+import pytest
+from fastapi import FastAPI
+from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from bms_core.collaboration import (
+    DomainLayoutTopologyResolver,
+    TenantTopologyResolver,
+    register_topology_resolver,
+    reset_topology_resolver,
+    resolve_topology,
+    restore_topology_state,
+    topology_snapshot,
+    topology_state,
+)
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
+from bms_core.core.exceptions import CatalogError
+from bms_core.db.keys import PLATFORM_DB_KEY
+from bms_core.db.session import session_scope
+from bms_core.models.platform.tenant_topology import (
+    TOPOLOGY_STATUS_ENABLED,
+    SysTenantTopology,
+)
+from bms_core.services.module_registry import (
+    domain_service_view,
+    register_domain_services,
+    reset_domain_services,
+)
+from bms_core.testing.namespace import Namespace
+from bms_core.testing.transaction import write_session
+from bms_platform.domains.platform_registry.repositories.tenant_topology import (
+    TenantTopologyRepository,
+)
+from bms_platform.domains.platform_registry.services import tenant_topology_bootstrap
+from bms_platform.domains.platform_registry.services.tenant_topology import TenantTopologyService
+
+pytestmark = pytest.mark.kiwi_id(2366)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_topology_state() -> Iterator[None]:
+    """每例留存并恢复进程内快照与解析器（装配常驻后启动钩子只跑一次，不清空装配态）。
+
+    改写快照的用例（显式调 `bootstrap_tenant_topologies`）结束后由 `restore_topology_state`
+    原样恢复；不再前置清空，否则同 worker 后续用例看不到会话装配期登记的默认拓扑。
+
+    Yields:
+        None: 用例运行期。
+    """
+    previous = topology_state()
+    try:
+        yield
+    finally:
+        restore_topology_state(previous)
+        # 解析器是独立全局（`topology_state` 不含它）：恢复成装配期实现的同一类型，
+        # 避免本文件「复位为过渡默认实现」的用例把残值留给同 worker 的后继用例。
+        register_topology_resolver(TenantTopologyResolver())
+
+
+async def test_replace_cleans_coexisting_old_versions(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
+    """并发替换乱序完成：同域多个旧版本同时存活时，替换后只留新版本，且软删不撞唯一键。"""
+    # 用非 0 租户，避免动到默认拓扑（tenant_id=0 被其它用例共享）
+    tenant = int.from_bytes(ns.prefix.encode()[:8], "big")
+    async with write_session(shared_platform_engine) as session:
+        repo = TenantTopologyRepository(session)
+        # 造「v1 / v2 同域都存活」的历史态（两侧各自插过、都没来得及删旧版本）
+        for version in (1, 2):
+            assert await repo.insert_if_absent(
+                ConcurrentStableDict(
+                    {
+                        "tenant_id": tenant,
+                        "domain_key": "demo",
+                        "unit_key": "platform",
+                        "topology_version": version,
+                        "status": TOPOLOGY_STATUS_ENABLED,
+                        "note": None,
+                    }
+                ),
+                match=repo.version_match(tenant, "demo", version),
+            )
+
+        written = await repo.replace(
+            tenant,
+            version=3,
+            rows=ConcurrentStableList(
+                [
+                    SysTenantTopology(
+                        tenant_id=tenant,
+                        domain_key="demo",
+                        unit_key="identity",
+                        topology_version=3,
+                        status=TOPOLOGY_STATUS_ENABLED,
+                        note=None,
+                    )
+                ]
+            ),
+        )
+
+        assert written == 1
+        live = [row for row in await repo.list_current(tenant) if row.domain_key == "demo"]
+        assert [(row.topology_version, row.unit_key) for row in live] == [(3, "identity")]
+        deleted = (
+            (
+                await session.execute(
+                    select(SysTenantTopology)
+                    .where(
+                        SysTenantTopology.tenant_id == tenant,
+                        SysTenantTopology.domain_key == "demo",
+                        SysTenantTopology.deleted_at.is_not(None),
+                    )
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert sorted(row.topology_version for row in deleted) == [1, 2]
+        assert len({row.deleted_at for row in deleted}) == 2, "同域多行必须用不同软删时刻，否则撞唯一键"
+
+        # 同版本再替换一次：逐行原子插入全部判重命中，返回 0（覆盖「并发方已插」分支）
+        again = await repo.replace(
+            tenant,
+            version=3,
+            rows=ConcurrentStableList(
+                [
+                    SysTenantTopology(
+                        tenant_id=tenant,
+                        domain_key="demo",
+                        unit_key="identity",
+                        topology_version=3,
+                        status=TOPOLOGY_STATUS_ENABLED,
+                        note=None,
+                    )
+                ]
+            ),
+        )
+        assert again == 0
+
+
+async def test_startup_registers_resolver_and_snapshot(service_app: FastAPI) -> None:
+    """用例 1 / 14：启动后默认拓扑已自举、快照在位、第二段解析换成本实现。
+
+    不变式是「**已登记域全部被默认拓扑覆盖**」；拓扑里允许存在历史域的手工行（生产语义
+    只补不缺，不删除既有行），故这里判包含关系而不是集合相等。
+
+    xdist 多 worker 并发首启时，测试库为 autocommit，另一 worker 的批量插入对读者可见——
+    装配期快照可能落在中间态（少最后几行）。启动钩子本身幂等（已全覆盖则不写新版本），
+    这里显式重跑一次做收敛，再判不变式。
+    """
+    await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
+    snapshot = topology_snapshot(0)
+    assert snapshot is not None
+    assert snapshot.version >= 1
+    registered = set(domain_service_view())
+    entries = set(snapshot.entries)
+    assert registered <= entries, f"默认拓扑漏掉已登记域：{sorted(registered - entries)}"
+    assert isinstance(resolve_topology(), TenantTopologyResolver)
+
+
+async def test_bootstrap_converges_on_concurrent_version_conflict(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """并发启动：首个 `ensure_default` 撞版本冲突 → 换新事务重跑并成功（幂等收敛，不拒启）。
+
+    跑共享平台库：冲突重跑走的是「已有版本且无缺失域」的只读返回，不写库；本用例验证的是
+    「撞冲突后换新事务再跑一次」这条分支，不依赖库处于空拓扑。
+    """
+    from bms_core.core.exceptions import ConflictError
+
+    calls = {"count": 0}
+    original = TenantTopologyService.ensure_default
+
+    async def _conflict_once(self: TenantTopologyService, *, actor: int | None = None) -> int:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ConflictError("拓扑版本须递增：当前 1，请求 1")
+        return await original(self, actor=actor)
+
+    monkeypatch.setattr(TenantTopologyService, "default_status", _not_bootstrapped)
+    monkeypatch.setattr(TenantTopologyService, "ensure_default", _conflict_once)
+    await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
+
+    assert calls["count"] == 2
+    assert isinstance(resolve_topology(), TenantTopologyResolver)
+
+
+async def test_bootstrap_is_idempotent(service_app: FastAPI) -> None:
+    """自举幂等：已有默认拓扑时再跑不改版本，且仍覆盖全部已登记域。"""
+    async with session_scope(
+        service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
+    ) as session:
+        service = TenantTopologyService(session)
+        # 先收敛一次：共享库上可能残留历史未登记域（声明残留 / 产品下线），
+        # 自举会剔除它们并写下一版本——这属预期，幂等性判的是「收敛之后再跑不再变版本」。
+        await service.ensure_default()
+        before = await service.export(0)
+        version = await service.ensure_default()
+    assert version == before[0]
+    rows = before[1]
+    keys = [row.domain_key for row in rows]
+    assert len(set(keys)) == len(keys), "默认拓扑同一域不得多行"
+    registered = set(domain_service_view())
+    missing = registered - set(keys)
+    assert not missing, f"默认拓扑漏掉已登记域：{sorted(missing)}"
+
+
+async def test_empty_domain_registry_refuses_bootstrap(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """域登记为空：无法自举默认拓扑 → `CatalogError`（拒启，不写半套数据）。"""
+    saved = ConcurrentStableFrozenDict(domain_service_view().to_list())
+    reset_domain_services()
+    async with session_scope(
+        service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
+    ) as session:
+        service = TenantTopologyService(session)
+        # 让 current_version 视为 0（模拟首次自举），否则已有版本会短路返回
+        monkeypatch.setattr(TenantTopologyRepository, "current_version", _zero)
+        with pytest.raises(CatalogError, match="业务域登记为空"):
+            await service.ensure_default()
+    register_domain_services(saved)
+
+
+async def test_hook_wraps_unexpected_failure_as_catalog_error(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """装配失败（非 CatalogError）：包装为 `CatalogError` 上抛（不带病启动）。"""
+
+    async def _boom(*_: object) -> int:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(TenantTopologyService, "default_status", _not_bootstrapped)
+    monkeypatch.setattr(TenantTopologyService, "ensure_default", _boom)
+    with pytest.raises(CatalogError, match="租户部署拓扑装配失败"):
+        await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
+
+
+async def test_hook_propagates_catalog_error(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """装配期 `CatalogError` 原样上抛（不二次包装，保留原始定位信息）。"""
+
+    async def _boom(*_: object) -> int:
+        raise CatalogError("域登记为空")
+
+    monkeypatch.setattr(TenantTopologyService, "default_status", _not_bootstrapped)
+    monkeypatch.setattr(TenantTopologyService, "ensure_default", _boom)
+    with pytest.raises(CatalogError, match="域登记为空"):
+        await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
+
+
+async def _not_bootstrapped(*_: object) -> tuple[int, ConcurrentStableList[str]]:
+    """模拟「默认拓扑尚未自举」：强制启动钩子走写路径。"""
+    return 0, ConcurrentStableList()
+
+
+async def _zero(self: object, tenant_id: int) -> int:
+    """无版本替身（模拟首次自举）。
+    Args:
+        self: 仓储实例占位（类级替身会被绑定为方法）。
+        tenant_id: 租户主键（未使用）。
+
+    Returns:
+        int: 恒 0。
+    """
+    del tenant_id
+    return 0
+
+
+async def test_bootstrap_appends_registered_domains_missing_from_default(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """补齐语义：默认拓扑缺某已登记域时，按「域 → 承载服务键」补行并写下一版本。
+
+    用类级替身避免改动会话级默认拓扑（其他用例断言其版本为 1）：只校验补齐行集合与版本口径。
+    """
+    domains = domain_service_view()
+    existing_domain = next(iter(domains))
+    written: ConcurrentStableList[ConcurrentStableList[SysTenantTopology]] = ConcurrentStableList()
+
+    async def _version(self: object, tenant_id: int) -> int:
+        del self, tenant_id
+        return 1
+
+    async def _current(self: object, tenant_id: int) -> ConcurrentStableList[SysTenantTopology]:
+        del self
+        return ConcurrentStableList(
+            [
+                SysTenantTopology(
+                    tenant_id=tenant_id,
+                    domain_key=existing_domain,
+                    unit_key="legacy",
+                    topology_version=1,
+                    status="enabled",
+                )
+            ]
+        )
+
+    async def _replace(
+        self: object,
+        tenant_id: int,
+        *,
+        version: int,
+        rows: object,
+        now: object = None,
+    ) -> int:
+        del self, tenant_id, version, now
+        items = ConcurrentStableList(cast("ConcurrentStableList[SysTenantTopology]", rows))
+        written.add(items)
+        return len(items)
+
+    monkeypatch.setattr(TenantTopologyRepository, "current_version", _version)
+    monkeypatch.setattr(TenantTopologyRepository, "list_current", _current)
+    monkeypatch.setattr(TenantTopologyRepository, "replace", _replace)
+    async with session_scope(
+        service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
+    ) as session:
+        await TenantTopologyService(session).ensure_default()
+    assert len(written) == 1
+    merged = ConcurrentStableDict((row.domain_key, row.unit_key) for row in written[0])
+    for domain, service in domains.items():
+        if domain == existing_domain:
+            assert merged[domain] == "legacy"
+        else:
+            assert merged[domain] == service
+
+
+@pytest.mark.kiwi_id(2550)
+async def test_bootstrap_prunes_unknown_domains_without_refusing(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """历史域容忍：默认拓扑含「已不在登记表」的域时剔除并告警、写新版本，不拒启。
+
+    历史残留（产品下线域 / 测试声明残留）不应拖垮整个实例启动——实测一个测试域即可让
+    整批用例 setup 失败。告警走 `StdoutLogger`（标准输出），此处只断言行为与写出版本。
+    """
+    domains = domain_service_view()
+    existing_domain = next(iter(domains))
+    written: ConcurrentStableList[ConcurrentStableList[SysTenantTopology]] = ConcurrentStableList()
+
+    async def _version(self: object, tenant_id: int) -> int:
+        del self, tenant_id
+        return 1
+
+    async def _current(self: object, tenant_id: int) -> ConcurrentStableList[SysTenantTopology]:
+        del self
+        return ConcurrentStableList(
+            [
+                SysTenantTopology(
+                    tenant_id=tenant_id,
+                    domain_key=existing_domain,
+                    unit_key="legacy",
+                    topology_version=1,
+                    status="enabled",
+                ),
+                SysTenantTopology(
+                    tenant_id=tenant_id,
+                    domain_key="ghost_domain",
+                    unit_key="legacy",
+                    topology_version=1,
+                    status="enabled",
+                ),
+            ]
+        )
+
+    async def _replace(
+        self: object,
+        tenant_id: int,
+        *,
+        version: int,
+        rows: object,
+        now: object = None,
+    ) -> int:
+        del self, tenant_id, version, now
+        items = ConcurrentStableList(cast("ConcurrentStableList[SysTenantTopology]", rows))
+        written.add(items)
+        return len(items)
+
+    monkeypatch.setattr(TenantTopologyRepository, "current_version", _version)
+    monkeypatch.setattr(TenantTopologyRepository, "list_current", _current)
+    monkeypatch.setattr(TenantTopologyRepository, "replace", _replace)
+    async with session_scope(
+        service_app.state.engine_registry, db_key=PLATFORM_DB_KEY, factory=service_app.state.session_factory
+    ) as session:
+        await TenantTopologyService(session).ensure_default()
+    assert len(written) == 1
+    merged = ConcurrentStableDict((row.domain_key, row.unit_key) for row in written[0])
+    assert "ghost_domain" not in merged
+    for domain, service in domains.items():
+        assert merged[domain] == ("legacy" if domain == existing_domain else service)
+
+
+@pytest.mark.kiwi_id(2511)
+async def test_hook_rejects_when_table_not_ready(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """库未就绪（未建表 / 不可读）→ 拒启（数据库没准备好属部署错误，不带病启动）。
+
+    与「拓扑未配置」区分：表可读但缺域同样拒启（见其他用例）。
+    """
+
+    async def _boom(*_: object) -> tuple[int, ConcurrentStableList[str]]:
+        raise OperationalError("select 1", {}, Exception("no such table: sys_tenant_topology"))
+
+    reset_topology_resolver()
+    monkeypatch.setattr(TenantTopologyService, "default_status", _boom)
+    with pytest.raises(CatalogError, match="租户部署拓扑装配失败：库未就绪"):
+        await tenant_topology_bootstrap.bootstrap_tenant_topologies(service_app)
+    assert isinstance(resolve_topology(), DomainLayoutTopologyResolver)

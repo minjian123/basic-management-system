@@ -1,0 +1,144 @@
+"""dev 环境公开契约端点零 5xx 回归（Kiwi 2187，任务 06_04）。
+
+复现 CI 契约冒烟的被测条件：请求 Host 为 IP 字面量（Schemathesis 经 `http://127.0.0.1:8000`
+打真实服务）。守护的缺陷（GitLab Issue #47）：租户解析曾把 IP 主机名（恰好四段）当带子域名的
+租户域名，并在租户注册契约不可达时把该值原样当租户编码，派生库名 `bms_platform_127.0.0.1`
+形态非法 → `ConfigError` 冒泡 500，使 dev 环境 7 个只读端点全数报 5xx、契约冒烟只能保持非阻断。
+
+用例跑在**已装配系统**上：Host 由 `base_url` 指定，属请求级条件，不需要为复现它另建应用或
+另起库；租户解析与库名派生是纯逻辑，直接调用断言。
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, cast
+
+import pytest
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.db.migration import BACKEND_ROOT
+from bms_core.db.tenant import resolve_request_tenant
+from bms_core.services.service_contract import CONTRACTS_DIR, contract_file_name
+from bms_core.testing.fixtures import service_settings
+
+SMOKE_BASE_URL = "http://127.0.0.1:8000"
+"""与 CI 契约冒烟一致的服务地址（Host 为 IP 字面量，正是本回归要覆盖的解析条件）。"""
+
+TENANT_PROBE_PATH = "/api/v1/outbox/dead-letters"
+"""租户库只读端点（需租户上下文；dev 环境解析异常时即报 5xx 的典型端点）。"""
+
+EXCLUDED_PATHS = ("/healthz", "/readyz", "/metrics")
+"""与 `ops/contract_smoke.py` 一致排除的基础设施端点（探针 / 指标，非业务契约）。"""
+
+PATH_PARAM_VALUE = "smoke1"
+"""路径参数占位值（只求命中路由，不求命中业务数据；4xx 视为可达通过）。"""
+
+
+def _contract_spec(service: str = "platform") -> ConcurrentStableDict[str, Any]:
+    """读公开契约快照（仓库根 `deploy/contracts/<服务>.json`）。
+
+    Args:
+        service: 服务标识。
+
+    Returns:
+        ConcurrentStableDict[str, Any]: OpenAPI 文档。
+    """
+    path = BACKEND_ROOT.parent / CONTRACTS_DIR / contract_file_name(service)
+    return ConcurrentStableDict(cast("dict[str, Any]", json.loads(path.read_text(encoding="utf-8"))))
+
+
+def _fill_path(path: str) -> str:
+    """把路径参数替换为占位值。
+
+    Args:
+        path: 契约路径模板。
+
+    Returns:
+        str: 可请求路径。
+    """
+    result = path
+    while "{" in result:
+        start = result.index("{")
+        end = result.index("}", start)
+        result = result[:start] + PATH_PARAM_VALUE + result[end + 1 :]
+    return result
+
+
+def _required_query(operation: ConcurrentStableDict[str, Any]) -> str:
+    """构造必填查询参数（按 schema 类型取占位值）。
+
+    Args:
+        operation: 单个操作定义。
+
+    Returns:
+        str: `?a=1&b=x` 形态；无必填参数返回空串。
+    """
+    parts: ConcurrentStableList[str] = ConcurrentStableList()
+    parameters = cast("list[dict[str, Any]]", operation.get("parameters") or [])
+    for parameter in parameters:
+        if parameter.get("in") != "query" or not parameter.get("required"):
+            continue
+        name = str(parameter["name"])
+        schema = cast("dict[str, Any]", parameter.get("schema") or {})
+        kind = schema.get("type")
+        if kind == "integer":
+            parts.add(f"{name}=1")
+        elif kind == "boolean":
+            parts.add(f"{name}=true")
+        else:
+            parts.add(f"{name}={PATH_PARAM_VALUE}")
+    return ("?" + "&".join(parts)) if parts else ""
+
+
+def _read_operations(spec: ConcurrentStableDict[str, Any]) -> ConcurrentStableList[str]:
+    """枚举只读（GET）操作的请求地址。
+
+    Args:
+        spec: OpenAPI 文档。
+
+    Returns:
+        ConcurrentStableList[str]: 请求地址（相对路径 + 必填查询参数），已剔除基础设施端点。
+    """
+    targets: ConcurrentStableList[str] = ConcurrentStableList()
+    paths = cast("dict[str, dict[str, Any]]", spec.get("paths") or {})
+    for path, item in paths.items():
+        operation = ConcurrentStableDict(cast("dict[str, Any]", item.get("get") or {}))
+        if not operation or path in EXCLUDED_PATHS:
+            continue
+        targets.add(_fill_path(path) + _required_query(operation))
+    return ConcurrentStableList(sorted(targets))
+
+
+@pytest.mark.kiwi_id(2187)
+async def test_dev_contract_get_endpoints_have_no_server_error(service_app: FastAPI) -> None:
+    """Host 为 IP 字面量时，公开契约全 GET 端点不得出现 5xx（dev 环境契约冒烟口径）。"""
+    targets = _read_operations(_contract_spec())
+    assert targets, "契约快照未解析到任何 GET 操作"
+
+    transport = ASGITransport(app=service_app)
+    async with AsyncClient(transport=transport, base_url=SMOKE_BASE_URL) as client:
+        failures: ConcurrentStableList[str] = ConcurrentStableList()
+        for target in targets:
+            response = await client.get(target)
+            if response.status_code >= 500:
+                failures.add(f"{target} → {response.status_code} {response.text[:200]}")
+    assert not failures, "dev 环境契约端点出现 5xx：\n" + "\n".join(failures)
+
+
+@pytest.mark.kiwi_id(2187)
+async def test_ip_host_resolves_to_demo_tenant(service_app: FastAPI) -> None:
+    """Host 为 IP 字面量时不进子域名解析：租户回落演示租户，且其库键可派生合法库名。"""
+    settings = service_settings("platform")
+    tenant = await resolve_request_tenant(
+        path=TENANT_PROBE_PATH,
+        host="127.0.0.1:8000",
+        source=service_app.state.tenant_source,
+        exempt_paths=settings.tenant.exempt_paths,
+        allow_demo_fallback=settings.tenant.allow_demo_fallback,
+    )
+    assert tenant is not None
+    assert tenant.code == "demo"
+    assert tenant.db_key == "tenant_demo"
