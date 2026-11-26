@@ -269,23 +269,27 @@ async def test_borrowed_read_share_retires_with_write_gate(tmp_path: Path) -> No
 
 
 async def test_read_gates_run_concurrently(tmp_path: Path) -> None:
-    """两个句柄同时持读门：总耗时接近单个，而不是两倍（共享锁真并发）。"""
+    """两个句柄同时持读门：总耗时接近单个，而不是两倍（共享锁真并发）。
+
+    判别窗口取「持有 200ms / 阈值 300ms（串行 400ms）」：并行批次的 CPU 争抢会让
+    `asyncio.sleep` 明显超时（实测 50ms 变 108ms），窗口太窄会把真并发误判成串行。
+    """
     path = tmp_path / "shared.lock"
     first = rwlock.DbGate("first", path)
     second = rwlock.DbGate("second", path)
 
     async def _hold(gate: rwlock.DbGate) -> None:
-        """持读门 50ms。"""
+        """持读门 200ms。"""
         token = await gate.acquire_read()
         try:
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.2)
         finally:
             await gate.release_read(token)
 
     started = time.monotonic()
     await asyncio.gather(_hold(first), _hold(second))
 
-    assert time.monotonic() - started < 0.095
+    assert time.monotonic() - started < 0.3
 
 
 async def test_write_gate_blocks_other_task_reads(tmp_path: Path) -> None:
