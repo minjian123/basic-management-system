@@ -1,0 +1,34 @@
+"""跨服务事务管理器服务启动冒烟（脚手架生成）。"""
+
+from httpx import ASGITransport, AsyncClient
+
+from bms_core.core.config import PluginSelection, Settings
+from bms_txn import SERVICE_NAME
+from bms_txn.main import ApplicationFactory
+
+
+def test_prepare_settings_keeps_explicit_health_provider() -> None:
+    """`prepare_settings` 只补缺省：显式配置的健康检查 provider 不被清空（防真实检查被静默关闭）。"""
+    # 不改全局 Settings 实例的属性（P5 口径）：直接构造带显式 provider 的配置对象。
+    settings = Settings(health_check_registry=PluginSelection(provider="local"))
+
+    ApplicationFactory().prepare_settings(settings)
+
+    assert settings.health_check_registry.provider == "local"
+
+
+async def test_service_boots_and_exposes_probes() -> None:
+    """应用可构造；`/healthz` 返回存活状态与服务身份；`/readyz` 就绪（最小服务无依赖检查）。"""
+    app = ApplicationFactory().create(None)
+    assert "BMS" in app.title
+    assert "跨服务事务管理器" in app.title
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
+        healthz = await client.get("/healthz")
+        readyz = await client.get("/readyz")
+    assert healthz.status_code == 200
+    assert healthz.json()["service"] == SERVICE_NAME
+    assert readyz.status_code == 200
+    assert readyz.json()["checks"] == {}
