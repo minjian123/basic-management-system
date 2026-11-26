@@ -1,0 +1,325 @@
+"""网关认证内部端点测试（Kiwi 2181）：公开路径 / 校验通过换发网关服务 JWT / 失败语义。
+
+以 stub 校验器 / 真实签发者覆盖依赖，隔离外部 IdP；真实用户令牌端到端见 mjbk 冒烟。
+"""
+
+import pytest
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from joserfc.jwk import RSAKey
+
+from bms_core.api.deps import get_service_token_issuer, get_tenant_source, get_token_verifier
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError, TenantNotFoundError
+from bms_core.db.tenant import TenantContext, TenantLookup
+from bms_core.idp.base import IdentityClaims
+from bms_core.oauth.base import OAuthToken
+from bms_core.oauth.jwt import JwtServiceTokenIssuer
+from bms_core.oauth.keys import TokenKey
+from bms_core.oauth.token import TOKEN_AUDIENCE_API, BaseServiceTokenIssuer, ServiceTokenSpec
+from bms_core.oauth.verify import BaseTokenVerifier, VerifiedToken
+
+_INTROSPECT = "/api/v1/auth/introspect"
+
+
+def _issuer() -> JwtServiceTokenIssuer:
+    """构造带私钥的服务 JWT 签发者（RS256）。
+
+    Returns:
+        JwtServiceTokenIssuer: 签发者。
+    """
+    key = RSAKey.generate_key(2048, private=True)
+    return JwtServiceTokenIssuer(
+        issuer="bms",
+        keys=[
+            TokenKey(
+                kid="k1",
+                algorithm="RS256",
+                public_key=key.as_pem(private=False).decode(),
+                private_key=key.as_pem(private=True).decode(),
+            )
+        ],
+        active_kid="k1",
+    )
+
+
+class _StubVerifier(BaseTokenVerifier):
+    """占位校验器：按注入结果返回声明或抛错（隔离外部 IdP）。"""
+
+    plugin_name = "stub"
+    auto_register: bool = False
+    """测试替身不进默认插件注册表（避免污染 `/api/v1/plugins` 分组清单）。"""
+
+    def __init__(self, *, result: VerifiedToken | None = None, error: Exception | None = None) -> None:
+        self._result = result
+        self._error = error
+        self.audiences: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def verify(self, token: str, *, audience: str) -> VerifiedToken:
+        """记录期望受众并返回注入结果 / 抛注入异常。"""
+        self.audiences.add(audience)
+        if self._error is not None:
+            raise self._error
+        assert self._result is not None
+        return self._result
+
+
+class _FailingIssuer(BaseServiceTokenIssuer):
+    """占位签发者：签发即抛 `ConfigError`（模拟未配置签名私钥）。"""
+
+    plugin_name = "failing"
+
+    async def issue(self, spec: ServiceTokenSpec) -> OAuthToken:
+        """恒定抛错。"""
+        del spec
+        raise ConfigError("未配置签名私钥")
+
+    def jwks(self) -> ConcurrentStableDict[str, object]:
+        """空 JWKS。"""
+        return ConcurrentStableDict({"keys": ConcurrentStableList()})
+
+    def verify(self, token: str) -> IdentityClaims:
+        """占位不验签（不参与本用例）。"""
+        raise ConfigError(token)
+
+
+class _TenantSource:
+    """占位租户源：按令牌主键反解租户编码（introspect 注入 `X-Tenant-Id` 依据）。"""
+
+    async def by_code(self, code: str, *, readonly: bool = False) -> TenantContext:
+        """按编码取租户（仅 acme）。"""
+        del readonly
+        if code == "acme":
+            return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
+        raise TenantNotFoundError(f"未知租户：{code}")
+
+    async def by_domain(self, domain: str, *, readonly: bool = False) -> TenantContext:
+        """按子域名取租户（本用例不使用）。"""
+        del readonly
+        raise TenantNotFoundError(f"未知域名：{domain}")
+
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
+        """按租户主键（雪花 id 字符串）取租户（仅 acme）。"""
+        del readonly
+        if tenant_id == "2002":
+            return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
+        raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（本替身恒返回示例租户）。
+
+        Returns:
+            TenantContext: 示例租户上下文。
+        """
+        return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
+
+
+class _BrokenTenantSource(_TenantSource):
+    """占位租户源：按令牌主键反解即抛非业务异常（租户注册契约异常口径）。"""
+
+    async def by_id(self, tenant_id: str, *, readonly: bool = False) -> TenantContext:
+        """按租户主键反解即抛异常。
+
+        Args:
+            tenant_id: 租户主键字符串。
+            readonly: 只读通道（本替身恒失败，忽略该形参）。
+
+        Raises:
+            RuntimeError: 固定失败（模拟租户注册契约异常）。
+        """
+        del readonly
+        raise RuntimeError(f"租户注册契约不可达：{tenant_id}")
+
+
+async def _request(
+    service_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    verifier: BaseTokenVerifier,
+    issuer: BaseServiceTokenIssuer,
+    headers: ConcurrentStableDict[str, str] | None = None,
+    tenant_source: TenantLookup | None = None,
+) -> tuple[int, ConcurrentStableDict[str, str]]:
+    """构造应用并经依赖覆盖发起一次 introspect 请求。
+
+    Args:
+        verifier: 注入的统一校验器。
+        issuer: 注入的服务 JWT 签发者。
+        headers: 请求头。
+        tenant_source: 注入的租户源（None 用默认占位源）。
+
+    Returns:
+        tuple[int, ConcurrentStableDict[str, str]]: 状态码与响应头。
+    """
+    source: TenantLookup = tenant_source if tenant_source is not None else _TenantSource()
+    monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: verifier)
+    monkeypatch.setitem(service_app.dependency_overrides, get_service_token_issuer, lambda: issuer)
+    monkeypatch.setitem(service_app.dependency_overrides, get_tenant_source, lambda: source)
+    async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as client:
+        response = await client.get(_INTROSPECT, headers=headers or {})
+    return response.status_code, ConcurrentStableDict(response.headers)
+
+
+async def test_public_path_without_token_passes(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """公开路径免认证：200 且无身份头 / 无 Authorization。"""
+    status, headers = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
+        issuer=_issuer(),
+        headers=ConcurrentStableDict({"X-Forwarded-Uri": "/api/identity/v1/auth/login"}),
+    )
+    assert status == 200
+    assert "x-user-subject" not in headers
+    assert "authorization" not in headers
+
+
+async def test_public_path_prefix_match_passes(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """公开路径前缀匹配：验证码子路径免认证。"""
+    status, _ = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
+        issuer=_issuer(),
+        headers=ConcurrentStableDict({"X-Forwarded-Uri": "/api/identity/v1/captcha/abc?reload=1"}),
+    )
+    assert status == 200
+
+
+async def test_protected_path_without_forwarded_uri_uses_request_path(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """无 `X-Forwarded-Uri` 时取请求路径，非公开且缺 token → 401。"""
+    status, _ = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
+        issuer=_issuer(),
+    )
+    assert status == 401
+
+
+async def test_protected_path_with_minimal_claims_omits_optional_headers(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """无租户 / scope / 会话声明时不返回对应身份头（可选头分支）。"""
+    status, headers = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
+        issuer=_issuer(),
+        headers=ConcurrentStableDict(
+            {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
+        ),
+    )
+    assert status == 200
+    assert headers["x-user-subject"] == "u-1"
+    assert "x-tenant-id" not in headers
+    assert "x-user-scopes" not in headers
+    assert "x-session-id" not in headers
+
+
+@pytest.mark.kiwi_id(2217)
+async def test_protected_path_with_valid_token_issues_gateway_token(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """受保护路径：校验通过后返回契约身份头（含会话 id）+ 网关服务 JWT（可验签）。"""
+    issuer = _issuer()
+    verifier = _StubVerifier(
+        result=VerifiedToken(
+            subject="u-1",
+            tenant_id="2002",
+            scopes=ConcurrentStableFrozenList(("user:read", "user:write")),
+            token_id="sess-1",
+        )
+    )
+    status, headers = await _request(
+        service_app,
+        monkeypatch,
+        verifier=verifier,
+        issuer=issuer,
+        headers=ConcurrentStableDict(
+            {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
+        ),
+    )
+    assert status == 200
+    assert verifier.audiences == [TOKEN_AUDIENCE_API]
+    assert headers["x-user-subject"] == "u-1"
+    assert headers["x-tenant-id"] == "acme"
+    assert headers["x-user-scopes"] == "user:read,user:write"
+    assert headers["x-session-id"] == "sess-1"
+    claims = issuer.verify(headers["authorization"].removeprefix("Bearer "))
+    assert claims.subject == "gateway"
+    assert claims.payload["tenant_id"] == "2002"
+
+
+async def test_protected_path_without_token_is_unauthorized(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """受保护路径缺 token → 401 + WWW-Authenticate。"""
+    status, headers = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
+        issuer=_issuer(),
+        headers=ConcurrentStableDict({"X-Forwarded-Uri": "/api/platform/v1/users"}),
+    )
+    assert status == 401
+    assert "www-authenticate" in headers
+
+
+async def test_protected_path_with_invalid_token_is_unauthorized(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """受保护路径 token 校验失败（AuthError）→ 401。"""
+    status, _ = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(error=AuthError("bad token")),
+        issuer=_issuer(),
+        headers=ConcurrentStableDict({"Authorization": "Bearer bad", "X-Forwarded-Uri": "/api/platform/v1/users"}),
+    )
+    assert status == 401
+
+
+async def test_protected_path_with_idp_unavailable_is_unavailable(
+    service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """IdP JWKS 不可达（ServiceUnavailableError）→ 503。"""
+    status, _ = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(error=ServiceUnavailableError("jwks down")),
+        issuer=_issuer(),
+        headers=ConcurrentStableDict({"Authorization": "Bearer x", "X-Forwarded-Uri": "/api/platform/v1/users"}),
+    )
+    assert status == 503
+
+
+async def test_issuance_failure_is_unavailable(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """签发不可用（ConfigError，如未配置私钥）→ 503（fail-closed）。"""
+    status, _ = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
+        issuer=_FailingIssuer(),
+        headers=ConcurrentStableDict(
+            {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
+        ),
+    )
+    assert status == 503
+
+
+async def test_tenant_lookup_failure_is_unavailable(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """令牌带租户位但租户源反解异常（非 TenantNotFoundError）→ 503（fail-closed）。"""
+    status, _ = await _request(
+        service_app,
+        monkeypatch,
+        verifier=_StubVerifier(result=VerifiedToken(subject="u-1", tenant_id="2002")),
+        issuer=_issuer(),
+        tenant_source=_BrokenTenantSource(),
+        headers=ConcurrentStableDict(
+            {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
+        ),
+    )
+    assert status == 503
