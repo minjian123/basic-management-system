@@ -35,6 +35,22 @@ _EMPTY_SUBJECT = 7_900_001
 """断言「空主体」用的用户主键：任何用例都不给它授角色 / 授权，共享库里恒无数据。"""
 
 
+async def _ensure_grants(app: FastAPI) -> None:
+    """确保能力默认分配在库（并行批次下「声明同步」用例会把清单外声明判移除并撤销分配）。
+
+    本文件三条端点一律按**能力分配**判定；不补跑钩子时会在共享库上偶发 403
+    「无有效分配（越界）」。钩子幂等：无差异不开写事务。
+
+    Args:
+        app: 平台应用实例。
+    """
+    from bms_platform.domains.platform_registry.services.capability_grant_bootstrap import (
+        bootstrap_capability_grants,
+    )
+
+    await bootstrap_capability_grants(app)
+
+
 class _StubVerifier:
     """测试替身：按令牌串返回服务身份（无签名）。"""
 
@@ -82,6 +98,7 @@ async def test_invalidate_endpoint_requires_mdm_service(
 ) -> None:
     """端点：仅放行 `sub=mdm` 服务票据；网关 / 未知 / 无票据一律拒（401）。"""
     monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
+    await _ensure_grants(service_app)
 
     ok = await client.post(API, json={}, headers={"Authorization": "Bearer mdm"})
     assert ok.status_code == 200, ok.text
@@ -104,6 +121,7 @@ async def test_invalidate_endpoint_scopes_users(
 ) -> None:
     """端点：`user_ids` 非空按用户清理旧版本键、为空只做全租户版本 +1（均返回递增版本）。"""
     monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
+    await _ensure_grants(service_app)
 
     scoped = await client.post(API, json={"user_ids": [7, 8]}, headers={"Authorization": "Bearer mdm"})
     assert scoped.status_code == 200
@@ -122,6 +140,7 @@ async def test_subject_endpoint_requires_identity_capability(
 ) -> None:
     """`subject` 出口：仅放行持有该能力有效分配的 `identity`；mdm / 网关 / 无票据一律拒。"""
     monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
+    await _ensure_grants(service_app)
 
     # 「空主体」前提用**库内没有授权数据的主键**：共享库叠加运行后，测试主体（1001）会被
     # 其它用例的授权准备（内置管理员）授过角色，拿它断言空角色等于假设「库里只有我的数据」。
@@ -182,6 +201,7 @@ async def test_metadata_endpoint_requires_identity_capability(
 
     monkeypatch.setattr(source_module, "build_menu_metadata_service", _factory)
     monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())
+    await _ensure_grants(service_app)
 
     ok = await client.get(METADATA_API, headers={"Authorization": "Bearer identity"})
     assert ok.status_code == 200, ok.text
