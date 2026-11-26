@@ -6,10 +6,11 @@
 `layout_columns_of` 三表读取。
 """
 
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import Any, cast
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
 from sqlalchemy import update
@@ -37,7 +38,7 @@ from bms_platform.domains.form_design.repositories.layout import (
 from bms_platform.domains.form_design.services.assemble import LevelSnapshot, assemble_layout
 from bms_platform.wiring import build_local_form_validator
 from tests_support.form_design import tenant_session
-from tests_support.permission_admin import TEST_SUBJECT, grant_system_admin
+from tests_support.permission_admin import TEST_SUBJECT, grant_system_admin, ungrant
 from tests_support.permission_stub import stub_permission_provider
 
 from .helpers import (
@@ -128,6 +129,27 @@ def prepared(tenant_db: str, service_app: FastAPI, monkeypatch: pytest.MonkeyPat
     """
     assert tenant_db
     stub_permission_provider(service_app, monkeypatch)
+
+
+@pytest_asyncio.fixture
+async def system_admin_role(tenant_db: str) -> AsyncIterator[int]:
+    """临时把测试主体绑到内置系统管理员角色，用例结束解绑。
+
+    为什么必须解绑：系统管理员角色命中权限豁免层级，绑着不放会把「测试主体 → 全放行」留给同
+    worker 其它服务的无权限断言（实测 `archive:*` 的 403 变 200）。
+
+    Args:
+        tenant_db: 共享租户库连接串（绑定与解绑都落该库）。
+
+    Yields:
+        int: 内置系统管理员角色主键。
+    """
+    assert tenant_db
+    role_id = await grant_system_admin(int(TEST_SUBJECT))
+    try:
+        yield role_id
+    finally:
+        await ungrant(int(TEST_SUBJECT))
 
 
 def _data(response: Any, label: str) -> Any:
@@ -443,9 +465,11 @@ async def test_validate_option_rules_and_multi_values(client: AsyncClient, servi
     )
 
 
-async def test_effective_picks_role_level_layout(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
+async def test_effective_picks_role_level_layout(
+    client: AsyncClient, service_app: Any, ns: Namespace, system_admin_role: int
+) -> None:
     """角色视图层级优先：给当前用户的内置角色配布局后，生效来源为 `role`。"""
-    role_id = await grant_system_admin(int(TEST_SUBJECT))
+    role_id = system_admin_role
     code = await _form(ns, "rolelvl", app=service_app)
     saved = await client.put(
         _LAYOUTS,
@@ -642,8 +666,14 @@ async def test_validate_applies_permissions_and_ext_fields(
     ns: Namespace,
     tenant_db: str,
     monkeypatch: pytest.MonkeyPatch,
+    system_admin_role: int,
 ) -> None:
-    """校验同源权限：不可见字段不参与校验、不可编辑字段跳必填但仍校验值域；自建字段一并校验。"""
+    """校验同源权限：不可见字段不参与校验、不可编辑字段跳必填但仍校验值域；自建字段一并校验。
+
+    `system_admin_role`：本用例需要「当前用户属内置角色」才走到字段收窄分支之外（豁免层级才能
+    编辑全部字段）；夹具在用例结束解绑，不把豁免留给后继用例。
+    """
+    del system_admin_role
     monkeypatch.setattr(wiring_module, "current_field_permission_provider_factory", _permission_registry)
     code = await _form(ns, "valperm", app=service_app, table=True)
     await _save_layout(client, code, {"main": {"sections": [{"key": "s", "fields": ["name", "status"]}]}})
@@ -868,9 +898,11 @@ async def test_option_snapshot_merges_attr_and_ext_sources(
     ]
 
 
-async def test_validate_role_level_attrs(client: AsyncClient, service_app: Any, ns: Namespace) -> None:
+async def test_validate_role_level_attrs(
+    client: AsyncClient, service_app: Any, ns: Namespace, system_admin_role: int
+) -> None:
     """角色层布局 + 角色层属性：校验按角色层属性求值（属性索引首轮命中角色层）。"""
-    role_id = await grant_system_admin(int(TEST_SUBJECT))
+    role_id = system_admin_role
     code = await _form(ns, "valrole", app=service_app)
     saved = await client.put(
         _LAYOUTS,

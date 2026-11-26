@@ -109,6 +109,33 @@ async def _grant_builtin(user_id: int, *, code: str, name: str, role_type: str) 
         await engine.dispose()
 
 
+async def ungrant(user_id: int, *, code: str = SYSTEM_ADMIN_CODE) -> None:
+    """解除主体与内置角色的绑定（只删绑定行，不删角色）。
+
+    为什么需要：某些用例要「当前用户属于内置角色」才能验证角色层级布局，而系统管理员角色命中
+    权限豁免层级——不解绑会把「测试主体 → 全放行」留给同 worker 的其它服务的无权限断言
+    （实测：`archive:*` 的 403 断言变 200）。
+
+    Args:
+        user_id: 用户主键。
+        code: 角色码（缺省内置系统管理员）。
+    """
+    from sqlalchemy import delete
+
+    from tests_support.shared_access import shared_session
+
+    async with shared_session(os.environ["BMS_DATABASE__TENANTS__URL"], read_only=False) as session:
+        role_ids = (await session.execute(select(SysRole.id).where(SysRole.code == code))).scalars().all()
+        for role_id in role_ids:
+            await session.execute(
+                delete(SysUserRole).where(
+                    SysUserRole.role_id == role_id,
+                    SysUserRole.user_id == user_id,
+                )
+            )
+        await session.commit()
+
+
 async def _role_row(session: AsyncSession, *, code: str, name: str, role_type: str) -> SysRole:
     """取内置角色行（不存在则建；并行建同码时以先落库者为准）。
 
