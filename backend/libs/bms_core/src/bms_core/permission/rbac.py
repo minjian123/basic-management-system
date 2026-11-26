@@ -242,7 +242,12 @@ class RbacPermissionChecker(BasePermissionChecker):
 
 
 async def _resolve_source(request: Request) -> BasePermissionDataSource:
-    """取本次请求的数据来源（请求级工厂优先，其次实例型）。
+    """取本次请求的数据来源（**本应用装配期固化的工厂**优先，其次请求级工厂 / 实例型）。
+
+    为什么按应用取（计划表 #50）：数据来源注册表是**进程级**「最后登记者生效」，多服务同进程
+    装配时（全系统装配、或用例自建应用壳）会被后来者覆盖——identity 的请求会走到 platform 的
+    取数实现（`role_resolvers_factory` 不在 identity app 上）而 500。装配完成时把当时生效的
+    工厂钉到 `app.state.permission_data_source_factory`，请求期只认本应用的。
 
     Args:
         request: 当前请求（工厂需要请求态会话）。
@@ -253,7 +258,8 @@ async def _resolve_source(request: Request) -> BasePermissionDataSource:
     Raises:
         PluginError: 未登记任何数据来源（provider 配了 `rbac` 却没有取数实现）。
     """
-    factory = current_permission_data_source_factory()
+    pinned = getattr(request.app.state, "permission_data_source_factory", None)
+    factory = pinned if pinned is not None else current_permission_data_source_factory()
     if factory is not None:
         return await factory(request)
     source = current_permission_data_source()

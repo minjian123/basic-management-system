@@ -7,9 +7,10 @@
 
 import asyncio
 from collections.abc import Iterator
+from types import SimpleNamespace
 
 import pytest
-from fastapi import FastAPI, Request
+from fastapi import Request
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
@@ -144,17 +145,21 @@ def clean_registry() -> Iterator[None]:
     current_tenant_id.set(None)
 
 
-def _request(*, cache: object | None = None) -> Request:
+def _request(*, cache: object | None = None, factory: object | None = None) -> Request:
     """构造最小请求（带应用状态与缓存）。
 
     Args:
         cache: 应用状态上的缓存域（缺省内存实现）。
+        factory: 应用级固化的权限数据来源工厂（None 不固化，走注册表）。
 
     Returns:
         Request: 请求对象。
     """
-    app = FastAPI()
-    app.state.cache = cache if cache is not None else MemoryCacheRegion()
+    state = SimpleNamespace(
+        cache=cache if cache is not None else MemoryCacheRegion(),
+        permission_data_source_factory=factory,
+    )
+    app = SimpleNamespace(state=state)
     return Request(scope={"type": "http", "method": "GET", "path": "/x", "headers": [], "app": app})
 
 
@@ -314,6 +319,45 @@ async def test_aprepare_uses_request_level_factory() -> None:
     current_tenant_id.set("1001")
     await checker.aprepare(request=_request())
     assert list(seen) == [1]
+
+
+@pytest.mark.kiwi_id(2557)
+async def test_aprepare_prefers_app_pinned_factory() -> None:
+    """预加载：应用级固化的工厂优先于进程级注册表（计划表 #50 串味修复）。"""
+    seen: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _registry_factory(request: Request) -> BasePermissionDataSource:
+        """进程级注册表工厂（不应被调用）。
+
+        Args:
+            request: 当前请求（忽略）。
+
+        Returns:
+            BasePermissionDataSource: 来源。
+        """
+        del request
+        seen.add("registry")
+        return _Source()
+
+    async def _pinned_factory(request: Request) -> BasePermissionDataSource:
+        """应用级固化工厂（应被调用）。
+
+        Args:
+            request: 当前请求（忽略）。
+
+        Returns:
+            BasePermissionDataSource: 来源。
+        """
+        del request
+        seen.add("pinned")
+        return _Source()
+
+    register_permission_data_source_factory("registry", _registry_factory)
+    checker = RbacPermissionChecker()
+    current_user_id.set(5)
+    current_tenant_id.set("1001")
+    await checker.aprepare(request=_request(factory=_pinned_factory))
+    assert list(seen) == ["pinned"]
 
 
 @pytest.mark.kiwi_id(2320)

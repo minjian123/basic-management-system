@@ -40,6 +40,16 @@ def test_every_service_assembled_with_own_identity() -> None:
         assert app.state.service_identity.name == key
 
 
+def test_permission_data_source_factory_pinned_per_app() -> None:
+    """权限数据来源工厂按应用固化（计划表 #50）：各服务各取自己的，不受后来登记覆盖。"""
+    system = get_assembled_system()
+    identity_factory = getattr(system.app("identity").state, "permission_data_source_factory", None)
+    platform_factory = getattr(system.app("platform").state, "permission_data_source_factory", None)
+    assert identity_factory is not None
+    assert platform_factory is not None
+    assert identity_factory is not platform_factory
+
+
 def test_current_service_reset_after_assembly() -> None:
     """装配完成后当前服务键为空：非装配路径读默认配置，而不是最后一个服务的配置。"""
     assert current_service() == ""

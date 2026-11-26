@@ -447,11 +447,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/tests/permission/test_sources.py",
-      "code": "P5",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/tests/recycle/test_recycle_engine.py",
       "code": "P3",
       "count": 1

@@ -763,6 +763,12 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             redoc_url="/redoc" if docs_enabled else None,
             openapi_url="/openapi.json" if docs_enabled else None,
         )
+        # 权限数据来源工厂按应用固化（计划表 #50）：注册表是进程级「最后登记者生效」，多服务同进程
+        # 装配（全系统装配 / 用例自建应用壳）会被后来者覆盖，导致 A 服务的请求走 B 服务的取数实现。
+        # `prepare_settings()` 刚在本应用创建前完成登记，此处取到的即本服务自己的工厂；请求期只认它。
+        from bms_core.permission.sources import current_permission_data_source_factory
+
+        app.state.permission_data_source_factory = current_permission_data_source_factory()
 
         # 服务运行时：解析服务身份（包声明 + 配置覆盖）→ 绑定日志上下文 → 落 app.state（含停机摘流）
         attach_service(
