@@ -8,7 +8,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
-from httpx import AsyncClient
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.core.exceptions import (
@@ -30,6 +31,7 @@ from bms_platform.domains.archive.schemas.archive import (
     ArchivePolicyUpdateRequest,
 )
 from tests.archive.helpers import FakeStorage, new_pair, utc
+from tests_support.auth import auth_headers
 
 pytestmark = [pytest.mark.kiwi_id(2516)]
 
@@ -54,9 +56,19 @@ async def platform_session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
         await archive_engine.dispose()
 
 
-async def test_authenticated_without_permission_is_forbidden(client: AsyncClient) -> None:
-    """未授予 archive:* 的已登录用户：403。"""
-    response = await client.get("/api/v1/archive/policies", params={"page": 1, "size": 10})
+_UNAUTHORIZED_SUBJECT = "900201"
+"""专用无权限主体：任何用例都不给它授角色 / 权限。"""
+
+
+async def test_authenticated_without_permission_is_forbidden(service_app: FastAPI) -> None:
+    """未授予 archive:* 的已登录用户：403。
+
+    用**专用无权限主体**（不依赖测试主体 1001 的授权状态）：同进程里别的用例会把 1001 授成
+    系统管理员（命中豁免层级），拿它断言 403 会随执行顺序变红。
+    """
+    async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as subject:
+        subject.headers.update(auth_headers(subject=_UNAUTHORIZED_SUBJECT))
+        response = await subject.get("/api/v1/archive/policies", params={"page": 1, "size": 10})
     assert response.status_code == 403
 
 

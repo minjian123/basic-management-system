@@ -8,7 +8,12 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from tests_support.auth import auth_headers
+
 pytestmark = pytest.mark.kiwi_id(2387)
+
+_UNAUTHORIZED_SUBJECT = "900201"
+"""专用无权限主体：任何用例都不给它授角色 / 权限。"""
 
 API = "/api/v1/jobs"
 
@@ -33,11 +38,16 @@ async def test_anonymous_is_rejected(service_app: FastAPI) -> None:
             assert response.status_code == 401, (path, response.text)
 
 
-async def test_authenticated_without_permission_is_forbidden(client: AsyncClient) -> None:
-    """已登录但未授予 `job:*`：403（权限门禁挂在管理面）。"""
-    for path in (API, f"{API}/types", f"{API}/999999999999"):
-        response = await client.get(path)
-        assert response.status_code == 403, (path, response.text)
+async def test_authenticated_without_permission_is_forbidden(service_app: FastAPI) -> None:
+    """已登录但未授予 `job:*`：403（权限门禁挂在管理面）。
+
+    用**专用无权限主体**：同进程里别的用例会把 1001 授成系统管理员，拿它断言 403 会随顺序变红。
+    """
+    async with AsyncClient(transport=ASGITransport(app=service_app), base_url="http://test") as subject:
+        subject.headers.update(auth_headers(subject=_UNAUTHORIZED_SUBJECT))
+        for path in (API, f"{API}/types", f"{API}/999999999999"):
+            response = await subject.get(path)
+            assert response.status_code == 403, (path, response.text)
 
 
 _existing_marks = pytestmark if isinstance(pytestmark, list) else [pytestmark]  # pyright: ignore[reportUnknownVariableType, reportUnnecessaryIsInstance]
