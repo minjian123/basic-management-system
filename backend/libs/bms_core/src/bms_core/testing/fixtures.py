@@ -1342,7 +1342,7 @@ async def assembled_system(shared_platform_db_url: str, shared_tenant_db_url: st
 
     def _prepare(key: str, app: Any) -> None:
         client = getattr(app.state, "service_client", None)
-        if client is not None:
+        if client is not None:  # pragma: no branch - 装配进来的服务都带 service_client（跨服务内部调用依赖它）
             client._caller = key  # pyright: ignore[reportPrivateUsage,reportAttributeAccessIssue]
 
     def _before_create(key: str) -> None:

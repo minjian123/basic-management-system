@@ -122,5 +122,8 @@ def test_module_env_applies_isolated_values() -> None:
     try:
         assert os.environ.get("BMS_LOG__LEVEL") == "INFO"
         assert get_settings().log.level.lower() == "info"
+        # 夹具期间的**新增** `BMS_*` 变量须在退出时清掉（覆盖清理循环）
+        os.environ["BMS_PROBE_EXTRA"] = "1"
     finally:
         next(generator, None)
+    assert "BMS_PROBE_EXTRA" not in os.environ
