@@ -88,13 +88,13 @@ async def _seed_tenant(factory: async_sessionmaker[AsyncSession], code: str) -> 
     return tenant_id
 
 
-def _override(app: FastAPI, factory: async_sessionmaker[AsyncSession]) -> None:
+def _override(app: FastAPI, factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch) -> None:
     async def _session() -> AsyncIterator[AsyncSession]:
         async with factory() as session:
             yield session
 
-    app.dependency_overrides[get_platform_read_db] = _session
-    app.dependency_overrides[get_platform_write_db] = _session
+    monkeypatch.setitem(app.dependency_overrides, get_platform_read_db, _session)
+    monkeypatch.setitem(app.dependency_overrides, get_platform_write_db, _session)
 
 
 async def test_quota_service_check_consume_release(shared_platform_engine: AsyncEngine, ns: Namespace) -> None:
@@ -166,7 +166,7 @@ async def test_internal_endpoints(
 ) -> None:
     """内部契约：模块状态、配额 check / consume / release、无配额行放行、超限 82005。"""
     factory = await _factory(shared_platform_engine)
-    _override(service_app, factory)
+    _override(service_app, factory, monkeypatch)
     from bms_core.oauth.verify import get_token_verifier
 
     monkeypatch.setitem(service_app.dependency_overrides, get_token_verifier, lambda: _StubVerifier())

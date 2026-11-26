@@ -541,11 +541,11 @@ async def test_placeholder_route_create_update_delete(client: AsyncClient, ns: N
 
 @pytest.mark.kiwi_id(927)
 @pytest.mark.kiwi_id(2218)
-async def test_icon_create_idempotency_first_call_and_reuse(ns: Namespace) -> None:
+async def test_icon_create_idempotency_first_call_and_reuse(ns: Namespace, monkeypatch: pytest.MonkeyPatch) -> None:
     """新增：幂等键首次登记执行并缓存，重复提交复用首次结果（作用域绑当前租户位）。"""
     app = ApplicationFactory().create(None)
     double = _RecordingIdempotency()
-    app.dependency_overrides[get_idempotency_store] = lambda: double
+    monkeypatch.setitem(app.dependency_overrides, get_idempotency_store, lambda: double)
     body = _icon_body(ns, f"{ns.prefix}_idem")
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
@@ -559,11 +559,13 @@ async def test_icon_create_idempotency_first_call_and_reuse(ns: Namespace) -> No
 
 @pytest.mark.kiwi_id(927)
 @pytest.mark.kiwi_id(2218)
-async def test_icon_update_idempotency_without_cached_result_executes(ns: Namespace) -> None:
+async def test_icon_update_idempotency_without_cached_result_executes(
+    ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """更新：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
     app = ApplicationFactory().create(None)
     stale = _StaleIdempotency()
-    app.dependency_overrides[get_idempotency_store] = lambda: stale
+    monkeypatch.setitem(app.dependency_overrides, get_idempotency_store, lambda: stale)
     code = f"{ns.prefix}_upd"
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
@@ -576,11 +578,11 @@ async def test_icon_update_idempotency_without_cached_result_executes(ns: Namesp
 
 @pytest.mark.kiwi_id(927)
 @pytest.mark.kiwi_id(2218)
-async def test_icon_update_and_delete_idempotency_reuse(ns: Namespace) -> None:
+async def test_icon_update_and_delete_idempotency_reuse(ns: Namespace, monkeypatch: pytest.MonkeyPatch) -> None:
     """更新与删除：重复提交按幂等键复用首次结果。"""
     app = ApplicationFactory().create(None)
     double = _RecordingIdempotency()
-    app.dependency_overrides[get_idempotency_store] = lambda: double
+    monkeypatch.setitem(app.dependency_overrides, get_idempotency_store, lambda: double)
     main_code = f"{ns.prefix}_main"
     other_code = f"{ns.prefix}_receipt"
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -606,11 +608,13 @@ async def test_icon_update_and_delete_idempotency_reuse(ns: Namespace) -> None:
 
 @pytest.mark.kiwi_id(927)
 @pytest.mark.kiwi_id(2218)
-async def test_icon_create_and_delete_stale_idempotency_executes(ns: Namespace) -> None:
+async def test_icon_create_and_delete_stale_idempotency_executes(
+    ns: Namespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """新增 / 删除：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
     app = ApplicationFactory().create(None)
     stale = _StaleIdempotency()
-    app.dependency_overrides[get_idempotency_store] = lambda: stale
+    monkeypatch.setitem(app.dependency_overrides, get_idempotency_store, lambda: stale)
     code = f"{ns.prefix}_stale"
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())

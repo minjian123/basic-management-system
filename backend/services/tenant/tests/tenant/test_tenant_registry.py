@@ -48,7 +48,7 @@ async def _seed(url: str, tenants: ConcurrentStableList[tuple[str, str]]) -> Non
     await engine.dispose()
 
 
-def _override_read_db(app: FastAPI, url: str) -> None:
+def _override_read_db(app: FastAPI, url: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """把平台只读会话依赖覆盖为临时库会话。
 
     Args:
@@ -63,15 +63,17 @@ def _override_read_db(app: FastAPI, url: str) -> None:
             yield session
         await engine.dispose()
 
-    app.dependency_overrides[get_platform_read_db] = _session
+    monkeypatch.setitem(app.dependency_overrides, get_platform_read_db, _session)
 
 
 @pytest.mark.kiwi_id(2239)
-async def test_active_single_returns_snapshot(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_active_single_returns_snapshot(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """恰 1 个启用租户 → 200 + 注册快照（含编码 / 主键 / 库名基回落）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     await _seed(url, ConcurrentStableList([("solo", "唯一租户")]))
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     resp = await client.get(API)
     assert resp.status_code == 200
@@ -81,11 +83,13 @@ async def test_active_single_returns_snapshot(client: AsyncClient, service_app: 
 
 
 @pytest.mark.kiwi_id(2239)
-async def test_active_single_multiple_conflict(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_active_single_multiple_conflict(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """≥ 2 个启用租户 → 409 + `80004`（不返回清单）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     await _seed(url, ConcurrentStableList([("a", "租户A"), ("b", "租户B")]))
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     resp = await client.get(API)
     assert resp.status_code == 409
@@ -93,11 +97,13 @@ async def test_active_single_multiple_conflict(client: AsyncClient, service_app:
 
 
 @pytest.mark.kiwi_id(2239)
-async def test_active_single_none_not_found(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_active_single_none_not_found(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """0 个启用租户 → 404 + `80001`（沿用既有失败语义）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     await _seed(url, ConcurrentStableList())
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     resp = await client.get(API)
     assert resp.status_code == 404
@@ -132,11 +138,13 @@ async def _seed_registry(url: str, *, code: str, db_basis: str | None, status: s
     return tenant_id
 
 
-async def test_registry_by_code_domain_and_id(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_registry_by_code_domain_and_id(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """三选一查询：编码 / 域名 / 主键各命中一次，快照含对照表库名基。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     tenant_id = await _seed_registry(url, code="acme", db_basis="acme_db")
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     by_code = await client.get(REGISTRY_API, params={"code": "acme"})
     assert by_code.status_code == 200
@@ -149,11 +157,13 @@ async def test_registry_by_code_domain_and_id(client: AsyncClient, service_app: 
     assert by_id.json()["data"]["tenant_id"] == str(tenant_id)
 
 
-async def test_registry_rejects_invalid_query_forms(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_registry_rejects_invalid_query_forms(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """查询形态校验：未提供 / 多于一个来源 / `tenant_id` 非十进制字符串 → 10001。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     await _seed_registry(url, code="acme", db_basis=None)
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     assert (await client.get(REGISTRY_API)).json()["code"] == 10001
     both = await client.get(REGISTRY_API, params={"code": "acme", "domain": "acme.example.com"})
@@ -162,11 +172,13 @@ async def test_registry_rejects_invalid_query_forms(client: AsyncClient, service
     assert bad_id.json()["code"] == 10001
 
 
-async def test_registry_unknown_and_suspended(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_registry_unknown_and_suspended(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """未知租户 → 404 / 80001；已停用 → 403 / 80002；缺对照行回落编码（记告警）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     await _seed_registry(url, code="paused", db_basis=None, status="suspended")
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     unknown = await client.get(REGISTRY_API, params={"code": "ghost"})
     assert unknown.status_code == 404
@@ -178,23 +190,25 @@ async def test_registry_unknown_and_suspended(client: AsyncClient, service_app: 
 
 
 async def test_registry_falls_back_to_code_without_database_row(
-    client: AsyncClient, service_app: FastAPI, tmp_path: Path
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """缺对照表行：库名基回落当前编码（记告警不阻断）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     await _seed_registry(url, code="legacy", db_basis=None)
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     resp = await client.get(REGISTRY_API, params={"code": "legacy"})
     assert resp.status_code == 200
     assert resp.json()["data"]["db_basis"] == "legacy"
 
 
-async def test_active_single_with_database_row(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_active_single_with_database_row(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """唯一启用租户且对照表有行：库名基取对照值（不触发回落告警）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     await _seed_registry(url, code="solo", db_basis="solo_db")
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     resp = await client.get(API)
     assert resp.status_code == 200
@@ -232,11 +246,13 @@ async def test_registry_repository_reads_writes_and_status(tmp_path: Path) -> No
         await engine.dispose()
 
 
-async def test_active_list_returns_all_enabled(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+async def test_active_list_returns_all_enabled(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """启用租户清单：全部启用租户按主键升序返回（含字段齐全）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'active-list.db'}"
     await _seed(url, ConcurrentStableList([("aaa", "甲"), ("bbb", "乙")]))
-    _override_read_db(service_app, url)
+    _override_read_db(service_app, url, monkeypatch)
 
     resp = await client.get("/api/v1/tenant-registry/active")
     assert resp.status_code == 200
