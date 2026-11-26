@@ -1,0 +1,234 @@
+"""通知中心读契约测试（Kiwi 812）：契约继承 / 数据契约与事件负载 / 占位实现 / 依赖解析 / 占位路由。"""
+
+import pytest
+from fastapi import FastAPI
+from httpx import AsyncClient
+
+from bms_core.api.deps import get_notification_center
+from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.plugin import BasePluggable
+from bms_core.notification.base import (
+    NOTIFICATION_NEW_EVENT,
+    BaseNotificationCenter,
+    Notification,
+    NotificationPayload,
+)
+from bms_core.notification.null import NullNotificationCenter
+from bms_core.schemas.filters import BaseFilterQuery
+from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
+from bms_notification.domains.notification.center import DatabaseNotificationCenter
+from bms_notification.main import ApplicationFactory
+
+API = "/api/v1/notifications"
+
+
+class _InMemoryNotificationCenter(BaseNotificationCenter):
+    """测试用内存通知中心（验证查看即已读与角标口径；真实落库随通知公告阶段）。"""
+
+    def __init__(self) -> None:
+        self._items: ConcurrentStableDict[int, Notification] = ConcurrentStableDict()
+        self._seq = 0
+
+    def add(self, title: str) -> Notification:
+        """写入一条未读通知。
+
+        Args:
+            title: 标题。
+
+        Returns:
+            Notification: 落库后的通知（内存）。
+        """
+        self._seq += 1
+        item = Notification(id=self._seq, user_id=1, title=title)
+        self._items.set(self._seq, item)
+        return item
+
+    async def list(self, filter: BaseFilterQuery, page: BasePageQuery) -> BasePageResponse[Notification]:
+        items = sorted(self._items.values(), key=lambda item: item.id or 0, reverse=True)
+        start = (page.page - 1) * page.size
+        return BasePageResponse[Notification](
+            list=ConcurrentStableList(items[start : start + page.size]),
+            total=len(items),
+            page=page.page,
+            size=page.size,
+        )
+
+    async def detail(self, notification_id: int, *, mark_read: bool = True) -> Notification | None:
+        item = self._items.get(notification_id)
+        if item is None:
+            return None
+        if mark_read and not item.is_read:
+            item = item.model_copy(update={"is_read": True})
+            self._items.set(notification_id, item)
+        return item
+
+    async def unread_count(self) -> int:
+        return sum(1 for item in self._items.values() if not item.is_read)
+
+    async def mark_read(self, ids: ConcurrentStableList[int]) -> int:
+        for notification_id in ids:
+            item = self._items.get(notification_id)
+            if item is not None and not item.is_read:
+                self._items.set(notification_id, item.model_copy(update={"is_read": True}))
+        return await self.unread_count()
+
+    async def mark_all_read(self) -> int:
+        for notification_id, item in list(self._items.items()):
+            if not item.is_read:
+                self._items.set(notification_id, item.model_copy(update={"is_read": True}))
+        return 0
+
+    async def delete(self, notification_id: int) -> bool:
+        return self._items.get_and_remove(notification_id) is not None
+
+
+@pytest.mark.kiwi_id(812)
+def test_contract_inheritance_and_identity() -> None:
+    """契约继承与能力域标识：BasePluggable / BaseCapability / key。"""
+    assert issubclass(BaseNotificationCenter, BasePluggable)
+    assert issubclass(BaseNotificationCenter, BaseCapability)
+    assert BaseNotificationCenter.key == "notification_center"
+    assert BaseNotificationCenter.plugin_key == "notification_center"
+
+    assert issubclass(NullNotificationCenter, BaseNullObject)
+
+
+@pytest.mark.kiwi_id(812)
+def test_data_contracts_and_event_payload() -> None:
+    """数据契约：Notification 默认值 / NotificationPayload 字段集 / 事件常量。"""
+    assert NOTIFICATION_NEW_EVENT == "notification.new"
+
+    assert set(NotificationPayload.model_fields) == {"title", "type", "biz_type", "biz_id", "created_at"}
+
+    notification = Notification(title="审批待办")
+    assert notification.id is None
+    assert notification.user_id is None
+    assert notification.content == ""
+    assert notification.type == "system"
+    assert notification.biz_type is None
+    assert notification.biz_id is None
+    assert notification.is_read is False
+    assert notification.created_at is None
+
+
+@pytest.mark.kiwi_id(812)
+async def test_null_center_fixed_returns() -> None:
+    """占位实现：列表空分页 / 详情 None / 未读 0 / 已读 0 / 删除 False。"""
+    center = NullNotificationCenter()
+    assert center.placeholder is True
+    assert "占位实现" in center.describe()
+
+    page = BasePageQuery(page=2, size=5)
+    result = await center.list(BaseFilterQuery(keyword="x"), page)
+    assert result.list == []
+    assert result.total == 0
+    assert result.page == 2
+    assert result.size == 5
+
+    assert await center.detail(1) is None
+    assert await center.unread_count() == 0
+    assert await center.mark_read(ConcurrentStableList([1, 2])) == 0
+    assert await center.mark_all_read() == 0
+    assert await center.delete(1) is False
+
+
+@pytest.mark.kiwi_id(812)
+def test_prepare_settings_respects_explicit_providers() -> None:
+    """显式配置的 provider 不被默认值覆盖。"""
+    from types import SimpleNamespace
+    from typing import cast
+
+    from bms_core.core.config import Settings
+
+    factory = ApplicationFactory()
+    settings = SimpleNamespace(
+        notification_center=SimpleNamespace(provider="null"),
+        notification_preference=SimpleNamespace(provider="null"),
+    )
+    factory.prepare_settings(cast("Settings", settings))
+    assert settings.notification_center.provider == "null"
+    assert settings.notification_preference.provider == "null"
+
+
+@pytest.mark.kiwi_id(812)
+async def test_dependency_provider_resolves(service_app: FastAPI) -> None:
+    """依赖解析：装配态通知中心是真实实现，提供者与本应用一致。
+
+    插件实例按应用隔离（13_11）：不比跨应用实例同一性。
+    """
+    center = service_app.state.notification_center
+    assert isinstance(center, DatabaseNotificationCenter)
+    assert service_app.state.plugin_providers["notification_center"] == "db"
+
+
+@pytest.mark.kiwi_id(812)
+async def test_placeholder_routes(service_app: FastAPI, client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """占位实现经路由：列表空分页 / 未读 0 / 详情 null / 已读 0 / 删除 false。"""
+    monkeypatch.setitem(service_app.dependency_overrides, get_notification_center, NullNotificationCenter)
+    listed = await client.get(API)
+    assert listed.status_code == 200
+    assert listed.json()["data"] == {"list": [], "total": 0, "page": 1, "size": 20}
+
+    filtered = await client.get(
+        API, params={"keyword": "x", "filters": '[{"field": "is_read", "operator": "eq", "value": 0}]'}
+    )
+    assert filtered.status_code == 200
+    assert filtered.json()["data"]["total"] == 0
+
+    bad_json = await client.get(API, params={"filters": "not-json"})
+    assert bad_json.status_code == 200
+    assert bad_json.json()["code"] == 10001
+
+    not_array = await client.get(API, params={"filters": '{"field": "is_read"}'})
+    assert not_array.status_code == 200
+    assert not_array.json()["code"] == 10001
+
+    unread = await client.get(f"{API}/unread-count")
+    assert unread.status_code == 200
+    assert unread.json()["data"] == {"count": 0}
+
+    detail = await client.get(f"{API}/1")
+    assert detail.status_code == 200
+    assert detail.json()["data"] is None
+
+    read = await client.post(f"{API}/read", json={"ids": [1, 2]})
+    assert read.status_code == 200
+    assert read.json()["data"] == {"count": 0}
+
+    read_all = await client.post(f"{API}/read-all")
+    assert read_all.status_code == 200
+    assert read_all.json()["data"] == {"count": 0}
+
+    deleted = await client.delete(f"{API}/1")
+    assert deleted.status_code == 200
+    assert deleted.json()["data"] is False
+
+
+@pytest.mark.kiwi_id(812)
+async def test_routes_with_in_memory_center(
+    service_app: FastAPI, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """占位路由 + 内存实现：查看即已读与角标校准口径。"""
+    center = _InMemoryNotificationCenter()
+    first = center.add("审批待办")
+    center.add("系统公告")
+    monkeypatch.setitem(service_app.dependency_overrides, get_notification_center, lambda: center)
+
+    assert (await client.get(f"{API}/unread-count")).json()["data"] == {"count": 2}
+
+    listed = await client.get(API, params={"page": 1, "size": 10})
+    assert listed.json()["data"]["total"] == 2
+
+    detail = await client.get(f"{API}/{first.id}")
+    assert detail.json()["data"]["is_read"] is True
+    assert (await client.get(f"{API}/unread-count")).json()["data"] == {"count": 1}
+
+    read = await client.post(f"{API}/read", json={"ids": [first.id]})
+    assert read.json()["data"] == {"count": 1}
+
+    read_all = await client.post(f"{API}/read-all")
+    assert read_all.json()["data"] == {"count": 0}
+
+    assert (await client.delete(f"{API}/{first.id}")).json()["data"] is True
+    assert (await client.get(f"{API}/{first.id}")).json()["data"] is None
