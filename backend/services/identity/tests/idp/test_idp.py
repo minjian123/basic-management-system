@@ -1,0 +1,161 @@
+"""IdP 与会话存储基座契约测试（Kiwi 54）：契约 / 标识 / 常量 / 数据契约 / 占位固定返回 / 依赖解析。"""
+
+from dataclasses import FrozenInstanceError
+
+import pytest
+from fastapi import FastAPI
+
+from bms_core.core.base import BaseObject
+from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
+from bms_core.core.exceptions import ConfigError
+from bms_core.idp.base import (
+    IDP_PROTOCOLS,
+    BaseIdentityProvider,
+    IdentityClaims,
+    IdentityToken,
+    IdentityUser,
+)
+from bms_core.idp.null import NullIdentityProvider
+from bms_core.session.base import DEFAULT_SESSION_TTL, BaseSessionStore
+from bms_core.session.null import NullSessionStore
+
+
+@pytest.mark.kiwi_id(54)
+def test_inheritance_and_keys() -> None:
+    """两契约继承链、占位标记与能力域标识。"""
+    assert issubclass(BaseCapability, BaseObject)
+    assert issubclass(BaseIdentityProvider, BaseCapability)
+    assert issubclass(NullIdentityProvider, BaseIdentityProvider)
+    assert issubclass(NullIdentityProvider, BaseNullObject)
+    assert BaseIdentityProvider.key == "identity_provider"
+
+    assert issubclass(BaseSessionStore, BaseCapability)
+    assert issubclass(NullSessionStore, BaseSessionStore)
+    assert issubclass(NullSessionStore, BaseNullObject)
+    assert BaseSessionStore.key == "session_store"
+
+    for placeholder in (NullIdentityProvider(), NullSessionStore()):
+        assert placeholder.placeholder is True
+        assert "占位实现" in placeholder.describe()
+
+
+@pytest.mark.kiwi_id(54)
+def test_constants() -> None:
+    """协议清单与默认会话 TTL 常量。"""
+    assert IDP_PROTOCOLS == ("oidc", "cas", "wecom", "dingtalk")
+    assert len(set(IDP_PROTOCOLS)) == len(IDP_PROTOCOLS)
+    assert DEFAULT_SESSION_TTL == 1209600
+
+
+@pytest.mark.kiwi_id(54)
+def test_data_contracts_defaults_and_frozen() -> None:
+    """`IdentityToken` / `IdentityUser` 默认值正确且不可变。"""
+    token = IdentityToken(access_token="t")
+    assert token.token_type == "Bearer"
+    assert token.expires_in == 0
+
+    user = IdentityUser(subject="s", username="u")
+    assert user.email is None
+    assert user.tenant is None
+
+    field = "subject"
+    with pytest.raises(FrozenInstanceError):
+        setattr(user, field, "other")
+
+
+@pytest.mark.kiwi_id(54)
+async def test_null_identity_provider_fixed() -> None:
+    """占位身份源三方法固定返回（不连外部 IdP）。"""
+    provider = NullIdentityProvider()
+    url = await provider.authorize("state-1")
+    assert url
+    assert await provider.exchange_token("code-1") == IdentityToken(access_token="null-idp-token")
+    user = await provider.userinfo("token-1")
+    assert user.subject == "null-idp-subject"
+    assert user.username == "null-idp-user"
+
+
+@pytest.mark.kiwi_id(54)
+async def test_null_session_store() -> None:
+    """占位会话存储：写 / 删空操作、读返回占位会话。"""
+    store = NullSessionStore()
+    assert await store.save("sess-1", ConcurrentStableDict({"user": "1"})) is None
+    assert await store.load("sess-1") == {"session_id": "sess-1"}
+    assert await store.delete("sess-1") is None
+
+
+@pytest.mark.kiwi_id(54)
+async def test_dependency_providers_resolve(service_app: FastAPI) -> None:
+    """依赖解析：装配态两个占位实现就位，提供者与本应用一致；占位数据固定返回。
+
+    插件实例按应用隔离（13_11）：不比跨应用实例同一性。
+    """
+    provider = service_app.state.identity_provider
+    store = service_app.state.session_store
+    assert isinstance(provider, NullIdentityProvider)
+    assert isinstance(store, NullSessionStore)
+    assert service_app.state.plugin_providers["identity_provider"] == "null"
+    assert service_app.state.plugin_providers["session_store"] == "null"
+
+    user = await provider.userinfo("t")
+    assert user.subject == "null-idp-subject"
+    session = await store.load("sess-1")
+    assert session is not None
+    assert session["session_id"] == "sess-1"
+
+
+@pytest.mark.kiwi_id(2179)
+def test_contract_extensions() -> None:
+    """契约扩展：`id_token` / `refresh_token` / `idp_key` 默认与赋值；`IdentityClaims` 不可变。"""
+    token = IdentityToken(access_token="t", id_token="id-token", refresh_token="refresh")
+    assert token.id_token == "id-token"
+    assert token.refresh_token == "refresh"
+    assert IdentityToken(access_token="t").id_token is None
+    assert IdentityToken(access_token="t").refresh_token is None
+
+    assert IdentityUser(subject="s", username="u").idp_key == ""
+
+    claims = IdentityClaims(
+        subject="s", idp_key="issuer", issuer="issuer", audience=ConcurrentStableFrozenList(("api",)), expires_at=1
+    )
+    assert claims.audience == ("api",)
+    assert claims.payload == {}
+    field = "subject"
+    with pytest.raises(FrozenInstanceError):
+        setattr(claims, field, "other")
+
+
+@pytest.mark.kiwi_id(2179)
+async def test_verify_token_default_and_null() -> None:
+    """`BaseIdentityProvider.verify_token` 默认不支持该协议抛配置错误；占位实现返回占位声明。"""
+
+    class _PlainProvider(BaseIdentityProvider):
+        async def authorize(
+            self,
+            state: str,
+            *,
+            nonce: str | None = None,
+            code_challenge: str | None = None,
+            code_challenge_method: str | None = None,
+            service: str | None = None,
+        ) -> str:
+            del state, nonce, code_challenge, code_challenge_method, service
+            return "u"
+
+        async def exchange_token(
+            self, code: str, *, code_verifier: str | None = None, service: str | None = None
+        ) -> IdentityToken:
+            del code, code_verifier, service
+            return IdentityToken(access_token="a")
+
+        async def userinfo(self, access_token: str) -> IdentityUser:
+            del access_token
+            return IdentityUser(subject="s", username="u")
+
+    with pytest.raises(ConfigError):
+        await _PlainProvider().verify_token("t")
+
+    placeholder = await NullIdentityProvider().verify_token("t")
+    assert placeholder.subject == "null-idp-subject"
+    assert placeholder.idp_key == "null"
