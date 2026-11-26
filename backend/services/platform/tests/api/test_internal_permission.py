@@ -44,11 +44,14 @@ async def _ensure_grants(app: FastAPI) -> None:
     Args:
         app: 平台应用实例。
     """
+    from bms_core.collaboration.grant import invalidate_capability_grants
     from bms_platform.domains.platform_registry.services.capability_grant_bootstrap import (
         bootstrap_capability_grants,
     )
 
     await bootstrap_capability_grants(app)
+    # 写库后必须清授权视图快照（TTL 内的旧快照仍判「无分配」），否则补回的分配不生效。
+    invalidate_capability_grants()
 
 
 class _StubVerifier:
