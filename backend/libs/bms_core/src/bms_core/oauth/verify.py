@@ -235,12 +235,20 @@ def _from_claims(claims: IdentityClaims) -> VerifiedToken:
 def get_token_verifier(request: Request) -> BaseTokenVerifier:
     """取应用级统一校验器（依赖注入提供者）。
 
+    **优先取本应用装配的实例**（`app.state.token_verifier`）：装配常驻后同进程内多个服务的
+    插件实例共用一个进程级注册表，`resolve_plugin` 取到的是「最后装配那个服务」登记的实例
+    （实测日志 `service=txn`），其持有的 Settings / 签发者与当前应用不一致，表现为用户令牌
+    「票据验签失败（20001）」——只在多服务装配 + 并行批次下偶发。生产每进程一个服务时两者同实例。
+
     Args:
         request: 请求对象。
 
     Returns:
         BaseTokenVerifier: 应用装配的校验器实例。
     """
+    assembled = getattr(request.app.state, "token_verifier", None)
+    if isinstance(assembled, BaseTokenVerifier):
+        return assembled
     settings = cast("Settings", request.app.state.settings)
     return cast(
         "BaseTokenVerifier",

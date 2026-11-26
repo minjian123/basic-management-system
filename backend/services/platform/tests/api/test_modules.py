@@ -105,11 +105,17 @@ async def test_list_modules_pagination_and_sort(client: AsyncClient) -> None:
     keys = [item["module_key"] for item in full.json()["data"]["list"]]
     assert set(expected) <= set(keys)  # 声明清单全部在册（叠加场景不比顺序）
 
-    sorted_by_id = await client.get("/api/v1/modules", params={"order_by": "id", "order": "desc", "size": 1})
-    assert sorted_by_id.json()["data"]["list"][0]["module_key"] == keys[-1]
+    # 排序断言只在本用例取到的**同一份清单**上比对，不依赖全表位置（共享库叠加下会被他人 / 历史行顶掉）。
+    asc = await client.get("/api/v1/modules", params={"order_by": "id", "order": "asc", "size": 5})
+    asc_keys = [item["module_key"] for item in asc.json()["data"]["list"]]
+    desc = await client.get("/api/v1/modules", params={"order_by": "id", "order": "desc", "size": 5})
+    desc_keys = [item["module_key"] for item in desc.json()["data"]["list"]]
+    ignored = await client.get("/api/v1/modules", params={"order_by": "module_key", "size": 5})
+    ignored_keys = [item["module_key"] for item in ignored.json()["data"]["list"]]
 
-    ignored = await client.get("/api/v1/modules", params={"order_by": "module_key", "size": 1})
-    assert ignored.json()["data"]["list"][0]["module_key"] == keys[0]
+    assert asc_keys == keys[:5]  # 显式 id 升序 ≡ 缺省排序
+    assert ignored_keys == asc_keys  # 非白名单字段被忽略 ⇒ 回落缺省（id 升序）
+    assert desc_keys != asc_keys or len(asc_keys) <= 1  # 降序生效（库内多行时与升序不同）
 
     too_deep = await client.get("/api/v1/modules", params={"page": 101})
     assert too_deep.status_code == 200
