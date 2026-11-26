@@ -290,6 +290,40 @@ async def test_record_db_inventory_skips_without_metrics() -> None:
     await app_module._record_db_inventory(cast("Any", app), get_settings())  # pyright: ignore[reportPrivateUsage]
 
 
+def _dev_settings() -> Any:
+    """构造「dev 环境」的应用配置替身（触发首启播种分支）。
+
+    Returns:
+        Any: 配置替身（`env=dev`）。
+    """
+    return SimpleNamespace(app=SimpleNamespace(env="dev"))
+
+
+async def test_bootstrap_table_ownership_skips_product_service() -> None:
+    """产品服务（非平台）不读不写表归属登记：引导直接返回。"""
+    app = SimpleNamespace(state=SimpleNamespace(service_identity=SimpleNamespace(name="tenant")))
+    await app_module._bootstrap_table_ownership(  # pyright: ignore[reportPrivateUsage]
+        _prod_settings(), cast("Any", app)
+    )
+
+
+async def test_bootstrap_table_ownership_skips_seed_when_already_seeded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """dev 环境且已播种：只做只读对账，不再进写门重复播种。"""
+
+    async def _already_seeded(session: object) -> bool:
+        """只读探测：恒判已播种。"""
+        del session
+        return True
+
+    monkeypatch.setattr(app_module, "_table_ownership_seeded", _already_seeded)
+    monkeypatch.setattr(app_module, "session_scope", _session_scope)
+    monkeypatch.setattr(app_module, "TableRecord", SimpleNamespace(from_row=_from_row))
+    monkeypatch.setattr(app_module, "validate_table_ownership", _ownership_ok)
+    await app_module._bootstrap_table_ownership(  # pyright: ignore[reportPrivateUsage]
+        _dev_settings(), _app()
+    )
+
+
 async def test_validate_table_ownership_offline_conflict() -> None:
     """离线清单违规（同表异值注入）→ 拒启（CatalogError）。"""
     record = table_record("sys_notification")
