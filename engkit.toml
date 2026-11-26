@@ -128,6 +128,13 @@ test_dir_suffix = "/libs/bms_core/tests/msgclient/"
 match_prefix = "backend/libs/bms_core/src/bms_core/db/bootstrap.py"
 test_dir_suffix = "/libs/bms_core/tests/alembic/"
 
+# 13_10：测试公共基座（`bms_core/testing/**`）的用例按主题放在 `tests/testing/`，文件不同构、
+# 导入关系只命中各自模块——显式声明，否则改 `fixtures.py` 等公共模块时选测/扩圈补不到该目录，
+# 模块级覆盖率门禁会因「既有函数没跑到」判失败（实测缺 `_mark_module_loop_scope` 与模块级隔离夹具）。
+[[rules.backend.extra_tests]]
+match_prefix = "backend/libs/bms_core/src/bms_core/testing/"
+test_dir_suffix = "/libs/bms_core/tests/testing/"
+
 [rules.frontend.global]
 exact = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json", ".npmrc"]
 prefixes = ["scripts/"]
