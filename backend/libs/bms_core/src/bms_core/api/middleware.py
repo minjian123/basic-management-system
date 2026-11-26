@@ -38,6 +38,7 @@ from bms_core.collaboration.domain_scope import UNKNOWN_DOMAIN, domain_of_path
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import (
     get_current_request_id,
+    reset_current_app,
     reset_current_client_ip,
     reset_current_request_id,
     reset_current_tenant,
@@ -46,6 +47,7 @@ from bms_core.core.context import (
     reset_current_user_id,
     reset_read_only,
     reset_tenant_context,
+    set_current_app,
     set_current_client_ip,
     set_current_request_id,
     set_current_tenant,
@@ -111,6 +113,44 @@ class BaseMiddleware(BaseFrameworkObject, ABC):
             receive: ASGI 接收通道。
             send: ASGI 发送通道。
         """
+
+
+class AppContextMiddleware(BaseMiddleware):
+    """当前应用绑定中间件（纯 ASGI）：把本应用实例写入请求上下文。
+
+    多服务同进程装配（全系统装配 / 用例自建应用壳）时插件注册表是进程级的，`resolve_plugin`
+    会拿到**最后装配**那家应用的工厂与实例（工厂闭包里的 `self._app` 指向别家应用，读
+    `engine_registry` / `locale_registry` 等槽位直接 `AttributeError`）。本中间件让请求期解析
+    知道「我是哪个应用」，从而优先取本应用已装配实例。
+    """
+
+    def __init__(self, app: ASGIApp, bound_app: object) -> None:
+        """初始化中间件。
+
+        Args:
+            app: 下游 ASGI 应用。
+            bound_app: 本中间件所属应用实例（请求期写入上下文）。
+        """
+        self.app = app
+        self._bound_app = bound_app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """处理请求（非 HTTP 作用域直通）。
+
+        Args:
+            scope: ASGI 作用域。
+            receive: 接收通道。
+            send: 发送通道。
+        """
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        token = set_current_app(self._bound_app)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            reset_current_app(token)
 
 
 class TraceIdMiddleware(BaseMiddleware):

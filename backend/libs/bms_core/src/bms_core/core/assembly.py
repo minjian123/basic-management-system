@@ -428,12 +428,17 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
         resources: 应用资源登记表（工厂内需要随生命周期释放的检查项）。
     """
     registry = default_plugin_registry()
-    # 幂等键取「注册表是否已构建」而非注册表实例：`reset()` 会把注册表解冻回未构建态，此时必须用
-    # **当前应用**的配置重新登记工厂——否则工厂沿用上一次装配捕获的配置快照（例：platform /
-    # identity 在 `prepare_settings` 把 `[permission].provider` 改为 rbac，后续未登记取数实现的
-    # 服务套件会解析到该 rbac 工厂并拒启）。
+    # 幂等键取「注册表是否已构建 **且** 归属本应用」而非注册表实例：`reset()` 会把注册表解冻回
+    # 未构建态，此时必须用**当前应用**的配置重新登记工厂——否则工厂沿用上一次装配捕获的配置快照
+    # （例：platform / identity 在 `prepare_settings` 把 `[permission].provider` 改为 rbac，后续
+    # 未登记取数实现的服务套件会解析到该 rbac 工厂并拒启）。
+    # 同一进程装多个应用（全系统装配 / 用例自建应用壳）时，工厂闭包持有 `self._app`：复用第一家
+    # 应用的工厂会让别家请求读别家的 `app.state`（translator / config_source 报 `engine_registry`
+    # 缺失）。故归属不同即重建快照，让工厂绑定当前应用。
     if registry.is_built:
-        return
+        if registry.owned_by(app):
+            return
+        registry.reset()
     for module in _NULL_MODULES:
         import_module(module)
     # 链路真实实现（`otel`，零参可实例化）：导入即经继承自动登记
@@ -520,6 +525,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin(TRANSACTION_MANAGER_KEY, XA_PLUGIN_NAME, XaTransactionManagerFactory(settings, app))
     register_plugin(TRANSACTION_PARTICIPANT_KEY, XA_PLUGIN_NAME, XaTransactionParticipantFactory(settings, app))
     register_plugin("metrics", "prometheus", PrometheusMetricsFactory(settings))
+    registry.bind_owner(app)
 
 
 class RemoteTenantModuleGateFactory(BasePluginFactory[RemoteTenantModuleGate]):
@@ -2128,6 +2134,12 @@ async def assemble_plugins(
         if isinstance(raw_assembled, ConcurrentStableSet)
         else ConcurrentStableSet()
     )
+    raw_instances = getattr(app.state, "plugin_instances", None)
+    instances: ConcurrentStableDict[str, object] = (
+        cast("ConcurrentStableDict[str, object]", raw_instances)
+        if isinstance(raw_instances, ConcurrentStableDict)
+        else ConcurrentStableDict()
+    )
     redis_section = settings.redis
     if redis_section.required and not (redis_section.provider or "").strip():
         raise PluginError(
@@ -2149,9 +2161,11 @@ async def assemble_plugins(
             resources.register(instance)
         if wiring.state_attr:
             setattr(app.state, wiring.state_attr, instance)
+        instances.set(wiring.plugin_key, instance)
         providers.set(wiring.plugin_key, provider or NULL_PLUGIN_NAME)
         assembled.add(wiring.plugin_key)
     app.state.plugin_providers = providers
+    app.state.plugin_instances = instances
     app.state.assembled_plugin_keys = assembled
     await _warm_locale_registry(app)
     _LOGGER.info("插件装配完成", keys=",".join(assembled), providers=providers)

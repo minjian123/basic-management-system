@@ -16,7 +16,7 @@
 
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from bms_core.core.capability import (
     BaseAsyncResource,
@@ -25,6 +25,7 @@ from bms_core.core.capability import (
     BasePlaceholder,
 )
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.context import current_app
 from bms_core.core.exceptions import PluginError
 from bms_core.core.logging import get_logger
 from bms_core.core.roots import BaseFrameworkObject
@@ -249,6 +250,7 @@ class PluginRegistry(BaseFrameworkObject):
         self._explicit: ConcurrentStableList[tuple[str, str, PluginImpl]] = ConcurrentStableList()
         self._plugins: ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]] | None = None
         self._instances: ConcurrentStableDict[tuple[str, str], object] = ConcurrentStableDict()
+        self._owner_id: int | None = None
 
     def collect(self, impl_cls: type[BasePluggable]) -> None:
         """收集自动登记候选（`__init_subclass__` 调用；构建后再收集不影响已冻结快照）。
@@ -257,6 +259,25 @@ class PluginRegistry(BaseFrameworkObject):
             impl_cls: `BasePluggable` 子类。
         """
         self._candidates.add(impl_cls)
+
+    def bind_owner(self, app: object) -> None:
+        """登记「本快照归属哪个应用」（幂等判据：同一应用重复登记即跳过）。
+
+        Args:
+            app: 应用实例。
+        """
+        self._owner_id = id(app)
+
+    def owned_by(self, app: object) -> bool:
+        """快照是否由指定应用登记（同进程多应用装配时决定是否重建）。
+
+        Args:
+            app: 应用实例。
+
+        Returns:
+            bool: 归属该应用即 True；从未登记过归属为 False。
+        """
+        return self._owner_id is not None and self._owner_id == id(app)
 
     def register(self, plugin_key: str, plugin_name: str, impl: PluginImpl) -> None:
         """显式登记实现（组合路径 / 延迟导入工厂）；运行期只读，构建后拒。
@@ -444,13 +465,42 @@ def plugin_registry_snapshot() -> ConcurrentStableDict[str, ConcurrentStableDict
     return _DEFAULT_REGISTRY.snapshot()
 
 
+def _app_scoped_instance(plugin_key: str, provider: str | None) -> object | None:
+    """取当前应用已装配的实例（请求期内按应用隔离插件实例）。
+
+    多服务同进程装配时注册表是进程级的：`resolve` 的缓存与工厂闭包都指向**最后装配**那家应用，
+    别家应用请求期解析就会拿到错误的实例（工厂 `self._app` 指向别家，读 `engine_registry` /
+    `locale_registry` 等槽位直接 `AttributeError`）。本函数让请求期优先用本应用装配出的实例。
+
+    Args:
+        plugin_key: 能力域键。
+        provider: 配置选定的实现名；缺省（`None` / 空串）回退 `null`。
+
+    Returns:
+        object | None: 本应用装配的实例；无请求上下文 / 本应用未装配该能力 / provider 不一致时 None。
+    """
+    app = current_app.get()
+    if app is None:
+        return None
+    raw_instances = getattr(getattr(app, "state", None), "plugin_instances", None)
+    raw_providers = getattr(getattr(app, "state", None), "plugin_providers", None)
+    if not isinstance(raw_instances, ConcurrentStableDict) or not isinstance(raw_providers, ConcurrentStableDict):
+        return None
+    instances = cast("ConcurrentStableDict[str, object]", raw_instances)
+    providers = cast("ConcurrentStableDict[str, str]", raw_providers)
+    name = provider or NULL_PLUGIN_NAME
+    if providers.get(plugin_key) != name:
+        return None
+    return instances.get(plugin_key)
+
+
 def resolve_plugin(
     plugin_key: str,
     provider: str | None = None,
     *,
     expected_version: str | None = None,
 ) -> object:
-    """按配置解析默认注册表中的实现（同 provider 复用唯一实例）。
+    """按配置解析实现（请求期优先本应用已装配实例，其次默认注册表）。
 
     Args:
         plugin_key: 能力域键。
@@ -463,4 +513,9 @@ def resolve_plugin(
     Raises:
         PluginError: 未注册实现 / 契约版本不兼容 / 版本格式非法。
     """
+    scoped = _app_scoped_instance(plugin_key, provider)
+    if scoped is not None:
+        if expected_version is not None:
+            _ensure_contract_compatible(plugin_key, provider or NULL_PLUGIN_NAME, scoped, expected_version)
+        return scoped
     return _DEFAULT_REGISTRY.resolve(plugin_key, provider, expected_version=expected_version)

@@ -19,11 +19,13 @@ async def test_create_demo_returns_created(client: AsyncClient) -> None:
 
 @pytest.mark.kiwi_id(4)
 async def test_list_demos_returns_items(client: AsyncClient) -> None:
-    """列表初始为空，创建后包含该项。"""
-    assert (await client.get(API)).json()["data"] == []
-    await client.post(API, json={"name": "示例 B"})
-    body = (await client.get(API)).json()
-    assert [item["name"] for item in body["data"]] == ["示例 B"]
+    """列表含新建项（相对断言：装配态复用同一实例，不假设全库为空）。"""
+    before = (await client.get(API)).json()["data"]
+    created = (await client.post(API, json={"name": "示例 B"})).json()["data"]
+    after = (await client.get(API)).json()["data"]
+    assert created["name"] == "示例 B"
+    assert [item["name"] for item in after].count("示例 B") == 1
+    assert len(after) == len(before) + 1
 
 
 @pytest.mark.kiwi_id(5)

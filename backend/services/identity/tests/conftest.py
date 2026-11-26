@@ -77,27 +77,26 @@ def _plugin_fixtures(  # pyright: ignore[reportUnusedFunction]
     """
 
 
-@pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
-async def _authorized_subject(shared_tenant_db_url: str) -> None:
-    """真实授权装配：把测试主体置为**内置系统管理员**（一次、幂等）。
+@pytest.fixture(autouse=True)
+def _permission_exempt(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """identity 套件权限放行：把**本应用**的权限 provider 回落占位实现（恒放行）。
 
     `04_01` 下沉后 identity 的 5 个端点（`session:query` / `session:kick` / `open:manage` /
     `idp:manage` / `sso:bind`）走真实 RBAC；本套件绝大多数用例测的是 SSO / 会话 / IdP 的业务
-    语义，不是授权链路。沿用 platform 侧 `tests_support/permission_admin.py` 的既有惯例，在会话
-    装配前把测试主体置为内置系统管理员（`role_type=system` 命中豁免层级），用例无需逐码授权。
+    语义，不是授权链路。权限码级判定与 fail-closed 分支由 `tests/permission/` 专项用例覆盖。
 
-    **为什么必须在装配前完成**：全系统装配在会话级只做一次，权限检查器与数据来源在装配期固化；
-    用例期再替换 `build_identity_source` 已读不到（注册表持有的是装配时的函数对象）。
-
-    权限码级判定与 fail-closed 分支由 `tests/permission/` 专项用例覆盖（该目录不依赖本夹具的
-    豁免效果，也不断言主体缺权）。
+    为什么改 provider 而不是写库（13_11 两轮实测教训）：
+    - 写共享租户库（`setup_min_tenant`）会把「测试主体 → 系统管理员」留给同一进程的其它服务
+      用例——platform 的 `job:*` / `archive:*` 无权限断言立即从 403 变 200；
+    - 直接改 `app.state` 装配结果是 P5 前提护栏禁止项（装配结果由系统装配器唯一决定）。
+    改 `app.state.settings.permission.provider` 是配置面：`get_permission_checker` 每请求读它，
+    `resolve_plugin(..., "")` 解析到 `null` 占位检查器，且 `monkeypatch` 退出自动还原。
 
     Args:
-        shared_tenant_db_url: 会话级共享租户库连接串（授权行落该库）。
+        service_app: 本服务应用实例（会话级装配）。
+        monkeypatch: pytest 补丁夹具（退出还原配置）。
     """
-    from tests_support.permission_admin import setup_min_tenant
-
-    await setup_min_tenant(shared_tenant_db_url)
+    monkeypatch.setattr(service_app.state.settings.permission, "provider", "")
 
 
 @pytest.fixture(autouse=True)

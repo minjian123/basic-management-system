@@ -1,14 +1,16 @@
 """插件解析器与契约版本测试（Kiwi 530）：resolve / 实例缓存 / 缺省回退 / 版本兼容。"""
 
 from abc import ABC, abstractmethod
+from types import SimpleNamespace
 
 import pytest
 
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
+from bms_core.core.context import current_app
 from bms_core.core.exceptions import PluginError
 from bms_core.core.logging import configure_logging
 from bms_core.core.plugin import (
@@ -224,3 +226,56 @@ def test_module_entrypoint_resolve(monkeypatch: pytest.MonkeyPatch) -> None:
     first = resolve_plugin("test_resolve_entry", "impl")
     assert isinstance(first, Impl)
     assert resolve_plugin("test_resolve_entry", "impl") is first
+
+
+@pytest.mark.kiwi_id(2166)
+def test_app_scoped_instance_prefers_bound_app(monkeypatch: pytest.MonkeyPatch) -> None:
+    """应用级实例：请求期优先本应用装配结果；provider 不一致 / 未装配则回落注册表。"""
+    isolated = PluginRegistry()
+    monkeypatch.setattr(plugin_module, "_DEFAULT_REGISTRY", isolated)
+
+    class Impl(BasePluggable):
+        plugin_key = "test_app_scope"
+        plugin_name = "impl"
+        auto_register = False
+
+    registry_instance = Impl()
+    isolated.register("test_app_scope", "impl", lambda: registry_instance)
+    other_instance = Impl()
+    isolated.register("test_app_scope", "other", lambda: other_instance)
+    app_instance = Impl()
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            plugin_instances=ConcurrentStableDict({"test_app_scope": app_instance}),
+            plugin_providers=ConcurrentStableDict({"test_app_scope": "impl"}),
+        )
+    )
+    token = current_app.set(app)
+    try:
+        assert resolve_plugin("test_app_scope", "impl") is app_instance
+        # provider 不一致：不认本应用实例，回落注册表
+        assert resolve_plugin("test_app_scope", "other") is other_instance
+    finally:
+        current_app.reset(token)
+
+    assert resolve_plugin("test_app_scope", "impl") is registry_instance
+
+
+@pytest.mark.kiwi_id(2166)
+def test_app_scoped_instance_without_slots(monkeypatch: pytest.MonkeyPatch) -> None:
+    """应用状态无实例槽位（未装配 / 自建壳）：直接回落注册表，不抛属性错误。"""
+    isolated = PluginRegistry()
+    monkeypatch.setattr(plugin_module, "_DEFAULT_REGISTRY", isolated)
+
+    class Impl(BasePluggable):
+        plugin_key = "test_app_scope_empty"
+        plugin_name = "impl"
+        auto_register = False
+
+    fallback = Impl()
+    isolated.register("test_app_scope_empty", "impl", lambda: fallback)
+    token = current_app.set(SimpleNamespace(state=SimpleNamespace()))
+    try:
+        assert resolve_plugin("test_app_scope_empty", "impl") is fallback
+    finally:
+        current_app.reset(token)

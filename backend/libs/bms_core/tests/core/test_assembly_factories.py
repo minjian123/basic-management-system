@@ -137,6 +137,24 @@ def test_platform_plugins_rebuild_after_reset_uses_current_settings() -> None:
         reset_permission_data_sources()
 
 
+def test_register_platform_plugins_idempotent_for_same_app() -> None:
+    """同一应用重复登记：归属未变即跳过（不重建注册表快照）。"""
+    from bms_core.core.plugin import default_plugin_registry
+    from bms_core.core.resources import ResourceManager
+
+    registry = default_plugin_registry()
+    registry.reset()
+    app = FastAPI()
+    resources = ResourceManager()
+    try:
+        assembly.register_platform_plugins(Settings(), app, resources)
+        first = registry.snapshot()
+        assembly.register_platform_plugins(Settings(), app, resources)
+        assert registry.snapshot() is first
+    finally:
+        registry.reset()
+
+
 async def test_assemble_plugins_rejects_required_redis_without_provider() -> None:
     """装配入口：Redis 为必需能力但 provider 为空即拒启（不进入逐项装配）。"""
     settings = Settings()

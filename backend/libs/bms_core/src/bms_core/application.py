@@ -35,6 +35,7 @@ from bms_core.api.audit_middleware import OperationAuditMiddleware
 from bms_core.api.errors import register_exception_handlers
 from bms_core.api.metrics import router as metrics_router
 from bms_core.api.middleware import (
+    AppContextMiddleware,
     EdgeGuardMiddleware,
     ReadOnlyMiddleware,
     RequestLoggingMiddleware,
@@ -794,6 +795,9 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             settings=settings.audit_log,
             app_settings=settings,
         )
+        # 当前应用绑定（最外层）：请求期 `resolve_plugin` 优先取本应用已装配实例，避免多服务
+        # 同进程时拿到别家应用的工厂（其 `self._app` 指向别家，读槽位即 AttributeError）。
+        app.add_middleware(AppContextMiddleware, bound_app=app)
 
         register_exception_handlers(app)
 

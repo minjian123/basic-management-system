@@ -7,9 +7,10 @@ from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 from starlette.types import Message, Receive, Scope, Send
 
-from bms_core.api.middleware import EdgeGuardMiddleware, TraceIdMiddleware
+from bms_core.api.middleware import AppContextMiddleware, EdgeGuardMiddleware, TraceIdMiddleware
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import (
+    current_app,
     get_current_trace_id,
     get_current_user_id,
     reset_current_request_id,
@@ -298,3 +299,32 @@ async def test_null_edge_trust_never_trusts() -> None:
 
     assert resp.json()["trusted"] is False
     assert resp.json()["user_id"] is None
+
+
+@pytest.mark.kiwi_id(2166)
+async def test_app_context_passthrough_and_binding() -> None:
+    """应用绑定中间件：非 HTTP 作用域直通且不写上下文；HTTP 请求期写入、退出复位。"""
+    sent: ConcurrentStableList[str] = ConcurrentStableList()
+    bound = SimpleNamespace(name="bound")
+
+    async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
+        del scope, receive
+        if scope_type == "http":
+            assert current_app.get() is bound
+        await send({"type": f"{scope_type}.done"})
+
+    async def receive() -> Message:
+        return {"type": f"{scope_type}.start"}
+
+    async def send(message: Message) -> None:
+        sent.add(str(message["type"]))
+
+    scope_type = "lifespan"
+    await AppContextMiddleware(downstream, bound_app=bound)({"type": scope_type}, receive, send)
+    assert current_app.get() is None
+
+    scope_type = "http"
+    http_scope: Scope = {"type": "http", "path": "/x", "headers": []}
+    await AppContextMiddleware(downstream, bound_app=bound)(http_scope, receive, send)
+    assert current_app.get() is None
+    assert sent == ["lifespan.done", "http.done"]

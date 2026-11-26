@@ -38,6 +38,8 @@ current_request_id: ContextVar[str | None] = ContextVar("current_request_id", de
 current_client_ip: ContextVar[str | None] = ContextVar("current_client_ip", default=None)
 current_scope: ContextVar[ResolvedScope | None] = ContextVar("current_scope", default=None)
 """当前作用域（三级标识 + 产品扩展位；只读值对象，请求级 / 批次级生命周期）。"""
+current_app: ContextVar[object | None] = ContextVar("current_app", default=None)
+"""当前请求所属应用（多服务同进程装配时按应用解析插件实例的依据；请求级生命周期）。"""
 
 
 def set_current_user_id(user_id: int | None) -> Token[int | None]:
@@ -402,3 +404,24 @@ def scope_context(scope: ResolvedScope) -> Generator[ResolvedScope]:
         yield scope
     finally:
         reset_scope_context(token)
+
+
+def set_current_app(app: object) -> Token[object | None]:
+    """设置当前应用上下文。
+
+    Args:
+        app: 应用实例（中间件按本应用绑定写入）。
+
+    Returns:
+        Token: 复位令牌。
+    """
+    return current_app.set(app)
+
+
+def reset_current_app(token: Token[object | None]) -> None:
+    """复位当前应用上下文。
+
+    Args:
+        token: `set_current_app` 返回的令牌。
+    """
+    current_app.reset(token)
