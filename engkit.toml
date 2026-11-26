@@ -152,6 +152,10 @@ interpreter = "uv run python"
 [pytest]
 cmd = "uv run pytest"
 cwd = "backend"
+# 并行档位单源（13_11 T0 / 计划表 #55）：本地预检与 CI 都读这一处，不再各写一个数字。
+# 取 6 的依据见 `.gitlab-ci.yml` 的 backend-test 注释（16+ worker 下读→写升级冲突）
+# 与《测试规范》13「并行与隔离」；单次排障可用 `--jobs N` 临时覆盖。
+jobs = "6"
 jobs_flag = "--jobs"
 max_rounds = 2
 
