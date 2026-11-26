@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.deps import get_query_scheme_store
@@ -133,8 +134,14 @@ async def test_dependency_provider_resolves() -> None:
 
 
 @pytest.mark.kiwi_id(781)
-async def test_placeholder_routes(client: AsyncClient) -> None:
-    """占位路由：列表空 / 默认方案 None / 新建回显 / 删除 data null。"""
+async def test_placeholder_routes(client: AsyncClient, service_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """占位路由：列表空 / 默认方案 None / 新建回显 / 删除 data null。
+
+    装配态下 provider 在装配期固化（`sql`），逐例改 `BMS_QUERY_SCHEME_STORE__PROVIDER` 已读不到；
+    本用例按「占位实现」的语义用依赖覆盖注入 `NullQuerySchemeStore`，断言只针对它自己的行为，
+    不再假设库为空（13_10 P1 口径）。
+    """
+    monkeypatch.setitem(service_app.dependency_overrides, get_query_scheme_store, lambda: NullQuerySchemeStore())
     listed = await client.get(API, params={"target": "business"})
     assert listed.status_code == 200
     assert listed.json()["data"] == []
