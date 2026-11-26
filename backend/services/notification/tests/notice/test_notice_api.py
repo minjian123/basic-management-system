@@ -218,9 +218,18 @@ async def test_routes_registered(service_app: FastAPI) -> None:
     assert "/api/v1/notices/published" in paths
 
 
-async def test_notice_audited_after_app_boot(service_app: FastAPI) -> None:
-    """通知服务装载期把 sys_notice 注册进字段级审计白名单。"""
-    _ = service_app
+async def test_notice_audited_after_app_boot() -> None:
+    """通知服务的审计表清单含 sys_notice，且注册后判定生效（不依赖全局注册表当前状态）。
+
+    为什么重放注册：`sys_notice` 由通知服务**装载期**注册进进程级白名单，而基座用例的隔离会
+    `reset_audited_tables()` 清空它；直接断言 `is_audited_table("sys_notice")` 在混合批次里
+    会随执行顺序变红（实测推送环第 1 批）。这里改为「清单归属 + 注册生效」两段判定。
+    """
+    from bms_core.audit.tables import register_audited_tables
+    from bms_notification.main import AUDITED_TABLES_NOTIFICATION
+
+    assert "sys_notice" in AUDITED_TABLES_NOTIFICATION
+    register_audited_tables(AUDITED_TABLES_NOTIFICATION)
     assert is_audited_table("sys_notice") is True
     assert is_audited_table("sys_notice_read") is False
 
