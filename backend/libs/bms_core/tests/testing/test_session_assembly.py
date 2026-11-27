@@ -18,14 +18,20 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
-from bms_core.core.config import current_service, get_settings, reset_current_service, set_current_service
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
+from bms_core.core.config import Settings, current_service, get_settings, reset_current_service, set_current_service
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.servicecall.base import ServiceRequest
 from bms_core.servicecall.http import HttpServiceClient
 from bms_core.services.module_registry import SERVICE_CATALOG
-from bms_core.testing.system import AssembledTransport, assemble_count, assembled_at, get_assembled_system
+from bms_core.testing.system import (
+    AssembledSystem,
+    AssembledTransport,
+    assemble_count,
+    assembled_at,
+    get_assembled_system,
+)
 
 pytestmark = pytest.mark.kiwi_id(2556)
 
@@ -34,6 +40,54 @@ _HOSTED = "workflow"
 
 _REACH_ATTEMPTS = 3
 """内部调用尝试次数：客户端每次对 5xx 已重试 3 次（指数退避），这里再补两轮以跨过瞬时不可用。"""
+
+
+async def _probe_platform_db(system: AssembledSystem, expected_url: str) -> str:
+    """失败现场探针：把「库位 / 实际打开的文件 / 表集 / demo 租户」压成一行，供 CI 反查。
+
+    只在失败路径调用（正常路径不付代价）。每项独立捕获异常：探针本身失败不得掩盖原始错误。
+
+    Args:
+        system: 会话级装配系统。
+        expected_url: 基座注入的平台库连接串。
+
+    Returns:
+        str: 单行现场（` | ` 分隔的键值串）。
+    """
+    parts: ConcurrentStableList[str] = ConcurrentStableList()
+    parts.add(f"expected_url={expected_url}")
+    tenant_app = system.app("tenant")
+    app_settings = cast("Settings", tenant_app.state.settings)
+    parts.add(f"app_platform_url={app_settings.database.platform.url}")
+    registry = cast("EngineRegistry", tenant_app.state.engine_registry)
+    try:
+        engine = await registry.get(PLATFORM_DB_KEY)
+    except Exception as exc:
+        parts.add(f"engine_error={type(exc).__name__}: {exc}")
+        return " | ".join(parts)
+    parts.add(f"engine_url={engine.url}")
+    try:
+        async with engine.connect() as connection:
+            databases = (await connection.execute(text("PRAGMA database_list"))).fetchall()
+            parts.add("opened_files=" + ",".join(str(row[2]) for row in databases))
+            tables = (
+                await connection.execute(
+                    text(
+                        "SELECT name FROM sqlite_master WHERE type='table' "
+                        "AND name IN ('sys_tenant', 'sys_user_tenant') ORDER BY name"
+                    )
+                )
+            ).fetchall()
+            parts.add("tables=" + ",".join(str(row[0]) for row in tables))
+            demo = (
+                await connection.execute(
+                    text("SELECT count(*), group_concat(DISTINCT status) FROM sys_tenant WHERE code = 'demo'")
+                )
+            ).fetchone()
+            parts.add(f"demo={tuple(demo) if demo is not None else None}")
+    except Exception as exc:
+        parts.add(f"probe_error={type(exc).__name__}: {exc}")
+    return " | ".join(parts)
 
 
 def test_assembled_exactly_once_per_session() -> None:
@@ -104,9 +158,14 @@ async def test_internal_contract_call_reaches_peer_service() -> None:
     system = get_assembled_system()
     registry = cast("EngineRegistry", system.app("tenant").state.engine_registry)
     engine = await registry.get(PLATFORM_DB_KEY)
-    expected_db = Path(str(make_url(str(get_settings().database.platform.url)).database)).resolve()
+    expected_url = str(get_settings().database.platform.url)
+    expected_db = Path(str(make_url(expected_url).database)).resolve()
     actual_db = Path(str(engine.url.database)).resolve()
-    assert actual_db == expected_db, f"装配库位不符：tenant 应用用 {actual_db}，共享平台库是 {expected_db}"
+    if actual_db != expected_db:
+        raise AssertionError(
+            f"装配库位不符：tenant 应用用 {actual_db}，共享平台库是 {expected_db}；探针："
+            f"{await _probe_platform_db(system, expected_url)}"
+        )
 
     service_client = system.app("identity").state.service_client
     request = ServiceRequest(
@@ -132,7 +191,9 @@ async def test_internal_contract_call_reaches_peer_service() -> None:
     assert last is not None
     reason = str(cast("ConcurrentStableDict[str, object]", last.data or ConcurrentStableDict()).get("reason", ""))
     if reason != "status":
-        raise AssertionError(f"内部契约调用不可达（reason={reason}）：{last}")
+        raise AssertionError(
+            f"内部契约调用不可达（reason={reason}）：{last}；探针：{await _probe_platform_db(system, expected_url)}"
+        )
     health = await service_client.call(ServiceRequest(service="tenant", method="GET", path="/healthz"))
     assert health.status_code == 200, health.content
     # 降级前先证实「库位对且能连」：连不上就是基座缺陷（这里必须硬失败并带出真实驱动错误），
@@ -141,5 +202,10 @@ async def test_internal_contract_call_reaches_peer_service() -> None:
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
     except OperationalError as exc:
-        raise AssertionError(f"tenant 应用平台库不可用（{actual_db}）：{exc}") from exc
-    pytest.skip(f"tenant 侧平台库降级为 503（database_unavailable），直调链路本身可达：{last}")
+        raise AssertionError(
+            f"tenant 应用平台库不可用（{actual_db}）：{exc}；探针：{await _probe_platform_db(system, expected_url)}"
+        ) from exc
+    pytest.skip(
+        f"tenant 侧平台库降级为 503（database_unavailable），直调链路本身可达：{last}；"
+        f"探针：{await _probe_platform_db(system, expected_url)}"
+    )
