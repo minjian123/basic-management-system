@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
@@ -39,6 +40,7 @@ from bms_core.models.platform.permission_meta import (
 )
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.testing.gates import PLATFORM_GATE
+from bms_core.testing.namespace import Namespace
 from bms_platform.domains.menu_form.repositories.menu import (
     ButtonRepository,
     FieldRepository,
@@ -76,7 +78,7 @@ class _OutboxSpy:
 
 
 @pytest_asyncio.fixture
-async def session() -> AsyncIterator[AsyncSession]:
+async def session(ns: Namespace) -> AsyncIterator[AsyncSession]:
     """共享平台库会话（表由数据初始化建好；经 `LazyGatedSession` 逐操作走写门）。
 
     Yields:
@@ -89,7 +91,34 @@ async def session() -> AsyncIterator[AsyncSession]:
         yield cast("AsyncSession", proxy)
     finally:
         await proxy.close()
-        await engine.dispose()
+        _purge_ns(ns)
+
+
+def _purge_ns(ns: Namespace) -> None:
+    """teardown 清理：按用例命名空间删除本文件造的 业务 / 菜单及其附表。
+
+    走同步连接（清理是收尾动作，不参与被测事务；ORM 删除在门代理会话上会被下一例的前置事务冲掉）。
+
+    Args:
+        ns: 用例命名空间（清理范围）。
+    """
+    path = shared_platform_url().split("///")[-1]
+    connection = sqlite3.connect(path)
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "DELETE FROM sys_business_i18n WHERE business_id IN (SELECT id FROM sys_business WHERE code LIKE ?)",
+            (ns.like(),),
+        )
+        cursor.execute("DELETE FROM sys_business WHERE code LIKE ?", (ns.like(),))
+        cursor.execute(
+            "DELETE FROM sys_menu_i18n WHERE menu_id IN (SELECT id FROM sys_menu WHERE path LIKE ?)",
+            (f"/{ns.like()}",),
+        )
+        cursor.execute("DELETE FROM sys_menu WHERE path LIKE ?", (f"/{ns.like()}",))
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def _menu_service(session: AsyncSession, cache: CacheRegion) -> MenuFormService:
@@ -171,11 +200,11 @@ async def _live_i18n_count(session: AsyncSession, model: Any, key_column: str, o
     return len((await session.execute(statement)).scalars().all())
 
 
-async def test_menu_i18n_falls_back_to_default_locale(session: AsyncSession) -> None:
+async def test_menu_i18n_falls_back_to_default_locale(session: AsyncSession, ns: Namespace) -> None:
     """请求语言缺文案时回退系统默认语言（而非主表列）。"""
     menu = await _seed(
         session,
-        SysMenu(path="/m", name="主表名", status="enabled", icon=None, sort=0),
+        SysMenu(path=f"/{ns.code('m')}", name="主表名", status="enabled", icon=None, sort=0),
     )
     await _seed(session, SysMenuI18n(menu_id=menu.id, locale="zh-CN", name="中文名"))
     repository = MenuRepository(cast("DbSession", session))
@@ -183,11 +212,11 @@ async def test_menu_i18n_falls_back_to_default_locale(session: AsyncSession) -> 
     assert texts.get(int(menu.id)) == "中文名"
 
 
-async def test_menu_i18n_default_locale_follows_registry_context(session: AsyncSession) -> None:
+async def test_menu_i18n_default_locale_follows_registry_context(session: AsyncSession, ns: Namespace) -> None:
     """回退目标随语言清单默认语言变化（不是写死 zh-CN）。"""
     menu = await _seed(
         session,
-        SysMenu(path="/m", name="主表名", status="enabled", icon=None, sort=0),
+        SysMenu(path=f"/{ns.code('m')}", name="主表名", status="enabled", icon=None, sort=0),
     )
     await _seed(session, SysMenuI18n(menu_id=menu.id, locale="en-US", name="English Name"))
     token = current_default_locale.set("en-US")
@@ -200,20 +229,20 @@ async def test_menu_i18n_default_locale_follows_registry_context(session: AsyncS
     assert texts.get(int(menu.id)) == "English Name"
 
 
-async def test_menu_i18n_locale_case_insensitive(session: AsyncSession) -> None:
+async def test_menu_i18n_locale_case_insensitive(session: AsyncSession, ns: Namespace) -> None:
     """存量大小写混杂的 locale 行可被标准形态请求命中。"""
     menu = await _seed(
         session,
-        SysMenu(path="/m", name="主表名", status="enabled", icon=None, sort=0),
+        SysMenu(path=f"/{ns.code('m')}", name="主表名", status="enabled", icon=None, sort=0),
     )
     await _seed(session, SysMenuI18n(menu_id=menu.id, locale="ZH-cn", name="大小写存量"))
     texts = await MenuRepository(cast("DbSession", session)).list_i18n(ConcurrentStableList([int(menu.id)]), "zh-CN")
     assert texts.get(int(menu.id)) == "大小写存量"
 
 
-async def test_business_i18n_falls_back_to_default_locale(session: AsyncSession) -> None:
+async def test_business_i18n_falls_back_to_default_locale(session: AsyncSession, ns: Namespace) -> None:
     """业务码附表同样两级回退（同一助手口径）。"""
-    business = await _seed(session, SysBusiness(code="sys_test", name="业务名", status="enabled"))
+    business = await _seed(session, SysBusiness(code=ns.code("biz"), name="业务名", status="enabled"))
     await _seed(session, SysBusinessI18n(business_id=business.id, locale="zh-CN", name="业务中文"))
     texts = await BusinessRepository(cast("DbSession", session)).list_i18n(
         ConcurrentStableList([int(business.id)]), "en-US"
@@ -221,21 +250,21 @@ async def test_business_i18n_falls_back_to_default_locale(session: AsyncSession)
     assert texts.get(int(business.id)) == "业务中文"
 
 
-async def test_delete_menu_cleans_i18n(session: AsyncSession) -> None:
+async def test_delete_menu_cleans_i18n(session: AsyncSession, ns: Namespace) -> None:
     """删除菜单时附表同行软删（无孤儿行）。"""
     cache = MemoryCacheRegion()
     menu = await _seed(
         session,
-        SysMenu(path="/m", name="主表名", status="enabled", icon=None, sort=0),
+        SysMenu(path=f"/{ns.code('m')}", name="主表名", status="enabled", icon=None, sort=0),
     )
     await _seed(session, SysMenuI18n(menu_id=menu.id, locale="zh-CN", name="中文名"))
     await _menu_service(session, cache).delete_menu(int(menu.id))
     assert await _live_i18n_count(session, SysMenuI18n, "menu_id", int(menu.id)) == 0
 
 
-async def test_delete_field_cleans_i18n(session: AsyncSession) -> None:
+async def test_delete_field_cleans_i18n(session: AsyncSession, ns: Namespace) -> None:
     """删除字段时附表同行软删。"""
-    business = await _seed(session, SysBusiness(code="sys_test", name="业务名", status="enabled"))
+    business = await _seed(session, SysBusiness(code=ns.code("biz"), name="业务名", status="enabled"))
     form = await _seed(session, SysForm(business_id=business.id, component=None, status="enabled"))
     field = await _seed(
         session,
@@ -246,17 +275,17 @@ async def test_delete_field_cleans_i18n(session: AsyncSession) -> None:
     assert await _live_i18n_count(session, SysFieldI18n, "field_id", int(field.id)) == 0
 
 
-async def test_delete_business_cleans_i18n(session: AsyncSession) -> None:
+async def test_delete_business_cleans_i18n(session: AsyncSession, ns: Namespace) -> None:
     """删除业务码时附表同行软删。"""
-    business = await _seed(session, SysBusiness(code="sys_test", name="业务名", status="enabled"))
+    business = await _seed(session, SysBusiness(code=ns.code("biz"), name="业务名", status="enabled"))
     await _seed(session, SysBusinessI18n(business_id=business.id, locale="zh-CN", name="业务中文"))
     await _permission_service(session, MemoryCacheRegion()).delete_business(int(business.id))
     assert await _live_i18n_count(session, SysBusinessI18n, "business_id", int(business.id)) == 0
 
 
-async def test_delete_action_cleans_i18n(session: AsyncSession) -> None:
+async def test_delete_action_cleans_i18n(session: AsyncSession, ns: Namespace) -> None:
     """删除动作码时附表同行软删。"""
-    action = await _seed(session, SysAction(code="sys_act", name="动作名", status="enabled"))
+    action = await _seed(session, SysAction(code=ns.code("act"), name="动作名", status="enabled"))
     await _seed(session, SysActionI18n(action_id=action.id, locale="zh-CN", name="动作中文"))
     await _permission_service(session, MemoryCacheRegion()).delete_action(int(action.id))
     assert await _live_i18n_count(session, SysActionI18n, "action_id", int(action.id)) == 0
