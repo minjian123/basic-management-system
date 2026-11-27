@@ -2,6 +2,10 @@
 
 被测对象：`bms_core/repositories/help_coverage.py`。锁死：启用 / 未软删过滤、权限码与表单 / 菜单关联、
 模块映射、表单 / 字段参考行、动作码兜底与锚点复用。
+
+运行口径（2026-11-27 重写）：`write_session` 是 autocommit（写入立即落库），故业务键（业务 / 动作编码、
+菜单路径、表单组件）一律按用例命名空间派生；**不使用 `/probe/…` 与 `probe…` 这类共享标记**——基座仓储
+目录早先用目录级清场按这两个模式全局删除，会把别的 worker 的行一起删掉（实测 40201「菜单不存在」）。
 """
 
 from __future__ import annotations
@@ -43,6 +47,32 @@ def _module_key(prefix: str) -> str:
     return _MODULE_KEY_STRIP.sub("", prefix.lower())
 
 
+def _path(prefix: str, leaf: str) -> str:
+    """本用例命名空间下的菜单路径。
+
+    Args:
+        prefix: 命名空间编码。
+        leaf: 叶子段。
+
+    Returns:
+        str: `/{prefix}/{leaf}`。
+    """
+    return f"/{prefix}/{leaf}"
+
+
+def _component(prefix: str, leaf: str = "view") -> str:
+    """本用例命名空间下的表单视图组件标识。
+
+    Args:
+        prefix: 命名空间编码。
+        leaf: 叶子段。
+
+    Returns:
+        str: `{prefix}/{leaf}`。
+    """
+    return f"{prefix}/{leaf}"
+
+
 def _create_table(table: Table, connection: Connection) -> None:
     """幂等建表（共享库上只补本文件需要的表）。
 
@@ -71,13 +101,13 @@ async def engine(shared_platform_engine: AsyncEngine) -> AsyncEngine:
 
 @pytest.fixture
 async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """回滚会话。
+    """操作级写会话（autocommit；数据按命名空间隔离，不清理）。
 
     Args:
         engine: 共享库引擎。
 
     Yields:
-        AsyncSession: 写会话（不提交，退出即回滚）。
+        AsyncSession: 写会话。
     """
     async with write_session(engine) as db_session:
         yield db_session
@@ -88,7 +118,7 @@ async def _seed_metadata(session: AsyncSession, prefix: str) -> tuple[SysForm, S
 
     Args:
         session: 会话。
-        prefix: 键前缀（隔离同名用例）。
+        prefix: 键前缀（本用例命名空间）。
 
     Returns:
         tuple: （表单，菜单，已声明按钮，未声明按钮）。
@@ -103,10 +133,10 @@ async def _seed_metadata(session: AsyncSession, prefix: str) -> tuple[SysForm, S
     permission = SysPermission(business_id=business.id, action_id=action.id, status="enabled")
     session.add(permission)
     await session.flush()
-    menu = SysMenu(name="覆盖率菜单", path=f"/probe/{prefix}", component="probe/view", status="enabled")
+    menu = SysMenu(name="覆盖率菜单", path=_path(prefix, "menu"), component=_component(prefix), status="enabled")
     session.add(menu)
     await session.flush()
-    form = SysForm(business_id=business.id, component="probe/view", status="enabled")
+    form = SysForm(business_id=business.id, component=_component(prefix), status="enabled")
     session.add(form)
     await session.flush()
     session.add(SysMenuForm(menu_id=menu.id, form_id=form.id))
@@ -156,7 +186,7 @@ async def test_snapshot_reads_enabled_rows_and_joins(session: AsyncSession, ns: 
     action = next(row for row in snapshot.actions if row.model_id == int(covered.id))
     assert action.business_code == f"{prefix}_biz"
     assert action.action_code == f"{prefix}_act"
-    assert list(action.menu_paths) == [f"/probe/{prefix}"]
+    assert list(action.menu_paths) == [_path(prefix, "menu")]
     assert action.help_key is not None
     menu_row = next(row for row in snapshot.menus if row.model_id == int(menu.id))
     assert list(menu_row.business_codes) == [f"{prefix}_biz"]
@@ -218,10 +248,10 @@ async def test_snapshot_deduplicates_shared_links(session: AsyncSession, ns: Nam
             SysPermission(business_id=business.id, action_id=action_two.id, status="enabled"),
         ]
     )
-    menu_one = SysMenu(name="共享菜单一", path=f"/probe/{prefix}-1", component="probe/view", status="enabled")
-    menu_two = SysMenu(name="共享菜单二", path=f"/probe/{prefix}-2", component="probe/view", status="enabled")
-    form_one = SysForm(business_id=business.id, component="probe/view", status="enabled")
-    form_two = SysForm(business_id=business.id, component="probe/view", status="enabled")
+    menu_one = SysMenu(name="共享菜单一", path=_path(prefix, "one"), component=_component(prefix), status="enabled")
+    menu_two = SysMenu(name="共享菜单二", path=_path(prefix, "two"), component=_component(prefix), status="enabled")
+    form_one = SysForm(business_id=business.id, component=_component(prefix), status="enabled")
+    form_two = SysForm(business_id=business.id, component=_component(prefix), status="enabled")
     session.add_all([menu_one, menu_two, form_one, form_two])
     await session.flush()
     session.add_all(
@@ -257,8 +287,10 @@ async def test_snapshot_skips_rows_with_missing_links(session: AsyncSession, ns:
         ]
     )
     await session.flush()
-    orphan_form = SysForm(business_id=999_000, component="probe/orphan", status="enabled")
-    orphan_menu = SysMenu(name="孤儿菜单", path="/probe/cov-orphan", component="probe/orphan", status="enabled")
+    orphan_form = SysForm(business_id=999_000, component=_component(prefix, "orphan"), status="enabled")
+    orphan_menu = SysMenu(
+        name="孤儿菜单", path=_path(prefix, "orphan"), component=_component(prefix, "orphan"), status="enabled"
+    )
     session.add_all([orphan_form, orphan_menu])
     await session.flush()
     session.add(SysMenuForm(menu_id=orphan_menu.id, form_id=orphan_form.id))
