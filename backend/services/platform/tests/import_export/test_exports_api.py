@@ -22,7 +22,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from openpyxl import load_workbook
-from sqlalchemy import Table
+from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import (
@@ -371,9 +371,20 @@ async def test_export_async_over_threshold(env: _Env) -> None:
 
 
 async def test_export_over_max_rows(env: _Env) -> None:
-    """超过单次行数上限：50404。"""
+    """超过单次行数上限：50404（统计范围锁定本夹具造的行）。
+
+    为什么不导全量再断言超限：测试基座是多 worker 共用一份租户库，全表行数由他人并发写入决定，
+    「上限 2 行 + 库里必然 ≥3 行」不是本用例能保证的前提（实测 CI 全量：库内行数不足时导出成功，
+    `assert 200 == 400`）。这里取本夹具造的三行主键（`form_key` 以命名空间前缀开头），用 `ids`
+    把导出口径收敛到这三行——上限 2 < 3 恒成立，`count` 与 `fetch` 也仍走真实生产路径。
+    """
+    async with env.factory() as session:
+        statement = select(SysUser.id).where(SysUser.form_key.like(f"{env.seed}%"))
+        owned = ConcurrentStableList(int(row) for row in (await session.execute(statement)).scalars().all())
+    assert len(owned) == 3
+    params = {"ids": ",".join(str(item) for item in owned)}
     async with temporary_config_values(env.engine, ConcurrentStableDict({"export.max_rows": "2"})):
-        response = await env.client.get(f"{API}/users")
+        response = await env.client.get(f"{API}/users", params=params)
     assert response.status_code == 400
     assert _code(response) == 50404
 

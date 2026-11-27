@@ -66,6 +66,7 @@ async def temporary_config_values(engine: AsyncEngine, values: ConcurrentStableD
     """
     cache = _config_cache()
     original: ConcurrentStableDict[str, str | None] = ConcurrentStableDict()
+    original_overridden: ConcurrentStableDict[str, bool] = ConcurrentStableDict()
     async with write_session(engine) as session:
         for key, value in values.items():
             row = (
@@ -74,10 +75,16 @@ async def temporary_config_values(engine: AsyncEngine, values: ConcurrentStableD
                 )
             ).scalar_one_or_none()
             original[key] = None if row is None else row.value
+            original_overridden[key] = False if row is None else row.is_overridden
+            # 必须转覆盖态（`is_overridden=true`）：播种对「未覆盖」的已有行会按平台默认清单刷新
+            # `value`（`bms_core.config.seed` 的升级语义）。不置位时，同进程/同期任一处在临时值
+            # 生效期内触发播种，参数就被刷回默认值——实测 CI 全量：`export.max_rows` 设 2 后被
+            # 刷回 50000，导出不再超限，`assert 200 == 400`（本地无并发播种，不复现）。
             if row is None:
-                session.add(SysConfig(config_key=key, name=key, value=value, form_key="config"))
+                session.add(SysConfig(config_key=key, name=key, value=value, form_key="config", is_overridden=True))
             else:
                 row.value = value
+                row.is_overridden = True
         await session.commit()
     await _bump(cache)
     try:
@@ -96,5 +103,6 @@ async def temporary_config_values(engine: AsyncEngine, values: ConcurrentStableD
                     await session.delete(row)
                 else:
                     row.value = value
+                    row.is_overridden = original_overridden[key]
             await session.commit()
         await _bump(cache)
