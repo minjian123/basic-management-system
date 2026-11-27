@@ -10,10 +10,13 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableFrozenDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.config import current_service, get_settings, reset_current_service, set_current_service
+from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.servicecall.base import ServiceRequest
 from bms_core.servicecall.http import HttpServiceClient
 from bms_core.services.module_registry import SERVICE_CATALOG
@@ -23,6 +26,9 @@ pytestmark = pytest.mark.kiwi_id(2556)
 
 _HOSTED = "workflow"
 """由 platform 进程承载、无独立进程的服务键（装配阶段不单独启动）。"""
+
+_REACH_ATTEMPTS = 3
+"""内部调用尝试次数：客户端每次对 5xx 已重试 3 次（指数退避），这里再补两轮以跨过瞬时不可用。"""
 
 
 def test_assembled_exactly_once_per_session() -> None:
@@ -77,14 +83,33 @@ def test_cross_service_client_routes_in_process() -> None:
 
 
 async def test_internal_contract_call_reaches_peer_service() -> None:
-    """真实内部契约调用可达：identity → tenant 的成员关系出口返回 200（不外连网络）。"""
+    """真实内部契约调用可达：identity → tenant 的成员关系出口返回 200（不外连网络）。
+
+    为什么允许有限重试：测试基座是多 worker 共用一份平台库，任一 worker 的高频写入都可能让
+    tenant 侧一次读抛 `OperationalError`（应用映射为 503 / `database_unavailable`，属基础设施
+    瞬时不可用），与「装配后的进程内直调链路是否打通」这一被测点无关——实测 CI 全量：该调用
+    连续 3 次 503 后整条用例失败，而同一链路的其它用例均正常。重试只覆盖
+    `ServiceUnavailableError`，最终断言仍是 200 + 契约体，服务身份 / 进程内传输 / 路由都没有放宽。
+    """
     service_client = get_assembled_system().app("identity").state.service_client
-    response = await service_client.call(
-        ServiceRequest(
-            service="tenant",
-            method="GET",
-            path="/api/v1/tenant/internal/memberships",
-            query=ConcurrentStableFrozenDict({"owner_tenant_id": "1001", "user_id": "1"}),
-        )
+    request = ServiceRequest(
+        service="tenant",
+        method="GET",
+        path="/api/v1/tenant/internal/memberships",
+        query=ConcurrentStableFrozenDict({"owner_tenant_id": "1001", "user_id": "1"}),
     )
-    assert response.status_code == 200, response.content
+    last: ServiceUnavailableError | None = None
+    for _ in range(_REACH_ATTEMPTS):
+        try:
+            response = await service_client.call(request)
+        except ServiceUnavailableError as exc:
+            # 不在用例侧 sleep：客户端本身对 5xx 已有 3 次指数退避重试（`retry_backoff`），
+            # 这里只是把「瞬时不可用」的容忍窗口再放大一轮，而不是用等待替代确定性断言。
+            last = exc
+            continue
+        assert response.status_code == 200, response.content
+        payload = cast("ConcurrentStableDict[str, object]", response.payload())
+        assert payload["code"] == 0, payload
+        assert set(cast("ConcurrentStableDict[str, object]", payload["data"])) == {"targets"}
+        return
+    raise AssertionError(f"内部契约调用持续不可用（已重试 {_REACH_ATTEMPTS} 次）：{last}")
