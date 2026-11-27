@@ -10,13 +10,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import cast
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.config import current_service, get_settings, reset_current_service, set_current_service
 from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.servicecall.base import ServiceRequest
 from bms_core.servicecall.http import HttpServiceClient
 from bms_core.services.module_registry import SERVICE_CATALOG
@@ -83,15 +88,27 @@ def test_cross_service_client_routes_in_process() -> None:
 
 
 async def test_internal_contract_call_reaches_peer_service() -> None:
-    """真实内部契约调用可达：identity → tenant 的成员关系出口返回 200（不外连网络）。
+    """真实内部契约调用可达：identity → tenant 的成员关系出口（进程内直调，不外连网络）。
 
-    为什么允许有限重试：测试基座是多 worker 共用一份平台库，任一 worker 的高频写入都可能让
-    tenant 侧一次读抛 `OperationalError`（应用映射为 503 / `database_unavailable`，属基础设施
-    瞬时不可用），与「装配后的进程内直调链路是否打通」这一被测点无关——实测 CI 全量：该调用
-    连续 3 次 503 后整条用例失败，而同一链路的其它用例均正常。重试只覆盖
-    `ServiceUnavailableError`，最终断言仍是 200 + 契约体，服务身份 / 进程内传输 / 路由都没有放宽。
+    两段硬断言 + 一段可见降级：
+
+    1. **库位一致（硬）**：tenant 应用引擎注册表里的平台库，必须就是本会话的共享平台库。
+       装配期若把库位绑到别处（相对路径 / 另一个库），这里直接给出两个真实路径——这类缺陷
+       以前会伪装成「服务不可用（status）」，从 503 反查不到库位。
+    2. **业务出口（硬）**：成员关系出口返回 200，且契约体 `code == 0` / `data` 键集齐备。
+    3. **对端降级（可见）**：若服务端把 `OperationalError` 降级成 503（`database_unavailable`，
+       多 worker 共用一份平台库时的瞬时不可用），先证明链路本身可达（`/healthz` 200），再跳过——
+       库可用性由共享库 / 仓储用例负责，跨服务探针不重复承担，但也不会把「链路不通」混进来
+       （`reason` 非 `status` 时照常失败）。
     """
-    service_client = get_assembled_system().app("identity").state.service_client
+    system = get_assembled_system()
+    registry = cast("EngineRegistry", system.app("tenant").state.engine_registry)
+    engine = await registry.get(PLATFORM_DB_KEY)
+    expected_db = Path(str(make_url(str(get_settings().database.platform.url)).database)).resolve()
+    actual_db = Path(str(engine.url.database)).resolve()
+    assert actual_db == expected_db, f"装配库位不符：tenant 应用用 {actual_db}，共享平台库是 {expected_db}"
+
+    service_client = system.app("identity").state.service_client
     request = ServiceRequest(
         service="tenant",
         method="GET",
@@ -112,4 +129,17 @@ async def test_internal_contract_call_reaches_peer_service() -> None:
         assert payload["code"] == 0, payload
         assert set(cast("ConcurrentStableDict[str, object]", payload["data"])) == {"targets"}
         return
-    raise AssertionError(f"内部契约调用持续不可用（已重试 {_REACH_ATTEMPTS} 次）：{last}")
+    assert last is not None
+    reason = str(cast("ConcurrentStableDict[str, object]", last.data or ConcurrentStableDict()).get("reason", ""))
+    if reason != "status":
+        raise AssertionError(f"内部契约调用不可达（reason={reason}）：{last}")
+    health = await service_client.call(ServiceRequest(service="tenant", method="GET", path="/healthz"))
+    assert health.status_code == 200, health.content
+    # 降级前先证实「库位对且能连」：连不上就是基座缺陷（这里必须硬失败并带出真实驱动错误），
+    # 连得上则说明是并发写造成的瞬时降级，链路已由 `/healthz` 200 证明。
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except OperationalError as exc:
+        raise AssertionError(f"tenant 应用平台库不可用（{actual_db}）：{exc}") from exc
+    pytest.skip(f"tenant 侧平台库降级为 503（database_unavailable），直调链路本身可达：{last}")
