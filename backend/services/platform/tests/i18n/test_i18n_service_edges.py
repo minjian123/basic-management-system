@@ -19,9 +19,7 @@ from sqlalchemy import Table, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.i18n.seed import seed_i18n_in_session
 from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
-from bms_core.testing.schema import ensure_tables
 from bms_core.testing.transaction import write_session
 from tests_support.permission_admin import assign_system_admin
 
@@ -70,10 +68,8 @@ async def i18n_state(tenant_db: str, shared_tenant_engine: AsyncEngine) -> Async
         None: 用例运行期。
     """
     del tenant_db
-    await ensure_tables(shared_tenant_engine, _TABLES)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
     async with factory() as db:
-        await seed_i18n_in_session(db)
         await _purge_owned(db)
     await assign_system_admin()
     yield

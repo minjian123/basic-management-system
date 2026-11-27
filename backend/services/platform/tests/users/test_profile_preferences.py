@@ -16,10 +16,8 @@ from sqlalchemy import Table, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.i18n.seed import seed_i18n_in_session
 from bms_core.models.platform.i18n import SysI18nLocale
 from bms_core.models.platform.user import SysUser
-from bms_core.testing.schema import ensure_tables
 from tests_support.auth import TEST_SUBJECT
 
 pytestmark = [
@@ -71,10 +69,8 @@ async def profile_state(tenant_db: str, shared_tenant_engine: AsyncEngine, clien
         None: 用例运行期。
     """
     del tenant_db
-    await ensure_tables(shared_tenant_engine, _TABLES)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
     async with factory() as db:
-        await seed_i18n_in_session(db)
         # 本用例依赖 zh-CN / en-US 启用：其他 i18n 用例可能临时停用，这里显式复位，避免跨用例脏状态
         await db.execute(
             update(SysI18nLocale).where(SysI18nLocale.code.in_(("zh-CN", "en-US"))).values(status="enabled")

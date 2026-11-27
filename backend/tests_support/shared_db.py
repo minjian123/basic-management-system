@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import asyncio
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from bms_core.testing import shared_db as base_shared_db
 from bms_core.testing.shared_db import (
     SEED_TENANT_IDS,
@@ -124,23 +126,52 @@ async def prepare_archive_async(url: str) -> None:
 
 
 def prepare_tenant(url: str) -> None:
-    """准备租户库：租户侧建表集（各业务域并集 + 基础设施表）→ 系统参数种子。
+    """准备租户库：租户侧建表集（各业务域并集 + 基础设施表）→ 系统参数种子 → 语言包种子。
 
     额外内容：
     - 测试专用探针表 `biz_ext_probe`（生产不建）；
     - **结构变更声明**（`tests_support.form_design_changes`）：初始化阶段生成补列脚本并执行，
-      执行语句与生成脚本逐条比对、执行后回读校验（不一致直接失败），并把实际脚本落盘。
+      执行语句与生成脚本逐条比对、执行后回读校验（不一致直接失败），并把实际脚本落盘；
+    - **语言包种子只在这里播一次**：语言清单与语言包属平台默认数据，与系统参数同等地位。
+      各 i18n 用例原先在各自夹具里 `seed_i18n_in_session`（一次上百行 upsert），多个文件跨
+      worker 并发写同一批行，0.1s 的 SQLite 忙等撑不住——实测 CI 全量 `database is locked`
+      把某条用例的 setup 打成 error。并入准备期后，用例只读种子、只写自己命名空间的行。
 
     Args:
         url: 共享租户库连接串。
     """
     base_shared_db.prepare_tenant(url)
     _ensure_ext_probe_table(url)
+    _seed_i18n(url)
     import asyncio
 
     from tests_support.form_design_changes import apply_changes
 
     asyncio.run(apply_changes(url))
+
+
+def _seed_i18n(url: str) -> None:
+    """准备期播种语言清单与语言包（单进程执行，幂等）。
+
+    Args:
+        url: 租户库连接串。
+    """
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from bms_core.db.sqlite import create_async_engine
+    from bms_core.i18n.seed import seed_i18n_in_session
+
+    async def _run() -> None:
+        engine = create_async_engine(url)
+        try:
+            factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+            async with factory() as session:
+                await seed_i18n_in_session(session)
+                await session.commit()
+        finally:
+            await engine.dispose()
+
+    asyncio.run(_run())
 
 
 async def prepare_tenant_async(url: str) -> None:
