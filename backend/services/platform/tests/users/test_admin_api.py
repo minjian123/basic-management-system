@@ -41,7 +41,7 @@ from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, Service
 from bms_core.testing.namespace import Namespace
 from bms_core.testing.schema import ensure_tables
 from bms_platform.domains.user.api.users import _read_cached_user_id  # pyright: ignore[reportPrivateUsage]
-from tests_support.permission_admin import assign_system_admin
+from tests_support.permission_stub import stub_permission_provider
 
 API = "/api/v1/users"
 REVOKE_PATH = "/api/v1/identity/internal/sessions/revoke-user"
@@ -121,7 +121,10 @@ def _uid(data: ConcurrentStableDict[str, object]) -> int:
 
 @pytest_asyncio.fixture(autouse=True)
 async def permission_engine(
-    shared_tenant_engine: AsyncEngine, shared_tenant_db_url: str, monkeypatch: pytest.MonkeyPatch
+    shared_tenant_engine: AsyncEngine,
+    shared_tenant_db_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+    service_app: FastAPI,
 ) -> None:
     """真实权限校验所需的共享租户库（幂等建表）+ 内置系统管理员主体。
 
@@ -139,8 +142,8 @@ async def permission_engine(
     await ensure_tables(shared_tenant_engine, tables)
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", shared_tenant_db_url)
     get_settings.cache_clear()
-    await assign_system_admin()
-    get_settings.cache_clear()
+    # 权限面放行（本文件 8 条用例全是正向操作、无 403 断言）：不再写库授系统管理员。
+    stub_permission_provider(service_app, monkeypatch)
 
 
 class RecordingOutbox(NullOutboxStore):
