@@ -265,9 +265,10 @@ async def test_module_repository_open_reopen_status_map(session: AsyncSession) -
 
 
 async def test_platform_tenant_suspended_reprovision(
-    session: AsyncSession, monkeypatch: pytest.MonkeyPatch, platform_tenant_serial: None
+    monkeypatch: pytest.MonkeyPatch, platform_tenant_session: AsyncSession
 ) -> None:
     """既有平台租户被停用：重新置 provisioning 并走库侧编排补齐。"""
+    session = platform_tenant_session
 
     async def _ok(**kwargs: object) -> ProvisionOutcome:
         del kwargs
@@ -297,9 +298,10 @@ async def _noop_open(tenant_id: int, *, opened_by: int | None = None) -> None:
 
 
 async def test_platform_tenant_base_modules_failure_tolerated(
-    session: AsyncSession, monkeypatch: pytest.MonkeyPatch, platform_tenant_serial: None
+    monkeypatch: pytest.MonkeyPatch, platform_tenant_session: AsyncSession
 ) -> None:
     """基础模块开通失败仅告警（不阻断）。"""
+    session = platform_tenant_session
 
     async def _ok(**kwargs: object) -> ProvisionOutcome:
         del kwargs
@@ -329,9 +331,10 @@ async def test_platform_tenant_base_modules_failure_tolerated(
 
 
 async def test_platform_tenant_cleanup_failure_tolerated(
-    session: AsyncSession, monkeypatch: pytest.MonkeyPatch, platform_tenant_serial: None
+    monkeypatch: pytest.MonkeyPatch, platform_tenant_session: AsyncSession
 ) -> None:
     """库侧失败 + 清理失败：仅告警并返回 False。"""
+    session = platform_tenant_session
 
     async def _fail(**kwargs: object) -> ProvisionOutcome:
         del kwargs

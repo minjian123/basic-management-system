@@ -32,8 +32,12 @@ __all__ = (
     "reset_plugin_registry",
     "reset_request_context",
 )
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from bms_core.testing.system import AssembledSystem
+from bms_core.testing.transaction import write_session
 from tests_support.auth import auth_headers, configure_token_env
+from tests_support.shared_access import shared_engine
 from tests_support.tenant_base import tenant_base as tenant_base  # pytest 夹具须在本模块命名空间可见
 from tests_support.tenant_source import install_fake_tenant_source, installed_fake_tenant_source
 
@@ -129,20 +133,42 @@ def platform_db_url(shared_platform_db_url: str) -> str:
 
 
 @pytest.fixture
-def platform_tenant_serial() -> Iterator[None]:
-    """平台租户是**全库唯一行**：多个用例文件对它做状态编排，用专用文件锁串行。
+def platform_tenant_db_url(tmp_path: Path, platform_db_prepare: Callable[[str], None]) -> str:
+    """每用例一份**独占平台库**连接串（同步建库 + 种子，避免在事件循环里 `asyncio.run`）。
 
-    为什么不用数据库门：门只覆盖**一次写操作**，而这里的临界区跨「读现状 → 编排 → 断言」多步；
-    两个 worker 同时改同一行会撞 ORM 版本谓词（`StaleDataError: UPDATE ... 0 were matched`）。
-    锁名语义化、锁文件落 `.cache/test/`，与会话入口的残留锁清理同源。
+    Args:
+        tmp_path: 用例级临时目录。
+        platform_db_prepare: 共享平台库准备集（建表 + 种子）。
+
+    Returns:
+        str: 独占平台库异步连接串。
+    """
+    url = f"sqlite+aiosqlite:///{tmp_path / 'platform_tenant.db'}"
+    platform_db_prepare(url)
+    return url
+
+
+@pytest_asyncio.fixture
+async def platform_tenant_session(platform_tenant_db_url: str) -> AsyncIterator[AsyncSession]:
+    """每用例一份**独占平台库**会话：平台租户是全库唯一行，状态编排必须独占。
+
+    平台租户（`settings.platform_tenant.code` 对应的那一行）只有一行，而多个用例要把它分别置成
+    `provisioning` / `suspended` / `active` 再跑开通编排——共享库上必然互相踩（旧版靠
+    `file_lock("platform-tenant-bootstrap")` 串行，锁既拖慢又把临界区拉到整条用例）。
+    改为每例建一份 tmp 平台库（同构 schema + 种子），行归自己：用例可并发，也不需要任何锁。
+
+    Args:
+        platform_tenant_db_url: 独占平台库连接串。
 
     Yields:
-        None: 持锁区间。
+        AsyncSession: 独占平台库门会话（操作级写门、写入即落库）。
     """
-    from bms_core.testing.locks import file_lock
-
-    with file_lock("platform-tenant-bootstrap"):
-        yield
+    engine = shared_engine(platform_tenant_db_url)
+    try:
+        async with write_session(engine) as session:
+            yield session
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture(autouse=True)
