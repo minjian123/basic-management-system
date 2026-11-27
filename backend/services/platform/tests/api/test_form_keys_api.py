@@ -14,26 +14,35 @@ _ITEM_FIELDS = set(FormKeyResponse.model_fields) | set(FormKeyResponse.model_com
 
 @pytest.mark.kiwi_id(2292)
 async def test_form_keys_contract(client: AsyncClient) -> None:
-    """GET /api/v1/form-keys：登录即可；data.items 字段集 = 声明字段 ∪ 计算字段；枚举取值；映射闭合。"""
+    """GET /api/v1/form-keys：登录即可；data.items 字段集 = 声明字段 ∪ 计算字段；枚举取值；映射闭合。
+
+    取数口径是**应用级视图**（构建期清单 + 各产品注入记录）：`form_design` 等用例为自建业务码
+    追加注入项（`app.state.form_registry`），故不对总条数做全等断言——只校验「构建期清单逐条在列、
+    映射闭合、派生字段与 kind 同源」，注入项由各自的用例负责。
+    """
     resp = await client.get("/api/v1/form-keys")
     assert resp.status_code == 200
     body = resp.json()
     assert body["code"] == 0
     assert set(body["data"]) == set(FormKeyListResponse.model_fields)
     items = body["data"]["items"]
-    assert len(items) == len(FORM_CATALOG)
+    by_key = {item["form_key"]: item for item in items}
+    catalog = {record.form_key: record for record in FORM_CATALOG}
+    assert set(catalog) <= set(by_key), "构建期清单必须全部在列"
     first = items[0]
     assert set(first) == _ITEM_FIELDS
     assert first["kind"] in {"dict", "form"}
     assert first["status"] in {"enabled", "disabled"}
-    # form_key → data_source_key 闭合：每条非空，且与构建期清单一致。
-    expected = {record.form_key: record.data_source_key for record in FORM_CATALOG}
-    for item in items:
+    # form_key → data_source_key 闭合：构建期清单逐条与登记记录一致。
+    for form_key, record in catalog.items():
+        item = by_key[form_key]
         assert item["data_source_key"] is not None
-        assert item["data_source_key"] == expected[item["form_key"]]
-    # 派生字段 is_dict：与 kind 同源（本清单均为字典表），且非字典项为 False。
-    assert all(item["is_dict"] == (item["kind"] == "dict") for item in items)
-    assert all(item["is_dict"] is True for item in items)
+        assert item["data_source_key"] == record.data_source_key
+        assert item["kind"] == record.kind
+    # 派生字段 is_dict：与 kind 同源（构建期清单均为字典表），且非字典项为 False。
+    catalog_items = [by_key[form_key] for form_key in catalog]
+    assert all(item["is_dict"] == (item["kind"] == "dict") for item in catalog_items)
+    assert all(item["is_dict"] is True for item in catalog_items)
     form_record = FormRecord(
         form_key="purchase_order",
         table="biz_purchase_order",
