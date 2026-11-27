@@ -691,8 +691,14 @@ def test_prepare_test_dir_clears_marker_without_run_id(tmp_path: Path, monkeypat
     assert not (tmp_path / "run.id").exists()
 
 
-def test_prepare_test_dir_fails_on_stuck_lock(monkeypatch: pytest.MonkeyPatch) -> None:
-    """会话入口准备：残留 `.lock` 清不掉即阻断（带锁开跑会拖成一堆假超时）。"""
+def test_prepare_test_dir_fails_on_stuck_lock(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """会话入口准备：残留 `.lock` 清不掉即阻断（带锁开跑会拖成一堆假超时）。
+
+    为什么必须**显式**切成「非同一次运行」：`_prepare_test_dir` 只在换运行时才清场（同一运行复用
+    共享库），判据是 `BMS_TEST_RUN_ID` 与 `run.id` 标记一致。预检 / CI 里两者本就一致，不切就永远
+    进不到清场分支——实测：推送预检中该用例 `DID NOT RAISE`（用例本身依赖「手工窄跑」环境）。
+    """
+    (tmp_path / "run.id").write_text("previous-run", encoding="utf-8")
 
     def _clear_lock(*, include_databases: bool) -> ConcurrentStableList[str]:
         """返回一份残留锁清单。
@@ -706,7 +712,10 @@ def test_prepare_test_dir_fails_on_stuck_lock(monkeypatch: pytest.MonkeyPatch) -
         del include_databases
         return ConcurrentStableList(["a.lock"])
 
+    monkeypatch.setattr(fixtures, "test_db_dir", lambda: tmp_path)
+    monkeypatch.setattr(fixtures, "reset_shared_databases", lambda: ConcurrentStableList())
     monkeypatch.setattr(fixtures, "clear_shared_db_files", _clear_lock)
+    monkeypatch.setenv("BMS_TEST_RUN_ID", "run-3")
     with pytest.raises(RuntimeError, match="残留测试锁清理失败"):
         plugin._prepare_test_dir()  # pyright: ignore[reportPrivateUsage]
 
