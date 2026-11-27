@@ -18,7 +18,6 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.i18n.seed import seed_i18n_in_session
 from bms_core.models.platform.i18n import SysI18nLocale, SysI18nMessage
 from bms_core.testing.schema import ensure_tables
-from tests_support.locks import file_lock
 from tests_support.permission_admin import assign_system_admin
 
 pytestmark = [pytest.mark.kiwi_id(2404)]
@@ -43,7 +42,7 @@ async def _cleanup(db: AsyncSession) -> None:
 
 @pytest_asyncio.fixture(autouse=True)
 async def i18n_state(tenant_db: str, shared_tenant_engine: AsyncEngine, client: AsyncClient) -> AsyncIterator[None]:
-    """串行持有 i18n 全局锁：建表 → 补种 → 清场 → 用例 → 清场。
+    """建表 → 补种 → 清场 → 用例 → 清场（同组串行由 `xdist_group` 保证，不再自造文件锁）。
 
     Args:
         tenant_db: 共享租户库连接串（夹具副作用：注入租户库环境变量）。
@@ -53,16 +52,15 @@ async def i18n_state(tenant_db: str, shared_tenant_engine: AsyncEngine, client: 
         None: 用例运行期。
     """
     del tenant_db
-    with file_lock("i18n-locale-message"):
-        await ensure_tables(shared_tenant_engine, _TABLES)
-        factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
-        async with factory() as db:
-            await seed_i18n_in_session(db)
-            await _cleanup(db)
-            await assign_system_admin()
-            await client.put("/api/v1/i18n/cache/invalidate")
-            yield
-            await _cleanup(db)
+    await ensure_tables(shared_tenant_engine, _TABLES)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(shared_tenant_engine, expire_on_commit=False)
+    async with factory() as db:
+        await seed_i18n_in_session(db)
+        await _cleanup(db)
+        await assign_system_admin()
+        await client.put("/api/v1/i18n/cache/invalidate")
+        yield
+        await _cleanup(db)
 
 
 def _add(ns: Any, suffix: str, value: str = "测试文案", locale: str = "zh-CN") -> Any:  # pyright: ignore[reportAny]
