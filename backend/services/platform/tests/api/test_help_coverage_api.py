@@ -237,7 +237,7 @@ async def test_coverage_filters_and_determinism(client: AsyncClient, ns: Namespa
 
 @pytest.mark.kiwi_id(2523)
 async def test_covered_rows_after_help_key_update(client: AsyncClient, ns: Namespace) -> None:
-    """按钮与菜单写入锚点后覆盖数变为 1、对账一致。"""
+    """按钮与菜单写入锚点后覆盖数变为 1，且本用例锚点计入基准（不进孤儿、不重复）。"""
     seeded = await _seed(client, ns)
     menu = seeded["menu"]
     button = seeded["button"]
@@ -277,7 +277,12 @@ async def test_covered_rows_after_help_key_update(client: AsyncClient, ns: Names
     data = _data(await client.get(_COVERAGE, params={"module_key": module}), "覆盖后覆盖率")
     assert data["summary"]["action"]["covered"] == 1
     assert data["summary"]["menu"]["covered"] == 1
-    assert data["reconciliation"]["consistent"] is True
-    assert data["reconciliation"]["covered"]["menu"] >= 1
-    assert data["reconciliation"]["covered"]["action"] >= 1
-    assert data["verdict"]["blocked"] is False
+    # 对账里的 `consistent` / `verdict.blocked` 是**全平台**口径（覆盖数 + 孤儿数 = 锚点总数且无重复）：
+    # 共享库叠加下会被别的命名空间残留的锚点带偏，不在本用例断言范围内。这里只校验本用例的锚点
+    # 确实进了基准（不在孤儿清单）且没有重复。
+    reconciliation = data["reconciliation"]
+    assert reconciliation["covered"]["menu"] >= 1
+    assert reconciliation["covered"]["action"] >= 1
+    assert {menu_key, button_key}.isdisjoint(reconciliation["duplicate_help_keys"])
+    orphan_keys = {orphan["help_key"] for orphan in reconciliation["orphans"]}
+    assert {menu_key, button_key}.isdisjoint(orphan_keys)
