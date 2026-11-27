@@ -29,6 +29,7 @@ from bms_core.testing.shared_db import (
     default_model_modules,
     tenant_metadata,
 )
+from tests_support.auth import TEST_SUBJECT
 
 __all__ = [
     "SEED_TENANT_IDS",
@@ -143,11 +144,55 @@ def prepare_tenant(url: str) -> None:
     base_shared_db.prepare_tenant(url)
     _ensure_ext_probe_table(url)
     _seed_i18n(url)
+    _seed_test_subject(url)
     import asyncio
 
     from tests_support.form_design_changes import apply_changes
 
     asyncio.run(apply_changes(url))
+
+
+def _seed_test_subject(url: str) -> None:
+    """准备期播种**测试登录态主体**（`sys_user` 主键 1001），幂等。
+
+    为什么必须在准备期：权限判定按「用户 → 角色 → 类型」取数，用户行不存在时直接退回逐码校验
+    （`30001 缺少权限`），与是否已授系统管理员无关。此前全仓没有任何地方建这个用户——主流水线
+    （`-n 6`）里靠「同 worker 里恰好先跑过建用户的用例」蒙对，服务子流水线（单服务串行、全新库）
+    就成片报 `30001`：实测 9 条（`test_role_api` / `test_tasks_api` / `test_user_extensions`）。
+    主体属「业务里已有的数据」，与 `sys_tenant` / `sys_config` 同级，理应由准备集下发。
+
+    Args:
+        url: 租户库连接串。
+    """
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from bms_core.db.sqlite import create_async_engine
+    from bms_core.models.platform.user import SysUser
+
+    async def _run() -> None:
+        engine = create_async_engine(url)
+        try:
+            factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+            async with factory() as session:
+                existing = (
+                    await session.execute(select(SysUser.id).where(SysUser.id == int(TEST_SUBJECT)))
+                ).scalar_one_or_none()
+                if existing is None:
+                    session.add(
+                        SysUser(
+                            id=int(TEST_SUBJECT),
+                            username=TEST_SUBJECT,
+                            name="测试主体",
+                            password_hash="x",
+                            status="enabled",
+                        )
+                    )
+                    await session.commit()
+        finally:
+            await engine.dispose()
+
+    asyncio.run(_run())
 
 
 def _seed_i18n(url: str) -> None:

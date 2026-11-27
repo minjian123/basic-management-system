@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import get_settings
 from bms_core.models.platform.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
+from bms_core.permission.cache import reset_permission_cache_store
 from bms_core.testing.gates import TENANT_GATE, gate_scope
 from tests_support.auth import TEST_SUBJECT
 
@@ -104,6 +105,10 @@ async def _grant_builtin(user_id: int, *, code: str, name: str, role_type: str) 
             if assigned is None:
                 session.add(SysUserRole(role_id=role.id, user_id=user_id))
             await session.commit()
+            # 授权行落库后必须让进程级权限快照失效：快照是「主体 → 权限集」的应用级缓存，
+            # 同一 worker 里前一条用例建过的快照会让本用例的新授权看不见——实测服务子流水线
+            # （串行、单 worker）跑满 1400+ 例后，`assign_system_admin` 之后仍判 `30001 缺少权限`。
+            reset_permission_cache_store()
             return role.id
     finally:
         await engine.dispose()
@@ -124,7 +129,8 @@ async def ungrant(user_id: int, *, code: str = SYSTEM_ADMIN_CODE) -> None:
 
     from tests_support.shared_access import shared_session
 
-    async with shared_session(os.environ["BMS_DATABASE__TENANTS__URL"], read_only=False) as session:
+    url = os.environ["BMS_DATABASE__TENANTS__URL"]
+    async with shared_session(url, read_only=False) as session:
         role_ids = (await session.execute(select(SysRole.id).where(SysRole.code == code))).scalars().all()
         for role_id in role_ids:
             await session.execute(
@@ -134,6 +140,13 @@ async def ungrant(user_id: int, *, code: str = SYSTEM_ADMIN_CODE) -> None:
                 )
             )
         await session.commit()
+    # 解绑要同时让两处失效，否则后续「再授权」全是假的：
+    # ① 进程级「已授权」标记（`_grant_once` 的缓存）——不撤销它，`assign_system_admin` 会直接返回、
+    #    根本不写绑定行。实测：串行跑满 1400+ 例的服务子流水线里，某条用例 `ungrant` 之后，
+    #    后续所有依赖系统管理员的用例全部 `30001 缺少权限`（-n 6 时这两个文件不在同一 worker，故不暴露）。
+    # ② 权限快照——否则「无权限」类断言会沿用解绑前的放行快照（实测 403 变 200）。
+    _GRANTED.discard((url, user_id, code))
+    reset_permission_cache_store()
 
 
 async def _role_row(session: AsyncSession, *, code: str, name: str, role_type: str) -> SysRole:
@@ -160,11 +173,15 @@ async def _role_row(session: AsyncSession, *, code: str, name: str, role_type: s
 async def assign_system_admin() -> None:
     """把测试登录态主体置为内置系统管理员（供已建租户库的用例文件调用）。"""
     await grant_system_admin(int(TEST_SUBJECT))
+    # `_grant_once` 命中缓存时不会写库，但快照可能已在授权前建过（同一 worker 的前序用例），
+    # 故此处无条件失效一次，保证「授权 → 首次请求」之间不留陈旧快照。
+    reset_permission_cache_store()
 
 
 async def assign_security_admin() -> None:
     """把测试登录态主体置为内置安全管理员（角色域用例的操作人身份，`03_02`）。"""
     await grant_security_admin(int(TEST_SUBJECT))
+    reset_permission_cache_store()
 
 
 _GRANTED: ConcurrentStableSet[tuple[str, int, str]] = ConcurrentStableSet()

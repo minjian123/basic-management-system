@@ -768,6 +768,14 @@ class PermissionCacheStore(BaseFrameworkObject):
 _STORES: ConcurrentStableDict[str, PermissionCacheStore] = ConcurrentStableDict()
 """进程级单份缓存仓（惰性创建；与数据来源注册表、插件注册表同构）。"""
 
+_ALL_STORES: ConcurrentStableList[PermissionCacheStore] = ConcurrentStableList()
+"""本进程**创建过的全部**缓存仓实例。
+
+为什么要留这份清单：多服务同进程装配时，每个服务的 rbac 校验器都会 `configure_permission_cache_store`
+并各自持有实例，`_STORES` 只记住**最后装配**那家的；`reset_permission_cache_store` 若只清
+`_STORES` 里的那个，其余服务（请求期按应用解析优先取自己的实例）仍带着陈旧快照。
+"""
+
 _STORE_KEY = "default"
 """进程级缓存仓的注册键（单实现；保留键位便于将来按服务隔离）。"""
 
@@ -785,6 +793,7 @@ def current_permission_cache_store() -> PermissionCacheStore:
         if store is None:
             store = PermissionCacheStore()
             _STORES.set(_STORE_KEY, store)
+            _ALL_STORES.add(store)
         return store
 
 
@@ -813,11 +822,22 @@ def configure_permission_cache_store(
     )
     with _STORE_LOCK:
         _STORES.set(_STORE_KEY, store)
+        _ALL_STORES.add(store)
     return store
 
 
 def reset_permission_cache_store() -> None:
-    """清除进程级缓存仓（用例隔离用；下次访问按缺省配置重建）。"""
+    """清除进程级缓存仓（用例隔离用；下次访问按缺省配置重建）。
+
+    必须清**本进程创建过的全部实例**：多服务同进程装配时每个服务的校验器各持一份，
+    `_STORES` 只记住最后装配那家，其余实例仍被请求期按应用解析优先取用。只清 `_STORES` 里
+    那一个等于没清——实测：用例 `ungrant` 后再 `assign_system_admin`，绑定行已落库、
+    请求仍判 `30001 缺少权限`（服务子流水线串行场景成片失败）。
+    """
     with _STORE_LOCK:
+        for store in _ALL_STORES:
+            store.clear_snapshots()
+            store.invalidate_metadata()
+        _ALL_STORES.clear()
         if _STORE_KEY in _STORES:
             _STORES.delete(_STORE_KEY)
