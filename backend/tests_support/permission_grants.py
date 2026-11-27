@@ -35,6 +35,7 @@ from bms_core.models.platform.role import (
     SysUserRole,
 )
 from bms_core.permission.cache import reset_permission_cache_store
+from tests_support.seed_names import seed_name
 from tests_support.shared_access import shared_session
 
 __all__ = [
@@ -62,29 +63,6 @@ _PERMISSION_MENU_PATH = "/__test/permission-grants"
 
 _PERMISSION_MENU_NAME = "测试权限装配"
 """测试权限装配菜单名。"""
-
-
-def _seed_name(code: str, *, kind: str) -> str:
-    """取种子里的中文名（`kind` 为 `business` / `action`）；无对应种子时回落 code。
-
-    为什么要用中文名建行：种子对「已存在的业务码 / 动作码」只跳过主表、不再改 `name`，但**仍会写
-    i18n 附表**；若测试先建行时把 name 写成 code，种子一致性检查会判「主表默认文案 ≠ 附表默认语言」
-    直接失败（实测 CI 全量：`sys_business#…：主表 name='user' ≠ 附表 zh-CN='用户管理'`）。
-
-    Args:
-        code: 业务码 / 动作码。
-        kind: 码类型（`business` / `action`）。
-
-    Returns:
-        str: 中文名；无种子时回落 code（自造码两边同值，仍一致）。
-    """
-    from bms_core.tenant.seed.menu import ACTION_SEEDS, BUSINESS_SEEDS
-
-    seeds = BUSINESS_SEEDS if kind == "business" else ACTION_SEEDS
-    for item_code, zh, _en in seeds:
-        if item_code == code:
-            return zh
-    return code
 
 
 def platform_url() -> str:
@@ -257,7 +235,7 @@ async def _business_id(session: AsyncSession, code: str) -> int:
     ).scalar_one_or_none()
     if existing is not None:
         return int(existing)
-    row = SysBusiness(code=code, name=_seed_name(code, kind="business"), status="enabled")
+    row = SysBusiness(code=code, name=seed_name(code, kind="business"), status="enabled")
     session.add(row)
     await session.flush()
     return int(row.id)
@@ -283,7 +261,7 @@ async def _action_id(session: AsyncSession, code: str) -> int:
     ).scalar_one_or_none()
     if existing is not None:
         return int(existing)
-    row = SysAction(code=code, name=_seed_name(code, kind="action"), status="enabled")
+    row = SysAction(code=code, name=seed_name(code, kind="action"), status="enabled")
     session.add(row)
     await session.flush()
     return int(row.id)

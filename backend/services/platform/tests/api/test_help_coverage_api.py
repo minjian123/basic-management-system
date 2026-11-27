@@ -1,7 +1,12 @@
 """帮助覆盖率台账接口（`GET /api/v1/help/coverage`，08_04；Kiwi 2523）。
 
 覆盖：鉴权与路由登记、分产品模块过滤、确定性响应、明细类别过滤、参考统计开关、锚点写入后覆盖变化。
-元数据经维护接口按命名空间创建，断言只限定本命名空间（平台库单库叠加）。
+
+运行口径（2026-11-27 重写）：平台库全 worker 共用、跨轮次叠加，故元数据一律按**用例命名空间**派生
+（业务 / 动作编码、菜单路径、表单视图组件都用 `ns` 前缀），断言只限定本命名空间。特别注意不能沿用
+`/probe/…` 路径与 `probe…` 组件标识——`libs/bms_core/tests/repositories` 的 autouse 清场按
+`path LIKE '/probe/%'` 与 `component LIKE 'probe%'` 删探测行，用它会被别的 worker 在两个请求之间删掉
+（实测「新增表单 失败：40201 菜单不存在」）。
 """
 
 from __future__ import annotations
@@ -68,12 +73,36 @@ def _code(ns: Namespace, suffix: str) -> str:
     return f"{ns.prefix}_{suffix}"
 
 
-async def _create_menu(client: AsyncClient, path: str) -> Any:
-    """新增菜单。
+def _menu_path(ns: Namespace) -> str:
+    """本用例的菜单路径（命名空间独占，不落 `/probe/` 这个共享前缀）。
+
+    Args:
+        ns: 命名空间。
+
+    Returns:
+        str: 前端路由路径。
+    """
+    return f"/{ns.prefix}/coverage"
+
+
+def _component(ns: Namespace) -> str:
+    """本用例的表单视图组件标识（命名空间独占，不用 `probe…` 形态）。
+
+    Args:
+        ns: 命名空间。
+
+    Returns:
+        str: 组件标识。
+    """
+    return f"{ns.prefix}/view"
+
+
+async def _create_menu(client: AsyncClient, ns: Namespace) -> Any:
+    """新增本用例的菜单。
 
     Args:
         client: 测试客户端。
-        path: 路由路径。
+        ns: 命名空间。
 
     Returns:
         Any: 菜单行。
@@ -83,7 +112,7 @@ async def _create_menu(client: AsyncClient, path: str) -> Any:
             _MENUS,
             json={
                 "parent_id": 0,
-                "path": path,
+                "path": _menu_path(ns),
                 "sort": 1,
                 "hidden": False,
                 "status": "enabled",
@@ -119,7 +148,7 @@ async def _seed(client: AsyncClient, ns: Namespace) -> ConcurrentStableDict[str,
         await client.post(_PERMISSIONS, json={"business_id": business["id"], "action_id": action["id"]}),
         "新增权限码",
     )
-    menu = await _create_menu(client, f"/probe/{ns.prefix}")
+    menu = await _create_menu(client, ns)
     form = _data(
         await client.post(
             _FORMS,
@@ -127,7 +156,7 @@ async def _seed(client: AsyncClient, ns: Namespace) -> ConcurrentStableDict[str,
                 "menu_ids": [menu["id"]],
                 "business_id": business["id"],
                 "status": "enabled",
-                "component": "probe/view",
+                "component": _component(ns),
             },
         ),
         "新增表单",
@@ -177,7 +206,7 @@ async def test_coverage_filters_and_determinism(client: AsyncClient, ns: Namespa
     scoped_keys = tuple(key for key in stable_keys if key != "summary")
     assert {key: first[key] for key in scoped_keys} == {key: second[key] for key in scoped_keys}
     # `summary.reference`（表单 / 字段 / 动作码兜底）是**全平台**口径、不随 module_key 收敛：
-    # 两次调用之间别的 worker 新增锚点就会变（2026-11-23 末批实测 4→5 / 5→7），不参与确定性比对。
+    # 两次调用之间别的 worker 新增锚点就会变，不参与确定性比对。
     first_summary = {key: value for key, value in first["summary"].items() if key != "reference"}
     second_summary = {key: value for key, value in second["summary"].items() if key != "reference"}
     assert first_summary == second_summary
@@ -235,7 +264,7 @@ async def test_covered_rows_after_help_key_update(client: AsyncClient, ns: Names
         json={
             "parent_id": 0,
             "path": menu["path"],
-            "component": "probe/view",
+            "component": _component(ns),
             "sort": 1,
             "hidden": False,
             "status": "enabled",

@@ -20,6 +20,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.outbox import SysOutbox
 from bms_core.models.platform.menu_form import SysForm, SysMenuForm
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
+from tests_support.seed_names import seed_name
 from tests_support.shared_access import shared_session
 
 
@@ -40,9 +41,12 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
     「数据驱动校验」就看不到它（实测 `role` 业务授予被漏判为合法）。故按 code 复用主键最小行，
     与 `list_all()` 同序，不删不改他人行。
 
+    种子码（`role` / `log` 等）的 `name` 一律取种子中文名而非调用方文案：播种对已存在行只跳过
+    主表、仍会补写 i18n 附表，两边不一致会让播种的一致性校验直接失败（见 `tests_support/seed_names.py`）。
+
     Args:
         code: 业务码。
-        name: 名称。
+        name: 名称（非种子码生效）。
 
     Returns:
         int: 业务码主键。
@@ -53,7 +57,7 @@ async def seed_business(code: str, name: str = "测试业务") -> int:
         )
         if existing is not None:
             return int(existing)
-        row = SysBusiness(code=code, name=name, status="enabled")
+        row = SysBusiness(code=code, name=seed_name(code, kind="business", fallback=name), status="enabled")
         session.add(row)
         await session.flush()
         business_id = row.id
@@ -78,10 +82,14 @@ async def set_business_status(business_id: int, status: str) -> None:
 async def seed_permission(business_id: int, action_code: str = "query", name: str = "查询") -> int:
     """直插权限码（业务码 × 动作码组合）：全局动作码缺则建，再建权限码。
 
+    种子动作码（`query` / `manage` …）的 `name` 一律取种子中文名而非调用方文案：播种对已存在行
+    只跳过主表、仍会补写 i18n 附表，两边不一致会让播种的一致性校验失败（如 `manage` 的种子文案是
+    「管理（含查询与维护）」，调用方常写「管理」；见 `tests_support/seed_names.py`）。
+
     Args:
         business_id: 业务码主键。
         action_code: 动作码（全局动词）。
-        name: 动作名（新建动作码时使用）。
+        name: 动作名（非种子码生效）。
 
     Returns:
         int: 权限码主键。
@@ -100,7 +108,9 @@ async def seed_permission(business_id: int, action_code: str = "query", name: st
             .first()
         )
         if action is None:
-            action = SysAction(code=action_code, name=name, status="enabled")
+            action = SysAction(
+                code=action_code, name=seed_name(action_code, kind="action", fallback=name), status="enabled"
+            )
             session.add(action)
             await session.flush()
         permission = SysPermission(business_id=business_id, action_id=action.id, status="enabled")

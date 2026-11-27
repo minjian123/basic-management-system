@@ -36,6 +36,7 @@ from bms_platform.domains.role.services.role_assign import RoleAssignService
 from bms_platform.domains.role.services.role_grant import MenuMetadataChecker, RoleGrantService
 from bms_platform.domains.role.services.separation import RoleBusinessPermissions, SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
+from tests_support.seed_names import seed_name
 from tests_support.shared_access import shared_engine, shared_platform_url, shared_tenant_url
 
 _SCOPE: ConcurrentStableList[str] = ConcurrentStableList()
@@ -116,6 +117,10 @@ def meta_session() -> AsyncSession:
 async def business_id(code: str) -> int:
     """取或建业务码（`sys_business` 属平台库；`code` 非唯一键，重复跑会累积，故先查后建）。
 
+    建行时用**种子里的中文名**而不是 `code`：种子对「已存在」的业务码只跳过主表、仍会补写
+    i18n 附表，两者不一致会让播种的一致性校验直接失败（CI 全量实测
+    `sys_business#…：主表 name='log' ≠ 附表 zh-CN='审计日志'`）。
+
     Args:
         code: 业务码（`role` / `user` / `log` 等内置码）。
 
@@ -126,7 +131,7 @@ async def business_id(code: str) -> int:
     for row in await BusinessRepository(meta).list_all():
         if row.code == code:
             return row.id
-    created = await BusinessRepository(meta).create(code=code, name=code, status="enabled")
+    created = await BusinessRepository(meta).create(code=code, name=seed_name(code, kind="business"), status="enabled")
     await meta.commit()
     return created.id
 

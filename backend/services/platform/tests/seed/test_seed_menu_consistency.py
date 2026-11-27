@@ -1,13 +1,16 @@
 """菜单元数据种子「派生化口径」用例（`06_08`）：主表默认文案 ≡ 附表默认语言文案。
 
-覆盖：播种回报派生一致性校验行数、重复执行不新增；漂移判定用**纯函数**验证。
+覆盖：播种回报的派生一致性校验行数、重复执行不新增；漂移判定用**纯函数**验证。
 
-读写共享库一律走 `tests_support.shared_access` 的统一读写门（`shared_write`：操作级写门、
-立即提交），不自建引擎、不走 `seed_menu(url)`——后者内部 `create_async_engine` 不取门，
-会与走门的写者抢 SQLite 写锁（13_08 已记录）。表结构由初始化阶段建好，用例不建表、不跑 DDL。
+运行口径（2026-11-27 重写）：播种的校验是**整表**语义（任何一处主表 / 附表漂移都要暴露），而
+共享平台库上还叠加着别的用例按命名空间造的行，所以
 
-漂移场景**不在共享库上造漂移行**（回滚式隔离已作废；造故障态会让并行 worker 的播种一并失败）：
-校验实现已抽成纯函数 `_name_mismatch`，直接喂「一致 / 不一致」两组数据断言返回值。
+- 返回值只判**下界**「不少于种子自身行数」——精确等值只在独占库成立；
+- 「种子行一行不少」由第二轮 `again_created == 0`（全部命中已存在、无一行补建）保证；
+- 漂移判定不在共享库造故障行（造了就一并毁掉并行 worker 的播种），改喂纯函数 `_name_mismatch`。
+
+读写共享库一律走 `tests_support.shared_access` 的 `shared_write`（操作级写门、立即提交），不自建
+引擎、不走 `seed_menu(url)`——后者内部 `create_async_engine` 不取门，会与走门的写者抢 SQLite 写锁。
 """
 
 import pytest
@@ -25,21 +28,24 @@ pytestmark = pytest.mark.kiwi_id(2242)
 # `/sys/users` 与 `/sys/account-locks` 同挂业务码 `user`（表单 1:1 共享），`username` 字段键重复
 # 使实际字段行数比 FIELD_SEEDS 少 1；其余三类种子与行数一一对应。
 _EXPECTED = len(BUSINESS_SEEDS) + len(ACTION_SEEDS) + len(MENU_SEEDS) + len(FIELD_SEEDS) - 1
+"""种子自身贡献的校验行数（共享库口径下是**下界**，不是等值目标）。"""
 
 
 async def test_seed_menu_reports_derived_name_consistency(shared_platform_engine: AsyncEngine) -> None:
-    """播种回报「主表默认文案 ≡ 附表默认语言文案」校验行数；重复执行不新增且校验行数不变。"""
+    """播种回报「主表默认文案 ≡ 附表默认语言文案」校验行数；重复执行不新增且校验行数不减少。"""
     async with shared_write(shared_platform_engine) as session:
         _created, _skipped, checked = await _seed_menu_in_session(session)
         await session.commit()
-    assert checked == _EXPECTED
+    assert checked >= _EXPECTED
 
     async with shared_write(shared_platform_engine) as session:
         again_created, again_skipped, again_checked = await _seed_menu_in_session(session)
         await session.commit()
+    # 全部种子行（业务 / 动作 / 权限 / 菜单 / 表单 / 按钮 / 字段 / 附表）都已存在 ⇒ 一行不补建
     assert again_created == 0
     assert again_skipped > 0
-    assert again_checked == _EXPECTED
+    # 两轮之间别的 worker 可能新增（也可能收掉自己的）命名空间行，故只判下界
+    assert again_checked >= _EXPECTED
 
 
 def test_derived_name_mismatch_is_reported() -> None:
