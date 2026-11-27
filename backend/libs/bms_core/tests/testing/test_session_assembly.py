@@ -151,9 +151,11 @@ async def test_internal_contract_call_reaches_peer_service() -> None:
        以前会伪装成「服务不可用（status）」，从 503 反查不到库位。
     2. **业务出口（硬）**：成员关系出口返回 200，且契约体 `code == 0` / `data` 键集齐备。
     3. **对端降级（可见）**：若服务端把 `OperationalError` 降级成 503（`database_unavailable`，
-       多 worker 共用一份平台库时的瞬时不可用），先证明链路本身可达（`/healthz` 200），再跳过——
-       库可用性由共享库 / 仓储用例负责，跨服务探针不重复承担，但也不会把「链路不通」混进来
-       （`reason` 非 `status` 时照常失败）。
+       多 worker 共用一份平台库时的瞬时不可用），先直连平台库确认「库位对且连得上」，再跳过——
+       库可用性由共享库 / 仓储用例负责，跨服务探针不重复承担。`reason` 非 `status`（如 transport）
+       时照常失败：那不是降级，是链路不通。
+       （不用 `/healthz` 做探针：服务间调用只允许公开契约路径 `/api/v1/...`，探针路径会被
+       `ServiceRequest` 直接判非法。）
     """
     system = get_assembled_system()
     registry = cast("EngineRegistry", system.app("tenant").state.engine_registry)
@@ -194,10 +196,9 @@ async def test_internal_contract_call_reaches_peer_service() -> None:
         raise AssertionError(
             f"内部契约调用不可达（reason={reason}）：{last}；探针：{await _probe_platform_db(system, expected_url)}"
         )
-    health = await service_client.call(ServiceRequest(service="tenant", method="GET", path="/healthz"))
-    assert health.status_code == 200, health.content
-    # 降级前先证实「库位对且能连」：连不上就是基座缺陷（这里必须硬失败并带出真实驱动错误），
-    # 连得上则说明是并发写造成的瞬时降级，链路已由 `/healthz` 200 证明。
+    # `reason == "status"` 本身就是链路可达的证明：客户端拿到了对端的 HTTP 响应（传输 / 路由 / 服务身份
+    # 全部走通），只是对端把 DB 故障降级成 503；`transport` 才是链路不通，上面已按失败处理。
+    # 再直连一次库区分「库位对但连不上（基座缺陷）」与「并发写瞬时降级」。
     try:
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
